@@ -11,25 +11,114 @@ import {
   Pie,
   Cell,
 } from "recharts";
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/admin/apiClient";
 
-const weeklyTaskData = [
-  { day: "Mon", completed: 12, pending: 4 },
-  { day: "Tue", completed: 18, pending: 6 },
-  { day: "Wed", completed: 15, pending: 3 },
-  { day: "Thu", completed: 22, pending: 5 },
-  { day: "Fri", completed: 20, pending: 8 },
-  { day: "Sat", completed: 8, pending: 2 },
-  { day: "Sun", completed: 5, pending: 1 },
-];
+type TaskApi = {
+  _id?: string;
+  id?: string;
+  status?: string;
+  dueDate?: string | Date;
+  createdAt?: string;
+};
 
-const taskDistributionData = [
-  { name: "Maintenance", value: 35, color: "hsl(217, 91%, 60%)" },
-  { name: "Cleaning", value: 28, color: "hsl(142, 76%, 36%)" },
-  { name: "Inspection", value: 20, color: "hsl(38, 92%, 50%)" },
-  { name: "Repairs", value: 17, color: "hsl(262, 83%, 58%)" },
-];
+function startOfWeekMonday(d: Date) {
+  const date = new Date(d);
+  date.setHours(0, 0, 0, 0);
+  const day = date.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  date.setDate(date.getDate() + diff);
+  return date;
+}
+
+function endOfWeekSunday(d: Date) {
+  const start = startOfWeekMonday(d);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+  return end;
+}
+
+function taskDateCandidate(t: TaskApi): Date | null {
+  if (t.dueDate) {
+    const d = new Date(t.dueDate as any);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  if (t.createdAt) {
+    const d = new Date(t.createdAt);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
+  return null;
+}
+
+function normalizeStatus(s?: string) {
+  const v = String(s || "").toLowerCase();
+  if (v === "completed") return "completed";
+  if (v === "overdue") return "overdue";
+  if (v === "in-progress" || v === "in progress") return "in-progress";
+  return "pending";
+}
+
+const STATUS_COLORS: Record<string, string> = {
+  completed: "hsl(142, 76%, 36%)",
+  "in-progress": "hsl(217, 91%, 60%)",
+  pending: "hsl(38, 92%, 50%)",
+  overdue: "hsl(0, 84%, 60%)",
+};
 
 export function TaskCharts() {
+  const tasksQuery = useQuery({
+    queryKey: ["dashboard", "tasks"],
+    queryFn: async () => {
+      const res = await apiFetch<{ items?: TaskApi[] } | TaskApi[]>("/api/tasks");
+      if (Array.isArray(res)) return res;
+      return Array.isArray(res?.items) ? res.items : [];
+    },
+  });
+
+  const tasks = tasksQuery.data || [];
+
+  const now = new Date();
+  const weekStart = startOfWeekMonday(now);
+  const weekEnd = endOfWeekSunday(now);
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  const weeklyTaskData = days.map((day) => ({ day, completed: 0, pending: 0 }));
+
+  for (const t of tasks) {
+    const d = taskDateCandidate(t);
+    if (!d) continue;
+    if (d < weekStart || d > weekEnd) continue;
+
+    const status = normalizeStatus(t.status);
+    const dayIndexMap = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 } as const;
+    const jsDay = d.getDay();
+    const idx = jsDay === 0 ? dayIndexMap.Sun : jsDay - 1;
+    if (!weeklyTaskData[idx]) continue;
+    if (status === "completed") weeklyTaskData[idx].completed += 1;
+    else weeklyTaskData[idx].pending += 1;
+  }
+
+  const statusCounts: Record<string, number> = {
+    completed: 0,
+    "in-progress": 0,
+    pending: 0,
+    overdue: 0,
+  };
+  for (const t of tasks) {
+    const s = normalizeStatus(t.status);
+    statusCounts[s] = (statusCounts[s] || 0) + 1;
+  }
+
+  const total = Object.values(statusCounts).reduce((a, b) => a + b, 0) || 0;
+  const taskDistributionData = Object.keys(statusCounts)
+    .filter((k) => statusCounts[k] > 0)
+    .map((k) => ({
+      name: k === "in-progress" ? "In Progress" : k[0].toUpperCase() + k.slice(1),
+      value: total > 0 ? Math.round((statusCounts[k] / total) * 100) : 0,
+      color: STATUS_COLORS[k] || "hsl(217, 91%, 60%)",
+    }));
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
       

@@ -173,11 +173,7 @@ const Locations = () => {
       try {
         setLoading(true);
         setApiError(null);
-        let list = await listResource<Location>("locations");
-        if (list.length === 0) {
-          await Promise.all(locations.map((l) => createResource<Location>("locations", l)));
-          list = await listResource<Location>("locations");
-        }
+        const list = await listResource<Location>("locations");
         if (!mounted) return;
         setLocationsList(list);
       } catch (e) {

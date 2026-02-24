@@ -83,11 +83,7 @@ export default function Messaging() {
       try {
         setLoading(true);
         setApiError(null);
-        let list = await listResource<NotificationItem>("notifications");
-        if (list.length === 0) {
-          await Promise.all(seedNotifications.map((n) => createResource<NotificationItem>("notifications", n)));
-          list = await listResource<NotificationItem>("notifications");
-        }
+        const list = await listResource<NotificationItem>("notifications");
         if (!mounted) return;
         setItems(list);
       } catch (e) {

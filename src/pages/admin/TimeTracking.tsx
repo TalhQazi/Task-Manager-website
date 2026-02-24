@@ -158,11 +158,7 @@ const TimeTracking = () => {
       try {
         setLoading(true);
         setApiError(null);
-        let list = await listResource<TimeEntry>("time-entries");
-        if (list.length === 0) {
-          await Promise.all(seedEntries.map((e) => createResource<TimeEntry>("time-entries", e)));
-          list = await listResource<TimeEntry>("time-entries");
-        }
+        const list = await listResource<TimeEntry>("time-entries");
         if (!mounted) return;
         setEntries(list);
       } catch (e) {

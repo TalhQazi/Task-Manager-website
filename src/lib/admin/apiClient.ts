@@ -1,7 +1,9 @@
 import { clearAuthState, getAuthState, setAuthState } from "@/lib/auth";
 
 type ApiErrorBody = {
-  error?: string;
+  error?: {
+    message?: string;
+  };
 };
 
 export function getApiBaseUrl() {
@@ -45,7 +47,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 
   if (!res.ok) {
     const body = (await parseJsonSafe(res)) as ApiErrorBody | string | null;
-    const msg = typeof body === "string" ? body : body?.error;
+    const msg = typeof body === "string" ? body : body?.error?.message;
     throw new Error(msg || `Request failed (${res.status})`);
   }
 
@@ -53,23 +55,24 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 }
 
 export type LoginResponse = {
-  token: string;
-  user: {
+  item: {
+    token: string;
     username: string;
-    role: "admin";
+    role: "admin" | "manager";
   };
 };
 
 export async function login(username: string, password: string) {
   const data = await apiFetch<LoginResponse>("/api/auth/login", {
     method: "POST",
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify({ username, email: username, password }),
   });
 
   setAuthState({
     isAuthenticated: true,
-    token: data.token,
-    user: { name: data.user.username, role: "admin" },
+    token: data.item.token,
+    username: data.item.username,
+    role: data.item.role,
   });
 
   return data;
@@ -87,6 +90,8 @@ export type CrudResource =
   | "onboarding"
   | "do-not-hire";
 
+type ListResponse<T> = { items?: T[] } | T[];
+
 function resourcePath(resource: CrudResource) {
   if (resource === "time-entries") return "/api/time-entries";
   if (resource === "do-not-hire") return "/api/do-not-hire";
@@ -95,7 +100,9 @@ function resourcePath(resource: CrudResource) {
 
 export async function listResource<T>(resource: CrudResource, params?: { q?: string }) {
   const qs = params?.q ? `?q=${encodeURIComponent(params.q)}` : "";
-  return apiFetch<T[]>(`${resourcePath(resource)}${qs}`);
+  const res = await apiFetch<ListResponse<T>>(`${resourcePath(resource)}${qs}`);
+  if (Array.isArray(res)) return res;
+  return res.items ?? [];
 }
 
 export async function createResource<T>(resource: CrudResource, payload: unknown) {

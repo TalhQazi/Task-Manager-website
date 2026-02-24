@@ -119,17 +119,61 @@ export default function Scheduling() {
     reminder: "none" as NonNullable<ScheduleItem["reminder"]>,
   });
 
+  const normalizeDateForInput = (value: string) => {
+    if (!value) return "";
+    const trimmed = String(value).trim();
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+    if (trimmed.includes("T")) {
+      const maybe = trimmed.split("T")[0];
+      if (/^\d{4}-\d{2}-\d{2}$/.test(maybe)) return maybe;
+    }
+
+    const mdy = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (mdy) {
+      const mm = mdy[1].padStart(2, "0");
+      const dd = mdy[2].padStart(2, "0");
+      return `${mdy[3]}-${mm}-${dd}`;
+    }
+
+    const d = new Date(trimmed);
+    if (!Number.isNaN(d.getTime())) {
+      const yyyy = String(d.getFullYear());
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${yyyy}-${mm}-${dd}`;
+    }
+
+    return "";
+  };
+
+  const normalizeTimeForInput = (value: string) => {
+    if (!value) return "";
+    const trimmed = String(value).trim();
+    if (/^\d{2}:\d{2}$/.test(trimmed)) return trimmed;
+
+    const ampm = trimmed.replace(".", ":").match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (ampm) {
+      let hh = Number(ampm[1]);
+      const mm = ampm[2];
+      const ap = ampm[3].toUpperCase();
+      if (ap === "AM" && hh === 12) hh = 0;
+      if (ap === "PM" && hh < 12) hh += 12;
+      return `${String(hh).padStart(2, "0")}:${mm}`;
+    }
+
+    const loose = trimmed.replace(".", ":").match(/^(\d{1,2}):(\d{2})$/);
+    if (loose) return `${String(Number(loose[1])).padStart(2, "0")}:${loose[2]}`;
+    return "";
+  };
+
   useEffect(() => {
     let mounted = true;
     const load = async () => {
       try {
         setLoading(true);
         setApiError(null);
-        let list = await listResource<ScheduleItem>("schedules");
-        if (list.length === 0) {
-          await Promise.all(seedSchedules.map((s) => createResource<ScheduleItem>("schedules", s)));
-          list = await listResource<ScheduleItem>("schedules");
-        }
+        const list = await listResource<ScheduleItem>("schedules");
         if (!mounted) return;
         setSchedules(list);
       } catch (e) {
@@ -201,9 +245,9 @@ export default function Scheduling() {
     setEditFormData({
       location: s.location,
       employee: s.employee,
-      date: s.date,
-      startTime: s.startTime,
-      endTime: s.endTime,
+      date: normalizeDateForInput(s.date),
+      startTime: normalizeTimeForInput(s.startTime),
+      endTime: normalizeTimeForInput(s.endTime),
       status: s.status,
       plannedTask: s.plannedTask || "",
       reminder: s.reminder || "none",
@@ -213,16 +257,24 @@ export default function Scheduling() {
 
   const saveEdit = async () => {
     if (!selected) return;
-    if (!editFormData.location || !editFormData.employee || !editFormData.date) return;
+
+    const normalizedDate = normalizeDateForInput(editFormData.date);
+    const normalizedStart = normalizeTimeForInput(editFormData.startTime);
+    const normalizedEnd = normalizeTimeForInput(editFormData.endTime);
+
+    if (!editFormData.location || !editFormData.employee || !normalizedDate) {
+      setApiError("Please fill Location, Employee, and Date before saving.");
+      return;
+    }
     try {
       setApiError(null);
       await updateResource<ScheduleItem>("schedules", selected.id, {
         ...selected,
         location: editFormData.location,
         employee: editFormData.employee,
-        date: editFormData.date,
-        startTime: editFormData.startTime,
-        endTime: editFormData.endTime,
+        date: normalizedDate,
+        startTime: normalizedStart,
+        endTime: normalizedEnd,
         status: editFormData.status,
         plannedTask: editFormData.plannedTask || "",
         reminder: editFormData.reminder,

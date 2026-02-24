@@ -6,27 +6,32 @@ export type LoginResult = {
   username: string;
 };
 
-const ADMIN_USERNAME = "admin";
-const ADMIN_PASSWORD = "admin123";
-
-const MANAGER_USERNAME = "manager";
-const MANAGER_PASSWORD = "manager123";
+type LoginApiResponse = {
+  item: {
+    token: string;
+    role: UserRole;
+    username: string;
+  };
+};
 
 export async function login(username: string, password: string): Promise<LoginResult> {
-  const u = username.trim();
-  const p = password;
+  const res = await apiFetch<LoginApiResponse>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({
+      username: username.trim(),
+      email: username.trim(),
+      password,
+    }),
+  });
 
-  if (u === ADMIN_USERNAME && p === ADMIN_PASSWORD) {
-    setAuthState({ isAuthenticated: true, role: "admin", username: u });
-    return { role: "admin", username: u };
-  }
+  setAuthState({
+    isAuthenticated: true,
+    role: res.item.role,
+    username: res.item.username,
+    token: res.item.token,
+  });
 
-  if (u === MANAGER_USERNAME && p === MANAGER_PASSWORD) {
-    setAuthState({ isAuthenticated: true, role: "manager", username: u });
-    return { role: "manager", username: u };
-  }
-
-  throw new Error("Invalid credentials");
+  return { role: res.item.role, username: res.item.username };
 }
 
 export async function listResource<T>(resource: string): Promise<T[]> {

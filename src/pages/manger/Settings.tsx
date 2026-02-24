@@ -6,28 +6,30 @@ import { Separator } from "@/components/manger/ui/separator";
 import { User, Bell, Shield, Globe, Save } from "lucide-react";
 import { apiFetch } from "@/lib/manger/api";
 import { toast } from "@/components/manger/ui/use-toast";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
+type SettingsItem = {
+  fullName: string;
+  email: string;
+  phone: string;
+  role: string;
+  notifications?: {
+    emailNotifications?: boolean;
+    taskAlerts?: boolean;
+    employeeUpdates?: boolean;
+    weeklyReports?: boolean;
+  };
+  language?: string;
+  timezone?: string;
+};
 
 export default function Settings() {
+  const queryClient = useQueryClient();
+
   const settingsQuery = useQuery({
     queryKey: ["settings"],
     queryFn: async () => {
-      return apiFetch<{
-        item: {
-          fullName: string;
-          email: string;
-          phone: string;
-          role: string;
-          notifications: {
-            emailNotifications: boolean;
-            taskAlerts: boolean;
-            employeeUpdates: boolean;
-            weeklyReports: boolean;
-          };
-          language: string;
-          timezone: string;
-        };
-      }>("/api/settings");
+      return apiFetch<{ item: SettingsItem }>("/api/settings");
     },
   });
 
@@ -40,7 +42,21 @@ export default function Settings() {
     },
   });
 
+  const changePasswordMutation = useMutation({
+    mutationFn: async (payload: { currentPassword: string; newPassword: string }) => {
+      return apiFetch<{ ok: true }>("/api/auth/change-password", {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+    },
+  });
+
   const [draft, setDraft] = useState<any>(null);
+  const [passwordDraft, setPasswordDraft] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmNewPassword: "",
+  });
 
   useEffect(() => {
     if (settingsQuery.data?.item) {
@@ -53,6 +69,7 @@ export default function Settings() {
 
     saveMutation.mutate(draft, {
       onSuccess: () => {
+        void queryClient.invalidateQueries({ queryKey: ["settings"] });
         toast({ title: "Saved", description: "Settings updated." });
       },
       onError: (err) => {
@@ -62,6 +79,57 @@ export default function Settings() {
         });
       },
     });
+  };
+
+  const setNotification = (key: string, value: boolean) => {
+    setDraft((p: any) => {
+      const next = {
+        ...(p || {}),
+        notifications: {
+          ...((p && p.notifications) || {}),
+          [key]: value,
+        },
+      };
+
+      saveMutation.mutate(next, {
+        onSuccess: () => {
+          void queryClient.invalidateQueries({ queryKey: ["settings"] });
+        },
+      });
+
+      return next;
+    });
+  };
+
+  const onChangePassword = () => {
+    const currentPassword = passwordDraft.currentPassword;
+    const newPassword = passwordDraft.newPassword;
+    const confirmNewPassword = passwordDraft.confirmNewPassword;
+
+    if (!currentPassword || !newPassword || !confirmNewPassword) {
+      toast({ title: "Missing fields", description: "Please fill all password fields." });
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      toast({ title: "Password mismatch", description: "New password and confirm password do not match." });
+      return;
+    }
+
+    changePasswordMutation.mutate(
+      { currentPassword, newPassword },
+      {
+        onSuccess: () => {
+          setPasswordDraft({ currentPassword: "", newPassword: "", confirmNewPassword: "" });
+          toast({ title: "Password updated", description: "Please use the new password next time you log in." });
+        },
+        onError: (err) => {
+          toast({
+            title: "Failed to change password",
+            description: err instanceof Error ? err.message : "Something went wrong",
+          });
+        },
+      }
+    );
   };
 
   return (
@@ -148,12 +216,7 @@ export default function Settings() {
             </div>
             <Switch
               checked={Boolean(draft?.notifications?.emailNotifications)}
-              onCheckedChange={(checked) =>
-                setDraft((p: any) => ({
-                  ...p,
-                  notifications: { ...p?.notifications, emailNotifications: checked },
-                }))
-              }
+              onCheckedChange={(checked) => setNotification("emailNotifications", checked)}
             />
           </div>
           <Separator />
@@ -166,12 +229,7 @@ export default function Settings() {
             </div>
             <Switch
               checked={Boolean(draft?.notifications?.taskAlerts)}
-              onCheckedChange={(checked) =>
-                setDraft((p: any) => ({
-                  ...p,
-                  notifications: { ...p?.notifications, taskAlerts: checked },
-                }))
-              }
+              onCheckedChange={(checked) => setNotification("taskAlerts", checked)}
             />
           </div>
           <Separator />
@@ -184,12 +242,7 @@ export default function Settings() {
             </div>
             <Switch
               checked={Boolean(draft?.notifications?.employeeUpdates)}
-              onCheckedChange={(checked) =>
-                setDraft((p: any) => ({
-                  ...p,
-                  notifications: { ...p?.notifications, employeeUpdates: checked },
-                }))
-              }
+              onCheckedChange={(checked) => setNotification("employeeUpdates", checked)}
             />
           </div>
           <Separator />
@@ -202,12 +255,7 @@ export default function Settings() {
             </div>
             <Switch
               checked={Boolean(draft?.notifications?.weeklyReports)}
-              onCheckedChange={(checked) =>
-                setDraft((p: any) => ({
-                  ...p,
-                  notifications: { ...p?.notifications, weeklyReports: checked },
-                }))
-              }
+              onCheckedChange={(checked) => setNotification("weeklyReports", checked)}
             />
           </div>
         </div>
@@ -232,23 +280,40 @@ export default function Settings() {
             <label className="text-sm font-medium text-foreground mb-2 block">
               Current Password
             </label>
-            <Input type="password" placeholder="••••••••" />
+            <Input
+              type="password"
+              placeholder="••••••••"
+              value={passwordDraft.currentPassword}
+              onChange={(e) => setPasswordDraft((p) => ({ ...p, currentPassword: e.target.value }))}
+            />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">
                 New Password
               </label>
-              <Input type="password" placeholder="••••••••" />
+              <Input
+                type="password"
+                placeholder="••••••••"
+                value={passwordDraft.newPassword}
+                onChange={(e) => setPasswordDraft((p) => ({ ...p, newPassword: e.target.value }))}
+              />
             </div>
             <div>
               <label className="text-sm font-medium text-foreground mb-2 block">
                 Confirm New Password
               </label>
-              <Input type="password" placeholder="••••••••" />
+              <Input
+                type="password"
+                placeholder="••••••••"
+                value={passwordDraft.confirmNewPassword}
+                onChange={(e) => setPasswordDraft((p) => ({ ...p, confirmNewPassword: e.target.value }))}
+              />
             </div>
           </div>
-          <Button variant="outline">Change Password</Button>
+          <Button variant="outline" onClick={onChangePassword} disabled={changePasswordMutation.isPending}>
+            Change Password
+          </Button>
         </div>
       </div>
 

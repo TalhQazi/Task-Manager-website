@@ -223,11 +223,7 @@ const Employees = () => {
       try {
         setLoading(true);
         setApiError(null);
-        let list = await listResource<Employee>("employees");
-        if (list.length === 0) {
-          await Promise.all(employees.map((e) => createResource<Employee>("employees", e)));
-          list = await listResource<Employee>("employees");
-        }
+        const list = await listResource<Employee>("employees");
         if (!mounted) return;
         setEmployeesList(list);
       } catch (e) {

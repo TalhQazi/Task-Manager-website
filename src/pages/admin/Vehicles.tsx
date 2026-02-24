@@ -201,11 +201,7 @@ const Vehicles = () => {
       try {
         setLoading(true);
         setApiError(null);
-        let list = await listResource<Vehicle>("vehicles");
-        if (list.length === 0) {
-          await Promise.all(vehicles.map((v) => createResource<Vehicle>("vehicles", v)));
-          list = await listResource<Vehicle>("vehicles");
-        }
+        const list = await listResource<Vehicle>("vehicles");
         if (!mounted) return;
         setVehiclesList(list);
       } catch (e) {

@@ -42,6 +42,18 @@ interface OnboardingEmployee {
   pendingSteps: string[];
 }
 
+type BackendOnboarding = {
+  id?: string;
+  _id?: string;
+  employeeName?: string;
+  role?: string;
+  startDate?: string;
+  progress?: number;
+  documentsUploaded?: number;
+  documentsRequired?: number;
+  approvalStatus?: "pending" | "approved" | "rejected" | string;
+};
+
 const onboardingEmployees: OnboardingEmployee[] = [
   {
     id: "ONB-001",
@@ -155,13 +167,9 @@ const Onboarding = () => {
       try {
         setLoading(true);
         setApiError(null);
-        let list = await listResource<OnboardingEmployee>("onboarding");
-        if (list.length === 0) {
-          await Promise.all(onboardingEmployees.map((e) => createResource<OnboardingEmployee>("onboarding", e)));
-          list = await listResource<OnboardingEmployee>("onboarding");
-        }
+        const list = await listResource<BackendOnboarding>("onboarding");
         if (!mounted) return;
-        setOnboardingList(list);
+        setOnboardingList(list.map(normalizeOnboardingItem));
       } catch (e) {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load onboarding");
@@ -178,8 +186,54 @@ const Onboarding = () => {
   }, []);
 
   const refresh = async () => {
-    const list = await listResource<OnboardingEmployee>("onboarding");
-    setOnboardingList(list);
+    const list = await listResource<BackendOnboarding>("onboarding");
+    setOnboardingList(list.map(normalizeOnboardingItem));
+  };
+
+  const normalizeOnboardingItem = (item: BackendOnboarding): OnboardingEmployee => {
+    const name = String(item.employeeName || "").trim();
+    const initials = name
+      ? name
+          .split(" ")
+          .map((n) => n[0])
+          .slice(0, 2)
+          .join("")
+          .toUpperCase()
+      : "";
+
+    const progress = typeof item.progress === "number" && Number.isFinite(item.progress) ? item.progress : 0;
+    const documentsUploaded = typeof item.documentsUploaded === "number" ? item.documentsUploaded : 0;
+    const documentsRequired = typeof item.documentsRequired === "number" ? item.documentsRequired : 0;
+
+    let status: OnboardingEmployee["status"] = "pending";
+    if (progress >= 100) status = "completed";
+    else if (progress > 0) status = "in-progress";
+    else if (documentsRequired > 0 && documentsUploaded > 0) status = "in-progress";
+
+    const rawApproval = String(item.approvalStatus || "pending").toLowerCase();
+    const approvalStatus: OnboardingEmployee["approvalStatus"] =
+      rawApproval === "approved" ? "approved" : rawApproval === "rejected" ? "rejected" : "pending";
+
+    const completedCount = Math.max(0, Math.min(allSteps.length, Math.round((progress / 100) * allSteps.length)));
+    const completedSteps = allSteps.slice(0, completedCount);
+    const pendingSteps = allSteps.slice(completedCount);
+
+    return {
+      id: String(item.id || item._id || ""),
+      name,
+      initials: initials || "U",
+      email: "",
+      startDate: String(item.startDate || ""),
+      progress,
+      status,
+      approvalStatus,
+      w4FileName: "",
+      i9FileName: "",
+      signatureFileName: "",
+      generatedPdfFileName: "",
+      completedSteps,
+      pendingSteps,
+    };
   };
 
   const summary = useMemo(() => {

@@ -14,6 +14,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/admin/apiClient";
+import { getAuthState } from "@/lib/auth";
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -21,6 +24,37 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const navigate = useNavigate();
+
+  const auth = getAuthState();
+
+  const settingsQuery = useQuery({
+    queryKey: ["settings"],
+    queryFn: async () => {
+      return apiFetch<{ item: { fullName?: string; email?: string; role?: string } }>("/api/settings");
+    },
+  });
+
+  const meQuery = useQuery({
+    queryKey: ["auth", "me"],
+    queryFn: async () => {
+      return apiFetch<{ item: { name?: string; email?: string; username?: string } }>("/api/auth/me");
+    },
+  });
+
+  const settingsFullName = String(settingsQuery.data?.item?.fullName || "").trim();
+  const settingsEmail = String(settingsQuery.data?.item?.email || "").trim();
+  const meName = String(meQuery.data?.item?.name || "").trim();
+  const meEmail = String(meQuery.data?.item?.email || "").trim();
+
+  const fullName = settingsFullName || meName || auth.username || "Admin";
+  const email = settingsEmail || meEmail || "";
+  const initials = fullName
+    .split(" ")
+    .filter(Boolean)
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 
   return (
     <header className="h-14 sm:h-16 bg-card border-b border-border flex items-center justify-between px-3 sm:px-4 md:px-6">
@@ -131,16 +165,14 @@ export function Header({ onMenuClick }: HeaderProps) {
               <Avatar className="h-7 w-7 sm:h-8 sm:w-8 flex-shrink-0">
                 <AvatarImage src="" />
                 <AvatarFallback className="bg-accent text-accent-foreground text-xs sm:text-sm">
-                  AD
+                  {initials || "AD"}
                 </AvatarFallback>
               </Avatar>
               
               {/* User Info - Hidden on mobile, visible on tablet+ */}
               <div className="text-left hidden sm:block">
-                <p className="text-xs sm:text-sm font-medium leading-tight">Admin User</p>
-                <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">
-                  Administrator
-                </p>
+                <p className="text-xs sm:text-sm font-medium leading-tight">{fullName}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground leading-tight">{email || ""}</p>
               </div>
             </Button>
           </DropdownMenuTrigger>

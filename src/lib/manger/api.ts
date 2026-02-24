@@ -4,6 +4,21 @@ type ApiErrorPayload = {
   };
 };
 
+type StoredAuth = {
+  token?: string | null;
+};
+
+function getStoredToken(): string | null {
+  try {
+    const raw = localStorage.getItem("taskflow_auth");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredAuth;
+    return typeof parsed.token === "string" && parsed.token ? parsed.token : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
@@ -11,10 +26,13 @@ export async function apiFetch<T>(
   const baseUrl = (import.meta as any).env?.VITE_API_URL || "http://localhost:5000";
   const url = `${String(baseUrl).replace(/\/$/, "")}${path}`;
 
+  const token = getStoredToken();
+
   const res = await fetch(url, {
     ...options,
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers || {}),
     },
   });

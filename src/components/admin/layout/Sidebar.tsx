@@ -22,6 +22,8 @@ import {
   Menu, // Added for mobile toggle
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/admin/apiClient";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -53,6 +55,15 @@ const bottomItems: { icon: any; label: string; path: string }[] = [
 export function Sidebar({ collapsed, onToggle, open = false, onClose }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();
+
+  const settingsQuery = useQuery({
+    queryKey: ["settings"],
+    queryFn: async () => {
+      return apiFetch<{ item: { companyName?: string } }>("/api/settings");
+    },
+  });
+
+  const brandName = String(settingsQuery.data?.item?.companyName || "").trim() || "Task Manager";
 
   const NavItem = ({ icon: Icon, label, path }: { icon: any; label: string; path: string }) => {
     const isActive = location.pathname === path;
@@ -135,7 +146,7 @@ export function Sidebar({ collapsed, onToggle, open = false, onClose }: SidebarP
                 <CheckSquare className="h-4 w-4 sm:h-5 sm:w-5 text-sidebar-primary-foreground" />
               </div>
               <span className="font-semibold text-sm sm:text-base text-sidebar-foreground truncate">
-                TaskFlow
+                {brandName}
               </span>
             </div>
           )}

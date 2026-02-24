@@ -21,6 +21,9 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/manger/utils";
 import { clearAuthState } from "@/lib/auth";
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/manger/api";
+import { getAuthState } from "@/lib/auth";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/manager" },
@@ -47,6 +50,25 @@ interface SidebarProps {
 export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
+
+  const settingsQuery = useQuery({
+    queryKey: ["settings"],
+    queryFn: async () => {
+      return apiFetch<{ item: { fullName?: string; email?: string; role?: string } }>("/api/settings");
+    },
+  });
+
+  const auth = getAuthState();
+  const fullName = String(settingsQuery.data?.item?.fullName || "").trim() || "User";
+  const email = String(settingsQuery.data?.item?.email || "").trim();
+  const role = String(settingsQuery.data?.item?.role || auth.role || "").trim();
+  const initials = fullName
+    .split(" ")
+    .filter(Boolean)
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 
   const onLogout = () => {
     clearAuthState();
@@ -134,13 +156,13 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
           <div className="mt-4 p-3 rounded-lg bg-sidebar-accent/50">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-medium">
-                JD
+                {initials || "U"}
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-sidebar-foreground truncate">
-                  John Doe
+                  {fullName}
                 </p>
-                <p className="text-xs text-sidebar-muted truncate">Manager</p>
+                <p className="text-xs text-sidebar-muted truncate">{email || role || auth.username || ""}</p>
               </div>
             </div>
           </div>

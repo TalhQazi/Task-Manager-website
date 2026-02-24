@@ -205,11 +205,7 @@ const Tasks = () => {
       try {
         setLoading(true);
         setApiError(null);
-        let list = await listResource<Task>("tasks");
-        if (list.length === 0) {
-          await Promise.all(tasks.map((t) => createResource<Task>("tasks", t)));
-          list = await listResource<Task>("tasks");
-        }
+        const list = await listResource<Task>("tasks");
         if (!mounted) return;
         setTasksList(list);
       } catch (e) {

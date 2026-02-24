@@ -128,11 +128,18 @@ const statusIcons = {
   read: Check,
 };
 
-const newMessageSchema = z.object({
-  recipient: z.string().min(1, "Recipient is required"),
-  type: z.enum(["direct", "broadcast"]),
-  content: z.string().min(1, "Message is required"),
-});
+const newMessageSchema = z.discriminatedUnion("type", [
+  z.object({
+    type: z.literal("direct"),
+    recipient: z.string().min(1, "Recipient is required"),
+    content: z.string().min(1, "Message is required"),
+  }),
+  z.object({
+    type: z.literal("broadcast"),
+    recipient: z.string().optional().default(""),
+    content: z.string().min(1, "Message is required"),
+  }),
+]);
 
 type NewMessageValues = z.infer<typeof newMessageSchema>;
 

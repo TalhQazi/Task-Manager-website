@@ -62,6 +62,18 @@ interface User {
   createdAt: string;
 }
 
+type BackendUser = {
+  _id?: string;
+  id?: string;
+  username?: string;
+  name?: string;
+  email?: string;
+  role: "admin" | "manager" | "employee";
+  status?: "active" | "inactive" | "pending";
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 const initialUsers: User[] = [
   {
     id: "USR-001",
@@ -154,15 +166,21 @@ const Users = () => {
       try {
         setLoading(true);
         setApiError(null);
-        let list = await listResource<User>("users");
+        const list = await listResource<BackendUser>("users");
 
-        if (list.length === 0) {
-          await Promise.all(initialUsers.map((u) => createResource<User>("users", u)));
-          list = await listResource<User>("users");
-        }
+        const normalized = list.map((u) => ({
+          id: u.id || u._id || "",
+          name: u.name || u.username || "",
+          initials: getInitials(u.name || u.username || "U"),
+          email: u.email || "",
+          role: u.role,
+          lastLogin: "-",
+          status: u.status || ("active" as const),
+          createdAt: (u.createdAt || new Date().toISOString()).split("T")[0],
+        }));
 
         if (!mounted) return;
-        setUsers(list);
+        setUsers(normalized);
       } catch (e) {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load users");
@@ -180,6 +198,7 @@ const Users = () => {
 
   type FormValues = {
     name: string;
+    password: string;
     email: string;
     role: string;
     status: string;
@@ -188,6 +207,7 @@ const Users = () => {
   const form = useForm<FormValues>({
     defaultValues: {
       name: "",
+      password: "",
       email: "",
       role: "employee",
       status: "active",
@@ -236,8 +256,18 @@ const Users = () => {
   };
 
   const refreshUsers = async () => {
-    const list = await listResource<User>("users");
-    setUsers(list);
+    const list = await listResource<BackendUser>("users");
+    const normalized = list.map((u) => ({
+      id: u.id || u._id || "",
+      name: u.name || u.username || "",
+      initials: getInitials(u.name || u.username || "U"),
+      email: u.email || "",
+      role: u.role,
+      lastLogin: "-",
+      status: u.status || ("active" as const),
+      createdAt: (u.createdAt || new Date().toISOString()).split("T")[0],
+    }));
+    setUsers(normalized);
   };
 
   const confirmDeactivate = async () => {
@@ -309,17 +339,13 @@ const Users = () => {
 
   const onSubmit = async (values: FormValues) => {
     try {
-      const payload: User = {
-        id: `USR-${Date.now().toString().slice(-6)}`,
-        name: values.name,
-        initials: getInitials(values.name || "U"),
-        email: values.email,
-        role: values.role as User["role"],
-        lastLogin: "-",
-        status: values.status as User["status"],
-        createdAt: new Date().toISOString().split("T")[0],
-      };
-      await createResource<User>("users", payload);
+      await createResource<BackendUser>("users", {
+        name: values.name.trim(),
+        email: values.email.trim(),
+        password: values.password,
+        role: values.role as BackendUser["role"],
+        status: values.status as NonNullable<BackendUser["status"]>,
+      });
       await refreshUsers();
       setOpen(false);
       form.reset();
@@ -330,8 +356,8 @@ const Users = () => {
 
   const filteredUsers = users.filter((user) => {
     const matchesSearch =
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase());
+      String(user.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      String(user.email || "").toLowerCase().includes(searchQuery.toLowerCase());
     const matchesRole = roleFilter === "all" || user.role === roleFilter;
     return matchesSearch && matchesRole;
   });
@@ -402,6 +428,17 @@ const Users = () => {
                       className="w-full rounded-md border px-3 py-2 text-sm sm:text-base h-9 sm:h-10"
                       placeholder="jane.doe@company.com"
                       type="email"
+                    />
+                  </div>
+
+                  {/* Password */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-medium">Password</label>
+                    <input
+                      {...form.register("password", { required: true })}
+                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base h-9 sm:h-10"
+                      placeholder="Minimum 6 characters"
+                      type="password"
                     />
                   </div>
                   

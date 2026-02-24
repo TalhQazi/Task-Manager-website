@@ -19,16 +19,16 @@ export function StatCard({
   variant = "primary",
 }: StatCardProps) {
   const variantClasses = {
-    primary: "stat-card-primary",
-    success: "stat-card-success",
-    warning: "stat-card-warning",
-    danger: "stat-card-danger",
+    primary: "stat-card-gradient gradient-primary",
+    success: "stat-card-gradient gradient-success",
+    warning: "stat-card-gradient gradient-warning",
+    danger: "stat-card-gradient gradient-danger",
   };
 
   return (
     <div
       className={cn(
-        "rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 text-white shadow-soft animate-fade-in",
+        "rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 text-white shadow-soft animate-fade-in relative",
         "transition-all duration-300 hover:scale-[1.02] hover:shadow-lg",
         variantClasses[variant]
       )}

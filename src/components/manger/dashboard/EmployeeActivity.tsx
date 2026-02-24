@@ -1,5 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import { MapPin } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/manger/api";
 
 interface Employee {
   id: string;
@@ -11,44 +13,42 @@ interface Employee {
   clockedIn: string;
 }
 
-const employees: Employee[] = [
-  {
-    id: "1",
-    name: "Mike Johnson",
-    role: "Field Technician",
-    avatar: "MJ",
-    status: "online",
-    location: "Downtown Office",
-    clockedIn: "8:00 AM",
-  },
-  {
-    id: "2",
-    name: "Sarah Williams",
-    role: "Maintenance Lead",
-    avatar: "SW",
-    status: "online",
-    location: "Warehouse A",
-    clockedIn: "7:45 AM",
-  },
-  {
-    id: "3",
-    name: "David Chen",
-    role: "Project Coordinator",
-    avatar: "DC",
-    status: "away",
-    location: "Main Office",
-    clockedIn: "9:15 AM",
-  },
-  {
-    id: "4",
-    name: "Emma Davis",
-    role: "Fleet Manager",
-    avatar: "ED",
-    status: "online",
-    location: "Garage",
-    clockedIn: "7:30 AM",
-  },
-];
+type EmployeeApi = {
+  _id?: string;
+  id?: string;
+  name?: string;
+  role?: string;
+  status?: string;
+  location?: string;
+};
+
+type TimeEntryApi = {
+  _id?: string;
+  id?: string;
+  employee?: string;
+  clockIn?: string;
+  clockOut?: string;
+  status?: string;
+  location?: string;
+  date?: string | Date;
+};
+
+function initialsFromName(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "??";
+  const first = parts[0]?.[0] ?? "?";
+  const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? "?" : "";
+  return (first + last).toUpperCase();
+}
+
+function isToday(d: Date) {
+  const now = new Date();
+  return (
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  );
+}
 
 const statusColors = {
   online: "bg-success",
@@ -57,12 +57,60 @@ const statusColors = {
 };
 
 export function EmployeeActivity() {
+  const employeesQuery = useQuery({
+    queryKey: ["employees"],
+    queryFn: async () => {
+      const res = await apiFetch<{ items: EmployeeApi[] }>("/api/employees");
+      return Array.isArray(res?.items) ? res.items : [];
+    },
+  });
+
+  const entriesQuery = useQuery({
+    queryKey: ["time-entries"],
+    queryFn: async () => {
+      const res = await apiFetch<{ items: TimeEntryApi[] }>("/api/time-entries");
+      return Array.isArray(res?.items) ? res.items : [];
+    },
+  });
+
+  const employeesApi = employeesQuery.data || [];
+  const entriesApi = entriesQuery.data || [];
+
+  const clockedInToday = entriesApi
+    .filter((e) => {
+      const d = e.date ? new Date(e.date as any) : null;
+      const okDate = d instanceof Date && !Number.isNaN(d.getTime()) ? isToday(d) : true;
+      const status = String(e.status || "").toLowerCase();
+      const clockOut = String(e.clockOut || "").trim();
+      return okDate && (status === "incomplete" || clockOut === "");
+    })
+    .slice(0, 4);
+
+  const employees: Employee[] = clockedInToday.map((entry, idx) => {
+    const name = String(entry.employee || "Unknown");
+    const emp = employeesApi.find((x) => String(x.name || "") === name);
+    const empStatus = String(emp?.status || "").toLowerCase();
+    const status: Employee["status"] = empStatus === "on-leave" ? "away" : empStatus === "inactive" ? "offline" : "online";
+
+    return {
+      id: String(entry.id || entry._id || emp?.id || emp?._id || idx),
+      name,
+      role: String(emp?.role || ""),
+      avatar: initialsFromName(name),
+      status,
+      location: String(entry.location || emp?.location || ""),
+      clockedIn: String(entry.clockIn || ""),
+    };
+  });
+
+  const onlineCount = employees.filter((e) => e.status === "online").length;
+
   return (
     <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
       <div className="px-4 sm:px-6 py-4 border-b border-border flex items-start sm:items-center justify-between gap-3">
         <h3 className="font-semibold text-foreground text-base sm:text-lg">Active Employees</h3>
         <Badge variant="secondary" className="bg-success/10 text-success">
-          {employees.filter((e) => e.status === "online").length} Online
+          {onlineCount} Online
         </Badge>
       </div>
       <div className="divide-y divide-border">

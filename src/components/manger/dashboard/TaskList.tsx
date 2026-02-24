@@ -1,6 +1,8 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/manger/utils";
 import { Clock, User, MoreHorizontal } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/manger/api";
 
 interface Task {
   id: string;
@@ -12,53 +14,60 @@ interface Task {
   location?: string;
 }
 
-const tasks: Task[] = [
-  {
-    id: "1",
-    title: "Site inspection at Downtown Office",
-    assignee: "Mike Johnson",
-    priority: "high",
-    status: "active",
-    dueDate: "Today, 2:00 PM",
-    location: "Downtown Office",
-  },
-  {
-    id: "2",
-    title: "Equipment maintenance check",
-    assignee: "Sarah Williams",
-    priority: "medium",
-    status: "pending",
-    dueDate: "Today, 4:30 PM",
-    location: "Warehouse A",
-  },
-  {
-    id: "3",
-    title: "Client meeting preparation",
-    assignee: "David Chen",
-    priority: "high",
-    status: "active",
-    dueDate: "Tomorrow, 9:00 AM",
-    location: "Main Office",
-  },
-  {
-    id: "4",
-    title: "Vehicle fleet review",
-    assignee: "Emma Davis",
-    priority: "low",
-    status: "completed",
-    dueDate: "Yesterday",
-    location: "Garage",
-  },
-  {
-    id: "5",
-    title: "Safety training session",
-    assignee: "Tom Wilson",
-    priority: "medium",
-    status: "pending",
-    dueDate: "Feb 5, 10:00 AM",
-    location: "Training Room",
-  },
-];
+type TaskApi = {
+  _id?: string;
+  id?: string;
+  title?: string;
+  assignee?: string;
+  priority?: string;
+  status?: string;
+  dueDate?: string | Date;
+  dueTime?: string;
+  location?: string;
+};
+
+function formatDueLabel(dueDate?: string | Date, dueTime?: string) {
+  if (!dueDate) return "";
+  const d = typeof dueDate === "string" ? new Date(dueDate) : dueDate;
+  if (!(d instanceof Date) || Number.isNaN(d.getTime())) return "";
+
+  const today = new Date();
+  const start = new Date(today);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(today);
+  end.setHours(23, 59, 59, 999);
+
+  let dayLabel = d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  if (d >= start && d <= end) dayLabel = "Today";
+  else {
+    const yStart = new Date(start);
+    yStart.setDate(yStart.getDate() - 1);
+    const yEnd = new Date(end);
+    yEnd.setDate(yEnd.getDate() - 1);
+    if (d >= yStart && d <= yEnd) dayLabel = "Yesterday";
+  }
+
+  const t = String(dueTime || "").trim();
+  return t ? `${dayLabel}, ${t}` : dayLabel;
+}
+
+function normalizeTask(t: TaskApi): Task {
+  const rawStatus = String(t.status || "").toLowerCase();
+  const status: Task["status"] = rawStatus === "completed" ? "completed" : rawStatus === "pending" ? "pending" : "active";
+
+  const rawPriority = String(t.priority || "").toLowerCase();
+  const priority: Task["priority"] = rawPriority === "high" ? "high" : rawPriority === "low" ? "low" : "medium";
+
+  return {
+    id: String(t.id || t._id || ""),
+    title: String(t.title || ""),
+    assignee: String(t.assignee || ""),
+    priority,
+    status,
+    dueDate: formatDueLabel(t.dueDate, t.dueTime),
+    location: typeof t.location === "string" ? t.location : "",
+  };
+}
 
 const priorityStyles = {
   high: "priority-high",
@@ -73,6 +82,17 @@ const statusStyles = {
 };
 
 export function TaskList() {
+  const tasksQuery = useQuery({
+    queryKey: ["dashboard", "recent-tasks"],
+    queryFn: async () => {
+      const res = await apiFetch<{ items: TaskApi[] }>("/api/tasks");
+      const items = Array.isArray(res?.items) ? res.items : [];
+      return items.map(normalizeTask);
+    },
+  });
+
+  const tasks = (tasksQuery.data || []).slice(0, 5);
+
   return (
     <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
       <div className="px-4 sm:px-6 py-4 border-b border-border flex items-start sm:items-center justify-between gap-3">
@@ -108,7 +128,7 @@ export function TaskList() {
                   </div>
                   <div className="flex items-center gap-1.5 whitespace-nowrap">
                     <Clock className="w-3.5 h-3.5" />
-                    <span>{task.dueDate}</span>
+                    <span>{task.dueDate || "—"}</span>
                   </div>
                 </div>
               </div>

@@ -1,4 +1,6 @@
 import { MapPin, Users } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/manger/api";
 
 interface ScheduleItem {
   id: string;
@@ -9,42 +11,63 @@ interface ScheduleItem {
   tasks: number;
 }
 
-const schedules: ScheduleItem[] = [
-  {
-    id: "1",
-    location: "Downtown Office",
-    assignedCount: 4,
-    totalSlots: 5,
-    timeRange: "8:00 AM - 5:00 PM",
-    tasks: 8,
-  },
-  {
-    id: "2",
-    location: "Warehouse A",
-    assignedCount: 3,
-    totalSlots: 4,
-    timeRange: "7:00 AM - 4:00 PM",
-    tasks: 5,
-  },
-  {
-    id: "3",
-    location: "Main Office",
-    assignedCount: 6,
-    totalSlots: 6,
-    timeRange: "9:00 AM - 6:00 PM",
-    tasks: 12,
-  },
-  {
-    id: "4",
-    location: "Garage",
-    assignedCount: 2,
-    totalSlots: 3,
-    timeRange: "7:30 AM - 4:30 PM",
-    tasks: 3,
-  },
-];
+type EventApi = {
+  _id?: string;
+  id?: string;
+  day?: string;
+  title?: string;
+  assignee?: string;
+  location?: string;
+  startTime?: string;
+  endTime?: string;
+  type?: string;
+};
+
+function todayDayAbbr() {
+  const dayMap = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  return dayMap[new Date().getDay()] || "Mon";
+}
 
 export function ScheduleOverview() {
+  const eventsQuery = useQuery({
+    queryKey: ["events"],
+    queryFn: async () => {
+      const res = await apiFetch<{ items: EventApi[] }>("/api/events");
+      return Array.isArray(res?.items) ? res.items : [];
+    },
+  });
+
+  const day = todayDayAbbr();
+  const events = (eventsQuery.data || []).filter((e) => String(e.day || "") === day);
+
+  const grouped: Record<string, EventApi[]> = {};
+  for (const e of events) {
+    const loc = String(e.location || "").trim() || "Unknown";
+    grouped[loc] = grouped[loc] || [];
+    grouped[loc].push(e);
+  }
+
+  const schedules: ScheduleItem[] = Object.keys(grouped)
+    .sort()
+    .slice(0, 4)
+    .map((loc) => {
+      const items = grouped[loc];
+      const assignees = new Set(items.map((x) => String(x.assignee || "")).filter(Boolean));
+      const assignedCount = assignees.size;
+      const start = items.map((x) => String(x.startTime || "").trim()).filter(Boolean).sort()[0] || "";
+      const end = items.map((x) => String(x.endTime || "").trim()).filter(Boolean).sort().slice(-1)[0] || "";
+      const timeRange = start && end ? `${start} - ${end}` : start || end || "";
+
+      return {
+        id: loc,
+        location: loc,
+        assignedCount,
+        totalSlots: Math.max(assignedCount, 1),
+        timeRange,
+        tasks: items.length,
+      };
+    });
+
   return (
     <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
       <div className="px-4 sm:px-6 py-4 border-b border-border flex items-start sm:items-center justify-between gap-3">

@@ -89,11 +89,7 @@ export default function DoNotHire() {
       try {
         setLoading(true);
         setApiError(null);
-        let list = await listResource<BlacklistItem>("do-not-hire");
-        if (list.length === 0) {
-          await Promise.all(seedItems.map((i) => createResource<BlacklistItem>("do-not-hire", i)));
-          list = await listResource<BlacklistItem>("do-not-hire");
-        }
+        const list = await listResource<BlacklistItem>("do-not-hire");
         if (!mounted) return;
         setItems(list);
       } catch (e) {

@@ -84,6 +84,7 @@ export type AuthState = {
   isAuthenticated: boolean;
   role: UserRole | null;
   username: string | null;
+  token: string | null;
 };
 
 const AUTH_STORAGE_KEY = "taskflow_auth";
@@ -93,6 +94,7 @@ const defaultState: AuthState = {
   isAuthenticated: false,
   role: null,
   username: null,
+  token: null,
 };
 
 export function getAuthState(): AuthState {
@@ -104,6 +106,7 @@ export function getAuthState(): AuthState {
       isAuthenticated: Boolean(parsed.isAuthenticated),
       role: parsed.role === "admin" || parsed.role === "manager" ? parsed.role : null,
       username: typeof parsed.username === "string" ? parsed.username : null,
+      token: typeof parsed.token === "string" ? parsed.token : null,
     };
   } catch {
     return defaultState;

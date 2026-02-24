@@ -103,22 +103,8 @@ export default function Login() {
           >
             Login
           </Button>
-
-          {/* Optional: Demo Credentials Hint - Only on larger screens */}
-          <div className="hidden sm:block text-center">
-            <p className="text-xs text-muted-foreground">
-              Demo: admin / admin123 | manager / manager123
-            </p>
-          </div>
         </CardContent>
       </Card>
-
-      {/* Mobile Demo Hint - Only visible on smallest screens */}
-      <div className="absolute bottom-4 left-0 right-0 text-center sm:hidden">
-        <p className="text-xs text-muted-foreground px-4">
-          Demo credentials: admin / admin123 | manager / manager123
-        </p>
-      </div>
     </div>
   );
 }
