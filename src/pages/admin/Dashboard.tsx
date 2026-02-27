@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { StatCard } from "@/components/admin/dashboard/StatCard";
 import { RecentTasksList } from "@/components/admin/dashboard/RecentTasksList";
@@ -6,7 +7,7 @@ import { ActiveEmployees } from "@/components/admin/dashboard/ActiveEmployees";
 import { TaskCharts } from "@/components/admin/dashboard/TaskCharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Badge } from "@/components/admin/ui/badge";
-import { Users, CheckSquare, AlertTriangle, Clock } from "lucide-react";
+import { Users, CheckSquare, AlertTriangle, Clock, Calendar, ArrowRight, Sparkles } from "lucide-react";
 import { listResource } from "@/lib/admin/apiClient";
 
 type Employee = {
@@ -33,6 +34,53 @@ type ScheduleItem = {
   status: "scheduled" | "completed" | "canceled";
 };
 
+// Animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.2,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      type: "spring",
+      stiffness: 100,
+      damping: 12,
+    },
+  },
+};
+
+const cardVariants = {
+  hidden: { scale: 0.95, opacity: 0 },
+  visible: {
+    scale: 1,
+    opacity: 1,
+    transition: {
+      type: "spring",
+      stiffness: 100,
+      damping: 15,
+    },
+  },
+  hover: {
+    scale: 1.02,
+    boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
+    transition: {
+      type: "spring",
+      stiffness: 400,
+      damping: 17,
+    },
+  },
+};
+
 const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -40,6 +88,7 @@ const Dashboard = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
+  const [hoveredSchedule, setHoveredSchedule] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -100,168 +149,148 @@ const Dashboard = () => {
     };
   }, [employees.length, schedules, tasks, timeEntries]);
 
+  // Get status color for schedule
+  const getStatusColor = (status: string) => {
+    switch(status) {
+      case 'scheduled':
+        return 'bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800';
+      case 'completed':
+        return 'bg-gradient-to-r from-green-500/20 to-green-600/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800';
+      case 'canceled':
+        return 'bg-gradient-to-r from-red-500/20 to-red-600/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800';
+      default:
+        return 'bg-gradient-to-r from-gray-500/20 to-gray-600/20 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-800';
+    }
+  };
+
   return (
     <AdminLayout>
-      {/* Mobile-first padding and spacing */}
-      <div className="space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0">
-        
-        {/* Page Header - Responsive */}
-        <div className="space-y-1.5 sm:space-y-2">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
-            Dashboard
-          </h1>
-          <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl">
-            Welcome back! Here's an overview of your system.
-          </p>
-        </div>
-
-        {/* Stats Grid - Fully Responsive */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4 lg:gap-6">
-          <StatCard
-            title="Total Employees"
-            value={metrics.totalEmployees}
-            changeType="positive"
-            icon={Users}
-            variant="primary"
-          />
-          <StatCard
-            title="Active Tasks"
-            value={metrics.activeTasks}
-            changeType="neutral"
-            icon={CheckSquare}
-            variant="success"
-          />
-          <StatCard
-            title="Overdue Tasks"
-            value={metrics.overdueTasks}
-            changeType="positive"
-            icon={AlertTriangle}
-            variant="danger"
-          />
-          <StatCard
-            title="Clocked In"
-            value={metrics.clockedInEmployees}
-            changeType="neutral"
-            icon={Clock}
-            variant="warning"
-          />
-        </div>
-
-        {/* Charts Section - Responsive container */}
-        <div className="w-full overflow-x-auto pb-1">
-          <div className="min-w-[300px] sm:min-w-0">
-            <TaskCharts />
-          </div>
-        </div>
-
-        {/* Bottom Section - Responsive Grid */}
-        <div className="grid grid-cols-1 gap-4 sm:gap-5 md:gap-6 lg:grid-cols-2">
-          <div className="w-full overflow-hidden">
-            <RecentTasksList />
-          </div>
-          <div className="w-full overflow-hidden">
-            <ActiveEmployees />
-          </div>
-        </div>
-
-        {/* API Error Message */}
-        {apiError && (
-          <div className="rounded-md bg-destructive/10 p-3 sm:p-4">
-            <p className="text-xs sm:text-sm text-destructive break-words">
-              {apiError}
-            </p>
-          </div>
-        )}
-
-        {/* Upcoming Schedules Card - Responsive */}
-        <Card className="shadow-soft border-0 sm:border">
-          <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-6 py-4 sm:py-5">
-            <CardTitle className="text-base sm:text-lg md:text-xl font-semibold">
-              Upcoming Schedules
-            </CardTitle>
-            <a 
-              href="/scheduling" 
-              className="text-xs sm:text-sm text-accent hover:underline inline-flex items-center"
+      <motion.div 
+        className="space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0 pb-6"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        {/* Page Header with animated gradient */}
+        <motion.div 
+          className="space-y-1.5 sm:space-y-2 relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-4 sm:p-6"
+          variants={itemVariants}
+          whileHover={{ scale: 1.01 }}
+          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+        >
+          <div className="absolute inset-0 bg-grid-white/10 [mask-image:radial-gradient(ellipse_at_center,white,transparent)]" />
+          <div className="relative flex items-center gap-2">
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
             >
-              View all
-              <span className="ml-1 hidden sm:inline">→</span>
-            </a>
-          </CardHeader>
-          
-          <CardContent className="px-4 sm:px-6 pb-6">
-            {loading ? (
-              <div className="flex justify-center items-center py-6 sm:py-8">
-                <div className="text-xs sm:text-sm text-muted-foreground">
-                  Loading schedules...
-                </div>
-              </div>
-            ) : metrics.upcomingSchedules.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-6 sm:py-8 text-center">
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  No upcoming schedules found.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2 sm:space-y-3">
-                {metrics.upcomingSchedules.map((s) => (
-                  <div 
-                    key={s.id} 
-                    className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 
-                             rounded-md border p-3 sm:p-3.5 hover:bg-muted/30 transition-colors"
-                  >
-                    {/* Left side - Location and details */}
-                    <div className="flex-1 min-w-0 space-y-1 sm:space-y-0.5">
-                      <p className="font-medium text-sm sm:text-base truncate max-w-full">
-                        {s.location}
-                      </p>
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                        <span className="truncate max-w-[150px] sm:max-w-[200px] md:max-w-[250px]">
-                          {s.employee}
-                        </span>
-                        <span className="hidden sm:inline">•</span>
-                        <span className="whitespace-nowrap">{s.date}</span>
-                        {s.startTime && s.endTime && (
-                          <>
-                            <span className="hidden sm:inline">•</span>
-                            <span className="whitespace-nowrap text-xs">
-                              {s.startTime} - {s.endTime}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
+              <Sparkles className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+            </motion.div>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              Dashboard
+            </h1>
+          </div>
+          <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl">
+            Welcome back! Here's your real-time system overview with beautiful animations.
+          </p>
+        </motion.div>
 
-                    {/* Right side - Status Badge */}
-                    <div className="flex items-center justify-start sm:justify-end">
-                      <Badge 
-                        variant="secondary" 
-                        className={`
-                          text-xs font-medium px-2.5 py-0.5
-                          ${s.status === 'scheduled' ? 'bg-accent/10 text-accent' : ''}
-                          ${s.status === 'completed' ? 'bg-success/10 text-success' : ''}
-                          ${s.status === 'canceled' ? 'bg-destructive/10 text-destructive' : ''}
-                        `}
-                      >
-                        {s.status}
-                      </Badge>
-                    </div>
-                  </div>
-                ))}
+        {/* Stats Grid with animated cards */}
+        <motion.div 
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4 lg:gap-6"
+          variants={containerVariants}
+        >
+          {[
+            { title: "Total Employees", value: metrics.totalEmployees, icon: Users, variant: "primary", changeType: "positive" as const },
+            { title: "Active Tasks", value: metrics.activeTasks, icon: CheckSquare, variant: "success", changeType: "neutral" as const },
+            { title: "Overdue Tasks", value: metrics.overdueTasks, icon: AlertTriangle, variant: "danger", changeType: "positive" as const },
+            { title: "Clocked In", value: metrics.clockedInEmployees, icon: Clock, variant: "warning", changeType: "neutral" as const },
+          ].map((stat, index) => (
+            <motion.div
+              key={stat.title}
+              variants={itemVariants}
+              whileHover="hover"
+              whileTap={{ scale: 0.98 }}
+            >
+              <StatCard
+                title={stat.title}
+                value={stat.value}
+                changeType={stat.changeType}
+                icon={stat.icon}
+                variant={stat.variant as any}
+              />
+            </motion.div>
+          ))}
+        </motion.div>
 
-                {/* Mobile View All Link - Only visible on mobile */}
-                <div className="block sm:hidden pt-2">
-                  <a 
-                    href="/scheduling" 
-                    className="text-xs text-accent hover:underline inline-flex items-center w-full justify-center py-2"
-                  >
-                    View all schedules
-                  </a>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+        {/* Charts Section with fade-in animation */}
+        <motion.div 
+          className="w-full overflow-x-auto pb-1"
+          variants={itemVariants}
+        >
+          <div className="min-w-[300px] sm:min-w-0">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4, duration: 0.5 }}
+              className="rounded-xl border bg-card/50 backdrop-blur-sm p-4 shadow-lg hover:shadow-xl transition-all duration-300"
+            >
+              <TaskCharts />
+            </motion.div>
+          </div>
+        </motion.div>
+
+        {/* Bottom Section with animated cards */}
+        <motion.div 
+          className="grid grid-cols-1 gap-4 sm:gap-5 md:gap-6 lg:grid-cols-2"
+          variants={containerVariants}
+        >
+          <motion.div 
+            variants={itemVariants}
+            whileHover={{ scale: 1.01 }}
+            className="transition-all duration-300"
+          >
+            <div className="rounded-xl border bg-card/50 backdrop-blur-sm p-4 shadow-lg hover:shadow-xl">
+              <RecentTasksList />
+            </div>
+          </motion.div>
+          <motion.div 
+            variants={itemVariants}
+            whileHover={{ scale: 1.01 }}
+            className="transition-all duration-300"
+          >
+            <div className="rounded-xl border bg-card/50 backdrop-blur-sm p-4 shadow-lg hover:shadow-xl">
+              <ActiveEmployees />
+            </div>
+          </motion.div>
+        </motion.div>
+
+        {/* API Error Message with animation */}
+        <AnimatePresence>
+          {apiError && (
+            <motion.div
+              initial={{ opacity: 0, y: -20, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: "auto" }}
+              exit={{ opacity: 0, y: -20, height: 0 }}
+              transition={{ type: "spring", stiffness: 500, damping: 30 }}
+              className="rounded-md bg-destructive/10 p-3 sm:p-4 border border-destructive/20"
+            >
+              <p className="text-xs sm:text-sm text-destructive break-words flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                {apiError}
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+      </motion.div>
+
+      {/* Add global styles for grid pattern */}
+      <style jsx global>{`
+        .bg-grid-white {
+          background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgb(255 255 255 / 0.05)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
+        }
+      `}</style>
     </AdminLayout>
   );
 };

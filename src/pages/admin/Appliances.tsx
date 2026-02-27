@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
@@ -38,6 +39,11 @@ import {
   Power,
   FileText,
   User,
+  Sparkles,
+  AlertTriangle,
+  Calendar,
+  Home,
+  Building2,
 } from "lucide-react";
 import { listResource } from "@/lib/admin/apiClient";
 
@@ -71,15 +77,64 @@ interface User {
 
 const APPLIANCES_STORAGE_KEY = "appliances";
 
+// Enhanced status classes with beautiful gradients
 const statusClasses = {
-  active: "bg-success/10 text-success",
-  inactive: "bg-muted text-muted-foreground",
+  active: "bg-gradient-to-r from-success/20 to-success/10 text-success border-success/20 shadow-sm",
+  inactive: "bg-gradient-to-r from-muted to-muted/50 text-muted-foreground border-muted-foreground/20 shadow-sm",
 };
 
+// Enhanced type classes with beautiful gradients
 const typeClasses = {
-  residential: "bg-success/10 text-success",
-  commercial: "bg-accent/10 text-accent",
+  residential: "bg-gradient-to-r from-[#22c55e]/20 to-[#10b981]/20 text-[#22c55e] dark:text-[#34d399] border-[#22c55e]/20 shadow-sm",
+  commercial: "bg-gradient-to-r from-[#3b82f6]/20 to-[#6366f1]/20 text-[#3b82f6] dark:text-[#818cf8] border-[#3b82f6]/20 shadow-sm",
 } as const;
+
+// Animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.2,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      type: "spring",
+      stiffness: 100,
+      damping: 12,
+    },
+  },
+};
+
+const cardVariants = {
+  hidden: { scale: 0.95, opacity: 0 },
+  visible: {
+    scale: 1,
+    opacity: 1,
+    transition: {
+      type: "spring",
+      stiffness: 100,
+      damping: 15,
+    },
+  },
+  hover: {
+    scale: 1.02,
+    boxShadow: "0 20px 25px -5px rgba(59, 130, 246, 0.1), 0 10px 10px -5px rgba(59, 130, 246, 0.04)",
+    transition: {
+      type: "spring",
+      stiffness: 400,
+      damping: 17,
+    },
+  },
+};
 
 export default function Appliances() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -89,6 +144,7 @@ export default function Appliances() {
   const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selected, setSelected] = useState<Appliance | null>(null);
+  const [hoveredAppliance, setHoveredAppliance] = useState<string | null>(null);
 
   const [appliancesList, setAppliancesList] = useState<Appliance[]>(() => {
     const saved = localStorage.getItem(APPLIANCES_STORAGE_KEY);
@@ -194,7 +250,8 @@ export default function Appliances() {
       return (
         a.name.toLowerCase().includes(q) ||
         a.location.toLowerCase().includes(q) ||
-        a.type.toLowerCase().includes(q)
+        a.type.toLowerCase().includes(q) ||
+        (a.assignedTo && a.assignedTo.toLowerCase().includes(q))
       );
     });
   }, [appliancesList, searchQuery]);
@@ -304,371 +361,393 @@ export default function Appliances() {
     setSelected(null);
   };
 
+  // Get type icon
+  const getTypeIcon = (type: string) => {
+    switch(type) {
+      case 'commercial':
+        return <Building2 className="h-4 w-4" />;
+      case 'residential':
+        return <Home className="h-4 w-4" />;
+      default:
+        return <Wrench className="h-4 w-4" />;
+    }
+  };
+
   return (
     <AdminLayout>
-      {/* Mobile-first padding and spacing */}
-      <div className="space-y-4 sm:space-y-6 px-2 sm:px-0">
-        
-        {/* Header Section - Fully Responsive */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
-          <div className="space-y-1.5">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
-              Appliances Management
-            </h1>
-            <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl">
-              Track appliances, warranties, and assignments by location.
-            </p>
-          </div>
+      <motion.div 
+        className="space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0 pb-6"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        {/* Page Header with animated gradient */}
+        <motion.div 
+          className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-4 sm:p-6"
+          variants={itemVariants}
+          whileHover={{ scale: 1.01 }}
+          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+        >
+          <div className="absolute inset-0 bg-grid-white/10 [mask-image:radial-gradient(ellipse_at_center,white,transparent)]" />
+          <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
+            <div className="space-y-1.5 sm:space-y-2">
+              <div className="flex items-center gap-2">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                >
+                  <Wrench className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                </motion.div>
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                  Appliances Management
+                </h1>
+              </div>
+              <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl">
+                Track appliances, warranties, and assignments by location with beautiful animations.
+              </p>
+            </div>
 
-          {/* Add Button Dialog */}
-          <Dialog open={addOpen} onOpenChange={setAddOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-accent hover:bg-accent/90 text-accent-foreground w-full sm:w-auto mt-2 sm:mt-0">
-                <Plus className="h-4 w-4 mr-2 flex-shrink-0" />
-                <span className="sm:hidden">Add</span>
-                <span className="hidden sm:inline">Add Appliance</span>
-              </Button>
-            </DialogTrigger>
-            
-            {/* Add Dialog - Responsive */}
-            <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6">
-              <DialogHeader className="space-y-1.5 sm:space-y-2">
-                <DialogTitle className="text-lg sm:text-xl">Add Appliance</DialogTitle>
-                <DialogDescription className="text-xs sm:text-sm">
-                  Create a new appliance record
-                </DialogDescription>
-              </DialogHeader>
+            {/* Add Button Dialog */}
+            <Dialog open={addOpen} onOpenChange={setAddOpen}>
+              <DialogTrigger asChild>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Button className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-white w-full sm:w-auto mt-2 sm:mt-0 shadow-lg hover:shadow-xl transition-all duration-300">
+                    <Plus className="h-4 w-4 mr-2 flex-shrink-0" />
+                    <span className="sm:hidden">Add</span>
+                    <span className="hidden sm:inline">Add Appliance</span>
+                  </Button>
+                </motion.div>
+              </DialogTrigger>
               
-              <form className="space-y-4 sm:space-y-5">
-                {/* Name & Location - Stack on mobile, row on tablet+ */}
-                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                  <div className="flex-1 min-w-0">
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Name *</label>
-                    <input
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
-                      placeholder="HVAC Unit - Floor 2"
-                      required
-                    />
+              {/* Add Dialog - Responsive */}
+              <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6">
+                <DialogHeader className="space-y-1.5 sm:space-y-2">
+                  <DialogTitle className="text-lg sm:text-xl bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                    Add Appliance
+                  </DialogTitle>
+                  <DialogDescription className="text-xs sm:text-sm">
+                    Create a new appliance record
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <motion.form 
+                  className="space-y-4 sm:space-y-5"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                >
+                  {/* Name & Location - Stack on mobile, row on tablet+ */}
+                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                    <div className="flex-1 min-w-0">
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Name *</label>
+                      <input
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                        placeholder="HVAC Unit - Floor 2"
+                        required
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Location *</label>
+                      <input
+                        value={formData.location}
+                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                        placeholder="Building A - Corporate Office"
+                        required
+                      />
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Location *</label>
-                    <input
-                      value={formData.location}
-                      onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
-                      placeholder="Building A - Corporate Office"
-                      required
-                    />
-                  </div>
-                </div>
 
-                {/* Assigned To */}
-                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                  <div className="flex-1 min-w-0">
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Assigned To</label>
-                    <select
-                      value={formData.assignedTo}
-                      onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })}
-                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
-                    >
-                      <option value="">Select assignee</option>
-                      {employees.map((emp) => (
-                        <option key={emp.id} value={emp.name}>
-                          {emp.name}
-                        </option>
-                      ))}
-                    </select>
-                    {employees.length === 0 && (
-                      <p className="text-xs text-warning mt-1">No employees found.</p>
-                    )}
+                  {/* Assigned To */}
+                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                    <div className="flex-1 min-w-0">
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Assigned To</label>
+                      <select
+                        value={formData.assignedTo}
+                        onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })}
+                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                      >
+                        <option value="">Select assignee</option>
+                        {employees.map((emp) => (
+                          <option key={emp.id} value={emp.name}>
+                            {emp.name}
+                          </option>
+                        ))}
+                      </select>
+                      {employees.length === 0 && (
+                        <p className="text-xs text-warning mt-1">No employees found.</p>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                {/* Tag Photo File Upload */}
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">
-                    Tag Photo
-                  </label>
-                  <div
-                    className="w-full rounded-md border px-3 py-3 text-sm sm:text-base bg-muted/20 hover:bg-muted/30 transition-colors cursor-pointer"
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      const f = e.dataTransfer.files?.[0];
-                      if (f) {
-                        setTagPhotoFile(f);
-                        setFormData({ ...formData, tagPhotoFileName: f.name });
-                      }
-                    }}
-                    onClick={() => {
-                      const el = document.getElementById("appliance-tag-input") as HTMLInputElement | null;
-                      el?.click();
-                    }}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
+                  {/* Tag Photo File Upload */}
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">
+                      Tag Photo
+                    </label>
+                    <motion.div
+                      className="w-full rounded-lg border px-3 py-3 text-sm sm:text-base bg-gradient-to-br from-muted/20 to-muted/5 hover:from-muted/30 hover:to-muted/10 transition-all cursor-pointer"
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const f = e.dataTransfer.files?.[0];
+                        if (f) {
+                          setTagPhotoFile(f);
+                          setFormData({ ...formData, tagPhotoFileName: f.name });
+                        }
+                      }}
+                      onClick={() => {
                         const el = document.getElementById("appliance-tag-input") as HTMLInputElement | null;
                         el?.click();
-                      }
-                    }}
-                  >
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-xs sm:text-sm font-medium truncate">
-                          {tagPhotoFile ? tagPhotoFile.name : "Click to choose or drag & drop a file"}
-                        </p>
-                        <p className="text-[10px] sm:text-xs text-muted-foreground">
-                          Max 10MB
-                        </p>
-                      </div>
-                      <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    </div>
-                    <input
-                      id="appliance-tag-input"
-                      type="file"
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0] || null;
-                        setTagPhotoFile(f);
-                        setFormData({ ...formData, tagPhotoFileName: f?.name || "" });
                       }}
-                    />
-                  </div>
-                </div>
-
-                {/* Type, Purchase, Warranty - Stack on mobile, grid on tablet+ */}
-                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                  <div className="flex-1 min-w-0">
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Type</label>
-                    <select
-                      value={formData.type}
-                      onChange={(e) =>
-                        setFormData({ ...formData, type: e.target.value as Appliance["type"] })
-                      }
-                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          const el = document.getElementById("appliance-tag-input") as HTMLInputElement | null;
+                          el?.click();
+                        }
+                      }}
+                      whileHover={{ scale: 1.01 }}
+                      whileTap={{ scale: 0.99 }}
                     >
-                      <option value="commercial">Commercial</option>
-                      <option value="residential">Residential</option>
-                    </select>
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs sm:text-sm font-medium truncate">
+                            {tagPhotoFile ? tagPhotoFile.name : "Click to choose or drag & drop a file"}
+                          </p>
+                          <p className="text-[10px] sm:text-xs text-muted-foreground">
+                            Max 10MB
+                          </p>
+                        </div>
+                        <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                      </div>
+                      <input
+                        id="appliance-tag-input"
+                        type="file"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0] || null;
+                          setTagPhotoFile(f);
+                          setFormData({ ...formData, tagPhotoFileName: f?.name || "" });
+                        }}
+                      />
+                    </motion.div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Purchase Date</label>
-                    <input
-                      type="date"
-                      value={formData.purchaseDate}
-                      onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })}
-                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Warranty Until</label>
-                    <input
-                      type="date"
-                      value={formData.warrantyUntil}
-                      onChange={(e) => setFormData({ ...formData, warrantyUntil: e.target.value })}
-                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
-                    />
-                  </div>
-                </div>
 
-                {/* Status */}
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                  <div className="w-full sm:w-1/2">
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Status</label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) =>
-                        setFormData({ ...formData, status: e.target.value as Appliance["status"] })
-                      }
-                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
-                    >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                    </select>
+                  {/* Type, Purchase, Warranty - Stack on mobile, grid on tablet+ */}
+                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                    <div className="flex-1 min-w-0">
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Type</label>
+                      <select
+                        value={formData.type}
+                        onChange={(e) =>
+                          setFormData({ ...formData, type: e.target.value as Appliance["type"] })
+                        }
+                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                      >
+                        <option value="commercial">Commercial</option>
+                        <option value="residential">Residential</option>
+                      </select>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Purchase Date</label>
+                      <input
+                        type="date"
+                        value={formData.purchaseDate}
+                        onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })}
+                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Warranty Until</label>
+                      <input
+                        type="date"
+                        value={formData.warrantyUntil}
+                        onChange={(e) => setFormData({ ...formData, warrantyUntil: e.target.value })}
+                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                      />
+                    </div>
                   </div>
-                </div>
-              </form>
-              
-              <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-                <Button 
-                  variant="outline" 
-                  onClick={() => setAddOpen(false)}
-                  className="w-full sm:w-auto order-2 sm:order-1"
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={handleAdd} 
-                  className="bg-accent hover:bg-accent/90 text-accent-foreground w-full sm:w-auto order-1 sm:order-2"
-                >
-                  <Plus className="h-4 w-4 mr-2 flex-shrink-0" />
-                  Add Appliance
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        </div>
+
+                  {/* Status */}
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                    <div className="w-full sm:w-1/2">
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Status</label>
+                      <select
+                        value={formData.status}
+                        onChange={(e) =>
+                          setFormData({ ...formData, status: e.target.value as Appliance["status"] })
+                        }
+                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                      >
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                      </select>
+                    </div>
+                  </div>
+                </motion.form>
+                
+                <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="w-full sm:w-auto"
+                  >
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setAddOpen(false)}
+                      className="w-full sm:w-auto order-2 sm:order-1"
+                    >
+                      Cancel
+                    </Button>
+                  </motion.div>
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="w-full sm:w-auto"
+                  >
+                    <Button 
+                      onClick={handleAdd} 
+                      className="bg-gradient-to-r from-primary to-primary/80 text-white w-full sm:w-auto order-1 sm:order-2 shadow-lg hover:shadow-xl transition-all duration-300"
+                    >
+                      <Plus className="h-4 w-4 mr-2 flex-shrink-0" />
+                      Add Appliance
+                    </Button>
+                  </motion.div>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </motion.div>
+
+        {/* Appliance Summary Cards - Animated */}
+        <motion.div 
+          className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4"
+          variants={containerVariants}
+        >
+          {[
+            { label: "Total Appliances", value: appliancesList.length, icon: Wrench, color: "primary" },
+            { label: "Commercial", value: appliancesList.filter(a => a.type === "commercial").length, icon: Building2, color: "[#3b82f6]" },
+            { label: "Residential", value: appliancesList.filter(a => a.type === "residential").length, icon: Home, color: "[#22c55e]" },
+            { label: "Active", value: appliancesList.filter(a => a.status === "active").length, icon: Power, color: "success" },
+          ].map((item, index) => (
+            <motion.div
+              key={item.label}
+              variants={itemVariants}
+              whileHover="hover"
+              whileTap={{ scale: 0.98 }}
+            >
+              <Card className={`shadow-lg border-0 bg-gradient-to-br from-${item.color}/10 to-${item.color}/5 backdrop-blur-sm overflow-hidden`}>
+                <CardContent className="p-3 sm:p-4">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <motion.div 
+                      className={`h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-${item.color}/10 flex items-center justify-center flex-shrink-0`}
+                      whileHover={{ rotate: 10 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 10 }}
+                    >
+                      <item.icon className={`h-4 w-4 sm:h-5 sm:w-5 text-${item.color}`} />
+                    </motion.div>
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm text-muted-foreground truncate">{item.label}</p>
+                      <p className="text-lg sm:text-xl font-bold">{item.value}</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </motion.div>
 
         {/* Search Card */}
-        <Card className="shadow-soft border-0 sm:border">
-          <CardContent className="p-3 sm:p-6">
-            <div className="relative w-full sm:max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search appliances..."
-                className="pl-8 sm:pl-10 h-9 sm:h-10 text-sm sm:text-base"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-          </CardContent>
-        </Card>
+        <motion.div variants={itemVariants}>
+          <Card className="shadow-lg border-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
+            <CardContent className="p-3 sm:p-6">
+              <div className="relative w-full sm:max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name, location, or assignee..."
+                  className="pl-8 sm:pl-10 h-9 sm:h-10 text-sm sm:text-base rounded-lg border-0 bg-muted/50 focus:ring-2 focus:ring-primary/20 transition-all"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
 
         {/* Appliances Table Card */}
-        <Card className="shadow-soft border-0 sm:border">
-          <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
-            <CardTitle className="text-base sm:text-lg md:text-xl font-semibold">
-              Appliances ({filtered.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0 sm:p-6">
-            {/* Mobile View - Cards */}
-            <div className="block sm:hidden space-y-3 p-4">
-              {filtered.map((a) => (
-                <div key={a.id} className="bg-white rounded-lg border p-4 space-y-3">
-                  {/* Header with Icon and Name */}
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                        <Wrench className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-sm truncate">{a.name}</p>
-                        <p className="text-xs text-muted-foreground">{a.id}</p>
-                      </div>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onView(a)}>
-                          <Eye className="mr-2 h-4 w-4" />
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onEdit(a)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => onDeactivate(a)}
-                          className="text-destructive"
-                        >
-                          <Power className="mr-2 h-4 w-4" />
-                          {a.status === "inactive" ? "Activate" : "Deactivate"}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => onDelete(a)}
-                          className="text-destructive"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-
-                  {/* Details Grid */}
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <p className="text-xs text-muted-foreground">Type</p>
-                      <Badge className={`${typeClasses[a.type]} mt-1`} variant="secondary">
-                        {a.type}
-                      </Badge>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Status</p>
-                      <Badge className={`${statusClasses[a.status]} mt-1`} variant="secondary">
-                        {a.status}
-                      </Badge>
-                    </div>
-                    <div className="col-span-2">
-                      <p className="text-xs text-muted-foreground">Location</p>
-                      <p className="text-sm mt-1 truncate">{a.location}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-muted-foreground">Warranty</p>
-                      <p className="text-sm mt-1">{a.warrantyUntil || "—"}</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              
-              {filtered.length === 0 && (
-                <div className="text-center py-8">
-                  <p className="text-sm text-muted-foreground">No appliances found</p>
-                </div>
-              )}
-            </div>
-
-            {/* Tablet/Desktop View - Table */}
-            <div className="hidden sm:block w-full overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs md:text-sm">Appliance</TableHead>
-                    <TableHead className="text-xs md:text-sm">Type</TableHead>
-                    <TableHead className="text-xs md:text-sm">Location</TableHead>
-                    <TableHead className="text-xs md:text-sm">Warranty</TableHead>
-                    <TableHead className="text-xs md:text-sm">Status</TableHead>
-                    <TableHead className="text-right text-xs md:text-sm">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((a) => (
-                    <TableRow key={a.id} className="hover:bg-muted/30">
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="h-9 w-9 md:h-10 md:w-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                            <Wrench className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="font-medium text-sm md:text-base truncate max-w-[200px] lg:max-w-none">
+        <motion.div variants={itemVariants}>
+          <Card className="shadow-xl border-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm overflow-hidden">
+            <CardHeader className="px-4 sm:px-6 py-4 sm:py-5 border-b bg-muted/20">
+              <CardTitle className="text-base sm:text-lg md:text-xl font-semibold flex items-center gap-2">
+                <Wrench className="h-5 w-5 text-primary" />
+                Appliances
+                {filtered.length > 0 && (
+                  <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary">
+                    {filtered.length} total
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 sm:p-6">
+              {/* Mobile View - Cards */}
+              <div className="block sm:hidden space-y-3 p-4">
+                <AnimatePresence>
+                  {filtered.map((a, index) => (
+                    <motion.div
+                      key={a.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ delay: index * 0.05 }}
+                      whileHover={{ scale: 1.02, x: 5 }}
+                      onHoverStart={() => setHoveredAppliance(a.id)}
+                      onHoverEnd={() => setHoveredAppliance(null)}
+                      className="bg-gradient-to-br from-card to-card/50 rounded-xl border p-4 space-y-3 shadow-lg hover:shadow-xl transition-all duration-300"
+                    >
+                      {/* Header with Icon and Name */}
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <motion.div
+                            whileHover={{ scale: 1.1, rotate: 5 }}
+                            transition={{ type: "spring", stiffness: 300, damping: 10 }}
+                          >
+                            <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center flex-shrink-0 ring-2 ring-primary/20">
+                              <Wrench className="h-5 w-5 text-primary" />
+                            </div>
+                          </motion.div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-sm truncate flex items-center gap-2">
                               {a.name}
+                              {hoveredAppliance === a.id && (
+                                <motion.span
+                                  initial={{ scale: 0 }}
+                                  animate={{ scale: 1 }}
+                                  className="inline-block w-1.5 h-1.5 bg-primary rounded-full"
+                                />
+                              )}
                             </p>
                             <p className="text-xs text-muted-foreground">{a.id}</p>
                           </div>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={`${typeClasses[a.type]} text-xs md:text-sm`} variant="secondary">
-                          {a.type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="max-w-[150px] lg:max-w-none">
-                        <p className="text-sm md:text-base truncate">{a.location}</p>
-                      </TableCell>
-                      <TableCell className="text-sm md:text-base text-muted-foreground">
-                        {a.warrantyUntil || "—"}
-                      </TableCell>
-                      <TableCell>
-                        <Badge className={`${statusClasses[a.status]} text-xs md:text-sm`} variant="secondary">
-                          {a.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
+                            <motion.div
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                            >
+                              <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </motion.div>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => onView(a)}>
@@ -695,97 +774,352 @@ export default function Appliances() {
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                      </div>
 
-      {/* View Details Dialog - Responsive */}
+                      {/* Details Grid */}
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <motion.div whileHover={{ x: 5 }}>
+                          <p className="text-xs text-muted-foreground">Type</p>
+                          <Badge className={`${typeClasses[a.type]} mt-1 flex items-center gap-1 w-fit`} variant="secondary">
+                            {getTypeIcon(a.type)}
+                            {a.type}
+                          </Badge>
+                        </motion.div>
+                        <motion.div whileHover={{ x: 5 }}>
+                          <p className="text-xs text-muted-foreground">Status</p>
+                          <Badge className={`${statusClasses[a.status]} mt-1 flex items-center gap-1 w-fit`} variant="secondary">
+                            {a.status === "active" ? <Power className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
+                            {a.status}
+                          </Badge>
+                        </motion.div>
+                        <motion.div className="col-span-2" whileHover={{ x: 5 }}>
+                          <p className="text-xs text-muted-foreground">Location</p>
+                          <p className="text-sm mt-1 truncate">{a.location}</p>
+                        </motion.div>
+                        {a.assignedTo && (
+                          <motion.div className="col-span-2" whileHover={{ x: 5 }}>
+                            <p className="text-xs text-muted-foreground">Assigned To</p>
+                            <div className="flex items-center gap-1 mt-1">
+                              <User className="h-3 w-3 text-muted-foreground" />
+                              <p className="text-sm">{a.assignedTo}</p>
+                            </div>
+                          </motion.div>
+                        )}
+                        <motion.div whileHover={{ x: 5 }}>
+                          <p className="text-xs text-muted-foreground">Warranty</p>
+                          <div className="flex items-center gap-1 mt-1">
+                            <Calendar className="h-3 w-3 text-muted-foreground" />
+                            <p className="text-sm">{a.warrantyUntil || "—"}</p>
+                          </div>
+                        </motion.div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+                
+                {filtered.length === 0 && (
+                  <motion.div 
+                    className="text-center py-8"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                  >
+                    <div className="flex justify-center mb-3">
+                      <motion.div 
+                        className="h-12 w-12 rounded-full bg-muted flex items-center justify-center"
+                        animate={{ scale: [1, 1.1, 1] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      >
+                        <Wrench className="h-6 w-6 text-muted-foreground" />
+                      </motion.div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">No appliances found</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Try adjusting your search or add a new appliance
+                    </p>
+                  </motion.div>
+                )}
+              </div>
+
+              {/* Tablet/Desktop View - Table */}
+              <div className="hidden sm:block w-full overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/30">
+                      <TableHead className="text-xs md:text-sm">Appliance</TableHead>
+                      <TableHead className="text-xs md:text-sm">Type</TableHead>
+                      <TableHead className="text-xs md:text-sm">Location</TableHead>
+                      <TableHead className="text-xs md:text-sm">Assigned To</TableHead>
+                      <TableHead className="text-xs md:text-sm">Warranty</TableHead>
+                      <TableHead className="text-xs md:text-sm">Status</TableHead>
+                      <TableHead className="text-right text-xs md:text-sm">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    <AnimatePresence>
+                      {filtered.map((a, index) => (
+                        <motion.tr
+                          key={a.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -20 }}
+                          transition={{ delay: index * 0.05 }}
+                          whileHover={{ 
+                            scale: 1.01,
+                            backgroundColor: "rgba(59, 130, 246, 0.05)",
+                            boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+                          }}
+                          onHoverStart={() => setHoveredAppliance(a.id)}
+                          onHoverEnd={() => setHoveredAppliance(null)}
+                          className="cursor-pointer transition-all duration-300"
+                        >
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <motion.div
+                                whileHover={{ scale: 1.1, rotate: 5 }}
+                                transition={{ type: "spring", stiffness: 300, damping: 10 }}
+                              >
+                                <div className="h-9 w-9 md:h-10 md:w-10 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center flex-shrink-0 ring-2 ring-primary/20">
+                                  <Wrench className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+                                </div>
+                              </motion.div>
+                              <div className="min-w-0">
+                                <p className="font-medium text-sm md:text-base truncate max-w-[200px] lg:max-w-[250px] flex items-center gap-2">
+                                  {a.name}
+                                  {hoveredAppliance === a.id && (
+                                    <motion.span
+                                      initial={{ scale: 0 }}
+                                      animate={{ scale: 1 }}
+                                      className="inline-block w-1.5 h-1.5 bg-primary rounded-full"
+                                    />
+                                  )}
+                                </p>
+                                <p className="text-xs text-muted-foreground">{a.id}</p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <motion.div
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.95 }}
+                            >
+                              <Badge className={`${typeClasses[a.type]} text-xs md:text-sm flex items-center gap-1 w-fit`} variant="secondary">
+                                {getTypeIcon(a.type)}
+                                {a.type}
+                              </Badge>
+                            </motion.div>
+                          </TableCell>
+                          <TableCell className="max-w-[150px] lg:max-w-[200px]">
+                            <p className="text-sm md:text-base truncate">{a.location}</p>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <User className="h-3 w-3 text-muted-foreground" />
+                              <p className="text-sm md:text-base truncate max-w-[100px]">
+                                {a.assignedTo || "—"}
+                              </p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3 text-muted-foreground" />
+                              <p className="text-sm md:text-base">{a.warrantyUntil || "—"}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <motion.div
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.95 }}
+                            >
+                              <Badge className={`${statusClasses[a.status]} text-xs md:text-sm flex items-center gap-1 w-fit`} variant="secondary">
+                                {a.status === "active" ? <Power className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
+                                {a.status}
+                              </Badge>
+                            </motion.div>
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <motion.div
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.9 }}
+                                >
+                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </motion.div>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => onView(a)}>
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  View Details
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => onEdit(a)}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => onDeactivate(a)}
+                                  className="text-destructive"
+                                >
+                                  <Power className="mr-2 h-4 w-4" />
+                                  {a.status === "inactive" ? "Activate" : "Deactivate"}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => onDelete(a)}
+                                  className="text-destructive"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </motion.tr>
+                      ))}
+                    </AnimatePresence>
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </motion.div>
+
+      {/* View Details Dialog - Animated */}
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
         <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6">
           <DialogHeader className="space-y-1.5 sm:space-y-2">
-            <DialogTitle className="text-lg sm:text-xl">Appliance Details</DialogTitle>
+            <DialogTitle className="text-lg sm:text-xl bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              Appliance Details
+            </DialogTitle>
           </DialogHeader>
           {selected && (
-            <div className="space-y-4 sm:space-y-5">
+            <motion.div 
+              className="space-y-4 sm:space-y-5"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
               <div className="border-b pb-3 sm:pb-4">
                 <p className="text-xs sm:text-sm text-muted-foreground">{selected.id}</p>
                 <p className="text-lg sm:text-xl font-semibold break-words">{selected.name}</p>
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-                <div className="space-y-1.5">
+                <motion.div 
+                  className="space-y-1.5"
+                  whileHover={{ x: 5 }}
+                >
                   <label className="text-xs sm:text-sm font-medium">Type</label>
                   <div>
-                    <Badge className={`${typeClasses[selected.type]} text-xs sm:text-sm`} variant="secondary">
+                    <Badge className={`${typeClasses[selected.type]} text-xs sm:text-sm flex items-center gap-1 w-fit`} variant="secondary">
+                      {getTypeIcon(selected.type)}
                       {selected.type}
                     </Badge>
                   </div>
-                </div>
+                </motion.div>
                 
-                <div className="space-y-1.5">
+                <motion.div 
+                  className="space-y-1.5"
+                  whileHover={{ x: 5 }}
+                >
                   <label className="text-xs sm:text-sm font-medium">Status</label>
                   <div>
-                    <Badge className={`${statusClasses[selected.status]} text-xs sm:text-sm`} variant="secondary">
+                    <Badge className={`${statusClasses[selected.status]} text-xs sm:text-sm flex items-center gap-1 w-fit`} variant="secondary">
+                      {selected.status === "active" ? <Power className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
                       {selected.status}
                     </Badge>
                   </div>
-                </div>
+                </motion.div>
                 
-                <div className="sm:col-span-2 space-y-1.5">
+                <motion.div 
+                  className="sm:col-span-2 space-y-1.5"
+                  whileHover={{ x: 5 }}
+                >
                   <label className="text-xs sm:text-sm font-medium">Location</label>
-                  <p className="text-sm sm:text-base text-muted-foreground break-words">
+                  <p className="text-sm sm:text-base text-muted-foreground break-words bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg">
                     {selected.location}
                   </p>
-                </div>
+                </motion.div>
+
+                {selected.assignedTo && (
+                  <motion.div 
+                    className="sm:col-span-2 space-y-1.5"
+                    whileHover={{ x: 5 }}
+                  >
+                    <label className="text-xs sm:text-sm font-medium">Assigned To</label>
+                    <div className="flex items-center gap-2 text-sm sm:text-base text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg">
+                      <User className="h-4 w-4" />
+                      <span>{selected.assignedTo}</span>
+                    </div>
+                  </motion.div>
+                )}
                 
-                <div className="space-y-1.5">
+                <motion.div 
+                  className="space-y-1.5"
+                  whileHover={{ x: 5 }}
+                >
                   <label className="text-xs sm:text-sm font-medium">Purchase Date</label>
-                  <p className="text-sm sm:text-base text-muted-foreground">
-                    {selected.purchaseDate || "—"}
-                  </p>
-                </div>
+                  <div className="flex items-center gap-2 text-sm sm:text-base text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    <span>{selected.purchaseDate || "—"}</span>
+                  </div>
+                </motion.div>
                 
-                <div className="space-y-1.5">
+                <motion.div 
+                  className="space-y-1.5"
+                  whileHover={{ x: 5 }}
+                >
                   <label className="text-xs sm:text-sm font-medium">Warranty Until</label>
-                  <p className="text-sm sm:text-base text-muted-foreground">
-                    {selected.warrantyUntil || "—"}
-                  </p>
-                </div>
+                  <div className="flex items-center gap-2 text-sm sm:text-base text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    <span>{selected.warrantyUntil || "—"}</span>
+                  </div>
+                </motion.div>
                 
-                <div className="sm:col-span-2 space-y-1.5">
-                  <label className="text-xs sm:text-sm font-medium">Tag Photo (File)</label>
-                  <p className="text-sm sm:text-base text-muted-foreground break-words">
+                <motion.div 
+                  className="sm:col-span-2 space-y-1.5"
+                  whileHover={{ x: 5 }}
+                >
+                  <label className="text-xs sm:text-sm font-medium">Tag Photo</label>
+                  <p className="text-sm sm:text-base text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg break-words">
                     {selected.tagPhotoFileName ? selected.tagPhotoFileName : "—"}
                   </p>
-                </div>
+                </motion.div>
               </div>
-            </div>
+            </motion.div>
           )}
           <DialogFooter className="mt-4 sm:mt-6">
-            <Button onClick={() => setViewOpen(false)} className="w-full sm:w-auto">
-              Close
-            </Button>
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Button onClick={() => setViewOpen(false)} className="w-full sm:w-auto">
+                Close
+              </Button>
+            </motion.div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Edit Dialog - Responsive */}
+      {/* Edit Dialog - Animated */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6">
           <DialogHeader className="space-y-1.5 sm:space-y-2">
-            <DialogTitle className="text-lg sm:text-xl">Edit Appliance</DialogTitle>
+            <DialogTitle className="text-lg sm:text-xl bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              Edit Appliance
+            </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">
               Update appliance information and save changes
             </DialogDescription>
           </DialogHeader>
           {selected && (
-            <form className="space-y-4 sm:space-y-5">
+            <motion.form 
+              className="space-y-4 sm:space-y-5"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
               {/* Name & Location */}
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <div className="flex-1 min-w-0">
@@ -793,7 +1127,7 @@ export default function Appliances() {
                   <input
                     value={editFormData.name}
                     onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
                     required
                   />
                 </div>
@@ -802,7 +1136,7 @@ export default function Appliances() {
                   <input
                     value={editFormData.location}
                     onChange={(e) => setEditFormData({ ...editFormData, location: e.target.value })}
-                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
                     required
                   />
                 </div>
@@ -818,7 +1152,7 @@ export default function Appliances() {
                   onChange={(e) =>
                     setEditFormData({ ...editFormData, tagPhotoFileName: e.target.value })
                   }
-                  className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                  className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
                 />
               </div>
 
@@ -829,7 +1163,7 @@ export default function Appliances() {
                   <select
                     value={editFormData.assignedTo}
                     onChange={(e) => setEditFormData({ ...editFormData, assignedTo: e.target.value })}
-                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
                   >
                     <option value="">Select assignee</option>
                     {employees.map((emp) => (
@@ -850,7 +1184,7 @@ export default function Appliances() {
                     onChange={(e) =>
                       setEditFormData({ ...editFormData, type: e.target.value as Appliance["type"] })
                     }
-                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
                   >
                     <option value="commercial">Commercial</option>
                     <option value="residential">Residential</option>
@@ -862,7 +1196,7 @@ export default function Appliances() {
                     type="date"
                     value={editFormData.purchaseDate}
                     onChange={(e) => setEditFormData({ ...editFormData, purchaseDate: e.target.value })}
-                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
                   />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -871,7 +1205,7 @@ export default function Appliances() {
                     type="date"
                     value={editFormData.warrantyUntil}
                     onChange={(e) => setEditFormData({ ...editFormData, warrantyUntil: e.target.value })}
-                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
                   />
                 </div>
               </div>
@@ -885,38 +1219,50 @@ export default function Appliances() {
                     onChange={(e) =>
                       setEditFormData({ ...editFormData, status: e.target.value as Appliance["status"] })
                     }
-                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
                   >
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                   </select>
                 </div>
               </div>
-            </form>
+            </motion.form>
           )}
           <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-            <Button 
-              variant="outline" 
-              onClick={() => setEditOpen(false)}
-              className="w-full sm:w-auto order-2 sm:order-1"
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="w-full sm:w-auto"
             >
-              Cancel
-            </Button>
-            <Button 
-              onClick={onSaveEdit} 
-              className="bg-accent hover:bg-accent/90 text-accent-foreground w-full sm:w-auto order-1 sm:order-2"
+              <Button 
+                variant="outline" 
+                onClick={() => setEditOpen(false)}
+                className="w-full sm:w-auto order-2 sm:order-1"
+              >
+                Cancel
+              </Button>
+            </motion.div>
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="w-full sm:w-auto"
             >
-              Save Changes
-            </Button>
+              <Button 
+                onClick={onSaveEdit} 
+                className="bg-gradient-to-r from-primary to-primary/80 text-white w-full sm:w-auto order-1 sm:order-2 shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                Save Changes
+              </Button>
+            </motion.div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Deactivate/Activate Dialog - Responsive */}
+      {/* Deactivate/Activate Dialog - Animated */}
       <Dialog open={deactivateOpen} onOpenChange={setDeactivateOpen}>
         <DialogContent className="w-[95vw] max-w-md mx-auto p-4 sm:p-6">
           <DialogHeader className="space-y-1.5 sm:space-y-2">
-            <DialogTitle className="text-base sm:text-lg text-destructive">
+            <DialogTitle className={`text-base sm:text-lg ${selected?.status === "inactive" ? "text-primary" : "text-destructive"}`}>
               {selected?.status === "inactive" ? "Activate Appliance" : "Deactivate Appliance"}
             </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">
@@ -927,31 +1273,53 @@ export default function Appliances() {
           </DialogHeader>
           
           {selected && (
-            <div className="rounded-md bg-muted p-3 sm:p-4 text-xs sm:text-sm mt-2">
+            <motion.div 
+              className="rounded-lg bg-gradient-to-br from-muted/30 to-muted/10 p-3 sm:p-4 text-xs sm:text-sm mt-2"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
               <p className="font-medium break-words">{selected.name}</p>
               <p className="text-muted-foreground text-xs sm:text-sm break-words">{selected.id}</p>
-            </div>
+            </motion.div>
           )}
           
           <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-            <Button 
-              variant="outline" 
-              onClick={() => setDeactivateOpen(false)}
-              className="w-full sm:w-auto order-2 sm:order-1"
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="w-full sm:w-auto"
             >
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive" 
-              onClick={confirmToggle}
-              className="w-full sm:w-auto order-1 sm:order-2"
+              <Button 
+                variant="outline" 
+                onClick={() => setDeactivateOpen(false)}
+                className="w-full sm:w-auto order-2 sm:order-1"
+              >
+                Cancel
+              </Button>
+            </motion.div>
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="w-full sm:w-auto"
             >
-              {selected?.status === "inactive" ? "Activate" : "Deactivate"}
-            </Button>
+              <Button 
+                variant={selected?.status === "inactive" ? "default" : "destructive"}
+                onClick={confirmToggle}
+                className={`w-full sm:w-auto order-1 sm:order-2 ${
+                  selected?.status === "inactive" 
+                    ? "bg-gradient-to-r from-primary to-primary/80 text-white shadow-lg hover:shadow-xl" 
+                    : ""
+                }`}
+              >
+                {selected?.status === "inactive" ? "Activate" : "Deactivate"}
+              </Button>
+            </motion.div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {/* Delete Confirm Dialog - Responsive */}
+
+      {/* Delete Confirm Dialog - Animated */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="w-[95vw] max-w-md mx-auto p-4 sm:p-6">
           <DialogHeader className="space-y-1.5 sm:space-y-2">
@@ -964,30 +1332,54 @@ export default function Appliances() {
           </DialogHeader>
           
           {selected && (
-            <div className="rounded-md bg-muted p-3 sm:p-4 text-xs sm:text-sm mt-2">
+            <motion.div 
+              className="rounded-lg bg-gradient-to-br from-destructive/10 to-destructive/5 p-3 sm:p-4 text-xs sm:text-sm mt-2"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
               <p className="font-medium break-words">{selected.name}</p>
               <p className="text-muted-foreground text-xs sm:text-sm break-words">{selected.id}</p>
-            </div>
+            </motion.div>
           )}
           
           <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-            <Button 
-              variant="outline" 
-              onClick={() => setDeleteOpen(false)}
-              className="w-full sm:w-auto order-2 sm:order-1"
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="w-full sm:w-auto"
             >
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive" 
-              onClick={confirmDelete}
-              className="w-full sm:w-auto order-1 sm:order-2"
+              <Button 
+                variant="outline" 
+                onClick={() => setDeleteOpen(false)}
+                className="w-full sm:w-auto order-2 sm:order-1"
+              >
+                Cancel
+              </Button>
+            </motion.div>
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="w-full sm:w-auto"
             >
-              Delete
-            </Button>
+              <Button 
+                variant="destructive" 
+                onClick={confirmDelete}
+                className="w-full sm:w-auto order-1 sm:order-2"
+              >
+                Delete
+              </Button>
+            </motion.div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Add global styles for grid pattern */}
+      <style jsx global>{`
+        .bg-grid-white {
+          background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgb(255 255 255 / 0.05)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
+        }
+      `}</style>
     </AdminLayout>
   );
 }

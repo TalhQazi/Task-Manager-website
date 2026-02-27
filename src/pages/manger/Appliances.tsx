@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
 import { Badge } from "@/components/manger/ui/badge";
@@ -59,7 +60,7 @@ import {
   List,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
-import { apiFetch } from "@/lib/manger/api";
+import { apiFetch } from "@/lib/admin/apiClient";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface Appliance {
@@ -117,6 +118,100 @@ const createApplianceSchema = z.object({
 
 type CreateApplianceValues = z.infer<typeof createApplianceSchema>;
 
+// Animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.2,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      type: "spring",
+      stiffness: 300,
+      damping: 24,
+    },
+  },
+};
+
+const tableRowVariants = {
+  hidden: { opacity: 0, x: -20 },
+  visible: (i: number) => ({
+    opacity: 1,
+    x: 0,
+    transition: {
+      delay: i * 0.05,
+      type: "spring",
+      stiffness: 400,
+      damping: 30,
+    },
+  }),
+  exit: {
+    opacity: 0,
+    x: 20,
+    transition: { duration: 0.2 },
+  },
+};
+
+const cardVariants = {
+  hidden: { opacity: 0, scale: 0.9 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    transition: {
+      type: "spring",
+      stiffness: 400,
+      damping: 30,
+    },
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.9,
+    transition: { duration: 0.2 },
+  },
+  hover: {
+    scale: 1.02,
+    transition: { type: "spring", stiffness: 400, damping: 30 },
+  },
+};
+
+const filterBarVariants = {
+  hidden: { opacity: 0, y: -20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: "spring",
+      stiffness: 500,
+      damping: 30,
+      delay: 0.1,
+    },
+  },
+};
+
+const statsVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: "spring",
+      stiffness: 500,
+      damping: 30,
+      delay: 0.3,
+    },
+  },
+};
+
 export default function Appliances() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -126,7 +221,7 @@ export default function Appliances() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedAppliance, setSelectedAppliance] = useState<Appliance | null>(null);
-  const [viewMode, setViewMode] = useState<"table" | "grid">("table"); // Responsive view toggle
+  const [viewMode, setViewMode] = useState<"table" | "grid">("table");
   const queryClient = useQueryClient();
 
   const appliancesQuery = useQuery({
@@ -337,27 +432,53 @@ export default function Appliances() {
   );
 
   return (
-    <div className="space-y-4 sm:space-y-6 px-2 sm:px-4 md:px-6">
+    <motion.div
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+      className="space-y-4 sm:space-y-6 px-2 sm:px-4 md:px-6"
+    >
       {/* Header - Responsive */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="page-header mb-0">
-          <h1 className="page-title text-xl sm:text-2xl md:text-3xl">Appliances Management</h1>
-          <p className="page-subtitle text-sm sm:text-base text-muted-foreground">
+          <motion.h1 
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="page-title text-xl sm:text-2xl md:text-3xl"
+          >
+            Appliances Management
+          </motion.h1>
+          <motion.p 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            className="page-subtitle text-sm sm:text-base text-muted-foreground"
+          >
             Track equipment and appliance inventory
-          </p>
+          </motion.p>
         </div>
-        <Button 
-          className="gap-2 w-full sm:w-auto" 
-          onClick={() => setIsCreateOpen(true)}
+        <motion.div
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
         >
-          <Plus className="w-4 h-4" />
-          <span className="sm:inline">Add Appliance</span>
-        </Button>
-      </div>
+          <Button 
+            className="gap-2 w-full sm:w-auto" 
+            onClick={() => setIsCreateOpen(true)}
+          >
+            <Plus className="w-4 h-4" />
+            <span className="sm:inline">Add Appliance</span>
+          </Button>
+        </motion.div>
+      </motion.div>
 
       {/* Filters - Responsive */}
-      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-        <div className="relative flex-1">
+      <motion.div variants={filterBarVariants} className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+        <motion.div 
+          className="relative flex-1"
+          whileHover={{ scale: 1.01 }}
+          transition={{ type: "spring", stiffness: 400, damping: 30 }}
+        >
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Search by name or serial number..."
@@ -365,78 +486,139 @@ export default function Appliances() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
-        </div>
+        </motion.div>
         
         {/* Filter Buttons - Horizontal scroll on mobile */}
-        <div className="flex gap-2 sm:gap-3 overflow-x-auto pb-2 sm:pb-0 -mx-2 px-2 sm:mx-0 sm:px-0">
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-[130px] sm:w-[150px]">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              {categories.map((cat) => (
-                <SelectItem key={cat} value={cat}>
-                  {cat}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <motion.div 
+          className="flex gap-2 sm:gap-3 overflow-x-auto pb-2 sm:pb-0 -mx-2 px-2 sm:mx-0 sm:px-0"
+          variants={{
+            hidden: { opacity: 0 },
+            visible: {
+              opacity: 1,
+              transition: { staggerChildren: 0.1, delayChildren: 0.2 }
+            }
+          }}
+        >
+          <motion.div variants={itemVariants}>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-[130px] sm:w-[150px]">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {categories.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </motion.div>
           
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px] sm:w-[160px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="operational">Operational</SelectItem>
-              <SelectItem value="needs-repair">Needs Repair</SelectItem>
-              <SelectItem value="out-of-service">Out of Service</SelectItem>
-            </SelectContent>
-          </Select>
+          <motion.div variants={itemVariants}>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[140px] sm:w-[160px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="operational">Operational</SelectItem>
+                <SelectItem value="needs-repair">Needs Repair</SelectItem>
+                <SelectItem value="out-of-service">Out of Service</SelectItem>
+              </SelectContent>
+            </Select>
+          </motion.div>
 
           {/* View Toggle - Hidden on mobile, shown on tablet/desktop */}
-          <div className="hidden sm:flex border rounded-lg p-1">
-            <Button
-              variant={viewMode === "table" ? "secondary" : "ghost"}
-              size="sm"
-              className="px-2"
-              onClick={() => setViewMode("table")}
+          <motion.div 
+            variants={itemVariants}
+            className="hidden sm:flex border rounded-lg p-1"
+          >
+            <motion.div
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
             >
-              <List className="w-4 h-4" />
-            </Button>
-            <Button
-              variant={viewMode === "grid" ? "secondary" : "ghost"}
-              size="sm"
-              className="px-2"
-              onClick={() => setViewMode("grid")}
+              <Button
+                variant={viewMode === "table" ? "secondary" : "ghost"}
+                size="sm"
+                className="px-2"
+                onClick={() => setViewMode("table")}
+              >
+                <List className="w-4 h-4" />
+              </Button>
+            </motion.div>
+            <motion.div
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
             >
-              <Grid className="w-4 h-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
+              <Button
+                variant={viewMode === "grid" ? "secondary" : "ghost"}
+                size="sm"
+                className="px-2"
+                onClick={() => setViewMode("grid")}
+              >
+                <Grid className="w-4 h-4" />
+              </Button>
+            </motion.div>
+          </motion.div>
+        </motion.div>
+      </motion.div>
 
       {/* Responsive Content - Table for desktop, Cards for mobile */}
-      <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
+      <motion.div 
+        variants={itemVariants}
+        className="bg-card rounded-xl border border-border shadow-card overflow-hidden"
+      >
         {appliancesQuery.isLoading ? (
-          <div className="p-4 sm:p-6 text-sm text-muted-foreground">Loading appliances...</div>
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="p-4 sm:p-6 text-sm text-muted-foreground"
+          >
+            Loading appliances...
+          </motion.div>
         ) : appliancesQuery.isError ? (
-          <div className="p-4 sm:p-6 text-sm text-destructive">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="p-4 sm:p-6 text-sm text-destructive"
+          >
             {appliancesQuery.error instanceof Error
               ? appliancesQuery.error.message
               : "Failed to load appliances"}
-          </div>
+          </motion.div>
         ) : filteredAppliances.length === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">
-            <Wrench className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p>No appliances found</p>
-          </div>
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="p-8 text-center text-muted-foreground"
+          >
+            <motion.div
+              animate={{ 
+                rotate: [0, 10, -10, 0],
+                scale: [1, 1.1, 1]
+              }}
+              transition={{ 
+                duration: 2,
+                repeat: Infinity,
+                repeatType: "reverse"
+              }}
+            >
+              <Wrench className="w-12 h-12 mx-auto mb-3 opacity-50" />
+            </motion.div>
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              No appliances found
+            </motion.p>
+          </motion.div>
         ) : (
           <>
             {/* Mobile View - Card Grid (Always visible on mobile) */}
             <div className="block sm:hidden">
-              <div className="divide-y divide-border">
+              <AnimatePresence mode="popLayout">
                 {filteredAppliances.map((appliance) => {
                   const StatusIcon = statusIcons[appliance.status];
                   const warrantyDate = new Date(appliance.warrantyExpiry);
@@ -444,12 +626,25 @@ export default function Appliances() {
                     warrantyDate <= new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
 
                   return (
-                    <div key={appliance.id} className="p-4 hover:bg-muted/50 transition-colors">
+                    <motion.div
+                      key={appliance.id}
+                      variants={cardVariants}
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                      whileHover="hover"
+                      layout
+                      className="p-4 hover:bg-muted/50 transition-colors border-b last:border-b-0 border-border"
+                    >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                          <motion.div 
+                            className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0"
+                            whileHover={{ rotate: 15, scale: 1.1 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                          >
                             <Wrench className="w-5 h-5" />
-                          </div>
+                          </motion.div>
                           <div className="min-w-0 flex-1">
                             <p className="font-medium text-foreground truncate">
                               {appliance.name}
@@ -461,12 +656,14 @@ export default function Appliances() {
                         </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <button
+                            <motion.button
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
                               className="p-1.5 rounded-lg hover:bg-muted transition-colors ml-2 flex-shrink-0"
                               aria-label="Appliance actions"
                             >
                               <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-                            </button>
+                            </motion.button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => openView(appliance)}>
@@ -483,7 +680,12 @@ export default function Appliances() {
                         </DropdownMenu>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2 text-sm">
+                      <motion.div 
+                        className="grid grid-cols-2 gap-2 text-sm"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.1 }}
+                      >
                         <div>
                           <Badge variant="outline" className="text-xs">
                             {appliance.category}
@@ -501,9 +703,14 @@ export default function Appliances() {
                             {appliance.status.replace("-", " ")}
                           </Badge>
                         </div>
-                      </div>
+                      </motion.div>
 
-                      <div className="grid grid-cols-2 gap-2 mt-2 text-xs">
+                      <motion.div 
+                        className="grid grid-cols-2 gap-2 mt-2 text-xs"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.2 }}
+                      >
                         <div className="flex items-center gap-1.5 text-muted-foreground">
                           <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
                           <span className="truncate">{appliance.location}</span>
@@ -514,9 +721,14 @@ export default function Appliances() {
                             {new Date(appliance.lastMaintenance).toLocaleDateString()}
                           </span>
                         </div>
-                      </div>
+                      </motion.div>
 
-                      <div className="mt-2 text-xs">
+                      <motion.div 
+                        className="mt-2 text-xs"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.3 }}
+                      >
                         <span
                           className={cn(
                             "text-muted-foreground",
@@ -525,11 +737,11 @@ export default function Appliances() {
                         >
                           Warranty: {warrantyDate.toLocaleDateString()}
                         </span>
-                      </div>
-                    </div>
+                      </motion.div>
+                    </motion.div>
                   );
                 })}
-              </div>
+              </AnimatePresence>
             </div>
 
             {/* Tablet/Desktop View - Table (Hidden on mobile) */}
@@ -547,130 +759,199 @@ export default function Appliances() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredAppliances.map((appliance, index) => {
-                    const StatusIcon = statusIcons[appliance.status];
-                    const warrantyDate = new Date(appliance.warrantyExpiry);
-                    const isWarrantyExpiringSoon =
-                      warrantyDate <= new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+                  <AnimatePresence mode="popLayout">
+                    {filteredAppliances.map((appliance, index) => {
+                      const StatusIcon = statusIcons[appliance.status];
+                      const warrantyDate = new Date(appliance.warrantyExpiry);
+                      const isWarrantyExpiringSoon =
+                        warrantyDate <= new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
 
-                    return (
-                      <tr
-                        key={appliance.id}
-                        className="animate-fade-in hover:bg-muted/50"
-                        style={{ animationDelay: `${index * 30}ms` }}
-                      >
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
-                              <Wrench className="w-5 h-5" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="font-medium text-foreground truncate max-w-[200px]">
-                                {appliance.name}
-                              </p>
-                              <p className="text-xs text-muted-foreground truncate max-w-[200px]">
-                                {appliance.serialNumber}
-                              </p>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge variant="outline">{appliance.category}</Badge>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Badge
-                            variant="secondary"
-                            className={cn(
-                              "capitalize gap-1",
-                              statusStyles[appliance.status]
-                            )}
-                          >
-                            <StatusIcon className="w-3 h-3" />
-                            {appliance.status.replace("-", " ")}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1.5 text-muted-foreground">
-                            <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
-                            <span className="truncate max-w-[150px]">{appliance.location}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1.5 text-muted-foreground whitespace-nowrap">
-                            <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
-                            <span>
-                              {new Date(appliance.lastMaintenance).toLocaleDateString()}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={cn(
-                              "text-sm whitespace-nowrap",
-                              isWarrantyExpiringSoon
-                                ? "text-warning font-medium"
-                                : "text-muted-foreground"
-                            )}
-                          >
-                            {warrantyDate.toLocaleDateString()}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button
-                                className="p-1.5 rounded-lg hover:bg-muted transition-colors"
-                                aria-label="Appliance actions"
+                      return (
+                        <motion.tr
+                          key={appliance.id}
+                          variants={tableRowVariants}
+                          initial="hidden"
+                          animate="visible"
+                          exit="exit"
+                          custom={index}
+                          whileHover={{ 
+                            backgroundColor: "rgba(0,0,0,0.02)",
+                            transition: { duration: 0.2 }
+                          }}
+                          layout
+                          className="hover:bg-muted/50 transition-colors"
+                        >
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <motion.div 
+                                className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center flex-shrink-0"
+                                whileHover={{ rotate: 15, scale: 1.1 }}
+                                transition={{ type: "spring", stiffness: 400, damping: 20 }}
                               >
-                                <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => openView(appliance)}>
-                                View Details
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => openEdit(appliance)}>
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => openDelete(appliance)}>
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                                <Wrench className="w-5 h-5" />
+                              </motion.div>
+                              <div className="min-w-0">
+                                <p className="font-medium text-foreground truncate max-w-[200px]">
+                                  {appliance.name}
+                                </p>
+                                <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                  {appliance.serialNumber}
+                                </p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <motion.div
+                              whileHover={{ scale: 1.05 }}
+                              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                            >
+                              <Badge variant="outline">{appliance.category}</Badge>
+                            </motion.div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <motion.div
+                              whileHover={{ scale: 1.05 }}
+                              transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                            >
+                              <Badge
+                                variant="secondary"
+                                className={cn(
+                                  "capitalize gap-1",
+                                  statusStyles[appliance.status]
+                                )}
+                              >
+                                <StatusIcon className="w-3 h-3" />
+                                {appliance.status.replace("-", " ")}
+                              </Badge>
+                            </motion.div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1.5 text-muted-foreground">
+                              <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                              <span className="truncate max-w-[150px]">{appliance.location}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1.5 text-muted-foreground whitespace-nowrap">
+                              <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
+                              <span>
+                                {new Date(appliance.lastMaintenance).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <motion.span
+                              animate={isWarrantyExpiringSoon ? {
+                                scale: [1, 1.05, 1],
+                                transition: { duration: 2, repeat: Infinity }
+                              } : {}}
+                              className={cn(
+                                "text-sm whitespace-nowrap",
+                                isWarrantyExpiringSoon
+                                  ? "text-warning font-medium"
+                                  : "text-muted-foreground"
+                              )}
+                            >
+                              {warrantyDate.toLocaleDateString()}
+                            </motion.span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <motion.button
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.9 }}
+                                  className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                                  aria-label="Appliance actions"
+                                >
+                                  <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+                                </motion.button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openView(appliance)}>
+                                  View Details
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openEdit(appliance)}>
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => openDelete(appliance)}>
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </td>
+                        </motion.tr>
+                      );
+                    })}
+                  </AnimatePresence>
                 </tbody>
               </table>
             </div>
           </>
         )}
-      </div>
+      </motion.div>
 
       {/* Stats - Responsive */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-muted-foreground">
-        <span className="text-center sm:text-left">
+      <motion.div 
+        variants={statsVariants}
+        className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-muted-foreground"
+      >
+        <motion.span 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4 }}
+          className="text-center sm:text-left"
+        >
           Showing {filteredAppliances.length} of {appliances.length} appliances
-        </span>
+        </motion.span>
         
         {/* Status Indicators - Horizontal scroll on mobile */}
-        <div className="flex items-center justify-center sm:justify-end gap-4 overflow-x-auto pb-1 sm:pb-0">
-          <span className="flex items-center gap-1.5 whitespace-nowrap">
-            <span className="w-2 h-2 rounded-full bg-success" />
+        <motion.div 
+          className="flex items-center justify-center sm:justify-end gap-4 overflow-x-auto pb-1 sm:pb-0"
+          variants={{
+            hidden: { opacity: 0 },
+            visible: {
+              opacity: 1,
+              transition: { staggerChildren: 0.1, delayChildren: 0.5 }
+            }
+          }}
+        >
+          <motion.span 
+            variants={itemVariants}
+            className="flex items-center gap-1.5 whitespace-nowrap"
+          >
+            <motion.span 
+              className="w-2 h-2 rounded-full bg-success"
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            />
             {operationalCount} operational
-          </span>
-          <span className="flex items-center gap-1.5 whitespace-nowrap">
-            <span className="w-2 h-2 rounded-full bg-warning" />
+          </motion.span>
+          <motion.span 
+            variants={itemVariants}
+            className="flex items-center gap-1.5 whitespace-nowrap"
+          >
+            <motion.span 
+              className="w-2 h-2 rounded-full bg-warning"
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
+            />
             {needsRepairCount} needs repair
-          </span>
-          <span className="flex items-center gap-1.5 whitespace-nowrap">
-            <span className="w-2 h-2 rounded-full bg-destructive" />
+          </motion.span>
+          <motion.span 
+            variants={itemVariants}
+            className="flex items-center gap-1.5 whitespace-nowrap"
+          >
+            <motion.span 
+              className="w-2 h-2 rounded-full bg-destructive"
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ duration: 2, repeat: Infinity, delay: 1 }}
+            />
             {outOfServiceCount} out of service
-          </span>
-        </div>
-      </div>
+          </motion.span>
+        </motion.div>
+      </motion.div>
 
       {/* Dialogs - Already responsive due to shadcn/ui */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -835,11 +1116,20 @@ export default function Appliances() {
           </DialogHeader>
 
           {selectedAppliance && (
-            <div className="space-y-4">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="space-y-4"
+            >
               <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                <motion.div 
+                  className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0"
+                  whileHover={{ rotate: 15, scale: 1.1 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                >
                   <Wrench className="w-6 h-6" />
-                </div>
+                </motion.div>
                 <div className="min-w-0">
                   <p className="font-semibold text-foreground truncate">
                     {selectedAppliance.name}
@@ -851,32 +1141,62 @@ export default function Appliances() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div className="space-y-1">
+                <motion.div 
+                  className="space-y-1"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.1 }}
+                >
                   <p className="text-muted-foreground">Status</p>
                   <p className="text-foreground capitalize">
                     {selectedAppliance.status.replace("-", " ")}
                   </p>
-                </div>
-                <div className="space-y-1">
+                </motion.div>
+                <motion.div 
+                  className="space-y-1"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.15 }}
+                >
                   <p className="text-muted-foreground">Category</p>
                   <p className="text-foreground">{selectedAppliance.category}</p>
-                </div>
-                <div className="space-y-1">
+                </motion.div>
+                <motion.div 
+                  className="space-y-1"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.2 }}
+                >
                   <p className="text-muted-foreground">Location</p>
                   <p className="text-foreground">{selectedAppliance.location}</p>
-                </div>
-                <div className="space-y-1">
+                </motion.div>
+                <motion.div 
+                  className="space-y-1"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.25 }}
+                >
                   <p className="text-muted-foreground">Assigned To</p>
                   <p className="text-foreground">{selectedAppliance.assignedTo ?? "—"}</p>
-                </div>
-                <div className="space-y-1">
+                </motion.div>
+                <motion.div 
+                  className="space-y-1"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.3 }}
+                >
                   <p className="text-muted-foreground">Last Maintenance</p>
                   <p className="text-foreground">{new Date(selectedAppliance.lastMaintenance).toLocaleDateString()}</p>
-                </div>
-                <div className="space-y-1">
+                </motion.div>
+                <motion.div 
+                  className="space-y-1"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.35 }}
+                >
                   <p className="text-muted-foreground">Warranty Expiry</p>
                   <p className="text-foreground">{new Date(selectedAppliance.warrantyExpiry).toLocaleDateString()}</p>
-                </div>
+                </motion.div>
               </div>
 
               <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -895,7 +1215,7 @@ export default function Appliances() {
                   Edit
                 </Button>
               </DialogFooter>
-            </div>
+            </motion.div>
           )}
         </DialogContent>
       </Dialog>
@@ -1063,6 +1383,6 @@ export default function Appliances() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </motion.div>
   );
 }

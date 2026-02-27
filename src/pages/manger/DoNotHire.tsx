@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
 import {
@@ -22,7 +23,7 @@ import { toast } from "@/components/manger/ui/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, UserX, AlertTriangle, Phone, Mail } from "lucide-react";
 import { apiFetch } from "@/lib/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -61,6 +62,106 @@ const schema = z.object({
 });
 
 type Values = z.infer<typeof schema>;
+
+// Animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.2,
+    },
+  },
+};
+
+const headerVariants = {
+  hidden: { opacity: 0, y: -20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: "spring",
+      stiffness: 400,
+      damping: 30,
+    },
+  },
+};
+
+const searchVariants = {
+  hidden: { opacity: 0, x: -20 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    transition: {
+      type: "spring",
+      stiffness: 400,
+      damping: 30,
+      delay: 0.1,
+    },
+  },
+};
+
+const tableVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: "spring",
+      stiffness: 300,
+      damping: 30,
+      delay: 0.2,
+    },
+  },
+};
+
+const rowVariants = {
+  hidden: { opacity: 0, x: -20 },
+  visible: (i: number) => ({
+    opacity: 1,
+    x: 0,
+    transition: {
+      delay: i * 0.05,
+      type: "spring",
+      stiffness: 400,
+      damping: 30,
+    },
+  }),
+  hover: {
+    scale: 1.01,
+    backgroundColor: "rgba(0,0,0,0.02)",
+    transition: { type: "spring", stiffness: 400, damping: 30 },
+  },
+  exit: {
+    opacity: 0,
+    x: 20,
+    transition: { duration: 0.2 },
+  },
+};
+
+const emptyStateVariants = {
+  hidden: { opacity: 0, scale: 0.9 },
+  visible: {
+    opacity: 1,
+    scale: 1,
+    transition: {
+      type: "spring",
+      stiffness: 400,
+      damping: 30,
+    },
+  },
+};
+
+const buttonVariants = {
+  hover: {
+    scale: 1.05,
+    transition: { type: "spring", stiffness: 400, damping: 30 },
+  },
+  tap: {
+    scale: 0.95,
+  },
+};
 
 export default function DoNotHire() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -144,19 +245,46 @@ export default function DoNotHire() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <motion.div
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+      className="space-y-6"
+    >
+      {/* Header */}
+      <motion.div variants={headerVariants} className="flex items-center justify-between">
         <div className="page-header mb-0">
-          <h1 className="page-title">Do Not Hire List</h1>
-          <p className="page-subtitle">Track and review restricted candidates</p>
+          <motion.h1 
+            className="page-title"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+          >
+            Do Not Hire List
+          </motion.h1>
+          <motion.p 
+            className="page-subtitle"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1 }}
+          >
+            Track and review restricted candidates
+          </motion.p>
         </div>
-        <Button className="gap-2" onClick={() => setOpen(true)}>
-          <Plus className="w-4 h-4" />
-          Add Entry
-        </Button>
-      </div>
+        <motion.div
+          variants={buttonVariants}
+          whileHover="hover"
+          whileTap="tap"
+        >
+          <Button className="gap-2" onClick={() => setOpen(true)}>
+            <Plus className="w-4 h-4" />
+            Add Entry
+          </Button>
+        </motion.div>
+      </motion.div>
 
-      <div className="relative max-w-xl">
+      {/* Search Bar */}
+      <motion.div variants={searchVariants} className="relative max-w-xl">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           placeholder="Search by name, phone, email, or reason..."
@@ -164,158 +292,304 @@ export default function DoNotHire() {
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
-      </div>
+      </motion.div>
 
-      <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
+      {/* Table */}
+      <motion.div 
+        variants={tableVariants}
+        className="bg-card rounded-xl border border-border shadow-card overflow-hidden"
+      >
         {entriesQuery.isLoading ? (
-          <div className="p-6 text-sm text-muted-foreground">Loading entries...</div>
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="p-6 text-sm text-muted-foreground flex items-center justify-center gap-2"
+          >
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full"
+            />
+            Loading entries...
+          </motion.div>
         ) : entriesQuery.isError ? (
-          <div className="p-6 text-sm text-destructive">
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="p-6 text-sm text-destructive flex items-center gap-2"
+          >
+            <AlertTriangle className="w-4 h-4" />
             {entriesQuery.error instanceof Error
               ? entriesQuery.error.message
               : "Failed to load entries"}
-          </div>
-        ) : null}
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Reason</th>
-              <th>Contact</th>
-              <th>Added</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((e, index) => (
-              <tr
-                key={e.id}
-                className="animate-fade-in"
-                style={{ animationDelay: `${index * 30}ms` }}
+          </motion.div>
+        ) : filtered.length === 0 ? (
+          <motion.div 
+            variants={emptyStateVariants}
+            className="p-12 text-center"
+          >
+            <motion.div
+              animate={{ 
+                scale: [1, 1.1, 1],
+                rotate: [0, 5, -5, 0]
+              }}
+              transition={{ 
+                duration: 3,
+                repeat: Infinity,
+                repeatType: "reverse"
+              }}
+              className="w-16 h-16 mx-auto mb-4 rounded-full bg-destructive/10 text-destructive flex items-center justify-center"
+            >
+              <UserX className="w-8 h-8" />
+            </motion.div>
+            <h3 className="text-lg font-medium text-foreground mb-2">No entries found</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              {searchQuery ? "Try adjusting your search" : "Get started by adding your first entry"}
+            </p>
+            {!searchQuery && (
+              <motion.div
+                variants={buttonVariants}
+                whileHover="hover"
+                whileTap="tap"
               >
-                <td>
-                  <div>
-                    <p className="font-medium text-foreground">{e.fullName}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                      {e.incidentNotes}
-                    </p>
-                  </div>
-                </td>
-                <td>
-                  <span className="text-sm text-foreground">{e.reason}</span>
-                </td>
-                <td>
-                  <div className="text-sm text-muted-foreground space-y-1">
-                    <p>{e.phone ?? "—"}</p>
-                    <p>{e.email ?? "—"}</p>
-                  </div>
-                </td>
-                <td>
-                  <span className="text-sm text-muted-foreground">
-                    {new Date(e.createdAt).toLocaleDateString()}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Do Not Hire Entry</DialogTitle>
-            <DialogDescription>
-              Save an incident record to prevent future hiring.
-            </DialogDescription>
-          </DialogHeader>
-
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="fullName"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Full Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Candidate name" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Optional" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Optional" type="email" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="reason"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Reason</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Why is this candidate restricted?" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="incidentNotes"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Incident Notes</FormLabel>
-                      <FormControl>
-                        <Textarea className="min-h-[120px]" placeholder="Details..." {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" className="gap-2">
+                <Button onClick={() => setOpen(true)} className="gap-2">
                   <Plus className="w-4 h-4" />
-                  Save
+                  Add Entry
                 </Button>
-              </DialogFooter>
-            </form>
-          </Form>
+              </motion.div>
+            )}
+          </motion.div>
+        ) : (
+          <table className="data-table w-full">
+            <thead>
+              <tr>
+                <th className="px-4 py-3 text-left">Name</th>
+                <th className="px-4 py-3 text-left">Reason</th>
+                <th className="px-4 py-3 text-left">Contact</th>
+                <th className="px-4 py-3 text-left">Added</th>
+              </tr>
+            </thead>
+            <tbody>
+              <AnimatePresence mode="popLayout">
+                {filtered.map((e, index) => (
+                  <motion.tr
+                    key={e.id}
+                    custom={index}
+                    variants={rowVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    whileHover="hover"
+                    layout
+                    className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors"
+                  >
+                    <td className="px-4 py-3">
+                      <div>
+                        <motion.p 
+                          className="font-medium text-foreground"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: index * 0.05 + 0.1 }}
+                        >
+                          {e.fullName}
+                        </motion.p>
+                        <motion.p 
+                          className="text-xs text-muted-foreground mt-0.5 line-clamp-1"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: index * 0.05 + 0.15 }}
+                        >
+                          {e.incidentNotes}
+                        </motion.p>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <motion.span 
+                        className="text-sm text-foreground"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: index * 0.05 + 0.2 }}
+                      >
+                        {e.reason}
+                      </motion.span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <motion.div 
+                        className="text-sm text-muted-foreground space-y-1"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: index * 0.05 + 0.25 }}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <Phone className="w-3 h-3" />
+                          <span>{e.phone ?? "—"}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Mail className="w-3 h-3" />
+                          <span>{e.email ?? "—"}</span>
+                        </div>
+                      </motion.div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <motion.span 
+                        className="text-sm text-muted-foreground"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: index * 0.05 + 0.3 }}
+                      >
+                        {new Date(e.createdAt).toLocaleDateString()}
+                      </motion.span>
+                    </td>
+                  </motion.tr>
+                ))}
+              </AnimatePresence>
+            </tbody>
+          </table>
+        )}
+      </motion.div>
+
+      {/* Stats Footer */}
+      {filtered.length > 0 && (
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="flex justify-between items-center text-sm text-muted-foreground"
+        >
+          <span>Showing {filtered.length} of {entries.length} entries</span>
+          <motion.div 
+            className="flex items-center gap-2"
+            animate={{ 
+              scale: [1, 1.02, 1],
+            }}
+            transition={{ 
+              duration: 2,
+              repeat: Infinity,
+              repeatType: "reverse"
+            }}
+          >
+            <span className="w-2 h-2 rounded-full bg-destructive" />
+            <span>Restricted candidates</span>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Add Entry Dialog */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-[600px] w-[95vw] max-h-[90vh] overflow-y-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          >
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <UserX className="w-5 h-5 text-destructive" />
+                Add Do Not Hire Entry
+              </DialogTitle>
+              <DialogDescription>
+                Save an incident record to prevent future hiring.
+              </DialogDescription>
+            </DialogHeader>
+
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="fullName"
+                    render={({ field }) => (
+                      <FormItem className="sm:col-span-2">
+                        <FormLabel>Full Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Candidate name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Optional" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Optional" type="email" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="reason"
+                    render={({ field }) => (
+                      <FormItem className="sm:col-span-2">
+                        <FormLabel>Reason</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Why is this candidate restricted?" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="incidentNotes"
+                    render={({ field }) => (
+                      <FormItem className="sm:col-span-2">
+                        <FormLabel>Incident Notes</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            className="min-h-[120px]" 
+                            placeholder="Details..." 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <DialogFooter className="flex-col sm:flex-row gap-2">
+                  <Button type="button" variant="outline" onClick={() => setOpen(false)} className="w-full sm:w-auto">
+                    Cancel
+                  </Button>
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="w-full sm:w-auto"
+                  >
+                    <Button type="submit" className="gap-2 w-full">
+                      <Plus className="w-4 h-4" />
+                      Save
+                    </Button>
+                  </motion.div>
+                </DialogFooter>
+              </form>
+            </Form>
+          </motion.div>
         </DialogContent>
       </Dialog>
-    </div>
+    </motion.div>
   );
 }

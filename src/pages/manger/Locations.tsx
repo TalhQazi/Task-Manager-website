@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
 import { Badge } from "@/components/manger/ui/badge";
@@ -55,6 +56,8 @@ import {
   Phone,
   MoreHorizontal,
   Clock,
+  Map,
+  Navigation,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch } from "@/lib/manger/api";
@@ -119,6 +122,129 @@ const createLocationSchema = z.object({
 });
 
 type CreateLocationValues = z.infer<typeof createLocationSchema>;
+
+// Animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.2,
+    },
+  },
+};
+
+const headerVariants = {
+  hidden: { opacity: 0, y: -20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: "spring",
+      stiffness: 400,
+      damping: 30,
+    },
+  },
+};
+
+const statsCardVariants = {
+  hidden: { opacity: 0, scale: 0.8, y: 20 },
+  visible: (i: number) => ({
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: {
+      delay: i * 0.1,
+      type: "spring",
+      stiffness: 400,
+      damping: 30,
+    },
+  }),
+  hover: {
+    y: -5,
+    scale: 1.02,
+    transition: {
+      type: "spring",
+      stiffness: 400,
+      damping: 30,
+    },
+  },
+};
+
+const searchVariants = {
+  hidden: { opacity: 0, x: -20 },
+  visible: {
+    opacity: 1,
+    x: 0,
+    transition: {
+      type: "spring",
+      stiffness: 400,
+      damping: 30,
+      delay: 0.3,
+    },
+  },
+};
+
+const locationCardVariants = {
+  hidden: { opacity: 0, scale: 0.9, y: 30 },
+  visible: (i: number) => ({
+    opacity: 1,
+    scale: 1,
+    y: 0,
+    transition: {
+      delay: i * 0.1 + 0.4,
+      type: "spring",
+      stiffness: 400,
+      damping: 30,
+    },
+  }),
+  hover: {
+    y: -8,
+    scale: 1.02,
+    boxShadow: "0 20px 40px -15px rgba(0,0,0,0.2)",
+    transition: {
+      type: "spring",
+      stiffness: 400,
+      damping: 30,
+    },
+  },
+  exit: {
+    opacity: 0,
+    scale: 0.9,
+    y: 30,
+    transition: { duration: 0.2 },
+  },
+};
+
+const iconVariants = {
+  hover: {
+    rotate: 15,
+    scale: 1.1,
+    transition: { type: "spring", stiffness: 400, damping: 20 },
+  },
+};
+
+const buttonVariants = {
+  hover: {
+    scale: 1.05,
+    transition: { type: "spring", stiffness: 400, damping: 30 },
+  },
+  tap: {
+    scale: 0.95,
+  },
+};
+
+const mapPinVariants = {
+  pulse: {
+    scale: [1, 1.2, 1],
+    transition: {
+      duration: 2,
+      repeat: Infinity,
+      repeatType: "reverse",
+    },
+  },
+};
 
 export default function Locations() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -324,188 +450,568 @@ export default function Locations() {
   }, [locations]);
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+      className="space-y-6"
+    >
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <motion.div variants={headerVariants} className="flex items-center justify-between">
         <div className="page-header mb-0">
-          <h1 className="page-title">Locations Management</h1>
-          <p className="page-subtitle">Manage all business locations and sites</p>
+          <motion.h1 
+            className="page-title"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 30 }}
+          >
+            Locations Management
+          </motion.h1>
+          <motion.p 
+            className="page-subtitle"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1 }}
+          >
+            Manage all business locations and sites
+          </motion.p>
         </div>
-        <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
-          <Plus className="w-4 h-4" />
-          Add Location
-        </Button>
-      </div>
+        <motion.div
+          variants={buttonVariants}
+          whileHover="hover"
+          whileTap="tap"
+        >
+          <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
+            <Plus className="w-4 h-4" />
+            Add Location
+          </Button>
+        </motion.div>
+      </motion.div>
 
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Location</DialogTitle>
-            <DialogDescription>Add a new business location.</DialogDescription>
-          </DialogHeader>
-
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onCreateLocation)} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Warehouse B" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Type</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="office">Office</SelectItem>
-                          <SelectItem value="warehouse">Warehouse</SelectItem>
-                          <SelectItem value="facility">Facility</SelectItem>
-                          <SelectItem value="site">Site</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="active">Active</SelectItem>
-                          <SelectItem value="inactive">Inactive</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="address"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Address</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Street address" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="city"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>City</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. New York, NY 10001" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. +1 (555) 123-4567" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="manager"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Manager</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. John Smith" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="employeeCount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Employees</FormLabel>
-                      <FormControl>
-                        <Input type="number" min={0} {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="operatingHours"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Operating Hours</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. 8:00 AM - 6:00 PM" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+      {/* Stats Cards */}
+      <motion.div 
+        className="grid grid-cols-2 md:grid-cols-4 gap-4"
+        variants={{
+          hidden: { opacity: 0 },
+          visible: {
+            opacity: 1,
+            transition: { staggerChildren: 0.1, delayChildren: 0.2 }
+          }
+        }}
+      >
+        {Object.entries(typeStyles).map(([type, style], index) => {
+          const count = typeCounts[type as keyof typeof typeCounts] ?? 0;
+          const Icon = typeIcons[type as keyof typeof typeIcons];
+          return (
+            <motion.div
+              key={type}
+              custom={index}
+              variants={statsCardVariants}
+              whileHover="hover"
+              className="stat-card bg-card rounded-xl border border-border shadow-card p-4"
+            >
+              <div className="flex items-center gap-3">
+                <motion.div 
+                  className={cn("p-2 rounded-lg", style)}
+                  whileHover="hover"
+                  variants={iconVariants}
+                >
+                  <Icon className="w-5 h-5" />
+                </motion.div>
+                <div>
+                  <p className="text-sm text-muted-foreground capitalize">
+                    {type}s
+                  </p>
+                  <motion.p 
+                    className="text-2xl font-bold text-foreground"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ 
+                      type: "spring", 
+                      stiffness: 400, 
+                      damping: 20,
+                      delay: index * 0.1 + 0.3 
+                    }}
+                  >
+                    {count}
+                  </motion.p>
+                </div>
               </div>
+            </motion.div>
+          );
+        })}
+      </motion.div>
 
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" className="gap-2">
+      {/* Search */}
+      <motion.div 
+        variants={searchVariants}
+        className="relative max-w-md"
+        whileHover={{ scale: 1.01 }}
+        transition={{ type: "spring", stiffness: 400, damping: 30 }}
+      >
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          placeholder="Search locations..."
+          className="pl-10"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </motion.div>
+
+      {/* Locations Grid */}
+      <motion.div 
+        className="bg-card rounded-xl border border-border shadow-card overflow-hidden"
+        variants={{
+          hidden: { opacity: 0, y: 20 },
+          visible: {
+            opacity: 1,
+            y: 0,
+            transition: {
+              type: "spring",
+              stiffness: 300,
+              damping: 30,
+              delay: 0.4,
+            },
+          },
+        }}
+      >
+        {locationsQuery.isLoading ? (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="p-6 text-sm text-muted-foreground flex items-center justify-center gap-2"
+          >
+            <motion.div
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full"
+            />
+            Loading locations...
+          </motion.div>
+        ) : locationsQuery.isError ? (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="p-6 text-sm text-destructive"
+          >
+            {locationsQuery.error instanceof Error
+              ? locationsQuery.error.message
+              : "Failed to load locations"}
+          </motion.div>
+        ) : filteredLocations.length === 0 ? (
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="p-12 text-center"
+          >
+            <motion.div
+              animate={{ 
+                scale: [1, 1.1, 1],
+                rotate: [0, 5, -5, 0]
+              }}
+              transition={{ 
+                duration: 3,
+                repeat: Infinity,
+                repeatType: "reverse"
+              }}
+              className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 text-primary flex items-center justify-center"
+            >
+              <Map className="w-8 h-8" />
+            </motion.div>
+            <h3 className="text-lg font-medium text-foreground mb-2">No locations found</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              {searchQuery ? "Try adjusting your search" : "Get started by adding your first location"}
+            </p>
+            {!searchQuery && (
+              <motion.div
+                variants={buttonVariants}
+                whileHover="hover"
+                whileTap="tap"
+              >
+                <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
                   <Plus className="w-4 h-4" />
-                  Add
+                  Add Location
                 </Button>
-              </DialogFooter>
-            </form>
-          </Form>
+              </motion.div>
+            )}
+          </motion.div>
+        ) : (
+          <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <AnimatePresence mode="popLayout">
+              {filteredLocations.map((location, index) => {
+                const TypeIcon = typeIcons[location.type];
+                return (
+                  <motion.div
+                    key={location.id}
+                    custom={index}
+                    variants={locationCardVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    whileHover="hover"
+                    layout
+                    className={cn(
+                      "bg-card rounded-xl border border-border shadow-card overflow-hidden",
+                      location.status === "inactive" && "opacity-60"
+                    )}
+                  >
+                    <div className="p-6">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-center gap-3">
+                          <motion.div
+                            whileHover="hover"
+                            variants={iconVariants}
+                            className={cn(
+                              "w-12 h-12 rounded-xl flex items-center justify-center",
+                              typeStyles[location.type]
+                            )}
+                          >
+                            <TypeIcon className="w-6 h-6" />
+                          </motion.div>
+                          <div>
+                            <motion.h3 
+                              className="font-semibold text-foreground"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ delay: index * 0.1 + 0.5 }}
+                            >
+                              {location.name}
+                            </motion.h3>
+                            <motion.div
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ delay: index * 0.1 + 0.55 }}
+                            >
+                              <Badge
+                                variant="secondary"
+                                className={cn("capitalize mt-1", typeStyles[location.type])}
+                              >
+                                {location.type}
+                              </Badge>
+                            </motion.div>
+                          </div>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <motion.button
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                              aria-label="Location actions"
+                            >
+                              <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+                            </motion.button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openView(location)}>
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openEdit(location)}>
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => openDelete(location)}>
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+
+                      <motion.div 
+                        className="space-y-3 text-sm"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: index * 0.1 + 0.6 }}
+                      >
+                        <motion.div 
+                          className="flex items-start gap-2 text-muted-foreground"
+                          whileHover="hover"
+                          variants={iconVariants}
+                        >
+                          <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <p>{location.address}</p>
+                            <p>{location.city}</p>
+                          </div>
+                        </motion.div>
+                        <motion.div 
+                          className="flex items-center gap-2 text-muted-foreground"
+                          whileHover="hover"
+                          variants={iconVariants}
+                        >
+                          <Phone className="w-4 h-4" />
+                          <span>{location.phone}</span>
+                        </motion.div>
+                        <motion.div 
+                          className="flex items-center gap-2 text-muted-foreground"
+                          whileHover="hover"
+                          variants={iconVariants}
+                        >
+                          <Clock className="w-4 h-4" />
+                          <span>{location.operatingHours}</span>
+                        </motion.div>
+                      </motion.div>
+
+                      <motion.div 
+                        className="flex items-center justify-between mt-4 pt-4 border-t border-border"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: index * 0.1 + 0.7 }}
+                      >
+                        <motion.div 
+                          className="flex items-center gap-2 text-sm text-muted-foreground"
+                          whileHover={{ scale: 1.05 }}
+                        >
+                          <Users className="w-4 h-4" />
+                          <span>{location.employeeCount} employees</span>
+                        </motion.div>
+                        <motion.span
+                          animate={location.status === "active" ? {
+                            scale: [1, 1.05, 1],
+                            transition: { duration: 2, repeat: Infinity }
+                          } : {}}
+                          className={cn(
+                            "text-xs font-medium capitalize flex items-center gap-1.5",
+                            location.status === "active"
+                              ? "text-success"
+                              : "text-muted-foreground"
+                          )}
+                        >
+                          <motion.span
+                            animate={location.status === "active" ? "pulse" : {}}
+                            variants={mapPinVariants}
+                            className={cn(
+                              "w-1.5 h-1.5 rounded-full",
+                              location.status === "active"
+                                ? "bg-success"
+                                : "bg-muted-foreground"
+                            )}
+                          />
+                          {location.status}
+                        </motion.span>
+                      </motion.div>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          </div>
+        )}
+      </motion.div>
+
+      {/* Stats Summary */}
+      {filteredLocations.length > 0 && (
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.8 }}
+          className="flex justify-between items-center text-sm text-muted-foreground"
+        >
+          <span>Showing {filteredLocations.length} of {locations.length} locations</span>
+          <motion.div 
+            className="flex items-center gap-2"
+            animate={{ 
+              scale: [1, 1.02, 1],
+            }}
+            transition={{ 
+              duration: 2,
+              repeat: Infinity,
+              repeatType: "reverse"
+            }}
+          >
+            <Navigation className="w-4 h-4 text-primary" />
+            <span>Total employees: {locations.reduce((acc, loc) => acc + loc.employeeCount, 0)}</span>
+          </motion.div>
+        </motion.div>
+      )}
+
+      {/* Dialogs with animations */}
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          >
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-primary" />
+                Add Location
+              </DialogTitle>
+              <DialogDescription>Add a new business location.</DialogDescription>
+            </DialogHeader>
+
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onCreateLocation)} className="space-y-4">
+                {/* Form fields remain the same */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem className="sm:col-span-2">
+                        <FormLabel>Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. Warehouse B" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Type</FormLabel>
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="office">Office</SelectItem>
+                            <SelectItem value="warehouse">Warehouse</SelectItem>
+                            <SelectItem value="facility">Facility</SelectItem>
+                            <SelectItem value="site">Site</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="inactive">Inactive</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="address"
+                    render={({ field }) => (
+                      <FormItem className="sm:col-span-2">
+                        <FormLabel>Address</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Street address" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. New York, NY 10001" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="phone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. +1 (555) 123-4567" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="manager"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Manager</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. John Smith" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="employeeCount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Employees</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={0} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="operatingHours"
+                    render={({ field }) => (
+                      <FormItem className="sm:col-span-2">
+                        <FormLabel>Operating Hours</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. 8:00 AM - 6:00 PM" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <DialogFooter className="flex-col sm:flex-row gap-2">
+                  <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} className="w-full sm:w-auto">
+                    Cancel
+                  </Button>
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="w-full sm:w-auto"
+                  >
+                    <Button type="submit" className="gap-2 w-full sm:w-auto">
+                      <Plus className="w-4 h-4" />
+                      Add
+                    </Button>
+                  </motion.div>
+                </DialogFooter>
+              </form>
+            </Form>
+          </motion.div>
         </DialogContent>
       </Dialog>
 
+      {/* View Dialog */}
       <Dialog
         open={isViewOpen}
         onOpenChange={(open) => {
@@ -513,16 +1019,23 @@ export default function Locations() {
           if (!open) setSelectedLocation(null);
         }}
       >
-        <DialogContent>
+        <DialogContent className="w-[95vw] sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Location Details</DialogTitle>
             <DialogDescription>View location information.</DialogDescription>
           </DialogHeader>
 
           {selectedLocation && (
-            <div className="space-y-4">
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="space-y-4"
+            >
               <div className="flex items-center gap-4">
-                <div
+                <motion.div
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 20 }}
                   className={cn(
                     "w-12 h-12 rounded-xl flex items-center justify-center",
                     typeStyles[selectedLocation.type],
@@ -532,7 +1045,7 @@ export default function Locations() {
                     const Icon = typeIcons[selectedLocation.type];
                     return <Icon className="w-6 h-6" />;
                   })()}
-                </div>
+                </motion.div>
                 <div className="min-w-0">
                   <p className="font-semibold text-foreground truncate">
                     {selectedLocation.name}
@@ -544,53 +1057,91 @@ export default function Locations() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div className="space-y-1">
+                <motion.div 
+                  className="space-y-1"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.1 }}
+                >
                   <p className="text-muted-foreground">Status</p>
                   <p className="text-foreground capitalize">{selectedLocation.status}</p>
-                </div>
-                <div className="space-y-1">
+                </motion.div>
+                <motion.div 
+                  className="space-y-1"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.15 }}
+                >
                   <p className="text-muted-foreground">Employees</p>
                   <p className="text-foreground">{selectedLocation.employeeCount}</p>
-                </div>
-                <div className="space-y-1 sm:col-span-2">
+                </motion.div>
+                <motion.div 
+                  className="space-y-1 sm:col-span-2"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                >
                   <p className="text-muted-foreground">Address</p>
                   <p className="text-foreground">{selectedLocation.address}</p>
                   <p className="text-foreground">{selectedLocation.city}</p>
-                </div>
-                <div className="space-y-1">
+                </motion.div>
+                <motion.div 
+                  className="space-y-1"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.25 }}
+                >
                   <p className="text-muted-foreground">Phone</p>
                   <p className="text-foreground">{selectedLocation.phone}</p>
-                </div>
-                <div className="space-y-1">
+                </motion.div>
+                <motion.div 
+                  className="space-y-1"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.3 }}
+                >
                   <p className="text-muted-foreground">Manager</p>
                   <p className="text-foreground">{selectedLocation.manager}</p>
-                </div>
-                <div className="space-y-1 sm:col-span-2">
+                </motion.div>
+                <motion.div 
+                  className="space-y-1 sm:col-span-2"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.35 }}
+                >
                   <p className="text-muted-foreground">Operating Hours</p>
                   <p className="text-foreground">{selectedLocation.operatingHours}</p>
-                </div>
+                </motion.div>
               </div>
 
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsViewOpen(false)}>
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                <Button type="button" variant="outline" onClick={() => setIsViewOpen(false)} className="w-full sm:w-auto">
                   Close
                 </Button>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    if (!selectedLocation) return;
-                    setIsViewOpen(false);
-                    openEdit(selectedLocation);
-                  }}
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="w-full sm:w-auto"
                 >
-                  Edit
-                </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      if (!selectedLocation) return;
+                      setIsViewOpen(false);
+                      openEdit(selectedLocation);
+                    }}
+                    className="w-full sm:w-auto"
+                  >
+                    Edit
+                  </Button>
+                </motion.div>
               </DialogFooter>
-            </div>
+            </motion.div>
           )}
         </DialogContent>
       </Dialog>
 
+      {/* Edit Dialog */}
       <Dialog
         open={isEditOpen}
         onOpenChange={(open) => {
@@ -598,7 +1149,7 @@ export default function Locations() {
           if (!open) setSelectedLocation(null);
         }}
       >
-        <DialogContent>
+        <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Location</DialogTitle>
             <DialogDescription>Update location information.</DialogDescription>
@@ -607,6 +1158,7 @@ export default function Locations() {
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit(onEditLocation)} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Form fields remain the same as create form */}
                 <FormField
                   control={editForm.control}
                   name="name"
@@ -752,183 +1304,50 @@ export default function Locations() {
                 />
               </div>
 
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)} className="w-full sm:w-auto">
                   Cancel
                 </Button>
-                <Button type="submit">Save</Button>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="w-full sm:w-auto"
+                >
+                  <Button type="submit" className="w-full sm:w-auto">Save</Button>
+                </motion.div>
               </DialogFooter>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
 
+      {/* Delete Alert Dialog */}
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete location?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently remove the location.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
+        <AlertDialogContent className="w-[95vw] sm:max-w-[425px]">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          >
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete location?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This action cannot be undone. This will permanently remove the location.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+              <AlertDialogCancel className="w-full sm:w-auto">Cancel</AlertDialogCancel>
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="w-full sm:w-auto"
+              >
+                <AlertDialogAction onClick={confirmDelete} className="w-full sm:w-auto">Delete</AlertDialogAction>
+              </motion.div>
+            </AlertDialogFooter>
+          </motion.div>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {Object.entries(typeStyles).map(([type, style]) => {
-          const count = typeCounts[type as keyof typeof typeCounts] ?? 0;
-          const Icon = typeIcons[type as keyof typeof typeIcons];
-          return (
-            <div key={type} className="stat-card">
-              <div className="flex items-center gap-3">
-                <div className={cn("p-2 rounded-lg", style)}>
-                  <Icon className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground capitalize">
-                    {type}s
-                  </p>
-                  <p className="text-2xl font-bold text-foreground">{count}</p>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input
-          placeholder="Search locations..."
-          className="pl-10"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </div>
-
-      <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
-        {locationsQuery.isLoading ? (
-          <div className="p-6 text-sm text-muted-foreground">Loading locations...</div>
-        ) : locationsQuery.isError ? (
-          <div className="p-6 text-sm text-destructive">
-            {locationsQuery.error instanceof Error
-              ? locationsQuery.error.message
-              : "Failed to load locations"}
-          </div>
-        ) : null}
-        <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredLocations.map((location, index) => {
-          const TypeIcon = typeIcons[location.type];
-          return (
-            <div
-              key={location.id}
-              className={cn(
-                "bg-card rounded-xl border border-border shadow-card overflow-hidden animate-fade-in",
-                location.status === "inactive" && "opacity-60"
-              )}
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              <div className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={cn(
-                        "w-12 h-12 rounded-xl flex items-center justify-center",
-                        typeStyles[location.type]
-                      )}
-                    >
-                      <TypeIcon className="w-6 h-6" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-foreground">
-                        {location.name}
-                      </h3>
-                      <Badge
-                        variant="secondary"
-                        className={cn("capitalize mt-1", typeStyles[location.type])}
-                      >
-                        {location.type}
-                      </Badge>
-                    </div>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        className="p-1.5 rounded-lg hover:bg-muted transition-colors"
-                        aria-label="Location actions"
-                      >
-                        <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => openView(location)}>
-                        View Details
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openEdit(location)}>
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => openDelete(location)}>
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-
-                <div className="space-y-3 text-sm">
-                  <div className="flex items-start gap-2 text-muted-foreground">
-                    <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <p>{location.address}</p>
-                      <p>{location.city}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Phone className="w-4 h-4" />
-                    <span>{location.phone}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Clock className="w-4 h-4" />
-                    <span>{location.operatingHours}</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-border">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Users className="w-4 h-4" />
-                    <span>{location.employeeCount} employees</span>
-                  </div>
-                  <span
-                    className={cn(
-                      "text-xs font-medium capitalize flex items-center gap-1.5",
-                      location.status === "active"
-                        ? "text-success"
-                        : "text-muted-foreground"
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "w-1.5 h-1.5 rounded-full",
-                        location.status === "active"
-                          ? "bg-success"
-                          : "bg-muted-foreground"
-                      )}
-                    />
-                    {location.status}
-                  </span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-        </div>
-      </div>
-    </div>
+    </motion.div>
   );
 }

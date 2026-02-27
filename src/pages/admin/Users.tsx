@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { AdminLayout } from "@/components/admin/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
@@ -38,6 +39,9 @@ import {
   Mail,
   Calendar,
   Clock,
+  Sparkles,
+  Users as UsersIcon,
+  ArrowRight,
 } from "lucide-react";
 import { 
   Dialog, 
@@ -74,69 +78,64 @@ type BackendUser = {
   updatedAt?: string;
 };
 
-const initialUsers: User[] = [
-  {
-    id: "USR-001",
-    name: "Admin User",
-    initials: "AU",
-    email: "admin@company.com",
-    role: "admin",
-    lastLogin: "2024-01-15 09:30 AM",
-    status: "active",
-    createdAt: "2020-01-01",
-  },
-  {
-    id: "USR-002",
-    name: "Manager One",
-    initials: "MO",
-    email: "manager1@company.com",
-    role: "manager",
-    lastLogin: "2024-01-15 08:45 AM",
-    status: "active",
-    createdAt: "2021-03-15",
-  },
-  {
-    id: "USR-003",
-    name: "John Doe",
-    initials: "JD",
-    email: "john.doe@company.com",
-    role: "employee",
-    lastLogin: "2024-01-14 05:30 PM",
-    status: "active",
-    createdAt: "2022-03-15",
-  },
-  {
-    id: "USR-004",
-    name: "Sarah Miller",
-    initials: "SM",
-    email: "sarah.miller@company.com",
-    role: "manager",
-    lastLogin: "2024-01-15 10:00 AM",
-    status: "active",
-    createdAt: "2021-08-20",
-  },
-  {
-    id: "USR-005",
-    name: "New Employee",
-    initials: "NE",
-    email: "new.employee@company.com",
-    role: "employee",
-    lastLogin: "-",
-    status: "pending",
-    createdAt: "2024-01-10",
-  },
-];
-
+// Enhanced color scheme with beautiful gradients
 const roleClasses = {
-  admin: "bg-destructive/10 text-destructive",
-  manager: "bg-accent/10 text-accent",
-  employee: "bg-muted text-muted-foreground",
+  admin: "bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive border-destructive/20 shadow-sm",
+  manager: "bg-gradient-to-r from-[#6366f1]/20 to-[#8b5cf6]/20 text-[#6366f1] dark:text-[#a78bfa] border-[#6366f1]/20 shadow-sm",
+  employee: "bg-gradient-to-r from-muted to-muted/50 text-muted-foreground border-muted-foreground/20 shadow-sm",
 };
 
 const statusClasses = {
-  active: "bg-success/10 text-success",
-  inactive: "bg-muted text-muted-foreground",
-  pending: "bg-warning/10 text-warning",
+  active: "bg-gradient-to-r from-success/20 to-success/10 text-success border-success/20 shadow-sm",
+  inactive: "bg-gradient-to-r from-muted to-muted/50 text-muted-foreground border-muted-foreground/20 shadow-sm",
+  pending: "bg-gradient-to-r from-warning/20 to-warning/10 text-warning border-warning/20 shadow-sm",
+};
+
+// Animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.2,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      type: "spring",
+      stiffness: 100,
+      damping: 12,
+    },
+  },
+};
+
+const cardVariants = {
+  hidden: { scale: 0.95, opacity: 0 },
+  visible: {
+    scale: 1,
+    opacity: 1,
+    transition: {
+      type: "spring",
+      stiffness: 100,
+      damping: 15,
+    },
+  },
+  hover: {
+    scale: 1.02,
+    boxShadow: "0 20px 25px -5px rgba(99, 102, 241, 0.1), 0 10px 10px -5px rgba(99, 102, 241, 0.04)",
+    transition: {
+      type: "spring",
+      stiffness: 400,
+      damping: 17,
+    },
+  },
 };
 
 const Users = () => {
@@ -364,395 +363,323 @@ const Users = () => {
 
   return (
     <AdminLayout>
-      {/* Mobile-first container */}
-      <div className="space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0">
-        
-        {/* Page Header - Responsive */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
-          <div className="space-y-1.5 sm:space-y-2">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
-              User Management
-            </h1>
-            <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl">
-              Manage system users, roles, and permissions.
-            </p>
-          </div>
-
-          {/* API Error Message */}
-          {apiError && (
-            <div className="rounded-md bg-destructive/10 p-3 sm:p-4 w-full sm:w-auto">
-              <p className="text-xs sm:text-sm text-destructive break-words">
-                {apiError}
+      <motion.div 
+        className="space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0 pb-6"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        {/* Page Header with animated gradient */}
+        <motion.div 
+          className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-4 sm:p-6"
+          variants={itemVariants}
+          whileHover={{ scale: 1.01 }}
+          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+        >
+          <div className="absolute inset-0 bg-grid-white/10 [mask-image:radial-gradient(ellipse_at_center,white,transparent)]" />
+          <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
+            <div className="space-y-1.5 sm:space-y-2">
+              <div className="flex items-center gap-2">
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+                >
+                  <UsersIcon className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
+                </motion.div>
+                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                  User Management
+                </h1>
+              </div>
+              <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl">
+                Manage system users, roles, and permissions with beautiful animations.
               </p>
             </div>
+
+            {/* Add User Button with animation */}
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Button className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-white w-full sm:w-auto mt-2 sm:mt-0 shadow-lg hover:shadow-xl transition-all duration-300">
+                    <Plus className="h-4 w-4 mr-2 flex-shrink-0" />
+                    <span className="sm:hidden">Add User</span>
+                    <span className="hidden sm:inline">Add New User</span>
+                  </Button>
+                </motion.div>
+              </DialogTrigger>
+
+              <DialogContent className="w-[95vw] max-w-md mx-auto p-4 sm:p-6">
+                <DialogHeader className="space-y-1.5 sm:space-y-2">
+                  <DialogTitle className="text-lg sm:text-xl bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                    Add New User
+                  </DialogTitle>
+                  <DialogDescription className="text-xs sm:text-sm">
+                    Create a new system user and assign a role.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <form
+                  onSubmit={form.handleSubmit(onSubmit)}
+                  className="mt-2 sm:mt-4 space-y-4 sm:space-y-5"
+                >
+                  <motion.div 
+                    className="space-y-3 sm:space-y-4"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    {/* Full Name */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs sm:text-sm font-medium">Full name</label>
+                      <input
+                        {...form.register("name", { required: true })}
+                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all"
+                        placeholder="Jane Doe"
+                      />
+                    </div>
+                    
+                    {/* Email */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs sm:text-sm font-medium">Email</label>
+                      <input
+                        {...form.register("email", { required: true })}
+                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all"
+                        placeholder="jane.doe@company.com"
+                        type="email"
+                      />
+                    </div>
+
+                    {/* Password */}
+                    <div className="space-y-1.5">
+                      <label className="block text-xs sm:text-sm font-medium">Password</label>
+                      <input
+                        {...form.register("password", { required: true })}
+                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all"
+                        placeholder="Minimum 6 characters"
+                        type="password"
+                      />
+                    </div>
+                    
+                    {/* Role & Status */}
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="flex-1 space-y-1.5">
+                        <label className="block text-xs sm:text-sm font-medium">Role</label>
+                        <select 
+                          {...form.register("role")} 
+                          className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all"
+                        >
+                          <option value="admin">Admin</option>
+                          <option value="manager">Manager</option>
+                          <option value="employee">Employee</option>
+                        </select>
+                      </div>
+                      <div className="flex-1 space-y-1.5">
+                        <label className="block text-xs sm:text-sm font-medium">Status</label>
+                        <select 
+                          {...form.register("status")} 
+                          className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all"
+                        >
+                          <option value="active">Active</option>
+                          <option value="inactive">Inactive</option>
+                          <option value="pending">Pending</option>
+                        </select>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
+                    <motion.button 
+                      type="button" 
+                      onClick={() => setOpen(false)} 
+                      className="w-full sm:w-auto rounded-lg px-4 py-2 border text-sm sm:text-base order-2 sm:order-1 hover:bg-muted transition-colors"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      Cancel
+                    </motion.button>
+                    <motion.button 
+                      type="submit" 
+                      className="w-full sm:w-auto rounded-lg px-4 py-2 bg-gradient-to-r from-primary to-primary/80 text-white text-sm sm:text-base order-1 sm:order-2 shadow-lg hover:shadow-xl transition-all duration-300"
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                    >
+                      Save User
+                    </motion.button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </motion.div>
+
+        {/* API Error Message with animation */}
+        <AnimatePresence>
+          {apiError && (
+            <motion.div
+              initial={{ opacity: 0, y: -20, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: "auto" }}
+              exit={{ opacity: 0, y: -20, height: 0 }}
+              transition={{ type: "spring", stiffness: 500, damping: 30 }}
+              className="rounded-lg bg-destructive/10 p-3 sm:p-4 border border-destructive/20"
+            >
+              <p className="text-xs sm:text-sm text-destructive break-words flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                {apiError}
+              </p>
+            </motion.div>
           )}
+        </AnimatePresence>
 
-          {/* Add User Dialog */}
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-accent hover:bg-accent/90 text-accent-foreground w-full sm:w-auto mt-2 sm:mt-0">
-                <Plus className="h-4 w-4 mr-2 flex-shrink-0" />
-                <span className="sm:hidden">Add</span>
-                <span className="hidden sm:inline">Add User</span>
-              </Button>
-            </DialogTrigger>
-
-            <DialogContent className="w-[95vw] max-w-md mx-auto p-4 sm:p-6">
-              <DialogHeader className="space-y-1.5 sm:space-y-2">
-                <DialogTitle className="text-lg sm:text-xl">Add New User</DialogTitle>
-                <DialogDescription className="text-xs sm:text-sm">
-                  Create a new system user and assign a role.
-                </DialogDescription>
-              </DialogHeader>
-
-              <form
-                onSubmit={form.handleSubmit(onSubmit)}
-                className="mt-2 sm:mt-4 space-y-4 sm:space-y-5"
-              >
-                <div className="space-y-3 sm:space-y-4">
-                  {/* Full Name */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-medium">Full name</label>
-                    <input
-                      {...form.register("name", { required: true })}
-                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base h-9 sm:h-10"
-                      placeholder="Jane Doe"
-                    />
-                  </div>
-                  
-                  {/* Email */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-medium">Email</label>
-                    <input
-                      {...form.register("email", { required: true })}
-                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base h-9 sm:h-10"
-                      placeholder="jane.doe@company.com"
-                      type="email"
-                    />
-                  </div>
-
-                  {/* Password */}
-                  <div className="space-y-1.5">
-                    <label className="block text-xs sm:text-sm font-medium">Password</label>
-                    <input
-                      {...form.register("password", { required: true })}
-                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base h-9 sm:h-10"
-                      placeholder="Minimum 6 characters"
-                      type="password"
-                    />
-                  </div>
-                  
-                  {/* Role & Status */}
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <div className="flex-1 space-y-1.5">
-                      <label className="block text-xs sm:text-sm font-medium">Role</label>
-                      <select 
-                        {...form.register("role")} 
-                        className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white h-9 sm:h-10"
-                      >
-                        <option value="admin">Admin</option>
-                        <option value="manager">Manager</option>
-                      </select>
-                    </div>
-                    <div className="flex-1 space-y-1.5">
-                      <label className="block text-xs sm:text-sm font-medium">Status</label>
-                      <select 
-                        {...form.register("status")} 
-                        className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white h-9 sm:h-10"
-                      >
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                        <option value="pending">Pending</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-
-                <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-                  <button 
-                    type="button" 
-                    onClick={() => setOpen(false)} 
-                    className="w-full sm:w-auto rounded-md px-4 py-2 border text-sm sm:text-base order-2 sm:order-1"
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    type="submit" 
-                    className="w-full sm:w-auto rounded-md px-4 py-2 bg-accent text-accent-foreground text-sm sm:text-base order-1 sm:order-2"
-                  >
-                    Save User
-                  </button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        {/* Role Summary Cards - Responsive Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
-          {/* Admin Card */}
-          <Card className="shadow-soft border-0 sm:border">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-destructive/10 flex items-center justify-center flex-shrink-0">
-                  <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-destructive" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm text-muted-foreground truncate">Administrators</p>
-                  <p className="text-xl sm:text-2xl font-bold">
-                    {users.filter((u) => u.role === "admin").length}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Manager Card */}
-          <Card className="shadow-soft border-0 sm:border">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
-                  <UserCog className="h-5 w-5 sm:h-6 sm:w-6 text-accent" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm text-muted-foreground truncate">Managers</p>
-                  <p className="text-xl sm:text-2xl font-bold">
-                    {users.filter((u) => u.role === "manager").length}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Employee Card */}
-          <Card className="shadow-soft border-0 sm:border sm:col-span-1 md:col-span-1">
-            <CardContent className="p-4 sm:p-6">
-              <div className="flex items-center gap-3 sm:gap-4">
-                <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                  <Avatar className="h-5 w-5 sm:h-6 sm:w-6">
-                    <AvatarFallback className="bg-transparent text-muted-foreground text-xs sm:text-sm">
-                      👤
-                    </AvatarFallback>
-                  </Avatar>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm text-muted-foreground truncate">Employees</p>
-                  <p className="text-xl sm:text-2xl font-bold">
-                    {users.filter((u) => u.role === "employee").length}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Filters Card */}
-        <Card className="shadow-soft border-0 sm:border">
-          <CardContent className="p-3 sm:p-6">
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-              {/* Search */}
-              <div className="relative flex-1">
-                <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
-                  Search Users
-                </label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by name or email..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-8 sm:pl-10 h-9 sm:h-10 text-sm sm:text-base"
-                  />
-                </div>
-              </div>
-              
-              {/* Role Filter */}
-              <div className="w-full sm:w-48">
-                <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
-                  Role
-                </label>
-                <Select value={roleFilter} onValueChange={setRoleFilter}>
-                  <SelectTrigger className="w-full h-9 sm:h-10 text-xs sm:text-sm">
-                    <SelectValue placeholder="Role" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Roles</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="manager">Manager</SelectItem>
-                    <SelectItem value="employee">Employee</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Users Table Card */}
-        <Card className="shadow-soft border-0 sm:border">
-          <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
-            <CardTitle className="text-base sm:text-lg md:text-xl font-semibold">
-              System Users ({filteredUsers.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0 sm:p-6">
-            {loading ? (
-              <div className="flex justify-center items-center py-8 sm:py-12">
-                <div className="text-xs sm:text-sm text-muted-foreground">
-                  Loading users...
-                </div>
-              </div>
-            ) : (
-              <>
-                {/* Mobile View - Cards */}
-                <div className="block sm:hidden space-y-3 p-4">
-                  {filteredUsers.map((user) => (
-                    <div key={user.id} className="bg-white rounded-lg border p-4 space-y-3">
-                      {/* Header with Avatar and Actions */}
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <Avatar className="h-10 w-10 flex-shrink-0">
-                            <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                              {user.initials}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="min-w-0 flex-1">
-                            <p className="font-medium text-sm truncate">{user.name}</p>
-                            <p className="text-xs text-muted-foreground">{user.id}</p>
-                          </div>
-                        </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => handleViewDetails(user)}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEditUser(user)}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Edit User
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleChangeRole(user)}>
-                              <Shield className="mr-2 h-4 w-4" />
-                              Change Role
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDeactivate(user)} className="text-destructive">
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              {user.status === "inactive" ? "Activate" : "Deactivate"}
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleDeleteUser(user)} className="text-destructive">
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Delete User
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-
-                      {/* Role & Status Badges */}
-                      <div className="flex flex-wrap gap-2">
-                        <Badge className={`${roleClasses[user.role]} text-xs`} variant="secondary">
-                          {user.role}
-                        </Badge>
-                        <Badge className={`${statusClasses[user.status]} text-xs`} variant="secondary">
-                          {user.status}
-                        </Badge>
-                      </div>
-
-                      {/* Email */}
-                      <div className="flex items-center gap-2">
-                        <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <span className="text-xs text-muted-foreground truncate">{user.email}</span>
-                      </div>
-
-                      {/* Last Login & Created Date */}
-                      <div className="flex flex-col gap-1 pt-1 border-t">
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                          <span className="text-xs text-muted-foreground">Last: {user.lastLogin}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                          <span className="text-xs text-muted-foreground">Created: {user.createdAt}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {filteredUsers.length === 0 && (
-                    <div className="text-center py-8">
-                      <div className="flex justify-center mb-3">
-                        <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                          <Users className="h-6 w-6 text-muted-foreground" />
-                        </div>
-                      </div>
-                      <p className="text-sm text-muted-foreground">No users found</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Try adjusting your search or add a new user
+        {/* Role Summary Cards - Animated Grid */}
+        <motion.div 
+          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4"
+          variants={containerVariants}
+        >
+          {[
+            { role: "admin", icon: Shield, label: "Administrators", color: "destructive", gradient: "from-destructive/20 to-destructive/5" },
+            { role: "manager", icon: UserCog, label: "Managers", color: "[#6366f1]", gradient: "from-[#6366f1]/20 to-[#8b5cf6]/10" },
+            { role: "employee", icon: UsersIcon, label: "Employees", color: "muted-foreground", gradient: "from-muted to-muted/50" },
+          ].map((item, index) => (
+            <motion.div
+              key={item.role}
+              variants={itemVariants}
+              whileHover="hover"
+              whileTap={{ scale: 0.98 }}
+            >
+              <Card className={`shadow-lg border-0 bg-gradient-to-br ${item.gradient} backdrop-blur-sm overflow-hidden`}>
+                <CardContent className="p-4 sm:p-6">
+                  <div className="flex items-center gap-3 sm:gap-4">
+                    <motion.div 
+                      className={`h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-${item.color}/10 flex items-center justify-center flex-shrink-0`}
+                      whileHover={{ rotate: 10 }}
+                      transition={{ type: "spring", stiffness: 300, damping: 10 }}
+                    >
+                      <item.icon className={`h-5 w-5 sm:h-6 sm:w-6 text-${item.color}`} />
+                    </motion.div>
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm text-muted-foreground truncate">{item.label}</p>
+                      <p className="text-xl sm:text-2xl font-bold">
+                        {users.filter((u) => u.role === item.role).length}
                       </p>
                     </div>
-                  )}
-                </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </motion.div>
 
-                {/* Tablet/Desktop View - Table */}
-                <div className="hidden sm:block w-full overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="text-xs md:text-sm w-[20%]">User</TableHead>
-                        <TableHead className="text-xs md:text-sm w-[20%]">Email</TableHead>
-                        <TableHead className="text-xs md:text-sm w-[12%]">Role</TableHead>
-                        <TableHead className="text-xs md:text-sm w-[12%]">Status</TableHead>
-                        <TableHead className="text-xs md:text-sm w-[15%]">Last Login</TableHead>
-                        <TableHead className="text-xs md:text-sm w-[10%]">Created</TableHead>
-                        <TableHead className="text-right text-xs md:text-sm w-[11%]">Actions</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredUsers.map((user) => (
-                        <TableRow key={user.id} className="hover:bg-muted/30">
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <Avatar className="h-8 w-8 md:h-9 md:w-9 flex-shrink-0">
-                                <AvatarFallback className="bg-primary text-primary-foreground text-xs md:text-sm">
-                                  {user.initials}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="min-w-0">
-                                <p className="font-medium text-sm md:text-base truncate max-w-[150px] lg:max-w-[200px]">
-                                  {user.name}
-                                </p>
+        {/* Filters Card */}
+        <motion.div variants={itemVariants}>
+          <Card className="shadow-lg border-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
+            <CardContent className="p-3 sm:p-6">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                {/* Search */}
+                <div className="relative flex-1">
+                  <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
+                    Search Users
+                  </label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by name or email..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pl-8 sm:pl-10 h-9 sm:h-10 text-sm sm:text-base rounded-lg border-0 bg-muted/50 focus:ring-2 focus:ring-primary/20 transition-all"
+                    />
+                  </div>
+                </div>
+                
+                {/* Role Filter */}
+                <div className="w-full sm:w-48">
+                  <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
+                    Role
+                  </label>
+                  <Select value={roleFilter} onValueChange={setRoleFilter}>
+                    <SelectTrigger className="w-full h-9 sm:h-10 text-xs sm:text-sm rounded-lg border-0 bg-muted/50 focus:ring-2 focus:ring-primary/20">
+                      <SelectValue placeholder="Role" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Roles</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="employee">Employee</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Users Table Card */}
+        <motion.div variants={itemVariants}>
+          <Card className="shadow-xl border-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm overflow-hidden">
+            <CardHeader className="px-4 sm:px-6 py-4 sm:py-5 border-b bg-muted/20">
+              <CardTitle className="text-base sm:text-lg md:text-xl font-semibold flex items-center gap-2">
+                <UsersIcon className="h-5 w-5 text-primary" />
+                System Users
+                {filteredUsers.length > 0 && (
+                  <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary">
+                    {filteredUsers.length} total
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0 sm:p-6">
+              {loading ? (
+                <div className="flex justify-center items-center py-8 sm:py-12">
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full"
+                  />
+                </div>
+              ) : (
+                <>
+                  {/* Mobile View - Animated Cards */}
+                  <div className="block sm:hidden space-y-3 p-4">
+                    <AnimatePresence>
+                      {filteredUsers.map((user, index) => (
+                        <motion.div
+                          key={user.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -20 }}
+                          transition={{ delay: index * 0.05 }}
+                          whileHover={{ scale: 1.02, x: 5 }}
+                          className="bg-gradient-to-br from-card to-card/50 rounded-xl border p-4 space-y-3 shadow-lg hover:shadow-xl transition-all duration-300"
+                        >
+                          {/* Header with Avatar and Actions */}
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              <motion.div
+                                whileHover={{ scale: 1.1, rotate: 5 }}
+                                transition={{ type: "spring", stiffness: 300, damping: 10 }}
+                              >
+                                <Avatar className="h-10 w-10 flex-shrink-0 ring-2 ring-primary/20">
+                                  <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-xs">
+                                    {user.initials}
+                                  </AvatarFallback>
+                                </Avatar>
+                              </motion.div>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-medium text-sm truncate">{user.name}</p>
                                 <p className="text-xs text-muted-foreground">{user.id}</p>
                               </div>
                             </div>
-                          </TableCell>
-                          <TableCell className="text-sm md:text-base text-muted-foreground truncate max-w-[200px] lg:max-w-[250px]">
-                            {user.email}
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={`${roleClasses[user.role]} text-xs md:text-sm`} variant="secondary">
-                              {user.role}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Badge className={`${statusClasses[user.status]} text-xs md:text-sm`} variant="secondary">
-                              {user.status}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-sm md:text-base text-muted-foreground truncate max-w-[150px]">
-                            {user.lastLogin}
-                          </TableCell>
-                          <TableCell className="text-sm md:text-base text-muted-foreground">
-                            {user.createdAt}
-                          </TableCell>
-                          <TableCell className="text-right">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
+                                <motion.div
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.9 }}
+                                >
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </motion.div>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={() => handleViewDetails(user)}>
@@ -777,32 +704,221 @@ const Users = () => {
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                          </div>
 
-      {/* View Details Dialog - Responsive */}
+                          {/* Role & Status Badges */}
+                          <div className="flex flex-wrap gap-2">
+                            <Badge className={`${roleClasses[user.role]} text-xs`} variant="secondary">
+                              {user.role}
+                            </Badge>
+                            <Badge className={`${statusClasses[user.status]} text-xs`} variant="secondary">
+                              {user.status}
+                            </Badge>
+                          </div>
+
+                          {/* Email */}
+                          <motion.div 
+                            className="flex items-center gap-2"
+                            whileHover={{ x: 5 }}
+                          >
+                            <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <span className="text-xs text-muted-foreground truncate">{user.email}</span>
+                          </motion.div>
+
+                          {/* Last Login & Created Date */}
+                          <div className="flex flex-col gap-1 pt-1 border-t">
+                            <motion.div 
+                              className="flex items-center gap-2"
+                              whileHover={{ x: 5 }}
+                            >
+                              <Clock className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                              <span className="text-xs text-muted-foreground">Last: {user.lastLogin}</span>
+                            </motion.div>
+                            <motion.div 
+                              className="flex items-center gap-2"
+                              whileHover={{ x: 5 }}
+                            >
+                              <Calendar className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+                              <span className="text-xs text-muted-foreground">Created: {user.createdAt}</span>
+                            </motion.div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+                    
+                    {filteredUsers.length === 0 && (
+                      <motion.div 
+                        className="text-center py-8"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                      >
+                        <div className="flex justify-center mb-3">
+                          <motion.div 
+                            className="h-12 w-12 rounded-full bg-muted flex items-center justify-center"
+                            animate={{ scale: [1, 1.1, 1] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                          >
+                            <UsersIcon className="h-6 w-6 text-muted-foreground" />
+                          </motion.div>
+                        </div>
+                        <p className="text-sm text-muted-foreground">No users found</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Try adjusting your search or add a new user
+                        </p>
+                      </motion.div>
+                    )}
+                  </div>
+
+                  {/* Tablet/Desktop View - Animated Table */}
+                  <div className="hidden sm:block w-full overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/30">
+                          <TableHead className="text-xs md:text-sm w-[20%]">User</TableHead>
+                          <TableHead className="text-xs md:text-sm w-[20%]">Email</TableHead>
+                          <TableHead className="text-xs md:text-sm w-[12%]">Role</TableHead>
+                          <TableHead className="text-xs md:text-sm w-[12%]">Status</TableHead>
+                          <TableHead className="text-xs md:text-sm w-[15%]">Created</TableHead>
+                          <TableHead className="text-right text-xs md:text-sm w-[15%]">Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        <AnimatePresence>
+                          {filteredUsers.map((user, index) => (
+                            <motion.tr
+                              key={user.id}
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -20 }}
+                              transition={{ delay: index * 0.05 }}
+                              whileHover={{ 
+                                scale: 1.01,
+                                backgroundColor: "rgba(99, 102, 241, 0.05)",
+                                boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+                              }}
+                              className="cursor-pointer transition-all duration-300"
+                            >
+                              <TableCell>
+                                <div className="flex items-center gap-3">
+                                  <motion.div
+                                    whileHover={{ scale: 1.1, rotate: 5 }}
+                                    transition={{ type: "spring", stiffness: 300, damping: 10 }}
+                                  >
+                                    <Avatar className="h-8 w-8 md:h-9 md:w-9 flex-shrink-0 ring-2 ring-primary/20">
+                                      <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-xs md:text-sm">
+                                        {user.initials}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                  </motion.div>
+                                  <div className="min-w-0">
+                                    <p className="font-medium text-sm md:text-base truncate max-w-[150px] lg:max-w-[200px]">
+                                      {user.name}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">{user.id}</p>
+                                  </div>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-sm md:text-base text-muted-foreground truncate max-w-[200px] lg:max-w-[250px]">
+                                {user.email}
+                              </TableCell>
+                              <TableCell>
+                                <motion.div
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.95 }}
+                                >
+                                  <Badge className={`${roleClasses[user.role]} text-xs md:text-sm`} variant="secondary">
+                                    {user.role}
+                                  </Badge>
+                                </motion.div>
+                              </TableCell>
+                              <TableCell>
+                                <motion.div
+                                  whileHover={{ scale: 1.1 }}
+                                  whileTap={{ scale: 0.95 }}
+                                >
+                                  <Badge className={`${statusClasses[user.status]} text-xs md:text-sm`} variant="secondary">
+                                    {user.status}
+                                  </Badge>
+                                </motion.div>
+                              </TableCell>
+                              <TableCell className="text-sm md:text-base text-muted-foreground">
+                                {user.createdAt}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <motion.div
+                                      whileHover={{ scale: 1.1 }}
+                                      whileTap={{ scale: 0.9 }}
+                                    >
+                                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        <MoreHorizontal className="h-4 w-4" />
+                                      </Button>
+                                    </motion.div>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleViewDetails(user)}>
+                                      <Eye className="mr-2 h-4 w-4" />
+                                      View Details
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleEditUser(user)}>
+                                      <Edit className="mr-2 h-4 w-4" />
+                                      Edit User
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleChangeRole(user)}>
+                                      <Shield className="mr-2 h-4 w-4" />
+                                      Change Role
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleDeactivate(user)} className="text-destructive">
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      {user.status === "inactive" ? "Activate" : "Deactivate"}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => handleDeleteUser(user)} className="text-destructive">
+                                      <Trash2 className="mr-2 h-4 w-4" />
+                                      Delete User
+                                    </DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </motion.tr>
+                          ))}
+                        </AnimatePresence>
+                      </TableBody>
+                    </Table>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      </motion.div>
+
+      {/* View Details Dialog - Animated */}
       <Dialog open={viewDetailsOpen} onOpenChange={setViewDetailsOpen}>
         <DialogContent className="w-[95vw] max-w-md mx-auto p-4 sm:p-6">
           <DialogHeader className="space-y-1.5 sm:space-y-2">
-            <DialogTitle className="text-lg sm:text-xl">User Details</DialogTitle>
+            <DialogTitle className="text-lg sm:text-xl bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              User Details
+            </DialogTitle>
           </DialogHeader>
           {selectedUser && (
-            <div className="space-y-4 sm:space-y-5">
+            <motion.div 
+              className="space-y-4 sm:space-y-5"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
               <div className="flex items-center gap-3 sm:gap-4 pb-4 border-b">
-                <Avatar className="h-12 w-12 sm:h-14 sm:w-14 flex-shrink-0">
-                  <AvatarFallback className="bg-primary text-primary-foreground text-sm sm:text-base">
-                    {selectedUser.initials}
-                  </AvatarFallback>
-                </Avatar>
+                <motion.div
+                  whileHover={{ scale: 1.1, rotate: 5 }}
+                  transition={{ type: "spring", stiffness: 300, damping: 10 }}
+                >
+                  <Avatar className="h-12 w-12 sm:h-14 sm:w-14 flex-shrink-0 ring-2 ring-primary/20">
+                    <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-sm sm:text-base">
+                      {selectedUser.initials}
+                    </AvatarFallback>
+                  </Avatar>
+                </motion.div>
                 <div className="min-w-0">
                   <p className="font-semibold text-base sm:text-lg break-words">{selectedUser.name}</p>
                   <p className="text-xs sm:text-sm text-muted-foreground">{selectedUser.id}</p>
@@ -810,64 +926,81 @@ const Users = () => {
               </div>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <div className="space-y-1.5">
+                <motion.div 
+                  className="space-y-1.5"
+                  whileHover={{ x: 5 }}
+                >
                   <label className="text-xs sm:text-sm font-medium">Email</label>
-                  <p className="text-xs sm:text-sm text-muted-foreground break-words bg-muted/30 p-2 rounded">
+                  <p className="text-xs sm:text-sm text-muted-foreground break-words bg-muted/30 p-2 rounded-lg">
                     {selectedUser.email}
                   </p>
-                </div>
+                </motion.div>
                 
-                <div className="space-y-1.5">
+                <motion.div 
+                  className="space-y-1.5"
+                  whileHover={{ x: 5 }}
+                >
                   <label className="text-xs sm:text-sm font-medium">Role</label>
                   <div>
                     <Badge className={`${roleClasses[selectedUser.role]} text-xs sm:text-sm`} variant="secondary">
                       {selectedUser.role}
                     </Badge>
                   </div>
-                </div>
+                </motion.div>
                 
-                <div className="space-y-1.5">
+                <motion.div 
+                  className="space-y-1.5"
+                  whileHover={{ x: 5 }}
+                >
                   <label className="text-xs sm:text-sm font-medium">Status</label>
                   <div>
                     <Badge className={`${statusClasses[selectedUser.status]} text-xs sm:text-sm`} variant="secondary">
                       {selectedUser.status}
                     </Badge>
                   </div>
-                </div>
+                </motion.div>
                 
-                <div className="space-y-1.5">
+                <motion.div 
+                  className="space-y-1.5"
+                  whileHover={{ x: 5 }}
+                >
                   <label className="text-xs sm:text-sm font-medium">Created Date</label>
                   <p className="text-xs sm:text-sm text-muted-foreground">{selectedUser.createdAt}</p>
-                </div>
-                
-                <div className="sm:col-span-2 space-y-1.5">
-                  <label className="text-xs sm:text-sm font-medium">Last Login</label>
-                  <p className="text-xs sm:text-sm text-muted-foreground bg-muted/30 p-2 rounded">
-                    {selectedUser.lastLogin}
-                  </p>
-                </div>
+                </motion.div>
               </div>
-            </div>
+            </motion.div>
           )}
           <DialogFooter className="mt-4 sm:mt-6">
-            <Button onClick={() => setViewDetailsOpen(false)} className="w-full sm:w-auto">
-              Close
-            </Button>
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <Button onClick={() => setViewDetailsOpen(false)} className="w-full sm:w-auto">
+                Close
+              </Button>
+            </motion.div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Edit User Dialog - Responsive */}
+      {/* Edit User Dialog - Animated */}
       <Dialog open={editUserOpen} onOpenChange={setEditUserOpen}>
         <DialogContent className="w-[95vw] max-w-md mx-auto p-4 sm:p-6">
           <DialogHeader className="space-y-1.5 sm:space-y-2">
-            <DialogTitle className="text-lg sm:text-xl">Edit User</DialogTitle>
+            <DialogTitle className="text-lg sm:text-xl bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              Edit User
+            </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">
               Update user information
             </DialogDescription>
           </DialogHeader>
           {selectedUser && (
-            <form className="space-y-4 sm:space-y-5">
+            <motion.form 
+              className="space-y-4 sm:space-y-5"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
               {/* Full Name */}
               <div className="space-y-1.5">
                 <label className="block text-xs sm:text-sm font-medium">Full Name</label>
@@ -875,7 +1008,7 @@ const Users = () => {
                   type="text"
                   value={editFormData.name}
                   onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-                  className="w-full rounded-md border px-3 py-2 text-sm sm:text-base h-9 sm:h-10"
+                  className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all"
                 />
               </div>
               
@@ -886,7 +1019,7 @@ const Users = () => {
                   type="email"
                   value={editFormData.email}
                   onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
-                  className="w-full rounded-md border px-3 py-2 text-sm sm:text-base h-9 sm:h-10"
+                  className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all"
                 />
               </div>
               
@@ -897,7 +1030,7 @@ const Users = () => {
                   <select
                     value={editFormData.role}
                     onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value as User["role"] })}
-                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white h-9 sm:h-10"
+                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all"
                   >
                     <option value="admin">Admin</option>
                     <option value="manager">Manager</option>
@@ -909,7 +1042,7 @@ const Users = () => {
                   <select
                     value={editFormData.status}
                     onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value as User["status"] })}
-                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white h-9 sm:h-10"
+                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all"
                   >
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
@@ -917,38 +1050,57 @@ const Users = () => {
                   </select>
                 </div>
               </div>
-            </form>
+            </motion.form>
           )}
           <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-            <Button 
-              variant="outline" 
-              onClick={() => setEditUserOpen(false)}
-              className="w-full sm:w-auto order-2 sm:order-1"
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="w-full sm:w-auto"
             >
-              Cancel
-            </Button>
-            <Button 
-              onClick={saveEditUser} 
-              className="bg-accent hover:bg-accent/90 text-accent-foreground w-full sm:w-auto order-1 sm:order-2"
+              <Button 
+                variant="outline" 
+                onClick={() => setEditUserOpen(false)}
+                className="w-full sm:w-auto order-2 sm:order-1"
+              >
+                Cancel
+              </Button>
+            </motion.div>
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="w-full sm:w-auto"
             >
-              Save Changes
-            </Button>
+              <Button 
+                onClick={saveEditUser} 
+                className="bg-gradient-to-r from-primary to-primary/80 text-white w-full sm:w-auto order-1 sm:order-2 shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                Save Changes
+              </Button>
+            </motion.div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Change Role Dialog - Responsive */}
+      {/* Change Role Dialog - Animated */}
       <Dialog open={changeRoleOpen} onOpenChange={setChangeRoleOpen}>
         <DialogContent className="w-[95vw] max-w-md mx-auto p-4 sm:p-6">
           <DialogHeader className="space-y-1.5 sm:space-y-2">
-            <DialogTitle className="text-lg sm:text-xl">Change User Role</DialogTitle>
+            <DialogTitle className="text-lg sm:text-xl bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              Change User Role
+            </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">
               Select a new role for {selectedUser?.name}
             </DialogDescription>
           </DialogHeader>
           {selectedUser && (
-            <div className="space-y-4">
-              <div className="p-3 sm:p-4 rounded-md bg-muted space-y-1">
+            <motion.div 
+              className="space-y-4"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <div className="p-3 sm:p-4 rounded-lg bg-gradient-to-r from-muted to-muted/50 space-y-1">
                 <p className="text-xs sm:text-sm font-medium">Current Role</p>
                 <Badge className={`${roleClasses[selectedUser.role]} text-xs sm:text-sm`} variant="secondary">
                   {selectedUser.role}
@@ -959,38 +1111,50 @@ const Users = () => {
                 <select
                   value={newRole}
                   onChange={(e) => setNewRole(e.target.value as User["role"])}
-                  className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white h-9 sm:h-10"
+                  className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all"
                 >
                   <option value="admin">Admin</option>
                   <option value="manager">Manager</option>
                   <option value="employee">Employee</option>
                 </select>
               </div>
-            </div>
+            </motion.div>
           )}
           <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-            <Button 
-              variant="outline" 
-              onClick={() => setChangeRoleOpen(false)}
-              className="w-full sm:w-auto order-2 sm:order-1"
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="w-full sm:w-auto"
             >
-              Cancel
-            </Button>
-            <Button 
-              onClick={confirmChangeRole} 
-              className="bg-accent hover:bg-accent/90 text-accent-foreground w-full sm:w-auto order-1 sm:order-2"
+              <Button 
+                variant="outline" 
+                onClick={() => setChangeRoleOpen(false)}
+                className="w-full sm:w-auto order-2 sm:order-1"
+              >
+                Cancel
+              </Button>
+            </motion.div>
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="w-full sm:w-auto"
             >
-              Update Role
-            </Button>
+              <Button 
+                onClick={confirmChangeRole} 
+                className="bg-gradient-to-r from-primary to-primary/80 text-white w-full sm:w-auto order-1 sm:order-2 shadow-lg hover:shadow-xl transition-all duration-300"
+              >
+                Update Role
+              </Button>
+            </motion.div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Deactivate/Activate User Dialog - Responsive */}
+      {/* Deactivate/Activate User Dialog - Animated */}
       <Dialog open={deactivateOpen} onOpenChange={setDeactivateOpen}>
         <DialogContent className="w-[95vw] max-w-md mx-auto p-4 sm:p-6">
           <DialogHeader className="space-y-1.5 sm:space-y-2">
-            <DialogTitle className={`text-base sm:text-lg ${selectedUser?.status === "inactive" ? "" : "text-destructive"}`}>
+            <DialogTitle className={`text-base sm:text-lg ${selectedUser?.status === "inactive" ? "text-primary" : "text-destructive"}`}>
               {selectedUser?.status === "inactive" ? "Activate User" : "Deactivate User"}
             </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">
@@ -1000,40 +1164,63 @@ const Users = () => {
             </DialogDescription>
           </DialogHeader>
           {selectedUser && (
-            <div className="p-3 sm:p-4 rounded-md bg-destructive/10 space-y-1">
+            <motion.div 
+              className="p-3 sm:p-4 rounded-lg bg-gradient-to-r from-destructive/10 to-destructive/5 space-y-1"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
               <p className="text-sm sm:text-base font-medium break-words">{selectedUser.name}</p>
               <p className="text-xs sm:text-sm text-muted-foreground break-words">{selectedUser.email}</p>
-            </div>
+            </motion.div>
           )}
           <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-            <Button 
-              variant="outline" 
-              onClick={() => setDeactivateOpen(false)}
-              className="w-full sm:w-auto order-2 sm:order-1"
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="w-full sm:w-auto"
             >
-              Cancel
-            </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => setDeactivateOpen(false)}
+                className="w-full sm:w-auto order-2 sm:order-1"
+              >
+                Cancel
+              </Button>
+            </motion.div>
             {selectedUser?.status === "inactive" ? (
-              <Button 
-                onClick={confirmActivate} 
-                className="bg-accent hover:bg-accent/90 text-accent-foreground w-full sm:w-auto order-1 sm:order-2"
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="w-full sm:w-auto"
               >
-                Activate
-              </Button>
+                <Button 
+                  onClick={confirmActivate} 
+                  className="bg-gradient-to-r from-primary to-primary/80 text-white w-full sm:w-auto order-1 sm:order-2 shadow-lg hover:shadow-xl transition-all duration-300"
+                >
+                  Activate
+                </Button>
+              </motion.div>
             ) : (
-              <Button 
-                onClick={confirmDeactivate} 
-                variant="destructive"
-                className="w-full sm:w-auto order-1 sm:order-2"
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className="w-full sm:w-auto"
               >
-                Deactivate
-              </Button>
+                <Button 
+                  onClick={confirmDeactivate} 
+                  variant="destructive"
+                  className="w-full sm:w-auto order-1 sm:order-2"
+                >
+                  Deactivate
+                </Button>
+              </motion.div>
             )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete User Dialog - Responsive */}
+      {/* Delete User Dialog - Animated */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent className="w-[95vw] max-w-md mx-auto p-4 sm:p-6">
           <DialogHeader className="space-y-1.5 sm:space-y-2">
@@ -1043,30 +1230,54 @@ const Users = () => {
             </DialogDescription>
           </DialogHeader>
           {selectedUser && (
-            <div className="p-3 sm:p-4 rounded-md bg-destructive/10 space-y-1">
+            <motion.div 
+              className="p-3 sm:p-4 rounded-lg bg-gradient-to-r from-destructive/10 to-destructive/5 space-y-1"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
               <p className="text-sm sm:text-base font-medium break-words">{selectedUser.name}</p>
               <p className="text-xs sm:text-sm text-muted-foreground break-words">{selectedUser.email}</p>
               <p className="text-xs text-muted-foreground break-words mt-1">{selectedUser.id}</p>
-            </div>
+            </motion.div>
           )}
           <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-            <Button 
-              variant="outline" 
-              onClick={() => setDeleteOpen(false)}
-              className="w-full sm:w-auto order-2 sm:order-1"
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="w-full sm:w-auto"
             >
-              Cancel
-            </Button>
-            <Button 
-              onClick={confirmDeleteUser} 
-              variant="destructive"
-              className="w-full sm:w-auto order-1 sm:order-2"
+              <Button 
+                variant="outline" 
+                onClick={() => setDeleteOpen(false)}
+                className="w-full sm:w-auto order-2 sm:order-1"
+              >
+                Cancel
+              </Button>
+            </motion.div>
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="w-full sm:w-auto"
             >
-              Delete User
-            </Button>
+              <Button 
+                onClick={confirmDeleteUser} 
+                variant="destructive"
+                className="w-full sm:w-auto order-1 sm:order-2"
+              >
+                Delete User
+              </Button>
+            </motion.div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Add global styles for grid pattern */}
+      <style jsx global>{`
+        .bg-grid-white {
+          background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgb(255 255 255 / 0.05)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
+        }
+      `}</style>
     </AdminLayout>
   );
 };

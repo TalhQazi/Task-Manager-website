@@ -113,7 +113,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto overflow-x-hidden no-scrollbar">
         {navItems.map((item) => (
           <NavLink
             key={item.path}

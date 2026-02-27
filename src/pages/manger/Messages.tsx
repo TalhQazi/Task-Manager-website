@@ -81,40 +81,7 @@ function normalizeMessage(m: MessageApi): Message {
   };
 }
 
-const notifications: Notification[] = [
-  {
-    id: "1",
-    title: "Task Completed",
-    message: "Mike Johnson completed the site inspection task.",
-    timestamp: "5 min ago",
-    type: "success",
-    read: false,
-  },
-  {
-    id: "2",
-    title: "Maintenance Alert",
-    message: "Vehicle #3 is due for scheduled maintenance.",
-    timestamp: "1 hour ago",
-    type: "warning",
-    read: false,
-  },
-  {
-    id: "3",
-    title: "New Employee Clock In",
-    message: "Emma Davis clocked in at Garage location.",
-    timestamp: "2 hours ago",
-    type: "info",
-    read: true,
-  },
-  {
-    id: "4",
-    title: "Schedule Updated",
-    message: "Tomorrow's schedule has been modified.",
-    timestamp: "3 hours ago",
-    type: "info",
-    read: true,
-  },
-];
+const notifications: Notification[] = [];
 
 const notificationTypeStyles = {
   info: "bg-primary/10 text-primary",
