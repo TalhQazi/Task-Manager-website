@@ -150,83 +150,85 @@ export default function Dashboard() {
           </h1>
         </div>
 
-        {/* Stat summary row */}
+        {/* Stat summary row - single card */}
         <motion.div
           variants={statsGridVariants}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 px-4 sm:px-6 py-4 sm:py-5"
+          className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
         >
-          <motion.div variants={statCardVariants} whileHover="hover">
-            <StatCard
-              title="Tasks Assigned"
-              value={summary ? summary.activeTasks : "—"}
-              subtitle={summary ? `${summary.dueToday} due today` : "Loading..."}
-              icon={ClipboardList}
-              variant="default"
-            />
-          </motion.div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-200">
+            <motion.div variants={statCardVariants} whileHover="hover" className="p-4 sm:p-5">
+              <StatCard
+                title="Tasks Assigned"
+                value={summary ? summary.activeTasks : "—"}
+                subtitle={summary ? `${summary.dueToday} due today` : "Loading..."}
+                icon={ClipboardList}
+                variant="default"
+              />
+            </motion.div>
 
-          <motion.div variants={statCardVariants} whileHover="hover">
-            <StatCard
-              title="Shifts Today"
-              value={summary ? summary.employeesWorking : "—"}
-              subtitle={summary ? `Out of ${summary.employeeTotal} employees` : "Loading..."}
-              icon={Clock}
-              variant="default"
-            />
-          </motion.div>
+            <motion.div variants={statCardVariants} whileHover="hover" className="p-4 sm:p-5">
+              <StatCard
+                title="Shifts Today"
+                value={summary ? summary.employeesWorking : "—"}
+                subtitle={summary ? `Out of ${summary.employeeTotal} employees` : "Loading..."}
+                icon={Clock}
+                variant="default"
+              />
+            </motion.div>
 
-          <motion.div variants={statCardVariants} whileHover="hover">
-            <StatCard
-              title="Locations"
-              value={summary ? summary.employeeTotal : "—"}
-              subtitle="Active locations"
-              icon={Users}
-              variant="default"
-            />
-          </motion.div>
+            <motion.div variants={statCardVariants} whileHover="hover" className="p-4 sm:p-5">
+              <StatCard
+                title="Locations"
+                value={summary ? summary.employeeTotal : "—"}
+                subtitle="Active locations"
+                icon={Users}
+                variant="default"
+              />
+            </motion.div>
 
-          <motion.div variants={statCardVariants} whileHover="hover">
-            <StatCard
-              title="New Hires"
-              value={summary ? summary.overdueTasks : "—"}
-              subtitle="This week"
-              icon={AlertCircle}
-              variant="default"
-            />
-          </motion.div>
-        </motion.div>
-      </motion.div>
-
-      {/* Middle cards: Priority tasks + upcoming shifts */}
-      <motion.div
-        variants={contentVariants}
-        className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6"
-      >
-        <motion.div
-          className="lg:col-span-2"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{
-            type: "spring",
-            stiffness: 300,
-            damping: 30,
-            delay: 0.35,
-          }}
-        >
-          <TaskList />
+            <motion.div variants={statCardVariants} whileHover="hover" className="p-4 sm:p-5">
+              <StatCard
+                title="New Hires"
+                value={summary ? summary.overdueTasks : "—"}
+                subtitle="This week"
+                icon={AlertCircle}
+                variant="default"
+              />
+            </motion.div>
+          </div>
         </motion.div>
 
+        {/* Middle cards: Priority tasks + upcoming shifts */}
         <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{
-            type: "spring",
-            stiffness: 300,
-            damping: 30,
-            delay: 0.4,
-          }}
+          variants={contentVariants}
+          className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6"
         >
-          <ScheduleOverview />
+          <motion.div
+            className="lg:col-span-2"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{
+              type: "spring",
+              stiffness: 300,
+              damping: 30,
+              delay: 0.35,
+            }}
+          >
+            <TaskList />
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{
+              type: "spring",
+              stiffness: 300,
+              damping: 30,
+              delay: 0.4,
+            }}
+          >
+            <ScheduleOverview />
+          </motion.div>
         </motion.div>
       </motion.div>
     </motion.div>

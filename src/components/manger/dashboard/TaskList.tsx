@@ -76,9 +76,9 @@ const priorityStyles = {
 };
 
 const statusStyles = {
-  active: "status-active",
-  pending: "status-pending",
-  completed: "status-completed",
+  active: "bg-amber-500 text-white border-amber-500 font-semibold uppercase",
+  pending: "bg-red-600 text-white border-red-600 font-semibold uppercase",
+  completed: "bg-emerald-600 text-white border-emerald-600 font-semibold uppercase",
 };
 
 export function TaskList() {
@@ -94,7 +94,7 @@ export function TaskList() {
   const tasks = (tasksQuery.data || []).slice(0, 5);
 
   return (
-    <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
+    <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden mt-4">
       <div className="px-4 sm:px-6 py-4 border-b border-border flex items-center justify-between gap-3 bg-slate-50">
         <h3 className="font-semibold text-slate-900 text-base sm:text-lg">
           Priority Tasks
@@ -113,12 +113,6 @@ export function TaskList() {
                   <h4 className="font-medium text-foreground truncate">
                     {task.title}
                   </h4>
-                  <Badge
-                    variant="outline"
-                    className={cn("text-xs border", priorityStyles[task.priority])}
-                  >
-                    {task.priority}
-                  </Badge>
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-sm text-muted-foreground">
                   <div className="flex items-center gap-1.5 min-w-0">
@@ -132,8 +126,8 @@ export function TaskList() {
                 </div>
               </div>
               <div className="flex items-center justify-between sm:justify-end gap-3">
-                <Badge variant="secondary" className={cn("text-xs", statusStyles[task.status])}>
-                  {task.status}
+                <Badge className={cn("text-[10px] px-2.5 py-0.5 rounded", statusStyles[task.status])}>
+                  {task.status === "active" ? "HIGH" : task.status === "pending" ? "URGENT" : "NORMAL"}
                 </Badge>
                 <button className="p-1.5 rounded-lg hover:bg-muted transition-colors" aria-label="Task actions">
                   <MoreHorizontal className="w-4 h-4 text-muted-foreground" />

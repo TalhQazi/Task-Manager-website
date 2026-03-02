@@ -69,7 +69,7 @@ export function ScheduleOverview() {
     });
 
   return (
-    <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
+    <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden mt-4">
       <div className="px-4 sm:px-6 py-4 border-b border-border flex items-center justify-between gap-3 bg-slate-50">
         <h3 className="font-semibold text-slate-900 text-base sm:text-lg">
           Upcoming Shifts
