@@ -95,7 +95,8 @@ export function MainLayout({ children }: MainLayoutProps) {
     <div className="min-h-screen bg-[#e6f0ff]">
       {/* Top blue header with branding - starts after sidebar */}
       <header className="fixed top-0 left-20 right-0 z-30 shadow-floating">
-        <div className="w-full bg-gradient-to-r from-[#0a2a5c] via-[#0e4b9d] to-[#0a2a5c]">
+        <div className="w-full bg-gradient-to-r from-[#061a3a] via-[#061a3a] to-[#061a3a]">
+          <div className="hidden md:block fixed top-0 left-0 h-36 w-20 bg-gradient-to-r from-[#061a3a] via-[#061a3a] to-[#061a3a]" />
           <div className="relative flex h-36 items-center justify-between px-4 sm:px-6 lg:px-10 py-4 animate-fade-in">
             {/* Left side: Seven logo */}
             <div className="flex items-center">
@@ -114,7 +115,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                 <img
                   src="/logo.png"
                   alt="TaskManager by Reardon"
-                  className="h-44 min-w-[400px] w-auto drop-shadow-[0_4px_10px_rgba(0,0,0,0.45)]"
+                  className="h-44 min-w-[350px] w-auto drop-shadow-[0_4px_10px_rgba(0,0,0,0.45)]"
                 />
               </div>
             </div>

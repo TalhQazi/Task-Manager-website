@@ -88,25 +88,27 @@ export function Header({ onMenuClick }: HeaderProps) {
       .toUpperCase() || "M";
 
   return (
-    <header className="fixed top-0 inset-x-0 z-40 shadow-floating">
-      <div className="w-full overflow-hidden border-b border-white/10 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.18),rgba(14,75,157,0.85)_40%,rgba(10,42,92,1)_78%)]">
-        <div className="relative flex h-36 items-center justify-between px-4 sm:px-6 lg:px-10 py-3 animate-fade-in">
-          <div className="w-20" />
-
-          <div className="absolute left-20 flex items-center">
+    <header className="fixed top-0 left-0 right-0 md:left-20 z-30 shadow-floating">
+      <div className="w-full bg-gradient-to-r from-[#061a3a] via-[#061a3a] to-[#061a3a]">
+        <div className="hidden md:block fixed top-0 left-0 h-36 w-20 bg-gradient-to-r from-[#061a3a] via-[#061a3a] to-[#061a3a]" />
+        <div className="relative flex h-36 items-center justify-between px-4 sm:px-6 lg:px-10 py-4 animate-fade-in">
+          <div className="flex items-center">
             <img
               src="/seven logo.png"
               alt="SE7EN Inc. logo"
-              className="h-28 sm:h-32 md:h-36 w-auto max-w-none drop-shadow-[0_6px_12px_rgba(0,0,0,0.45)]"
+              className="h-36 sm:h-40 min-w-[300px] w-auto drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)]"
             />
           </div>
 
           <div className="absolute left-1/2 -translate-x-1/2 flex items-center">
-            <img
-              src="/2.png"
-              alt="TaskManager by Reardon"
-              className="h-28 sm:h-32 md:h-36 w-auto max-w-none drop-shadow-[0_6px_14px_rgba(0,0,0,0.55)]"
-            />
+            <div className="relative">
+              <div className="absolute inset-0 -z-10 blur-2xl bg-blue-400/30 scale-110 rounded-full" />
+              <img
+                src="/logo.png"
+                alt="TaskManager by Reardon"
+                className="h-44 min-w-[400px] w-auto drop-shadow-[0_4px_10px_rgba(0,0,0,0.45)]"
+              />
+            </div>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3 text-white z-10">
@@ -116,7 +118,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="hidden sm:inline-flex h-9 w-9 rounded-full bg-white/10 hover:bg-white/20 relative ring-1 ring-white/15"
+                  className="hidden sm:inline-flex relative h-9 w-9 rounded-full bg-white/10 hover:bg-white/20"
                   aria-label="Notifications"
                 >
                   <Bell className="h-4 w-4" />
@@ -154,7 +156,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               type="button"
               variant="ghost"
               size="icon"
-              className="hidden sm:inline-flex h-9 w-9 rounded-full bg-white/10 hover:bg-white/20 ring-1 ring-white/15"
+              className="hidden sm:inline-flex h-9 w-9 rounded-full bg-white/10 hover:bg-white/20"
               aria-label="Messages"
               onClick={() => navigate("/admin/messaging")}
             >
@@ -166,7 +168,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                 <Button
                   type="button"
                   variant="ghost"
-                  className="hidden sm:inline-flex items-center gap-2 h-9 px-2 rounded-full bg-white/10 hover:bg-white/20 ring-1 ring-white/15"
+                  className="hidden sm:inline-flex items-center gap-2 h-9 px-2 rounded-full bg-white/10 hover:bg-white/20"
                   aria-label="Account menu"
                 >
                   <Avatar className="h-7 w-7 border border-white/70">

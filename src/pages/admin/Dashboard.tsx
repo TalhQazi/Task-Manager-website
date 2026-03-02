@@ -171,29 +171,6 @@ const Dashboard = () => {
         initial="hidden"
         animate="visible"
       >
-        {/* Page Header with animated gradient */}
-        <motion.div 
-          className="space-y-1.5 sm:space-y-2 relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-4 sm:p-6"
-          variants={itemVariants}
-          whileHover={{ scale: 1.01 }}
-          transition={{ type: "spring", stiffness: 300, damping: 20 }}
-        >
-          <div className="absolute inset-0 bg-grid-white/10 [mask-image:radial-gradient(ellipse_at_center,white,transparent)]" />
-          <div className="relative flex items-center gap-2">
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-            >
-              <Sparkles className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-            </motion.div>
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-              Dashboard
-            </h1>
-          </div>
-          <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl">
-            Welcome back! Here's your real-time system overview with beautiful animations.
-          </p>
-        </motion.div>
 
         {/* Stats Grid with animated cards */}
         <motion.div 
