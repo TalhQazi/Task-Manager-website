@@ -92,16 +92,13 @@ export function MainLayout({ children }: MainLayoutProps) {
       .toUpperCase() || "M";
 
   return (
-    <div className="min-h-screen bg-[#e6f0ff] pt-36">
-      {/* Top blue header with branding */}
-      <header className="fixed top-0 inset-x-0 z-30 shadow-floating">
+    <div className="min-h-screen bg-[#e6f0ff]">
+      {/* Top blue header with branding - starts after sidebar */}
+      <header className="fixed top-0 left-20 right-0 z-30 shadow-floating">
         <div className="w-full bg-gradient-to-r from-[#0a2a5c] via-[#0e4b9d] to-[#0a2a5c]">
           <div className="relative flex h-36 items-center justify-between px-4 sm:px-6 lg:px-10 py-4 animate-fade-in">
-            {/* Left: empty spacer for balance */}
-            <div className="w-20" />
-
-            {/* Left side: Seven logo positioned after sidebar */}
-            <div className="absolute left-20 flex items-center">
+            {/* Left side: Seven logo */}
+            <div className="flex items-center">
               <img
                 src="/seven logo.png"
                 alt="SE7EN Inc. logo"
@@ -112,9 +109,9 @@ export function MainLayout({ children }: MainLayoutProps) {
             {/* Center: Task Manager logo */}
             <div className="absolute left-1/2 -translate-x-1/2 flex items-center">
               <img
-                src="/taskmanager-by-reardon.svg"
+                src="/logo.png"
                 alt="TaskManager by Reardon"
-                className="h-24 sm:h-28 w-auto drop-shadow-[0_4px_10px_rgba(0,0,0,0.45)]"
+                className="h-36 w-auto drop-shadow-[0_4px_10px_rgba(0,0,0,0.45)]"
               />
             </div>
             <div className="flex items-center gap-2 sm:gap-3 text-white z-10">
@@ -125,7 +122,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                     type="button"
                     variant="ghost"
                     size="icon"
-                    className="hidden sm:inline-flex h-9 w-9 rounded-full bg-white/10 hover:bg-white/20"
+                    className="hidden sm:inline-flex relative h-9 w-9 rounded-full bg-white/10 hover:bg-white/20"
                     aria-label="Notifications"
                   >
                     <Bell className="h-4 w-4" />
@@ -250,7 +247,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         <div className="hidden md:block">
           <Sidebar />
         </div>
-        <main className="flex-1 min-h-[calc(100vh-9rem)] md:ml-20">
+        <main className="flex-1 min-h-screen md:ml-20 pt-36">
           <div className="mx-auto max-w-6xl px-3 sm:px-4 lg:px-8 py-6 sm:py-8 animate-fade-in">
             {children}
           </div>
