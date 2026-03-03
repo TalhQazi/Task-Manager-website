@@ -1,11 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { AdminLayout } from "@/components/admin/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
+import { Camera, User } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useQuery } from "@tanstack/react-query";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getAuthState } from "@/lib/auth";
 
 type SettingsState = {
   companyName: string;
@@ -13,6 +16,9 @@ type SettingsState = {
   timezone: string;
   notificationsEnabled: boolean;
   autoLogoutMinutes: number;
+  fullName: string;
+  email: string;
+  avatarUrl: string;
 };
 
 const SETTINGS_STORAGE_KEY = "app_settings";
@@ -23,6 +29,9 @@ const defaultSettings: SettingsState = {
   timezone: "UTC+05:00",
   notificationsEnabled: true,
   autoLogoutMinutes: 0,
+  fullName: "",
+  email: "",
+  avatarUrl: "",
 };
 
 function loadSettings(): SettingsState {
@@ -36,6 +45,9 @@ function loadSettings(): SettingsState {
       timezone: parsed.timezone ?? defaultSettings.timezone,
       notificationsEnabled: parsed.notificationsEnabled ?? defaultSettings.notificationsEnabled,
       autoLogoutMinutes: parsed.autoLogoutMinutes ?? defaultSettings.autoLogoutMinutes,
+      fullName: parsed.fullName ?? defaultSettings.fullName,
+      email: parsed.email ?? defaultSettings.email,
+      avatarUrl: parsed.avatarUrl ?? defaultSettings.avatarUrl,
     };
   } catch {
     return defaultSettings;
@@ -51,6 +63,52 @@ export default function Settings() {
   });
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSaving, setPasswordSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("avatar", file);
+
+    const auth = getAuthState();
+    const token = auth.token;
+    
+    console.log("Admin auth state:", auth);
+    console.log("Token:", token);
+
+    const API_BASE = "http://localhost:5000";
+
+    try {
+      const res = await fetch(`${API_BASE}/api/settings/avatar`, {
+        method: "POST",
+        body: formData,
+        headers: {
+          Authorization: `Bearer ${token || ""}`,
+        },
+      });
+
+      if (!res.ok) throw new Error("Upload failed");
+
+      const data = await res.json();
+      if (data.avatarUrl) {
+        setSettings((prev) => ({ ...prev, avatarUrl: data.avatarUrl }));
+      }
+      await backendSettingsQuery.refetch();
+    } catch (err) {
+      console.error("Avatar upload failed:", err);
+    }
+  };
+
+  const initials =
+    settings.fullName
+      ?.split(" ")
+      .filter(Boolean)
+      .map((n) => n[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase() || "A";
 
   const backendSettingsQuery = useQuery({
     queryKey: ["settings"],
@@ -63,6 +121,9 @@ export default function Settings() {
           notificationsEnabled?: boolean;
           autoLogoutMinutes?: number;
           notifications?: Record<string, boolean>;
+          fullName?: string;
+          email?: string;
+          avatarUrl?: string;
         };
       }>("/api/settings");
     },
@@ -72,6 +133,7 @@ export default function Settings() {
     const item = backendSettingsQuery.data?.item;
     if (!item) return;
     setSettings((prev) => ({
+      ...prev,
       companyName: typeof item.companyName === "string" ? item.companyName : prev.companyName,
       supportEmail: typeof item.supportEmail === "string" ? item.supportEmail : prev.supportEmail,
       timezone: typeof item.timezone === "string" ? item.timezone : prev.timezone,
@@ -79,6 +141,9 @@ export default function Settings() {
         typeof item.notificationsEnabled === "boolean" ? item.notificationsEnabled : prev.notificationsEnabled,
       autoLogoutMinutes:
         typeof item.autoLogoutMinutes === "number" ? item.autoLogoutMinutes : prev.autoLogoutMinutes,
+      fullName: typeof item.fullName === "string" ? item.fullName : prev.fullName,
+      email: typeof item.email === "string" ? item.email : prev.email,
+      avatarUrl: typeof item.avatarUrl === "string" ? item.avatarUrl : prev.avatarUrl,
     }));
   }, [backendSettingsQuery.data]);
 
@@ -167,44 +232,65 @@ export default function Settings() {
         {/* Settings Grid - Responsive */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
           
-          {/* Organization Card */}
+          {/* Profile Card */}
           <Card className="shadow-soft border-0 sm:border">
             <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
-              <CardTitle className="text-base sm:text-lg md:text-xl font-semibold">
-                Organization
+              <CardTitle className="text-base sm:text-lg md:text-xl font-semibold flex items-center gap-2">
+                <User className="w-5 h-5" />
+                Profile
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 sm:space-y-5 px-4 sm:px-6 pb-5 sm:pb-6 pt-0">
+              {/* Profile Picture */}
+              <div className="flex items-center gap-4">
+                <div className="relative">
+                  <Avatar className="h-20 w-20 border-2 border-border">
+                    {settings.avatarUrl ? (
+                      <AvatarImage src={settings.avatarUrl} alt={settings.fullName || "Admin"} />
+                    ) : (
+                      <AvatarFallback className="text-2xl bg-primary/10 text-primary">
+                        {initials}
+                      </AvatarFallback>
+                    )}
+                  </Avatar>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-primary text-white hover:bg-primary/90 transition-colors"
+                    title="Change profile picture"
+                  >
+                    <Camera className="w-3.5 h-3.5" />
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarUpload}
+                  />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Profile Picture</p>
+                  <p className="text-sm text-muted-foreground">
+                    Click the camera icon to upload
+                  </p>
+                </div>
+              </div>
+
               <div className="space-y-1.5 sm:space-y-2">
-                <label className="block text-xs sm:text-sm font-medium">
-                  Company Name
-                </label>
+                <label className="block text-xs sm:text-sm font-medium">Full Name</label>
                 <Input
-                  value={settings.companyName}
-                  onChange={(e) => setSettings({ ...settings, companyName: e.target.value })}
+                  value={settings.fullName}
+                  onChange={(e) => setSettings({ ...settings, fullName: e.target.value })}
                   className="h-9 sm:h-10 text-sm sm:text-base"
                 />
               </div>
-              
+
               <div className="space-y-1.5 sm:space-y-2">
-                <label className="block text-xs sm:text-sm font-medium">
-                  Support Email
-                </label>
+                <label className="block text-xs sm:text-sm font-medium">Email</label>
                 <Input
                   type="email"
-                  value={settings.supportEmail}
-                  onChange={(e) => setSettings({ ...settings, supportEmail: e.target.value })}
-                  className="h-9 sm:h-10 text-sm sm:text-base"
-                />
-              </div>
-              
-              <div className="space-y-1.5 sm:space-y-2">
-                <label className="block text-xs sm:text-sm font-medium">
-                  Timezone
-                </label>
-                <Input
-                  value={settings.timezone}
-                  onChange={(e) => setSettings({ ...settings, timezone: e.target.value })}
+                  value={settings.email}
+                  onChange={(e) => setSettings({ ...settings, email: e.target.value })}
                   className="h-9 sm:h-10 text-sm sm:text-base"
                 />
               </div>
@@ -219,40 +305,6 @@ export default function Settings() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4 sm:space-y-5 px-4 sm:px-6 pb-5 sm:pb-6 pt-0">
-              <div className="space-y-1.5 sm:space-y-2">
-                <label className="block text-xs sm:text-sm font-medium">
-                  Auto Logout (minutes)
-                </label>
-                <Input
-                  type="number"
-                  min={0}
-                  value={settings.autoLogoutMinutes}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      autoLogoutMinutes: Number(e.target.value),
-                    })
-                  }
-                  className="h-9 sm:h-10 text-sm sm:text-base"
-                />
-                <p className="text-xs text-muted-foreground mt-1.5">
-                  Set 0 to disable. (UI-only setting for now)
-                </p>
-              </div>
-              
-              {/* Session Status */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-md border p-3 sm:p-4">
-                <div className="space-y-1">
-                  <p className="text-sm sm:text-base font-medium">Session</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">
-                    Login required for admin routes
-                  </p>
-                </div>
-                <Badge variant="secondary" className="w-fit sm:w-auto text-xs sm:text-sm">
-                  Enabled
-                </Badge>
-              </div>
-
               <div className="rounded-md border p-3 sm:p-4 space-y-3">
                 <p className="text-sm sm:text-base font-medium">Change Password</p>
                 <div className="space-y-1.5">
@@ -302,160 +354,6 @@ export default function Settings() {
                     Change Password
                   </Button>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Notifications Card - Full width on mobile, spans 2 columns on desktop */}
-          <Card className="shadow-soft border-0 sm:border lg:col-span-2">
-            <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
-              <CardTitle className="text-base sm:text-lg md:text-xl font-semibold">
-                Notifications
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 sm:space-y-5 px-4 sm:px-6 pb-5 sm:pb-6 pt-0">
-              
-              {/* Notification Toggle */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-md border p-3 sm:p-4">
-                <div className="space-y-1">
-                  <p className="text-sm sm:text-base font-medium">Enable Notifications</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">
-                    Allow in-app notifications
-                  </p>
-                </div>
-                
-                <div className="flex items-center justify-between sm:justify-start gap-3">
-                  <span className="text-xs sm:hidden">
-                    {settings.notificationsEnabled ? 'On' : 'Off'}
-                  </span>
-                  <button
-                    onClick={() =>
-                      setSettings({ ...settings, notificationsEnabled: !settings.notificationsEnabled })
-                    }
-                    className={`
-                      relative h-7 w-12 sm:h-8 sm:w-14 rounded-full transition-colors flex items-center px-1
-                      ${settings.notificationsEnabled ? "bg-accent" : "bg-muted"}
-                      focus:outline-none focus:ring-2 focus:ring-accent/50
-                    `}
-                    aria-label="Toggle notifications"
-                  >
-                    <span
-                      className={`
-                        h-5 w-5 sm:h-6 sm:w-6 rounded-full bg-background shadow-md transition-transform duration-200
-                        ${settings.notificationsEnabled ? "translate-x-5 sm:translate-x-6" : "translate-x-0"}
-                      `}
-                    />
-                  </button>
-                </div>
-              </div>
-
-              <div className="rounded-md border p-3 sm:p-4 space-y-3">
-                <p className="text-sm sm:text-base font-medium">Notification Preferences</p>
-
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs sm:text-sm font-medium">Email Notifications</p>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground">Receive updates via email</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void setBackendNotification("emailNotifications", !Boolean(notifications.emailNotifications))}
-                    className={
-                      `relative h-7 w-12 sm:h-8 sm:w-14 rounded-full transition-colors flex items-center px-1 ` +
-                      `${Boolean(notifications.emailNotifications) ? "bg-accent" : "bg-muted"}`
-                    }
-                    aria-label="Toggle email notifications"
-                  >
-                    <span
-                      className={
-                        `h-5 w-5 sm:h-6 sm:w-6 rounded-full bg-background shadow-md transition-transform duration-200 ` +
-                        `${Boolean(notifications.emailNotifications) ? "translate-x-5 sm:translate-x-6" : "translate-x-0"}`
-                      }
-                    />
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs sm:text-sm font-medium">Task Alerts</p>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground">Get notified about task updates</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void setBackendNotification("taskAlerts", !Boolean(notifications.taskAlerts))}
-                    className={
-                      `relative h-7 w-12 sm:h-8 sm:w-14 rounded-full transition-colors flex items-center px-1 ` +
-                      `${Boolean(notifications.taskAlerts) ? "bg-accent" : "bg-muted"}`
-                    }
-                    aria-label="Toggle task alerts"
-                  >
-                    <span
-                      className={
-                        `h-5 w-5 sm:h-6 sm:w-6 rounded-full bg-background shadow-md transition-transform duration-200 ` +
-                        `${Boolean(notifications.taskAlerts) ? "translate-x-5 sm:translate-x-6" : "translate-x-0"}`
-                      }
-                    />
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs sm:text-sm font-medium">Employee Updates</p>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground">Clock in/out notifications</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void setBackendNotification("employeeUpdates", !Boolean(notifications.employeeUpdates))}
-                    className={
-                      `relative h-7 w-12 sm:h-8 sm:w-14 rounded-full transition-colors flex items-center px-1 ` +
-                      `${Boolean(notifications.employeeUpdates) ? "bg-accent" : "bg-muted"}`
-                    }
-                    aria-label="Toggle employee updates"
-                  >
-                    <span
-                      className={
-                        `h-5 w-5 sm:h-6 sm:w-6 rounded-full bg-background shadow-md transition-transform duration-200 ` +
-                        `${Boolean(notifications.employeeUpdates) ? "translate-x-5 sm:translate-x-6" : "translate-x-0"}`
-                      }
-                    />
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-xs sm:text-sm font-medium">Weekly Reports</p>
-                    <p className="text-[10px] sm:text-xs text-muted-foreground">Summary emails every Monday</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void setBackendNotification("weeklyReports", !Boolean(notifications.weeklyReports))}
-                    className={
-                      `relative h-7 w-12 sm:h-8 sm:w-14 rounded-full transition-colors flex items-center px-1 ` +
-                      `${Boolean(notifications.weeklyReports) ? "bg-accent" : "bg-muted"}`
-                    }
-                    aria-label="Toggle weekly reports"
-                  >
-                    <span
-                      className={
-                        `h-5 w-5 sm:h-6 sm:w-6 rounded-full bg-background shadow-md transition-transform duration-200 ` +
-                        `${Boolean(notifications.weeklyReports) ? "translate-x-5 sm:translate-x-6" : "translate-x-0"}`
-                      }
-                    />
-                  </button>
-                </div>
-              </div>
-
-              {/* Reset Button */}
-              <div className="flex flex-col sm:flex-row sm:justify-end gap-2 pt-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSettings(defaultSettings);
-                  }}
-                  className="w-full sm:w-auto text-sm sm:text-base h-9 sm:h-10"
-                >
-                  Reset to Default
-                </Button>
               </div>
             </CardContent>
           </Card>

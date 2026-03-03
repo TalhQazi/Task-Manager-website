@@ -1,18 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
-import { Switch } from "@/components/manger/ui/switch";
-import { Separator } from "@/components/manger/ui/separator";
-import { User, Bell, Shield, Globe, Save } from "lucide-react";
+import { User, Shield, Save, Camera } from "lucide-react";
 import { apiFetch } from "@/lib/manger/api";
 import { toast } from "@/components/manger/ui/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getAuthState } from "@/lib/auth";
 
 type SettingsItem = {
   fullName: string;
   email: string;
   phone: string;
   role: string;
+  avatarUrl?: string;
   notifications?: {
     emailNotifications?: boolean;
     taskAlerts?: boolean;
@@ -51,12 +52,40 @@ export default function Settings() {
     },
   });
 
+  const avatarUploadMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("avatar", file);
+      
+      const auth = getAuthState();
+      const token = auth.token;
+      
+      // Use full backend URL for file upload
+      const API_BASE = "http://localhost:5000";
+      
+      const res = await fetch(`${API_BASE}/api/settings/avatar`, {
+        method: "POST",
+        body: formData,
+        headers: {
+          Authorization: `Bearer ${token || ""}`,
+        },
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ message: "Upload failed" }));
+        throw new Error(errorData.error?.message || errorData.message || "Failed to upload avatar");
+      }
+      return res.json();
+    },
+  });
+
   const [draft, setDraft] = useState<any>(null);
   const [passwordDraft, setPasswordDraft] = useState({
     currentPassword: "",
     newPassword: "",
     confirmNewPassword: "",
   });
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (settingsQuery.data?.item) {
@@ -132,8 +161,41 @@ export default function Settings() {
     );
   };
 
+  const handleAvatarClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    avatarUploadMutation.mutate(file, {
+      onSuccess: (data) => {
+        void queryClient.invalidateQueries({ queryKey: ["settings"] });
+        toast({ title: "Success", description: "Profile picture updated." });
+        if (data.avatarUrl) {
+          setDraft((p: any) => ({ ...p, avatarUrl: data.avatarUrl }));
+        }
+      },
+      onError: (err) => {
+        toast({
+          title: "Upload failed",
+          description: err instanceof Error ? err.message : "Failed to upload image",
+        });
+      },
+    });
+  };
+
+  const initials = draft?.fullName
+    ?.split(" ")
+    .filter(Boolean)
+    .map((n: string) => n[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase() || "M";
+
   return (
-    <div className="space-y-6 max-w-3xl">
+    <div className="space-y-6 max-w-3xl mx-auto">
       {/* Header */}
       <div className="page-header">
         <h1 className="page-title">Settings</h1>
@@ -150,6 +212,41 @@ export default function Settings() {
             <h3 className="font-semibold text-foreground">Profile Settings</h3>
             <p className="text-sm text-muted-foreground">
               Update your personal information
+            </p>
+          </div>
+        </div>
+
+        {/* Profile Picture */}
+        <div className="flex items-center gap-4 mb-6">
+          <div className="relative">
+            <Avatar className="h-20 w-20 border-2 border-border">
+              {draft?.avatarUrl ? (
+                <AvatarImage src={draft.avatarUrl} alt={draft?.fullName || "User"} />
+              ) : (
+                <AvatarFallback className="text-2xl bg-primary/10 text-primary">
+                  {initials}
+                </AvatarFallback>
+              )}
+            </Avatar>
+            <button
+              onClick={handleAvatarClick}
+              className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-primary text-white hover:bg-primary/90 transition-colors"
+              title="Change profile picture"
+            >
+              <Camera className="w-3.5 h-3.5" />
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+          </div>
+          <div>
+            <p className="font-medium text-foreground">Profile Picture</p>
+            <p className="text-sm text-muted-foreground">
+              Click the camera icon to upload a new photo
             </p>
           </div>
         </div>
@@ -188,75 +285,6 @@ export default function Settings() {
               Role
             </label>
             <Input value={draft?.role ?? ""} disabled />
-          </div>
-        </div>
-      </div>
-
-      {/* Notification Settings */}
-      <div className="bg-card rounded-xl border border-border shadow-card p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <Bell className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-foreground">Notifications</h3>
-            <p className="text-sm text-muted-foreground">
-              Configure how you receive notifications
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between py-2">
-            <div>
-              <p className="font-medium text-foreground">Email Notifications</p>
-              <p className="text-sm text-muted-foreground">
-                Receive updates via email
-              </p>
-            </div>
-            <Switch
-              checked={Boolean(draft?.notifications?.emailNotifications)}
-              onCheckedChange={(checked) => setNotification("emailNotifications", checked)}
-            />
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between py-2">
-            <div>
-              <p className="font-medium text-foreground">Task Alerts</p>
-              <p className="text-sm text-muted-foreground">
-                Get notified about task updates
-              </p>
-            </div>
-            <Switch
-              checked={Boolean(draft?.notifications?.taskAlerts)}
-              onCheckedChange={(checked) => setNotification("taskAlerts", checked)}
-            />
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between py-2">
-            <div>
-              <p className="font-medium text-foreground">Employee Updates</p>
-              <p className="text-sm text-muted-foreground">
-                Clock in/out notifications
-              </p>
-            </div>
-            <Switch
-              checked={Boolean(draft?.notifications?.employeeUpdates)}
-              onCheckedChange={(checked) => setNotification("employeeUpdates", checked)}
-            />
-          </div>
-          <Separator />
-          <div className="flex items-center justify-between py-2">
-            <div>
-              <p className="font-medium text-foreground">Weekly Reports</p>
-              <p className="text-sm text-muted-foreground">
-                Summary emails every Monday
-              </p>
-            </div>
-            <Switch
-              checked={Boolean(draft?.notifications?.weeklyReports)}
-              onCheckedChange={(checked) => setNotification("weeklyReports", checked)}
-            />
           </div>
         </div>
       </div>
@@ -314,42 +342,6 @@ export default function Settings() {
           <Button variant="outline" onClick={onChangePassword} disabled={changePasswordMutation.isPending}>
             Change Password
           </Button>
-        </div>
-      </div>
-
-      {/* Language & Region */}
-      <div className="bg-card rounded-xl border border-border shadow-card p-6">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 rounded-lg bg-primary/10">
-            <Globe className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-foreground">Language & Region</h3>
-            <p className="text-sm text-muted-foreground">
-              Set your preferred language and timezone
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              Language
-            </label>
-            <Input
-              value={draft?.language ?? ""}
-              onChange={(e) => setDraft((p: any) => ({ ...p, language: e.target.value }))}
-            />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-foreground mb-2 block">
-              Timezone
-            </label>
-            <Input
-              value={draft?.timezone ?? ""}
-              onChange={(e) => setDraft((p: any) => ({ ...p, timezone: e.target.value }))}
-            />
-          </div>
         </div>
       </div>
 
