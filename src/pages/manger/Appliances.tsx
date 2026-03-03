@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
 import { Badge } from "@/components/manger/ui/badge";
@@ -60,66 +60,78 @@ import {
   List,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
-import { apiFetch } from "@/lib/admin/apiClient";
+import { apiFetch } from "@/lib/manger/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface Appliance {
   id: string;
   name: string;
-  category: string;
-  serialNumber: string;
-  status: "operational" | "needs-repair" | "out-of-service";
+  type: "residential" | "commercial";
   location: string;
-  warrantyExpiry: string;
-  lastMaintenance: string;
+  purchaseDate: string;
+  warrantyUntil: string;
+  status: "active" | "inactive";
   assignedTo?: string;
+  tagPhotoFileName?: string;
+  tagPhotoDataUrl?: string;
 }
 
-type ApplianceApi = Omit<Appliance, "id"> & {
-  _id: string;
+type ApplianceApi = {
+  id?: string;
+  _id?: string;
+  name?: string;
+  type?: string;
+  location?: string;
+  purchaseDate?: string;
+  warrantyUntil?: string;
+  status?: string;
+  assignedTo?: string;
+  tagPhotoFileName?: string;
+  tagPhotoDataUrl?: string;
 };
 
 function normalizeAppliance(a: ApplianceApi): Appliance {
+  const id = String(a.id || a._id || "");
   return {
-    id: a._id,
-    name: a.name,
-    category: a.category,
-    serialNumber: a.serialNumber,
-    status: a.status,
-    location: a.location,
-    warrantyExpiry: a.warrantyExpiry,
-    lastMaintenance: a.lastMaintenance,
-    assignedTo: a.assignedTo,
+    id,
+    name: String(a.name || ""),
+    type: (String(a.type || "commercial") === "residential" ? "residential" : "commercial"),
+    location: String(a.location || ""),
+    purchaseDate: String(a.purchaseDate || ""),
+    warrantyUntil: String(a.warrantyUntil || ""),
+    status: (String(a.status || "active") === "inactive" ? "inactive" : "active"),
+    assignedTo: a.assignedTo ? String(a.assignedTo) : undefined,
+    tagPhotoFileName: a.tagPhotoFileName ? String(a.tagPhotoFileName) : undefined,
+    tagPhotoDataUrl: a.tagPhotoDataUrl ? String(a.tagPhotoDataUrl) : undefined,
   };
 }
 
 const statusStyles = {
-  operational: "bg-success/10 text-success",
-  "needs-repair": "bg-warning/10 text-warning",
-  "out-of-service": "bg-destructive/10 text-destructive",
-};
+  active: "bg-success/10 text-success",
+  inactive: "bg-muted text-muted-foreground",
+} as const;
 
 const statusIcons = {
-  operational: CheckCircle2,
-  "needs-repair": AlertCircle,
-  "out-of-service": AlertCircle,
-};
+  active: CheckCircle2,
+  inactive: AlertCircle,
+} as const;
 
 const createApplianceSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  category: z.string().min(1, "Category is required"),
-  serialNumber: z.string().min(1, "Serial number is required"),
-  status: z.enum(["operational", "needs-repair", "out-of-service"]),
+  type: z.enum(["residential", "commercial"]),
   location: z.string().min(1, "Location is required"),
-  warrantyExpiry: z.string().min(1, "Warranty expiry is required"),
-  lastMaintenance: z.string().min(1, "Last maintenance date is required"),
+  purchaseDate: z.string().optional(),
+  warrantyUntil: z.string().optional(),
+  status: z.enum(["active", "inactive"]),
   assignedTo: z.string().optional(),
+  tagPhotoFileName: z.string().optional(),
+  tagPhotoDataUrl: z.string().optional(),
 });
 
 type CreateApplianceValues = z.infer<typeof createApplianceSchema>;
 
 // Animation variants
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -130,13 +142,13 @@ const containerVariants = {
   },
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { y: 20, opacity: 0 },
   visible: {
     y: 0,
     opacity: 1,
     transition: {
-      type: "spring",
+      type: "spring" as const,
       stiffness: 300,
       damping: 24,
     },
@@ -215,7 +227,7 @@ const statsVariants = {
 export default function Appliances() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -224,11 +236,36 @@ export default function Appliances() {
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
   const queryClient = useQueryClient();
 
+  const [createTagPhotoFile, setCreateTagPhotoFile] = useState<File | null>(null);
+  const [editTagPhotoFile, setEditTagPhotoFile] = useState<File | null>(null);
+
+  const readFileAsDataUrl = (file: File) => {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const getApplianceTagPhotoSrc = (a?: Pick<Appliance, "tagPhotoDataUrl" | "tagPhotoFileName"> | null) => {
+    if (!a) return null;
+    const dataUrl = String(a.tagPhotoDataUrl || "").trim();
+    if (dataUrl) return dataUrl;
+    const fileName = String(a.tagPhotoFileName || "").trim();
+    if (!fileName) return null;
+    if (fileName.startsWith("data:")) return fileName;
+    if (fileName.startsWith("http://") || fileName.startsWith("https://")) return fileName;
+    if (fileName.startsWith("/")) return fileName;
+    return null;
+  };
+
   const appliancesQuery = useQuery({
     queryKey: ["appliances"],
     queryFn: async () => {
-      const res = await apiFetch<{ items: ApplianceApi[] }>("/api/appliances");
-      return res.items.map(normalizeAppliance);
+      const res = await apiFetch<{ items?: ApplianceApi[] } | ApplianceApi[]>("/api/appliances");
+      const items = Array.isArray(res) ? res : Array.isArray(res.items) ? res.items : [];
+      return items.map(normalizeAppliance).filter((a) => Boolean(a.id));
     },
   });
 
@@ -277,13 +314,14 @@ export default function Appliances() {
     resolver: zodResolver(createApplianceSchema),
     defaultValues: {
       name: "",
-      category: "",
-      serialNumber: "",
-      status: "operational",
+      type: "commercial",
+      status: "active",
       location: "",
-      warrantyExpiry: "",
-      lastMaintenance: "",
+      purchaseDate: "",
+      warrantyUntil: "",
       assignedTo: "",
+      tagPhotoFileName: "",
+      tagPhotoDataUrl: "",
     },
   });
 
@@ -291,32 +329,44 @@ export default function Appliances() {
     resolver: zodResolver(createApplianceSchema),
     defaultValues: {
       name: "",
-      category: "",
-      serialNumber: "",
-      status: "operational",
+      type: "commercial",
+      status: "active",
       location: "",
-      warrantyExpiry: "",
-      lastMaintenance: "",
+      purchaseDate: "",
+      warrantyUntil: "",
       assignedTo: "",
+      tagPhotoFileName: "",
+      tagPhotoDataUrl: "",
     },
   });
 
-  const onCreateAppliance = (values: CreateApplianceValues) => {
+  const onCreateAppliance = async (values: CreateApplianceValues) => {
+    let tagPhotoDataUrl = String(values.tagPhotoDataUrl || "").trim();
+    if (!tagPhotoDataUrl && createTagPhotoFile) {
+      try {
+        tagPhotoDataUrl = await readFileAsDataUrl(createTagPhotoFile);
+      } catch {
+        tagPhotoDataUrl = "";
+      }
+    }
+
     const payload: Omit<Appliance, "id"> = {
       name: values.name,
-      category: values.category,
-      serialNumber: values.serialNumber,
-      status: values.status,
+      type: values.type,
       location: values.location,
-      warrantyExpiry: values.warrantyExpiry,
-      lastMaintenance: values.lastMaintenance,
+      purchaseDate: values.purchaseDate || "",
+      warrantyUntil: values.warrantyUntil || "",
+      status: values.status,
       assignedTo: values.assignedTo?.trim() ? values.assignedTo.trim() : undefined,
+      tagPhotoFileName: values.tagPhotoFileName?.trim() ? values.tagPhotoFileName.trim() : undefined,
+      tagPhotoDataUrl: tagPhotoDataUrl || undefined,
     };
 
     createApplianceMutation.mutate(payload, {
       onSuccess: () => {
         setIsCreateOpen(false);
         form.reset();
+        setCreateTagPhotoFile(null);
         toast({
           title: "Appliance added",
           description: "New appliance has been added.",
@@ -338,15 +388,17 @@ export default function Appliances() {
 
   const openEdit = (appliance: Appliance) => {
     setSelectedAppliance(appliance);
+    setEditTagPhotoFile(null);
     editForm.reset({
       name: appliance.name,
-      category: appliance.category,
-      serialNumber: appliance.serialNumber,
       status: appliance.status,
       location: appliance.location,
-      warrantyExpiry: appliance.warrantyExpiry,
-      lastMaintenance: appliance.lastMaintenance,
+      type: appliance.type,
+      purchaseDate: appliance.purchaseDate,
+      warrantyUntil: appliance.warrantyUntil,
       assignedTo: appliance.assignedTo ?? "",
+      tagPhotoFileName: appliance.tagPhotoFileName ?? "",
+      tagPhotoDataUrl: appliance.tagPhotoDataUrl ?? "",
     });
     setIsEditOpen(true);
   };
@@ -356,11 +408,25 @@ export default function Appliances() {
     setIsDeleteOpen(true);
   };
 
-  const onEditAppliance = (values: CreateApplianceValues) => {
+  const onEditAppliance = async (values: CreateApplianceValues) => {
     if (!selectedAppliance) return;
 
+    let tagPhotoDataUrl = String(values.tagPhotoDataUrl || "").trim();
+    if (editTagPhotoFile) {
+      try {
+        tagPhotoDataUrl = await readFileAsDataUrl(editTagPhotoFile);
+      } catch {
+        tagPhotoDataUrl = "";
+      }
+    }
+
+    const nextValues: CreateApplianceValues = {
+      ...values,
+      tagPhotoDataUrl,
+    };
+
     updateApplianceMutation.mutate(
-      { id: selectedAppliance.id, payload: values },
+      { id: selectedAppliance.id, payload: nextValues },
       {
         onSuccess: () => {
           setIsEditOpen(false);
@@ -401,35 +467,22 @@ export default function Appliances() {
     });
   };
 
-  const categories = useMemo(() => {
-    return [...new Set(appliances.map((a) => a.category))];
-  }, [appliances]);
-
   const filteredAppliances = useMemo(() => {
     return appliances.filter((appliance) => {
       const matchesSearch =
         appliance.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        appliance.serialNumber.toLowerCase().includes(searchQuery.toLowerCase());
+        appliance.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(appliance.assignedTo || "").toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus =
         statusFilter === "all" || appliance.status === statusFilter;
-      const matchesCategory =
-        categoryFilter === "all" || appliance.category === categoryFilter;
-      return matchesSearch && matchesStatus && matchesCategory;
+      const matchesType =
+        typeFilter === "all" || appliance.type === typeFilter;
+      return matchesSearch && matchesStatus && matchesType;
     });
-  }, [appliances, categoryFilter, searchQuery, statusFilter]);
+  }, [appliances, searchQuery, statusFilter, typeFilter]);
 
-  const operationalCount = useMemo(
-    () => appliances.filter((a) => a.status === "operational").length,
-    [appliances],
-  );
-  const needsRepairCount = useMemo(
-    () => appliances.filter((a) => a.status === "needs-repair").length,
-    [appliances],
-  );
-  const outOfServiceCount = useMemo(
-    () => appliances.filter((a) => a.status === "out-of-service").length,
-    [appliances],
-  );
+  const activeCount = useMemo(() => appliances.filter((a) => a.status === "active").length, [appliances]);
+  const inactiveCount = useMemo(() => appliances.filter((a) => a.status === "inactive").length, [appliances]);
 
   return (
     <motion.div
@@ -500,17 +553,14 @@ export default function Appliances() {
           }}
         >
           <motion.div variants={itemVariants}>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[130px] sm:w-[150px]">
-                <SelectValue placeholder="Category" />
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger className="w-[140px] sm:w-[160px]">
+                <SelectValue placeholder="Type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                {categories.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="commercial">Commercial</SelectItem>
+                <SelectItem value="residential">Residential</SelectItem>
               </SelectContent>
             </Select>
           </motion.div>
@@ -522,9 +572,8 @@ export default function Appliances() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="operational">Operational</SelectItem>
-                <SelectItem value="needs-repair">Needs Repair</SelectItem>
-                <SelectItem value="out-of-service">Out of Service</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
               </SelectContent>
             </Select>
           </motion.div>
@@ -621,9 +670,7 @@ export default function Appliances() {
               <AnimatePresence mode="popLayout">
                 {filteredAppliances.map((appliance) => {
                   const StatusIcon = statusIcons[appliance.status];
-                  const warrantyDate = new Date(appliance.warrantyExpiry);
-                  const isWarrantyExpiringSoon =
-                    warrantyDate <= new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+                  const tagSrc = getApplianceTagPhotoSrc(appliance);
 
                   return (
                     <motion.div
@@ -643,15 +690,17 @@ export default function Appliances() {
                             whileHover={{ rotate: 15, scale: 1.1 }}
                             transition={{ type: "spring", stiffness: 400, damping: 20 }}
                           >
-                            <Wrench className="w-5 h-5" />
+                            {tagSrc ? (
+                              <img src={tagSrc} alt={appliance.name} className="h-full w-full rounded-lg object-contain bg-white/60" />
+                            ) : (
+                              <Wrench className="w-5 h-5" />
+                            )}
                           </motion.div>
                           <div className="min-w-0 flex-1">
                             <p className="font-medium text-foreground truncate">
                               {appliance.name}
                             </p>
-                            <p className="text-xs text-muted-foreground truncate">
-                              {appliance.serialNumber}
-                            </p>
+                            <p className="text-xs text-muted-foreground truncate">{appliance.id}</p>
                           </div>
                         </div>
                         <DropdownMenu>
@@ -688,7 +737,7 @@ export default function Appliances() {
                       >
                         <div>
                           <Badge variant="outline" className="text-xs">
-                            {appliance.category}
+                            {appliance.type}
                           </Badge>
                         </div>
                         <div>
@@ -700,7 +749,7 @@ export default function Appliances() {
                             )}
                           >
                             <StatusIcon className="w-3 h-3" />
-                            {appliance.status.replace("-", " ")}
+                            {appliance.status}
                           </Badge>
                         </div>
                       </motion.div>
@@ -717,26 +766,8 @@ export default function Appliances() {
                         </div>
                         <div className="flex items-center gap-1.5 text-muted-foreground">
                           <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
-                          <span className="truncate">
-                            {new Date(appliance.lastMaintenance).toLocaleDateString()}
-                          </span>
+                          <span className="truncate">{appliance.warrantyUntil || "—"}</span>
                         </div>
-                      </motion.div>
-
-                      <motion.div 
-                        className="mt-2 text-xs"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.3 }}
-                      >
-                        <span
-                          className={cn(
-                            "text-muted-foreground",
-                            isWarrantyExpiringSoon && "text-warning font-medium"
-                          )}
-                        >
-                          Warranty: {warrantyDate.toLocaleDateString()}
-                        </span>
                       </motion.div>
                     </motion.div>
                   );
@@ -750,11 +781,10 @@ export default function Appliances() {
                 <thead>
                   <tr>
                     <th className="px-4 py-3 text-left">Appliance</th>
-                    <th className="px-4 py-3 text-left">Category</th>
+                    <th className="px-4 py-3 text-left">Type</th>
                     <th className="px-4 py-3 text-left">Status</th>
                     <th className="px-4 py-3 text-left">Location</th>
-                    <th className="px-4 py-3 text-left">Last Maintenance</th>
-                    <th className="px-4 py-3 text-left">Warranty Expiry</th>
+                    <th className="px-4 py-3 text-left">Warranty Until</th>
                     <th className="w-12 px-4 py-3"></th>
                   </tr>
                 </thead>
@@ -762,9 +792,7 @@ export default function Appliances() {
                   <AnimatePresence mode="popLayout">
                     {filteredAppliances.map((appliance, index) => {
                       const StatusIcon = statusIcons[appliance.status];
-                      const warrantyDate = new Date(appliance.warrantyExpiry);
-                      const isWarrantyExpiringSoon =
-                        warrantyDate <= new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+                      const tagSrc = getApplianceTagPhotoSrc(appliance);
 
                       return (
                         <motion.tr
@@ -788,15 +816,17 @@ export default function Appliances() {
                                 whileHover={{ rotate: 15, scale: 1.1 }}
                                 transition={{ type: "spring", stiffness: 400, damping: 20 }}
                               >
-                                <Wrench className="w-5 h-5" />
+                                {tagSrc ? (
+                                  <img src={tagSrc} alt={appliance.name} className="h-full w-full rounded-lg object-contain bg-white/60" />
+                                ) : (
+                                  <Wrench className="w-5 h-5" />
+                                )}
                               </motion.div>
                               <div className="min-w-0">
                                 <p className="font-medium text-foreground truncate max-w-[200px]">
                                   {appliance.name}
                                 </p>
-                                <p className="text-xs text-muted-foreground truncate max-w-[200px]">
-                                  {appliance.serialNumber}
-                                </p>
+                                <p className="text-xs text-muted-foreground truncate max-w-[200px]">{appliance.id}</p>
                               </div>
                             </div>
                           </td>
@@ -805,7 +835,7 @@ export default function Appliances() {
                               whileHover={{ scale: 1.05 }}
                               transition={{ type: "spring", stiffness: 400, damping: 30 }}
                             >
-                              <Badge variant="outline">{appliance.category}</Badge>
+                              <Badge variant="outline">{appliance.type}</Badge>
                             </motion.div>
                           </td>
                           <td className="px-4 py-3">
@@ -821,7 +851,7 @@ export default function Appliances() {
                                 )}
                               >
                                 <StatusIcon className="w-3 h-3" />
-                                {appliance.status.replace("-", " ")}
+                                {appliance.status}
                               </Badge>
                             </motion.div>
                           </td>
@@ -834,26 +864,8 @@ export default function Appliances() {
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-1.5 text-muted-foreground whitespace-nowrap">
                               <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
-                              <span>
-                                {new Date(appliance.lastMaintenance).toLocaleDateString()}
-                              </span>
+                              <span>{appliance.warrantyUntil || "—"}</span>
                             </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <motion.span
-                              animate={isWarrantyExpiringSoon ? {
-                                scale: [1, 1.05, 1],
-                                transition: { duration: 2, repeat: Infinity }
-                              } : {}}
-                              className={cn(
-                                "text-sm whitespace-nowrap",
-                                isWarrantyExpiringSoon
-                                  ? "text-warning font-medium"
-                                  : "text-muted-foreground"
-                              )}
-                            >
-                              {warrantyDate.toLocaleDateString()}
-                            </motion.span>
                           </td>
                           <td className="px-4 py-3">
                             <DropdownMenu>
@@ -926,29 +938,18 @@ export default function Appliances() {
               animate={{ scale: [1, 1.2, 1] }}
               transition={{ duration: 2, repeat: Infinity }}
             />
-            {operationalCount} operational
+            {activeCount} active
           </motion.span>
           <motion.span 
             variants={itemVariants}
             className="flex items-center gap-1.5 whitespace-nowrap"
           >
             <motion.span 
-              className="w-2 h-2 rounded-full bg-warning"
+              className="w-2 h-2 rounded-full bg-muted"
               animate={{ scale: [1, 1.2, 1] }}
               transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
             />
-            {needsRepairCount} needs repair
-          </motion.span>
-          <motion.span 
-            variants={itemVariants}
-            className="flex items-center gap-1.5 whitespace-nowrap"
-          >
-            <motion.span 
-              className="w-2 h-2 rounded-full bg-destructive"
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 2, repeat: Infinity, delay: 1 }}
-            />
-            {outOfServiceCount} out of service
+            {inactiveCount} inactive
           </motion.span>
         </motion.div>
       </motion.div>
@@ -982,27 +983,21 @@ export default function Appliances() {
 
                 <FormField
                   control={form.control}
-                  name="serialNumber"
+                  name="type"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Serial Number</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. CR-2024-009" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Category</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Refrigeration" {...field} />
-                      </FormControl>
+                      <FormLabel>Type</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="commercial">Commercial</SelectItem>
+                          <SelectItem value="residential">Residential</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1021,9 +1016,8 @@ export default function Appliances() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="operational">Operational</SelectItem>
-                          <SelectItem value="needs-repair">Needs Repair</SelectItem>
-                          <SelectItem value="out-of-service">Out of Service</SelectItem>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="inactive">Inactive</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -1061,10 +1055,10 @@ export default function Appliances() {
 
                 <FormField
                   control={form.control}
-                  name="lastMaintenance"
+                  name="purchaseDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Last Maintenance</FormLabel>
+                      <FormLabel>Purchase Date</FormLabel>
                       <FormControl>
                         <Input type="date" {...field} />
                       </FormControl>
@@ -1075,12 +1069,53 @@ export default function Appliances() {
 
                 <FormField
                   control={form.control}
-                  name="warrantyExpiry"
+                  name="warrantyUntil"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Warranty Expiry</FormLabel>
+                      <FormLabel>Warranty Until</FormLabel>
                       <FormControl>
                         <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="tagPhotoFileName"
+                  render={({ field }) => (
+                    <FormItem className="sm:col-span-2">
+                      <FormLabel>Tag Photo</FormLabel>
+                      {getApplianceTagPhotoSrc({ tagPhotoDataUrl: form.watch("tagPhotoDataUrl"), tagPhotoFileName: field.value }) && (
+                        <div className="w-full overflow-hidden rounded-xl border bg-muted/10 mb-2">
+                          <img
+                            src={getApplianceTagPhotoSrc({ tagPhotoDataUrl: form.watch("tagPhotoDataUrl"), tagPhotoFileName: field.value }) || ""}
+                            alt={form.watch("name") || "Tag photo"}
+                            className="w-full h-44 sm:h-64 object-contain bg-white"
+                          />
+                        </div>
+                      )}
+                      <FormControl>
+                        <div className="w-full">
+                          <input
+                            type="file"
+                            className="block w-full text-sm"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0] || null;
+                              setCreateTagPhotoFile(f);
+                              if (!f) {
+                                form.setValue("tagPhotoFileName", "");
+                                form.setValue("tagPhotoDataUrl", "");
+                                return;
+                              }
+                              form.setValue("tagPhotoFileName", f.name);
+                              void readFileAsDataUrl(f)
+                                .then((dataUrl) => form.setValue("tagPhotoDataUrl", dataUrl))
+                                .catch(() => form.setValue("tagPhotoDataUrl", ""));
+                            }}
+                          />
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1109,7 +1144,7 @@ export default function Appliances() {
           if (!open) setSelectedAppliance(null);
         }}
       >
-        <DialogContent className="sm:max-w-[500px] w-[95vw]">
+        <DialogContent className="sm:max-w-[500px] w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Appliance Details</DialogTitle>
             <DialogDescription>View appliance record information.</DialogDescription>
@@ -1122,21 +1157,36 @@ export default function Appliances() {
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
               className="space-y-4"
             >
+              {getApplianceTagPhotoSrc(selectedAppliance) && (
+                <div className="w-full overflow-hidden rounded-xl border bg-muted/10">
+                  <img
+                    src={getApplianceTagPhotoSrc(selectedAppliance) || ""}
+                    alt={selectedAppliance.name}
+                    className="w-full h-44 sm:h-64 object-contain bg-white"
+                  />
+                </div>
+              )}
               <div className="flex items-center gap-4">
                 <motion.div 
                   className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center flex-shrink-0"
                   whileHover={{ rotate: 15, scale: 1.1 }}
                   transition={{ type: "spring", stiffness: 400, damping: 20 }}
                 >
-                  <Wrench className="w-6 h-6" />
+                  {getApplianceTagPhotoSrc(selectedAppliance) ? (
+                    <img
+                      src={getApplianceTagPhotoSrc(selectedAppliance) || ""}
+                      alt={selectedAppliance.name}
+                      className="h-full w-full rounded-xl object-contain bg-white/60"
+                    />
+                  ) : (
+                    <Wrench className="w-6 h-6" />
+                  )}
                 </motion.div>
                 <div className="min-w-0">
                   <p className="font-semibold text-foreground truncate">
                     {selectedAppliance.name}
                   </p>
-                  <p className="text-sm text-muted-foreground truncate">
-                    {selectedAppliance.serialNumber}
-                  </p>
+                  <p className="text-sm text-muted-foreground truncate">{selectedAppliance.id}</p>
                 </div>
               </div>
 
@@ -1149,7 +1199,7 @@ export default function Appliances() {
                 >
                   <p className="text-muted-foreground">Status</p>
                   <p className="text-foreground capitalize">
-                    {selectedAppliance.status.replace("-", " ")}
+                    {selectedAppliance.status}
                   </p>
                 </motion.div>
                 <motion.div 
@@ -1158,8 +1208,8 @@ export default function Appliances() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.15 }}
                 >
-                  <p className="text-muted-foreground">Category</p>
-                  <p className="text-foreground">{selectedAppliance.category}</p>
+                  <p className="text-muted-foreground">Type</p>
+                  <p className="text-foreground">{selectedAppliance.type}</p>
                 </motion.div>
                 <motion.div 
                   className="space-y-1"
@@ -1185,8 +1235,8 @@ export default function Appliances() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.3 }}
                 >
-                  <p className="text-muted-foreground">Last Maintenance</p>
-                  <p className="text-foreground">{new Date(selectedAppliance.lastMaintenance).toLocaleDateString()}</p>
+                  <p className="text-muted-foreground">Purchase Date</p>
+                  <p className="text-foreground">{selectedAppliance.purchaseDate || "—"}</p>
                 </motion.div>
                 <motion.div 
                   className="space-y-1"
@@ -1194,8 +1244,8 @@ export default function Appliances() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.35 }}
                 >
-                  <p className="text-muted-foreground">Warranty Expiry</p>
-                  <p className="text-foreground">{new Date(selectedAppliance.warrantyExpiry).toLocaleDateString()}</p>
+                  <p className="text-muted-foreground">Warranty Until</p>
+                  <p className="text-foreground">{selectedAppliance.warrantyUntil || "—"}</p>
                 </motion.div>
               </div>
 
@@ -1252,27 +1302,21 @@ export default function Appliances() {
 
                 <FormField
                   control={editForm.control}
-                  name="serialNumber"
+                  name="type"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Serial Number</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. CR-2024-009" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="category"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Category</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Refrigeration" {...field} />
-                      </FormControl>
+                      <FormLabel>Type</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="commercial">Commercial</SelectItem>
+                          <SelectItem value="residential">Residential</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1291,9 +1335,8 @@ export default function Appliances() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="operational">Operational</SelectItem>
-                          <SelectItem value="needs-repair">Needs Repair</SelectItem>
-                          <SelectItem value="out-of-service">Out of Service</SelectItem>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="inactive">Inactive</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -1331,10 +1374,10 @@ export default function Appliances() {
 
                 <FormField
                   control={editForm.control}
-                  name="lastMaintenance"
+                  name="purchaseDate"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Last Maintenance</FormLabel>
+                      <FormLabel>Purchase Date</FormLabel>
                       <FormControl>
                         <Input type="date" {...field} />
                       </FormControl>
@@ -1345,12 +1388,63 @@ export default function Appliances() {
 
                 <FormField
                   control={editForm.control}
-                  name="warrantyExpiry"
+                  name="warrantyUntil"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Warranty Expiry</FormLabel>
+                      <FormLabel>Warranty Until</FormLabel>
                       <FormControl>
                         <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="tagPhotoFileName"
+                  render={({ field }) => (
+                    <FormItem className="sm:col-span-2">
+                      <FormLabel>Tag Photo</FormLabel>
+                      {getApplianceTagPhotoSrc({ tagPhotoDataUrl: editForm.watch("tagPhotoDataUrl"), tagPhotoFileName: field.value }) && (
+                        <div className="w-full overflow-hidden rounded-xl border bg-muted/10 mb-2">
+                          <img
+                            src={getApplianceTagPhotoSrc({ tagPhotoDataUrl: editForm.watch("tagPhotoDataUrl"), tagPhotoFileName: field.value }) || ""}
+                            alt={editForm.watch("name") || "Tag photo"}
+                            className="w-full h-44 sm:h-64 object-contain bg-white"
+                          />
+                        </div>
+                      )}
+                      <FormControl>
+                        <div className="w-full flex flex-col sm:flex-row gap-2 sm:items-center">
+                          <input
+                            type="file"
+                            className="block w-full text-sm"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0] || null;
+                              setEditTagPhotoFile(f);
+                              if (!f) return;
+                              editForm.setValue("tagPhotoFileName", f.name);
+                              void readFileAsDataUrl(f)
+                                .then((dataUrl) => editForm.setValue("tagPhotoDataUrl", dataUrl))
+                                .catch(() => editForm.setValue("tagPhotoDataUrl", ""));
+                            }}
+                          />
+                          {(field.value || editForm.watch("tagPhotoDataUrl")) && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="w-full sm:w-auto"
+                              onClick={() => {
+                                setEditTagPhotoFile(null);
+                                editForm.setValue("tagPhotoFileName", "");
+                                editForm.setValue("tagPhotoDataUrl", "");
+                              }}
+                            >
+                              Remove
+                            </Button>
+                          )}
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>

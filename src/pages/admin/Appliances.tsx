@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
@@ -56,6 +56,7 @@ interface Appliance {
   warrantyUntil: string;
   status: "active" | "inactive";
   tagPhotoFileName?: string;
+  tagPhotoDataUrl?: string;
   assignedTo?: string;
 }
 
@@ -90,7 +91,7 @@ const typeClasses = {
 } as const;
 
 // Animation variants
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -101,26 +102,26 @@ const containerVariants = {
   },
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { y: 20, opacity: 0 },
   visible: {
     y: 0,
     opacity: 1,
     transition: {
-      type: "spring",
+      type: "spring" as const,
       stiffness: 100,
       damping: 12,
     },
   },
 };
 
-const cardVariants = {
+const cardVariants: Variants = {
   hidden: { scale: 0.95, opacity: 0 },
   visible: {
     scale: 1,
     opacity: 1,
     transition: {
-      type: "spring",
+      type: "spring" as const,
       stiffness: 100,
       damping: 15,
     },
@@ -129,7 +130,7 @@ const cardVariants = {
     scale: 1.02,
     boxShadow: "0 20px 25px -5px rgba(59, 130, 246, 0.1), 0 10px 10px -5px rgba(59, 130, 246, 0.04)",
     transition: {
-      type: "spring",
+      type: "spring" as const,
       stiffness: 400,
       damping: 17,
     },
@@ -167,10 +168,12 @@ export default function Appliances() {
     warrantyUntil: "",
     status: "active" as Appliance["status"],
     tagPhotoFileName: "",
+    tagPhotoDataUrl: "",
     assignedTo: "",
   });
 
   const [tagPhotoFile, setTagPhotoFile] = useState<File | null>(null);
+  const [editTagPhotoFile, setEditTagPhotoFile] = useState<File | null>(null);
 
   const [editFormData, setEditFormData] = useState({
     name: "",
@@ -180,8 +183,30 @@ export default function Appliances() {
     warrantyUntil: "",
     status: "active" as Appliance["status"],
     tagPhotoFileName: "",
+    tagPhotoDataUrl: "",
     assignedTo: "",
   });
+
+  const readFileAsDataUrl = (file: File) => {
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ""));
+      reader.onerror = () => reject(new Error("Failed to read file"));
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const getApplianceTagPhotoSrc = (a?: Pick<Appliance, "tagPhotoDataUrl" | "tagPhotoFileName"> | null) => {
+    if (!a) return null;
+    const dataUrl = String(a.tagPhotoDataUrl || "").trim();
+    if (dataUrl) return dataUrl;
+    const fileName = String(a.tagPhotoFileName || "").trim();
+    if (!fileName) return null;
+    if (fileName.startsWith("data:")) return fileName;
+    if (fileName.startsWith("http://") || fileName.startsWith("https://")) return fileName;
+    if (fileName.startsWith("/")) return fileName;
+    return null;
+  };
 
   useEffect(() => {
     localStorage.setItem(APPLIANCES_STORAGE_KEY, JSON.stringify(appliancesList));
@@ -256,8 +281,18 @@ export default function Appliances() {
     });
   }, [appliancesList, searchQuery]);
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!formData.name || !formData.location) return;
+
+    let tagPhotoDataUrl = String(formData.tagPhotoDataUrl || "").trim();
+    if (!tagPhotoDataUrl && tagPhotoFile) {
+      try {
+        tagPhotoDataUrl = await readFileAsDataUrl(tagPhotoFile);
+      } catch {
+        tagPhotoDataUrl = "";
+      }
+    }
+
     const next: Appliance = {
       id: `APP-${Date.now().toString().slice(-6)}`,
       name: formData.name,
@@ -267,6 +302,7 @@ export default function Appliances() {
       warrantyUntil: formData.warrantyUntil,
       status: formData.status,
       tagPhotoFileName: formData.tagPhotoFileName || "",
+      tagPhotoDataUrl,
       assignedTo: formData.assignedTo || "",
     };
     setAppliancesList((prev) => [next, ...prev]);
@@ -279,6 +315,7 @@ export default function Appliances() {
       warrantyUntil: "",
       status: "active",
       tagPhotoFileName: "",
+      tagPhotoDataUrl: "",
       assignedTo: "",
     });
     setTagPhotoFile(null);
@@ -291,6 +328,7 @@ export default function Appliances() {
 
   const onEdit = (a: Appliance) => {
     setSelected(a);
+    setEditTagPhotoFile(null);
     setEditFormData({
       name: a.name,
       type: a.type,
@@ -299,6 +337,7 @@ export default function Appliances() {
       warrantyUntil: a.warrantyUntil,
       status: a.status,
       tagPhotoFileName: a.tagPhotoFileName || "",
+      tagPhotoDataUrl: a.tagPhotoDataUrl || "",
       assignedTo: a.assignedTo || "",
     });
     setEditOpen(true);
@@ -320,6 +359,7 @@ export default function Appliances() {
               warrantyUntil: editFormData.warrantyUntil,
               status: editFormData.status,
               tagPhotoFileName: editFormData.tagPhotoFileName || "",
+              tagPhotoDataUrl: editFormData.tagPhotoDataUrl || "",
               assignedTo: editFormData.assignedTo || "",
             }
       )
@@ -386,7 +426,7 @@ export default function Appliances() {
           className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-4 sm:p-6"
           variants={itemVariants}
           whileHover={{ scale: 1.01 }}
-          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+          transition={{ type: "spring" as const, stiffness: 300, damping: 20 }}
         >
           <div className="absolute inset-0 bg-grid-white/10 [mask-image:radial-gradient(ellipse_at_center,white,transparent)]" />
           <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
@@ -500,7 +540,13 @@ export default function Appliances() {
                         const f = e.dataTransfer.files?.[0];
                         if (f) {
                           setTagPhotoFile(f);
-                          setFormData({ ...formData, tagPhotoFileName: f.name });
+                          void readFileAsDataUrl(f)
+                            .then((dataUrl) => {
+                              setFormData((prev) => ({ ...prev, tagPhotoFileName: f.name, tagPhotoDataUrl: dataUrl }));
+                            })
+                            .catch(() => {
+                              setFormData((prev) => ({ ...prev, tagPhotoFileName: f.name, tagPhotoDataUrl: "" }));
+                            });
                         }
                       }}
                       onClick={() => {
@@ -536,7 +582,17 @@ export default function Appliances() {
                         onChange={(e) => {
                           const f = e.target.files?.[0] || null;
                           setTagPhotoFile(f);
-                          setFormData({ ...formData, tagPhotoFileName: f?.name || "" });
+                          if (!f) {
+                            setFormData((prev) => ({ ...prev, tagPhotoFileName: "", tagPhotoDataUrl: "" }));
+                            return;
+                          }
+                          void readFileAsDataUrl(f)
+                            .then((dataUrl) => {
+                              setFormData((prev) => ({ ...prev, tagPhotoFileName: f.name, tagPhotoDataUrl: dataUrl }));
+                            })
+                            .catch(() => {
+                              setFormData((prev) => ({ ...prev, tagPhotoFileName: f.name, tagPhotoDataUrl: "" }));
+                            });
                         }}
                       />
                     </motion.div>
@@ -651,7 +707,7 @@ export default function Appliances() {
                     <motion.div 
                       className={`h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-${item.color}/10 flex items-center justify-center flex-shrink-0`}
                       whileHover={{ rotate: 10 }}
-                      transition={{ type: "spring", stiffness: 300, damping: 10 }}
+                      transition={{ type: "spring" as const, stiffness: 300, damping: 10 }}
                     >
                       <item.icon className={`h-4 w-4 sm:h-5 sm:w-5 text-${item.color}`} />
                     </motion.div>
@@ -718,10 +774,18 @@ export default function Appliances() {
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                           <motion.div
                             whileHover={{ scale: 1.1, rotate: 5 }}
-                            transition={{ type: "spring", stiffness: 300, damping: 10 }}
+                            transition={{ type: "spring" as const, stiffness: 300, damping: 10 }}
                           >
                             <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center flex-shrink-0 ring-2 ring-primary/20">
-                              <Wrench className="h-5 w-5 text-primary" />
+                              {getApplianceTagPhotoSrc(a) ? (
+                                <img
+                                  src={getApplianceTagPhotoSrc(a) || ""}
+                                  alt={a.name}
+                                  className="h-full w-full rounded-lg object-contain bg-white/60"
+                                />
+                              ) : (
+                                <Wrench className="h-5 w-5 text-primary" />
+                              )}
                             </div>
                           </motion.div>
                           <div className="min-w-0 flex-1">
@@ -876,10 +940,18 @@ export default function Appliances() {
                             <div className="flex items-center gap-3">
                               <motion.div
                                 whileHover={{ scale: 1.1, rotate: 5 }}
-                                transition={{ type: "spring", stiffness: 300, damping: 10 }}
+                                transition={{ type: "spring" as const, stiffness: 300, damping: 10 }}
                               >
                                 <div className="h-9 w-9 md:h-10 md:w-10 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center flex-shrink-0 ring-2 ring-primary/20">
-                                  <Wrench className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+                                  {getApplianceTagPhotoSrc(a) ? (
+                                    <img
+                                      src={getApplianceTagPhotoSrc(a) || ""}
+                                      alt={a.name}
+                                      className="h-full w-full rounded-lg object-contain bg-white/60"
+                                    />
+                                  ) : (
+                                    <Wrench className="h-4 w-4 md:h-5 md:w-5 text-primary" />
+                                  )}
                                 </div>
                               </motion.div>
                               <div className="min-w-0">
@@ -987,7 +1059,7 @@ export default function Appliances() {
 
       {/* View Details Dialog - Animated */}
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-        <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6">
+        <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[85vh] overflow-y-auto">
           <DialogHeader className="space-y-1.5 sm:space-y-2">
             <DialogTitle className="text-lg sm:text-xl bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
               Appliance Details
@@ -1082,9 +1154,26 @@ export default function Appliances() {
                   whileHover={{ x: 5 }}
                 >
                   <label className="text-xs sm:text-sm font-medium">Tag Photo</label>
-                  <p className="text-sm sm:text-base text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg break-words">
-                    {selected.tagPhotoFileName ? selected.tagPhotoFileName : "—"}
-                  </p>
+                  {getApplianceTagPhotoSrc(selected) ? (
+                    <div className="space-y-2">
+                      <div className="w-full overflow-hidden rounded-xl border bg-muted/10">
+                        <img
+                          src={getApplianceTagPhotoSrc(selected) || ""}
+                          alt={selected.name}
+                          className="w-full h-44 sm:h-64 object-contain bg-white"
+                        />
+                      </div>
+                      {selected.tagPhotoFileName && (
+                        <p className="text-xs sm:text-sm text-muted-foreground break-words">
+                          {selected.tagPhotoFileName}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm sm:text-base text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg break-words">
+                      {selected.tagPhotoFileName ? selected.tagPhotoFileName : "—"}
+                    </p>
+                  )}
                 </motion.div>
               </div>
             </motion.div>
@@ -1104,7 +1193,7 @@ export default function Appliances() {
 
       {/* Edit Dialog - Animated */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6">
+        <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[85vh] overflow-y-auto">
           <DialogHeader className="space-y-1.5 sm:space-y-2">
             <DialogTitle className="text-lg sm:text-xl bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
               Edit Appliance
@@ -1143,17 +1232,125 @@ export default function Appliances() {
               </div>
 
               {/* Tag Photo */}
-              <div>
-                <label className="block text-xs sm:text-sm font-medium mb-1.5">
-                  Tag Photo (File Name)
+              <div className="space-y-2">
+                <label className="block text-xs sm:text-sm font-medium">
+                  Tag Photo
                 </label>
-                <input
-                  value={editFormData.tagPhotoFileName}
-                  onChange={(e) =>
-                    setEditFormData({ ...editFormData, tagPhotoFileName: e.target.value })
-                  }
-                  className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                />
+                {getApplianceTagPhotoSrc(editFormData) && (
+                  <div className="w-full overflow-hidden rounded-xl border bg-muted/10">
+                    <img
+                      src={getApplianceTagPhotoSrc(editFormData) || ""}
+                      alt={editFormData.name || "Tag photo"}
+                      className="w-full h-44 sm:h-64 object-contain bg-white"
+                    />
+                  </div>
+                )}
+
+                <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
+                  <motion.div
+                    className="w-full rounded-lg border px-3 py-3 text-sm sm:text-base bg-gradient-to-br from-muted/20 to-muted/5 hover:from-muted/30 hover:to-muted/10 transition-all cursor-pointer"
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const f = e.dataTransfer.files?.[0];
+                      if (f) {
+                        setEditTagPhotoFile(f);
+                        void readFileAsDataUrl(f)
+                          .then((dataUrl) => {
+                            setEditFormData((prev) => ({
+                              ...prev,
+                              tagPhotoFileName: f.name,
+                              tagPhotoDataUrl: dataUrl,
+                            }));
+                          })
+                          .catch(() => {
+                            setEditFormData((prev) => ({
+                              ...prev,
+                              tagPhotoFileName: f.name,
+                              tagPhotoDataUrl: "",
+                            }));
+                          });
+                      }
+                    }}
+                    onClick={() => {
+                      const el = document.getElementById("appliance-edit-tag-input") as HTMLInputElement | null;
+                      el?.click();
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        const el = document.getElementById("appliance-edit-tag-input") as HTMLInputElement | null;
+                        el?.click();
+                      }
+                    }}
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.99 }}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs sm:text-sm font-medium truncate">
+                          {editTagPhotoFile
+                            ? editTagPhotoFile.name
+                            : editFormData.tagPhotoFileName
+                              ? editFormData.tagPhotoFileName
+                              : "Click to choose or drag & drop a file"}
+                        </p>
+                        <p className="text-[10px] sm:text-xs text-muted-foreground">
+                          Max 10MB
+                        </p>
+                      </div>
+                      <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    </div>
+                    <input
+                      id="appliance-edit-tag-input"
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0] || null;
+                        setEditTagPhotoFile(f);
+                        if (!f) {
+                          return;
+                        }
+                        void readFileAsDataUrl(f)
+                          .then((dataUrl) => {
+                            setEditFormData((prev) => ({
+                              ...prev,
+                              tagPhotoFileName: f.name,
+                              tagPhotoDataUrl: dataUrl,
+                            }));
+                          })
+                          .catch(() => {
+                            setEditFormData((prev) => ({
+                              ...prev,
+                              tagPhotoFileName: f.name,
+                              tagPhotoDataUrl: "",
+                            }));
+                          });
+                      }}
+                    />
+                  </motion.div>
+
+                  {(editFormData.tagPhotoFileName || editFormData.tagPhotoDataUrl) && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                      onClick={() => {
+                        setEditTagPhotoFile(null);
+                        setEditFormData((prev) => ({
+                          ...prev,
+                          tagPhotoFileName: "",
+                          tagPhotoDataUrl: "",
+                        }));
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {/* Assigned To */}
@@ -1375,7 +1572,7 @@ export default function Appliances() {
       </Dialog>
 
       {/* Add global styles for grid pattern */}
-      <style jsx global>{`
+      <style>{`
         .bg-grid-white {
           background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgb(255 255 255 / 0.05)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
         }
