@@ -15,6 +15,7 @@ import {
   Settings,
   ChevronLeft,
   Menu,
+  Building2,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -28,6 +29,7 @@ const navItems = [
   { icon: Car, label: "Vehicles", path: "/vehicles" },
   { icon: Wrench, label: "Appliances", path: "/appliances" },
   { icon: MapPin, label: "Locations", path: "/locations" },
+  { icon: Building2, label: "Vendors", path: "/vendors" },
   { icon: UserX, label: "Do Not Hire", path: "/do-not-hire" },
   { icon: ClipboardCheck, label: "Onboarding", path: "/onboarding" },
   { icon: BarChart3, label: "Reports", path: "/reports" },
@@ -63,7 +65,7 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-sidebar-border scrollbar-track-transparent">
         {navItems.map((item) => (
           <NavLink
             key={item.path}

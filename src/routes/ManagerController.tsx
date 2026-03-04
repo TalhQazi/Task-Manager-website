@@ -11,6 +11,7 @@ import TimeTracking from "@/pages/manger/TimeTracking";
 import Vehicles from "@/pages/manger/Vehicles";
 import Appliances from "@/pages/manger/Appliances";
 import Locations from "@/pages/manger/Locations";
+import Vendors from "@/pages/manger/Vendors";
 import Messages from "@/pages/manger/Messages";
 import Settings from "@/pages/manger/Settings";
 import DoNotHire from "@/pages/manger/DoNotHire";
@@ -32,6 +33,7 @@ export default function ManagerController() {
       { path: "vehicles", element: <Vehicles /> },
       { path: "appliances", element: <Appliances /> },
       { path: "locations", element: <Locations /> },
+      { path: "vendors", element: <Vendors /> },
       { path: "do-not-hire", element: <DoNotHire /> },
       { path: "onboarding", element: <OnboardingMonitoring /> },
       { path: "reports", element: <Reports /> },

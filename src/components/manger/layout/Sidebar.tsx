@@ -14,6 +14,7 @@ import {
   MessageSquare,
   Settings,
   LogOut,
+  Building2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/manger/utils";
@@ -28,6 +29,7 @@ const navItems = [
   { icon: Car, label: "Vehicles", path: "/manager/vehicles" },
   { icon: Wrench, label: "Appliances", path: "/manager/appliances" },
   { icon: MapPin, label: "Locations", path: "/manager/locations" },
+  { icon: Building2, label: "Vendors", path: "/manager/vendors" },
   { icon: UserX, label: "Do Not Hire", path: "/manager/do-not-hire" },
   { icon: ClipboardCheck, label: "Onboarding", path: "/manager/onboarding" },
   { icon: BarChart3, label: "Reports", path: "/manager/reports" },
@@ -69,7 +71,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
       )}
     >
       {/* Navigation icons */}
-      <nav className="flex-1 flex flex-col items-center gap-5 py-4 overflow-y-auto overflow-x-hidden no-scrollbar mt-4">
+      <nav className="flex-1 flex flex-col items-center gap-5 py-4 overflow-y-auto overflow-x-hidden mt-4">
         {navItems.map((item) => (
           <NavLink
             key={item.path}
