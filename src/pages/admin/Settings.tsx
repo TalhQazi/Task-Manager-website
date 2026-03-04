@@ -56,6 +56,8 @@ function loadSettings(): SettingsState {
 
 export default function Settings() {
   const [settings, setSettings] = useState<SettingsState>(() => loadSettings());
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [passwordDraft, setPasswordDraft] = useState({
     currentPassword: "",
     newPassword: "",
@@ -154,6 +156,33 @@ export default function Settings() {
   }, [backendSettingsQuery.data]);
 
   const notifications = backendSettingsQuery.data?.item?.notifications || {};
+  const saveChanges = async () => {
+    setIsSaving(true);
+    setSaveMessage(null);
+    try {
+      await apiFetch<{ item: any }>("/api/settings", {
+        method: "PUT",
+        body: JSON.stringify({
+          companyName: settings.companyName,
+          supportEmail: settings.supportEmail,
+          timezone: settings.timezone,
+          notificationsEnabled: settings.notificationsEnabled,
+          autoLogoutMinutes: settings.autoLogoutMinutes,
+          fullName: settings.fullName,
+          email: settings.email,
+        }),
+      });
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+      await backendSettingsQuery.refetch();
+      setSaveMessage("Settings saved successfully!");
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+      setSaveMessage("Failed to save settings. Please try again.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const setBackendNotification = async (key: string, value: boolean) => {
     await apiFetch<{ item: any }>("/api/settings", {
       method: "PUT",
@@ -166,33 +195,6 @@ export default function Settings() {
     });
     await backendSettingsQuery.refetch();
   };
-
-  useEffect(() => {
-    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-  }, [settings]);
-
-  useEffect(() => {
-    if (backendSettingsQuery.isLoading) return;
-    const t = setTimeout(() => {
-      void apiFetch<{ item: any }>("/api/settings", {
-        method: "PUT",
-        body: JSON.stringify({
-          companyName: settings.companyName,
-          supportEmail: settings.supportEmail,
-          timezone: settings.timezone,
-          notificationsEnabled: settings.notificationsEnabled,
-          autoLogoutMinutes: settings.autoLogoutMinutes,
-        }),
-      }).then(() => backendSettingsQuery.refetch());
-    }, 300);
-    return () => clearTimeout(t);
-  }, [
-    settings.companyName,
-    settings.supportEmail,
-    settings.timezone,
-    settings.notificationsEnabled,
-    settings.autoLogoutMinutes,
-  ]);
 
   const onChangePassword = async () => {
     const currentPassword = passwordDraft.currentPassword;
@@ -363,6 +365,35 @@ export default function Settings() {
               </div>
             </CardContent>
           </Card>
+        </div>
+
+        {/* Save Changes Section */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t">
+          {saveMessage && (
+            <p className={`text-sm ${saveMessage.includes("success") ? "text-green-600" : "text-red-600"}`}>
+              {saveMessage}
+            </p>
+          )}
+          <div className="flex gap-3 ml-auto">
+            <Button
+              variant="outline"
+              onClick={() => {
+                const saved = loadSettings();
+                setSettings(saved);
+                setSaveMessage("Changes discarded");
+              }}
+              disabled={isSaving}
+            >
+              Reset
+            </Button>
+            <Button
+              onClick={saveChanges}
+              disabled={isSaving}
+              className="min-w-[120px]"
+            >
+              {isSaving ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
         </div>
 
         {/* Footer Note - Only visible on mobile */}

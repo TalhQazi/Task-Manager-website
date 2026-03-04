@@ -89,10 +89,15 @@ export default function Settings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (settingsQuery.data?.item) {
-      setDraft(settingsQuery.data.item);
+    // Only initialize draft if it's null and we have data
+    if (!draft && settingsQuery.data?.item) {
+      const item = settingsQuery.data.item;
+      setDraft({
+        ...item,
+        avatarUrl: item.avatarDataUrl || item.avatarUrl || "",
+      });
     }
-  }, [settingsQuery.data]);
+  }, [settingsQuery.data, draft]);
 
   const onSave = () => {
     if (!draft) return;
@@ -223,7 +228,7 @@ export default function Settings() {
           <div className="relative">
             <Avatar className="h-20 w-20 border-2 border-border">
               {draft?.avatarUrl ? (
-                <AvatarImage src={draft.avatarUrl} alt={draft?.fullName || "User"} />
+                <AvatarImage src={draft.avatarUrl} alt={draft?.fullName || "User"} className="object-cover" />
               ) : (
                 <AvatarFallback className="text-2xl bg-primary/10 text-primary">
                   {initials}

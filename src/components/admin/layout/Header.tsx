@@ -77,7 +77,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   const settings = settingsQuery.data?.item;
   const fullName = (settings?.fullName || auth.username || "Admin").trim();
   const email = (settings?.email || "").trim();
-  const avatarUrl = (settings as any)?.avatarUrl as string | undefined;
+  const avatarUrl = (settings as any)?.avatarDataUrl || (settings as any)?.avatarUrl as string | undefined;
   const initials =
     fullName
       .split(" ")
