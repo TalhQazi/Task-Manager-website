@@ -104,8 +104,11 @@ export default function Vendors() {
           apiFetch<{ items: Vendor[] }>("/api/vendors"),
           apiFetch<{ items: Location[] }>("/api/locations"),
         ]);
-        setVendors(vendorsRes.items || []);
-        setLocations(locationsRes.items || []);
+        console.log("Full locations response:", JSON.stringify(locationsRes, null, 2));
+        const locationsData = locationsRes?.items || [];
+        console.log("Extracted locations:", locationsData);
+        setVendors(vendorsRes?.items || []);
+        setLocations(locationsData);
       } catch (error) {
         console.error("Failed to fetch data:", error);
       } finally {
@@ -469,14 +472,20 @@ export default function Vendors() {
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select location" />
+                    <SelectValue placeholder={locations?.length === 0 ? "No locations found" : "Select location"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {locations.map((loc) => (
-                      <SelectItem key={loc._id} value={loc.name}>
-                        {loc.name}
+                    {locations?.length === 0 ? (
+                      <SelectItem value="no-locations" disabled>
+                        No locations available - Add in Location Management
                       </SelectItem>
-                    ))}
+                    ) : (
+                      locations.map((loc) => (
+                        <SelectItem key={loc._id} value={loc.name}>
+                          {loc.name}
+                        </SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
               </div>
