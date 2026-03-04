@@ -6,6 +6,14 @@ import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
 import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  Legend,
+} from "recharts";
+import {
   Table,
   TableBody,
   TableCell,
@@ -85,6 +93,8 @@ const statusClasses = {
   maintenance: "bg-gradient-to-r from-warning/20 to-warning/10 text-warning border-warning/20 shadow-sm",
   inactive: "bg-gradient-to-r from-muted to-muted/50 text-muted-foreground border-muted-foreground/20 shadow-sm",
 };
+
+const pieColors = ["#22c55e", "#f59e0b", "#94a3b8", "#ef4444", "#3b82f6"]; 
 
 const toDateOnly = (value: string) => {
   const v = String(value || "").trim();
@@ -492,10 +502,18 @@ const Vehicles = () => {
       return (
         vehicleName.includes(q) ||
         v.licensePlate.toLowerCase().includes(q) ||
+        v.vin.toLowerCase().includes(q) ||
+        v.status.toLowerCase().includes(q) ||
         v.assignedTo.toLowerCase().includes(q)
       );
     });
   }, [searchQuery, vehiclesList]);
+
+  const vehiclesStatusData = useMemo(() => {
+    const map: Record<string, number> = { active: 0, maintenance: 0, inactive: 0 };
+    for (const v of vehiclesList) map[v.status] = (map[v.status] ?? 0) + 1;
+    return Object.entries(map).map(([name, value]) => ({ name, value }));
+  }, [vehiclesList]);
 
   const inspectionsDueCount = useMemo(() => {
     const DUE_SOON_DAYS = 30;
@@ -550,11 +568,11 @@ const Vehicles = () => {
                 </h1>
               </div>
               <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl">
-                Track fleet vehicles, inspections, and maintenance schedules with beautiful animations.
+                Track fleet vehicles, inspections, and maintenance schedules.
               </p>
             </div>
 
-            {/* Add Vehicle Dialog */}
+           
             <Dialog open={addVehicleOpen} onOpenChange={setAddVehicleOpen}>
               <DialogTrigger asChild>
                 <motion.div
@@ -850,63 +868,75 @@ const Vehicles = () => {
         </AnimatePresence>
 
         {/* Summary Cards - Animated Grid */}
-        <motion.div 
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
-          variants={containerVariants}
+        <motion.div
+          variants={itemVariants}
+          className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4 items-start"
         >
-          {[
-            { label: "Total Vehicles", value: vehiclesList.length, icon: Car, color: "primary" },
-            { label: "Active", value: vehiclesList.filter((v) => v.status === "active").length, icon: Car, color: "success" },
-            { label: "In Maintenance", value: vehiclesList.filter((v) => v.status === "maintenance").length, icon: Wrench, color: "warning" },
-            { label: "Inspections Due", value: inspectionsDueCount, icon: Calendar, color: "destructive" },
-          ].map((item, index) => (
-            <motion.div
-              key={item.label}
-              variants={itemVariants}
-              whileHover="hover"
-              whileTap={{ scale: 0.98 }}
-            >
-              <Card className={`shadow-lg border-0 bg-gradient-to-br from-${item.color}/10 to-${item.color}/5 backdrop-blur-sm overflow-hidden`}>
-                <CardContent className="p-4 sm:p-6">
-                  <div className="flex items-center gap-3 sm:gap-4">
-                    <motion.div 
-                      className={`h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-${item.color}/10 flex items-center justify-center flex-shrink-0`}
-                      whileHover={{ rotate: 10 }}
-                      transition={{ type: "spring" as const, stiffness: 300, damping: 10 }}
-                    >
-                      <item.icon className={`h-5 w-5 sm:h-6 sm:w-6 text-${item.color}`} />
-                    </motion.div>
-                    <div className="min-w-0">
-                      <p className="text-xs sm:text-sm text-muted-foreground truncate">{item.label}</p>
-                      <p className="text-xl sm:text-2xl font-bold">{item.value}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </motion.div>
-
-        {/* Search Card */}
-        <motion.div variants={itemVariants}>
-          <Card className="shadow-lg border-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
-            <CardContent className="p-3 sm:p-6">
-              <div className="relative w-full sm:max-w-md">
-                <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
-                  Search Vehicles
-                </label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by make, model, plate, or assignee..."
-                    className="pl-8 sm:pl-10 h-9 sm:h-10 text-sm sm:text-base rounded-lg border-0 bg-muted/50 focus:ring-2 focus:ring-primary/20 transition-all"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
+          <Card className="shadow-lg border-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm w-full">
+            <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
+              <CardTitle className="text-base sm:text-lg font-semibold">Vehicles by Status</CardTitle>
+            </CardHeader>
+            <CardContent className="h-[250px] sm:h-[280px] md:h-[300px] px-2 sm:px-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
+                  <Pie
+                    data={vehiclesStatusData}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={35}
+                    outerRadius={80}
+                    paddingAngle={3}
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    labelLine={false}
+                  >
+                    {vehiclesStatusData.map((_, index) => (
+                      <Cell key={index} fill={pieColors[index % pieColors.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip />
+                  <Legend
+                    verticalAlign="bottom"
+                    align="center"
+                    wrapperStyle={{ fontSize: "11px", paddingTop: "10px" }}
                   />
-                </div>
-              </div>
+                </PieChart>
+              </ResponsiveContainer>
             </CardContent>
           </Card>
+
+          <motion.div className="grid grid-cols-2 gap-3 sm:gap-4" variants={containerVariants}>
+            {[
+              { label: "Total Vehicles", value: vehiclesList.length, icon: Car, color: "primary" },
+              { label: "Active", value: vehiclesList.filter((v) => v.status === "active").length, icon: Car, color: "success" },
+              { label: "In Maintenance", value: vehiclesList.filter((v) => v.status === "maintenance").length, icon: Wrench, color: "warning" },
+              { label: "Inspections Due", value: inspectionsDueCount, icon: Calendar, color: "destructive" },
+            ].map((item) => (
+              <motion.div
+                key={item.label}
+                variants={itemVariants}
+                whileHover="hover"
+                whileTap={{ scale: 0.98 }}
+              >
+                <Card className={`shadow-lg border-0 bg-gradient-to-br from-${item.color}/10 to-${item.color}/5 backdrop-blur-sm overflow-hidden`}>
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                      <motion.div
+                        className={`h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-${item.color}/10 flex items-center justify-center flex-shrink-0`}
+                        whileHover={{ rotate: 10 }}
+                        transition={{ type: "spring" as const, stiffness: 300, damping: 10 }}
+                      >
+                        <item.icon className={`h-5 w-5 sm:h-6 sm:w-6 text-${item.color}`} />
+                      </motion.div>
+                      <div className="min-w-0">
+                        <p className="text-xs sm:text-sm text-muted-foreground truncate">{item.label}</p>
+                        <p className="text-xl sm:text-2xl font-bold">{item.value}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </motion.div>
         </motion.div>
 
         {/* Vehicles Card */}
