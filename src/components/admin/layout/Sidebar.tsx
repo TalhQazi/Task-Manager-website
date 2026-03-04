@@ -15,6 +15,7 @@ import {
   MessageSquare,
   Settings,
   LogOut,
+  Building2,
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
@@ -29,6 +30,7 @@ const navItems = [
   { icon: Wrench, label: "Appliances", path: "/admin/appliances" },
   { icon: Car, label: "Vehicles", path: "/admin/vehicles" },
   { icon: MapPin, label: "Locations", path: "/admin/locations" },
+  { icon: Building2, label: "Vendors", path: "/admin/vendors" },
   { icon: Calendar, label: "Scheduling", path: "/admin/scheduling" },
   { icon: Clock, label: "Time Tracking", path: "/admin/time-tracking" },
   { icon: MessageSquare, label: "Messaging", path: "/admin/messaging" },
