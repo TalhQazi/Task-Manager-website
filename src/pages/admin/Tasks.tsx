@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { AdminLayout } from "@/components/admin/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
@@ -94,6 +94,13 @@ const priorityClasses = {
   high: "bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive border-destructive/20 shadow-sm",
   medium: "bg-gradient-to-r from-[#eab308]/20 to-[#f59e0b]/20 text-[#eab308] dark:text-[#fbbf24] border-[#eab308]/20 shadow-sm",
   low: "bg-gradient-to-r from-[#22c55e]/20 to-[#10b981]/20 text-[#22c55e] dark:text-[#34d399] border-[#22c55e]/20 shadow-sm",
+};
+
+const toDateOnly = (value: string) => {
+  const v = String(value || "").trim();
+  if (!v) return "";
+  const idx = v.indexOf("T");
+  return idx >= 0 ? v.slice(0, idx) : v;
 };
 
 // Enhanced status classes with beautiful gradients
@@ -266,6 +273,19 @@ const Tasks = () => {
   const refreshTasks = async () => {
     const list = await listResource<Task>("tasks");
     setTasksList(list);
+  };
+
+  const displayIdByTaskId = useMemo(() => {
+    return new Map(
+      tasksList.map((t, idx) => {
+        const displayId = `TSK${String(idx + 1).padStart(3, "0")}`;
+        return [t.id, displayId] as const;
+      }),
+    );
+  }, [tasksList]);
+
+  const getDisplayTaskId = (taskId: string) => {
+    return displayIdByTaskId.get(taskId) || taskId;
   };
 
   const handleCreateTask = async () => {
@@ -483,7 +503,7 @@ const Tasks = () => {
                 </h1>
               </div>
               <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl">
-                Create, assign, and track all tasks across locations with beautiful animations.
+                Create, assign, and track all tasks.
               </p>
             </div>
 
@@ -597,7 +617,6 @@ const Tasks = () => {
                     </div>
                   </div>
 
-                  {/* Priority, Status, Due Date */}
                   <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                     <div className="flex-1 min-w-0">
                       <label className="block text-xs sm:text-sm font-medium mb-1.5">Priority</label>
@@ -844,23 +863,7 @@ const Tasks = () => {
                     </Select>
                   </div>
 
-                  <div className="col-span-2 sm:col-span-1">
-                    <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
-                      More Filters
-                    </label>
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <Button 
-                        variant="outline" 
-                        className="w-full gap-2 h-9 sm:h-10 text-xs sm:text-sm rounded-lg border-0 bg-muted/50 hover:bg-muted/70 transition-all"
-                      >
-                        <Filter className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                        <span>More Filters</span>
-                      </Button>
-                    </motion.div>
-                  </div>
+                 
                 </div>
               </div>
             </CardContent>
@@ -911,7 +914,7 @@ const Tasks = () => {
                           <div className="flex items-start justify-between">
                             <div>
                               <p className="text-xs font-mono text-muted-foreground flex items-center gap-1">
-                                {task.id}
+                                {getDisplayTaskId(task.id)}
                                 {hoveredTask === task.id && (
                                   <motion.span
                                     initial={{ scale: 0 }}
@@ -954,7 +957,7 @@ const Tasks = () => {
                             </DropdownMenu>
                           </div>
 
-                          {/* Priority & Status Badges */}
+
                           <div className="flex flex-wrap gap-2">
                             <motion.div
                               whileHover={{ scale: 1.1 }}
@@ -1020,7 +1023,7 @@ const Tasks = () => {
                             <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
                             <div>
                               <p className="text-xs font-medium">Due</p>
-                              <p className="text-sm">{task.dueDate} at {task.dueTime}</p>
+                              <p className="text-sm">{toDateOnly(task.dueDate)}{task.dueTime ? ` at ${task.dueTime}` : ""}</p>
                             </div>
                           </motion.div>
 
@@ -1104,7 +1107,7 @@ const Tasks = () => {
                               className="cursor-pointer transition-all duration-300"
                             >
                               <TableCell className="font-mono text-xs md:text-sm text-muted-foreground">
-                                {task.id}
+                                {getDisplayTaskId(task.id)}
                               </TableCell>
                               <TableCell>
                                 <div className="min-w-0">
@@ -1174,7 +1177,7 @@ const Tasks = () => {
                                   <Clock className="h-3 w-3 md:h-3.5 md:w-3.5 text-muted-foreground flex-shrink-0" />
                                   <span>{task.dueTime}</span>
                                 </div>
-                                <p className="text-xs text-muted-foreground">{task.dueDate}</p>
+                                <p className="text-xs text-muted-foreground">{toDateOnly(task.dueDate)}</p>
                               </TableCell>
                               <TableCell className="text-right">
                                 <DropdownMenu>
@@ -1237,7 +1240,7 @@ const Tasks = () => {
               transition={{ delay: 0.2 }}
             >
               <div className="pb-4 border-b">
-                <p className="text-xs sm:text-sm text-muted-foreground">{selectedTask.id}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">{getDisplayTaskId(selectedTask.id)}</p>
                 <p className="text-base sm:text-xl font-semibold break-words mt-1">{selectedTask.title}</p>
               </div>
               
@@ -1315,7 +1318,7 @@ const Tasks = () => {
                   <label className="text-xs sm:text-sm font-medium">Due Date & Time</label>
                   <div className="flex items-center gap-1 text-xs sm:text-sm">
                     <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
-                    <span>{selectedTask.dueDate}</span>
+                    <span>{toDateOnly(selectedTask.dueDate)}</span>
                   </div>
                   <div className="flex items-center gap-1 text-xs sm:text-sm">
                     <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />

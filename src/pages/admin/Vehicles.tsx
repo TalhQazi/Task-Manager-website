@@ -86,6 +86,46 @@ const statusClasses = {
   inactive: "bg-gradient-to-r from-muted to-muted/50 text-muted-foreground border-muted-foreground/20 shadow-sm",
 };
 
+const toDateOnly = (value: string) => {
+  const v = String(value || "").trim();
+  if (!v) return "";
+  const idx = v.indexOf("T");
+  return idx >= 0 ? v.slice(0, idx) : v;
+};
+
+type BackendVehicle = Partial<Vehicle> & {
+  _id?: string;
+  name?: string;
+  type?: string;
+};
+
+function normalizeVehicle(v: BackendVehicle): Vehicle {
+  const id = String(v.id || v._id || "").trim();
+  const makeRaw = String(v.make || "").trim();
+  const modelRaw = String(v.model || "").trim();
+  const yearRaw = String(v.year || "").trim();
+  const nameRaw = String(v.name || "").trim();
+
+  // If API returns manager-style `name`, use it as the visible label (store in `make` so UI shows it)
+  const make = makeRaw || nameRaw;
+
+  return {
+    id,
+    make,
+    model: modelRaw,
+    year: yearRaw,
+    licensePlate: String(v.licensePlate || "").trim(),
+    vin: String(v.vin || "").trim(),
+    mileage: String(v.mileage || "").trim(),
+    status: (String(v.status || "active") as Vehicle["status"]) || "active",
+    lastInspection: toDateOnly(String(v.lastInspection || "").trim()),
+    nextInspection: toDateOnly(String(v.nextInspection || "").trim()),
+    assignedTo: String(v.assignedTo || "-").trim() || "-",
+    tagPhotoFileName: String(v.tagPhotoFileName || "").trim() || undefined,
+    tagPhotoDataUrl: String(v.tagPhotoDataUrl || "").trim() || undefined,
+  };
+}
+
 function parseISODate(date: string) {
   if (!date) return null;
   const d = new Date(date + "T00:00:00");
@@ -207,9 +247,9 @@ const Vehicles = () => {
         setApiError(null);
         
         // Fetch vehicles
-        const list = await listResource<Vehicle>("vehicles");
+        const list = await listResource<BackendVehicle>("vehicles");
         if (!mounted) return;
-        setVehiclesList(list);
+        setVehiclesList(list.map(normalizeVehicle));
         
         // Fetch employees from employees API
         let allEmployees: Employee[] = [];
@@ -270,8 +310,8 @@ const Vehicles = () => {
   }, []);
 
   const refreshVehicles = async () => {
-    const list = await listResource<Vehicle>("vehicles");
-    setVehiclesList(list);
+    const list = await listResource<BackendVehicle>("vehicles");
+    setVehiclesList(list.map(normalizeVehicle));
   };
 
   const [formError, setFormError] = useState<string | null>(null);
@@ -938,7 +978,7 @@ const Vehicles = () => {
                                     />
                                   )}
                                 </p>
-                                <p className="text-xs text-muted-foreground">{vehicle.id}</p>
+                                <p className="text-xs text-muted-foreground">{vehicle.licensePlate}</p>
                               </div>
                             </div>
                             <DropdownMenu>
@@ -1025,7 +1065,7 @@ const Vehicles = () => {
                             <div className="flex items-center justify-between">
                               <div>
                                 <p className="text-xs text-muted-foreground">Next Inspection</p>
-                                <p className="text-sm">{vehicle.nextInspection || "—"}</p>
+                                <p className="text-sm">{toDateOnly(vehicle.nextInspection) || "—"}</p>
                               </div>
                               {(() => {
                                 const d = daysUntil(vehicle.nextInspection);
@@ -1135,7 +1175,7 @@ const Vehicles = () => {
                                         />
                                       )}
                                     </p>
-                                    <p className="text-xs text-muted-foreground">{vehicle.id}</p>
+                                    <p className="text-xs text-muted-foreground">{vehicle.licensePlate}</p>
                                   </div>
                                 </div>
                               </TableCell>
@@ -1164,7 +1204,7 @@ const Vehicles = () => {
                               </TableCell>
                               <TableCell className="text-muted-foreground">
                                 <div className="flex flex-col gap-1">
-                                  <span className="text-sm md:text-base">{vehicle.nextInspection || "—"}</span>
+                                  <span className="text-sm md:text-base">{toDateOnly(vehicle.nextInspection) || "—"}</span>
                                   {(() => {
                                     const d = daysUntil(vehicle.nextInspection);
                                     if (d === null) return null;
@@ -1278,7 +1318,7 @@ const Vehicles = () => {
                     <p className="text-base sm:text-lg font-semibold break-words">
                       {selectedVehicle.year} {selectedVehicle.make} {selectedVehicle.model}
                     </p>
-                    <p className="text-xs sm:text-sm text-muted-foreground">{selectedVehicle.id}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">{selectedVehicle.licensePlate}</p>
                   </div>
                 </div>
                 <Badge className={`${statusClasses[selectedVehicle.status]} text-xs sm:text-sm self-start sm:self-center flex items-center gap-1`} variant="secondary">
@@ -1337,7 +1377,7 @@ const Vehicles = () => {
                   <label className="text-xs sm:text-sm font-medium">Last Inspection</label>
                   <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
                     <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-                    <span>{selectedVehicle.lastInspection || "—"}</span>
+                    <span>{toDateOnly(selectedVehicle.lastInspection) || "—"}</span>
                   </div>
                 </motion.div>
                 
@@ -1349,7 +1389,7 @@ const Vehicles = () => {
                   <div className="flex flex-col gap-1">
                     <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
                       <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-                      <span>{selectedVehicle.nextInspection || "—"}</span>
+                      <span>{toDateOnly(selectedVehicle.nextInspection) || "—"}</span>
                     </div>
                     {(() => {
                       const d = daysUntil(selectedVehicle.nextInspection);

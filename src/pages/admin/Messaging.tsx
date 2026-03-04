@@ -249,48 +249,7 @@ export default function Messaging() {
           </div>
         )}
 
-        {/* Chat Settings Card - Responsive */}
-        <Card className="shadow-soft border-0 sm:border">
-          <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
-            <CardTitle className="text-base sm:text-lg md:text-xl font-semibold flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 sm:h-6 sm:w-6 text-accent" />
-              Chat
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 sm:px-6 pb-5 sm:pb-6 pt-0">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 rounded-md border p-3 sm:p-4">
-              <div className="space-y-1">
-                <p className="text-sm sm:text-base font-medium">Enable Chat</p>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  UI-only toggle for now
-                </p>
-              </div>
-              
-              {/* Custom Toggle Switch - Mobile optimized */}
-              <div className="flex items-center justify-between sm:justify-start gap-3">
-                <span className="text-xs sm:hidden">
-                  {chatSettings.chatEnabled ? 'On' : 'Off'}
-                </span>
-                <button
-                  onClick={() => setChatSettings({ chatEnabled: !chatSettings.chatEnabled })}
-                  className={`
-                    relative h-7 w-12 sm:h-8 sm:w-14 rounded-full transition-colors flex items-center px-1
-                    ${chatSettings.chatEnabled ? "bg-accent" : "bg-muted"}
-                    focus:outline-none focus:ring-2 focus:ring-accent/50
-                  `}
-                  aria-label="Toggle chat"
-                >
-                  <span
-                    className={`
-                      h-5 w-5 sm:h-6 sm:w-6 rounded-full bg-background shadow-md transition-transform duration-200
-                      ${chatSettings.chatEnabled ? "translate-x-5 sm:translate-x-6" : "translate-x-0"}
-                    `}
-                  />
-                </button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        
 
         {/* Search Card */}
         <Card className="shadow-soft border-0 sm:border">

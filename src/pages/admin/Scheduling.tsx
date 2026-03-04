@@ -51,6 +51,39 @@ interface ScheduleItem {
   status: "scheduled" | "completed" | "canceled";
   plannedTask?: string;
   reminder?: "none" | "30m" | "1h" | "1d";
+  type?: string;
+}
+
+interface LocationItem {
+  id: string;
+  name: string;
+}
+
+type BackendScheduleItem = Partial<ScheduleItem> & {
+  _id?: string;
+  assignee?: string;
+};
+
+const toDateOnly = (value: string) => {
+  const v = String(value || "").trim();
+  if (!v) return "";
+  const idx = v.indexOf("T");
+  return idx >= 0 ? v.slice(0, idx) : v;
+};
+
+function normalizeScheduleItem(s: BackendScheduleItem): ScheduleItem {
+  return {
+    id: String(s.id || s._id || "").trim(),
+    location: String(s.location || "").trim(),
+    employee: String(s.employee || s.assignee || "").trim(),
+    date: toDateOnly(String(s.date || "").trim()),
+    startTime: String(s.startTime || "").trim(),
+    endTime: String(s.endTime || "").trim(),
+    status: (String(s.status || "scheduled") as ScheduleItem["status"]) || "scheduled",
+    plannedTask: String(s.plannedTask || "").trim() || "",
+    reminder: (String(s.reminder || "none") as NonNullable<ScheduleItem["reminder"]>) || "none",
+    type: String(s.type || "").trim() || undefined,
+  };
 }
 
 interface Employee {
@@ -111,6 +144,7 @@ export default function Scheduling() {
 
   const [schedules, setSchedules] = useState<ScheduleItem[]>(() => []);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [locations, setLocations] = useState<LocationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
 
@@ -123,6 +157,7 @@ export default function Scheduling() {
     status: "scheduled" as ScheduleItem["status"],
     plannedTask: "",
     reminder: "none" as NonNullable<ScheduleItem["reminder"]>,
+    type: "task",
   });
 
   const [editFormData, setEditFormData] = useState({
@@ -134,6 +169,7 @@ export default function Scheduling() {
     status: "scheduled" as ScheduleItem["status"],
     plannedTask: "",
     reminder: "none" as NonNullable<ScheduleItem["reminder"]>,
+    type: "task",
   });
 
   const normalizeDateForInput = (value: string) => {
@@ -192,9 +228,26 @@ export default function Scheduling() {
         setApiError(null);
         
         // Fetch schedules
-        const list = await listResource<ScheduleItem>("schedules");
+        const list = await listResource<BackendScheduleItem>("schedules");
         if (!mounted) return;
-        setSchedules(list);
+        setSchedules(list.map(normalizeScheduleItem));
+
+        // Fetch locations
+        try {
+          const locationsList = await listResource<{ id?: string; _id?: string; name?: string }>("locations");
+          if (mounted) {
+            setLocations(
+              locationsList
+                .map((l) => ({
+                  id: String(l.id || l._id || "").trim(),
+                  name: String(l.name || "").trim(),
+                }))
+                .filter((l) => l.id && l.name),
+            );
+          }
+        } catch (locErr) {
+          console.error("Failed to load locations:", locErr);
+        }
         
         // Fetch employees from employees API
         let allEmployees: Employee[] = [];
@@ -255,8 +308,21 @@ export default function Scheduling() {
   }, []);
 
   const refreshSchedules = async () => {
-    const list = await listResource<ScheduleItem>("schedules");
-    setSchedules(list);
+    const list = await listResource<BackendScheduleItem>("schedules");
+    setSchedules(list.map(normalizeScheduleItem));
+  };
+
+  const displayIdByScheduleId = useMemo(() => {
+    return new Map(
+      schedules.map((s, idx) => {
+        const displayId = `SC${String(idx + 1).padStart(3, "0")}`;
+        return [s.id, displayId] as const;
+      }),
+    );
+  }, [schedules]);
+
+  const getDisplayScheduleId = (scheduleId: string) => {
+    return displayIdByScheduleId.get(scheduleId) || scheduleId;
   };
 
   const filtered = useMemo(() => {
@@ -266,7 +332,7 @@ export default function Scheduling() {
       return (
         s.location.toLowerCase().includes(q) ||
         s.employee.toLowerCase().includes(q) ||
-        s.date.toLowerCase().includes(q)
+        String(s.type || "").toLowerCase().includes(q)
       );
     });
   }, [schedules, searchQuery]);
@@ -283,6 +349,7 @@ export default function Scheduling() {
       status: formData.status,
       plannedTask: formData.plannedTask || "",
       reminder: formData.reminder,
+      type: formData.type || "task",
     };
     try {
       setApiError(null);
@@ -298,6 +365,7 @@ export default function Scheduling() {
         status: "scheduled",
         plannedTask: "",
         reminder: "none",
+        type: "task",
       });
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "Failed to add schedule");
@@ -315,6 +383,7 @@ export default function Scheduling() {
       status: s.status,
       plannedTask: s.plannedTask || "",
       reminder: s.reminder || "none",
+      type: s.type || "task",
     });
     setEditOpen(true);
   };
@@ -342,6 +411,7 @@ export default function Scheduling() {
         status: editFormData.status,
         plannedTask: editFormData.plannedTask || "",
         reminder: editFormData.reminder,
+        type: editFormData.type || "task",
       });
       await refreshSchedules();
       setEditOpen(false);
@@ -378,7 +448,7 @@ export default function Scheduling() {
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
           <div className="space-y-1.5 sm:space-y-2">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
-              Location Scheduling
+              Scheduling
             </h1>
             <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl">
               Create daily/weekly schedules and assign shifts.
@@ -408,13 +478,19 @@ export default function Scheduling() {
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                   <div className="flex-1 min-w-0">
                     <label className="block text-xs sm:text-sm font-medium mb-1.5">Location *</label>
-                    <input
+                    <select
                       value={formData.location}
                       onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
-                      placeholder="Building A - Corporate Office"
+                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
                       required
-                    />
+                    >
+                      <option value="">Select location</option>
+                      {locations.map((l) => (
+                        <option key={l.id} value={l.name}>
+                          {l.name}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                   <div className="flex-1 min-w-0">
                     <label className="block text-xs sm:text-sm font-medium mb-1.5">Employee *</label>
@@ -471,7 +547,20 @@ export default function Scheduling() {
 
                 {/* Status */}
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                  <div className="w-full sm:w-1/2">
+                  <div className="flex-1 min-w-0">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Type</label>
+                    <select
+                      value={formData.type}
+                      onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                    >
+                      <option value="task">Task</option>
+                      <option value="meeting">Meeting</option>
+                      <option value="leave">Leave</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div className="flex-1 min-w-0">
                     <label className="block text-xs sm:text-sm font-medium mb-1.5">Status</label>
                     <select
                       value={formData.status}
@@ -553,7 +642,7 @@ export default function Scheduling() {
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by location, employee, or date..."
+                  placeholder="Search by location, employee, or type..."
                   className="pl-8 sm:pl-10 h-9 sm:h-10 text-sm sm:text-base"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -583,15 +672,15 @@ export default function Scheduling() {
                 <div className="block sm:hidden space-y-3 p-4">
                   {filtered.map((s) => (
                     <div key={s.id} className="bg-white rounded-lg border p-4 space-y-3">
-                      {/* Header with Date and Actions */}
+                      {/* Header with ID and Actions */}
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-2">
                           <div className="h-8 w-8 rounded-lg bg-info/10 flex items-center justify-center flex-shrink-0">
                             <Calendar className="h-4 w-4 text-info" />
                           </div>
                           <div>
-                            <p className="text-xs font-medium">{s.date}</p>
-                            <p className="text-xs text-muted-foreground">{s.id}</p>
+                            <p className="text-xs font-medium">{getDisplayScheduleId(s.id)}</p>
+                            <p className="text-xs text-muted-foreground">{s.location}</p>
                           </div>
                         </div>
                         <DropdownMenu>
@@ -613,22 +702,6 @@ export default function Scheduling() {
                         </DropdownMenu>
                       </div>
 
-                      {/* Status Badge */}
-                      <div className="flex justify-start">
-                        <Badge className={`${statusClasses[s.status]} text-xs`} variant="secondary">
-                          {s.status}
-                        </Badge>
-                      </div>
-
-                      {/* Location */}
-                      <div className="flex items-start gap-2">
-                        <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                        <div>
-                          <p className="text-xs font-medium">Location</p>
-                          <p className="text-sm">{s.location}</p>
-                        </div>
-                      </div>
-
                       {/* Employee */}
                       <div className="flex items-start gap-2">
                         <User className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
@@ -638,34 +711,21 @@ export default function Scheduling() {
                         </div>
                       </div>
 
-                      {/* Time */}
-                      {s.startTime && s.endTime && (
-                        <div className="flex items-start gap-2">
-                          <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-                          <div>
-                            <p className="text-xs font-medium">Time</p>
-                            <p className="text-sm">{s.startTime} - {s.endTime}</p>
-                          </div>
+                      {/* Start Time */}
+                      <div className="flex items-start gap-2">
+                        <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-xs font-medium">Start Time</p>
+                          <p className="text-sm">{s.startTime || "—"}</p>
                         </div>
-                      )}
+                      </div>
 
-                      {/* Planned Task */}
-                      {s.plannedTask && (
-                        <div className="pt-2 border-t">
-                          <p className="text-xs font-medium mb-1">Planned Task</p>
-                          <p className="text-sm text-muted-foreground">{s.plannedTask}</p>
-                          {s.reminder && s.reminder !== "none" && (
-                            <div className="flex items-center gap-1 mt-1">
-                              <Bell className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-xs text-muted-foreground">
-                                Reminder: {s.reminder === "30m" ? "30 minutes" : 
-                                          s.reminder === "1h" ? "1 hour" : 
-                                          s.reminder === "1d" ? "1 day" : s.reminder}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      )}
+                      {/* Type */}
+                      <div className="flex justify-start">
+                        <Badge className="text-xs" variant="secondary">
+                          {s.type || "—"}
+                        </Badge>
+                      </div>
                     </div>
                   ))}
                   
@@ -689,26 +749,21 @@ export default function Scheduling() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-xs md:text-sm w-[15%]">Shift</TableHead>
-                        <TableHead className="text-xs md:text-sm w-[20%]">Location</TableHead>
-                        <TableHead className="text-xs md:text-sm w-[15%]">Employee</TableHead>
-                        <TableHead className="text-xs md:text-sm w-[12%]">Time</TableHead>
-                        <TableHead className="text-xs md:text-sm w-[20%]">Planned Task</TableHead>
-                        <TableHead className="text-xs md:text-sm w-[10%]">Status</TableHead>
-                        <TableHead className="text-right text-xs md:text-sm w-[8%]">Actions</TableHead>
+                        <TableHead className="text-xs md:text-sm w-[12%]">Schedule ID</TableHead>
+                        <TableHead className="text-xs md:text-sm w-[28%]">Location</TableHead>
+                        <TableHead className="text-xs md:text-sm w-[20%]">Employee</TableHead>
+                        <TableHead className="text-xs md:text-sm w-[12%]">Start Time</TableHead>
+                        <TableHead className="text-xs md:text-sm w-[18%]">Type</TableHead>
+                        <TableHead className="text-right text-xs md:text-sm w-[10%]">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filtered.map((s) => (
                         <TableRow key={s.id} className="hover:bg-muted/30">
                           <TableCell>
-                            <div className="flex items-center gap-2">
-                              <Calendar className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                              <div>
-                                <span className="text-sm md:text-base">{s.date}</span>
-                                <p className="text-xs text-muted-foreground">{s.id}</p>
-                              </div>
-                            </div>
+                            <span className="text-sm md:text-base font-mono text-muted-foreground">
+                              {getDisplayScheduleId(s.id)}
+                            </span>
                           </TableCell>
                           <TableCell>
                             <p className="text-sm md:text-base truncate max-w-[200px] lg:max-w-[250px]">
@@ -719,32 +774,12 @@ export default function Scheduling() {
                             {s.employee}
                           </TableCell>
                           <TableCell className="text-sm md:text-base text-muted-foreground">
-                            {s.startTime && s.endTime ? `${s.startTime} - ${s.endTime}` : "—"}
+                            {s.startTime || "—"}
                           </TableCell>
                           <TableCell>
-                            <div className="min-w-[150px] max-w-[200px]">
-                              <p className="text-sm md:text-base truncate">
-                                {s.plannedTask || "—"}
-                              </p>
-                              {s.reminder && s.reminder !== "none" ? (
-                                <div className="flex items-center gap-1 mt-0.5">
-                                  <Bell className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                                  <span className="text-xs text-muted-foreground">
-                                    {s.reminder === "30m" ? "30 min" : 
-                                     s.reminder === "1h" ? "1 hour" : 
-                                     s.reminder === "1d" ? "1 day" : s.reminder}
-                                  </span>
-                                </div>
-                              ) : null}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge 
-                              className={`${statusClasses[s.status]} text-xs md:text-sm`} 
-                              variant="secondary"
-                            >
-                              {s.status}
-                            </Badge>
+                            <span className="text-sm md:text-base text-muted-foreground">
+                              {s.type || "—"}
+                            </span>
                           </TableCell>
                           <TableCell className="text-right">
                             <DropdownMenu>
@@ -791,12 +826,19 @@ export default function Scheduling() {
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <div className="flex-1 min-w-0">
                   <label className="block text-xs sm:text-sm font-medium mb-1.5">Location *</label>
-                  <input
+                  <select
                     value={editFormData.location}
                     onChange={(e) => setEditFormData({ ...editFormData, location: e.target.value })}
-                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
                     required
-                  />
+                  >
+                    <option value="">Select location</option>
+                    {locations.map((l) => (
+                      <option key={l.id} value={l.name}>
+                        {l.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
                 <div className="flex-1 min-w-0">
                   <label className="block text-xs sm:text-sm font-medium mb-1.5">Employee *</label>
@@ -889,6 +931,22 @@ export default function Scheduling() {
                     <option value="30m">30 minutes</option>
                     <option value="1h">1 hour</option>
                     <option value="1d">1 day</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                <div className="flex-1 min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Type</label>
+                  <select
+                    value={editFormData.type}
+                    onChange={(e) => setEditFormData({ ...editFormData, type: e.target.value })}
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                  >
+                    <option value="task">Task</option>
+                    <option value="meeting">Meeting</option>
+                    <option value="leave">Leave</option>
+                    <option value="other">Other</option>
                   </select>
                 </div>
               </div>

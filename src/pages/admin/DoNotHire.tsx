@@ -43,6 +43,7 @@ interface BlacklistItem {
 type BackendDoNotHire = {
   id?: string;
   _id?: string;
+  fullName?: string;
   name?: string;
   employeeId?: string;
   employeeName?: string;
@@ -107,7 +108,7 @@ const normalizeDoNotHireItem = (item: BackendDoNotHire, employeesById: Map<strin
       ? String(item.employeeId || item.employee?.id || item.employee?._id)
       : undefined;
   const fromEmployee = employeeId ? employeesById.get(employeeId)?.name : undefined;
-  const name = String(fromEmployee || item.employeeName || item.employee?.name || item.name || employeeId || "").trim();
+  const name = String(fromEmployee || item.fullName || item.employeeName || item.employee?.name || item.name || employeeId || "").trim();
   const rawStatus = String(item.status || "active").toLowerCase();
   const status: BlacklistItem["status"] =
     item.resolved === true || rawStatus === "resolved" || rawStatus === "inactive" || rawStatus === "closed"
@@ -265,13 +266,14 @@ export default function DoNotHire() {
     const selectedName = String(selectedEmployee?.name || formData.name || "").trim();
     if (!selectedName) return;
     const payload: BackendDoNotHire = {
+      fullName: selectedName,
       name: selectedName,
       employeeId: formData.employeeId || undefined,
       reason: formData.reason,
       incidentNotes: formData.incidentNotes,
       notes: formData.incidentNotes,
-      status: formData.status,
-      resolved: formData.status === "resolved",
+      status: "active",
+      resolved: false,
       addedAt: new Date().toISOString(),
       date: new Date().toISOString(),
     };
@@ -442,7 +444,7 @@ export default function DoNotHire() {
                       className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
                     >
                       <option value="active">Active</option>
-                      <option value="resolved">Resolved</option>
+                     
                     </select>
                   </div>
                 </div>
@@ -687,7 +689,7 @@ export default function DoNotHire() {
         </Card>
       </div>
 
-      {/* View Details Dialog - Responsive */}
+  
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
         <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6">
           <DialogHeader className="space-y-1.5 sm:space-y-2">

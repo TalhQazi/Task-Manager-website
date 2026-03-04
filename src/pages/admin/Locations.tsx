@@ -58,6 +58,40 @@ interface Location {
   contactPhone: string;
   status: "active" | "inactive";
   tasksCount: number;
+  createdAt?: string;
+}
+
+const toDateOnly = (value: string) => {
+  const v = String(value || "").trim();
+  if (!v) return "";
+  const idx = v.indexOf("T");
+  return idx >= 0 ? v.slice(0, idx) : v;
+};
+
+type BackendLocation = Partial<Location> & {
+  _id?: string;
+  date?: string;
+  createdAt?: string;
+};
+
+function normalizeLocation(l: BackendLocation): Location {
+  const createdAt =
+    String(l.createdAt || l.date || "").trim() || undefined;
+
+  return {
+    id: String(l.id || l._id || "").trim(),
+    name: String(l.name || "").trim(),
+    address: String(l.address || "").trim(),
+    city: String(l.city || "").trim(),
+    type: (String(l.type || "commercial") as Location["type"]) || "commercial",
+    businessUnit: String(l.businessUnit || "").trim() || "",
+    notes: String(l.notes || "").trim() || "",
+    contactName: String(l.contactName || "").trim(),
+    contactPhone: String(l.contactPhone || "").trim(),
+    status: (String(l.status || "active") as Location["status"]) || "active",
+    tasksCount: Number.isFinite(Number(l.tasksCount)) ? Number(l.tasksCount) : 0,
+    createdAt: createdAt ? toDateOnly(createdAt) : undefined,
+  };
 }
 
 const locations: Location[] = [
@@ -173,9 +207,9 @@ const Locations = () => {
       try {
         setLoading(true);
         setApiError(null);
-        const list = await listResource<Location>("locations");
+        const list = await listResource<BackendLocation>("locations");
         if (!mounted) return;
-        setLocationsList(list);
+        setLocationsList(list.map(normalizeLocation));
       } catch (e) {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load locations");
@@ -191,8 +225,8 @@ const Locations = () => {
   }, []);
 
   const refreshLocations = async () => {
-    const list = await listResource<Location>("locations");
-    setLocationsList(list);
+    const list = await listResource<BackendLocation>("locations");
+    setLocationsList(list.map(normalizeLocation));
   };
 
   const handleAddLocation = async () => {
@@ -211,6 +245,7 @@ const Locations = () => {
         contactPhone: formData.contactPhone,
         status: formData.status,
         tasksCount: Number.isFinite(formData.tasksCount) ? formData.tasksCount : 0,
+        createdAt: toDateOnly(new Date().toISOString()),
       };
       await createResource<Location>("locations", newLocation);
       await refreshLocations();
@@ -617,7 +652,7 @@ const Locations = () => {
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="font-medium text-sm truncate">{location.name}</p>
-                            <p className="text-xs text-muted-foreground">{location.id}</p>
+                            <p className="text-xs text-muted-foreground">{toDateOnly(location.createdAt || "") || "—"}</p>
                           </div>
                         </div>
                         <DropdownMenu>
@@ -666,26 +701,6 @@ const Locations = () => {
                           </div>
                         </div>
                       </div>
-
-                      {/* Contact Info */}
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Building2 className="h-3.5 w-3.5 flex-shrink-0" />
-                          <span className="text-xs truncate">{location.contactName}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Phone className="h-3.5 w-3.5 flex-shrink-0" />
-                          <span className="text-xs">{location.contactPhone}</span>
-                        </div>
-                      </div>
-
-                      {/* Tasks Count */}
-                      <div className="flex items-center gap-2 text-muted-foreground pt-1 border-t">
-                        <ClipboardList className="h-3.5 w-3.5 flex-shrink-0" />
-                        <span className="text-xs">
-                          <span className="font-medium text-foreground">{location.tasksCount}</span> active tasks
-                        </span>
-                      </div>
                     </div>
                   ))}
                   
@@ -709,13 +724,13 @@ const Locations = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-xs md:text-sm w-[18%]">Location</TableHead>
-                        <TableHead className="text-xs md:text-sm w-[20%]">Address</TableHead>
+                        <TableHead className="text-xs md:text-sm w-[18%]">Name</TableHead>
                         <TableHead className="text-xs md:text-sm w-[10%]">Type</TableHead>
+                        <TableHead className="text-xs md:text-sm w-[20%]">Address</TableHead>
+                        <TableHead className="text-xs md:text-sm w-[10%]">City</TableHead>
                         <TableHead className="text-xs md:text-sm w-[10%]">Status</TableHead>
-                        <TableHead className="text-xs md:text-sm w-[8%]">Tasks</TableHead>
-                        <TableHead className="text-xs md:text-sm w-[20%]">Contact</TableHead>
-                        <TableHead className="text-right text-xs md:text-sm w-[14%]">Actions</TableHead>
+                        <TableHead className="text-xs md:text-sm w-[12%]">Date</TableHead>
+                        <TableHead className="text-right text-xs md:text-sm w-[10%]">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -725,20 +740,6 @@ const Locations = () => {
                             <div className="min-w-0">
                               <p className="font-medium text-sm md:text-base truncate max-w-[200px] lg:max-w-[250px]">
                                 {location.name}
-                              </p>
-                              <p className="text-xs text-muted-foreground">{location.id}</p>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            <div className="space-y-1 min-w-0">
-                              <div className="flex items-center gap-1.5 text-xs md:text-sm">
-                                <MapPin className="h-3 w-3 md:h-3.5 md:w-3.5 flex-shrink-0" />
-                                <span className="truncate max-w-[150px] lg:max-w-[200px]">
-                                  {location.address}
-                                </span>
-                              </div>
-                              <p className="text-xs truncate max-w-[150px] lg:max-w-[200px]">
-                                {location.city}
                               </p>
                             </div>
                           </TableCell>
@@ -750,6 +751,19 @@ const Locations = () => {
                               {location.type}
                             </Badge>
                           </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            <div className="flex items-center gap-1.5 text-xs md:text-sm">
+                              <MapPin className="h-3 w-3 md:h-3.5 md:w-3.5 flex-shrink-0" />
+                              <span className="truncate max-w-[200px] lg:max-w-[250px]">
+                                {location.address}
+                              </span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-xs md:text-sm">
+                            <span className="truncate max-w-[160px] lg:max-w-[200px] inline-block">
+                              {location.city}
+                            </span>
+                          </TableCell>
                           <TableCell>
                             <Badge 
                               className={`${statusClasses[location.status]} text-xs md:text-sm`} 
@@ -758,27 +772,8 @@ const Locations = () => {
                               {location.status}
                             </Badge>
                           </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1.5 text-xs md:text-sm">
-                              <ClipboardList className="h-3 w-3 md:h-3.5 md:w-3.5 text-muted-foreground flex-shrink-0" />
-                              <span className="font-medium">{location.tasksCount}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">
-                            <div className="space-y-1 min-w-0">
-                              <div className="flex items-center gap-1.5 text-xs md:text-sm">
-                                <Building2 className="h-3 w-3 md:h-3.5 md:w-3.5 flex-shrink-0" />
-                                <span className="truncate max-w-[120px] lg:max-w-[150px]">
-                                  {location.contactName}
-                                </span>
-                              </div>
-                              <div className="flex items-center gap-1.5 text-xs md:text-sm">
-                                <Phone className="h-3 w-3 md:h-3.5 md:w-3.5 flex-shrink-0" />
-                                <span className="truncate max-w-[120px] lg:max-w-[150px]">
-                                  {location.contactPhone}
-                                </span>
-                              </div>
-                            </div>
+                          <TableCell className="text-muted-foreground text-xs md:text-sm">
+                            {toDateOnly(location.createdAt || "") || "—"}
                           </TableCell>
                           <TableCell className="text-right">
                             <DropdownMenu>
@@ -832,7 +827,7 @@ const Locations = () => {
                   </div>
                   <div>
                     <p className="text-base sm:text-lg font-semibold break-words">{selectedLocation.name}</p>
-                    <p className="text-xs sm:text-sm text-muted-foreground">{selectedLocation.id}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">{toDateOnly(selectedLocation.createdAt || "") || "—"}</p>
                   </div>
                 </div>
                 <Badge className={`${statusClasses[selectedLocation.status]} text-xs sm:text-sm self-start sm:self-center`} variant="secondary">
@@ -841,16 +836,6 @@ const Locations = () => {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-                <div className="sm:col-span-2 space-y-1.5">
-                  <label className="text-xs sm:text-sm font-medium">Address</label>
-                  <div className="flex items-start gap-2 text-xs sm:text-sm text-muted-foreground">
-                    <MapPin className="h-3.5 w-3.5 sm:h-4 sm:w-4 mt-0.5 flex-shrink-0" />
-                    <span className="break-words">
-                      {selectedLocation.address}, {selectedLocation.city}
-                    </span>
-                  </div>
-                </div>
-                
                 <div className="space-y-1.5">
                   <label className="text-xs sm:text-sm font-medium">Type</label>
                   <div>
@@ -861,40 +846,23 @@ const Locations = () => {
                 </div>
                 
                 <div className="space-y-1.5">
-                  <label className="text-xs sm:text-sm font-medium">Active Tasks</label>
-                  <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                    <ClipboardList className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-                    <span>{selectedLocation.tasksCount} tasks</span>
-                  </div>
-                </div>
-                
-                <div className="space-y-1.5">
-                  <label className="text-xs sm:text-sm font-medium">Contact</label>
-                  <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                    <Building2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-                    <span className="break-words">{selectedLocation.contactName || "—"}</span>
-                  </div>
-                </div>
-                
-                <div className="space-y-1.5">
-                  <label className="text-xs sm:text-sm font-medium">Phone</label>
-                  <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                    <Phone className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-                    <span className="break-words">{selectedLocation.contactPhone || "—"}</span>
-                  </div>
-                </div>
-                
-                <div className="space-y-1.5">
-                  <label className="text-xs sm:text-sm font-medium">Business Unit</label>
+                  <label className="text-xs sm:text-sm font-medium">Date</label>
                   <p className="text-xs sm:text-sm text-muted-foreground break-words">
-                    {selectedLocation.businessUnit || "—"}
+                    {toDateOnly(selectedLocation.createdAt || "") || "—"}
                   </p>
                 </div>
                 
-                <div className="sm:col-span-2 space-y-1.5">
-                  <label className="text-xs sm:text-sm font-medium">Notes</label>
-                  <p className="text-xs sm:text-sm text-muted-foreground break-words whitespace-pre-wrap">
-                    {selectedLocation.notes || "—"}
+                <div className="space-y-1.5">
+                  <label className="text-xs sm:text-sm font-medium">Address</label>
+                  <p className="text-xs sm:text-sm text-muted-foreground break-words">
+                    {selectedLocation.address || "—"}
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs sm:text-sm font-medium">City</label>
+                  <p className="text-xs sm:text-sm text-muted-foreground break-words">
+                    {selectedLocation.city || "—"}
                   </p>
                 </div>
               </div>
