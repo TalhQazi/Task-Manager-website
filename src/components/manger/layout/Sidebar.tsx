@@ -71,7 +71,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
       )}
     >
       {/* Navigation icons */}
-      <nav className="flex-1 flex flex-col items-center gap-5 py-4 overflow-y-auto overflow-x-hidden mt-4">
+      <nav className="flex-1 flex flex-col items-center gap-5 py-4 overflow-y-auto overflow-x-hidden no-scrollbar mt-4" style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
         {navItems.map((item) => (
           <NavLink
             key={item.path}
