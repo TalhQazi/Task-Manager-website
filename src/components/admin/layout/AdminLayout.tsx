@@ -12,7 +12,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#e6f0ff] pt-36">
+    <div className="min-h-screen bg-[#e6f0ff] pt-20 sm:pt-24 md:pt-36">
       <Header onMenuClick={() => setMobileSidebarOpen(true)} />
 
       <div className="flex">
