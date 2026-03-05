@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
 import { StatCard } from "@/components/manger/dashboard/StatCard";
 import { TaskList } from "@/components/manger/dashboard/TaskList";
 import { EmployeeActivity } from "@/components/manger/dashboard/EmployeeActivity";
@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getAuthState } from "@/lib/auth";
 
 // Animation variants
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -20,7 +20,7 @@ const containerVariants = {
   },
 };
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { y: 20, opacity: 0 },
   visible: {
     y: 0,
@@ -33,7 +33,7 @@ const itemVariants = {
   },
 };
 
-const headerVariants = {
+const headerVariants: Variants = {
   hidden: { opacity: 0, x: -20 },
   visible: {
     opacity: 1,
@@ -46,7 +46,7 @@ const headerVariants = {
   },
 };
 
-const statsGridVariants = {
+const statsGridVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -57,7 +57,7 @@ const statsGridVariants = {
   },
 };
 
-const statCardVariants = {
+const statCardVariants: Variants = {
   hidden: { scale: 0.8, opacity: 0, y: 30 },
   visible: {
     scale: 1,
@@ -80,7 +80,7 @@ const statCardVariants = {
   },
 };
 
-const contentVariants = {
+const contentVariants: Variants = {
   hidden: { opacity: 0, y: 40 },
   visible: {
     opacity: 1,
@@ -94,7 +94,7 @@ const contentVariants = {
   },
 };
 
-const scheduleVariants = {
+const scheduleVariants: Variants = {
   hidden: { opacity: 0, y: 50 },
   visible: {
     opacity: 1,
