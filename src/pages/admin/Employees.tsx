@@ -6,6 +6,7 @@ import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/admin/ui/avatar";
+import { useForm } from "react-hook-form";
 import {
   Select,
   SelectContent,
@@ -13,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/admin/ui/select";
+
 import {
   Table,
   TableBody,
@@ -128,6 +130,8 @@ const cardVariants = {
 };
 
 const Employees = () => {
+  const ADD_EMPLOYEE_FORM_ID = "add-employee-form";
+
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [departmentFilter, setDepartmentFilter] = useState("all");
@@ -138,17 +142,37 @@ const Employees = () => {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [hoveredEmployee, setHoveredEmployee] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    role: "",
-    department: "",
-    company: "",
-    status: "active" as Employee["status"],
-    payRate: "",
-    hireDate: "",
+
+  type AddEmployeeValues = {
+    name: string;
+    email: string;
+    phone: string;
+    role: string;
+    department: string;
+    company: string;
+    status: Employee["status"];
+    payRate: string;
+    hireDate: string;
+  };
+
+  const addForm = useForm<AddEmployeeValues>({
+    mode: "onChange",
+    defaultValues: {
+      name: "",
+      email: "",
+      phone: "",
+      role: "",
+      department: "",
+      company: "",
+      status: "active",
+      payRate: "",
+      hireDate: "",
+    },
   });
+
+  const {
+    formState: { errors: addErrors, isValid: isAddValid, isSubmitting: isAddSubmitting },
+  } = addForm;
 
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [viewProfileOpen, setViewProfileOpen] = useState(false);
@@ -202,42 +226,31 @@ const Employees = () => {
     setEmployeesList(list);
   };
 
-  const handleAddEmployee = async () => {
-    if (!formData.name || !formData.email || !formData.department || !formData.role) return;
+  const handleAddEmployee = async (values: AddEmployeeValues) => {
     try {
       setApiError(null);
       const newEmployee: Employee = {
         id: `EMP-${Date.now().toString().slice(-6)}`,
-        name: formData.name,
-        initials: formData.name
+        name: values.name.trim(),
+        initials: values.name
           .split(" ")
           .map((n) => n[0])
           .slice(0, 2)
           .join("")
           .toUpperCase(),
-        email: formData.email,
-        phone: formData.phone,
-        role: formData.role,
-        department: formData.department,
-        company: formData.company || "",
-        status: formData.status,
-        payRate: formData.payRate,
-        hireDate: formData.hireDate,
+        email: values.email.trim(),
+        phone: values.phone,
+        role: values.role,
+        department: values.department,
+        company: values.company || "",
+        status: values.status,
+        payRate: values.payRate,
+        hireDate: values.hireDate,
       };
       await createResource<Employee>("employees", newEmployee);
       await refreshEmployees();
       setAddEmployeeOpen(false);
-      setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        role: "",
-        department: "",
-        company: "",
-        status: "active",
-        payRate: "",
-        hireDate: "",
-      });
+      addForm.reset();
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "Failed to create employee");
     }
@@ -426,7 +439,13 @@ const Employees = () => {
             </div>
 
             {/* Add Employee Dialog */}
-            <Dialog open={addEmployeeOpen} onOpenChange={setAddEmployeeOpen}>
+            <Dialog
+              open={addEmployeeOpen}
+              onOpenChange={(next) => {
+                setAddEmployeeOpen(next);
+                if (!next) addForm.reset();
+              }}
+            >
               <DialogTrigger asChild>
                 <motion.div
                   whileHover={{ scale: 1.05 }}
@@ -451,6 +470,8 @@ const Employees = () => {
                 </DialogHeader>
                 
                 <motion.form 
+                  id={ADD_EMPLOYEE_FORM_ID}
+                  onSubmit={addForm.handleSubmit(handleAddEmployee)}
                   className="space-y-4 sm:space-y-5"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -462,23 +483,44 @@ const Employees = () => {
                       <label className="block text-xs sm:text-sm font-medium mb-1.5">Full Name *</label>
                       <input
                         type="text"
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        {...addForm.register("name", {
+                          required: "Full name is required",
+                          minLength: { value: 2, message: "Full name must be at least 2 characters" },
+                          validate: (v) => (String(v || "").trim() ? true : "Full name is required"),
+                        })}
+                        aria-invalid={!!addErrors.name}
                         placeholder="John Doe"
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                        required
+                        className={
+                          "w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all " +
+                          (addErrors.name ? "border-destructive focus:ring-destructive/20" : "")
+                        }
                       />
+                      {addErrors.name && (
+                        <p className="mt-1 text-xs text-destructive">{String(addErrors.name.message || "Invalid name")}</p>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <label className="block text-xs sm:text-sm font-medium mb-1.5">Email *</label>
                       <input
                         type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        {...addForm.register("email", {
+                          required: "Email is required",
+                          validate: (v) => (String(v || "").trim() ? true : "Email is required"),
+                          pattern: {
+                            value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                            message: "Enter a valid email address",
+                          },
+                        })}
+                        aria-invalid={!!addErrors.email}
                         placeholder="john@company.com"
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                        required
+                        className={
+                          "w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all " +
+                          (addErrors.email ? "border-destructive focus:ring-destructive/20" : "")
+                        }
                       />
+                      {addErrors.email && (
+                        <p className="mt-1 text-xs text-destructive">{String(addErrors.email.message || "Invalid email")}</p>
+                      )}
                     </div>
                   </div>
 
@@ -488,22 +530,36 @@ const Employees = () => {
                       <label className="block text-xs sm:text-sm font-medium mb-1.5">Phone</label>
                       <input
                         type="tel"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        {...addForm.register("phone")}
+                        aria-invalid={!!addErrors.phone}
                         placeholder="+1 (555) 123-4567"
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                        className={
+                          "w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all " +
+                          (addErrors.phone ? "border-destructive focus:ring-destructive/20" : "")
+                        }
                       />
+                      {addErrors.phone && (
+                        <p className="mt-1 text-xs text-destructive">{String(addErrors.phone.message || "Invalid phone")}</p>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <label className="block text-xs sm:text-sm font-medium mb-1.5">Role *</label>
                       <input
                         type="text"
-                        value={formData.role}
-                        onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                        {...addForm.register("role", {
+                          required: "Role is required",
+                          validate: (v) => (String(v || "").trim() ? true : "Role is required"),
+                        })}
+                        aria-invalid={!!addErrors.role}
                         placeholder="e.g., Maintenance Technician"
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                        required
+                        className={
+                          "w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all " +
+                          (addErrors.role ? "border-destructive focus:ring-destructive/20" : "")
+                        }
                       />
+                      {addErrors.role && (
+                        <p className="mt-1 text-xs text-destructive">{String(addErrors.role.message || "Role is required")}</p>
+                      )}
                     </div>
                   </div>
 
@@ -512,11 +568,17 @@ const Employees = () => {
                     <label className="block text-xs sm:text-sm font-medium mb-1.5">Company</label>
                     <input
                       type="text"
-                      value={formData.company}
-                      onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                      {...addForm.register("company")}
+                      aria-invalid={!!addErrors.company}
                       placeholder="e.g., TaskFlow"
-                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                      className={
+                        "w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all " +
+                        (addErrors.company ? "border-destructive focus:ring-destructive/20" : "")
+                      }
                     />
+                    {addErrors.company && (
+                      <p className="mt-1 text-xs text-destructive">{String(addErrors.company.message || "Invalid company")}</p>
+                    )}
                   </div>
 
                   {/* Department & Pay Rate */}
@@ -524,10 +586,12 @@ const Employees = () => {
                     <div className="flex-1 min-w-0">
                       <label className="block text-xs sm:text-sm font-medium mb-1.5">Department *</label>
                       <select
-                        value={formData.department}
-                        onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
-                        required
+                        {...addForm.register("department", { required: "Department is required" })}
+                        aria-invalid={!!addErrors.department}
+                        className={
+                          "w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all " +
+                          (addErrors.department ? "border-destructive focus:ring-destructive/20" : "")
+                        }
                       >
                         <option value="">Select department</option>
                         <option value="Maintenance">Maintenance</option>
@@ -536,16 +600,27 @@ const Employees = () => {
                         <option value="Landscaping">Landscaping</option>
                         <option value="Security">Security</option>
                       </select>
+                      {addErrors.department && (
+                        <p className="mt-1 text-xs text-destructive">
+                          {String(addErrors.department.message || "Department is required")}
+                        </p>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <label className="block text-xs sm:text-sm font-medium mb-1.5">Pay Rate</label>
                       <input
                         type="text"
-                        value={formData.payRate}
-                        onChange={(e) => setFormData({ ...formData, payRate: e.target.value })}
+                        {...addForm.register("payRate")}
+                        aria-invalid={!!addErrors.payRate}
                         placeholder="$25/hr"
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                        className={
+                          "w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all " +
+                          (addErrors.payRate ? "border-destructive focus:ring-destructive/20" : "")
+                        }
                       />
+                      {addErrors.payRate && (
+                        <p className="mt-1 text-xs text-destructive">{String(addErrors.payRate.message || "Invalid pay rate")}</p>
+                      )}
                     </div>
                   </div>
 
@@ -555,22 +630,34 @@ const Employees = () => {
                       <label className="block text-xs sm:text-sm font-medium mb-1.5">Hire Date</label>
                       <input
                         type="date"
-                        value={formData.hireDate}
-                        onChange={(e) => setFormData({ ...formData, hireDate: e.target.value })}
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                        {...addForm.register("hireDate")}
+                        aria-invalid={!!addErrors.hireDate}
+                        className={
+                          "w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all " +
+                          (addErrors.hireDate ? "border-destructive focus:ring-destructive/20" : "")
+                        }
                       />
+                      {addErrors.hireDate && (
+                        <p className="mt-1 text-xs text-destructive">{String(addErrors.hireDate.message || "Invalid date")}</p>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <label className="block text-xs sm:text-sm font-medium mb-1.5">Status</label>
                       <select
-                        value={formData.status}
-                        onChange={(e) => setFormData({ ...formData, status: e.target.value as Employee["status"] })}
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                        {...addForm.register("status", { required: "Status is required" })}
+                        aria-invalid={!!addErrors.status}
+                        className={
+                          "w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all " +
+                          (addErrors.status ? "border-destructive focus:ring-destructive/20" : "")
+                        }
                       >
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
                         <option value="on-leave">On Leave</option>
                       </select>
+                      {addErrors.status && (
+                        <p className="mt-1 text-xs text-destructive">{String(addErrors.status.message || "Status is required")}</p>
+                      )}
                     </div>
                   </div>
                 </motion.form>
@@ -583,7 +670,10 @@ const Employees = () => {
                   >
                     <Button
                       variant="outline"
-                      onClick={() => setAddEmployeeOpen(false)}
+                      onClick={() => {
+                        setAddEmployeeOpen(false);
+                        addForm.reset();
+                      }}
                       className="w-full sm:w-auto order-2 sm:order-1"
                     >
                       Cancel
@@ -595,7 +685,9 @@ const Employees = () => {
                     className="w-full sm:w-auto"
                   >
                     <Button
-                      onClick={handleAddEmployee}
+                      type="submit"
+                      form={ADD_EMPLOYEE_FORM_ID}
+                      disabled={!isAddValid || isAddSubmitting}
                       className="bg-gradient-to-r from-primary to-primary/80 text-white w-full sm:w-auto order-1 sm:order-2 shadow-lg hover:shadow-xl transition-all duration-300"
                     >
                       <Plus className="h-4 w-4 mr-2 flex-shrink-0" />
@@ -605,6 +697,7 @@ const Employees = () => {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+
           </div>
         </motion.div>
 

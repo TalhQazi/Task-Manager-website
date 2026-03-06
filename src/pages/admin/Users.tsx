@@ -42,6 +42,7 @@ import {
   Sparkles,
   Users as UsersIcon,
   ArrowRight,
+  AlertTriangle,
 } from "lucide-react";
 import { 
   Dialog, 
@@ -205,6 +206,7 @@ const Users = () => {
   };
 
   const form = useForm<FormValues>({
+    mode: "onChange",
     defaultValues: {
       name: "",
       password: "",
@@ -213,6 +215,10 @@ const Users = () => {
       status: "active",
     },
   });
+
+  const {
+    formState: { errors, isValid, isSubmitting },
+  } = form;
 
   function getInitials(name: string) {
     return name
@@ -435,32 +441,67 @@ const Users = () => {
                     <div className="space-y-1.5">
                       <label className="block text-xs sm:text-sm font-medium">Full name</label>
                       <input
-                        {...form.register("name", { required: true })}
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all"
+                        {...form.register("name", {
+                          required: "Full name is required",
+                          minLength: { value: 2, message: "Full name must be at least 2 characters" },
+                          validate: (v) => (String(v || "").trim() ? true : "Full name is required"),
+                        })}
+                        aria-invalid={!!errors.name}
+                        className={
+                          "w-full rounded-lg border px-3 py-2 text-sm sm:text-base h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all " +
+                          (errors.name ? "border-destructive focus:ring-destructive/20" : "")
+                        }
                         placeholder="Jane Doe"
                       />
+                      {errors.name && (
+                        <p className="text-xs text-destructive">{String(errors.name.message || "Invalid name")}</p>
+                      )}
                     </div>
                     
                     {/* Email */}
                     <div className="space-y-1.5">
                       <label className="block text-xs sm:text-sm font-medium">Email</label>
                       <input
-                        {...form.register("email", { required: true })}
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all"
+                        {...form.register("email", {
+                          required: "Email is required",
+                          validate: (v) => (String(v || "").trim() ? true : "Email is required"),
+                          pattern: {
+                            value: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                            message: "Enter a valid email address",
+                          },
+                        })}
+                        aria-invalid={!!errors.email}
+                        className={
+                          "w-full rounded-lg border px-3 py-2 text-sm sm:text-base h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all " +
+                          (errors.email ? "border-destructive focus:ring-destructive/20" : "")
+                        }
                         placeholder="jane.doe@company.com"
                         type="email"
                       />
+                      {errors.email && (
+                        <p className="text-xs text-destructive">{String(errors.email.message || "Invalid email")}</p>
+                      )}
                     </div>
 
                     {/* Password */}
                     <div className="space-y-1.5">
                       <label className="block text-xs sm:text-sm font-medium">Password</label>
                       <input
-                        {...form.register("password", { required: true })}
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all"
+                        {...form.register("password", {
+                          required: "Password is required",
+                          minLength: { value: 6, message: "Password must be at least 6 characters" },
+                        })}
+                        aria-invalid={!!errors.password}
+                        className={
+                          "w-full rounded-lg border px-3 py-2 text-sm sm:text-base h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all " +
+                          (errors.password ? "border-destructive focus:ring-destructive/20" : "")
+                        }
                         placeholder="Minimum 6 characters"
                         type="password"
                       />
+                      {errors.password && (
+                        <p className="text-xs text-destructive">{String(errors.password.message || "Invalid password")}</p>
+                      )}
                     </div>
                     
                     {/* Role & Status */}
@@ -468,25 +509,39 @@ const Users = () => {
                       <div className="flex-1 space-y-1.5">
                         <label className="block text-xs sm:text-sm font-medium">Role</label>
                         <select 
-                          {...form.register("role")} 
-                          className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all"
+                          {...form.register("role", { required: "Role is required" })} 
+                          aria-invalid={!!errors.role}
+                          className={
+                            "w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all " +
+                            (errors.role ? "border-destructive focus:ring-destructive/20" : "")
+                          }
                         >
                           <option value="super-admin">Super Admin</option>
                           <option value="admin">Admin</option>
                           <option value="manager">Manager</option>
                           <option value="employee">Employee</option>
                         </select>
+                        {errors.role && (
+                          <p className="text-xs text-destructive">{String(errors.role.message || "Role is required")}</p>
+                        )}
                       </div>
                       <div className="flex-1 space-y-1.5">
                         <label className="block text-xs sm:text-sm font-medium">Status</label>
                         <select 
-                          {...form.register("status")} 
-                          className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all"
+                          {...form.register("status", { required: "Status is required" })} 
+                          aria-invalid={!!errors.status}
+                          className={
+                            "w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all " +
+                            (errors.status ? "border-destructive focus:ring-destructive/20" : "")
+                          }
                         >
                           <option value="active">Active</option>
                           <option value="inactive">Inactive</option>
                           <option value="pending">Pending</option>
                         </select>
+                        {errors.status && (
+                          <p className="text-xs text-destructive">{String(errors.status.message || "Status is required")}</p>
+                        )}
                       </div>
                     </div>
                   </motion.div>
@@ -503,12 +558,17 @@ const Users = () => {
                     </motion.button>
                     <motion.button 
                       type="submit" 
-                      className="w-full sm:w-auto rounded-lg px-4 py-2 bg-gradient-to-r from-primary to-primary/80 text-white text-sm sm:text-base order-1 sm:order-2 shadow-lg hover:shadow-xl transition-all duration-300"
+                      disabled={!isValid || isSubmitting}
+                      className={
+                        "w-full sm:w-auto rounded-lg px-4 py-2 bg-gradient-to-r from-primary to-primary/80 text-white text-sm sm:text-base order-1 sm:order-2 shadow-lg hover:shadow-xl transition-all duration-300 " +
+                        (!isValid || isSubmitting ? "opacity-60 cursor-not-allowed hover:shadow-lg" : "")
+                      }
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
                     >
                       Save User
                     </motion.button>
+
                   </DialogFooter>
                 </form>
               </DialogContent>
