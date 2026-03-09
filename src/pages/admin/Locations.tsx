@@ -39,26 +39,29 @@ import {
   MapPin,
   Building2,
   Phone,
-  ClipboardList,
   Home,
   Warehouse,
   Briefcase,
+  Upload,
+  X,
+  ImageIcon,
 } from "lucide-react";
-import { createResource, listResource, updateResource } from "@/lib/admin/apiClient";
+import { createResource, listResource, updateResource, apiFetch } from "@/lib/admin/apiClient";
 
 interface Location {
   id: string;
   name: string;
   address: string;
   city: string;
+  country: string;
   type: "commercial" | "residential" | "industrial";
-  businessUnit?: string;
   notes?: string;
   contactName: string;
   contactPhone: string;
   status: "active" | "inactive";
-  tasksCount: number;
   createdAt?: string;
+  photoDataUrl?: string;
+  photoFileName?: string;
 }
 
 const toDateOnly = (value: string) => {
@@ -83,14 +86,15 @@ function normalizeLocation(l: BackendLocation): Location {
     name: String(l.name || "").trim(),
     address: String(l.address || "").trim(),
     city: String(l.city || "").trim(),
+    country: String(l.country || "").trim(),
     type: (String(l.type || "commercial") as Location["type"]) || "commercial",
-    businessUnit: String(l.businessUnit || "").trim() || "",
     notes: String(l.notes || "").trim() || "",
     contactName: String(l.contactName || "").trim(),
     contactPhone: String(l.contactPhone || "").trim(),
     status: (String(l.status || "active") as Location["status"]) || "active",
-    tasksCount: Number.isFinite(Number(l.tasksCount)) ? Number(l.tasksCount) : 0,
     createdAt: createdAt ? toDateOnly(createdAt) : undefined,
+    photoDataUrl: String(l.photoDataUrl || "").trim() || undefined,
+    photoFileName: String(l.photoFileName || "").trim() || undefined,
   };
 }
 
@@ -99,58 +103,57 @@ const locations: Location[] = [
     id: "LOC-001",
     name: "Building A - Corporate Office",
     address: "123 Main Street",
-    city: "New York, NY 10001",
+    city: "New York",
+    country: "USA",
     type: "commercial",
-    businessUnit: "Corporate",
     notes: "Main HQ. After-hours access requires front desk approval.",
     contactName: "James Wilson",
     contactPhone: "+1 (555) 111-2222",
     status: "active",
-    tasksCount: 8,
   },
   {
     id: "LOC-002",
     name: "Building B - Tech Hub",
     address: "456 Innovation Ave",
-    city: "San Francisco, CA 94102",
+    city: "San Francisco",
+    country: "USA",
     type: "commercial",
     contactName: "Maria Garcia",
     contactPhone: "+1 (555) 333-4444",
     status: "active",
-    tasksCount: 5,
   },
   {
     id: "LOC-003",
     name: "Warehouse C",
     address: "789 Industrial Blvd",
-    city: "Los Angeles, CA 90012",
+    city: "Los Angeles",
+    country: "USA",
     type: "industrial",
     contactName: "Robert Chen",
     contactPhone: "+1 (555) 555-6666",
     status: "active",
-    tasksCount: 12,
   },
   {
     id: "LOC-004",
     name: "Residential Complex D",
     address: "321 Oak Lane",
-    city: "Austin, TX 78701",
+    city: "Austin",
+    country: "USA",
     type: "residential",
     contactName: "Sarah Thompson",
     contactPhone: "+1 (555) 777-8888",
     status: "active",
-    tasksCount: 3,
   },
   {
     id: "LOC-005",
     name: "Old Storage Facility",
     address: "555 Harbor Drive",
-    city: "Seattle, WA 98101",
+    city: "Seattle",
+    country: "USA",
     type: "industrial",
     contactName: "Mike Brown",
     contactPhone: "+1 (555) 999-0000",
     status: "inactive",
-    tasksCount: 0,
   },
 ];
 
@@ -175,30 +178,36 @@ const Locations = () => {
   const [locationsList, setLocationsList] = useState<Location[]>(() => []);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [countries, setCountries] = useState<string[]>([]);
+  const [cities, setCities] = useState<string[]>([]);
+  const [editCities, setEditCities] = useState<string[]>([]);
+
   const [formData, setFormData] = useState({
     name: "",
     address: "",
     city: "",
+    country: "",
     type: "commercial" as Location["type"],
-    businessUnit: "",
     notes: "",
     contactName: "",
     contactPhone: "",
     status: "active" as Location["status"],
-    tasksCount: 0,
+    photoDataUrl: "",
+    photoFileName: "",
   });
 
   const [editFormData, setEditFormData] = useState({
     name: "",
     address: "",
     city: "",
+    country: "",
     type: "commercial" as Location["type"],
-    businessUnit: "",
     notes: "",
     contactName: "",
     contactPhone: "",
     status: "active" as Location["status"],
-    tasksCount: 0,
+    photoDataUrl: "",
+    photoFileName: "",
   });
 
   useEffect(() => {
@@ -224,13 +233,57 @@ const Locations = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const loadCountries = async () => {
+      try {
+        const res = await apiFetch<{ countries: string[] }>("/api/locations/countries");
+        setCountries(res.countries);
+      } catch {
+        setCountries([]);
+      }
+    };
+    void loadCountries();
+  }, []);
+
+  useEffect(() => {
+    const loadCities = async () => {
+      if (!formData.country) {
+        setCities([]);
+        return;
+      }
+      try {
+        const res = await apiFetch<{ cities: string[] }>(`/api/locations/cities?country=${encodeURIComponent(formData.country)}`);
+        setCities(res.cities);
+      } catch {
+        setCities([]);
+      }
+    };
+    void loadCities();
+  }, [formData.country]);
+
+  useEffect(() => {
+    const loadEditCities = async () => {
+      if (!editFormData.country) {
+        setEditCities([]);
+        return;
+      }
+      try {
+        const res = await apiFetch<{ cities: string[] }>(`/api/locations/cities?country=${encodeURIComponent(editFormData.country)}`);
+        setEditCities(res.cities);
+      } catch {
+        setEditCities([]);
+      }
+    };
+    void loadEditCities();
+  }, [editFormData.country]);
+
   const refreshLocations = async () => {
     const list = await listResource<BackendLocation>("locations");
     setLocationsList(list.map(normalizeLocation));
   };
 
   const handleAddLocation = async () => {
-    if (!formData.name || !formData.address || !formData.city) return;
+    if (!formData.name || !formData.address || !formData.city || !formData.country) return;
     try {
       setApiError(null);
       const newLocation: Location = {
@@ -238,14 +291,15 @@ const Locations = () => {
         name: formData.name,
         address: formData.address,
         city: formData.city,
+        country: formData.country,
         type: formData.type,
-        businessUnit: formData.businessUnit || "",
         notes: formData.notes || "",
         contactName: formData.contactName,
         contactPhone: formData.contactPhone,
         status: formData.status,
-        tasksCount: Number.isFinite(formData.tasksCount) ? formData.tasksCount : 0,
         createdAt: toDateOnly(new Date().toISOString()),
+        photoDataUrl: formData.photoDataUrl || undefined,
+        photoFileName: formData.photoFileName || undefined,
       };
       await createResource<Location>("locations", newLocation);
       await refreshLocations();
@@ -254,13 +308,14 @@ const Locations = () => {
         name: "",
         address: "",
         city: "",
+        country: "",
         type: "commercial",
-        businessUnit: "",
         notes: "",
         contactName: "",
         contactPhone: "",
         status: "active",
-        tasksCount: 0,
+        photoDataUrl: "",
+        photoFileName: "",
       });
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "Failed to add location");
@@ -278,20 +333,21 @@ const Locations = () => {
       name: location.name,
       address: location.address,
       city: location.city,
+      country: location.country,
       type: location.type,
-      businessUnit: location.businessUnit || "",
       notes: location.notes || "",
       contactName: location.contactName,
       contactPhone: location.contactPhone,
       status: location.status,
-      tasksCount: location.tasksCount,
+      photoDataUrl: location.photoDataUrl || "",
+      photoFileName: location.photoFileName || "",
     });
     setEditLocationOpen(true);
   };
 
   const saveEditLocation = async () => {
     if (!selectedLocation) return;
-    if (!editFormData.name || !editFormData.address || !editFormData.city) return;
+    if (!editFormData.name || !editFormData.address || !editFormData.city || !editFormData.country) return;
     try {
       setApiError(null);
       await updateResource<Location>("locations", selectedLocation.id, {
@@ -299,13 +355,14 @@ const Locations = () => {
         name: editFormData.name,
         address: editFormData.address,
         city: editFormData.city,
+        country: editFormData.country,
         type: editFormData.type,
         contactName: editFormData.contactName,
         contactPhone: editFormData.contactPhone,
         status: editFormData.status,
-        businessUnit: editFormData.businessUnit || "",
         notes: editFormData.notes || "",
-        tasksCount: Number.isFinite(editFormData.tasksCount) ? editFormData.tasksCount : 0,
+        photoDataUrl: editFormData.photoDataUrl || undefined,
+        photoFileName: editFormData.photoFileName || undefined,
       });
       await refreshLocations();
       setEditLocationOpen(false);
@@ -398,33 +455,53 @@ const Locations = () => {
                   />
                 </div>
 
-                {/* Address & City */}
+                {/* Country & City */}
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                   <div className="flex-1 min-w-0">
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Address *</label>
-                    <input
-                      type="text"
-                      value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
-                      placeholder="123 Main Street"
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Country *</label>
+                    <select
+                      value={formData.country}
+                      onChange={(e) => setFormData({ ...formData, country: e.target.value, city: "" })}
+                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
                       required
-                    />
+                    >
+                      <option value="">Select country</option>
+                      {countries.map((country) => (
+                        <option key={country} value={country}>{country}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">City/State/Zip *</label>
-                    <input
-                      type="text"
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">City *</label>
+                    <select
                       value={formData.city}
                       onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
-                      placeholder="New York, NY 10001"
+                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                      disabled={!formData.country}
                       required
-                    />
+                    >
+                      <option value="">{formData.country ? "Select city" : "Select country first"}</option>
+                      {cities.map((city) => (
+                        <option key={city} value={city}>{city}</option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
-                {/* Type, Status, Tasks */}
+                {/* Address */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Address *</label>
+                  <input
+                    type="text"
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                    placeholder="123 Main Street"
+                    required
+                  />
+                </div>
+
+                {/* Type & Status */}
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                   <div className="flex-1 min-w-0">
                     <label className="block text-xs sm:text-sm font-medium mb-1.5">Type</label>
@@ -451,38 +528,72 @@ const Locations = () => {
                       <option value="inactive">Inactive</option>
                     </select>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Active Tasks</label>
+                </div>
+
+                {/* Location Photo Upload */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Location Photo</label>
+                  <div className="flex flex-col gap-2">
+                    {formData.photoDataUrl ? (
+                      <div className="relative w-full h-32 rounded-lg overflow-hidden border">
+                        <img 
+                          src={formData.photoDataUrl} 
+                          alt="Location preview" 
+                          className="w-full h-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, photoDataUrl: "", photoFileName: "" })}
+                          className="absolute top-2 right-2 h-8 w-8 rounded-full bg-destructive text-white flex items-center justify-center hover:bg-destructive/90"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div
+                        className="w-full rounded-lg border border-dashed border-muted-foreground/25 px-3 py-6 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => {
+                          const input = document.getElementById("location-photo-upload") as HTMLInputElement;
+                          input?.click();
+                        }}
+                      >
+                        <ImageIcon className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                        <p className="text-xs sm:text-sm text-muted-foreground">Click to upload location photo</p>
+                        <p className="text-xs text-muted-foreground/60 mt-1">JPG, PNG up to 5MB</p>
+                      </div>
+                    )}
                     <input
-                      type="number"
-                      value={formData.tasksCount}
-                      onChange={(e) => setFormData({ ...formData, tasksCount: Number(e.target.value) })}
-                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
-                      min={0}
+                      id="location-photo-upload"
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setFormData({
+                              ...formData,
+                              photoDataUrl: reader.result as string,
+                              photoFileName: file.name,
+                            });
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
                     />
                   </div>
                 </div>
 
-                {/* Business Unit & Notes */}
-                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                  <div className="flex-1 min-w-0">
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Business Unit</label>
-                    <Input
-                      value={formData.businessUnit}
-                      onChange={(e) => setFormData({ ...formData, businessUnit: e.target.value })}
-                      placeholder="e.g., Corporate"
-                      className="text-sm sm:text-base h-9 sm:h-10"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Location Notes</label>
-                    <Input
-                      value={formData.notes}
-                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      placeholder="Short notes"
-                      className="text-sm sm:text-base h-9 sm:h-10"
-                    />
-                  </div>
+                {/* Location Notes */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Location Notes</label>
+                  <Input
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="Short notes about this location"
+                    className="text-sm sm:text-base h-9 sm:h-10"
+                  />
                 </div>
 
                 {/* Contact Name & Phone */}
@@ -647,9 +758,19 @@ const Locations = () => {
                       {/* Header with Name and Actions */}
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                            <MapPin className="h-5 w-5 text-muted-foreground" />
-                          </div>
+                          {location.photoDataUrl ? (
+                            <div className="h-10 w-10 rounded-lg overflow-hidden flex-shrink-0 border">
+                              <img 
+                                src={location.photoDataUrl} 
+                                alt={location.name} 
+                                className="h-full w-full object-cover"
+                              />
+                            </div>
+                          ) : (
+                            <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                              <MapPin className="h-5 w-5 text-muted-foreground" />
+                            </div>
+                          )}
                           <div className="min-w-0 flex-1">
                             <p className="font-medium text-sm truncate">{location.name}</p>
                             <p className="text-xs text-muted-foreground">{toDateOnly(location.createdAt || "") || "—"}</p>
@@ -737,8 +858,21 @@ const Locations = () => {
                       {filteredLocations.map((location) => (
                         <TableRow key={location.id} className="hover:bg-muted/30">
                           <TableCell>
-                            <div className="min-w-0">
-                              <p className="font-medium text-sm md:text-base truncate max-w-[200px] lg:max-w-[250px]">
+                            <div className="flex items-center gap-2 min-w-0">
+                              {location.photoDataUrl ? (
+                                <div className="h-8 w-8 rounded overflow-hidden flex-shrink-0 border">
+                                  <img 
+                                    src={location.photoDataUrl} 
+                                    alt={location.name} 
+                                    className="h-full w-full object-cover"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="h-8 w-8 rounded bg-muted flex items-center justify-center flex-shrink-0">
+                                  <MapPin className="h-4 w-4 text-muted-foreground" />
+                                </div>
+                              )}
+                              <p className="font-medium text-sm md:text-base truncate max-w-[160px] lg:max-w-[200px]">
                                 {location.name}
                               </p>
                             </div>
@@ -822,9 +956,19 @@ const Locations = () => {
             <div className="space-y-4 sm:space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b pb-4">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                    <MapPin className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
-                  </div>
+                  {selectedLocation.photoDataUrl ? (
+                    <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-lg overflow-hidden flex-shrink-0 border">
+                      <img 
+                        src={selectedLocation.photoDataUrl} 
+                        alt={selectedLocation.name} 
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
+                  ) : (
+                    <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                      <MapPin className="h-8 w-8 sm:h-10 sm:w-10 text-muted-foreground" />
+                    </div>
+                  )}
                   <div>
                     <p className="text-base sm:text-lg font-semibold break-words">{selectedLocation.name}</p>
                     <p className="text-xs sm:text-sm text-muted-foreground">{toDateOnly(selectedLocation.createdAt || "") || "—"}</p>
@@ -853,9 +997,9 @@ const Locations = () => {
                 </div>
                 
                 <div className="space-y-1.5">
-                  <label className="text-xs sm:text-sm font-medium">Address</label>
+                  <label className="text-xs sm:text-sm font-medium">Country</label>
                   <p className="text-xs sm:text-sm text-muted-foreground break-words">
-                    {selectedLocation.address || "—"}
+                    {selectedLocation.country || "—"}
                   </p>
                 </div>
 
@@ -865,6 +1009,22 @@ const Locations = () => {
                     {selectedLocation.city || "—"}
                   </p>
                 </div>
+
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-xs sm:text-sm font-medium">Address</label>
+                  <p className="text-xs sm:text-sm text-muted-foreground break-words">
+                    {selectedLocation.address || "—"}
+                  </p>
+                </div>
+
+                {selectedLocation.notes && (
+                  <div className="space-y-1.5 sm:col-span-2">
+                    <label className="text-xs sm:text-sm font-medium">Notes</label>
+                    <p className="text-xs sm:text-sm text-muted-foreground break-words">
+                      {selectedLocation.notes}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -899,7 +1059,7 @@ const Locations = () => {
                 />
               </div>
 
-              {/* Address & City */}
+              {/* Address & Country/City */}
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <div className="flex-1 min-w-0">
                   <label className="block text-xs sm:text-sm font-medium mb-1.5">Address *</label>
@@ -911,19 +1071,42 @@ const Locations = () => {
                     required
                   />
                 </div>
+              </div>
+
+              {/* Country & City */}
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <div className="flex-1 min-w-0">
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">City/State/Zip *</label>
-                  <input
-                    type="text"
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Country *</label>
+                  <select
+                    value={editFormData.country}
+                    onChange={(e) => setEditFormData({ ...editFormData, country: e.target.value, city: "" })}
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                    required
+                  >
+                    <option value="">Select country</option>
+                    {countries.map((country) => (
+                      <option key={country} value={country}>{country}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">City *</label>
+                  <select
                     value={editFormData.city}
                     onChange={(e) => setEditFormData({ ...editFormData, city: e.target.value })}
-                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                    disabled={!editFormData.country}
                     required
-                  />
+                  >
+                    <option value="">{editFormData.country ? "Select city" : "Select country first"}</option>
+                    {editCities.map((city) => (
+                      <option key={city} value={city}>{city}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
-              {/* Type, Status, Tasks */}
+              {/* Type & Status */}
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <div className="flex-1 min-w-0">
                   <label className="block text-xs sm:text-sm font-medium mb-1.5">Type</label>
@@ -952,36 +1135,72 @@ const Locations = () => {
                     <option value="inactive">Inactive</option>
                   </select>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Active Tasks</label>
+              </div>
+
+              {/* Location Photo Upload */}
+              <div>
+                <label className="block text-xs sm:text-sm font-medium mb-1.5">Location Photo</label>
+                <div className="flex flex-col gap-2">
+                  {editFormData.photoDataUrl ? (
+                    <div className="relative w-full h-32 rounded-lg overflow-hidden border">
+                      <img 
+                        src={editFormData.photoDataUrl} 
+                        alt="Location preview" 
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setEditFormData({ ...editFormData, photoDataUrl: "", photoFileName: "" })}
+                        className="absolute top-2 right-2 h-8 w-8 rounded-full bg-destructive text-white flex items-center justify-center hover:bg-destructive/90"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      className="w-full rounded-lg border border-dashed border-muted-foreground/25 px-3 py-6 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => {
+                        const input = document.getElementById("edit-location-photo-upload") as HTMLInputElement;
+                        input?.click();
+                      }}
+                    >
+                      <ImageIcon className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                      <p className="text-xs sm:text-sm text-muted-foreground">Click to upload location photo</p>
+                      <p className="text-xs text-muted-foreground/60 mt-1">JPG, PNG up to 5MB</p>
+                    </div>
+                  )}
                   <input
-                    type="number"
-                    value={editFormData.tasksCount}
-                    onChange={(e) => setEditFormData({ ...editFormData, tasksCount: Number(e.target.value) })}
-                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
-                    min={0}
+                    id="edit-location-photo-upload"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setEditFormData({
+                            ...editFormData,
+                            photoDataUrl: reader.result as string,
+                            photoFileName: file.name,
+                          });
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
                   />
                 </div>
               </div>
 
-              {/* Business Unit & Notes */}
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                <div className="flex-1 min-w-0">
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Business Unit</label>
-                  <Input
-                    value={editFormData.businessUnit}
-                    onChange={(e) => setEditFormData({ ...editFormData, businessUnit: e.target.value })}
-                    className="text-sm sm:text-base h-9 sm:h-10"
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Location Notes</label>
-                  <Input
-                    value={editFormData.notes}
-                    onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
-                    className="text-sm sm:text-base h-9 sm:h-10"
-                  />
-                </div>
+              {/* Location Notes */}
+              <div>
+                <label className="block text-xs sm:text-sm font-medium mb-1.5">Location Notes</label>
+                <Input
+                  value={editFormData.notes}
+                  onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
+                  placeholder="Short notes about this location"
+                  className="text-sm sm:text-base h-9 sm:h-10"
+                />
               </div>
 
               {/* Contact Name & Phone */}
