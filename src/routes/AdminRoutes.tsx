@@ -9,6 +9,7 @@ import Employees from "@/pages/admin/Employees";
 import Appliances from "@/pages/admin/Appliances";
 import Vehicles from "@/pages/admin/Vehicles";
 import Locations from "@/pages/admin/Locations";
+import Companies from "@/pages/admin/Companies";
 import Vendors from "@/pages/admin/Vendors";
 import Scheduling from "@/pages/admin/Scheduling";
 import TimeTracking from "@/pages/admin/TimeTracking";
@@ -38,6 +39,7 @@ export default function AdminRoutes() {
       { path: "appliances", element: <Appliances /> },
       { path: "vehicles", element: <Vehicles /> },
       { path: "locations", element: <Locations /> },
+      { path: "companies", element: <Companies /> },
       { path: "vendors", element: <Vendors /> },
       { path: "scheduling", element: <Scheduling /> },
       { path: "time-tracking", element: <TimeTracking /> },

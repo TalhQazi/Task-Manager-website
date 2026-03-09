@@ -17,6 +17,7 @@ import {
   Settings,
   LogOut,
   Building2,
+  Landmark,
   Activity,
 } from "lucide-react";
 
@@ -33,6 +34,7 @@ const navItemsBase = [
   { icon: Wrench, label: "Appliances", path: "/admin/appliances" },
   { icon: Car, label: "Vehicles", path: "/admin/vehicles" },
   { icon: MapPin, label: "Locations", path: "/admin/locations" },
+  { icon: Landmark, label: "Companies", path: "/admin/companies" },
   { icon: Building2, label: "Vendors", path: "/admin/vendors" },
   { icon: Calendar, label: "Scheduling", path: "/admin/scheduling" },
   { icon: Clock, label: "Time Tracking", path: "/admin/time-tracking" },

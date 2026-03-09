@@ -95,13 +95,15 @@ export type CrudResource =
   | "notifications"
   | "time-entries"
   | "onboarding"
-  | "do-not-hire";
+  | "do-not-hire"
+  | "companies";
 
 type ListResponse<T> = { items?: T[] } | T[];
 
 function resourcePath(resource: CrudResource) {
   if (resource === "time-entries") return "/api/time-entries";
   if (resource === "do-not-hire") return "/api/do-not-hire";
+  if (resource === "companies") return "/api/companies";
   return `/api/${resource}`;
 }
 
