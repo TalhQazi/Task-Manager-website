@@ -1078,11 +1078,13 @@ export default function Tasks() {
                     <div className="flex items-center gap-2 whitespace-nowrap">
                       <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-medium">
                         {task.assignee
-                          .split(" ")
-                          .map((n) => n[0])
-                          .join("")}
+                          ? task.assignee
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                          : "?"}
                       </div>
-                      <span className="text-foreground">{task.assignee}</span>
+                      <span className="text-foreground">{task.assignee || "Unassigned"}</span>
                     </div>
                   </td>
                   <td>
