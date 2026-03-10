@@ -137,6 +137,20 @@ const assigneesLabel = (assignees: string[]) => {
   return (assignees || []).filter(Boolean).join(", ");
 };
 
+// Calculate task statistics for an employee
+const getEmployeeTaskStats = (employeeName: string, allTasks: Task[]) => {
+  const employeeTasks = allTasks.filter((task) => 
+    task.assignees?.includes(employeeName) || task.assignee === employeeName
+  );
+  
+  const total = employeeTasks.length;
+  const completed = employeeTasks.filter((t) => t.status === "completed").length;
+  const pending = employeeTasks.filter((t) => t.status === "pending" || t.status === "in-progress").length;
+  const overdue = employeeTasks.filter((t) => t.status === "overdue").length;
+  
+  return { total, completed, pending, overdue };
+};
+
 const normalizeTaskAssignees = (task: Task): Task => {
   const legacyAssignee = typeof task.assignee === "string" ? task.assignee.trim() : "";
   const assignees = Array.isArray(task.assignees)

@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/
 import { Badge } from "@/components/admin/ui/badge";
 import { Users, CheckSquare, AlertTriangle, Clock, Calendar, ArrowRight, Sparkles } from "lucide-react";
 import { listResource } from "@/lib/admin/apiClient";
+import { useNavigate } from "react-router-dom";
 
 type Employee = {
   id: string;
@@ -82,6 +83,7 @@ const cardVariants: Variants = {
 };
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -178,10 +180,10 @@ const Dashboard = () => {
           variants={containerVariants}
         >
           {[
-            { title: "Total Employees", value: metrics.totalEmployees, icon: Users, variant: "primary", changeType: "positive" as const },
-            { title: "Active Tasks", value: metrics.activeTasks, icon: CheckSquare, variant: "success", changeType: "neutral" as const },
-            { title: "Overdue Tasks", value: metrics.overdueTasks, icon: AlertTriangle, variant: "danger", changeType: "positive" as const },
-            { title: "Clocked In", value: metrics.clockedInEmployees, icon: Clock, variant: "warning", changeType: "neutral" as const },
+            { title: "Total Employees", value: metrics.totalEmployees, icon: Users, variant: "primary", changeType: "positive" as const, onClick: () => navigate("/admin/employees") },
+            { title: "Active Tasks", value: metrics.activeTasks, icon: CheckSquare, variant: "success", changeType: "neutral" as const, onClick: () => navigate("/admin/tasks") },
+            { title: "Overdue Tasks", value: metrics.overdueTasks, icon: AlertTriangle, variant: "danger", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
+            { title: "Clocked In", value: metrics.clockedInEmployees, icon: Clock, variant: "warning", changeType: "neutral" as const, onClick: () => navigate("/admin/time-tracking") },
           ].map((stat, index) => (
             <motion.div
               key={stat.title}
@@ -195,6 +197,7 @@ const Dashboard = () => {
                 changeType={stat.changeType}
                 icon={stat.icon}
                 variant={stat.variant as any}
+                onClick={stat.onClick}
               />
             </motion.div>
           ))}

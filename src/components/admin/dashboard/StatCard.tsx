@@ -8,6 +8,7 @@ interface StatCardProps {
   changeType?: "positive" | "negative" | "neutral";
   icon: LucideIcon;
   variant?: "primary" | "success" | "warning" | "danger";
+  onClick?: () => void;
 }
 
 export function StatCard({
@@ -17,6 +18,7 @@ export function StatCard({
   changeType = "neutral",
   icon: Icon,
   variant = "primary",
+  onClick,
 }: StatCardProps) {
   const variantClasses = {
     primary: "stat-card-gradient gradient-primary",
@@ -27,9 +29,10 @@ export function StatCard({
 
   return (
     <div
+      onClick={onClick}
       className={cn(
         "rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 text-white shadow-soft animate-fade-in relative",
-        "transition-all duration-300 hover:scale-[1.02] hover:shadow-lg",
+        "transition-all duration-300 hover:scale-[1.02] hover:shadow-lg cursor-pointer",
         variantClasses[variant]
       )}
     >

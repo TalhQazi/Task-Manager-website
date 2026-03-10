@@ -212,7 +212,8 @@ const Users = () => {
   }, []);
 
   type FormValues = {
-    name: string;
+    firstName: string;
+    lastName: string;
     password: string;
     email: string;
     role: string;
@@ -222,7 +223,8 @@ const Users = () => {
   const form = useForm<FormValues>({
     mode: "onChange",
     defaultValues: {
-      name: "",
+      firstName: "",
+      lastName: "",
       password: "",
       email: "",
       role: "manager",
@@ -405,8 +407,9 @@ const Users = () => {
 
   const onSubmit = async (values: FormValues) => {
     try {
+      const fullName = `${values.firstName.trim()} ${values.lastName.trim()}`.trim();
       await createResource<BackendUser>("users", {
-        name: values.name.trim(),
+        name: fullName,
         email: values.email.trim(),
         password: values.password,
         role: values.role as BackendUser["role"],
@@ -497,25 +500,46 @@ const Users = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2 }}
                   >
-                    {/* Full Name */}
-                    <div className="space-y-1.5">
-                      <label className="block text-xs sm:text-sm font-medium">Full name</label>
-                      <input
-                        {...form.register("name", {
-                          required: "Full name is required",
-                          minLength: { value: 2, message: "Full name must be at least 2 characters" },
-                          validate: (v) => (String(v || "").trim() ? true : "Full name is required"),
-                        })}
-                        aria-invalid={!!errors.name}
-                        className={
-                          "w-full rounded-lg border px-3 py-2 text-sm sm:text-base h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all " +
-                          (errors.name ? "border-destructive focus:ring-destructive/20" : "")
-                        }
-                        placeholder="Jane Doe"
-                      />
-                      {errors.name && (
-                        <p className="text-xs text-destructive">{String(errors.name.message || "Invalid name")}</p>
-                      )}
+                    {/* First Name & Last Name */}
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="flex-1 space-y-1.5">
+                        <label className="block text-xs sm:text-sm font-medium">First name</label>
+                        <input
+                          {...form.register("firstName", {
+                            required: "First name is required",
+                            minLength: { value: 2, message: "First name must be at least 2 characters" },
+                            validate: (v) => (String(v || "").trim() ? true : "First name is required"),
+                          })}
+                          aria-invalid={!!errors.firstName}
+                          className={
+                            "w-full rounded-lg border px-3 py-2 text-sm sm:text-base h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all " +
+                            (errors.firstName ? "border-destructive focus:ring-destructive/20" : "")
+                          }
+                          placeholder="Jane"
+                        />
+                        {errors.firstName && (
+                          <p className="text-xs text-destructive">{String(errors.firstName.message || "Invalid first name")}</p>
+                        )}
+                      </div>
+                      <div className="flex-1 space-y-1.5">
+                        <label className="block text-xs sm:text-sm font-medium">Last name</label>
+                        <input
+                          {...form.register("lastName", {
+                            required: "Last name is required",
+                            minLength: { value: 2, message: "Last name must be at least 2 characters" },
+                            validate: (v) => (String(v || "").trim() ? true : "Last name is required"),
+                          })}
+                          aria-invalid={!!errors.lastName}
+                          className={
+                            "w-full rounded-lg border px-3 py-2 text-sm sm:text-base h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all " +
+                            (errors.lastName ? "border-destructive focus:ring-destructive/20" : "")
+                          }
+                          placeholder="Doe"
+                        />
+                        {errors.lastName && (
+                          <p className="text-xs text-destructive">{String(errors.lastName.message || "Invalid last name")}</p>
+                        )}
+                      </div>
                     </div>
                     
                     {/* Email */}

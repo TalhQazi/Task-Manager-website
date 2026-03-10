@@ -536,35 +536,12 @@ const Companies = () => {
                   {/* Address */}
                   <div className="space-y-3">
                     <h4 className="text-xs sm:text-sm font-medium text-muted-foreground">Address</h4>
-                    <input
-                      type="text"
-                      value={addFormData.street}
-                      onChange={(e) => setAddFormData({ ...addFormData, street: e.target.value })}
-                      placeholder="Street Address"
-                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                    />
                     <div className="grid grid-cols-2 gap-3">
                       <input
                         type="text"
                         value={addFormData.city}
                         onChange={(e) => setAddFormData({ ...addFormData, city: e.target.value })}
                         placeholder="City"
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                      />
-                      <input
-                        type="text"
-                        value={addFormData.state}
-                        onChange={(e) => setAddFormData({ ...addFormData, state: e.target.value })}
-                        placeholder="State"
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <input
-                        type="text"
-                        value={addFormData.zipCode}
-                        onChange={(e) => setAddFormData({ ...addFormData, zipCode: e.target.value })}
-                        placeholder="Zip Code"
                         className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
                       />
                       <select

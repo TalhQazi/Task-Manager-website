@@ -77,6 +77,13 @@ interface Employee {
   shift?: string;
 }
 
+interface Company {
+  id: string;
+  name: string;
+  code: string;
+  status: "active" | "inactive" | "suspended";
+}
+
 const CATEGORY_OPTIONS = ["assistant", "coders", "mechanics", "carpenters", "accountant", "marketing"];
 
 // Enhanced status classes with beautiful gradients
@@ -149,7 +156,8 @@ const Employees = () => {
   const [hoveredEmployee, setHoveredEmployee] = useState<string | null>(null);
 
   type AddEmployeeValues = {
-    name: string;
+    firstName: string;
+    lastName: string;
     email: string;
     phone: string;
     category: string;
@@ -168,7 +176,8 @@ const Employees = () => {
   const addForm = useForm<AddEmployeeValues>({
     mode: "onChange",
     defaultValues: {
-      name: "",
+      firstName: "",
+      lastName: "",
       email: "",
       phone: "",
       category: "",
@@ -223,6 +232,9 @@ const Employees = () => {
     shift: "",
   });
 
+  // Companies list for dropdown
+  const [companies, setCompanies] = useState<Company[]>([]);
+
   useEffect(() => {
     // Check if current user is super-admin
     const auth = getAuthState();
@@ -238,6 +250,16 @@ const Employees = () => {
         const list = await listResource<Employee>("employees");
         if (!mounted) return;
         setEmployeesList(list);
+        
+        // Fetch companies for dropdown
+        try {
+          const companyList = await listResource<Company>("companies");
+          if (mounted) {
+            setCompanies(companyList.filter((c) => c.status === "active"));
+          }
+        } catch (companyErr) {
+          console.error("Failed to load companies:", companyErr);
+        }
       } catch (e) {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load employees");
@@ -262,11 +284,13 @@ const Employees = () => {
     try {
       setApiError(null);
 
+      const fullName = `${values.firstName.trim()} ${values.lastName.trim()}`.trim();
+
       const newEmployee = {
         id: `EMP-${Date.now().toString().slice(-6)}`,
-        name: values.name.trim(),
+        name: fullName,
 
-        initials: values.name
+        initials: fullName
           .split(" ")
           .map((n) => n[0])
           .slice(0, 2)
@@ -288,7 +312,7 @@ const Employees = () => {
 
       if (values.createUser === "yes") {
         await createResource("users", {
-          name: values.name.trim(),
+          name: fullName,
           email: values.email.trim(),
           password: values.password,
           role: values.userRole,
@@ -305,7 +329,7 @@ const Employees = () => {
   };
 
   const roles = useMemo(() => [...new Set(employeesList.map((e) => e.role))], [employeesList]);
-  const companies = useMemo(() => [...new Set(employeesList.map((e) => e.company).filter(Boolean))] as string[], [employeesList]);
+  const companiesList = useMemo(() => [...new Set(employeesList.map((e) => e.company).filter(Boolean))] as string[], [employeesList]);
 
   const categories = useMemo(
     () => [...new Set(employeesList.map((e) => String(e.category || "")).filter(Boolean))] as string[],
@@ -577,26 +601,46 @@ const Employees = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
                 >
-                  {/* Name & Email - Stack on mobile, row on tablet+ */}
+                  {/* First Name, Last Name & Email - Stack on mobile, row on tablet+ */}
                   <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                     <div className="flex-1 min-w-0">
-                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Full Name *</label>
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">First Name *</label>
                       <input
                         type="text"
-                        {...addForm.register("name", {
-                          required: "Full name is required",
-                          minLength: { value: 2, message: "Full name must be at least 2 characters" },
-                          validate: (v) => (String(v || "").trim() ? true : "Full name is required"),
+                        {...addForm.register("firstName", {
+                          required: "First name is required",
+                          minLength: { value: 2, message: "First name must be at least 2 characters" },
+                          validate: (v) => (String(v || "").trim() ? true : "First name is required"),
                         })}
-                        aria-invalid={!!addErrors.name}
-                        placeholder="John Doe"
+                        aria-invalid={!!addErrors.firstName}
+                        placeholder="John"
                         className={
                           "w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all " +
-                          (addErrors.name ? "border-destructive focus:ring-destructive/20" : "")
+                          (addErrors.firstName ? "border-destructive focus:ring-destructive/20" : "")
                         }
                       />
-                      {addErrors.name && (
-                        <p className="mt-1 text-xs text-destructive">{String(addErrors.name.message || "Invalid name")}</p>
+                      {addErrors.firstName && (
+                        <p className="mt-1 text-xs text-destructive">{String(addErrors.firstName.message || "Invalid first name")}</p>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Last Name *</label>
+                      <input
+                        type="text"
+                        {...addForm.register("lastName", {
+                          required: "Last name is required",
+                          minLength: { value: 2, message: "Last name must be at least 2 characters" },
+                          validate: (v) => (String(v || "").trim() ? true : "Last name is required"),
+                        })}
+                        aria-invalid={!!addErrors.lastName}
+                        placeholder="Doe"
+                        className={
+                          "w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all " +
+                          (addErrors.lastName ? "border-destructive focus:ring-destructive/20" : "")
+                        }
+                      />
+                      {addErrors.lastName && (
+                        <p className="mt-1 text-xs text-destructive">{String(addErrors.lastName.message || "Invalid last name")}</p>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -681,12 +725,30 @@ const Employees = () => {
 
                   <div>
                     <label className="block text-xs sm:text-sm font-medium mb-1.5">Company</label>
-                    <input
-                      type="text"
+                    <select
                       {...addForm.register("company")}
-                      placeholder="e.g., TaskFlow"
-                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                    />
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                    >
+                      <option value="">Select company</option>
+                      {companies.map((company) => (
+                        <option key={company.id} value={company.name}>
+                          {company.name} ({company.code})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Department</label>
+                    <select
+                      {...addForm.register("department")}
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                    >
+                      <option value="">Select department</option>
+                      <option value="Coding">Coding</option>
+                      <option value="Electrician">Electrician</option>
+                      <option value="Mechanic">Mechanic</option>
+                    </select>
                   </div>
 
                   <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
@@ -1001,9 +1063,9 @@ const Employees = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Companies</SelectItem>
-                        {companies.map((c) => (
-                          <SelectItem key={c} value={c} className="text-xs sm:text-sm">
-                            {c}
+                        {companies.map((company) => (
+                          <SelectItem key={company.id} value={company.name} className="text-xs sm:text-sm">
+                            {company.name}
                           </SelectItem>
                         ))}
                       </SelectContent>

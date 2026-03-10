@@ -6,6 +6,9 @@ import Dashboard from "@/pages/admin/Dashboard";
 import Users from "@/pages/admin/Users";
 import Tasks from "@/pages/admin/Tasks";
 import Employees from "@/pages/admin/Employees";
+import Payroll from "@/pages/admin/Payroll";
+import TaskHistory from "@/pages/admin/TaskHistory";
+import EmployeeTaskHistory from "@/pages/admin/EmployeeTaskHistory";
 import Appliances from "@/pages/admin/Appliances";
 import Vehicles from "@/pages/admin/Vehicles";
 import Locations from "@/pages/admin/Locations";
@@ -36,6 +39,9 @@ export default function AdminRoutes() {
       { path: "roles", element: <RolesPermissions /> },
       { path: "tasks", element: <Tasks /> },
       { path: "employees", element: <Employees /> },
+      { path: "payroll", element: <Payroll /> },
+      { path: "task-history", element: <TaskHistory /> },
+      { path: "task-history/:employee", element: <EmployeeTaskHistory /> },
       { path: "appliances", element: <Appliances /> },
       { path: "vehicles", element: <Vehicles /> },
       { path: "locations", element: <Locations /> },

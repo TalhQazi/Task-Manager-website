@@ -13,6 +13,7 @@ import {
 } from "recharts";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/admin/apiClient";
+import { useNavigate } from "react-router-dom";
 
 type TaskApi = {
   _id?: string;
@@ -67,6 +68,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 export function TaskCharts() {
+  const navigate = useNavigate();
   const tasksQuery = useQuery({
     queryKey: ["dashboard", "tasks"],
     queryFn: async () => {
@@ -123,7 +125,10 @@ export function TaskCharts() {
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
       
       {/* Weekly Tasks Bar Chart */}
-      <Card className="shadow-soft border-0 sm:border">
+      <Card 
+        className="shadow-soft border-0 sm:border cursor-pointer hover:shadow-lg transition-all"
+        onClick={() => navigate("/admin/tasks")}
+      >
         <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
           <CardTitle className="text-base sm:text-lg md:text-xl font-semibold">
             Weekly Task Overview
@@ -217,7 +222,10 @@ export function TaskCharts() {
       </Card>
 
       {/* Task Distribution Pie Chart */}
-      <Card className="shadow-soft border-0 sm:border">
+      <Card 
+        className="shadow-soft border-0 sm:border cursor-pointer hover:shadow-lg transition-all"
+        onClick={() => navigate("/admin/tasks")}
+      >
         <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
           <CardTitle className="text-base sm:text-lg md:text-xl font-semibold">
             Task Distribution

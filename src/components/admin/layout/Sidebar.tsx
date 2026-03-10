@@ -19,6 +19,8 @@ import {
   Building2,
   Landmark,
   Activity,
+  History,
+  Wallet,
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
@@ -31,6 +33,8 @@ const navItemsBase = [
   { icon: Users, label: "User Management", path: "/admin/users" },
   { icon: CheckSquare, label: "Task Management", path: "/admin/tasks" },
   { icon: UserCircle, label: "Employee Directory", path: "/admin/employees" },
+  { icon: Wallet, label: "Payroll", path: "/admin/payroll" },
+  { icon: History, label: "Task History", path: "/admin/task-history" },
   { icon: Wrench, label: "Appliances", path: "/admin/appliances" },
   { icon: Car, label: "Vehicles", path: "/admin/vehicles" },
   { icon: MapPin, label: "Locations", path: "/admin/locations" },
