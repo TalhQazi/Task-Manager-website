@@ -27,6 +27,7 @@ import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { clearAuthState, getAuthState } from "@/lib/auth";
 import { useMemo } from "react";
+import { apiFetch } from "@/lib/admin/apiClient";
 
 const navItemsBase = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin", end: true },
@@ -75,7 +76,13 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
     return items;
   }, [auth.role]);
 
-  const onLogout = () => {
+  const onLogout = async () => {
+    // Call logout API to log the activity
+    try {
+      await apiFetch("/api/auth/logout", { method: "POST" });
+    } catch {
+      // Ignore errors - still logout locally
+    }
     clearAuthState();
     onNavigate?.();
     navigate("/login", { replace: true });
@@ -105,10 +112,10 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
             to={item.path}
             end={item.end}
             className={cn(
-              "flex h-12 w-12 items-center justify-center rounded-full text-white/70 hover:bg-white/15 hover:text-white transition-colors",
-              isMobile && "h-10 w-full rounded-xl justify-start px-4 gap-3"
+              "flex h-12 w-12 items-center justify-center rounded-md text-white/70 hover:bg-white/15 hover:text-white transition-colors",
+              isMobile && "h-10 w-full rounded-md justify-start px-4 gap-3"
             )}
-            activeClassName={cn("bg-white text-[#0b3f86] shadow-md", isMobile && "bg-white/90")}
+            activeClassName={cn("bg-white text-[#0b3f86] shadow-md pt-1 pb-1", isMobile && "bg-white/90")}
             onClick={handleNavigate}
           >
             <item.icon className="h-6 w-6 flex-shrink-0" />

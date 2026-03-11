@@ -7,6 +7,7 @@ import { Input } from "@/components/admin/ui/input";
 import { getAuthState } from "@/lib/auth";
 import { login } from "@/lib/apiClient";
 import { Eye, EyeOff, Lock, User, LogIn } from "lucide-react";
+import logoImage from "../../../public/logo.png";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -168,8 +169,9 @@ export default function Login() {
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="relative z-10 w-full max-w-[90%] sm:max-w-md md:max-w-lg"
+        className="relative z-10 w-full max-w-[95%] sm:max-w-md md:max-w-xl lg:max-w-2xl"
       >
+        
         <motion.div
           variants={cardVariants}
           whileHover={{ boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)" }}
@@ -178,8 +180,23 @@ export default function Login() {
           <Card className="backdrop-blur-sm bg-white/90 dark:bg-slate-950/90 
                          shadow-xl border border-white/20 dark:border-slate-800/50
                          overflow-hidden">
-            <CardHeader className="space-y-1.5 sm:space-y-2 p-6 sm:p-8">
+            {/* Logo Section - Top Center */}
+            <div className="flex justify-center pt-6 sm:pt-8 px-6 sm:px-8 pb-2">
+              <div className="h-20 w-28 sm:h-24 sm:w-32 rounded-full bg-white flex items-center justify-center p-2 ">
+                <img 
+                  src={logoImage} 
+                  alt="SE7EN Logo" 
+                  className="h-full w-full object-contain drop-shadow-lg"
+                  onError={(e) => {
+                    console.error('Logo failed:', e.currentTarget.src);
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              </div>
+            </div>
+            <CardHeader className="space-y-1.5 sm:space-y-2 p-6 sm:p-8 pt-2 sm:pt-4 text-center">
               <motion.div variants={itemVariants}>
+                
                 <CardTitle className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight
                                    bg-gradient-to-r from-slate-900 to-slate-600 
                                    dark:from-slate-100 dark:to-slate-400
@@ -189,7 +206,7 @@ export default function Login() {
               </motion.div>
               <motion.div variants={itemVariants}>
                 <CardDescription className="text-sm sm:text-base md:text-lg text-muted-foreground">
-                  Sign in to continue to TaskFlow
+                  Sign in to continue to Task Manager
                 </CardDescription>
               </motion.div>
             </CardHeader>
@@ -206,9 +223,14 @@ export default function Login() {
                        size={18} />
                   <Input
                     value={formData.username}
-                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      // Convert first character to lowercase
+                      const formattedValue = value.charAt(0).toLowerCase() + value.slice(1);
+                      setFormData({ ...formData, username: formattedValue });
+                    }}
                     onKeyPress={handleKeyPress}
-                    placeholder="Enter your username"
+                    placeholder="Enter your email"
                     autoComplete="username"
                     className="h-11 sm:h-12 text-sm sm:text-base 
                              pl-10 pr-4

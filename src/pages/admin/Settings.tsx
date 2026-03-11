@@ -4,10 +4,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
-import { Camera, User } from "lucide-react";
+import { Camera, User, Loader2, CheckCircle, XCircle, AlertCircle, Upload, FileImage } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
+type UploadStatus = "idle" | "uploading" | "success" | "error";
+
+type AvatarUploadState = {
+  status: UploadStatus;
+  message: string | null;
+};
 
 type SettingsState = {
   companyName: string;
@@ -57,6 +64,10 @@ export default function Settings() {
   const [settings, setSettings] = useState<SettingsState>(() => loadSettings());
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [avatarUpload, setAvatarUpload] = useState<AvatarUploadState>({
+    status: "idle",
+    message: null,
+  });
   const [passwordDraft, setPasswordDraft] = useState({
     currentPassword: "",
     newPassword: "",
@@ -69,6 +80,29 @@ export default function Settings() {
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      setAvatarUpload({
+        status: "error",
+        message: "Please upload a valid image file (JPEG, PNG, GIF)",
+      });
+      setTimeout(() => setAvatarUpload({ status: "idle", message: null }), 4000);
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > maxSize) {
+      setAvatarUpload({
+        status: "error",
+        message: "Image size is too large. Maximum allowed size is 5MB",
+      });
+      setTimeout(() => setAvatarUpload({ status: "idle", message: null }), 4000);
+      return;
+    }
+
+    setAvatarUpload({ status: "uploading", message: "Profile picture uploading..." });
 
     const formData = new FormData();
     formData.append("avatar", file);
@@ -89,10 +123,35 @@ export default function Settings() {
           SETTINGS_STORAGE_KEY,
           JSON.stringify({ ...loadSettings(), avatarUrl: newAvatarUrl })
         );
+        setAvatarUpload({
+          status: "success",
+          message: "Profile picture uploaded successfully!",
+        });
+      } else {
+        setAvatarUpload({
+          status: "error",
+          message: "Failed to upload profile picture. Please try again.",
+        });
       }
       await backendSettingsQuery.refetch();
-    } catch (err) {
+    } catch (err: any) {
       console.error("Avatar upload failed:", err);
+      let errorMessage = "Failed to upload profile picture. Please try again.";
+      
+      if (err?.message?.includes("size") || err?.message?.includes("large")) {
+        errorMessage = "Image size is too large. Maximum allowed size is 5MB";
+      } else if (err?.message?.includes("format") || err?.message?.includes("type")) {
+        errorMessage = "Invalid image format. Please upload JPEG, PNG, or GIF file.";
+      } else if (err?.message) {
+        errorMessage = err.message;
+      }
+      
+      setAvatarUpload({ status: "error", message: errorMessage });
+    } finally {
+      // Clear the message after 4 seconds, but keep the status briefly
+      setTimeout(() => {
+        setAvatarUpload({ status: "idle", message: null });
+      }, 4000);
     }
   };
 
@@ -243,38 +302,79 @@ export default function Settings() {
             </CardHeader>
             <CardContent className="space-y-4 sm:space-y-5 px-4 sm:px-6 pb-5 sm:pb-6 pt-0">
               {/* Profile Picture */}
-              <div className="flex items-center gap-4">
-                <div className="relative">
-                  <Avatar className="h-20 w-20 border-2 border-border">
-                    {settings.avatarUrl ? (
-                      <AvatarImage src={settings.avatarUrl} alt={settings.fullName || "Admin"} />
-                    ) : (
-                      <AvatarFallback className="text-2xl bg-primary/10 text-primary">
-                        {initials}
-                      </AvatarFallback>
-                    )}
-                  </Avatar>
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-primary text-white hover:bg-primary/90 transition-colors"
-                    title="Change profile picture"
+              <div className="space-y-3">
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <Avatar className="h-20 w-20 border-2 border-border">
+                      {settings.avatarUrl && avatarUpload.status !== "uploading" ? (
+                        <AvatarImage src={settings.avatarUrl} alt={settings.fullName || "Admin"} />
+                      ) : (
+                        <AvatarFallback className="text-2xl bg-primary/10 text-primary">
+                          {avatarUpload.status === "uploading" ? (
+                            <Loader2 className="h-8 w-8 animate-spin" />
+                          ) : (
+                            initials
+                          )}
+                        </AvatarFallback>
+                      )}
+                    </Avatar>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={avatarUpload.status === "uploading"}
+                      className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-primary text-white hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Change profile picture"
+                    >
+                      {avatarUpload.status === "uploading" ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Camera className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleAvatarUpload}
+                      disabled={avatarUpload.status === "uploading"}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="font-medium text-foreground">Profile Picture</p>
+                    <p className="text-sm text-muted-foreground">
+                      {avatarUpload.status === "uploading"
+                        ? "Uploading..."
+                        : "Click the camera icon to upload"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Max size: 5MB (JPEG, PNG, GIF)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Upload Status Message */}
+                {avatarUpload.message && (
+                  <div
+                    className={`rounded-lg p-3 flex items-center gap-3 text-sm ${
+                      avatarUpload.status === "success"
+                        ? "bg-green-50 text-green-700 dark:bg-green-950 dark:text-green-300 border border-green-200 dark:border-green-800"
+                        : avatarUpload.status === "error"
+                        ? "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300 border border-red-200 dark:border-red-800"
+                        : "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                    }`}
                   >
-                    <Camera className="w-3.5 h-3.5" />
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handleAvatarUpload}
-                  />
-                </div>
-                <div>
-                  <p className="font-medium text-foreground">Profile Picture</p>
-                  <p className="text-sm text-muted-foreground">
-                    Click the camera icon to upload
-                  </p>
-                </div>
+                    {avatarUpload.status === "success" && (
+                      <CheckCircle className="h-5 w-5 flex-shrink-0" />
+                    )}
+                    {avatarUpload.status === "error" && (
+                      <XCircle className="h-5 w-5 flex-shrink-0" />
+                    )}
+                    {avatarUpload.status === "uploading" && (
+                      <Loader2 className="h-5 w-5 flex-shrink-0 animate-spin" />
+                    )}
+                    <span>{avatarUpload.message}</span>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1.5 sm:space-y-2">

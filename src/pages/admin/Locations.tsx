@@ -30,6 +30,14 @@ import {
 import { Label } from "@/components/admin/ui/label";
 import { Textarea } from "@/components/admin/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/admin/ui/select";
+import { cn } from "@/lib/utils";
+import {
   Plus,
   Search,
   MoreHorizontal,
@@ -45,6 +53,9 @@ import {
   Upload,
   X,
   ImageIcon,
+  Loader2,
+  Check,
+  AlertCircle,
 } from "lucide-react";
 import { createResource, listResource, updateResource, apiFetch } from "@/lib/admin/apiClient";
 
@@ -181,6 +192,9 @@ const Locations = () => {
   const [countries, setCountries] = useState<string[]>([]);
   const [cities, setCities] = useState<string[]>([]);
   const [editCities, setEditCities] = useState<string[]>([]);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -283,8 +297,13 @@ const Locations = () => {
   };
 
   const handleAddLocation = async () => {
-    if (!formData.name || !formData.address || !formData.city || !formData.country) return;
+    if (!formData.name || !formData.address || !formData.city || !formData.country) {
+      setFormError("Please fill in all required fields: Name, Address, City, and Country");
+      return;
+    }
     try {
+      setSubmitLoading(true);
+      setFormError(null);
       setApiError(null);
       const newLocation: Location = {
         id: `LOC-${Date.now().toString().slice(-6)}`,
@@ -302,6 +321,8 @@ const Locations = () => {
         photoFileName: formData.photoFileName || undefined,
       };
       await createResource<Location>("locations", newLocation);
+      setSubmitSuccess(true);
+      setTimeout(() => setSubmitSuccess(false), 2000);
       await refreshLocations();
       setAddLocationOpen(false);
       setFormData({
@@ -318,7 +339,9 @@ const Locations = () => {
         photoFileName: "",
       });
     } catch (e) {
-      setApiError(e instanceof Error ? e.message : "Failed to add location");
+      setFormError(e instanceof Error ? e.message : "Failed to add location. Please try again.");
+    } finally {
+      setSubmitLoading(false);
     }
   };
 
@@ -459,32 +482,36 @@ const Locations = () => {
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                   <div className="flex-1 min-w-0">
                     <label className="block text-xs sm:text-sm font-medium mb-1.5">Country *</label>
-                    <select
-                      value={formData.country}
-                      onChange={(e) => setFormData({ ...formData, country: e.target.value, city: "" })}
-                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
-                      required
+                    <Select
+                      value={formData.country || undefined}
+                      onValueChange={(value) => setFormData({ ...formData, country: value, city: "" })}
                     >
-                      <option value="">Select country</option>
-                      {countries.map((country) => (
-                        <option key={country} value={country}>{country}</option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select country" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        {countries.map((country) => (
+                          <SelectItem key={country} value={country}>{country}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="flex-1 min-w-0">
                     <label className="block text-xs sm:text-sm font-medium mb-1.5">City *</label>
-                    <select
-                      value={formData.city}
-                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                    <Select
+                      value={formData.city || undefined}
+                      onValueChange={(value) => setFormData({ ...formData, city: value })}
                       disabled={!formData.country}
-                      required
                     >
-                      <option value="">{formData.country ? "Select city" : "Select country first"}</option>
-                      {cities.map((city) => (
-                        <option key={city} value={city}>{city}</option>
-                      ))}
-                    </select>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={formData.country ? "Select city" : "Select country first"} />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        {cities.map((city) => (
+                          <SelectItem key={city} value={city}>{city}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
@@ -505,28 +532,34 @@ const Locations = () => {
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                   <div className="flex-1 min-w-0">
                     <label className="block text-xs sm:text-sm font-medium mb-1.5">Type</label>
-                    <select
+                    <Select
                       value={formData.type}
-                      onChange={(e) => setFormData({ ...formData, type: e.target.value as Location["type"] })}
-                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                      onValueChange={(value) => setFormData({ ...formData, type: value as Location["type"] })}
                     >
-                      <option value="commercial">Commercial</option>
-                      <option value="residential">Residential</option>
-                      <option value="industrial">Industrial</option>
-                    </select>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="commercial">Commercial</SelectItem>
+                        <SelectItem value="residential">Residential</SelectItem>
+                        <SelectItem value="industrial">Industrial</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="flex-1 min-w-0">
                     <label className="block text-xs sm:text-sm font-medium mb-1.5">Status</label>
-                    <select
+                    <Select
                       value={formData.status}
-                      onChange={(e) =>
-                        setFormData({ ...formData, status: e.target.value as Location["status"] })
-                      }
-                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                      onValueChange={(value) => setFormData({ ...formData, status: value as Location["status"] })}
                     >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                    </select>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="inactive">Inactive</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
@@ -619,22 +652,51 @@ const Locations = () => {
                     />
                   </div>
                 </div>
+                {/* Form Error Message */}
+                {formError && (
+                  <div className="rounded-md bg-destructive/10 p-3 flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
+                    <p className="text-xs sm:text-sm text-destructive">{formError}</p>
+                  </div>
+                )}
+
+                {/* Success Message */}
+                {submitSuccess && (
+                  <div className="rounded-md bg-green-100 p-3 flex items-start gap-2 dark:bg-green-900/30">
+                    <Check className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5 dark:text-green-400" />
+                    <p className="text-xs sm:text-sm text-green-800 dark:text-green-400">Location added successfully!</p>
+                  </div>
+                )}
               </form>
 
               <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
                 <Button 
                   variant="outline" 
-                  onClick={() => setAddLocationOpen(false)}
+                  onClick={() => {
+                    setAddLocationOpen(false);
+                    setFormError(null);
+                  }}
+                  disabled={submitLoading}
                   className="w-full sm:w-auto order-2 sm:order-1"
                 >
                   Cancel
                 </Button>
                 <Button 
                   onClick={handleAddLocation} 
+                  disabled={submitLoading}
                   className="bg-accent hover:bg-accent/90 text-accent-foreground w-full sm:w-auto order-1 sm:order-2"
                 >
-                  <Plus className="h-4 w-4 mr-2 flex-shrink-0" />
-                  Add Location
+                  {submitLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 flex-shrink-0 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="h-4 w-4 mr-2 flex-shrink-0" />
+                      Add Location
+                    </>
+                  )}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -1077,32 +1139,36 @@ const Locations = () => {
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <div className="flex-1 min-w-0">
                   <label className="block text-xs sm:text-sm font-medium mb-1.5">Country *</label>
-                  <select
-                    value={editFormData.country}
-                    onChange={(e) => setEditFormData({ ...editFormData, country: e.target.value, city: "" })}
-                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
-                    required
+                  <Select
+                    value={editFormData.country || undefined}
+                    onValueChange={(value) => setEditFormData({ ...editFormData, country: value, city: "" })}
                   >
-                    <option value="">Select country</option>
-                    {countries.map((country) => (
-                      <option key={country} value={country}>{country}</option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select country" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      {countries.map((country) => (
+                        <SelectItem key={country} value={country}>{country}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="flex-1 min-w-0">
                   <label className="block text-xs sm:text-sm font-medium mb-1.5">City *</label>
-                  <select
-                    value={editFormData.city}
-                    onChange={(e) => setEditFormData({ ...editFormData, city: e.target.value })}
-                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                  <Select
+                    value={editFormData.city || undefined}
+                    onValueChange={(value) => setEditFormData({ ...editFormData, city: value })}
                     disabled={!editFormData.country}
-                    required
                   >
-                    <option value="">{editFormData.country ? "Select city" : "Select country first"}</option>
-                    {editCities.map((city) => (
-                      <option key={city} value={city}>{city}</option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder={editFormData.country ? "Select city" : "Select country first"} />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[300px]">
+                      {editCities.map((city) => (
+                        <SelectItem key={city} value={city}>{city}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -1110,30 +1176,34 @@ const Locations = () => {
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <div className="flex-1 min-w-0">
                   <label className="block text-xs sm:text-sm font-medium mb-1.5">Type</label>
-                  <select
+                  <Select
                     value={editFormData.type}
-                    onChange={(e) =>
-                      setEditFormData({ ...editFormData, type: e.target.value as Location["type"] })
-                    }
-                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                    onValueChange={(value) => setEditFormData({ ...editFormData, type: value as Location["type"] })}
                   >
-                    <option value="commercial">Commercial</option>
-                    <option value="residential">Residential</option>
-                    <option value="industrial">Industrial</option>
-                  </select>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="commercial">Commercial</SelectItem>
+                      <SelectItem value="residential">Residential</SelectItem>
+                      <SelectItem value="industrial">Industrial</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="flex-1 min-w-0">
                   <label className="block text-xs sm:text-sm font-medium mb-1.5">Status</label>
-                  <select
+                  <Select
                     value={editFormData.status}
-                    onChange={(e) =>
-                      setEditFormData({ ...editFormData, status: e.target.value as Location["status"] })
-                    }
-                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                    onValueChange={(value) => setEditFormData({ ...editFormData, status: value as Location["status"] })}
                   >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

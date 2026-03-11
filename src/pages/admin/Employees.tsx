@@ -72,6 +72,7 @@ interface Employee {
   role: string;
   company?: string;
   status: "active" | "inactive" | "on-leave";
+  payType: "hourly" | "monthly";
   payRate: string;
   hireDate: string;
   shift?: string;
@@ -167,6 +168,7 @@ const Employees = () => {
     role: string;
     company: string;
     status: Employee["status"];
+    payType: "hourly" | "monthly";
     payRate: string;
     shift: string;
     hireDate: string;
@@ -187,6 +189,7 @@ const Employees = () => {
       role: "",
       company: "",
       status: "active",
+      payType: "hourly",
       payRate: "",
       shift: "",
       hireDate: "",
@@ -224,6 +227,7 @@ const Employees = () => {
     role: "",
     company: "",
     status: "active" as Employee["status"],
+    payType: "hourly" as "hourly" | "monthly",
     payRate: "",
     hireDate: "",
   });
@@ -302,6 +306,7 @@ const Employees = () => {
         role: values.role,
         company: values.company || "",
         status: values.status,
+        payType: values.payType,
         payRate: values.payRate,
         shift: values.shift,
         hireDate: values.hireDate,
@@ -355,6 +360,7 @@ const Employees = () => {
       role: employee.role,
       company: employee.company || "",
       status: employee.status,
+      payType: employee.payType || "hourly",
       payRate: employee.payRate,
       hireDate: employee.hireDate,
     });
@@ -383,6 +389,7 @@ const Employees = () => {
         role: editFormData.role,
         company: editFormData.company || "",
         status: editFormData.status,
+        payType: editFormData.payType,
         payRate: editFormData.payRate,
         hireDate: editFormData.hireDate,
       });
@@ -777,12 +784,22 @@ const Employees = () => {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Pay Type</label>
+                      <select
+                        {...addForm.register("payType")}
+                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                      >
+                        <option value="hourly">Per Hour</option>
+                        <option value="monthly">Per Month</option>
+                      </select>
+                    </div>
+                    <div className="flex-1 min-w-0">
                       <label className="block text-xs sm:text-sm font-medium mb-1.5">Pay Rate</label>
                       <input
                         type="text"
                         {...addForm.register("payRate")}
                         aria-invalid={!!addErrors.payRate}
-                        placeholder="$25/hr"
+                        placeholder={addForm.watch("payType") === "monthly" ? "$5000/month" : "$25/hr"}
                         className={
                           "w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all " +
                           (addErrors.payRate ? "border-destructive focus:ring-destructive/20" : "")
@@ -1681,11 +1698,25 @@ const Employees = () => {
               {/* Pay Rate & Hire Date & Status */}
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <div className="flex-1 min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Pay Type</label>
+                  <select
+                    value={editFormData.payType}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, payType: e.target.value as "hourly" | "monthly" })
+                    }
+                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                  >
+                    <option value="hourly">Per Hour</option>
+                    <option value="monthly">Per Month</option>
+                  </select>
+                </div>
+                <div className="flex-1 min-w-0">
                   <label className="block text-xs sm:text-sm font-medium mb-1.5">Pay Rate</label>
                   <input
                     type="text"
                     value={editFormData.payRate}
                     onChange={(e) => setEditFormData({ ...editFormData, payRate: e.target.value })}
+                    placeholder={editFormData.payType === "monthly" ? "$5000/month" : "$25/hr"}
                     className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
                   />
                 </div>

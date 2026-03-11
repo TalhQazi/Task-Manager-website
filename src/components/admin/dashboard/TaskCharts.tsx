@@ -249,11 +249,7 @@ export function TaskCharts() {
                       paddingAngle={2}
                       dataKey="value"
                       labelLine={false}
-                      label={({ name, percent }) => 
-                        window.innerWidth < 640 
-                          ? `${(percent * 100).toFixed(0)}%` 
-                          : `${name} ${(percent * 100).toFixed(0)}%`
-                      }
+                      label={false}
                     >
                       {taskDistributionData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />

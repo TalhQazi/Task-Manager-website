@@ -682,6 +682,12 @@ export default function ActivityLogs() {
                       <SelectItem value="user">Users</SelectItem>
                       <SelectItem value="task">Tasks</SelectItem>
                       <SelectItem value="employee">Employees</SelectItem>
+                      <SelectItem value="appliance">Appliances</SelectItem>
+                      <SelectItem value="vehicle">Vehicles</SelectItem>
+                      <SelectItem value="location">Locations</SelectItem>
+                      <SelectItem value="vendor">Vendors</SelectItem>
+                      <SelectItem value="event">Events</SelectItem>
+                      <SelectItem value="onboarding">Onboarding</SelectItem>
                       <SelectItem value="time-entry">Time Entries</SelectItem>
                       <SelectItem value="notification">Notifications</SelectItem>
                       <SelectItem value="message">Messages</SelectItem>

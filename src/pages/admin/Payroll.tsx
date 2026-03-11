@@ -25,13 +25,14 @@ import {
   Users,
   Clock,
   TrendingUp,
-  Calendar,
   Search,
   ArrowRight,
   Wallet,
   BarChart3,
   ChevronLeft,
   ChevronRight,
+  PieChart,
+  Activity,
 } from "lucide-react";
 import { listResource } from "@/lib/admin/apiClient";
 import { useNavigate } from "react-router-dom";
@@ -47,8 +48,11 @@ import {
   Line,
   AreaChart,
   Area,
+  ComposedChart,
+  Legend,
 } from "recharts";
 
+// Types and interfaces
 interface Employee {
   id: string;
   name: string;
@@ -59,6 +63,7 @@ interface Employee {
   role: string;
   company?: string;
   status: "active" | "inactive" | "on-leave";
+  payType: "hourly" | "monthly";
   payRate: string;
   hireDate: string;
   shift?: string;
@@ -83,12 +88,8 @@ interface PayrollData {
   overtimePay: number;
   totalPay: number;
   hourlyRate: number;
-}
-
-interface DailyPayroll {
-  date: string;
-  amount: number;
-  hours: number;
+  isMonthly: boolean;
+  monthlySalary: number;
 }
 
 // Animation variants
@@ -138,6 +139,17 @@ const cardVariants = {
   },
 };
 
+// Chart colors
+const CHART_COLORS = {
+  primary: "#3b82f6",
+  secondary: "#10b981",
+  warning: "#f59e0b",
+  danger: "#ef4444",
+  purple: "#8b5cf6",
+  pink: "#ec4899",
+};
+
+// Helper functions
 function parsePayRate(rate: string): number {
   const match = String(rate).match(/(\d+(?:\.\d+)?)/);
   return match ? parseFloat(match[1]) : 0;
@@ -181,6 +193,31 @@ function getDaysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate();
 }
 
+// Custom Tooltip Component
+const CustomTooltip = ({ active, payload, label }: any) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-xl border border-gray-200 dark:border-gray-700">
+        <p className="font-semibold text-gray-900 dark:text-white mb-1">{label}</p>
+        {payload.map((entry: any, index: number) => (
+          <div key={index} className="flex items-center gap-2 text-sm py-0.5">
+            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }} />
+            <span className="text-gray-600 dark:text-gray-300">{entry.name}: </span>
+            <span className="font-medium text-gray-900 dark:text-white">
+              {entry.name === "Pay" || entry.name === "Total Pay"
+                ? formatCurrency(entry.value)
+                : entry.name.includes("Hours")
+                ? formatHours(entry.value)
+                : entry.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+  }
+  return null;
+};
+
 const Payroll = () => {
   const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -191,6 +228,7 @@ const Payroll = () => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedEmployee, setSelectedEmployee] = useState<PayrollData | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [chartView, setChartView] = useState<"bar" | "line" | "area">("bar");
 
   useEffect(() => {
     const loadData = async () => {
@@ -232,13 +270,30 @@ const Payroll = () => {
         return sum + calcHoursWorked(entry.clockIn, entry.clockOut);
       }, 0);
 
-      const hourlyRate = parsePayRate(emp.payRate);
-      const regularHours = Math.min(totalHours, 160); // Assume 160 regular hours/month
-      const overtimeHours = Math.max(0, totalHours - 160);
-      const overtimeRate = hourlyRate * 1.5;
+      const isMonthly = emp.payType === "monthly";
+      const monthlySalary = parsePayRate(emp.payRate);
+      const hourlyRate = isMonthly ? monthlySalary / 160 : parsePayRate(emp.payRate);
+      
+      let regularHours = 0;
+      let overtimeHours = 0;
+      let regularPay = 0;
+      let overtimePay = 0;
+      let totalPay = 0;
 
-      const regularPay = regularHours * hourlyRate;
-      const overtimePay = overtimeHours * overtimeRate;
+      if (isMonthly) {
+        regularHours = totalHours;
+        regularPay = monthlySalary;
+        overtimeHours = 0;
+        overtimePay = 0;
+        totalPay = monthlySalary;
+      } else {
+        regularHours = Math.min(totalHours, 160);
+        overtimeHours = Math.max(0, totalHours - 160);
+        const overtimeRate = hourlyRate * 1.5;
+        regularPay = regularHours * hourlyRate;
+        overtimePay = overtimeHours * overtimeRate;
+        totalPay = regularPay + overtimePay;
+      }
 
       return {
         employee: emp,
@@ -247,8 +302,10 @@ const Payroll = () => {
         overtimeHours,
         regularPay,
         overtimePay,
-        totalPay: regularPay + overtimePay,
+        totalPay,
         hourlyRate,
+        isMonthly,
+        monthlySalary,
       };
     });
 
@@ -270,18 +327,65 @@ const Payroll = () => {
     };
   }, [employees, payrollData]);
 
+  // Generate daily payroll trend data
+  const dailyPayrollData = useMemo(() => {
+    const year = currentMonth.getFullYear();
+    const month = currentMonth.getMonth();
+    const daysInMonth = getDaysInMonth(year, month);
+    
+    const dailyData: { [key: string]: { pay: number; hours: number; count: number } } = {};
+    
+    // Initialize all days
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = new Date(year, month, day);
+      const dateStr = date.toISOString().split("T")[0];
+      dailyData[dateStr] = { pay: 0, hours: 0, count: 0 };
+    }
+    
+    // Aggregate daily data
+    timeEntries.forEach(entry => {
+      if (!entry.clockOut) return;
+      
+      const entryDate = new Date(entry.date);
+      if (entryDate.getMonth() === month && entryDate.getFullYear() === year) {
+        const employee = employees.find(e => e.name === entry.employee || e.id === entry.employeeId);
+        if (!employee) return;
+        
+        const hours = calcHoursWorked(entry.clockIn, entry.clockOut);
+        const hourlyRate = employee.payType === "monthly" 
+          ? parsePayRate(employee.payRate) / 160 
+          : parsePayRate(employee.payRate);
+        const pay = employee.payType === "monthly" ? 0 : hours * hourlyRate;
+        
+        if (dailyData[entry.date]) {
+          dailyData[entry.date].pay += pay;
+          dailyData[entry.date].hours += hours;
+          dailyData[entry.date].count += 1;
+        }
+      }
+    });
+    
+    // Convert to array and format for chart
+    return Object.entries(dailyData).map(([date, data], index) => ({
+      day: index + 1,
+      date: new Date(date).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      pay: Math.round(data.pay * 100) / 100,
+      hours: Math.round(data.hours * 10) / 10,
+      employees: data.count,
+    }));
+  }, [timeEntries, employees, currentMonth]);
+
   // Generate per-employee payroll data for chart
   const employeePayrollChartData = useMemo(() => {
     return payrollData
       .filter((p) => p.totalPay > 0)
       .sort((a, b) => b.totalPay - a.totalPay)
-      .slice(0, 20) // Show top 20 employees by payroll
+      .slice(0, 10)
       .map((p) => ({
-        name: p.employee.name.split(" ")[0], // First name only for shorter labels
+        name: p.employee.name.split(" ")[0],
         fullName: p.employee.name,
         amount: Math.round(p.totalPay * 100) / 100,
         hours: Math.round(p.totalHours * 100) / 100,
-        hourlyRate: p.hourlyRate,
       }));
   }, [payrollData]);
 
@@ -297,19 +401,6 @@ const Payroll = () => {
       return matchesSearch && matchesStatus;
     });
   }, [payrollData, searchQuery, statusFilter]);
-
-  const handlePreviousMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1));
-  };
-
-  const handleNextMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1));
-  };
-
-  const handleEmployeeClick = (payroll: PayrollData) => {
-    setSelectedEmployee(payroll);
-    setDetailOpen(true);
-  };
 
   // Generate employee daily breakdown for detail view
   const employeeDailyData = useMemo(() => {
@@ -336,9 +427,10 @@ const Payroll = () => {
         return sum + calcHoursWorked(entry.clockIn, entry.clockOut);
       }, 0);
 
-      const pay = hours * selectedEmployee.hourlyRate;
+      const pay = selectedEmployee.isMonthly ? 0 : hours * selectedEmployee.hourlyRate;
 
       data.push({
+        day: day,
         date: `${month + 1}/${day}`,
         hours: Math.round(hours * 100) / 100,
         pay: Math.round(pay * 100) / 100,
@@ -347,6 +439,124 @@ const Payroll = () => {
 
     return data;
   }, [selectedEmployee, timeEntries, currentMonth]);
+
+  const handlePreviousMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1));
+  };
+
+  const handleEmployeeClick = (payroll: PayrollData) => {
+    setSelectedEmployee(payroll);
+    setDetailOpen(true);
+  };
+
+  // Render chart based on selected view
+  const renderMainChart = () => {
+    const ChartComponent = chartView === "bar" ? BarChart : chartView === "line" ? LineChart : AreaChart;
+    
+    return (
+      <ChartComponent data={dailyPayrollData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+        <defs>
+          <linearGradient id="payGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={CHART_COLORS.primary} stopOpacity={0.8}/>
+            <stop offset="95%" stopColor={CHART_COLORS.primary} stopOpacity={0.1}/>
+          </linearGradient>
+          <linearGradient id="hoursGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={CHART_COLORS.secondary} stopOpacity={0.8}/>
+            <stop offset="95%" stopColor={CHART_COLORS.secondary} stopOpacity={0.1}/>
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" className="stroke-muted/30" />
+        <XAxis 
+          dataKey="day" 
+          tick={{ fontSize: 12 }}
+          className="text-muted-foreground"
+        />
+        <YAxis 
+          yAxisId="left"
+          tick={{ fontSize: 12 }}
+          tickFormatter={(value) => `$${value}`}
+          className="text-muted-foreground"
+        />
+        <YAxis 
+          yAxisId="right"
+          orientation="right"
+          tick={{ fontSize: 12 }}
+          tickFormatter={(value) => `${value}h`}
+          className="text-muted-foreground"
+        />
+        <Tooltip content={<CustomTooltip />} />
+        <Legend />
+        {chartView === "bar" ? (
+          <>
+            <Bar 
+              yAxisId="left"
+              dataKey="pay" 
+              fill="url(#payGradient)"
+              name="Daily Pay"
+              radius={[4, 4, 0, 0]}
+              barSize={20}
+            />
+            <Bar
+              yAxisId="right"
+              dataKey="hours"
+              fill="url(#hoursGradient)"
+              name="Hours Worked"
+              radius={[4, 4, 0, 0]}
+              barSize={20}
+            />
+          </>
+        ) : chartView === "line" ? (
+          <>
+            <Line
+              yAxisId="left"
+              type="monotone"
+              dataKey="pay"
+              stroke={CHART_COLORS.primary}
+              name="Daily Pay"
+              strokeWidth={2}
+              dot={{ fill: CHART_COLORS.primary, r: 4 }}
+              activeDot={{ r: 6 }}
+            />
+            <Line
+              yAxisId="right"
+              type="monotone"
+              dataKey="hours"
+              stroke={CHART_COLORS.secondary}
+              name="Hours Worked"
+              strokeWidth={2}
+              dot={{ fill: CHART_COLORS.secondary, r: 4 }}
+              activeDot={{ r: 6 }}
+            />
+          </>
+        ) : (
+          <>
+            <Area
+              yAxisId="left"
+              type="monotone"
+              dataKey="pay"
+              stroke={CHART_COLORS.primary}
+              fill="url(#payGradient)"
+              name="Daily Pay"
+              strokeWidth={2}
+            />
+            <Area
+              yAxisId="right"
+              type="monotone"
+              dataKey="hours"
+              stroke={CHART_COLORS.secondary}
+              fill="url(#hoursGradient)"
+              name="Hours Worked"
+              strokeWidth={2}
+            />
+          </>
+        )}
+      </ChartComponent>
+    );
+  };
 
   return (
     <AdminLayout>
@@ -417,25 +627,25 @@ const Payroll = () => {
               label: "Total Employees",
               value: stats.totalEmployees,
               icon: Users,
-              color: "primary",
+              color: "blue",
             },
             {
               label: "Active Employees",
               value: stats.activeEmployees,
               icon: Users,
-              color: "success",
+              color: "green",
             },
             {
               label: "Monthly Payroll",
               value: formatCurrency(stats.totalMonthlyPayroll),
               icon: DollarSign,
-              color: "warning",
+              color: "yellow",
             },
             {
               label: "Total Hours",
               value: formatHours(stats.totalHoursWorked),
               icon: Clock,
-              color: "info",
+              color: "purple",
             },
           ].map((item, index) => (
             <motion.div
@@ -445,16 +655,16 @@ const Payroll = () => {
               whileTap={{ scale: 0.98 }}
             >
               <Card
-                className={`shadow-lg border-0 bg-gradient-to-br from-${item.color}/10 to-${item.color}/5 backdrop-blur-sm overflow-hidden`}
+                className={`shadow-lg border-0 bg-gradient-to-br from-${item.color}-50 to-${item.color}-100 dark:from-${item.color}-950 dark:to-${item.color}-900 overflow-hidden`}
               >
                 <CardContent className="p-3 sm:p-4">
                   <div className="flex items-center gap-2 sm:gap-3">
                     <motion.div
-                      className={`h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-${item.color}/10 flex items-center justify-center flex-shrink-0`}
+                      className={`h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-${item.color}-100 dark:bg-${item.color}-900 flex items-center justify-center flex-shrink-0`}
                       whileHover={{ rotate: 10 }}
                       transition={{ type: "spring", stiffness: 300, damping: 10 }}
                     >
-                      <item.icon className={`h-4 w-4 sm:h-5 sm:w-5 text-${item.color}`} />
+                      <item.icon className={`h-4 w-4 sm:h-5 sm:w-5 text-${item.color}-600 dark:text-${item.color}-400`} />
                     </motion.div>
                     <div className="min-w-0">
                       <p className="text-xs sm:text-sm text-muted-foreground truncate">
@@ -469,7 +679,7 @@ const Payroll = () => {
           ))}
         </motion.div>
 
-        {/* Employee Payroll Chart */}
+        {/* Top Earners Chart */}
         <motion.div variants={itemVariants}>
           <Card className="shadow-xl border-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm overflow-hidden">
             <CardHeader className="px-4 sm:px-6 py-4 sm:py-5 border-b bg-muted/20">
@@ -477,11 +687,11 @@ const Payroll = () => {
                 <div className="flex items-center gap-2">
                   <BarChart3 className="h-5 w-5 text-primary" />
                   <CardTitle className="text-base sm:text-lg md:text-xl font-semibold">
-                    Employee Payroll Overview
+                    Top 10 Earners
                   </CardTitle>
                 </div>
                 <Badge variant="secondary" className="bg-primary/10 text-primary">
-                  Top {employeePayrollChartData.length} Earners
+                  This Month
                 </Badge>
               </div>
             </CardHeader>
@@ -490,23 +700,26 @@ const Payroll = () => {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart 
                     data={employeePayrollChartData}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 70 }}
+                    layout="vertical"
+                    margin={{ top: 20, right: 30, left: 60, bottom: 20 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis
-                      dataKey="name"
+                    <defs>
+                      <linearGradient id="topEarnersGradient" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%" stopColor={CHART_COLORS.primary} stopOpacity={0.8}/>
+                        <stop offset="100%" stopColor={CHART_COLORS.purple} stopOpacity={0.8}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted/30" />
+                    <XAxis 
+                      type="number" 
+                      tickFormatter={(value) => formatCurrency(value)}
                       tick={{ fontSize: 11 }}
-                      angle={-45}
-                      textAnchor="end"
-                      height={70}
-                      interval={0}
-                      className="text-muted-foreground"
                     />
-                    <YAxis
-                      tick={{ fontSize: 12 }}
-                      tickFormatter={(value) => `$${value}`}
-                      className="text-muted-foreground"
-                      domain={[0, "auto"]}
+                    <YAxis 
+                      type="category" 
+                      dataKey="name" 
+                      tick={{ fontSize: 11 }}
+                      width={50}
                     />
                     <Tooltip
                       contentStyle={{
@@ -514,24 +727,14 @@ const Payroll = () => {
                         border: "1px solid hsl(var(--border))",
                         borderRadius: "8px",
                       }}
-                      formatter={(value: number, name: string, props: any) => {
-                        if (name === "amount") {
-                          return [formatCurrency(value), "Total Pay"];
-                        }
-                        return [value, name];
-                      }}
-                      labelFormatter={(label, payload) => {
-                        if (payload && payload[0]) {
-                          return payload[0].payload.fullName;
-                        }
-                        return label;
-                      }}
+                      formatter={(value: number) => formatCurrency(value)}
+                      labelFormatter={(label, payload) => payload[0]?.payload.fullName || label}
                     />
                     <Bar 
                       dataKey="amount" 
-                      fill="#3b82f6" 
-                      radius={[4, 4, 0, 0]}
-                      name="amount"
+                      fill="url(#topEarnersGradient)"
+                      radius={[0, 4, 4, 0]}
+                      name="Total Pay"
                     />
                   </BarChart>
                 </ResponsiveContainer>
@@ -630,10 +833,10 @@ const Payroll = () => {
                                 variant="secondary"
                                 className={
                                   payroll.employee.status === "active"
-                                    ? "bg-success/10 text-success"
+                                    ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"
                                     : payroll.employee.status === "on-leave"
-                                    ? "bg-warning/10 text-warning"
-                                    : "bg-muted text-muted-foreground"
+                                    ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300"
+                                    : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300"
                                 }
                               >
                                 {payroll.employee.status}
@@ -652,15 +855,19 @@ const Payroll = () => {
                                 <span className="text-sm">{formatHours(payroll.totalHours)}</span>
                               </div>
                               <div className="flex justify-between items-center">
-                                <span className="text-xs text-muted-foreground">Hourly Rate</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {payroll.isMonthly ? "Monthly Salary" : "Hourly Rate"}
+                                </span>
                                 <span className="text-sm">
-                                  {formatCurrency(payroll.hourlyRate)}/hr
+                                  {payroll.isMonthly 
+                                    ? formatCurrency(payroll.monthlySalary)
+                                    : `${formatCurrency(payroll.hourlyRate)}/hr`}
                                 </span>
                               </div>
                               {payroll.overtimeHours > 0 && (
                                 <div className="flex justify-between items-center">
-                                  <span className="text-xs text-warning">Overtime</span>
-                                  <span className="text-sm text-warning">
+                                  <span className="text-xs text-yellow-600 dark:text-yellow-400">Overtime</span>
+                                  <span className="text-sm text-yellow-600 dark:text-yellow-400">
                                     {formatHours(payroll.overtimeHours)}
                                   </span>
                                 </div>
@@ -710,52 +917,81 @@ const Payroll = () => {
               <div className="space-y-6 mt-4">
                 {/* Summary Cards */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <Card className="border-0 shadow-md bg-gradient-to-br from-primary/10 to-primary/5">
+                  <Card className="border-0 shadow-md bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900">
                     <CardContent className="p-3">
                       <p className="text-xs text-muted-foreground">Total Pay</p>
-                      <p className="text-lg font-bold text-primary">
+                      <p className="text-lg font-bold text-blue-600 dark:text-blue-400">
                         {formatCurrency(selectedEmployee.totalPay)}
                       </p>
                     </CardContent>
                   </Card>
-                  <Card className="border-0 shadow-md bg-gradient-to-br from-success/10 to-success/5">
+                  <Card className="border-0 shadow-md bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900">
                     <CardContent className="p-3">
                       <p className="text-xs text-muted-foreground">Regular Hours</p>
-                      <p className="text-lg font-bold text-success">
+                      <p className="text-lg font-bold text-green-600 dark:text-green-400">
                         {formatHours(selectedEmployee.regularHours)}
                       </p>
                     </CardContent>
                   </Card>
-                  <Card className="border-0 shadow-md bg-gradient-to-br from-warning/10 to-warning/5">
+                  <Card className="border-0 shadow-md bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950 dark:to-yellow-900">
                     <CardContent className="p-3">
                       <p className="text-xs text-muted-foreground">Overtime</p>
-                      <p className="text-lg font-bold text-warning">
+                      <p className="text-lg font-bold text-yellow-600 dark:text-yellow-400">
                         {formatHours(selectedEmployee.overtimeHours)}
                       </p>
                     </CardContent>
                   </Card>
-                  <Card className="border-0 shadow-md bg-gradient-to-br from-info/10 to-info/5">
+                  <Card className="border-0 shadow-md bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900">
                     <CardContent className="p-3">
-                      <p className="text-xs text-muted-foreground">Hourly Rate</p>
-                      <p className="text-lg font-bold text-info">
-                        {formatCurrency(selectedEmployee.hourlyRate)}
+                      <p className="text-xs text-muted-foreground">
+                        {selectedEmployee.isMonthly ? "Monthly Salary" : "Hourly Rate"}
+                      </p>
+                      <p className="text-lg font-bold text-purple-600 dark:text-purple-400">
+                        {selectedEmployee.isMonthly 
+                          ? formatCurrency(selectedEmployee.monthlySalary)
+                          : formatCurrency(selectedEmployee.hourlyRate)}
                       </p>
                     </CardContent>
                   </Card>
                 </div>
 
-                {/* Daily Hours Chart */}
+                {/* Enhanced Daily Hours Chart */}
                 <Card className="border-0 shadow-md">
                   <CardHeader className="py-3">
-                    <CardTitle className="text-sm">Daily Hours & Pay</CardTitle>
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Activity className="h-4 w-4 text-primary" />
+                      Daily Hours Analysis
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="h-[250px]">
+                    <div className="h-[300px]">
                       <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={employeeDailyData}>
-                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                          <XAxis dataKey="date" tick={{ fontSize: 10 }} interval={2} />
-                          <YAxis tick={{ fontSize: 10 }} />
+                        <ComposedChart data={employeeDailyData}>
+                          <defs>
+                            <linearGradient id="dailyHoursGradient" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor={CHART_COLORS.primary} stopOpacity={0.8}/>
+                              <stop offset="95%" stopColor={CHART_COLORS.primary} stopOpacity={0.1}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" className="stroke-muted/30" />
+                          <XAxis 
+                            dataKey="date" 
+                            tick={{ fontSize: 10 }} 
+                            interval={2}
+                          />
+                          <YAxis 
+                            yAxisId="left"
+                            tick={{ fontSize: 10 }}
+                            tickFormatter={(value) => `${value}h`}
+                          />
+                          {!selectedEmployee.isMonthly && (
+                            <YAxis 
+                              yAxisId="right"
+                              orientation="right"
+                              tick={{ fontSize: 10 }}
+                              tickFormatter={(value) => formatCurrency(value)}
+                            />
+                          )}
                           <Tooltip
                             contentStyle={{
                               backgroundColor: "hsl(var(--card))",
@@ -764,12 +1000,61 @@ const Payroll = () => {
                             }}
                             formatter={(value: number, name: string) => {
                               if (name === "pay") return formatCurrency(value);
-                              return `${value} hrs`;
+                              return formatHours(value);
                             }}
                           />
-                          <Bar dataKey="hours" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                        </BarChart>
+                          <Legend />
+                          <Bar
+                            yAxisId="left"
+                            dataKey="hours"
+                            fill="url(#dailyHoursGradient)"
+                            name="Hours Worked"
+                            radius={[4, 4, 0, 0]}
+                            barSize={15}
+                          />
+                          {!selectedEmployee.isMonthly && (
+                            <Line
+                              yAxisId="right"
+                              type="monotone"
+                              dataKey="pay"
+                              stroke={CHART_COLORS.secondary}
+                              name="Pay Earned"
+                              strokeWidth={2}
+                              dot={{ fill: CHART_COLORS.secondary, r: 3 }}
+                            />
+                          )}
+                        </ComposedChart>
                       </ResponsiveContainer>
+                    </div>
+
+                    {/* Daily Stats */}
+                    <div className="grid grid-cols-3 gap-2 mt-4">
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground">Peak Day</p>
+                        <p className="text-sm font-semibold">
+                          {employeeDailyData.reduce((max, d) => d.hours > max.hours ? d : max, employeeDailyData[0])?.date}
+                        </p>
+                        <p className="text-xs text-blue-600 dark:text-blue-400">
+                          {formatHours(employeeDailyData.reduce((max, d) => Math.max(max, d.hours), 0))}
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground">Avg Daily</p>
+                        <p className="text-sm font-semibold">Hours</p>
+                        <p className="text-xs text-green-600 dark:text-green-400">
+                          {formatHours(
+                            employeeDailyData.reduce((sum, d) => sum + d.hours, 0) / 
+                            employeeDailyData.filter(d => d.hours > 0).length || 1
+                          )}
+                        </p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-xs text-muted-foreground">Working Days</p>
+                        <p className="text-sm font-semibold">
+                          {employeeDailyData.filter(d => d.hours > 0).length}
+                        </p>
+                        <p className="text-xs text-yellow-600 dark:text-yellow-400">days</p>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -781,26 +1066,39 @@ const Payroll = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      <div className="flex justify-between items-center py-2 border-b">
-                        <span className="text-sm">Regular Pay</span>
-                        <span className="font-medium">
-                          {formatHours(selectedEmployee.regularHours)} ×{" "}
-                          {formatCurrency(selectedEmployee.hourlyRate)} ={" "}
-                          {formatCurrency(selectedEmployee.regularPay)}
-                        </span>
-                      </div>
-                      {selectedEmployee.overtimeHours > 0 && (
+                      {selectedEmployee.isMonthly ? (
                         <div className="flex justify-between items-center py-2 border-b">
-                          <span className="text-sm">Overtime Pay (1.5x)</span>
+                          <span className="text-sm">Monthly Salary (Fixed)</span>
                           <span className="font-medium">
-                            {formatHours(selectedEmployee.overtimeHours)} ×{" "}
-                            {formatCurrency(selectedEmployee.hourlyRate * 1.5)} ={" "}
-                            {formatCurrency(selectedEmployee.overtimePay)}
+                            {formatCurrency(selectedEmployee.monthlySalary)}
                           </span>
                         </div>
+                      ) : (
+                        <>
+                          <div className="flex justify-between items-center py-2 border-b">
+                            <span className="text-sm">Regular Pay</span>
+                            <span className="font-medium">
+                              {formatHours(selectedEmployee.regularHours)} ×{" "}
+                              {formatCurrency(selectedEmployee.hourlyRate)} ={" "}
+                              {formatCurrency(selectedEmployee.regularPay)}
+                            </span>
+                          </div>
+                          {selectedEmployee.overtimeHours > 0 && (
+                            <div className="flex justify-between items-center py-2 border-b">
+                              <span className="text-sm">Overtime Pay (1.5x)</span>
+                              <span className="font-medium">
+                                {formatHours(selectedEmployee.overtimeHours)} ×{" "}
+                                {formatCurrency(selectedEmployee.hourlyRate * 1.5)} ={" "}
+                                {formatCurrency(selectedEmployee.overtimePay)}
+                              </span>
+                            </div>
+                          )}
+                        </>
                       )}
                       <div className="flex justify-between items-center py-2 bg-primary/5 rounded-lg px-3">
-                        <span className="font-medium">Total Pay</span>
+                        <span className="font-medium">
+                          {selectedEmployee.isMonthly ? "Monthly Pay" : "Total Pay"}
+                        </span>
                         <span className="font-bold text-primary">
                           {formatCurrency(selectedEmployee.totalPay)}
                         </span>
