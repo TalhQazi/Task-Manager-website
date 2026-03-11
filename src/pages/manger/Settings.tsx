@@ -58,29 +58,18 @@ export default function Settings() {
       const formData = new FormData();
       formData.append("avatar", file);
 
-      const auth = getAuthState();
-      const token = auth.token;
-
-      // Use full backend URL for file upload
-      const API_BASE = "https://task.se7eninc.com";
-
-      const res = await fetch(`${API_BASE}/api/settings/avatar`, {
+      return apiFetch<{ avatarDataUrl?: string; avatarUrl?: string }>("/api/settings/avatar", {
         method: "POST",
         body: formData,
-        headers: {
-          Authorization: `Bearer ${token || ""}`,
-        },
       });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ message: "Upload failed" }));
-        throw new Error(errorData.error?.message || errorData.message || "Failed to upload avatar");
-      }
-      return res.json();
     },
   });
 
   const [draft, setDraft] = useState<any>(null);
+  const [avatarUploadStatus, setAvatarUploadStatus] = useState<
+    "idle" | "uploading" | "success" | "error"
+  >("idle");
+  const [avatarUploadMessage, setAvatarUploadMessage] = useState<string>("");
   const [passwordDraft, setPasswordDraft] = useState({
     currentPassword: "",
     newPassword: "",
@@ -102,8 +91,21 @@ export default function Settings() {
   const onSave = () => {
     if (!draft) return;
 
-    saveMutation.mutate(draft, {
-      onSuccess: () => {
+    const payload = {
+      ...draft,
+      avatarDataUrl: draft.avatarUrl || "",
+      avatarUrl: "",
+    };
+
+    saveMutation.mutate(payload, {
+      onSuccess: (res) => {
+        const item = (res as any)?.item as SettingsItem | undefined;
+        if (item) {
+          setDraft({
+            ...item,
+            avatarUrl: item.avatarDataUrl || item.avatarUrl || "",
+          });
+        }
         void queryClient.invalidateQueries({ queryKey: ["settings"] });
         toast({ title: "Saved", description: "Settings updated." });
       },
@@ -175,20 +177,33 @@ export default function Settings() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setAvatarUploadStatus("uploading");
+    setAvatarUploadMessage("Uploading image...");
+    toast({ title: "Uploading", description: "Uploading profile picture..." });
+
     avatarUploadMutation.mutate(file, {
       onSuccess: (data) => {
-        void queryClient.invalidateQueries({ queryKey: ["settings"] });
-        toast({ title: "Success", description: "Profile picture updated." });
         const newAvatarUrl = data.avatarDataUrl || data.avatarUrl;
+        void queryClient.invalidateQueries({ queryKey: ["settings"] });
+        setAvatarUploadStatus("success");
+        setAvatarUploadMessage("Image uploaded successfully.");
+        toast({ title: "Uploaded", description: "Profile picture updated successfully." });
         if (newAvatarUrl) {
           setDraft((p: any) => ({ ...p, avatarUrl: newAvatarUrl }));
         }
       },
       onError: (err) => {
+        setAvatarUploadStatus("error");
+        setAvatarUploadMessage(
+          err instanceof Error ? err.message : "Failed to upload image"
+        );
         toast({
           title: "Upload failed",
           description: err instanceof Error ? err.message : "Failed to upload image",
         });
+      },
+      onSettled: () => {
+        if (fileInputRef.current) fileInputRef.current.value = "";
       },
     });
   };
@@ -237,6 +252,7 @@ export default function Settings() {
             </Avatar>
             <button
               onClick={handleAvatarClick}
+              disabled={avatarUploadMutation.isPending}
               className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-primary text-white hover:bg-primary/90 transition-colors"
               title="Change profile picture"
             >
@@ -255,6 +271,19 @@ export default function Settings() {
             <p className="text-sm text-muted-foreground">
               Click the camera icon to upload a new photo
             </p>
+            {avatarUploadStatus !== "idle" && (
+              <p
+                className={
+                  avatarUploadStatus === "error"
+                    ? "text-sm text-destructive mt-1"
+                    : avatarUploadStatus === "success"
+                    ? "text-sm text-success mt-1"
+                    : "text-sm text-muted-foreground mt-1"
+                }
+              >
+                {avatarUploadMessage}
+              </p>
+            )}
           </div>
         </div>
 

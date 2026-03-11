@@ -467,7 +467,7 @@ export default function Vehicles() {
       </div>
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent>
+        <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Vehicle</DialogTitle>
             <DialogDescription>
@@ -704,7 +704,7 @@ export default function Vehicles() {
           if (!open) setSelectedVehicle(null);
         }}
       >
-        <DialogContent>
+        <DialogContent className="w-[95vw] sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Vehicle Details</DialogTitle>
             <DialogDescription>View vehicle record information.</DialogDescription>
@@ -800,7 +800,7 @@ export default function Vehicles() {
           if (!open) setSelectedVehicle(null);
         }}
       >
-        <DialogContent>
+        <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Vehicle</DialogTitle>
             <DialogDescription>Update vehicle record details.</DialogDescription>

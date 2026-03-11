@@ -1,7 +1,9 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
 import { Badge } from "@/components/manger/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/manger/ui/avatar";
 import {
   Select,
   SelectContent,
@@ -42,6 +44,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/manger/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/manger/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/manger/ui/command";
 import { Textarea } from "@/components/manger/ui/textarea";
 import { toast } from "@/components/manger/ui/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -56,6 +67,16 @@ import {
   MapPin,
   FileText,
   Printer,
+  Check,
+  ChevronsUpDown,
+  Clock,
+  AlertCircle,
+  CheckCircle2,
+  AlertTriangle,
+  Users,
+  Eye,
+  Edit,
+  Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch } from "@/lib/manger/api";
@@ -66,11 +87,13 @@ interface Task {
   id: string;
   title: string;
   description: string;
-  assignee: string;
-  priority: "high" | "medium" | "low";
-  status: "active" | "pending" | "completed";
+  assignees: string[];
+  assignee?: string;
+  priority: "low" | "medium" | "high";
+  status: "pending" | "in-progress" | "completed" | "overdue";
   dueDate: string;
-  location: string;
+  dueTime?: string;
+  location?: string;
   createdAt: string;
   attachmentFileName?: string;
   attachmentNote?: string;
@@ -82,19 +105,34 @@ interface Task {
   };
 }
 
+interface Employee {
+  id: string;
+  name: string;
+  initials: string;
+  email: string;
+  status: "active" | "inactive" | "on-leave";
+}
+
 type TaskApi = Omit<Task, "id"> & {
   _id: string;
 };
 
 function normalizeTask(t: TaskApi): Task {
+  const legacyAssignee = typeof t.assignee === "string" ? t.assignee.trim() : "";
+  const assignees = Array.isArray(t.assignees)
+    ? t.assignees.filter(Boolean)
+    : legacyAssignee
+      ? [legacyAssignee]
+      : [];
   return {
     id: t._id,
     title: t.title,
     description: t.description,
-    assignee: t.assignee,
+    assignees,
     priority: t.priority,
     status: t.status,
     dueDate: t.dueDate,
+    dueTime: t.dueTime,
     location: t.location,
     createdAt: t.createdAt,
     attachmentFileName: (t as any).attachmentFileName,
@@ -103,26 +141,28 @@ function normalizeTask(t: TaskApi): Task {
   };
 }
 
-const priorityStyles = {
-  high: "priority-high",
-  medium: "priority-medium",
-  low: "priority-low",
+const priorityClasses = {
+  high: "bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive border-destructive/20",
+  medium: "bg-gradient-to-r from-yellow-500/20 to-amber-500/10 text-yellow-600 border-yellow-500/20",
+  low: "bg-gradient-to-r from-green-500/20 to-emerald-500/10 text-green-600 border-green-500/20",
 };
 
-const statusStyles = {
-  active: "status-active",
-  pending: "status-pending",
-  completed: "status-completed",
+const statusClasses = {
+  pending: "bg-gradient-to-r from-blue-500/20 to-blue-400/10 text-blue-600 border-blue-500/20",
+  "in-progress": "bg-gradient-to-r from-amber-500/20 to-yellow-400/10 text-amber-600 border-amber-500/20",
+  completed: "bg-gradient-to-r from-green-500/20 to-emerald-400/10 text-green-600 border-green-500/20",
+  overdue: "bg-gradient-to-r from-red-500/20 to-rose-400/10 text-red-600 border-red-500/20",
 };
 
 const createTaskSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().min(1, "Description is required"),
-  assignee: z.string().min(1, "Assignee is required"),
-  priority: z.enum(["high", "medium", "low"]),
-  status: z.enum(["active", "pending", "completed"]),
+  priority: z.enum(["low", "medium", "high"]),
+  status: z.enum(["pending", "in-progress", "completed", "overdue"]),
   dueDate: z.string().min(1, "Due date is required"),
-  location: z.string().min(1, "Location is required"),
+  dueTime: z.string().optional(),
+  location: z.string().optional(),
+  assignees: z.array(z.string()).default([]),
 });
 
 type CreateTaskValues = z.infer<typeof createTaskSchema>;
@@ -138,8 +178,17 @@ export default function Tasks() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [attachmentNoteDraft, setAttachmentNoteDraft] = useState<string>("");
+  const [assigneesOpen, setAssigneesOpen] = useState(false);
+  const [editAssigneesOpen, setEditAssigneesOpen] = useState(false);
+  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
+  const [editSelectedAssignees, setEditSelectedAssignees] = useState<string[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
+  // Fetch tasks
   const tasksQuery = useQuery({
     queryKey: ["tasks"],
     queryFn: async () => {
@@ -148,19 +197,40 @@ export default function Tasks() {
     },
   });
 
-  const tasks = tasksQuery.data ?? [];
+  useEffect(() => {
+    if (tasksQuery.data) {
+      setTasks(tasksQuery.data);
+    }
+  }, [tasksQuery.data]);
 
-  const createTaskMutation = useMutation({
-    mutationFn: async (payload: CreateTaskValues & { createdAt: string }) => {
-      const res = await apiFetch<{ item: TaskApi }>("/api/tasks", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      return normalizeTask(res.item);
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
-    },
+  // Fetch employees
+  useEffect(() => {
+    const loadEmployees = async () => {
+      try {
+        const res = await apiFetch<{ items: Employee[] }>("/api/employees");
+        setEmployees(res.items.filter((e) => e.status === "active"));
+      } catch {
+        setEmployees([]);
+      }
+    };
+    void loadEmployees();
+  }, []);
+
+  const activeEmployees = useMemo(() => {
+    return employees.filter((e) => e.status === "active");
+  }, [employees]);
+
+  // Admin-style form state
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    priority: "medium" as Task["priority"],
+    status: "pending" as Task["status"],
+    dueDate: "",
+    dueTime: "",
+    location: "",
+    attachmentFileName: "",
+    attachmentNote: "",
   });
 
   const updateTaskMutation = useMutation({
@@ -190,10 +260,10 @@ export default function Tasks() {
     defaultValues: {
       title: "",
       description: "",
-      assignee: "",
       priority: "medium",
       status: "pending",
       dueDate: "",
+      dueTime: "",
       location: "",
     },
   });
@@ -203,77 +273,92 @@ export default function Tasks() {
     defaultValues: {
       title: "",
       description: "",
-      assignee: "",
       priority: "medium",
       status: "pending",
       dueDate: "",
+      dueTime: "",
       location: "",
     },
   });
 
-  const onCreateTask = (values: CreateTaskValues) => {
-    const now = new Date();
+  const handleCreateTask = async () => {
+    if (!formData.title || selectedAssignees.length === 0 || !formData.dueDate) return;
+    try {
+      setApiError(null);
+      const newTask = {
+        id: `TSK-${Date.now().toString().slice(-6)}`,
+        title: formData.title,
+        description: formData.description,
+        assignees: selectedAssignees,
+        priority: formData.priority,
+        status: formData.status,
+        dueDate: formData.dueDate,
+        dueTime: formData.dueTime,
+        location: formData.location,
+        createdAt: new Date().toISOString().split("T")[0],
+        attachmentFileName: formData.attachmentFileName || "",
+        attachmentNote: formData.attachmentNote || "",
+      };
+      if (attachmentFile) {
+        console.log("Uploading file:", attachmentFile.name, "Size:", attachmentFile.size);
+        const fd = new FormData();
+        fd.append("title", formData.title);
+        fd.append("description", formData.description);
+        fd.append("assignees", JSON.stringify(selectedAssignees));
+        fd.append("priority", formData.priority);
+        fd.append("status", formData.status);
+        fd.append("dueDate", formData.dueDate);
+        fd.append("dueTime", formData.dueTime);
+        fd.append("location", formData.location || "");
+        fd.append("createdAt", newTask.createdAt);
 
-    if (attachmentFile) {
-      const fd = new FormData();
-      fd.append("title", values.title);
-      fd.append("description", values.description);
-      fd.append("assignee", values.assignee);
-      fd.append("priority", values.priority);
-      fd.append("status", values.status);
-      fd.append("dueDate", values.dueDate);
-      fd.append("location", values.location);
-      fd.append("createdAt", now.toISOString().slice(0, 10));
-      fd.append("attachmentFileName", attachmentFile.name);
-      fd.append("attachmentNote", attachmentNoteDraft);
-      fd.append("file", attachmentFile);
+        fd.append("attachmentFileName", attachmentFile.name);
+        fd.append("attachmentNote", formData.attachmentNote);
+        fd.append("file", attachmentFile);
 
-      void apiFetch<{ item: TaskApi }>("/api/tasks/upload", {
-        method: "POST",
-        body: fd,
-      })
-        .then(async () => {
-          await queryClient.invalidateQueries({ queryKey: ["tasks"] });
-          setIsCreateOpen(false);
-          form.reset();
-          setAttachmentFile(null);
-          setAttachmentNoteDraft("");
-          toast({
-            title: "Task created",
-            description: "Your task has been added to the list.",
+        try {
+          const response = await apiFetch<{ item: Task }>("/api/tasks/upload", {
+            method: "POST",
+            body: fd,
           });
-        })
-        .catch((err) => {
-          toast({
-            title: "Failed to create task",
-            description: err instanceof Error ? err.message : "Something went wrong",
-            variant: "destructive",
-          });
+          console.log("Upload response:", response);
+        } catch (uploadErr) {
+          console.error("Upload failed:", uploadErr);
+          throw new Error("File upload failed: " + (uploadErr instanceof Error ? uploadErr.message : "Unknown error"));
+        }
+      } else {
+        await apiFetch("/api/tasks", {
+          method: "POST",
+          body: JSON.stringify(newTask),
         });
-      return;
+      }
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      setIsCreateOpen(false);
+      setFormData({
+        title: "",
+        description: "",
+        priority: "medium",
+        status: "pending",
+        dueDate: "",
+        dueTime: "",
+        location: "",
+        attachmentFileName: "",
+        attachmentNote: "",
+      });
+      setSelectedAssignees([]);
+      setAttachmentFile(null);
+      toast({
+        title: "Task created",
+        description: "Your task has been added to the list.",
+      });
+    } catch (e) {
+      setApiError(e instanceof Error ? e.message : "Failed to create task");
+      toast({
+        title: "Failed to create task",
+        description: e instanceof Error ? e.message : "Something went wrong",
+        variant: "destructive",
+      });
     }
-
-    createTaskMutation.mutate(
-      { ...values, createdAt: now.toISOString().slice(0, 10) },
-      {
-        onSuccess: () => {
-          setIsCreateOpen(false);
-          form.reset();
-          setAttachmentFile(null);
-          setAttachmentNoteDraft("");
-          toast({
-            title: "Task created",
-            description: "Your task has been added to the list.",
-          });
-        },
-        onError: (err) => {
-          toast({
-            title: "Failed to create task",
-            description: err instanceof Error ? err.message : "Something went wrong",
-          });
-        },
-      },
-    );
   };
 
   const openView = (task: Task) => {
@@ -283,14 +368,15 @@ export default function Tasks() {
 
   const openEdit = (task: Task) => {
     setSelectedTask(task);
+    setEditSelectedAssignees(task.assignees || []);
     editForm.reset({
       title: task.title,
       description: task.description,
-      assignee: task.assignee,
       priority: task.priority,
       status: task.status,
       dueDate: task.dueDate,
-      location: task.location,
+      dueTime: task.dueTime || "",
+      location: task.location || "",
     });
     setIsEditOpen(true);
   };
@@ -338,7 +424,7 @@ export default function Tasks() {
       addHeading(task.title || "Task");
       doc.setFont("helvetica", "normal");
       doc.setFontSize(11);
-      doc.text(`Assigned to: ${task.assignee || "—"}`, margin, y);
+      doc.text(`Assigned to: ${(task.assignees || []).join(", ") || "—"}`, margin, y);
       y += 18;
 
       ensureSpace(120);
@@ -430,10 +516,11 @@ export default function Tasks() {
     if (!selectedTask) return;
 
     updateTaskMutation.mutate(
-      { id: selectedTask.id, payload: values },
+      { id: selectedTask.id, payload: { ...values, assignees: editSelectedAssignees } },
       {
         onSuccess: () => {
           setIsEditOpen(false);
+          setEditSelectedAssignees([]);
           toast({
             title: "Task updated",
             description: "Task has been updated.",
@@ -473,9 +560,10 @@ export default function Tasks() {
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
+      const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
       const matchesSearch =
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (task.assignee || "").toLowerCase().includes(searchQuery.toLowerCase());
+        assigneesText.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus =
         statusFilter === "all" || task.status === statusFilter;
       const matchesPriority =
@@ -505,145 +593,182 @@ export default function Tasks() {
             <DialogDescription>Add a task and assign it.</DialogDescription>
           </DialogHeader>
 
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onCreateTask)} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Title</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Task title" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+          <form onSubmit={(e) => { e.preventDefault(); void handleCreateTask(); }} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Title</label>
+                <Input
+                  placeholder="Task title"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                 />
+              </div>
 
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Short description"
-                          className="min-h-[90px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Description</label>
+                <Textarea
+                  placeholder="Short description"
+                  className="min-h-[90px]"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 />
+              </div>
 
-                <FormField
-                  control={form.control}
-                  name="assignee"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Assignee</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Sarah Williams" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Location</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Main Office" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="priority"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Priority</FormLabel>
-                      <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
+              {/* Multi-Assignees */}
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="text-sm font-medium">Assignees *</label>
+                  <Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full justify-between h-10"
                       >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select priority" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="high">High</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="low">Low</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
+                        <span className="truncate">
+                          {selectedAssignees.length > 0
+                            ? selectedAssignees.join(", ")
+                            : "Select assignees"}
+                        </span>
+                        <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Search employees..." />
+                        <CommandList>
+                          <CommandEmpty>No employee found.</CommandEmpty>
+                          <CommandGroup>
+                            {activeEmployees.map((employee) => (
+                              <CommandItem
+                                key={employee.id}
+                                value={employee.name}
+                                onSelect={() => {
+                                  setSelectedAssignees((prev) =>
+                                    prev.includes(employee.name)
+                                      ? prev.filter((name) => name !== employee.name)
+                                      : [...prev, employee.name]
+                                  );
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedAssignees.includes(employee.name)
+                                      ? "opacity-100"
+                                      : "opacity-0"
+                                  )}
+                                />
+                                <Avatar className="h-6 w-6 mr-2">
+                                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                    {employee.initials}
+                                  </AvatarFallback>
+                                </Avatar>
+                                {employee.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {selectedAssignees.length === 0 && (
+                    <p className="text-xs text-destructive">At least one assignee is required</p>
                   )}
-                />
+                </div>
 
-                <FormField
-                  control={form.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select
-                        value={field.value}
-                        onValueChange={field.onChange}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="active">Active</SelectItem>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {/* Location */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Location</label>
+                  <Input
+                    placeholder="e.g. Main Office"
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  />
+                </div>
 
-                <FormField
-                  control={form.control}
-                  name="dueDate"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Due Date</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {/* Priority */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Priority</label>
+                  <Select
+                    value={formData.priority}
+                    onValueChange={(v) => setFormData({ ...formData, priority: v as Task["priority"] })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select priority" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="low">Low</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
+                {/* Status */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Status</label>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(v) => setFormData({ ...formData, status: v as Task["status"] })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="in-progress">In Progress</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="overdue">Overdue</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Due Date */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Due Date</label>
+                  <Input
+                    type="date"
+                    value={formData.dueDate}
+                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                  />
+                </div>
+
+                {/* Due Time */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Due Time</label>
+                  <Input
+                    type="time"
+                    value={formData.dueTime}
+                    onChange={(e) => setFormData({ ...formData, dueTime: e.target.value })}
+                  />
+                </div>
+
+                {/* Attachment */}
                 <div className="sm:col-span-2 space-y-2">
-                  <FormLabel>Attachment</FormLabel>
+                  <label className="text-sm font-medium">Attachment</label>
                   <div
-                    className="rounded-lg border bg-muted/20 p-3 flex items-center justify-between gap-3 cursor-pointer"
-                    role="button"
-                    tabIndex={0}
+                    className="w-full rounded-lg border px-3 py-3 text-sm bg-gradient-to-br from-muted/20 to-muted/5 hover:from-muted/30 hover:to-muted/10 transition-all cursor-pointer"
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.add("border-primary", "bg-primary/5");
+                    }}
+                    onDragLeave={(e) => {
+                      e.currentTarget.classList.remove("border-primary", "bg-primary/5");
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.currentTarget.classList.remove("border-primary", "bg-primary/5");
+                      const f = e.dataTransfer.files?.[0];
+                      if (f) {
+                        setAttachmentFile(f);
+                      }
+                    }}
                     onClick={() => {
                       const el = document.getElementById("manager-task-attachment-input") as HTMLInputElement | null;
                       el?.click();
                     }}
+                    role="button"
+                    tabIndex={0}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         const el = document.getElementById("manager-task-attachment-input") as HTMLInputElement | null;
@@ -651,13 +776,17 @@ export default function Tasks() {
                       }
                     }}
                   >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {attachmentFile ? attachmentFile.name : "Click to choose a file"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">Max 10MB</p>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {attachmentFile ? attachmentFile.name : "Click to choose or drag & drop a file"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Max 10MB
+                        </p>
+                      </div>
+                      <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     </div>
-                    <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
                     <input
                       id="manager-task-attachment-input"
                       type="file"
@@ -670,7 +799,7 @@ export default function Tasks() {
                   </div>
 
                   <div className="space-y-1">
-                    <FormLabel>Attachment Note</FormLabel>
+                    <label className="text-sm font-medium">Attachment Note</label>
                     <Input
                       value={attachmentNoteDraft}
                       onChange={(e) => setAttachmentNoteDraft(e.target.value)}
@@ -686,6 +815,7 @@ export default function Tasks() {
                   variant="outline"
                   onClick={() => {
                     setIsCreateOpen(false);
+                    setSelectedAssignees([]);
                     setAttachmentFile(null);
                     setAttachmentNoteDraft("");
                   }}
@@ -699,7 +829,6 @@ export default function Tasks() {
                 </Button>
               </DialogFooter>
             </form>
-          </Form>
         </DialogContent>
       </Dialog>
 
@@ -724,9 +853,24 @@ export default function Tasks() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div className="space-y-1">
-                  <p className="text-muted-foreground">Assignee</p>
-                  <p className="text-foreground">{selectedTask.assignee}</p>
+                <div className="space-y-1 sm:col-span-2">
+                  <p className="text-muted-foreground">Assignees</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedTask.assignees && selectedTask.assignees.length > 0 ? (
+                      selectedTask.assignees.map((assignee, idx) => (
+                        <div key={idx} className="flex items-center gap-2 bg-muted/50 rounded-full px-3 py-1">
+                          <Avatar className="w-6 h-6">
+                            <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                              {assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-foreground text-sm">{assignee}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <span className="text-foreground">Unassigned</span>
+                    )}
+                  </div>
                 </div>
                 <div className="space-y-1">
                   <p className="text-muted-foreground">Location</p>
@@ -879,19 +1023,67 @@ export default function Tasks() {
                   )}
                 />
 
-                <FormField
-                  control={editForm.control}
-                  name="assignee"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Assignee</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Sarah Williams" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
+                {/* Multi-Assignees Edit */}
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="text-sm font-medium">Assignees *</label>
+                  <Popover open={editAssigneesOpen} onOpenChange={setEditAssigneesOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full justify-between h-10"
+                      >
+                        <span className="truncate">
+                          {editSelectedAssignees.length > 0
+                            ? editSelectedAssignees.join(", ")
+                            : "Select assignees"}
+                        </span>
+                        <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Search employees..." />
+                        <CommandList>
+                          <CommandEmpty>No employee found.</CommandEmpty>
+                          <CommandGroup>
+                            {activeEmployees.map((employee) => (
+                              <CommandItem
+                                key={employee.id}
+                                value={employee.name}
+                                onSelect={() => {
+                                  setEditSelectedAssignees((prev) =>
+                                    prev.includes(employee.name)
+                                      ? prev.filter((name) => name !== employee.name)
+                                      : [...prev, employee.name]
+                                  );
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    editSelectedAssignees.includes(employee.name)
+                                      ? "opacity-100"
+                                      : "opacity-0"
+                                  )}
+                                />
+                                <Avatar className="h-6 w-6 mr-2">
+                                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                    {employee.initials}
+                                  </AvatarFallback>
+                                </Avatar>
+                                {employee.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {editSelectedAssignees.length === 0 && (
+                    <p className="text-xs text-destructive">At least one assignee is required</p>
                   )}
-                />
+                </div>
 
                 <FormField
                   control={editForm.control}
@@ -943,9 +1135,10 @@ export default function Tasks() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="active">Active</SelectItem>
                           <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="in-progress">In Progress</SelectItem>
                           <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value="overdue">Overdue</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -957,7 +1150,7 @@ export default function Tasks() {
                   control={editForm.control}
                   name="dueDate"
                   render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
+                    <FormItem>
                       <FormLabel>Due Date</FormLabel>
                       <FormControl>
                         <Input type="date" {...field} />
@@ -966,10 +1159,24 @@ export default function Tasks() {
                     </FormItem>
                   )}
                 />
+
+                <FormField
+                  control={editForm.control}
+                  name="dueTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Due Time</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
 
               <DialogFooter className="flex-col sm:flex-row gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)} className="w-full sm:w-auto">
+                <Button type="button" variant="outline" onClick={() => { setIsEditOpen(false); setEditSelectedAssignees([]); }} className="w-full sm:w-auto">
                   Cancel
                 </Button>
                 <Button type="submit" className="w-full sm:w-auto">Save</Button>
@@ -1050,7 +1257,7 @@ export default function Tasks() {
             <thead>
               <tr>
                 <th>Task</th>
-                <th>Assignee</th>
+                <th>Assignees</th>
                 <th>Priority</th>
                 <th>Status</th>
                 <th>Due Date</th>
@@ -1076,21 +1283,41 @@ export default function Tasks() {
                   </td>
                   <td>
                     <div className="flex items-center gap-2 whitespace-nowrap">
-                      <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-medium">
-                        {task.assignee
-                          ? task.assignee
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")
-                          : "?"}
-                      </div>
-                      <span className="text-foreground">{task.assignee || "Unassigned"}</span>
+                      {task.assignees && task.assignees.length > 0 ? (
+                        <div className="flex -space-x-2">
+                          {task.assignees.slice(0, 3).map((assignee, idx) => (
+                            <Avatar key={idx} className="w-7 h-7 border-2 border-background">
+                              <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                {assignee
+                                  .split(" ")
+                                  .map((n) => n[0])
+                                  .join("")
+                                  .toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                          ))}
+                          {task.assignees.length > 3 && (
+                            <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">
+                              +{task.assignees.length - 3}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
+                          ?
+                        </div>
+                      )}
+                      <span className="text-foreground text-sm">
+                        {task.assignees && task.assignees.length > 0
+                          ? task.assignees.slice(0, 2).join(", ") + (task.assignees.length > 2 ? ` +${task.assignees.length - 2} more` : "")
+                          : "Unassigned"}
+                      </span>
                     </div>
                   </td>
                   <td>
                     <Badge
                       variant="outline"
-                      className={cn("text-xs border whitespace-nowrap", priorityStyles[task.priority])}
+                      className={cn("text-xs border whitespace-nowrap", priorityClasses[task.priority])}
                     >
                       {task.priority}
                     </Badge>
@@ -1098,7 +1325,7 @@ export default function Tasks() {
                   <td>
                     <Badge
                       variant="secondary"
-                      className={cn("text-xs whitespace-nowrap", statusStyles[task.status])}
+                      className={cn("text-xs whitespace-nowrap", statusClasses[task.status])}
                     >
                       {task.status}
                     </Badge>
@@ -1171,7 +1398,7 @@ export default function Tasks() {
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-primary" />
-            {tasks.filter((t) => t.status === "active").length} active
+            {tasks.filter((t) => t.status === "in-progress").length} in progress
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-warning" />

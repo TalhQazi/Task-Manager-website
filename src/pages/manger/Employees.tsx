@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
 import { Badge } from "@/components/manger/ui/badge";
@@ -60,7 +60,7 @@ import {
   Calendar
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
-import { apiFetch } from "@/lib/manger/api";
+import { apiFetch, listResource } from "@/lib/manger/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface Employee {
@@ -68,11 +68,24 @@ interface Employee {
   name: string;
   email: string;
   phone: string;
+  category: string;
   role: string;
-  status: "active" | "away" | "offline";
+  company: string;
+  status: "active" | "inactive" | "on-leave";
+  payRate: string;
+  shift: string;
+  hireDate: string;
   location: string;
   joinDate: string;
   avatar: string;
+  imageUrl?: string;
+}
+
+interface Company {
+  id: string;
+  name: string;
+  code?: string;
+  status: "active" | "inactive" | "suspended";
 }
 
 type EmployeeApi = Omit<Employee, "id"> & {
@@ -85,32 +98,44 @@ function normalizeEmployee(e: EmployeeApi): Employee {
     name: e.name,
     email: e.email,
     phone: e.phone,
+    category: e.category,
     role: e.role,
+    company: e.company,
     status: e.status,
+    payRate: e.payRate,
+    shift: e.shift,
+    hireDate: e.hireDate,
     location: e.location,
     joinDate: e.joinDate,
     avatar: e.avatar,
+    imageUrl: (e as unknown as { imageUrl?: string }).imageUrl,
   };
 }
 
 const statusColors = {
   active: "bg-success",
-  away: "bg-warning",
-  offline: "bg-muted-foreground",
+  inactive: "bg-muted-foreground",
+  "on-leave": "bg-warning",
 };
 
 const statusLabels = {
-  active: "Online",
-  away: "Away",
-  offline: "Offline",
+  active: "Active",
+  inactive: "Inactive",
+  "on-leave": "On Leave",
 };
 
 const createEmployeeSchema = z.object({
-  name: z.string().min(1, "Name is required"),
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
   email: z.string().min(1, "Email is required").email("Invalid email"),
   phone: z.string().min(1, "Phone is required"),
+  category: z.string().optional().default(""),
   role: z.string().min(1, "Role is required"),
-  status: z.enum(["active", "away", "offline"]),
+  company: z.string().optional().default(""),
+  status: z.enum(["active", "inactive", "on-leave"]),
+  payRate: z.string().optional().default(""),
+  shift: z.string().optional().default(""),
+  hireDate: z.string().optional().default(""),
   location: z.string().min(1, "Location is required"),
   joinDate: z.string().min(1, "Join date is required"),
 });
@@ -126,7 +151,7 @@ function getInitials(name: string) {
 }
 
 // Animation variants
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -137,26 +162,26 @@ const containerVariants = {
   },
 };
 
-const headerVariants = {
+const headerVariants: Variants = {
   hidden: { opacity: 0, y: -20 },
   visible: {
     opacity: 1,
     y: 0,
     transition: {
-      type: "spring",
+      type: "spring" as const,
       stiffness: 400,
       damping: 30,
     },
   },
 };
 
-const filterVariants = {
+const filterVariants: Variants = {
   hidden: { opacity: 0, x: -20 },
   visible: {
     opacity: 1,
     x: 0,
     transition: {
-      type: "spring",
+      type: "spring" as const,
       stiffness: 400,
       damping: 30,
       delay: 0.1,
@@ -164,7 +189,7 @@ const filterVariants = {
   },
 };
 
-const cardVariants = {
+const cardVariants: Variants = {
   hidden: { opacity: 0, scale: 0.8, y: 30 },
   visible: (i: number) => ({
     opacity: 1,
@@ -172,7 +197,7 @@ const cardVariants = {
     y: 0,
     transition: {
       delay: i * 0.1,
-      type: "spring",
+      type: "spring" as const,
       stiffness: 400,
       damping: 30,
     },
@@ -182,7 +207,7 @@ const cardVariants = {
     scale: 1.02,
     boxShadow: "0 20px 40px -15px rgba(0,0,0,0.2)",
     transition: {
-      type: "spring",
+      type: "spring" as const,
       stiffness: 400,
       damping: 30,
     },
@@ -195,7 +220,7 @@ const cardVariants = {
   },
 };
 
-const statusDotVariants = {
+const statusDotVariants: Variants = {
   active: {
     scale: [1, 1.2, 1],
     transition: {
@@ -204,7 +229,7 @@ const statusDotVariants = {
       repeatType: "reverse",
     },
   },
-  away: {
+  "on-leave": {
     opacity: [1, 0.5, 1],
     transition: {
       duration: 2,
@@ -212,36 +237,36 @@ const statusDotVariants = {
       repeatType: "reverse",
     },
   },
-  offline: {
+  inactive: {
     scale: 1,
   },
 };
 
-const iconVariants = {
+const iconVariants: Variants = {
   hover: {
     rotate: 15,
     scale: 1.1,
-    transition: { type: "spring", stiffness: 400, damping: 20 },
+    transition: { type: "spring" as const, stiffness: 400, damping: 20 },
   },
 };
 
-const buttonVariants = {
+const buttonVariants: Variants = {
   hover: {
     scale: 1.05,
-    transition: { type: "spring", stiffness: 400, damping: 30 },
+    transition: { type: "spring" as const, stiffness: 400, damping: 30 },
   },
   tap: {
     scale: 0.95,
   },
 };
 
-const statsVariants = {
+const statsVariants: Variants = {
   hidden: { opacity: 0, y: 20 },
   visible: {
     opacity: 1,
     y: 0,
     transition: {
-      type: "spring",
+      type: "spring" as const,
       stiffness: 300,
       damping: 30,
       delay: 0.4,
@@ -258,6 +283,16 @@ export default function Employees() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const queryClient = useQueryClient();
+
+  const companiesQuery = useQuery({
+    queryKey: ["companies"],
+    queryFn: async () => {
+      const list = await listResource<Company>("companies");
+      return list.filter((c) => c.status === "active");
+    },
+  });
+
+  const companies = companiesQuery.data ?? [];
 
   const employeesQuery = useQuery({
     queryKey: ["employees"],
@@ -284,14 +319,17 @@ export default function Employees() {
 
   const updateEmployeeMutation = useMutation({
     mutationFn: async ({ id, payload }: { id: string; payload: CreateEmployeeValues }) => {
+      const fullName = `${payload.firstName} ${payload.lastName}`.trim();
       const nextPayload = {
         ...payload,
-        avatar: getInitials(payload.name),
+        name: fullName,
+        avatar: getInitials(fullName),
       };
       const res = await apiFetch<{ item: EmployeeApi }>(`/api/employees/${id}`, {
         method: "PUT",
         body: JSON.stringify(nextPayload),
       });
+
       return normalizeEmployee(res.item);
     },
     onSuccess: async () => {
@@ -311,11 +349,17 @@ export default function Employees() {
   const form = useForm<CreateEmployeeValues>({
     resolver: zodResolver(createEmployeeSchema),
     defaultValues: {
-      name: "",
+      firstName: "",
+      lastName: "",
       email: "",
       phone: "",
+      category: "",
       role: "",
+      company: "",
       status: "active",
+      payRate: "",
+      shift: "",
+      hireDate: "",
       location: "",
       joinDate: "",
     },
@@ -324,26 +368,38 @@ export default function Employees() {
   const editForm = useForm<CreateEmployeeValues>({
     resolver: zodResolver(createEmployeeSchema),
     defaultValues: {
-      name: "",
+      firstName: "",
+      lastName: "",
       email: "",
       phone: "",
+      category: "",
       role: "",
+      company: "",
       status: "active",
+      payRate: "",
+      shift: "",
+      hireDate: "",
       location: "",
       joinDate: "",
     },
   });
 
   const onCreateEmployee = (values: CreateEmployeeValues) => {
+    const fullName = `${values.firstName} ${values.lastName}`.trim();
     const payload: Omit<Employee, "id"> = {
-      name: values.name,
+      name: fullName,
       email: values.email,
       phone: values.phone,
+      category: values.category,
       role: values.role,
+      company: values.company,
       status: values.status,
+      payRate: values.payRate,
+      shift: values.shift,
+      hireDate: values.hireDate,
       location: values.location,
       joinDate: values.joinDate,
-      avatar: getInitials(values.name),
+      avatar: getInitials(fullName),
     };
 
     createEmployeeMutation.mutate(payload, {
@@ -370,13 +426,21 @@ export default function Employees() {
   };
 
   const openEdit = (employee: Employee) => {
+    const [firstName, ...rest] = employee.name.trim().split(/\s+/).filter(Boolean);
+    const lastName = rest.join(" ");
     setSelectedEmployee(employee);
     editForm.reset({
-      name: employee.name,
+      firstName: firstName ?? "",
+      lastName,
       email: employee.email,
       phone: employee.phone,
+      category: employee.category,
       role: employee.role,
+      company: employee.company,
       status: employee.status,
+      payRate: employee.payRate,
+      shift: employee.shift,
+      hireDate: employee.hireDate,
       location: employee.location,
       joinDate: employee.joinDate,
     });
@@ -452,12 +516,12 @@ export default function Employees() {
       className="space-y-6"
     >
       {/* Header */}
-      <motion.div 
-        variants={headerVariants} 
+      <motion.div
+        variants={headerVariants}
         className="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
       >
         <div className="page-header mb-0">
-          <motion.h1 
+          <motion.h1
             className="page-title"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -465,7 +529,7 @@ export default function Employees() {
           >
             Employee Directory
           </motion.h1>
-          <motion.p 
+          <motion.p
             className="page-subtitle"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -488,7 +552,7 @@ export default function Employees() {
 
       {/* Filters */}
       <motion.div variants={filterVariants} className="flex flex-col sm:flex-row gap-4">
-        <motion.div 
+        <motion.div
           className="relative flex-1"
           whileHover={{ scale: 1.01 }}
           transition={{ type: "spring", stiffness: 400, damping: 30 }}
@@ -501,14 +565,14 @@ export default function Employees() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </motion.div>
-        <motion.div 
+        <motion.div
           className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 sm:mx-0 sm:px-0 sm:pb-0"
           variants={{
             hidden: { opacity: 0 },
             visible: {
               opacity: 1,
-              transition: { staggerChildren: 0.1, delayChildren: 0.2 }
-            }
+              transition: { staggerChildren: 0.1, delayChildren: 0.2 },
+            },
           }}
         >
           <motion.div variants={itemVariants}>
@@ -518,9 +582,9 @@ export default function Employees() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Online</SelectItem>
-                <SelectItem value="away">Away</SelectItem>
-                <SelectItem value="offline">Offline</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="on-leave">On Leave</SelectItem>
               </SelectContent>
             </Select>
           </motion.div>
@@ -528,18 +592,18 @@ export default function Employees() {
       </motion.div>
 
       {/* Employee Grid */}
-      <motion.div 
+      <motion.div
         className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4"
         variants={{
           hidden: { opacity: 0 },
           visible: {
             opacity: 1,
-            transition: { staggerChildren: 0.1 }
-          }
+            transition: { staggerChildren: 0.1 },
+          },
         }}
       >
         {employeesQuery.isLoading ? (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="col-span-full p-6 text-sm text-muted-foreground flex items-center justify-center gap-2"
@@ -552,7 +616,7 @@ export default function Employees() {
             Loading employees...
           </motion.div>
         ) : employeesQuery.isError ? (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="col-span-full p-6 text-sm text-destructive"
@@ -562,20 +626,20 @@ export default function Employees() {
               : "Failed to load employees"}
           </motion.div>
         ) : filteredEmployees.length === 0 ? (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             className="col-span-full p-12 text-center"
           >
             <motion.div
-              animate={{ 
+              animate={{
                 scale: [1, 1.1, 1],
-                rotate: [0, 5, -5, 0]
+                rotate: [0, 5, -5, 0],
               }}
-              transition={{ 
+              transition={{
                 duration: 3,
                 repeat: Infinity,
-                repeatType: "reverse"
+                repeatType: "reverse",
               }}
               className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 text-primary flex items-center justify-center"
             >
@@ -583,8 +647,8 @@ export default function Employees() {
             </motion.div>
             <h3 className="text-lg font-medium text-foreground mb-2">No employees found</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              {searchQuery || statusFilter !== "all" 
-                ? "Try adjusting your filters" 
+              {searchQuery || statusFilter !== "all"
+                ? "Try adjusting your filters"
                 : "Get started by adding your first employee"}
             </p>
             {(searchQuery || statusFilter !== "all") && (
@@ -593,8 +657,8 @@ export default function Employees() {
                 whileHover="hover"
                 whileTap="tap"
               >
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => {
                     setSearchQuery("");
                     setStatusFilter("all");
@@ -621,13 +685,21 @@ export default function Employees() {
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                    <motion.div 
+                    <motion.div
                       className="relative"
                       whileHover="hover"
                       variants={iconVariants}
                     >
-                      <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold">
-                        {employee.avatar}
+                      <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold overflow-hidden">
+                        {employee.imageUrl ? (
+                          <img
+                            src={employee.imageUrl}
+                            alt={employee.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <span>{getInitials(employee.name)}</span>
+                        )}
                       </div>
                       <motion.div
                         variants={statusDotVariants}
@@ -639,7 +711,7 @@ export default function Employees() {
                       />
                     </motion.div>
                     <div className="min-w-0">
-                      <motion.h3 
+                      <motion.h3
                         className="font-semibold text-foreground truncate"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -647,7 +719,7 @@ export default function Employees() {
                       >
                         {employee.name}
                       </motion.h3>
-                      <motion.p 
+                      <motion.p
                         className="text-sm text-muted-foreground truncate"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -683,13 +755,13 @@ export default function Employees() {
                   </DropdownMenu>
                 </div>
 
-                <motion.div 
+                <motion.div
                   className="space-y-3"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: index * 0.1 + 0.2 }}
                 >
-                  <motion.div 
+                  <motion.div
                     className="flex items-center gap-2 text-sm text-muted-foreground"
                     whileHover="hover"
                     variants={iconVariants}
@@ -697,7 +769,7 @@ export default function Employees() {
                     <Mail className="w-4 h-4" />
                     <span className="truncate">{employee.email}</span>
                   </motion.div>
-                  <motion.div 
+                  <motion.div
                     className="flex items-center gap-2 text-sm text-muted-foreground"
                     whileHover="hover"
                     variants={iconVariants}
@@ -705,7 +777,7 @@ export default function Employees() {
                     <Phone className="w-4 h-4" />
                     <span className="truncate">{employee.phone}</span>
                   </motion.div>
-                  <motion.div 
+                  <motion.div
                     className="flex items-center gap-2 text-sm text-muted-foreground"
                     whileHover="hover"
                     variants={iconVariants}
@@ -715,7 +787,7 @@ export default function Employees() {
                   </motion.div>
                 </motion.div>
 
-                <motion.div 
+                <motion.div
                   className="flex items-center justify-between mt-4 pt-4 border-t border-border"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -726,13 +798,13 @@ export default function Employees() {
                       "text-xs font-medium flex items-center gap-1.5",
                       employee.status === "active"
                         ? "text-success"
-                        : employee.status === "away"
+                        : employee.status === "on-leave"
                         ? "text-warning"
                         : "text-muted-foreground"
                     )}
                     animate={employee.status === "active" ? {
                       scale: [1, 1.05, 1],
-                      transition: { duration: 2, repeat: Infinity }
+                      transition: { duration: 2, repeat: Infinity },
                     } : {}}
                   >
                     <motion.span
@@ -753,11 +825,11 @@ export default function Employees() {
       </motion.div>
 
       {/* Stats */}
-      <motion.div 
+      <motion.div
         variants={statsVariants}
         className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-muted-foreground"
       >
-        <motion.span 
+        <motion.span
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.5 }}
@@ -765,51 +837,51 @@ export default function Employees() {
         >
           Showing {filteredEmployees.length} of {employees.length} employees
         </motion.span>
-        <motion.div 
+        <motion.div
           className="flex items-center justify-center sm:justify-end gap-4 overflow-x-auto pb-1 sm:pb-0"
           variants={{
             hidden: { opacity: 0 },
             visible: {
               opacity: 1,
-              transition: { staggerChildren: 0.1, delayChildren: 0.6 }
-            }
+              transition: { staggerChildren: 0.1, delayChildren: 0.6 },
+            },
           }}
         >
-          <motion.span 
+          <motion.span
             variants={itemVariants}
             className="flex items-center gap-1.5"
           >
-            <motion.span 
+            <motion.span
               className="w-2 h-2 rounded-full bg-success"
               animate={{ scale: [1, 1.2, 1] }}
               transition={{ duration: 2, repeat: Infinity }}
             />
-            {employees.filter((e) => e.status === "active").length} online
+            {employees.filter((e) => e.status === "active").length} active
           </motion.span>
-          <motion.span 
+          <motion.span
             variants={itemVariants}
             className="flex items-center gap-1.5"
           >
-            <motion.span 
+            <motion.span
               className="w-2 h-2 rounded-full bg-warning"
-              animate={{ 
+              animate={{
                 opacity: [1, 0.5, 1],
-                scale: [1, 1.1, 1]
+                scale: [1, 1.1, 1],
               }}
               transition={{ duration: 2, repeat: Infinity, delay: 0.5 }}
             />
-            {employees.filter((e) => e.status === "away").length} away
+            {employees.filter((e) => e.status === "on-leave").length} on leave
           </motion.span>
-          <motion.span 
+          <motion.span
             variants={itemVariants}
             className="flex items-center gap-1.5"
           >
-            <motion.span 
+            <motion.span
               className="w-2 h-2 rounded-full bg-muted-foreground"
               animate={{ scale: [1, 1.1, 1] }}
               transition={{ duration: 2, repeat: Infinity, delay: 1 }}
             />
-            {employees.filter((e) => e.status === "offline").length} offline
+            {employees.filter((e) => e.status === "inactive").length} inactive
           </motion.span>
         </motion.div>
       </motion.div>
@@ -834,16 +906,29 @@ export default function Employees() {
 
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onCreateEmployee)} className="space-y-4">
-                {/* Form fields remain the same */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="name"
+                    name="firstName"
                     render={({ field }) => (
-                      <FormItem className="sm:col-span-2">
-                        <FormLabel>Full Name</FormLabel>
+                      <FormItem>
+                        <FormLabel>First Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="Employee name" {...field} />
+                          <Input placeholder="First name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Last Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Last name" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -880,12 +965,55 @@ export default function Employees() {
 
                   <FormField
                     control={form.control}
+                    name="category"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Category</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. Technician" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
                     name="role"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Role</FormLabel>
                         <FormControl>
                           <Input placeholder="e.g. Field Technician" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="company"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company</FormLabel>
+                        <FormControl>
+                          <Select
+                            value={field.value || undefined}
+                            onValueChange={(v) => field.onChange(v === "__other__" ? "" : v)}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select company" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {companies.map((c) => (
+                                <SelectItem key={c.id} value={c.name}>
+                                  {c.name}
+                                </SelectItem>
+                              ))}
+                              <SelectItem value="__other__">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -905,11 +1033,53 @@ export default function Employees() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            <SelectItem value="active">Online</SelectItem>
-                            <SelectItem value="away">Away</SelectItem>
-                            <SelectItem value="offline">Offline</SelectItem>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="inactive">Inactive</SelectItem>
+                            <SelectItem value="on-leave">On Leave</SelectItem>
                           </SelectContent>
                         </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="payRate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Pay Rate</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. $25/hr" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="shift"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Shift</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. 09:00 - 17:00" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="hireDate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Hire Date</FormLabel>
+                        <FormControl>
+                          <Input type="date" {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -992,7 +1162,15 @@ export default function Employees() {
                   whileHover={{ scale: 1.1, rotate: 5 }}
                   transition={{ type: "spring", stiffness: 400, damping: 20 }}
                 >
-                  {selectedEmployee.avatar}
+                  {selectedEmployee.imageUrl ? (
+                    <img
+                      src={selectedEmployee.imageUrl}
+                      alt={selectedEmployee.name}
+                      className="w-full h-full object-cover rounded-full"
+                    />
+                  ) : (
+                    <span>{getInitials(selectedEmployee.name)}</span>
+                  )}
                 </motion.div>
                 <div className="min-w-0">
                   <p className="font-semibold text-foreground truncate">
@@ -1095,16 +1273,29 @@ export default function Employees() {
 
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit(onEditEmployee)} className="space-y-4">
-              {/* Form fields remain the same as create form */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
                   control={editForm.control}
-                  name="name"
+                  name="firstName"
                   render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Full Name</FormLabel>
+                    <FormItem>
+                      <FormLabel>First Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="Employee name" {...field} />
+                        <Input placeholder="First name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Last Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Last name" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1141,6 +1332,20 @@ export default function Employees() {
 
                 <FormField
                   control={editForm.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. Technician" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
                   name="role"
                   render={({ field }) => (
                     <FormItem>
@@ -1155,12 +1360,27 @@ export default function Employees() {
 
                 <FormField
                   control={editForm.control}
-                  name="location"
+                  name="company"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Location</FormLabel>
+                      <FormLabel>Company</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. Main Office" {...field} />
+                        <Select
+                          value={field.value || undefined}
+                          onValueChange={(v) => field.onChange(v === "__other__" ? "" : v)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select company" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {companies.map((c) => (
+                              <SelectItem key={c.id} value={c.name}>
+                                {c.name}
+                              </SelectItem>
+                            ))}
+                            <SelectItem value="__other__">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1180,11 +1400,67 @@ export default function Employees() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="active">Online</SelectItem>
-                          <SelectItem value="away">Away</SelectItem>
-                          <SelectItem value="offline">Offline</SelectItem>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="inactive">Inactive</SelectItem>
+                          <SelectItem value="on-leave">On Leave</SelectItem>
                         </SelectContent>
                       </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="payRate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Pay Rate</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. $25/hr" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="shift"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Shift</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. 09:00 - 17:00" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="hireDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Hire Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="location"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Location</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. Main Office" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1254,13 +1530,13 @@ export default function Employees() {
 }
 
 // Helper variant for filter items
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { opacity: 0, y: 20 },
   visible: {
     opacity: 1,
     y: 0,
     transition: {
-      type: "spring",
+      type: "spring" as const,
       stiffness: 400,
       damping: 30,
     },

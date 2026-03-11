@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
+
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
 import { Badge } from "@/components/manger/ui/badge";
@@ -58,6 +59,9 @@ import {
   Clock,
   Map,
   Navigation,
+  Image as ImageIcon,
+  X,
+  Save,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch } from "@/lib/manger/api";
@@ -74,6 +78,8 @@ interface Location {
   employeeCount: number;
   status: "active" | "inactive";
   operatingHours: string;
+  photoDataUrl?: string;
+  photoFileName?: string;
 }
 
 type LocationApi = Omit<Location, "id"> & {
@@ -92,6 +98,8 @@ function normalizeLocation(l: LocationApi): Location {
     employeeCount: l.employeeCount,
     status: l.status,
     operatingHours: l.operatingHours,
+    photoDataUrl: (l as unknown as { photoDataUrl?: string }).photoDataUrl,
+    photoFileName: (l as unknown as { photoFileName?: string }).photoFileName,
   };
 }
 
@@ -114,17 +122,18 @@ const createLocationSchema = z.object({
   type: z.enum(["office", "warehouse", "facility", "site"]),
   address: z.string().min(1, "Address is required"),
   city: z.string().min(1, "City is required"),
-  phone: z.string().min(1, "Phone is required"),
-  manager: z.string().min(1, "Manager is required"),
-  employeeCount: z.coerce.number().min(0, "Must be 0 or greater"),
   status: z.enum(["active", "inactive"]),
-  operatingHours: z.string().min(1, "Operating hours are required"),
+  contactName: z.string().optional().default(""),
+  contactPhone: z.string().optional().default(""),
+  tasksCount: z.coerce.number().optional().default(0),
+  photoDataUrl: z.string().optional().default(""),
+  photoFileName: z.string().optional().default(""),
 });
 
 type CreateLocationValues = z.infer<typeof createLocationSchema>;
 
 // Animation variants
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -135,20 +144,20 @@ const containerVariants = {
   },
 };
 
-const headerVariants = {
+const headerVariants: Variants = {
   hidden: { opacity: 0, y: -20 },
   visible: {
     opacity: 1,
     y: 0,
     transition: {
-      type: "spring",
+      type: "spring" as const,
       stiffness: 400,
       damping: 30,
     },
   },
 };
 
-const statsCardVariants = {
+const statsCardVariants: Variants = {
   hidden: { opacity: 0, scale: 0.8, y: 20 },
   visible: (i: number) => ({
     opacity: 1,
@@ -156,7 +165,7 @@ const statsCardVariants = {
     y: 0,
     transition: {
       delay: i * 0.1,
-      type: "spring",
+      type: "spring" as const,
       stiffness: 400,
       damping: 30,
     },
@@ -165,20 +174,20 @@ const statsCardVariants = {
     y: -5,
     scale: 1.02,
     transition: {
-      type: "spring",
+      type: "spring" as const,
       stiffness: 400,
       damping: 30,
     },
   },
 };
 
-const searchVariants = {
+const searchVariants: Variants = {
   hidden: { opacity: 0, x: -20 },
   visible: {
     opacity: 1,
     x: 0,
     transition: {
-      type: "spring",
+      type: "spring" as const,
       stiffness: 400,
       damping: 30,
       delay: 0.3,
@@ -186,7 +195,7 @@ const searchVariants = {
   },
 };
 
-const locationCardVariants = {
+const locationCardVariants: Variants = {
   hidden: { opacity: 0, scale: 0.9, y: 30 },
   visible: (i: number) => ({
     opacity: 1,
@@ -194,7 +203,7 @@ const locationCardVariants = {
     y: 0,
     transition: {
       delay: i * 0.1 + 0.4,
-      type: "spring",
+      type: "spring" as const,
       stiffness: 400,
       damping: 30,
     },
@@ -204,7 +213,7 @@ const locationCardVariants = {
     scale: 1.02,
     boxShadow: "0 20px 40px -15px rgba(0,0,0,0.2)",
     transition: {
-      type: "spring",
+      type: "spring" as const,
       stiffness: 400,
       damping: 30,
     },
@@ -217,25 +226,25 @@ const locationCardVariants = {
   },
 };
 
-const iconVariants = {
+const iconVariants: Variants = {
   hover: {
     rotate: 15,
     scale: 1.1,
-    transition: { type: "spring", stiffness: 400, damping: 20 },
+    transition: { type: "spring" as const, stiffness: 400, damping: 20 },
   },
 };
 
-const buttonVariants = {
+const buttonVariants: Variants = {
   hover: {
     scale: 1.05,
-    transition: { type: "spring", stiffness: 400, damping: 30 },
+    transition: { type: "spring" as const, stiffness: 400, damping: 30 },
   },
   tap: {
     scale: 0.95,
   },
 };
 
-const mapPinVariants = {
+const mapPinVariants: Variants = {
   pulse: {
     scale: [1, 1.2, 1],
     transition: {
@@ -307,11 +316,12 @@ export default function Locations() {
       type: "office",
       address: "",
       city: "",
-      phone: "",
-      manager: "",
-      employeeCount: 0,
       status: "active",
-      operatingHours: "",
+      contactName: "",
+      contactPhone: "",
+      tasksCount: 0,
+      photoDataUrl: "",
+      photoFileName: "",
     },
   });
 
@@ -322,11 +332,12 @@ export default function Locations() {
       type: "office",
       address: "",
       city: "",
-      phone: "",
-      manager: "",
-      employeeCount: 0,
       status: "active",
-      operatingHours: "",
+      contactName: "",
+      contactPhone: "",
+      tasksCount: 0,
+      photoDataUrl: "",
+      photoFileName: "",
     },
   });
 
@@ -336,11 +347,13 @@ export default function Locations() {
       type: values.type,
       address: values.address,
       city: values.city,
-      phone: values.phone,
-      manager: values.manager,
-      employeeCount: values.employeeCount,
+      phone: values.contactPhone || "",
+      manager: values.contactName || "",
+      employeeCount: Number.isFinite(values.tasksCount) ? values.tasksCount : 0,
       status: values.status,
-      operatingHours: values.operatingHours,
+      operatingHours: "",
+      photoDataUrl: values.photoDataUrl || undefined,
+      photoFileName: values.photoFileName || undefined,
     };
 
     createLocationMutation.mutate(payload, {
@@ -373,11 +386,12 @@ export default function Locations() {
       type: location.type,
       address: location.address,
       city: location.city,
-      phone: location.phone,
-      manager: location.manager,
-      employeeCount: location.employeeCount,
       status: location.status,
-      operatingHours: location.operatingHours,
+      contactName: location.manager || "",
+      contactPhone: location.phone || "",
+      tasksCount: Number.isFinite(location.employeeCount) ? location.employeeCount : 0,
+      photoDataUrl: location.photoDataUrl || "",
+      photoFileName: location.photoFileName || "",
     });
     setIsEditOpen(true);
   };
@@ -843,7 +857,6 @@ export default function Locations() {
 
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onCreateLocation)} className="space-y-4">
-                {/* Form fields remain the same */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
@@ -935,7 +948,7 @@ export default function Locations() {
 
                   <FormField
                     control={form.control}
-                    name="phone"
+                    name="contactPhone"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Phone</FormLabel>
@@ -949,7 +962,7 @@ export default function Locations() {
 
                   <FormField
                     control={form.control}
-                    name="manager"
+                    name="contactName"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Manager</FormLabel>
@@ -963,7 +976,7 @@ export default function Locations() {
 
                   <FormField
                     control={form.control}
-                    name="employeeCount"
+                    name="tasksCount"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Employees</FormLabel>
@@ -975,19 +988,60 @@ export default function Locations() {
                     )}
                   />
 
-                  <FormField
-                    control={form.control}
-                    name="operatingHours"
-                    render={({ field }) => (
-                      <FormItem className="sm:col-span-2">
-                        <FormLabel>Operating Hours</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g. 8:00 AM - 6:00 PM" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="space-y-2 sm:col-span-2">
+                    <FormLabel>Location Photo</FormLabel>
+                    <div className="flex flex-col gap-2">
+                      {form.watch("photoDataUrl") ? (
+                        <div className="relative w-full h-32 rounded-lg overflow-hidden border">
+                          <img
+                            src={form.watch("photoDataUrl")}
+                            alt="Location preview"
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              form.setValue("photoDataUrl", "");
+                              form.setValue("photoFileName", "");
+                            }}
+                            className="absolute top-2 right-2 h-8 w-8 rounded-full bg-destructive text-white flex items-center justify-center hover:bg-destructive/90"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          className="w-full rounded-lg border border-dashed border-muted-foreground/25 px-3 py-6 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => {
+                            const input = document.getElementById("location-photo-upload") as HTMLInputElement | null;
+                            input?.click();
+                          }}
+                        >
+                          <ImageIcon className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                          <p className="text-xs sm:text-sm text-muted-foreground">Click to upload location photo</p>
+                          <p className="text-xs text-muted-foreground/60 mt-1">JPG, PNG up to 5MB</p>
+                        </div>
+                      )}
+                      <input
+                        id="location-photo-upload"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              form.setValue("photoDataUrl", String(reader.result || ""));
+                              form.setValue("photoFileName", file.name);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                          e.currentTarget.value = "";
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
 
                 <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -1011,322 +1065,238 @@ export default function Locations() {
         </DialogContent>
       </Dialog>
 
-      {/* View Dialog */}
-      <Dialog
-        open={isViewOpen}
-        onOpenChange={(open) => {
-          setIsViewOpen(open);
-          if (!open) setSelectedLocation(null);
-        }}
-      >
-        <DialogContent className="w-[95vw] sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Location Details</DialogTitle>
-            <DialogDescription>View location information.</DialogDescription>
-          </DialogHeader>
+      {/* Dialogs with animations */}
+      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
+        <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          >
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-primary" />
+                Edit Location
+              </DialogTitle>
+              <DialogDescription>Edit location details.</DialogDescription>
+            </DialogHeader>
 
-          {selectedLocation && (
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="space-y-4"
-            >
-              <div className="flex items-center gap-4">
-                <motion.div
-                  whileHover={{ scale: 1.1, rotate: 5 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 20 }}
-                  className={cn(
-                    "w-12 h-12 rounded-xl flex items-center justify-center",
-                    typeStyles[selectedLocation.type],
-                  )}
-                >
-                  {(() => {
-                    const Icon = typeIcons[selectedLocation.type];
-                    return <Icon className="w-6 h-6" />;
-                  })()}
-                </motion.div>
-                <div className="min-w-0">
-                  <p className="font-semibold text-foreground truncate">
-                    {selectedLocation.name}
-                  </p>
-                  <p className="text-sm text-muted-foreground capitalize truncate">
-                    {selectedLocation.type}
-                  </p>
+            <Form {...editForm}>
+              <form onSubmit={editForm.handleSubmit(onEditLocation)} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <FormField
+                    control={editForm.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem className="sm:col-span-2">
+                        <FormLabel>Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. Warehouse B" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
+                    name="type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Type</FormLabel>
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="office">Office</SelectItem>
+                            <SelectItem value="warehouse">Warehouse</SelectItem>
+                            <SelectItem value="facility">Facility</SelectItem>
+                            <SelectItem value="site">Site</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status</FormLabel>
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="inactive">Inactive</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
+                    name="address"
+                    render={({ field }) => (
+                      <FormItem className="sm:col-span-2">
+                        <FormLabel>Address</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Street address" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
+                    name="city"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>City</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. New York, NY 10001" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
+                    name="contactPhone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. +1 (555) 123-4567" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
+                    name="contactName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Manager</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. John Smith" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={editForm.control}
+                    name="tasksCount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Employees</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={0} {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="space-y-2 sm:col-span-2">
+                    <FormLabel>Location Photo</FormLabel>
+                    <div className="flex flex-col gap-2">
+                      {editForm.watch("photoDataUrl") ? (
+                        <div className="relative w-full h-32 rounded-lg overflow-hidden border">
+                          <img
+                            src={editForm.watch("photoDataUrl")}
+                            alt="Location preview"
+                            className="w-full h-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              editForm.setValue("photoDataUrl", "");
+                              editForm.setValue("photoFileName", "");
+                            }}
+                            className="absolute top-2 right-2 h-8 w-8 rounded-full bg-destructive text-white flex items-center justify-center hover:bg-destructive/90"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div
+                          className="w-full rounded-lg border border-dashed border-muted-foreground/25 px-3 py-6 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                          onClick={() => {
+                            const input = document.getElementById("edit-location-photo-upload") as HTMLInputElement | null;
+                            input?.click();
+                          }}
+                        >
+                          <ImageIcon className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                          <p className="text-xs sm:text-sm text-muted-foreground">Click to upload location photo</p>
+                          <p className="text-xs text-muted-foreground/60 mt-1">JPG, PNG up to 5MB</p>
+                        </div>
+                      )}
+                      <input
+                        id="edit-location-photo-upload"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              editForm.setValue("photoDataUrl", String(reader.result || ""));
+                              editForm.setValue("photoFileName", file.name);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                          e.currentTarget.value = "";
+                        }}
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <motion.div 
-                  className="space-y-1"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.1 }}
-                >
-                  <p className="text-muted-foreground">Status</p>
-                  <p className="text-foreground capitalize">{selectedLocation.status}</p>
-                </motion.div>
-                <motion.div 
-                  className="space-y-1"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.15 }}
-                >
-                  <p className="text-muted-foreground">Employees</p>
-                  <p className="text-foreground">{selectedLocation.employeeCount}</p>
-                </motion.div>
-                <motion.div 
-                  className="space-y-1 sm:col-span-2"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                >
-                  <p className="text-muted-foreground">Address</p>
-                  <p className="text-foreground">{selectedLocation.address}</p>
-                  <p className="text-foreground">{selectedLocation.city}</p>
-                </motion.div>
-                <motion.div 
-                  className="space-y-1"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.25 }}
-                >
-                  <p className="text-muted-foreground">Phone</p>
-                  <p className="text-foreground">{selectedLocation.phone}</p>
-                </motion.div>
-                <motion.div 
-                  className="space-y-1"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3 }}
-                >
-                  <p className="text-muted-foreground">Manager</p>
-                  <p className="text-foreground">{selectedLocation.manager}</p>
-                </motion.div>
-                <motion.div 
-                  className="space-y-1 sm:col-span-2"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.35 }}
-                >
-                  <p className="text-muted-foreground">Operating Hours</p>
-                  <p className="text-foreground">{selectedLocation.operatingHours}</p>
-                </motion.div>
-              </div>
-
-              <DialogFooter className="flex-col sm:flex-row gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsViewOpen(false)} className="w-full sm:w-auto">
-                  Close
-                </Button>
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="w-full sm:w-auto"
-                >
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      if (!selectedLocation) return;
-                      setIsViewOpen(false);
-                      openEdit(selectedLocation);
-                    }}
+                <DialogFooter className="flex-col sm:flex-row gap-2">
+                  <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)} className="w-full sm:w-auto">
+                    Cancel
+                  </Button>
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     className="w-full sm:w-auto"
                   >
-                    Edit
-                  </Button>
-                </motion.div>
-              </DialogFooter>
-            </motion.div>
-          )}
+                    <Button type="submit" className="gap-2 w-full sm:w-auto">
+                      <Save className="w-4 h-4" />
+                      Save
+                    </Button>
+                  </motion.div>
+                </DialogFooter>
+              </form>
+            </Form>
+          </motion.div>
         </DialogContent>
       </Dialog>
 
-      {/* Edit Dialog */}
-      <Dialog
-        open={isEditOpen}
-        onOpenChange={(open) => {
-          setIsEditOpen(open);
-          if (!open) setSelectedLocation(null);
-        }}
-      >
-        <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Location</DialogTitle>
-            <DialogDescription>Update location information.</DialogDescription>
-          </DialogHeader>
-
-          <Form {...editForm}>
-            <form onSubmit={editForm.handleSubmit(onEditLocation)} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Form fields remain the same as create form */}
-                <FormField
-                  control={editForm.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Warehouse B" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Type</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="office">Office</SelectItem>
-                          <SelectItem value="warehouse">Warehouse</SelectItem>
-                          <SelectItem value="facility">Facility</SelectItem>
-                          <SelectItem value="site">Site</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="active">Active</SelectItem>
-                          <SelectItem value="inactive">Inactive</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="address"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Address</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Street address" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="city"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>City</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. New York, NY 10001" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. +1 (555) 123-4567" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="manager"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Manager</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. John Smith" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="employeeCount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Employees</FormLabel>
-                      <FormControl>
-                        <Input type="number" min={0} {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="operatingHours"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Operating Hours</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. 8:00 AM - 6:00 PM" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <DialogFooter className="flex-col sm:flex-row gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)} className="w-full sm:w-auto">
-                  Cancel
-                </Button>
-                <motion.div
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="w-full sm:w-auto"
-                >
-                  <Button type="submit" className="w-full sm:w-auto">Save</Button>
-                </motion.div>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Alert Dialog */}
+      {/* Dialogs with animations */}
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <AlertDialogContent className="w-[95vw] sm:max-w-[425px]">
+        <AlertDialogContent>
           <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
           >
             <AlertDialogHeader>
