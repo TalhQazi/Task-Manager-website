@@ -7,6 +7,14 @@ import { toast } from "@/components/manger/ui/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getAuthState } from "@/lib/auth";
+import Cropper from "react-easy-crop";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/manger/ui/dialog";
 
 type SettingsItem = {
   fullName: string;
@@ -27,6 +35,8 @@ type SettingsItem = {
 
 export default function Settings() {
   const queryClient = useQueryClient();
+
+  const MAX_AVATAR_BYTES = 15 * 1024 * 1024;
 
   const settingsQuery = useQuery({
     queryKey: ["settings"],
@@ -76,6 +86,18 @@ export default function Settings() {
     confirmNewPassword: "",
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [isCropOpen, setIsCropOpen] = useState(false);
+  const [pendingImageSrc, setPendingImageSrc] = useState<string>("");
+  const [pendingFileName, setPendingFileName] = useState<string>("");
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
 
   useEffect(() => {
     // Only initialize draft if it's null and we have data
@@ -173,39 +195,131 @@ export default function Settings() {
     fileInputRef.current?.click();
   };
 
+  const onCropComplete = (_croppedArea: any, croppedAreaPixelsValue: any) => {
+    setCroppedAreaPixels(croppedAreaPixelsValue);
+  };
+
+  const createImage = (url: string) =>
+    new Promise<HTMLImageElement>((resolve, reject) => {
+      const image = new Image();
+      image.addEventListener("load", () => resolve(image));
+      image.addEventListener("error", (error) => reject(error));
+      image.setAttribute("crossOrigin", "anonymous");
+      image.src = url;
+    });
+
+  const getCroppedBlob = async (imageSrc: string, pixelCrop: { x: number; y: number; width: number; height: number }) => {
+    const image = await createImage(imageSrc);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Failed to create canvas context");
+
+    canvas.width = Math.max(1, Math.floor(pixelCrop.width));
+    canvas.height = Math.max(1, Math.floor(pixelCrop.height));
+
+    ctx.drawImage(
+      image,
+      pixelCrop.x,
+      pixelCrop.y,
+      pixelCrop.width,
+      pixelCrop.height,
+      0,
+      0,
+      pixelCrop.width,
+      pixelCrop.height,
+    );
+
+    const blob: Blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (b) => {
+          if (!b) reject(new Error("Failed to export cropped image"));
+          else resolve(b);
+        },
+        "image/png",
+        0.92,
+      );
+    });
+
+    return blob;
+  };
+
+  const uploadCroppedAvatar = async () => {
+    if (!pendingImageSrc || !croppedAreaPixels) {
+      toast({ title: "Crop required", description: "Please adjust the crop before saving." });
+      return;
+    }
+
+    try {
+      setAvatarUploadStatus("uploading");
+      setAvatarUploadMessage("Uploading image...");
+      toast({ title: "Uploading", description: "Uploading profile picture..." });
+
+      const blob = await getCroppedBlob(pendingImageSrc, croppedAreaPixels);
+      const file = new File([blob], pendingFileName || "avatar.png", { type: "image/png" });
+
+      avatarUploadMutation.mutate(file, {
+        onSuccess: (data) => {
+          const newAvatarUrl = data.avatarDataUrl || data.avatarUrl;
+          void queryClient.invalidateQueries({ queryKey: ["settings"] });
+          setAvatarUploadStatus("success");
+          setAvatarUploadMessage("Image uploaded successfully.");
+          toast({ title: "Uploaded", description: "Profile picture updated successfully." });
+          if (newAvatarUrl) {
+            setDraft((p: any) => ({ ...p, avatarUrl: newAvatarUrl }));
+          }
+          setIsCropOpen(false);
+          setPendingImageSrc("");
+          setPendingFileName("");
+          setZoom(1);
+          setCrop({ x: 0, y: 0 });
+          setCroppedAreaPixels(null);
+        },
+        onError: (err) => {
+          setAvatarUploadStatus("error");
+          setAvatarUploadMessage(err instanceof Error ? err.message : "Failed to upload image");
+          toast({
+            title: "Upload failed",
+            description: err instanceof Error ? err.message : "Failed to upload image",
+          });
+        },
+        onSettled: () => {
+          if (fileInputRef.current) fileInputRef.current.value = "";
+        },
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to crop image";
+      setAvatarUploadStatus("error");
+      setAvatarUploadMessage(msg);
+      toast({ title: "Crop failed", description: msg });
+    }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setAvatarUploadStatus("uploading");
-    setAvatarUploadMessage("Uploading image...");
-    toast({ title: "Uploading", description: "Uploading profile picture..." });
+    if (file.size > MAX_AVATAR_BYTES) {
+      setAvatarUploadStatus("error");
+      setAvatarUploadMessage("Image is too large. Maximum allowed size is 15MB.");
+      toast({ title: "File too large", description: "Please select an image up to 15MB." });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
 
-    avatarUploadMutation.mutate(file, {
-      onSuccess: (data) => {
-        const newAvatarUrl = data.avatarDataUrl || data.avatarUrl;
-        void queryClient.invalidateQueries({ queryKey: ["settings"] });
-        setAvatarUploadStatus("success");
-        setAvatarUploadMessage("Image uploaded successfully.");
-        toast({ title: "Uploaded", description: "Profile picture updated successfully." });
-        if (newAvatarUrl) {
-          setDraft((p: any) => ({ ...p, avatarUrl: newAvatarUrl }));
-        }
-      },
-      onError: (err) => {
-        setAvatarUploadStatus("error");
-        setAvatarUploadMessage(
-          err instanceof Error ? err.message : "Failed to upload image"
-        );
-        toast({
-          title: "Upload failed",
-          description: err instanceof Error ? err.message : "Failed to upload image",
-        });
-      },
-      onSettled: () => {
-        if (fileInputRef.current) fileInputRef.current.value = "";
-      },
-    });
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = String(reader.result || "");
+      setPendingImageSrc(result);
+      setPendingFileName(file.name);
+      setZoom(1);
+      setCrop({ x: 0, y: 0 });
+      setCroppedAreaPixels(null);
+      setIsCropOpen(true);
+    };
+    reader.readAsDataURL(file);
+
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    return;
   };
 
   const initials = draft?.fullName
@@ -238,6 +352,75 @@ export default function Settings() {
           </div>
         </div>
 
+        <Dialog open={isCropOpen} onOpenChange={setIsCropOpen}>
+          <DialogContent className="w-[95vw] sm:max-w-[520px]">
+            <DialogHeader>
+              <DialogTitle>Crop profile picture</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="relative w-full h-72 bg-muted rounded-lg overflow-hidden">
+                {pendingImageSrc && (
+                  <Cropper
+                    image={pendingImageSrc}
+                    crop={crop}
+                    zoom={zoom}
+                    aspect={1}
+                    cropShape="round"
+                    showGrid={false}
+                    onCropChange={setCrop}
+                    onZoomChange={setZoom}
+                    onCropComplete={onCropComplete}
+                  />
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Zoom</span>
+                  <span className="text-sm text-muted-foreground">{Math.round(zoom * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min={1}
+                  max={3}
+                  step={0.01}
+                  value={zoom}
+                  onChange={(e) => setZoom(Number(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+            </div>
+
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full sm:w-auto"
+                onClick={() => {
+                  setIsCropOpen(false);
+                  setPendingImageSrc("");
+                  setPendingFileName("");
+                  setZoom(1);
+                  setCrop({ x: 0, y: 0 });
+                  setCroppedAreaPixels(null);
+                }}
+                disabled={avatarUploadMutation.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="w-full sm:w-auto"
+                onClick={uploadCroppedAvatar}
+                disabled={avatarUploadMutation.isPending}
+              >
+                Save
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* Profile Picture */}
         <div className="flex items-center gap-4 mb-6">
           <div className="relative">
@@ -252,7 +435,7 @@ export default function Settings() {
             </Avatar>
             <button
               onClick={handleAvatarClick}
-              disabled={avatarUploadMutation.isPending}
+              disabled={avatarUploadMutation.isPending || isCropOpen}
               className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-primary text-white hover:bg-primary/90 transition-colors"
               title="Change profile picture"
             >

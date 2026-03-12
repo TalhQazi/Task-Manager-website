@@ -168,14 +168,14 @@ export function Header({ onMenuClick }: HeaderProps) {
                 <Button
                   type="button"
                   variant="ghost"
-                  className="hidden sm:inline-flex items-center gap-2 h-9 px-2 rounded-full bg-white/10 hover:bg-white/20"
+                  className="hidden sm:inline-flex items-center justify-center h-12 w-12 p-0 rounded-full bg-transparent hover:bg-transparent"
                   aria-label="Account menu"
                 >
-                  <Avatar className="h-7 w-7 border border-white/70">
+                  <Avatar className="h-12 w-12 border border-white/70">
                     {avatarUrl ? (
-                      <AvatarImage src={avatarUrl} alt={fullName} />
+                      <AvatarImage src={avatarUrl} alt={fullName} className="object-cover" />
                     ) : (
-                      <AvatarFallback className="bg-white/20 text-xs font-semibold">{initials}</AvatarFallback>
+                      <AvatarFallback className="bg-white/20 text-sm font-semibold">{initials}</AvatarFallback>
                     )}
                   </Avatar>
                 </Button>

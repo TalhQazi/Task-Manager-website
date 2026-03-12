@@ -8,6 +8,14 @@ import { Camera, User, Loader2, CheckCircle, XCircle, AlertCircle, Upload, FileI
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import Cropper from "react-easy-crop";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/admin/ui/dialog";
 
 type UploadStatus = "idle" | "uploading" | "success" | "error";
 
@@ -62,6 +70,7 @@ function loadSettings(): SettingsState {
 
 export default function Settings() {
   const [settings, setSettings] = useState<SettingsState>(() => loadSettings());
+
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [avatarUpload, setAvatarUpload] = useState<AvatarUploadState>({
@@ -77,6 +86,132 @@ export default function Settings() {
   const [passwordSaving, setPasswordSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const MAX_AVATAR_BYTES = 15 * 1024 * 1024;
+
+  const [isCropOpen, setIsCropOpen] = useState(false);
+  const [pendingImageSrc, setPendingImageSrc] = useState<string>("");
+  const [pendingFileName, setPendingFileName] = useState<string>("");
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+
+  const onCropComplete = (_croppedArea: any, croppedAreaPixelsValue: any) => {
+    setCroppedAreaPixels(croppedAreaPixelsValue);
+  };
+
+  const createImage = (url: string) =>
+    new Promise<HTMLImageElement>((resolve, reject) => {
+      const image = new Image();
+      image.addEventListener("load", () => resolve(image));
+      image.addEventListener("error", (error) => reject(error));
+      image.setAttribute("crossOrigin", "anonymous");
+      image.src = url;
+    });
+
+  const getCroppedBlob = async (imageSrc: string, pixelCrop: { x: number; y: number; width: number; height: number }) => {
+    const image = await createImage(imageSrc);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Failed to create canvas context");
+
+    canvas.width = Math.max(1, Math.floor(pixelCrop.width));
+    canvas.height = Math.max(1, Math.floor(pixelCrop.height));
+
+    ctx.drawImage(
+      image,
+      pixelCrop.x,
+      pixelCrop.y,
+      pixelCrop.width,
+      pixelCrop.height,
+      0,
+      0,
+      pixelCrop.width,
+      pixelCrop.height,
+    );
+
+    const blob: Blob = await new Promise((resolve, reject) => {
+      canvas.toBlob(
+        (b) => {
+          if (!b) reject(new Error("Failed to export cropped image"));
+          else resolve(b);
+        },
+        "image/png",
+        0.92,
+      );
+    });
+
+    return blob;
+  };
+
+  const uploadCroppedAvatar = async () => {
+    if (!pendingImageSrc || !croppedAreaPixels) {
+      setAvatarUpload({ status: "error", message: "Please adjust the crop before saving." });
+      setTimeout(() => setAvatarUpload({ status: "idle", message: null }), 4000);
+      return;
+    }
+
+    setAvatarUpload({ status: "uploading", message: "Profile picture uploading..." });
+
+    try {
+      const blob = await getCroppedBlob(pendingImageSrc, croppedAreaPixels);
+      const file = new File([blob], pendingFileName || "avatar.png", { type: "image/png" });
+
+      const formData = new FormData();
+      formData.append("avatar", file);
+
+      const data = await apiFetch<{ avatarDataUrl?: string; avatarUrl?: string }>(
+        "/api/settings/avatar",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      if (data.avatarDataUrl || data.avatarUrl) {
+        const newAvatarUrl = data.avatarDataUrl || data.avatarUrl;
+        setSettings((prev) => ({ ...prev, avatarUrl: newAvatarUrl || "" }));
+        localStorage.setItem(
+          SETTINGS_STORAGE_KEY,
+          JSON.stringify({ ...loadSettings(), avatarUrl: newAvatarUrl })
+        );
+        setAvatarUpload({ status: "success", message: "Profile picture uploaded successfully!" });
+      } else {
+        setAvatarUpload({ status: "error", message: "Failed to upload profile picture. Please try again." });
+      }
+
+      setIsCropOpen(false);
+      setPendingImageSrc("");
+      setPendingFileName("");
+      setZoom(1);
+      setCrop({ x: 0, y: 0 });
+      setCroppedAreaPixels(null);
+
+      await backendSettingsQuery.refetch();
+    } catch (err: any) {
+      console.error("Avatar upload failed:", err);
+      let errorMessage = "Failed to upload profile picture. Please try again.";
+
+      if (err?.message?.includes("size") || err?.message?.includes("large")) {
+        errorMessage = "Image size is too large. Maximum allowed size is 15MB";
+      } else if (err?.message?.includes("format") || err?.message?.includes("type")) {
+        errorMessage = "Invalid image format. Please upload JPEG, PNG, or GIF file.";
+      } else if (err?.message) {
+        errorMessage = err.message;
+      }
+
+      setAvatarUpload({ status: "error", message: errorMessage });
+    } finally {
+      setTimeout(() => {
+        setAvatarUpload({ status: "idle", message: null });
+      }, 4000);
+    }
+  };
+
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -91,68 +226,30 @@ export default function Settings() {
       return;
     }
 
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
-    if (file.size > maxSize) {
+    // Validate file size (max 15MB)
+    if (file.size > MAX_AVATAR_BYTES) {
       setAvatarUpload({
         status: "error",
-        message: "Image size is too large. Maximum allowed size is 5MB",
+        message: "Image size is too large. Maximum allowed size is 15MB",
       });
       setTimeout(() => setAvatarUpload({ status: "idle", message: null }), 4000);
       return;
     }
 
-    setAvatarUpload({ status: "uploading", message: "Profile picture uploading..." });
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = String(reader.result || "");
+      setPendingImageSrc(result);
+      setPendingFileName(file.name);
+      setZoom(1);
+      setCrop({ x: 0, y: 0 });
+      setCroppedAreaPixels(null);
+      setIsCropOpen(true);
+    };
+    reader.readAsDataURL(file);
 
-    const formData = new FormData();
-    formData.append("avatar", file);
-
-    try {
-      const data = await apiFetch<{ avatarDataUrl?: string; avatarUrl?: string }>(
-        "/api/settings/avatar",
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-
-      if (data.avatarDataUrl || data.avatarUrl) {
-        const newAvatarUrl = data.avatarDataUrl || data.avatarUrl;
-        setSettings((prev) => ({ ...prev, avatarUrl: newAvatarUrl }));
-        localStorage.setItem(
-          SETTINGS_STORAGE_KEY,
-          JSON.stringify({ ...loadSettings(), avatarUrl: newAvatarUrl })
-        );
-        setAvatarUpload({
-          status: "success",
-          message: "Profile picture uploaded successfully!",
-        });
-      } else {
-        setAvatarUpload({
-          status: "error",
-          message: "Failed to upload profile picture. Please try again.",
-        });
-      }
-      await backendSettingsQuery.refetch();
-    } catch (err: any) {
-      console.error("Avatar upload failed:", err);
-      let errorMessage = "Failed to upload profile picture. Please try again.";
-      
-      if (err?.message?.includes("size") || err?.message?.includes("large")) {
-        errorMessage = "Image size is too large. Maximum allowed size is 5MB";
-      } else if (err?.message?.includes("format") || err?.message?.includes("type")) {
-        errorMessage = "Invalid image format. Please upload JPEG, PNG, or GIF file.";
-      } else if (err?.message) {
-        errorMessage = err.message;
-      }
-      
-      setAvatarUpload({ status: "error", message: errorMessage });
-    } finally {
-      // Clear the message after 4 seconds, but keep the status briefly
-      setTimeout(() => {
-        setAvatarUpload({ status: "idle", message: null });
-      }, 4000);
-    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    return;
   };
 
   const initials =
@@ -307,7 +404,7 @@ export default function Settings() {
                   <div className="relative">
                     <Avatar className="h-20 w-20 border-2 border-border">
                       {settings.avatarUrl && avatarUpload.status !== "uploading" ? (
-                        <AvatarImage src={settings.avatarUrl} alt={settings.fullName || "Admin"} />
+                        <AvatarImage src={settings.avatarUrl} alt={settings.fullName || "Admin"} className="object-cover" />
                       ) : (
                         <AvatarFallback className="text-2xl bg-primary/10 text-primary">
                           {avatarUpload.status === "uploading" ? (
@@ -347,7 +444,7 @@ export default function Settings() {
                         : "Click the camera icon to upload"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Max size: 5MB (JPEG, PNG, GIF)
+                      Max size: 15MB (JPEG, PNG, GIF)
                     </p>
                   </div>
                 </div>
@@ -376,6 +473,75 @@ export default function Settings() {
                   </div>
                 )}
               </div>
+
+              <Dialog open={isCropOpen} onOpenChange={setIsCropOpen}>
+                <DialogContent className="w-[95vw] sm:max-w-[520px]">
+                  <DialogHeader>
+                    <DialogTitle>Crop profile picture</DialogTitle>
+                  </DialogHeader>
+
+                  <div className="space-y-4">
+                    <div className="relative w-full h-72 bg-muted rounded-lg overflow-hidden">
+                      {pendingImageSrc && (
+                        <Cropper
+                          image={pendingImageSrc}
+                          crop={crop}
+                          zoom={zoom}
+                          aspect={1}
+                          cropShape="round"
+                          showGrid={false}
+                          onCropChange={setCrop}
+                          onZoomChange={setZoom}
+                          onCropComplete={onCropComplete}
+                        />
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Zoom</span>
+                        <span className="text-sm text-muted-foreground">{Math.round(zoom * 100)}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min={1}
+                        max={3}
+                        step={0.01}
+                        value={zoom}
+                        onChange={(e) => setZoom(Number(e.target.value))}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+
+                  <DialogFooter className="flex-col sm:flex-row gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full sm:w-auto"
+                      onClick={() => {
+                        setIsCropOpen(false);
+                        setPendingImageSrc("");
+                        setPendingFileName("");
+                        setZoom(1);
+                        setCrop({ x: 0, y: 0 });
+                        setCroppedAreaPixels(null);
+                      }}
+                      disabled={avatarUpload.status === "uploading"}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      className="w-full sm:w-auto"
+                      onClick={uploadCroppedAvatar}
+                      disabled={avatarUpload.status === "uploading"}
+                    >
+                      Save
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
 
               <div className="space-y-1.5 sm:space-y-2">
                 <label className="block text-xs sm:text-sm font-medium">Full Name</label>

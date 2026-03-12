@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/admin/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/admin/ui/avatar";
 import {
   Select,
   SelectContent,  
@@ -67,6 +67,7 @@ interface User {
   lastLogin: string;
   status: "active" | "inactive" | "pending";
   createdAt: string;
+  avatarUrl?: string;
 }
 
 type BackendUser = {
@@ -79,6 +80,8 @@ type BackendUser = {
   status?: "active" | "inactive" | "pending";
   createdAt?: string;
   updatedAt?: string;
+  avatarUrl?: string;
+  avatarDataUrl?: string;
 };
 
 // Enhanced color scheme with beautiful gradients
@@ -192,6 +195,7 @@ const Users = () => {
           lastLogin: "-",
           status: u.status || ("active" as const),
           createdAt: (u.createdAt || new Date().toISOString()).split("T")[0],
+          avatarUrl: (u as any).avatarDataUrl || (u as any).avatarUrl || "",
         }));
 
         if (!mounted) return;
@@ -334,6 +338,7 @@ const Users = () => {
       lastLogin: "-",
       status: u.status || ("active" as const),
       createdAt: (u.createdAt || new Date().toISOString()).split("T")[0],
+      avatarUrl: (u as any).avatarDataUrl || (u as any).avatarUrl || "",
     }));
     setUsers(normalized);
   };
@@ -805,9 +810,13 @@ const Users = () => {
                                 transition={{ type: "spring", stiffness: 300, damping: 10 }}
                               >
                                 <Avatar className="h-10 w-10 flex-shrink-0 ring-2 ring-primary/20">
-                                  <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-xs">
-                                    {user.initials}
-                                  </AvatarFallback>
+                                  {user.avatarUrl ? (
+                                    <AvatarImage src={user.avatarUrl} alt={user.name} className="object-cover" />
+                                  ) : (
+                                    <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-xs">
+                                      {user.initials}
+                                    </AvatarFallback>
+                                  )}
                                 </Avatar>
                               </motion.div>
                               <div className="min-w-0 flex-1">
@@ -956,9 +965,13 @@ const Users = () => {
                                     transition={{ type: "spring", stiffness: 300, damping: 10 }}
                                   >
                                     <Avatar className="h-8 w-8 md:h-9 md:w-9 flex-shrink-0 ring-2 ring-primary/20">
-                                      <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-xs md:text-sm">
-                                        {user.initials}
-                                      </AvatarFallback>
+                                      {user.avatarUrl ? (
+                                        <AvatarImage src={user.avatarUrl} alt={user.name} className="object-cover" />
+                                      ) : (
+                                        <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-xs md:text-sm">
+                                          {user.initials}
+                                        </AvatarFallback>
+                                      )}
                                     </Avatar>
                                   </motion.div>
                                   <div className="min-w-0">
@@ -1070,9 +1083,13 @@ const Users = () => {
                   transition={{ type: "spring", stiffness: 300, damping: 10 }}
                 >
                   <Avatar className="h-12 w-12 sm:h-14 sm:w-14 flex-shrink-0 ring-2 ring-primary/20">
-                    <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-sm sm:text-base">
-                      {selectedUser.initials}
-                    </AvatarFallback>
+                    {selectedUser.avatarUrl ? (
+                      <AvatarImage src={selectedUser.avatarUrl} alt={selectedUser.name} className="object-cover" />
+                    ) : (
+                      <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-sm sm:text-base">
+                        {selectedUser.initials}
+                      </AvatarFallback>
+                    )}
                   </Avatar>
                 </motion.div>
                 <div className="min-w-0">

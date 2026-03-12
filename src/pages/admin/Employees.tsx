@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/admin/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/admin/ui/avatar";
 import { useForm } from "react-hook-form";
 import {
   Select,
@@ -76,6 +76,7 @@ interface Employee {
   payRate: string;
   hireDate: string;
   shift?: string;
+  avatarUrl?: string;
 }
 
 interface Company {
@@ -1142,9 +1143,13 @@ const Employees = () => {
                                 transition={{ type: "spring", stiffness: 300, damping: 10 }}
                               >
                                 <Avatar className="h-10 w-10 flex-shrink-0 ring-2 ring-primary/20">
-                                  <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-xs">
-                                    {employee.initials}
-                                  </AvatarFallback>
+                                  {employee.avatarUrl ? (
+                                    <AvatarImage src={employee.avatarUrl} alt={employee.name} className="object-cover" />
+                                  ) : (
+                                    <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-xs">
+                                      {employee.initials}
+                                    </AvatarFallback>
+                                  )}
                                 </Avatar>
                               </motion.div>
                               <div className="min-w-0 flex-1">
@@ -1339,9 +1344,13 @@ const Employees = () => {
                                     transition={{ type: "spring", stiffness: 300, damping: 10 }}
                                   >
                                     <Avatar className="h-8 w-8 md:h-9 md:w-9 flex-shrink-0 ring-2 ring-primary/20">
-                                      <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-sm md:text-base">
-                                        {employee.initials}
-                                      </AvatarFallback>
+                                      {employee.avatarUrl ? (
+                                        <AvatarImage src={employee.avatarUrl} alt={employee.name} className="object-cover" />
+                                      ) : (
+                                        <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-sm md:text-base">
+                                          {employee.initials}
+                                        </AvatarFallback>
+                                      )}
                                     </Avatar>
                                   </motion.div>
                                   <div className="min-w-0">
@@ -1494,9 +1503,13 @@ const Employees = () => {
                     transition={{ type: "spring", stiffness: 300, damping: 10 }}
                   >
                     <Avatar className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 ring-2 ring-primary/20">
-                      <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-sm sm:text-base">
-                        {selectedEmployee.initials}
-                      </AvatarFallback>
+                      {selectedEmployee.avatarUrl ? (
+                        <AvatarImage src={selectedEmployee.avatarUrl} alt={selectedEmployee.name} className="object-cover" />
+                      ) : (
+                        <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-sm sm:text-base">
+                          {selectedEmployee.initials}
+                        </AvatarFallback>
+                      )}
                     </Avatar>
                   </motion.div>
                   <div>
