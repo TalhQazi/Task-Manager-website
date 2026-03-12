@@ -77,6 +77,7 @@ import {
   Eye,
   Edit,
   Trash2,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch } from "@/lib/manger/api";
@@ -159,10 +160,10 @@ const createTaskSchema = z.object({
   description: z.string().min(1, "Description is required"),
   priority: z.enum(["low", "medium", "high"]),
   status: z.enum(["pending", "in-progress", "completed", "overdue"]),
-  dueDate: z.string().min(1, "Due date is required"),
+  dueDate: z.string().optional(),
   dueTime: z.string().optional(),
   location: z.string().optional(),
-  assignees: z.array(z.string()).default([]),
+  assignees: z.array(z.string()).optional().default([]),
 });
 
 type CreateTaskValues = z.infer<typeof createTaskSchema>;
@@ -178,6 +179,8 @@ export default function Tasks() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [attachmentNoteDraft, setAttachmentNoteDraft] = useState<string>("");
+  const [isCreating, setIsCreating] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<{title?: string; description?: string}>({});
   const [assigneesOpen, setAssigneesOpen] = useState(false);
   const [editAssigneesOpen, setEditAssigneesOpen] = useState(false);
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
@@ -281,9 +284,23 @@ export default function Tasks() {
     },
   });
 
+  const validateForm = () => {
+    const errors: {title?: string; description?: string} = {};
+    if (!formData.title.trim()) {
+      errors.title = "Task title is required";
+    }
+    if (!formData.description.trim()) {
+      errors.description = "Task description is required";
+    }
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleCreateTask = async () => {
-    if (!formData.title || selectedAssignees.length === 0 || !formData.dueDate) return;
+    if (!validateForm()) return;
+    
     try {
+      setIsCreating(true);
       setApiError(null);
       const newTask = {
         id: `TSK-${Date.now().toString().slice(-6)}`,
@@ -334,6 +351,8 @@ export default function Tasks() {
       }
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
       setIsCreateOpen(false);
+      setIsCreating(false);
+      setValidationErrors({});
       setFormData({
         title: "",
         description: "",
@@ -352,6 +371,7 @@ export default function Tasks() {
         description: "Your task has been added to the list.",
       });
     } catch (e) {
+      setIsCreating(false);
       setApiError(e instanceof Error ? e.message : "Failed to create task");
       toast({
         title: "Failed to create task",
@@ -596,27 +616,40 @@ export default function Tasks() {
           <form onSubmit={(e) => { e.preventDefault(); void handleCreateTask(); }} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2 space-y-1.5">
-                <label className="text-sm font-medium">Title</label>
+                <label className="text-sm font-medium">Title *</label>
                 <Input
                   placeholder="Task title"
                   value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, title: e.target.value });
+                    if (validationErrors.title) setValidationErrors({...validationErrors, title: undefined});
+                  }}
+                  className={validationErrors.title ? 'border-destructive ring-1 ring-destructive' : ''}
                 />
+                {validationErrors.title && (
+                  <p className="text-xs text-destructive">{validationErrors.title}</p>
+                )}
               </div>
 
               <div className="sm:col-span-2 space-y-1.5">
-                <label className="text-sm font-medium">Description</label>
+                <label className="text-sm font-medium">Description *</label>
                 <Textarea
                   placeholder="Short description"
-                  className="min-h-[90px]"
+                  className={`min-h-[90px] ${validationErrors.description ? 'border-destructive ring-1 ring-destructive' : ''}`}
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, description: e.target.value });
+                    if (validationErrors.description) setValidationErrors({...validationErrors, description: undefined});
+                  }}
                 />
+                {validationErrors.description && (
+                  <p className="text-xs text-destructive">{validationErrors.description}</p>
+                )}
               </div>
 
               {/* Multi-Assignees */}
                 <div className="sm:col-span-2 space-y-1.5">
-                  <label className="text-sm font-medium">Assignees *</label>
+                  <label className="text-sm font-medium">Assignees</label>
                   <Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}>
                     <PopoverTrigger asChild>
                       <Button
@@ -671,9 +704,6 @@ export default function Tasks() {
                       </Command>
                     </PopoverContent>
                   </Popover>
-                  {selectedAssignees.length === 0 && (
-                    <p className="text-xs text-destructive">At least one assignee is required</p>
-                  )}
                 </div>
 
                 {/* Location */}
@@ -818,14 +848,24 @@ export default function Tasks() {
                     setSelectedAssignees([]);
                     setAttachmentFile(null);
                     setAttachmentNoteDraft("");
+                    setValidationErrors({});
                   }}
                   className="w-full sm:w-auto"
                 >
                   Cancel
                 </Button>
-                <Button type="submit" className="gap-2 w-full sm:w-auto">
-                  <Plus className="w-4 h-4" />
-                  Create
+                <Button type="submit" className="gap-2 w-full sm:w-auto" disabled={isCreating}>
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-4 h-4" />
+                      Create
+                    </>
+                  )}
                 </Button>
               </DialogFooter>
             </form>

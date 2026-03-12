@@ -66,6 +66,8 @@ import {
   AlertCircle,
   Sparkles,
   Users,
+  X,
+  Loader2,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import { apiFetch, createResource, deleteResource, listResource, updateResource } from "@/lib/admin/apiClient";
@@ -248,6 +250,8 @@ const Tasks = () => {
   });
 
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<{title?: string; description?: string}>({});
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -343,9 +347,23 @@ const Tasks = () => {
     return displayIdByTaskId.get(taskId) || taskId;
   };
 
+  const validateForm = () => {
+    const errors: {title?: string; description?: string} = {};
+    if (!formData.title.trim()) {
+      errors.title = "Task title is required";
+    }
+    if (!formData.description.trim()) {
+      errors.description = "Task description is required";
+    }
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleCreateTask = async () => {
-    if (!formData.title || formData.assignees.length === 0 || !formData.dueDate) return;
+    if (!validateForm()) return;
+    
     try {
+      setIsCreating(true);
       setApiError(null);
       const newTask: Task = {
         id: `TSK-${Date.now().toString().slice(-6)}`,
@@ -391,6 +409,8 @@ const Tasks = () => {
       }
       await refreshTasks();
       setCreateTaskOpen(false);
+      setIsCreating(false);
+      setValidationErrors({});
       setFormData({
         title: "",
         description: "",
@@ -404,6 +424,7 @@ const Tasks = () => {
       });
       setAttachmentFile(null);
     } catch (e) {
+      setIsCreating(false);
       setApiError(e instanceof Error ? e.message : "Failed to create task");
     }
   };
@@ -723,12 +744,29 @@ const Tasks = () => {
                 className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto"
               >
                 <DialogHeader className="space-y-1.5 sm:space-y-2">
-                  <DialogTitle
-                    className="text-lg sm:text-xl bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent"
-                  >
-                    Create New Task
-                  </DialogTitle>
-                  <DialogDescription className="text-xs sm:text-sm">
+                  <div className="flex items-center justify-between">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setCreateTaskOpen(false)}
+                      className="h-8 w-8 rounded-full hover:bg-muted"
+                    >
+                      <X className="h-5 w-5" />
+                    </Button>
+                    <DialogTitle
+                      className="text-lg sm:text-xl bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent"
+                    >
+                      Create New Task
+                    </DialogTitle>
+                    <Button
+                      onClick={handleCreateTask}
+                      className="bg-gradient-to-r from-primary to-primary/50 text-white h-9 px-4 -mt-3 -mr-3 text-sm shadow-lg hover:shadow-xl transition-all duration-300"
+                    >
+                      <Plus className="h-4 w-4 mr-1" />
+                      Create
+                    </Button>
+                  </div>
+                  <DialogDescription className="text-xs sm:text-sm text-center">
                     Create and assign a new task to team members
                   </DialogDescription>
                 </DialogHeader>
@@ -747,24 +785,35 @@ const Tasks = () => {
                     <input
                       type="text"
                       value={formData.title}
-                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, title: e.target.value });
+                        if (validationErrors.title) setValidationErrors({...validationErrors, title: undefined});
+                      }}
                       placeholder="e.g., HVAC Filter Replacement"
-                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                      required
+                      className={`w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all ${validationErrors.title ? 'border-destructive ring-1 ring-destructive' : ''}`}
                     />
+                    {validationErrors.title && (
+                      <p className="text-xs text-destructive mt-1">{validationErrors.title}</p>
+                    )}
                   </div>
 
                   {/* Description */}
                   <div>
                     <label className="block text-xs sm:text-sm font-medium mb-1.5">
-                      Description
+                      Description *
                     </label>
                     <textarea
                       value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, description: e.target.value });
+                        if (validationErrors.description) setValidationErrors({...validationErrors, description: undefined});
+                      }}
                       placeholder="Provide task details..."
-                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base min-h-[80px] sm:min-h-24 resize-none focus:ring-2 focus:ring-primary/20 transition-all"
+                      className={`w-full rounded-lg border px-3 py-2 text-sm sm:text-base min-h-[80px] sm:min-h-24 resize-none focus:ring-2 focus:ring-primary/20 transition-all ${validationErrors.description ? 'border-destructive ring-1 ring-destructive' : ''}`}
                     />
+                    {validationErrors.description && (
+                      <p className="text-xs text-destructive mt-1">{validationErrors.description}</p>
+                    )}
                   </div>
 
                   {/* Assignees */}
@@ -944,31 +993,41 @@ const Tasks = () => {
                   </div>
                 </motion.form>
 
-                <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
+                <DialogFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-3">
+                  <div className="order-2 sm:order-1">
                     <Button 
                       variant="outline" 
                       onClick={() => setCreateTaskOpen(false)}
-                      className="w-full sm:w-auto order-2 sm:order-1"
+                      className="h-10 px-6"
                     >
                       Cancel
                     </Button>
-                  </motion.div>
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <Button 
-                      onClick={handleCreateTask} 
-                      className="bg-gradient-to-r from-primary to-primary/80 text-white w-full sm:w-auto order-1 sm:order-2 shadow-lg hover:shadow-xl transition-all duration-300"
+                  </div>
+                  <div className="order-1 sm:order-2 flex-1 flex justify-center">
+                    <motion.div
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                     >
-                      <Plus className="h-4 w-4 mr-2 flex-shrink-0" />
-                      Create Task
-                    </Button>
-                  </motion.div>
+                      <Button 
+                        onClick={handleCreateTask} 
+                        disabled={isCreating}
+                        className="bg-gradient-to-r from-primary to-primary/80 text-white h-14 px-12 text-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-70"
+                      >
+                        {isCreating ? (
+                          <>
+                            <Loader2 className="h-6 w-6 mr-3 flex-shrink-0 animate-spin" />
+                            Creating...
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="h-6 w-6 mr-3 flex-shrink-0" />
+                            Create Task
+                          </>
+                        )}
+                      </Button>
+                    </motion.div>
+                  </div>
+                  <div className="order-3 sm:order-3 w-[100px] sm:w-[140px]" />
                 </DialogFooter>
               </DialogContent>
             </Dialog>
