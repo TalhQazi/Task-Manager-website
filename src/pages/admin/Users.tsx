@@ -821,7 +821,6 @@ const Users = () => {
                               </motion.div>
                               <div className="min-w-0 flex-1">
                                 <p className="font-medium text-sm truncate">{user.name}</p>
-                                <p className="text-xs text-muted-foreground">{user.id}</p>
                               </div>
                             </div>
                             <DropdownMenu>
@@ -978,7 +977,6 @@ const Users = () => {
                                     <p className="font-medium text-sm md:text-base truncate max-w-[150px] lg:max-w-[200px]">
                                       {user.name}
                                     </p>
-                                    <p className="text-xs text-muted-foreground">{user.id}</p>
                                   </div>
                                 </div>
                               </TableCell>
@@ -1094,7 +1092,6 @@ const Users = () => {
                 </motion.div>
                 <div className="min-w-0">
                   <p className="font-semibold text-base sm:text-lg break-words">{selectedUser.name}</p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">{selectedUser.id}</p>
                 </div>
               </div>
               
@@ -1411,7 +1408,6 @@ const Users = () => {
             >
               <p className="text-sm sm:text-base font-medium break-words">{selectedUser.name}</p>
               <p className="text-xs sm:text-sm text-muted-foreground break-words">{selectedUser.email}</p>
-              <p className="text-xs text-muted-foreground break-words mt-1">{selectedUser.id}</p>
             </motion.div>
           )}
           <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">

@@ -223,6 +223,13 @@ export default function Tasks() {
     return employees.filter((e) => e.status === "active");
   }, [employees]);
 
+  useEffect(() => {
+    if (isCreateOpen) {
+      const today = new Date().toISOString().split("T")[0];
+      setFormData((prev) => ({ ...prev, dueDate: today }));
+    }
+  }, [isCreateOpen]);
+
   // Admin-style form state
   const [formData, setFormData] = useState({
     title: "",
@@ -753,13 +760,14 @@ export default function Tasks() {
                   </Select>
                 </div>
 
-                {/* Due Date */}
+                {/* Created */}
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Due Date</label>
+                  <label className="text-sm font-medium">Created</label>
                   <Input
                     type="date"
                     value={formData.dueDate}
-                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                    disabled
+                    className="bg-muted/50 cursor-not-allowed"
                   />
                 </div>
 
@@ -1300,7 +1308,7 @@ export default function Tasks() {
                 <th>Assignees</th>
                 <th>Priority</th>
                 <th>Status</th>
-                <th>Due Date</th>
+                <th>Created</th>
                 <th>Location</th>
                 <th>Print</th>
                 <th className="w-12"></th>
@@ -1373,7 +1381,7 @@ export default function Tasks() {
                   <td>
                     <div className="flex items-center gap-1.5 text-muted-foreground whitespace-nowrap">
                       <Calendar className="w-3.5 h-3.5" />
-                      <span>{new Date(task.dueDate).toLocaleDateString()}</span>
+                      <span>{new Date(task.createdAt).toLocaleDateString()}</span>
                     </div>
                   </td>
                   <td>

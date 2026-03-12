@@ -538,7 +538,7 @@ export default function Employees() {
             View and manage your team members
           </motion.p>
         </div>
-        <motion.div
+        {/* <motion.div
           variants={buttonVariants}
           whileHover="hover"
           whileTap="tap"
@@ -547,7 +547,7 @@ export default function Employees() {
             <UserPlus className="w-4 h-4" />
             Add Employee
           </Button>
-        </motion.div>
+        </motion.div> */}
       </motion.div>
 
       {/* Filters */}
