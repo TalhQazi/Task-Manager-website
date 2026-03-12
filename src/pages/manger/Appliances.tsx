@@ -76,6 +76,21 @@ interface Appliance {
   tagPhotoDataUrl?: string;
 }
 
+interface Location {
+  id: string;
+  name: string;
+  city?: string;
+  address?: string;
+  status?: string;
+}
+
+interface Employee {
+  id: string;
+  name: string;
+  email?: string;
+  status?: string;
+}
+
 type ApplianceApi = {
   id?: string;
   _id?: string;
@@ -85,6 +100,8 @@ type ApplianceApi = {
   purchaseDate?: string;
   warrantyUntil?: string;
   warrantyExpiry?: string;
+  warrantyExpiryDate?: string;
+  warrantyDate?: string;
   status?: string;
   assignedTo?: string;
   tagPhotoFileName?: string;
@@ -98,18 +115,34 @@ function normalizeAppliance(a: ApplianceApi): Appliance {
   if (backendStatus === "needs-repair" || backendStatus === "out-of-service") {
     normalizedStatus = backendStatus;
   }
+  
+  // Handle warranty date - check multiple possible field names from backend
+  const warrantyDate = String(a.warrantyExpiry || a.warrantyUntil || a.warrantyExpiryDate || a.warrantyDate || "");
+  
   return {
     id,
     name: String(a.name || ""),
     type: (String(a.type || "commercial") === "residential" ? "residential" : "commercial"),
     location: String(a.location || ""),
     purchaseDate: String(a.purchaseDate || ""),
-    warrantyUntil: String(a.warrantyExpiry || a.warrantyUntil || ""),
+    warrantyUntil: warrantyDate,
     status: normalizedStatus,
     assignedTo: String(a.assignedTo || ""),
     tagPhotoFileName: String(a.tagPhotoFileName || ""),
     tagPhotoDataUrl: String(a.tagPhotoDataUrl || ""),
   };
+}
+
+// Helper to format date for display
+function formatWarrantyDate(dateStr: string): string {
+  if (!dateStr || dateStr.trim() === "") return "—";
+  
+  // Check if it's already a valid date string
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return dateStr; // Return as-is if invalid date
+  
+  // Format as YYYY-MM-DD for consistency
+  return date.toISOString().split('T')[0];
 }
 
 const statusStyles = {
@@ -232,6 +265,69 @@ const statsVariants = {
   },
 };
 
+const MAX_IMAGE_SIZE = 3 * 1024 * 1024; // 3MB limit for Vercel serverless
+const MAX_IMAGE_DIMENSIONS = { width: 1200, height: 1200 }; // Resize large images
+
+// Compress and resize image to reduce payload size
+const compressImage = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let { width, height } = img;
+        
+        // Resize if dimensions are too large
+        if (width > MAX_IMAGE_DIMENSIONS.width || height > MAX_IMAGE_DIMENSIONS.height) {
+          const ratio = Math.min(
+            MAX_IMAGE_DIMENSIONS.width / width,
+            MAX_IMAGE_DIMENSIONS.height / height
+          );
+          width *= ratio;
+          height *= ratio;
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Compress as JPEG with 0.8 quality (good balance)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+        
+        // Check final size
+        const base64Length = dataUrl.split(',')[1]?.length || 0;
+        const sizeInBytes = (base64Length * 4) / 3;
+        
+        if (sizeInBytes > MAX_IMAGE_SIZE) {
+          // Try with lower quality
+          const dataUrlLow = canvas.toDataURL('image/jpeg', 0.6);
+          const base64LengthLow = dataUrlLow.split(',')[1]?.length || 0;
+          const sizeInBytesLow = (base64LengthLow * 4) / 3;
+          
+          if (sizeInBytesLow > MAX_IMAGE_SIZE) {
+            reject(new Error(`Image too large even after compression. Max size: ${(MAX_IMAGE_SIZE / 1024 / 1024).toFixed(1)}MB`));
+            return;
+          }
+          resolve(dataUrlLow);
+          return;
+        }
+        
+        resolve(dataUrl);
+      };
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = event.target?.result as string;
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+};
+
 export default function Appliances() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -247,16 +343,12 @@ export default function Appliances() {
   const [createTagPhotoFile, setCreateTagPhotoFile] = useState<File | null>(null);
   const [editTagPhotoFile, setEditTagPhotoFile] = useState<File | null>(null);
 
-  const readFileAsDataUrl = (file: File) => {
-    return new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result || ""));
-      reader.onerror = () => reject(new Error("Failed to read file"));
-      reader.readAsDataURL(file);
-    });
+  const readFileAsDataUrl = async (file: File): Promise<string> => {
+    // Always compress image to reduce payload size for server deployment
+    return compressImage(file);
   };
 
-  const getApplianceTagPhotoSrc = (a?: Pick<Appliance, "tagPhotoDataUrl" | "tagPhotoFileName"> | null) => {
+  const getApplianceTagPhotoSrc = (a?: Pick<Appliance, "tagPhotoDataUrl" | "tagPhotoFileName"> | null): string | null => {
     if (!a) return null;
     const dataUrl = String(a.tagPhotoDataUrl || "").trim();
     if (dataUrl) return dataUrl;
@@ -277,7 +369,27 @@ export default function Appliances() {
     },
   });
 
+  const locationsQuery = useQuery({
+    queryKey: ["locations"],
+    queryFn: async () => {
+      const res = await apiFetch<{ items?: Location[] } | Location[]>("/api/locations");
+      const items = Array.isArray(res) ? res : Array.isArray(res.items) ? res.items : [];
+      return items.filter((l) => Boolean(l.id));
+    },
+  });
+
+  const employeesQuery = useQuery({
+    queryKey: ["employees"],
+    queryFn: async () => {
+      const res = await apiFetch<{ items?: Employee[] } | Employee[]>("/api/employees");
+      const items = Array.isArray(res) ? res : Array.isArray(res.items) ? res.items : [];
+      return items.filter((e) => Boolean(e.id) && e.status !== "inactive");
+    },
+  });
+
   const appliances = appliancesQuery.data ?? [];
+  const locations = locationsQuery.data ?? [];
+  const employees = employeesQuery.data ?? [];
 
   const createApplianceMutation = useMutation({
     mutationFn: async (payload: Omit<Appliance, "id">) => {
@@ -365,7 +477,7 @@ export default function Appliances() {
       purchaseDate: values.purchaseDate || "",
       warrantyUntil: values.warrantyUntil || "",
       status: values.status,
-      assignedTo: values.assignedTo?.trim() ? values.assignedTo.trim() : undefined,
+      assignedTo: values.assignedTo?.trim() && values.assignedTo !== "__unassigned__" ? values.assignedTo.trim() : undefined,
       tagPhotoFileName: values.tagPhotoFileName?.trim() ? values.tagPhotoFileName.trim() : undefined,
       tagPhotoDataUrl: tagPhotoDataUrl || undefined,
     };
@@ -404,7 +516,7 @@ export default function Appliances() {
       type: appliance.type,
       purchaseDate: appliance.purchaseDate,
       warrantyUntil: appliance.warrantyUntil,
-      assignedTo: appliance.assignedTo ?? "",
+      assignedTo: appliance.assignedTo ?? "__unassigned__",
       tagPhotoFileName: appliance.tagPhotoFileName ?? "",
       tagPhotoDataUrl: appliance.tagPhotoDataUrl ?? "",
     });
@@ -775,7 +887,7 @@ export default function Appliances() {
                         </div>
                         <div className="flex items-center gap-1.5 text-muted-foreground">
                           <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
-                          <span className="truncate">{appliance.warrantyUntil || "—"}</span>
+                          <span className="truncate">{formatWarrantyDate(appliance.warrantyUntil)}</span>
                         </div>
                       </motion.div>
                     </motion.div>
@@ -873,7 +985,7 @@ export default function Appliances() {
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-1.5 text-muted-foreground whitespace-nowrap">
                               <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
-                              <span>{appliance.warrantyUntil || "—"}</span>
+                              <span>{formatWarrantyDate(appliance.warrantyUntil)}</span>
                             </div>
                           </td>
                           <td className="px-4 py-3">
@@ -1041,9 +1153,26 @@ export default function Appliances() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Location</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Warehouse A" {...field} />
-                      </FormControl>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select location" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {locationsQuery.isLoading ? (
+                            <SelectItem value="loading" disabled>Loading locations...</SelectItem>
+                          ) : locations.length === 0 ? (
+                            <SelectItem value="empty" disabled>No locations found</SelectItem>
+                          ) : (
+                            locations.map((loc) => (
+                              <SelectItem key={loc.id} value={loc.id}>
+                                {loc.name}{loc.city ? ` (${loc.city})` : ""}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1055,9 +1184,27 @@ export default function Appliances() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Assigned To</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Optional" {...field} />
-                      </FormControl>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select employee" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                          {employeesQuery.isLoading ? (
+                            <SelectItem value="loading" disabled>Loading employees...</SelectItem>
+                          ) : employees.length === 0 ? (
+                            <SelectItem value="empty" disabled>No employees found</SelectItem>
+                          ) : (
+                            employees.map((emp) => (
+                              <SelectItem key={emp.id} value={emp.name}>
+                                {emp.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1110,9 +1257,19 @@ export default function Appliances() {
                         <div className="w-full">
                           <input
                             type="file"
+                            accept="image/*"
                             className="block w-full text-sm"
                             onChange={(e) => {
                               const f = e.target.files?.[0] || null;
+                              if (f && f.size > MAX_IMAGE_SIZE) {
+                                toast({
+                                  title: "Image too large",
+                                  description: `Max size is ${(MAX_IMAGE_SIZE / 1024 / 1024).toFixed(1)}MB. Please choose a smaller image or compress it.`,
+                                  variant: "destructive",
+                                });
+                                e.target.value = "";
+                                return;
+                              }
                               setCreateTagPhotoFile(f);
                               if (!f) {
                                 form.setValue("tagPhotoFileName", "");
@@ -1122,9 +1279,19 @@ export default function Appliances() {
                               form.setValue("tagPhotoFileName", f.name);
                               void readFileAsDataUrl(f)
                                 .then((dataUrl) => form.setValue("tagPhotoDataUrl", dataUrl))
-                                .catch(() => form.setValue("tagPhotoDataUrl", ""));
+                                .catch((err) => {
+                                  toast({
+                                    title: "Failed to read image",
+                                    description: err instanceof Error ? err.message : "Something went wrong",
+                                    variant: "destructive",
+                                  });
+                                  form.setValue("tagPhotoDataUrl", "");
+                                });
                             }}
                           />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Max file size: {(MAX_IMAGE_SIZE / 1024 / 1024).toFixed(0)}MB. Images auto-compressed.
+                          </p>
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -1157,7 +1324,9 @@ export default function Appliances() {
         <DialogContent className="sm:max-w-[500px] w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Appliance Details</DialogTitle>
-            <DialogDescription>View appliance record information.</DialogDescription>
+            <DialogDescription>
+              View appliance record information.
+            </DialogDescription>
           </DialogHeader>
 
           {selectedAppliance && (
@@ -1255,7 +1424,7 @@ export default function Appliances() {
                   transition={{ delay: 0.35 }}
                 >
                   <p className="text-muted-foreground">Warranty Until</p>
-                  <p className="text-foreground">{selectedAppliance.warrantyUntil || "—"}</p>
+                  <p className="text-foreground">{formatWarrantyDate(selectedAppliance.warrantyUntil)}</p>
                 </motion.div>
               </div>
 
@@ -1290,7 +1459,9 @@ export default function Appliances() {
         <DialogContent className="sm:max-w-[600px] w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Appliance</DialogTitle>
-            <DialogDescription>Update appliance record details.</DialogDescription>
+            <DialogDescription>
+              Update appliance record details.
+            </DialogDescription>
           </DialogHeader>
 
           <Form {...editForm}>
@@ -1361,9 +1532,26 @@ export default function Appliances() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Location</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Warehouse A" {...field} />
-                      </FormControl>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select location" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {locationsQuery.isLoading ? (
+                            <SelectItem value="loading" disabled>Loading locations...</SelectItem>
+                          ) : locations.length === 0 ? (
+                            <SelectItem value="empty" disabled>No locations found</SelectItem>
+                          ) : (
+                            locations.map((loc) => (
+                              <SelectItem key={loc.id} value={loc.id}>
+                                {loc.name}{loc.city ? ` (${loc.city})` : ""}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1375,9 +1563,27 @@ export default function Appliances() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Assigned To</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Optional" {...field} />
-                      </FormControl>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select employee" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="__unassigned__">Unassigned</SelectItem>
+                          {employeesQuery.isLoading ? (
+                            <SelectItem value="loading" disabled>Loading employees...</SelectItem>
+                          ) : employees.length === 0 ? (
+                            <SelectItem value="empty" disabled>No employees found</SelectItem>
+                          ) : (
+                            employees.map((emp) => (
+                              <SelectItem key={emp.id} value={emp.name}>
+                                {emp.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -1430,17 +1636,37 @@ export default function Appliances() {
                         <div className="w-full flex flex-col sm:flex-row gap-2 sm:items-center">
                           <input
                             type="file"
+                            accept="image/*"
                             className="block w-full text-sm"
                             onChange={(e) => {
                               const f = e.target.files?.[0] || null;
+                              if (f && f.size > MAX_IMAGE_SIZE) {
+                                toast({
+                                  title: "Image too large",
+                                  description: `Max size is ${(MAX_IMAGE_SIZE / 1024 / 1024).toFixed(1)}MB. Please choose a smaller image or compress it.`,
+                                  variant: "destructive",
+                                });
+                                e.target.value = "";
+                                return;
+                              }
                               setEditTagPhotoFile(f);
                               if (!f) return;
                               editForm.setValue("tagPhotoFileName", f.name);
                               void readFileAsDataUrl(f)
                                 .then((dataUrl) => editForm.setValue("tagPhotoDataUrl", dataUrl))
-                                .catch(() => editForm.setValue("tagPhotoDataUrl", ""));
+                                .catch((err) => {
+                                  toast({
+                                    title: "Failed to read image",
+                                    description: err instanceof Error ? err.message : "Something went wrong",
+                                    variant: "destructive",
+                                  });
+                                  editForm.setValue("tagPhotoDataUrl", "");
+                                });
                             }}
                           />
+                          <p className="text-xs text-muted-foreground sm:hidden">
+                            Max file size: {(MAX_IMAGE_SIZE / 1024 / 1024).toFixed(0)}MB. Auto-compressed.
+                          </p>
                           {(field.value || editForm.watch("tagPhotoDataUrl")) && (
                             <Button
                               type="button"

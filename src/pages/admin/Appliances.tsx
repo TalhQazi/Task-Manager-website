@@ -77,6 +77,12 @@ interface User {
   status: "active" | "inactive" | "pending";
 }
 
+interface Location {
+  id: string;
+  name: string;
+  city?: string;
+}
+
 const APPLIANCES_STORAGE_KEY = "appliances";
 
 const getInitials = (name: string) => {
@@ -167,6 +173,25 @@ export default function Appliances() {
       return res.items || [];
     },
   });
+
+  const locationsQuery = useQuery({
+    queryKey: ["locations"],
+    queryFn: async () => {
+      const res = await apiFetch<{ items?: Location[] } | Location[]>("/api/locations");
+      const items = Array.isArray(res) ? res : Array.isArray(res.items) ? res.items : [];
+      return items.filter((l) => Boolean(l.id));
+    },
+  });
+
+  const locations = locationsQuery.data ?? [];
+
+  const getLocationLabel = (locationIdOrName: string): string => {
+    const v = String(locationIdOrName || "").trim();
+    if (!v) return "";
+    const found = locations.find((l) => l.id === v);
+    if (!found) return v;
+    return `${found.name}${found.city ? ` (${found.city})` : ""}`;
+  };
 
   const appliancesList = useMemo(() => {
     const items = appliancesQuery.data || [];
@@ -558,13 +583,29 @@ export default function Appliances() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <label className="block text-xs sm:text-sm font-medium mb-1.5">Location *</label>
-                      <input
+                      <select
                         value={formData.location}
                         onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                        placeholder="Building A - Corporate Office"
+                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
                         required
-                      />
+                      >
+                        <option value="">Select location</option>
+                        {locationsQuery.isLoading ? (
+                          <option value="" disabled>
+                            Loading locations...
+                          </option>
+                        ) : locations.length === 0 ? (
+                          <option value="" disabled>
+                            No locations found
+                          </option>
+                        ) : (
+                          locations.map((loc) => (
+                            <option key={loc.id} value={loc.id}>
+                              {loc.name}{loc.city ? ` (${loc.city})` : ""}
+                            </option>
+                          ))
+                        )}
+                      </select>
                     </div>
                   </div>
 

@@ -190,8 +190,6 @@ const Locations = () => {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [countries, setCountries] = useState<string[]>([]);
-  const [cities, setCities] = useState<string[]>([]);
-  const [editCities, setEditCities] = useState<string[]>([]);
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -258,38 +256,6 @@ const Locations = () => {
     };
     void loadCountries();
   }, []);
-
-  useEffect(() => {
-    const loadCities = async () => {
-      if (!formData.country) {
-        setCities([]);
-        return;
-      }
-      try {
-        const res = await apiFetch<{ cities: string[] }>(`/api/locations/cities?country=${encodeURIComponent(formData.country)}`);
-        setCities(res.cities);
-      } catch {
-        setCities([]);
-      }
-    };
-    void loadCities();
-  }, [formData.country]);
-
-  useEffect(() => {
-    const loadEditCities = async () => {
-      if (!editFormData.country) {
-        setEditCities([]);
-        return;
-      }
-      try {
-        const res = await apiFetch<{ cities: string[] }>(`/api/locations/cities?country=${encodeURIComponent(editFormData.country)}`);
-        setEditCities(res.cities);
-      } catch {
-        setEditCities([]);
-      }
-    };
-    void loadEditCities();
-  }, [editFormData.country]);
 
   const refreshLocations = async () => {
     const list = await listResource<BackendLocation>("locations");
@@ -484,7 +450,7 @@ const Locations = () => {
                     <label className="block text-xs sm:text-sm font-medium mb-1.5">Country *</label>
                     <Select
                       value={formData.country || undefined}
-                      onValueChange={(value) => setFormData({ ...formData, country: value, city: "" })}
+                      onValueChange={(value) => setFormData({ ...formData, country: value })}
                     >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Select country" />
@@ -498,20 +464,14 @@ const Locations = () => {
                   </div>
                   <div className="flex-1 min-w-0">
                     <label className="block text-xs sm:text-sm font-medium mb-1.5">City *</label>
-                    <Select
-                      value={formData.city || undefined}
-                      onValueChange={(value) => setFormData({ ...formData, city: value })}
-                      disabled={!formData.country}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder={formData.country ? "Select city" : "Select country first"} />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[300px]">
-                        {cities.map((city) => (
-                          <SelectItem key={city} value={city}>{city}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <input
+                      type="text"
+                      value={formData.city}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                      placeholder="Enter city"
+                      required
+                    />
                   </div>
                 </div>
 
@@ -1141,7 +1101,7 @@ const Locations = () => {
                   <label className="block text-xs sm:text-sm font-medium mb-1.5">Country *</label>
                   <Select
                     value={editFormData.country || undefined}
-                    onValueChange={(value) => setEditFormData({ ...editFormData, country: value, city: "" })}
+                    onValueChange={(value) => setEditFormData({ ...editFormData, country: value })}
                   >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select country" />
@@ -1155,20 +1115,14 @@ const Locations = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <label className="block text-xs sm:text-sm font-medium mb-1.5">City *</label>
-                  <Select
-                    value={editFormData.city || undefined}
-                    onValueChange={(value) => setEditFormData({ ...editFormData, city: value })}
-                    disabled={!editFormData.country}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={editFormData.country ? "Select city" : "Select country first"} />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[300px]">
-                      {editCities.map((city) => (
-                        <SelectItem key={city} value={city}>{city}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <input
+                    type="text"
+                    value={editFormData.city}
+                    onChange={(e) => setEditFormData({ ...editFormData, city: e.target.value })}
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                    placeholder="Enter city"
+                    required
+                  />
                 </div>
               </div>
 

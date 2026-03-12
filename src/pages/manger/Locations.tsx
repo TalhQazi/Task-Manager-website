@@ -71,7 +71,7 @@ interface Location {
   id: string;
   name: string;
   type: "office" | "warehouse" | "facility" | "site";
-  address: string;
+  country: string;
   city: string;
   phone: string;
   manager: string;
@@ -91,7 +91,7 @@ function normalizeLocation(l: LocationApi): Location {
     id: l._id,
     name: l.name,
     type: l.type,
-    address: l.address,
+    country: l.country,
     city: l.city,
     phone: l.phone,
     manager: l.manager,
@@ -120,7 +120,7 @@ const typeIcons = {
 const createLocationSchema = z.object({
   name: z.string().min(1, "Name is required"),
   type: z.enum(["office", "warehouse", "facility", "site"]),
-  address: z.string().min(1, "Address is required"),
+  country: z.string().min(1, "Country is required"),
   city: z.string().min(1, "City is required"),
   status: z.enum(["active", "inactive"]),
   contactName: z.string().optional().default(""),
@@ -132,7 +132,67 @@ const createLocationSchema = z.object({
 
 type CreateLocationValues = z.infer<typeof createLocationSchema>;
 
-// Animation variants
+// Country flag emoji mapping
+const countryFlags: Record<string, string> = {
+  Afghanistan: "🇦🇫",
+  Albania: "🇦🇱",
+  Algeria: "🇩🇿",
+  Argentina: "🇦🇷",
+  Australia: "🇦🇺",
+  Austria: "🇦🇹",
+  Bangladesh: "🇧🇩",
+  Belgium: "🇧🇪",
+  Brazil: "🇧🇷",
+  Canada: "🇨🇦",
+  Chile: "🇨🇱",
+  China: "🇨🇳",
+  Colombia: "🇨🇴",
+  "Czech Republic": "🇨🇿",
+  Denmark: "🇩🇰",
+  Egypt: "🇪🇬",
+  Ethiopia: "🇪🇹",
+  Finland: "🇫🇮",
+  France: "🇫🇷",
+  Germany: "🇩🇪",
+  Greece: "🇬🇷",
+  Hungary: "🇭🇺",
+  India: "🇮🇳",
+  Indonesia: "🇮🇩",
+  Iran: "🇮🇷",
+  Iraq: "🇮🇶",
+  Ireland: "🇮🇪",
+  Israel: "🇮🇱",
+  Italy: "🇮🇹",
+  Japan: "🇯🇵",
+  Kenya: "🇰🇪",
+  Malaysia: "🇲🇾",
+  Mexico: "🇲🇽",
+  Morocco: "🇲🇦",
+  Netherlands: "🇳🇱",
+  "New Zealand": "🇳🇿",
+  Nigeria: "🇳🇬",
+  Norway: "🇳🇴",
+  Pakistan: "🇵🇰",
+  Peru: "🇵🇪",
+  Philippines: "🇵🇭",
+  Poland: "🇵🇱",
+  Portugal: "🇵🇹",
+  Russia: "🇷🇺",
+  "Saudi Arabia": "🇸🇦",
+  Singapore: "🇸🇬",
+  "South Africa": "🇿🇦",
+  "South Korea": "🇰🇷",
+  Spain: "🇪🇸",
+  Sweden: "🇸🇪",
+  Switzerland: "🇨🇭",
+  Thailand: "🇹🇭",
+  Turkey: "🇹🇷",
+  UAE: "🇦🇪",
+  UK: "🇬🇧",
+  USA: "🇺🇸",
+  Vietnam: "🇻🇳",
+  Yemen: "🇾🇪",
+};
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
@@ -314,7 +374,7 @@ export default function Locations() {
     defaultValues: {
       name: "",
       type: "office",
-      address: "",
+      country: "",
       city: "",
       status: "active",
       contactName: "",
@@ -330,7 +390,7 @@ export default function Locations() {
     defaultValues: {
       name: "",
       type: "office",
-      address: "",
+      country: "",
       city: "",
       status: "active",
       contactName: "",
@@ -345,7 +405,7 @@ export default function Locations() {
     const payload: Omit<Location, "id"> = {
       name: values.name,
       type: values.type,
-      address: values.address,
+      country: values.country,
       city: values.city,
       phone: values.contactPhone || "",
       manager: values.contactName || "",
@@ -384,7 +444,7 @@ export default function Locations() {
     editForm.reset({
       name: location.name,
       type: location.type,
-      address: location.address,
+      country: location.country,
       city: location.city,
       status: location.status,
       contactName: location.manager || "",
@@ -676,11 +736,19 @@ export default function Locations() {
                             whileHover="hover"
                             variants={iconVariants}
                             className={cn(
-                              "w-12 h-12 rounded-xl flex items-center justify-center",
+                              "w-12 h-12 rounded-xl flex items-center justify-center overflow-hidden",
                               typeStyles[location.type]
                             )}
                           >
-                            <TypeIcon className="w-6 h-6" />
+                            {location.photoDataUrl ? (
+                              <img
+                                src={location.photoDataUrl}
+                                alt={location.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <TypeIcon className="w-6 h-6" />
+                            )}
                           </motion.div>
                           <div>
                             <motion.h3 
@@ -744,7 +812,7 @@ export default function Locations() {
                         >
                           <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
                           <div>
-                            <p>{location.address}</p>
+                            <p>{location.country}</p>
                             <p>{location.city}</p>
                           </div>
                         </motion.div>
@@ -920,13 +988,77 @@ export default function Locations() {
 
                   <FormField
                     control={form.control}
-                    name="address"
+                    name="country"
                     render={({ field }) => (
                       <FormItem className="sm:col-span-2">
-                        <FormLabel>Address</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Street address" {...field} />
-                        </FormControl>
+                        <FormLabel>Country</FormLabel>
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select country" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="max-h-[200px]">
+                            <SelectItem value="Afghanistan">Afghanistan</SelectItem>
+                            <SelectItem value="Albania">Albania</SelectItem>
+                            <SelectItem value="Algeria">Algeria</SelectItem>
+                            <SelectItem value="Argentina">Argentina</SelectItem>
+                            <SelectItem value="Australia">Australia</SelectItem>
+                            <SelectItem value="Austria">Austria</SelectItem>
+                            <SelectItem value="Bangladesh">Bangladesh</SelectItem>
+                            <SelectItem value="Belgium">Belgium</SelectItem>
+                            <SelectItem value="Brazil">Brazil</SelectItem>
+                            <SelectItem value="Canada">Canada</SelectItem>
+                            <SelectItem value="Chile">Chile</SelectItem>
+                            <SelectItem value="China">China</SelectItem>
+                            <SelectItem value="Colombia">Colombia</SelectItem>
+                            <SelectItem value="Czech Republic">Czech Republic</SelectItem>
+                            <SelectItem value="Denmark">Denmark</SelectItem>
+                            <SelectItem value="Egypt">Egypt</SelectItem>
+                            <SelectItem value="Ethiopia">Ethiopia</SelectItem>
+                            <SelectItem value="Finland">Finland</SelectItem>
+                            <SelectItem value="France">France</SelectItem>
+                            <SelectItem value="Germany">Germany</SelectItem>
+                            <SelectItem value="Greece">Greece</SelectItem>
+                            <SelectItem value="Hungary">Hungary</SelectItem>
+                            <SelectItem value="India">India</SelectItem>
+                            <SelectItem value="Indonesia">Indonesia</SelectItem>
+                            <SelectItem value="Iran">Iran</SelectItem>
+                            <SelectItem value="Iraq">Iraq</SelectItem>
+                            <SelectItem value="Ireland">Ireland</SelectItem>
+                            <SelectItem value="Israel">Israel</SelectItem>
+                            <SelectItem value="Italy">Italy</SelectItem>
+                            <SelectItem value="Japan">Japan</SelectItem>
+                            <SelectItem value="Kenya">Kenya</SelectItem>
+                            <SelectItem value="Malaysia">Malaysia</SelectItem>
+                            <SelectItem value="Mexico">Mexico</SelectItem>
+                            <SelectItem value="Morocco">Morocco</SelectItem>
+                            <SelectItem value="Netherlands">Netherlands</SelectItem>
+                            <SelectItem value="New Zealand">New Zealand</SelectItem>
+                            <SelectItem value="Nigeria">Nigeria</SelectItem>
+                            <SelectItem value="Norway">Norway</SelectItem>
+                            <SelectItem value="Pakistan">Pakistan</SelectItem>
+                            <SelectItem value="Peru">Peru</SelectItem>
+                            <SelectItem value="Philippines">Philippines</SelectItem>
+                            <SelectItem value="Poland">Poland</SelectItem>
+                            <SelectItem value="Portugal">Portugal</SelectItem>
+                            <SelectItem value="Russia">Russia</SelectItem>
+                            <SelectItem value="Saudi Arabia">Saudi Arabia</SelectItem>
+                            <SelectItem value="Singapore">Singapore</SelectItem>
+                            <SelectItem value="South Africa">South Africa</SelectItem>
+                            <SelectItem value="South Korea">South Korea</SelectItem>
+                            <SelectItem value="Spain">Spain</SelectItem>
+                            <SelectItem value="Sweden">Sweden</SelectItem>
+                            <SelectItem value="Switzerland">Switzerland</SelectItem>
+                            <SelectItem value="Thailand">Thailand</SelectItem>
+                            <SelectItem value="Turkey">Turkey</SelectItem>
+                            <SelectItem value="UAE">UAE</SelectItem>
+                            <SelectItem value="UK">UK</SelectItem>
+                            <SelectItem value="USA">USA</SelectItem>
+                            <SelectItem value="Vietnam">Vietnam</SelectItem>
+                            <SelectItem value="Yemen">Yemen</SelectItem>
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -992,7 +1124,7 @@ export default function Locations() {
                     <FormLabel>Location Photo</FormLabel>
                     <div className="flex flex-col gap-2">
                       {form.watch("photoDataUrl") ? (
-                        <div className="relative w-full h-32 rounded-lg overflow-hidden border">
+                        <div className="relative w-full h-48 rounded-lg overflow-hidden border">
                           <img
                             src={form.watch("photoDataUrl")}
                             alt="Location preview"
@@ -1146,13 +1278,77 @@ export default function Locations() {
 
                   <FormField
                     control={editForm.control}
-                    name="address"
+                    name="country"
                     render={({ field }) => (
                       <FormItem className="sm:col-span-2">
-                        <FormLabel>Address</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Street address" {...field} />
-                        </FormControl>
+                        <FormLabel>Country</FormLabel>
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select country" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="max-h-[200px]">
+                            <SelectItem value="Afghanistan">Afghanistan</SelectItem>
+                            <SelectItem value="Albania">Albania</SelectItem>
+                            <SelectItem value="Algeria">Algeria</SelectItem>
+                            <SelectItem value="Argentina">Argentina</SelectItem>
+                            <SelectItem value="Australia">Australia</SelectItem>
+                            <SelectItem value="Austria">Austria</SelectItem>
+                            <SelectItem value="Bangladesh">Bangladesh</SelectItem>
+                            <SelectItem value="Belgium">Belgium</SelectItem>
+                            <SelectItem value="Brazil">Brazil</SelectItem>
+                            <SelectItem value="Canada">Canada</SelectItem>
+                            <SelectItem value="Chile">Chile</SelectItem>
+                            <SelectItem value="China">China</SelectItem>
+                            <SelectItem value="Colombia">Colombia</SelectItem>
+                            <SelectItem value="Czech Republic">Czech Republic</SelectItem>
+                            <SelectItem value="Denmark">Denmark</SelectItem>
+                            <SelectItem value="Egypt">Egypt</SelectItem>
+                            <SelectItem value="Ethiopia">Ethiopia</SelectItem>
+                            <SelectItem value="Finland">Finland</SelectItem>
+                            <SelectItem value="France">France</SelectItem>
+                            <SelectItem value="Germany">Germany</SelectItem>
+                            <SelectItem value="Greece">Greece</SelectItem>
+                            <SelectItem value="Hungary">Hungary</SelectItem>
+                            <SelectItem value="India">India</SelectItem>
+                            <SelectItem value="Indonesia">Indonesia</SelectItem>
+                            <SelectItem value="Iran">Iran</SelectItem>
+                            <SelectItem value="Iraq">Iraq</SelectItem>
+                            <SelectItem value="Ireland">Ireland</SelectItem>
+                            <SelectItem value="Israel">Israel</SelectItem>
+                            <SelectItem value="Italy">Italy</SelectItem>
+                            <SelectItem value="Japan">Japan</SelectItem>
+                            <SelectItem value="Kenya">Kenya</SelectItem>
+                            <SelectItem value="Malaysia">Malaysia</SelectItem>
+                            <SelectItem value="Mexico">Mexico</SelectItem>
+                            <SelectItem value="Morocco">Morocco</SelectItem>
+                            <SelectItem value="Netherlands">Netherlands</SelectItem>
+                            <SelectItem value="New Zealand">New Zealand</SelectItem>
+                            <SelectItem value="Nigeria">Nigeria</SelectItem>
+                            <SelectItem value="Norway">Norway</SelectItem>
+                            <SelectItem value="Pakistan">Pakistan</SelectItem>
+                            <SelectItem value="Peru">Peru</SelectItem>
+                            <SelectItem value="Philippines">Philippines</SelectItem>
+                            <SelectItem value="Poland">Poland</SelectItem>
+                            <SelectItem value="Portugal">Portugal</SelectItem>
+                            <SelectItem value="Russia">Russia</SelectItem>
+                            <SelectItem value="Saudi Arabia">Saudi Arabia</SelectItem>
+                            <SelectItem value="Singapore">Singapore</SelectItem>
+                            <SelectItem value="South Africa">South Africa</SelectItem>
+                            <SelectItem value="South Korea">South Korea</SelectItem>
+                            <SelectItem value="Spain">Spain</SelectItem>
+                            <SelectItem value="Sweden">Sweden</SelectItem>
+                            <SelectItem value="Switzerland">Switzerland</SelectItem>
+                            <SelectItem value="Thailand">Thailand</SelectItem>
+                            <SelectItem value="Turkey">Turkey</SelectItem>
+                            <SelectItem value="UAE">UAE</SelectItem>
+                            <SelectItem value="UK">UK</SelectItem>
+                            <SelectItem value="USA">USA</SelectItem>
+                            <SelectItem value="Vietnam">Vietnam</SelectItem>
+                            <SelectItem value="Yemen">Yemen</SelectItem>
+                          </SelectContent>
+                        </Select>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -1218,7 +1414,7 @@ export default function Locations() {
                     <FormLabel>Location Photo</FormLabel>
                     <div className="flex flex-col gap-2">
                       {editForm.watch("photoDataUrl") ? (
-                        <div className="relative w-full h-32 rounded-lg overflow-hidden border">
+                        <div className="relative w-full h-48 rounded-lg overflow-hidden border">
                           <img
                             src={editForm.watch("photoDataUrl")}
                             alt="Location preview"
