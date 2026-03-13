@@ -1724,6 +1724,8 @@ const Tasks = () => {
 
                                         setFormData({ ...formData, assignees: next });
 
+                                        setAssigneesOpen(false);
+
                                       }}
 
                                       className="flex items-center justify-between"
@@ -3604,6 +3606,8 @@ const Tasks = () => {
 
                                   setEditFormData({ ...editFormData, assignees: next });
 
+                                  setEditAssigneesOpen(false);
+
                                 }}
 
                                 className="flex items-center justify-between"
@@ -3979,6 +3983,8 @@ const Tasks = () => {
                                     : [...editFormData.assignees, emp.name];
 
                                   setEditFormData({ ...editFormData, assignees: next });
+
+                                  setReassignAssigneesOpen(false);
 
                                 }}
 

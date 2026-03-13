@@ -55,8 +55,11 @@ import {
 } from "lucide-react";
 import { createResource, deleteResource, listResource, updateResource } from "@/lib/admin/apiClient";
 
+const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
+
 interface Vehicle {
   id: string;
+  frontendId: string;
   make: string;
   model: string;
   year: string;
@@ -121,6 +124,7 @@ type BackendVehicle = Partial<Vehicle> & {
 
 function normalizeVehicle(v: BackendVehicle): Vehicle {
   const id = String(v.id || v._id || "").trim();
+  const frontendId = String((v as any).frontendId || "").trim();
   const makeRaw = String(v.make || "").trim();
   const modelRaw = String(v.model || "").trim();
   const yearRaw = String(v.year || "").trim();
@@ -131,6 +135,7 @@ function normalizeVehicle(v: BackendVehicle): Vehicle {
 
   return {
     id,
+    frontendId,
     make,
     model: modelRaw,
     year: yearRaw,
@@ -144,6 +149,44 @@ function normalizeVehicle(v: BackendVehicle): Vehicle {
     tagPhotoFileName: String(v.tagPhotoFileName || "").trim() || undefined,
     tagPhotoDataUrl: String(v.tagPhotoDataUrl || "").trim() || undefined,
   };
+}
+
+function isImageFile(file: File) {
+  const t = String(file.type || "").toLowerCase();
+  return t.startsWith("image/");
+}
+
+async function compressImageToDataUrl(file: File): Promise<string> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new Image();
+    i.onload = () => resolve(i);
+    i.onerror = () => reject(new Error("Invalid image"));
+    i.src = dataUrl;
+  });
+
+  const maxW = 1600;
+  const maxH = 1600;
+  const scale = Math.min(1, maxW / img.naturalWidth, maxH / img.naturalHeight);
+  const w = Math.max(1, Math.round(img.naturalWidth * scale));
+  const h = Math.max(1, Math.round(img.naturalHeight * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas not supported");
+  ctx.drawImage(img, 0, 0, w, h);
+
+  const quality = 0.75;
+  const mime = "image/jpeg";
+  return canvas.toDataURL(mime, quality);
 }
 
 function parseISODate(date: string) {
@@ -220,6 +263,7 @@ const Vehicles = () => {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [hoveredVehicle, setHoveredVehicle] = useState<string | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
   const [formData, setFormData] = useState({
     make: "",
     model: "",
@@ -331,6 +375,38 @@ const Vehicles = () => {
 
   const [formError, setFormError] = useState<string | null>(null);
 
+  const handleVehiclePhotoSelected = async (f: File | null) => {
+    setTagPhotoFile(f);
+    if (!f) {
+      setFormData((p) => ({ ...p, tagPhotoFileName: "", tagPhotoDataUrl: "" }));
+      return;
+    }
+
+    if (!isImageFile(f)) {
+      setFormError("Please select a valid image file");
+      setTagPhotoFile(null);
+      setFormData((p) => ({ ...p, tagPhotoFileName: "", tagPhotoDataUrl: "" }));
+      return;
+    }
+
+    if (f.size > MAX_IMAGE_BYTES) {
+      setFormError("Image size is too large. Max 10MB");
+      setTagPhotoFile(null);
+      setFormData((p) => ({ ...p, tagPhotoFileName: "", tagPhotoDataUrl: "" }));
+      return;
+    }
+
+    try {
+      setFormError(null);
+      const url = await compressImageToDataUrl(f);
+      setFormData((p) => ({ ...p, tagPhotoFileName: f.name, tagPhotoDataUrl: url }));
+    } catch {
+      setFormError("Failed to process image. Please try a different file");
+      setTagPhotoFile(null);
+      setFormData((p) => ({ ...p, tagPhotoFileName: "", tagPhotoDataUrl: "" }));
+    }
+  };
+
   const handleAddVehicle = async () => {
     // Validation with user-friendly error messages
     if (!formData.make || !formData.model || !formData.year || !formData.licensePlate) {
@@ -345,18 +421,14 @@ const Vehicles = () => {
     setFormError(null);
     try {
       setApiError(null);
+      setIsAdding(true);
 
       let tagPhotoDataUrl = String(formData.tagPhotoDataUrl || "").trim();
       if (!tagPhotoDataUrl && tagPhotoFile) {
-        try {
-          tagPhotoDataUrl = await readFileAsDataUrl(tagPhotoFile);
-        } catch {
-          tagPhotoDataUrl = "";
-        }
+        tagPhotoDataUrl = await compressImageToDataUrl(tagPhotoFile);
       }
 
-      const newVehicle: Vehicle = {
-        id: `VH-${Date.now().toString().slice(-6)}`,
+      const newVehiclePayload = {
         make: formData.make,
         model: formData.model,
         year: formData.year,
@@ -370,7 +442,7 @@ const Vehicles = () => {
         tagPhotoFileName: formData.tagPhotoFileName || "",
         tagPhotoDataUrl,
       };
-      await createResource<Vehicle>("vehicles", newVehicle);
+      await createResource("vehicles", newVehiclePayload);
       await refreshVehicles();
       setAddVehicleOpen(false);
       setFormError(null);
@@ -391,6 +463,8 @@ const Vehicles = () => {
       setTagPhotoFile(null);
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "Failed to add vehicle");
+    } finally {
+      setIsAdding(false);
     }
   };
 
@@ -767,10 +841,7 @@ const Vehicles = () => {
                         onDrop={(e) => {
                           e.preventDefault();
                           const f = e.dataTransfer.files?.[0];
-                          if (f) {
-                            setTagPhotoFile(f);
-                            void readFileAsDataUrl(f).then((url) => setFormData((p) => ({ ...p, tagPhotoFileName: f.name, tagPhotoDataUrl: url })));
-                          }
+                          void handleVehiclePhotoSelected(f || null);
                         }}
                         onClick={() => {
                           const el = document.getElementById("vehicle-photo-input") as HTMLInputElement | null;
@@ -805,8 +876,7 @@ const Vehicles = () => {
                           className="hidden"
                           onChange={(e) => {
                             const f = e.target.files?.[0] || null;
-                            setTagPhotoFile(f);
-                            if (f) void readFileAsDataUrl(f).then((url) => setFormData((p) => ({ ...p, tagPhotoFileName: f.name, tagPhotoDataUrl: url })));
+                            void handleVehiclePhotoSelected(f);
                           }}
                         />
                       </motion.div>
@@ -842,10 +912,20 @@ const Vehicles = () => {
                     <Button 
                       type="button"
                       onClick={handleAddVehicle}
+                      disabled={isAdding}
                       className="bg-gradient-to-r from-primary to-primary/80 text-white w-full sm:w-auto order-1 sm:order-2 shadow-lg hover:shadow-xl transition-all duration-300"
                     >
-                      <Plus className="h-4 w-4 mr-2 flex-shrink-0" />
-                      Add Vehicle
+                      {isAdding ? (
+                        <span className="inline-flex items-center gap-2">
+                          <span className="h-4 w-4 border-2 border-white/80 border-t-transparent rounded-full animate-spin" />
+                          Adding...
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center">
+                          <Plus className="h-4 w-4 mr-2 flex-shrink-0" />
+                          Add Vehicle
+                        </span>
+                      )}
                     </Button>
                   </motion.div>
                 </DialogFooter>
@@ -1155,12 +1235,13 @@ const Vehicles = () => {
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-muted/30">
-                          <TableHead className="text-xs md:text-sm w-[20%]">Vehicle</TableHead>
+                          <TableHead className="text-xs md:text-sm w-[18%]">Vehicle</TableHead>
+                          <TableHead className="text-xs md:text-sm w-[12%]">Asset ID</TableHead>
                           <TableHead className="text-xs md:text-sm w-[12%]">License Plate</TableHead>
                           <TableHead className="text-xs md:text-sm w-[10%]">Mileage</TableHead>
-                          <TableHead className="text-xs md:text-sm w-[15%]">Assigned To</TableHead>
+                          <TableHead className="text-xs md:text-sm w-[12%]">Assigned To</TableHead>
                           <TableHead className="text-xs md:text-sm w-[10%]">Status</TableHead>
-                          <TableHead className="text-xs md:text-sm w-[15%]">Next Inspection</TableHead>
+                          <TableHead className="text-xs md:text-sm w-[14%]">Next Inspection</TableHead>
                           <TableHead className="text-right text-xs md:text-sm w-[10%]">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1213,6 +1294,9 @@ const Vehicles = () => {
                                     <p className="text-xs text-muted-foreground">{vehicle.licensePlate}</p>
                                   </div>
                                 </div>
+                              </TableCell>
+                              <TableCell className="font-mono text-sm md:text-base">
+                                {vehicle.frontendId}
                               </TableCell>
                               <TableCell className="font-mono text-sm md:text-base">
                                 {vehicle.licensePlate}

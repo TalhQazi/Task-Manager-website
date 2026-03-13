@@ -50,6 +50,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface Appliance {
   id: string;
+  frontendId: string;
   name: string;
   type: "residential" | "commercial";
   location: string;
@@ -197,6 +198,7 @@ export default function Appliances() {
     const items = appliancesQuery.data || [];
     return items.map((a: any) => ({
       id: String(a._id || a.id || ""),
+      frontendId: String(a.frontendId || ""),
       name: String(a.name || ""),
       type: String(a.type || a.category || "commercial") as "residential" | "commercial",
       location: String(a.location || ""),
@@ -905,7 +907,6 @@ export default function Appliances() {
                                 />
                               )}
                             </p>
-                            <p className="text-xs text-muted-foreground">{a.id}</p>
                           </div>
                         </div>
                         <DropdownMenu>
@@ -964,8 +965,9 @@ export default function Appliances() {
                         </motion.div>
                         <motion.div className="col-span-2" whileHover={{ x: 5 }}>
                           <p className="text-xs text-muted-foreground">Location</p>
-                          <p className="text-sm mt-1 truncate">{a.location}</p>
+                          <p className="text-sm mt-1 truncate">{getLocationLabel(a.location)}</p>
                         </motion.div>
+
                         {a.assignedTo && (
                           <motion.div className="col-span-2" whileHover={{ x: 5 }}>
                             <p className="text-xs text-muted-foreground">Assigned To</p>
@@ -975,13 +977,6 @@ export default function Appliances() {
                             </div>
                           </motion.div>
                         )}
-                        <motion.div whileHover={{ x: 5 }}>
-                          <p className="text-xs text-muted-foreground">Warranty</p>
-                          <div className="flex items-center gap-1 mt-1">
-                            <Calendar className="h-3 w-3 text-muted-foreground" />
-                            <p className="text-sm">{a.warrantyUntil || "—"}</p>
-                          </div>
-                        </motion.div>
                       </div>
                     </motion.div>
                   ))}
@@ -1015,11 +1010,11 @@ export default function Appliances() {
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/30">
-                      <TableHead className="text-xs md:text-sm">Appliance</TableHead>
+                      <TableHead className="text-xs md:text-sm">Asset ID</TableHead>
+                      <TableHead className="text-xs md:text-sm">Name</TableHead>
                       <TableHead className="text-xs md:text-sm">Type</TableHead>
                       <TableHead className="text-xs md:text-sm">Location</TableHead>
                       <TableHead className="text-xs md:text-sm">Assigned To</TableHead>
-                      <TableHead className="text-xs md:text-sm">Warranty</TableHead>
                       <TableHead className="text-xs md:text-sm">Status</TableHead>
                       <TableHead className="text-right text-xs md:text-sm">Actions</TableHead>
                     </TableRow>
@@ -1042,6 +1037,9 @@ export default function Appliances() {
                           onHoverEnd={() => setHoveredAppliance(null)}
                           className="cursor-pointer transition-all duration-300"
                         >
+                          <TableCell>
+                            <p className="text-sm md:text-base">{a.frontendId || "—"}</p>
+                          </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-3">
                               <motion.div
@@ -1071,7 +1069,6 @@ export default function Appliances() {
                                     />
                                   )}
                                 </p>
-                                <p className="text-xs text-muted-foreground">{a.id}</p>
                               </div>
                             </div>
                           </TableCell>
@@ -1087,7 +1084,7 @@ export default function Appliances() {
                             </motion.div>
                           </TableCell>
                           <TableCell className="max-w-[150px] lg:max-w-[200px]">
-                            <p className="text-sm md:text-base truncate">{a.location}</p>
+                            <p className="text-sm md:text-base truncate">{getLocationLabel(a.location)}</p>
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-1">
@@ -1095,12 +1092,6 @@ export default function Appliances() {
                               <p className="text-sm md:text-base truncate max-w-[100px]">
                                 {a.assignedTo || "—"}
                               </p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3 text-muted-foreground" />
-                              <p className="text-sm md:text-base">{a.warrantyUntil || "—"}</p>
                             </div>
                           </TableCell>
                           <TableCell>
@@ -1179,7 +1170,6 @@ export default function Appliances() {
               transition={{ delay: 0.2 }}
             >
               <div className="border-b pb-3 sm:pb-4">
-                <p className="text-xs sm:text-sm text-muted-foreground">{selected.id}</p>
                 <p className="text-lg sm:text-xl font-semibold break-words">{selected.name}</p>
               </div>
               
@@ -1216,7 +1206,7 @@ export default function Appliances() {
                 >
                   <label className="text-xs sm:text-sm font-medium">Location</label>
                   <p className="text-sm sm:text-base text-muted-foreground break-words bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg">
-                    {selected.location}
+                    {getLocationLabel(selected.location)}
                   </p>
                 </motion.div>
 
@@ -1328,12 +1318,29 @@ export default function Appliances() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <label className="block text-xs sm:text-sm font-medium mb-1.5">Location *</label>
-                  <input
+                  <select
                     value={editFormData.location}
                     onChange={(e) => setEditFormData({ ...editFormData, location: e.target.value })}
-                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
                     required
-                  />
+                  >
+                    <option value="">Select location</option>
+                    {locationsQuery.isLoading ? (
+                      <option value="" disabled>
+                        Loading locations...
+                      </option>
+                    ) : locations.length === 0 ? (
+                      <option value="" disabled>
+                        No locations found
+                      </option>
+                    ) : (
+                      locations.map((loc) => (
+                        <option key={loc.id} value={loc.id}>
+                          {loc.name}{loc.city ? ` (${loc.city})` : ""}
+                        </option>
+                      ))
+                    )}
+                  </select>
                 </div>
               </div>
 

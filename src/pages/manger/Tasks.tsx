@@ -688,6 +688,7 @@ export default function Tasks() {
                                       ? prev.filter((name) => name !== employee.name)
                                       : [...prev, employee.name]
                                   );
+                                  setAssigneesOpen(false);
                                 }}
                               >
                                 <Check
@@ -1105,6 +1106,7 @@ export default function Tasks() {
                                       ? prev.filter((name) => name !== employee.name)
                                       : [...prev, employee.name]
                                   );
+                                  setEditAssigneesOpen(false);
                                 }}
                               >
                                 <Check
