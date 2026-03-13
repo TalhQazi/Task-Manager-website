@@ -59,13 +59,35 @@ import {
 } from "lucide-react";
 import { createResource, listResource, updateResource, apiFetch } from "@/lib/admin/apiClient";
 
+const LOCATION_TYPES = [
+  "Property",
+  "Building",
+  "Unit",
+  "Office",
+  "Room",
+  "Warehouse",
+  "Yard",
+] as const;
+
+type LocationType = (typeof LOCATION_TYPES)[number];
+
+function normalizeLocationType(value: unknown): LocationType {
+  const v = String(value || "").trim();
+  if ((LOCATION_TYPES as readonly string[]).includes(v)) return v as LocationType;
+  const lower = v.toLowerCase();
+  if (lower === "commercial") return "Office";
+  if (lower === "residential") return "Unit";
+  if (lower === "industrial") return "Warehouse";
+  return "Property";
+}
+
 interface Location {
   id: string;
   name: string;
   address: string;
   city: string;
   country: string;
-  type: "commercial" | "residential" | "industrial";
+  type: LocationType;
   notes?: string;
   contactName: string;
   contactPhone: string;
@@ -98,7 +120,7 @@ function normalizeLocation(l: BackendLocation): Location {
     address: String(l.address || "").trim(),
     city: String(l.city || "").trim(),
     country: String(l.country || "").trim(),
-    type: (String(l.type || "commercial") as Location["type"]) || "commercial",
+    type: normalizeLocationType(l.type),
     notes: String(l.notes || "").trim() || "",
     contactName: String(l.contactName || "").trim(),
     contactPhone: String(l.contactPhone || "").trim(),
@@ -109,6 +131,17 @@ function normalizeLocation(l: BackendLocation): Location {
   };
 }
 
+function nextLocationId(existing: readonly Location[]): string {
+  let max = 0;
+  for (const l of existing) {
+    const m = /^LOC-(\d+)$/.exec(String(l.id || "").trim());
+    if (!m) continue;
+    const n = Number(m[1]);
+    if (Number.isFinite(n)) max = Math.max(max, n);
+  }
+  return `LOC-${String(max + 1).padStart(3, "0")}`;
+}
+
 const locations: Location[] = [
   {
     id: "LOC-001",
@@ -116,7 +149,7 @@ const locations: Location[] = [
     address: "123 Main Street",
     city: "New York",
     country: "USA",
-    type: "commercial",
+    type: "Office",
     notes: "Main HQ. After-hours access requires front desk approval.",
     contactName: "James Wilson",
     contactPhone: "+1 (555) 111-2222",
@@ -128,7 +161,7 @@ const locations: Location[] = [
     address: "456 Innovation Ave",
     city: "San Francisco",
     country: "USA",
-    type: "commercial",
+    type: "Office",
     contactName: "Maria Garcia",
     contactPhone: "+1 (555) 333-4444",
     status: "active",
@@ -139,7 +172,7 @@ const locations: Location[] = [
     address: "789 Industrial Blvd",
     city: "Los Angeles",
     country: "USA",
-    type: "industrial",
+    type: "Warehouse",
     contactName: "Robert Chen",
     contactPhone: "+1 (555) 555-6666",
     status: "active",
@@ -150,7 +183,7 @@ const locations: Location[] = [
     address: "321 Oak Lane",
     city: "Austin",
     country: "USA",
-    type: "residential",
+    type: "Unit",
     contactName: "Sarah Thompson",
     contactPhone: "+1 (555) 777-8888",
     status: "active",
@@ -161,7 +194,7 @@ const locations: Location[] = [
     address: "555 Harbor Drive",
     city: "Seattle",
     country: "USA",
-    type: "industrial",
+    type: "Warehouse",
     contactName: "Mike Brown",
     contactPhone: "+1 (555) 999-0000",
     status: "inactive",
@@ -169,9 +202,13 @@ const locations: Location[] = [
 ];
 
 const typeClasses = {
-  commercial: "bg-accent/10 text-accent",
-  residential: "bg-success/10 text-success",
-  industrial: "bg-warning/10 text-warning",
+  Property: "bg-accent/10 text-accent",
+  Building: "bg-accent/10 text-accent",
+  Unit: "bg-success/10 text-success",
+  Office: "bg-accent/10 text-accent",
+  Room: "bg-success/10 text-success",
+  Warehouse: "bg-warning/10 text-warning",
+  Yard: "bg-warning/10 text-warning",
 };
 
 const statusClasses = {
@@ -198,8 +235,8 @@ const Locations = () => {
     name: "",
     address: "",
     city: "",
-    country: "",
-    type: "commercial" as Location["type"],
+    country: "USA",
+    type: "Property" as Location["type"],
     notes: "",
     contactName: "",
     contactPhone: "",
@@ -213,7 +250,7 @@ const Locations = () => {
     address: "",
     city: "",
     country: "",
-    type: "commercial" as Location["type"],
+    type: "Property" as Location["type"],
     notes: "",
     contactName: "",
     contactPhone: "",
@@ -257,6 +294,11 @@ const Locations = () => {
     void loadCountries();
   }, []);
 
+  const countriesWithUsa = useMemo(() => {
+    if (!countries.includes("USA")) return ["USA", ...countries];
+    return countries;
+  }, [countries]);
+
   const refreshLocations = async () => {
     const list = await listResource<BackendLocation>("locations");
     setLocationsList(list.map(normalizeLocation));
@@ -272,7 +314,7 @@ const Locations = () => {
       setFormError(null);
       setApiError(null);
       const newLocation: Location = {
-        id: `LOC-${Date.now().toString().slice(-6)}`,
+        id: nextLocationId(locationsList),
         name: formData.name,
         address: formData.address,
         city: formData.city,
@@ -295,8 +337,8 @@ const Locations = () => {
         name: "",
         address: "",
         city: "",
-        country: "",
-        type: "commercial",
+        country: "USA",
+        type: "Property",
         notes: "",
         contactName: "",
         contactPhone: "",
@@ -323,7 +365,7 @@ const Locations = () => {
       address: location.address,
       city: location.city,
       country: location.country,
-      type: location.type,
+      type: normalizeLocationType(location.type),
       notes: location.notes || "",
       contactName: location.contactName,
       contactPhone: location.contactPhone,
@@ -396,11 +438,27 @@ const Locations = () => {
     });
   }, [locationsList, searchQuery]);
 
+  const locationCodeById = useMemo(() => {
+    const sorted = [...locationsList].sort((a, b) => {
+      const aDate = a.createdAt || "9999-99-99";
+      const bDate = b.createdAt || "9999-99-99";
+      const dateCmp = aDate.localeCompare(bDate);
+      if (dateCmp !== 0) return dateCmp;
+      const nameCmp = a.name.localeCompare(b.name);
+      if (nameCmp !== 0) return nameCmp;
+      return a.id.localeCompare(b.id);
+    });
+    const map = new Map<string, string>();
+    sorted.forEach((l, idx) => {
+      map.set(l.id, `LOC-${String(idx + 1).padStart(3, "0")}`);
+    });
+    return map;
+  }, [locationsList]);
+
   return (
     <AdminLayout>
       {/* Mobile-first container */}
       <div className="space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0">
-        
         {/* Page Header - Responsive */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
           <div className="space-y-1.5 sm:space-y-2">
@@ -421,7 +479,7 @@ const Locations = () => {
                 <span className="hidden sm:inline">Add Location</span>
               </Button>
             </DialogTrigger>
-            
+
             <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
               <DialogHeader className="space-y-1.5 sm:space-y-2">
                 <DialogTitle className="text-lg sm:text-xl">Add Location</DialogTitle>
@@ -456,7 +514,7 @@ const Locations = () => {
                         <SelectValue placeholder="Select country" />
                       </SelectTrigger>
                       <SelectContent className="max-h-[300px]">
-                        {countries.map((country) => (
+                        {countriesWithUsa.map((country) => (
                           <SelectItem key={country} value={country}>{country}</SelectItem>
                         ))}
                       </SelectContent>
@@ -500,9 +558,9 @@ const Locations = () => {
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="commercial">Commercial</SelectItem>
-                        <SelectItem value="residential">Residential</SelectItem>
-                        <SelectItem value="industrial">Industrial</SelectItem>
+                        {LOCATION_TYPES.map((t) => (
+                          <SelectItem key={t} value={t}>{t}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -529,9 +587,9 @@ const Locations = () => {
                   <div className="flex flex-col gap-2">
                     {formData.photoDataUrl ? (
                       <div className="relative w-full h-32 rounded-lg overflow-hidden border">
-                        <img 
-                          src={formData.photoDataUrl} 
-                          alt="Location preview" 
+                        <img
+                          src={formData.photoDataUrl}
+                          alt="Location preview"
                           className="w-full h-full object-cover"
                         />
                         <button
@@ -630,8 +688,8 @@ const Locations = () => {
               </form>
 
               <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => {
                     setAddLocationOpen(false);
                     setFormError(null);
@@ -641,8 +699,8 @@ const Locations = () => {
                 >
                   Cancel
                 </Button>
-                <Button 
-                  onClick={handleAddLocation} 
+                <Button
+                  onClick={handleAddLocation}
                   disabled={submitLoading}
                   className="bg-accent hover:bg-accent/90 text-accent-foreground w-full sm:w-auto order-1 sm:order-2"
                 >
@@ -687,7 +745,7 @@ const Locations = () => {
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="shadow-soft border-0 sm:border">
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center gap-3 sm:gap-4">
@@ -695,15 +753,15 @@ const Locations = () => {
                   <Briefcase className="h-5 w-5 sm:h-6 sm:w-6 text-accent" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs sm:text-sm text-muted-foreground">Commercial</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Office</p>
                   <p className="text-xl sm:text-2xl font-bold">
-                    {locationsList.filter((l) => l.type === "commercial").length}
+                    {locationsList.filter((l) => l.type === "Office").length}
                   </p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="shadow-soft border-0 sm:border">
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center gap-3 sm:gap-4">
@@ -711,15 +769,15 @@ const Locations = () => {
                   <Home className="h-5 w-5 sm:h-6 sm:w-6 text-success" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs sm:text-sm text-muted-foreground">Residential</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Unit</p>
                   <p className="text-xl sm:text-2xl font-bold">
-                    {locationsList.filter((l) => l.type === "residential").length}
+                    {locationsList.filter((l) => l.type === "Unit").length}
                   </p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          
+
           <Card className="shadow-soft border-0 sm:border">
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center gap-3 sm:gap-4">
@@ -727,9 +785,9 @@ const Locations = () => {
                   <Warehouse className="h-5 w-5 sm:h-6 sm:w-6 text-warning" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs sm:text-sm text-muted-foreground">Industrial</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Warehouse</p>
                   <p className="text-xl sm:text-2xl font-bold">
-                    {locationsList.filter((l) => l.type === "industrial").length}
+                    {locationsList.filter((l) => l.type === "Warehouse").length}
                   </p>
                 </div>
               </div>
@@ -782,9 +840,9 @@ const Locations = () => {
                         <div className="flex items-center gap-3 flex-1 min-w-0">
                           {location.photoDataUrl ? (
                             <div className="h-10 w-10 rounded-lg overflow-hidden flex-shrink-0 border">
-                              <img 
-                                src={location.photoDataUrl} 
-                                alt={location.name} 
+                              <img
+                                src={location.photoDataUrl}
+                                alt={location.name}
                                 className="h-full w-full object-cover"
                               />
                             </div>
@@ -795,6 +853,7 @@ const Locations = () => {
                           )}
                           <div className="min-w-0 flex-1">
                             <p className="font-medium text-sm truncate">{location.name}</p>
+                            <p className="text-xs text-muted-foreground">{locationCodeById.get(location.id) || "—"}</p>
                             <p className="text-xs text-muted-foreground">{toDateOnly(location.createdAt || "") || "—"}</p>
                           </div>
                         </div>
@@ -837,7 +896,7 @@ const Locations = () => {
                       {/* Address */}
                       <div className="space-y-1">
                         <div className="flex items-start gap-2 text-muted-foreground">
-                          <MapPin className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+                          <MapPin className="h-3 w-3 mt-0.5 flex-shrink-0" />
                           <div className="text-xs">
                             <p>{location.address}</p>
                             <p>{location.city}</p>
@@ -846,7 +905,6 @@ const Locations = () => {
                       </div>
                     </div>
                   ))}
-                  
                   {filteredLocations.length === 0 && (
                     <div className="text-center py-8">
                       <div className="flex justify-center mb-3">
@@ -867,6 +925,7 @@ const Locations = () => {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="text-xs md:text-sm w-[10%]">Code</TableHead>
                         <TableHead className="text-xs md:text-sm w-[18%]">Name</TableHead>
                         <TableHead className="text-xs md:text-sm w-[10%]">Type</TableHead>
                         <TableHead className="text-xs md:text-sm w-[20%]">Address</TableHead>
@@ -879,13 +938,16 @@ const Locations = () => {
                     <TableBody>
                       {filteredLocations.map((location) => (
                         <TableRow key={location.id} className="hover:bg-muted/30">
+                          <TableCell className="text-muted-foreground text-xs md:text-sm">
+                            {locationCodeById.get(location.id) || "—"}
+                          </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2 min-w-0">
                               {location.photoDataUrl ? (
                                 <div className="h-8 w-8 rounded overflow-hidden flex-shrink-0 border">
-                                  <img 
-                                    src={location.photoDataUrl} 
-                                    alt={location.name} 
+                                  <img
+                                    src={location.photoDataUrl}
+                                    alt={location.name}
                                     className="h-full w-full object-cover"
                                   />
                                 </div>
@@ -900,8 +962,8 @@ const Locations = () => {
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge 
-                              className={`${typeClasses[location.type]} text-xs md:text-sm`} 
+                            <Badge
+                              className={`${typeClasses[location.type]} text-xs md:text-sm`}
                               variant="secondary"
                             >
                               {location.type}
@@ -910,7 +972,7 @@ const Locations = () => {
                           <TableCell className="text-muted-foreground">
                             <div className="flex items-center gap-1.5 text-xs md:text-sm">
                               <MapPin className="h-3 w-3 md:h-3.5 md:w-3.5 flex-shrink-0" />
-                              <span className="truncate max-w-[200px] lg:max-w-[250px]">
+                              <span className="truncate max-w-[200px] lg:max-w-[250px] inline-block">
                                 {location.address}
                               </span>
                             </div>
@@ -921,8 +983,8 @@ const Locations = () => {
                             </span>
                           </TableCell>
                           <TableCell>
-                            <Badge 
-                              className={`${statusClasses[location.status]} text-xs md:text-sm`} 
+                            <Badge
+                              className={`${statusClasses[location.status]} text-xs md:text-sm`}
                               variant="secondary"
                             >
                               {location.status}
@@ -980,9 +1042,9 @@ const Locations = () => {
                 <div className="flex items-center gap-3">
                   {selectedLocation.photoDataUrl ? (
                     <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-lg overflow-hidden flex-shrink-0 border">
-                      <img 
-                        src={selectedLocation.photoDataUrl} 
-                        alt={selectedLocation.name} 
+                      <img
+                        src={selectedLocation.photoDataUrl}
+                        alt={selectedLocation.name}
                         className="h-full w-full object-cover"
                       />
                     </div>
@@ -993,10 +1055,14 @@ const Locations = () => {
                   )}
                   <div>
                     <p className="text-base sm:text-lg font-semibold break-words">{selectedLocation.name}</p>
-                    <p className="text-xs sm:text-sm text-muted-foreground">{toDateOnly(selectedLocation.createdAt || "") || "—"}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">{locationCodeById.get(selectedLocation.id) || "—"}</p>
+                    <p className="text-xs text-muted-foreground">{toDateOnly(selectedLocation.createdAt || "") || "—"}</p>
                   </div>
                 </div>
-                <Badge className={`${statusClasses[selectedLocation.status]} text-xs sm:text-sm self-start sm:self-center`} variant="secondary">
+                <Badge
+                  className={`${statusClasses[selectedLocation.status]} text-xs sm:text-sm self-start sm:self-center`}
+                  variant="secondary"
+                >
                   {selectedLocation.status}
                 </Badge>
               </div>
@@ -1005,19 +1071,22 @@ const Locations = () => {
                 <div className="space-y-1.5">
                   <label className="text-xs sm:text-sm font-medium">Type</label>
                   <div>
-                    <Badge className={`${typeClasses[selectedLocation.type]} text-xs sm:text-sm`} variant="secondary">
+                    <Badge
+                      className={`${typeClasses[selectedLocation.type]} text-xs sm:text-sm`}
+                      variant="secondary"
+                    >
                       {selectedLocation.type}
                     </Badge>
                   </div>
                 </div>
-                
+
                 <div className="space-y-1.5">
                   <label className="text-xs sm:text-sm font-medium">Date</label>
                   <p className="text-xs sm:text-sm text-muted-foreground break-words">
                     {toDateOnly(selectedLocation.createdAt || "") || "—"}
                   </p>
                 </div>
-                
+
                 <div className="space-y-1.5">
                   <label className="text-xs sm:text-sm font-medium">Country</label>
                   <p className="text-xs sm:text-sm text-muted-foreground break-words">
@@ -1107,7 +1176,7 @@ const Locations = () => {
                       <SelectValue placeholder="Select country" />
                     </SelectTrigger>
                     <SelectContent className="max-h-[300px]">
-                      {countries.map((country) => (
+                      {countriesWithUsa.map((country) => (
                         <SelectItem key={country} value={country}>{country}</SelectItem>
                       ))}
                     </SelectContent>
@@ -1138,9 +1207,9 @@ const Locations = () => {
                       <SelectValue placeholder="Select type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="commercial">Commercial</SelectItem>
-                      <SelectItem value="residential">Residential</SelectItem>
-                      <SelectItem value="industrial">Industrial</SelectItem>
+                      {LOCATION_TYPES.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -1167,9 +1236,9 @@ const Locations = () => {
                 <div className="flex flex-col gap-2">
                   {editFormData.photoDataUrl ? (
                     <div className="relative w-full h-32 rounded-lg overflow-hidden border">
-                      <img 
-                        src={editFormData.photoDataUrl} 
-                        alt="Location preview" 
+                      <img
+                        src={editFormData.photoDataUrl}
+                        alt="Location preview"
                         className="w-full h-full object-cover"
                       />
                       <button
@@ -1251,15 +1320,15 @@ const Locations = () => {
             </form>
           )}
           <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setEditLocationOpen(false)}
               className="w-full sm:w-auto order-2 sm:order-1"
             >
               Cancel
             </Button>
-            <Button 
-              onClick={saveEditLocation} 
+            <Button
+              onClick={saveEditLocation}
               className="bg-accent hover:bg-accent/90 text-accent-foreground w-full sm:w-auto order-1 sm:order-2"
             >
               Save Changes
@@ -1281,19 +1350,19 @@ const Locations = () => {
                 : "This location will be marked as inactive. You can activate it again later."}
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedLocation && (
             <div className="rounded-md bg-muted p-3 sm:p-4 text-xs sm:text-sm mt-2">
               <p className="font-medium break-words">{selectedLocation.name}</p>
               <p className="text-muted-foreground text-xs sm:text-sm break-words mt-1">
-                {selectedLocation.id}
+                {locationCodeById.get(selectedLocation.id) || selectedLocation.id}
               </p>
             </div>
           )}
-          
+
           <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => setDeactivateConfirmOpen(false)}
               className="w-full sm:w-auto order-2 sm:order-1"
             >
