@@ -23,8 +23,8 @@ async function parseJsonSafe(res: Response) {
 }
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const baseUrl = "https://task.se7eninc.com";
-  //  const baseUrl = "http://localhost:5000";
+  // const baseUrl = "https://task.se7eninc.com";
+   const baseUrl = "http://localhost:5000";
   const url = `${String(baseUrl).replace(/\/$/, "")}${path}`;
 
   const auth = getAuthState();
