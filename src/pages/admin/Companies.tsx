@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/admin/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/admin/ui/avatar";
 import {
   Select,
   SelectContent,
@@ -152,19 +152,19 @@ const Companies = () => {
   const [viewCompanyOpen, setViewCompanyOpen] = useState(false);
   const [editCompanyOpen, setEditCompanyOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
 
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
 
   const [addFormData, setAddFormData] = useState({
     name: "",
-    code: "",
     description: "",
     status: "active" as Company["status"],
     street: "",
     city: "",
     state: "",
     zipCode: "",
-    country: "",
+    country: "United States",
     email: "",
     phone: "",
     website: "",
@@ -225,10 +225,10 @@ const Companies = () => {
   const handleAddCompany = async () => {
     try {
       setApiError(null);
+      setIsAdding(true);
 
       const newCompany = {
         name: addFormData.name.trim(),
-        code: addFormData.code.trim().toUpperCase(),
         description: addFormData.description.trim(),
         status: addFormData.status,
         logo: addFormData.logo,
@@ -257,20 +257,21 @@ const Companies = () => {
       resetAddForm();
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "Failed to create company");
+    } finally {
+      setIsAdding(false);
     }
   };
 
   const resetAddForm = () => {
     setAddFormData({
       name: "",
-      code: "",
       description: "",
       status: "active",
       street: "",
       city: "",
       state: "",
       zipCode: "",
-      country: "",
+      country: "United States",
       email: "",
       phone: "",
       website: "",
@@ -311,13 +312,12 @@ const Companies = () => {
 
   const saveEditCompany = async () => {
     if (!selectedCompany) return;
-    if (!editFormData.name || !editFormData.code) return;
+    if (!editFormData.name) return;
 
     try {
       setApiError(null);
       await updateResource<Company>("companies", selectedCompany.id, {
         name: editFormData.name.trim(),
-        code: editFormData.code.trim().toUpperCase(),
         description: editFormData.description.trim(),
         status: editFormData.status,
         logo: editFormData.logo,
@@ -413,6 +413,43 @@ const Companies = () => {
     }
   };
 
+  // Helper function to generate prefix from company name (always 3-4 characters)
+  const generatePrefix = (name: string) => {
+    if (!name || typeof name !== "string") return "XXX";
+    
+    // Remove special characters and split by spaces
+    const cleanName = name.replace(/[^a-zA-Z0-9\s]/g, "");
+    const words = cleanName.trim().split(/\s+/).filter(w => w.length > 0);
+    
+    if (words.length === 0) return "XXX";
+    
+    // If single word, take first 3 letters (or all if less than 3)
+    if (words.length === 1) {
+      const word = words[0];
+      // Get first 3 letters, including numbers if present
+      let prefix = "";
+      for (let i = 0; i < Math.min(3, word.length); i++) {
+        prefix += word.charAt(i).toUpperCase();
+      }
+      return prefix || "XXX";
+    }
+    
+    // For multiple words, take first letter of first 3 words
+    const prefix = words
+      .slice(0, 3)
+      .map(word => word.charAt(0).toUpperCase())
+      .join("");
+    
+    return prefix || "XXX";
+  };
+
+  // Get next sequence number based on existing companies
+  const getNextSequence = () => {
+    if (companiesList.length === 0) return 1;
+    const maxSequence = Math.max(...companiesList.map(c => (c as any).sequence || 0));
+    return maxSequence + 1;
+  };
+
   return (
     <AdminLayout>
       <motion.div
@@ -481,30 +518,34 @@ const Companies = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
                 >
-                  {/* Name & Code */}
-                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                    <div className="flex-1 min-w-0">
-                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Company Name *</label>
-                      <input
-                        type="text"
-                        value={addFormData.name}
-                        onChange={(e) => setAddFormData({ ...addFormData, name: e.target.value })}
-                        placeholder="e.g., TaskFlow Inc."
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                        required
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Company Code *</label>
-                      <input
-                        type="text"
-                        value={addFormData.code}
-                        onChange={(e) => setAddFormData({ ...addFormData, code: e.target.value.toUpperCase() })}
-                        placeholder="e.g., TF001"
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                        required
-                      />
-                    </div>
+                  {/* Name */}
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Company Name *</label>
+                    <input
+                      type="text"
+                      value={addFormData.name}
+                      onChange={(e) => setAddFormData({ ...addFormData, name: e.target.value })}
+                      placeholder="e.g., TaskFlow Inc."
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                      required
+                    />
+                  </div>
+
+                  {/* Auto-generated Code Preview */}
+                  <div>
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5 text-muted-foreground">
+                      Company Code <span className="text-xs text-primary">(Auto-generated)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={addFormData.name ? `${generatePrefix(addFormData.name)}-${String(getNextSequence()).padStart(3, "0")}` : ""}
+                      disabled
+                      placeholder="Will be generated automatically"
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-muted/50 text-muted-foreground cursor-not-allowed"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Code is automatically generated based on company name
+                    </p>
                   </div>
 
                   {/* Description */}
@@ -537,13 +578,6 @@ const Companies = () => {
                   <div className="space-y-3">
                     <h4 className="text-xs sm:text-sm font-medium text-muted-foreground">Address</h4>
                     <div className="grid grid-cols-2 gap-3">
-                      <input
-                        type="text"
-                        value={addFormData.city}
-                        onChange={(e) => setAddFormData({ ...addFormData, city: e.target.value })}
-                        placeholder="City"
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                      />
                       <select
                         value={addFormData.country}
                         onChange={(e) => setAddFormData({ ...addFormData, country: e.target.value })}
@@ -554,6 +588,13 @@ const Companies = () => {
                           <option key={country} value={country}>{country}</option>
                         ))}
                       </select>
+                      <input
+                        type="text"
+                        value={addFormData.city}
+                        onChange={(e) => setAddFormData({ ...addFormData, city: e.target.value })}
+                        placeholder="City"
+                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                      />
                     </div>
                   </div>
 
@@ -630,11 +671,19 @@ const Companies = () => {
                   <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
                     <Button
                       onClick={handleAddCompany}
-                      disabled={!addFormData.name || !addFormData.code}
+                      disabled={!addFormData.name || isAdding}
                       className="bg-gradient-to-r from-primary to-primary/80 text-white w-full sm:w-auto order-1 sm:order-2 shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-60"
                     >
-                      <Plus className="h-4 w-4 mr-2 flex-shrink-0" />
-                      Add Company
+                      {isAdding ? (
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                          className="h-4 w-4 border-2 border-white border-t-transparent rounded-full mr-2"
+                        />
+                      ) : (
+                        <Plus className="h-4 w-4 mr-2 flex-shrink-0" />
+                      )}
+                      {isAdding ? "Adding..." : "Add Company"}
                     </Button>
                   </motion.div>
                 </DialogFooter>
@@ -765,6 +814,9 @@ const Companies = () => {
                             <div className="flex items-center gap-3 flex-1 min-w-0">
                               <motion.div whileHover={{ scale: 1.1, rotate: 5 }} transition={{ type: "spring", stiffness: 300, damping: 10 }}>
                                 <Avatar className="h-10 w-10 flex-shrink-0 ring-2 ring-primary/20">
+                                  {company.logo ? (
+                                    <AvatarImage src={company.logo} alt={company.name} className="object-cover" />
+                                  ) : null}
                                   <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-xs">
                                     {company.code?.slice(0, 2)}
                                   </AvatarFallback>
@@ -777,7 +829,6 @@ const Companies = () => {
                                     <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="inline-block w-1.5 h-1.5 bg-primary rounded-full" />
                                   )}
                                 </p>
-                                <p className="text-xs text-muted-foreground">{company.code}</p>
                               </div>
                             </div>
                             <DropdownMenu>
@@ -892,6 +943,9 @@ const Companies = () => {
                                 <div className="flex items-center gap-3">
                                   <motion.div whileHover={{ scale: 1.1, rotate: 5 }} transition={{ type: "spring", stiffness: 300, damping: 10 }}>
                                     <Avatar className="h-8 w-8 md:h-9 md:w-9 flex-shrink-0 ring-2 ring-primary/20">
+                                      {company.logo ? (
+                                        <AvatarImage src={company.logo} alt={company.name} className="object-cover" />
+                                      ) : null}
                                       <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-xs md:text-sm">
                                         {company.code?.slice(0, 2)}
                                       </AvatarFallback>
@@ -902,7 +956,6 @@ const Companies = () => {
                                       {company.name}
                                       {hoveredCompany === company.id && <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="inline-block w-1.5 h-1.5 bg-primary rounded-full" />}
                                     </p>
-                                    <p className="text-xs text-muted-foreground">{company.code}</p>
                                   </div>
                                 </div>
                               </TableCell>
@@ -993,6 +1046,9 @@ const Companies = () => {
                 <div className="flex items-center gap-3">
                   <motion.div whileHover={{ scale: 1.1, rotate: 5 }} transition={{ type: "spring", stiffness: 300, damping: 10 }}>
                     <Avatar className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 ring-2 ring-primary/20">
+                      {selectedCompany.logo ? (
+                        <AvatarImage src={selectedCompany.logo} alt={selectedCompany.name} className="object-cover" />
+                      ) : null}
                       <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-sm sm:text-base">
                         {selectedCompany.code?.slice(0, 2)}
                       </AvatarFallback>
@@ -1087,14 +1143,14 @@ const Companies = () => {
                   />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Company Code *</label>
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Company Code</label>
                   <input
                     type="text"
                     value={editFormData.code}
-                    onChange={(e) => setEditFormData({ ...editFormData, code: e.target.value.toUpperCase() })}
-                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                    required
+                    disabled
+                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-muted/50 text-muted-foreground cursor-not-allowed"
                   />
+                  <p className="text-xs text-muted-foreground mt-1">Auto-generated and cannot be changed</p>
                 </div>
               </div>
 
