@@ -26,6 +26,8 @@ import ActivityLogs from "@/pages/admin/ActivityLogs";
 import Settings from "@/pages/admin/Settings";
 import Profile from "@/pages/admin/Profile";
 import RolesPermissions from "@/pages/admin/RolesPermissions";
+import AsanaImport from "@/pages/admin/AsanaImport";
+import AsanaData from "@/pages/admin/AsanaData";
 import NotFound from "@/pages/admin/NotFound";
 
 export default function AdminRoutes() {
@@ -57,6 +59,8 @@ export default function AdminRoutes() {
       { path: "reports", element: <Reports /> },
       { path: "activity-logs", element: auth.role === "super-admin" ? <ActivityLogs /> : <Navigate to="/admin" replace /> },
       { path: "settings", element: <Settings /> },
+      { path: "asana-import", element: <AsanaImport /> },
+      { path: "asana-data", element: <AsanaData /> },
       { path: "profile", element: <Profile /> },
       { path: "*", element: <NotFound /> },
     ],

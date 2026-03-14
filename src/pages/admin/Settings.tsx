@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/admin/ui/dialog";
+import { useNavigate } from "react-router-dom";
 
 type UploadStatus = "idle" | "uploading" | "success" | "error";
 
@@ -69,6 +70,7 @@ function loadSettings(): SettingsState {
 }
 
 export default function Settings() {
+  const navigate = useNavigate();
   const [settings, setSettings] = useState<SettingsState>(() => loadSettings());
 
   const [isSaving, setIsSaving] = useState(false);
@@ -640,6 +642,26 @@ export default function Settings() {
                     Change Password
                   </Button>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-soft border-0 sm:border">
+            <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
+              <CardTitle className="text-base sm:text-lg md:text-xl font-semibold">Data Migration</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 px-4 sm:px-6 pb-5 sm:pb-6 pt-0">
+              <p className="text-sm text-muted-foreground">
+                Import company data from external systems.
+              </p>
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => navigate("/admin/asana-import")}
+                  className="h-9 sm:h-10 text-sm sm:text-base"
+                >
+                  Import from Asana
+                </Button>
               </div>
             </CardContent>
           </Card>
