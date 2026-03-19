@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
@@ -217,6 +218,7 @@ const statusClasses = {
 };
 
 const Locations = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [addLocationOpen, setAddLocationOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
@@ -293,6 +295,30 @@ const Locations = () => {
     };
     void loadCountries();
   }, []);
+
+  useEffect(() => {
+    const viewId = String(searchParams.get("view") || "").trim();
+    if (!viewId) return;
+    if (viewDetailsOpen || editLocationOpen || deactivateConfirmOpen || addLocationOpen) return;
+
+    const match = locationsList.find((l) => String(l.id) === viewId);
+    if (!match) return;
+
+    setSelectedLocation(match);
+    setViewDetailsOpen(true);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("view");
+    setSearchParams(next, { replace: true });
+  }, [
+    locationsList,
+    searchParams,
+    setSearchParams,
+    viewDetailsOpen,
+    editLocationOpen,
+    deactivateConfirmOpen,
+    addLocationOpen,
+  ]);
 
   const countriesWithUsa = useMemo(() => {
     if (!countries.includes("USA")) return ["USA", ...countries];

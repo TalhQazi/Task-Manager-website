@@ -1,5 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
+
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
 import { Badge } from "@/components/manger/ui/badge";
@@ -329,6 +331,7 @@ const compressImage = (file: File): Promise<string> => {
 };
 
 export default function Appliances() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -337,6 +340,7 @@ export default function Appliances() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedAppliance, setSelectedAppliance] = useState<Appliance | null>(null);
+
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
   const queryClient = useQueryClient();
 
@@ -390,6 +394,22 @@ export default function Appliances() {
   const appliances = appliancesQuery.data ?? [];
   const locations = locationsQuery.data ?? [];
   const employees = employeesQuery.data ?? [];
+
+  useEffect(() => {
+    const viewId = String(searchParams.get("view") || "").trim();
+    if (!viewId) return;
+    if (isViewOpen || isEditOpen || isDeleteOpen || isCreateOpen) return;
+
+    const match = appliances.find((a) => String(a.id) === viewId);
+    if (!match) return;
+
+    setSelectedAppliance(match);
+    setIsViewOpen(true);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("view");
+    setSearchParams(next, { replace: true });
+  }, [appliances, searchParams, setSearchParams, isViewOpen, isEditOpen, isDeleteOpen, isCreateOpen]);
 
   const createApplianceMutation = useMutation({
     mutationFn: async (payload: Omit<Appliance, "id">) => {

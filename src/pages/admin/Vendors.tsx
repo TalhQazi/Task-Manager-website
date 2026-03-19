@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
@@ -70,6 +71,7 @@ interface Location {
 }
 
 export default function Vendors() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
@@ -183,6 +185,21 @@ export default function Vendors() {
     setSelectedVendor(vendor);
     setIsViewOpen(true);
   };
+
+  useEffect(() => {
+    const viewId = String(searchParams.get("view") || "").trim();
+    if (!viewId) return;
+    if (isViewOpen || isEditOpen || isDeleteOpen || isCreateOpen) return;
+
+    const match = vendors.find((v) => String(v._id) === viewId);
+    if (!match) return;
+
+    openView(match);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("view");
+    setSearchParams(next, { replace: true });
+  }, [vendors, searchParams, setSearchParams, isViewOpen, isEditOpen, isDeleteOpen, isCreateOpen]);
 
   const openEdit = (vendor: Vendor) => {
     setSelectedVendor(vendor);

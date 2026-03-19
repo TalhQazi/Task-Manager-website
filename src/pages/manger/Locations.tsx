@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 
 import { Button } from "@/components/manger/ui/button";
@@ -316,6 +317,7 @@ const mapPinVariants: Variants = {
 };
 
 export default function Locations() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
@@ -333,6 +335,21 @@ export default function Locations() {
   });
 
   const locations = locationsQuery.data ?? [];
+
+  useEffect(() => {
+    const viewId = String(searchParams.get("view") || "").trim();
+    if (!viewId) return;
+    if (isViewOpen || isEditOpen || isDeleteOpen || isCreateOpen) return;
+
+    const match = locations.find((l) => String(l.id) === viewId);
+    if (!match) return;
+
+    openView(match);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("view");
+    setSearchParams(next, { replace: true });
+  }, [locations, searchParams, setSearchParams, isViewOpen, isEditOpen, isDeleteOpen, isCreateOpen]);
 
   const createLocationMutation = useMutation({
     mutationFn: async (payload: Omit<Location, "id">) => {

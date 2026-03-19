@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
@@ -144,6 +145,8 @@ const cardVariants = {
 
 const Employees = () => {
   const ADD_EMPLOYEE_FORM_ID = "add-employee-form";
+
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -350,6 +353,32 @@ const Employees = () => {
     setSelectedEmployee(employee);
     setViewProfileOpen(true);
   };
+
+  useEffect(() => {
+    const viewId = String(searchParams.get("view") || "").trim();
+    if (!viewId) return;
+    if (viewProfileOpen || editEmployeeOpen || deactivateConfirmOpen || deleteConfirmOpen || shiftOpen || addEmployeeOpen || resetPasswordOpen) return;
+
+    const match = employeesList.find((e) => String(e.id) === viewId);
+    if (!match) return;
+
+    handleViewProfile(match);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("view");
+    setSearchParams(next, { replace: true });
+  }, [
+    employeesList,
+    searchParams,
+    setSearchParams,
+    viewProfileOpen,
+    editEmployeeOpen,
+    deactivateConfirmOpen,
+    deleteConfirmOpen,
+    shiftOpen,
+    addEmployeeOpen,
+    resetPasswordOpen,
+  ]);
 
   const handleEditEmployee = (employee: Employee) => {
     setSelectedEmployee(employee);

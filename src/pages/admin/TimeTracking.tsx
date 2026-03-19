@@ -26,7 +26,7 @@ import { Clock, MapPin, MoreHorizontal, Plus, Calendar, Users, ShieldAlert, File
 import { apiFetch, createResource, deleteResource, getApiBaseUrl, listResource, updateResource } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
 import jsPDF from "jspdf";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 interface TimeEntry {
   id: string;
@@ -192,6 +192,7 @@ function normalizeTimeEntry(e: TimeEntryApi): TimeEntry {
 
 const TimeTracking = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [addOpen, setAddOpen] = useState(false);
 
   const [complianceLoading, setComplianceLoading] = useState(false);
@@ -278,6 +279,24 @@ const TimeTracking = () => {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    const viewId = String(searchParams.get("view") || "").trim();
+    if (!viewId) return;
+    if (addOpen) return;
+
+    const match = entries.find((e) => String(e.id) === viewId);
+    if (!match) return;
+
+    const employee = String(match.employee || "").trim();
+    if (!employee) return;
+
+    navigate(`history/${encodeURIComponent(employee)}`);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("view");
+    setSearchParams(next, { replace: true });
+  }, [entries, searchParams, setSearchParams, navigate, addOpen]);
 
   const refresh = async () => {
     const list = await listResource<TimeEntryApi>("time-entries");

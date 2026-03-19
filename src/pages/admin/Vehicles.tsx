@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
+import { useSearchParams } from "react-router-dom";
 import {
   PieChart,
   Pie,
@@ -252,6 +253,7 @@ const cardVariants = {
 };
 
 const Vehicles = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [addVehicleOpen, setAddVehicleOpen] = useState(false);
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
@@ -472,6 +474,29 @@ const Vehicles = () => {
     setSelectedVehicle(vehicle);
     setViewDetailsOpen(true);
   };
+
+  useEffect(() => {
+    const viewId = String(searchParams.get("view") || "").trim();
+    if (!viewId) return;
+    if (viewDetailsOpen || editVehicleOpen || removeConfirmOpen || addVehicleOpen) return;
+
+    const match = vehiclesList.find((v) => String(v.id) === viewId);
+    if (!match) return;
+
+    handleViewDetails(match);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("view");
+    setSearchParams(next, { replace: true });
+  }, [
+    vehiclesList,
+    searchParams,
+    setSearchParams,
+    viewDetailsOpen,
+    editVehicleOpen,
+    removeConfirmOpen,
+    addVehicleOpen,
+  ]);
 
   const handleEditVehicle = (vehicle: Vehicle) => {
     setSelectedVehicle(vehicle);

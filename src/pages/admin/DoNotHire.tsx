@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
@@ -128,6 +129,7 @@ const normalizeDoNotHireItem = (item: BackendDoNotHire, employeesById: Map<strin
 };
 
 export default function DoNotHire() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"date_desc" | "date_asc" | "name_asc" | "name_desc" | "status">("date_desc");
   const [addOpen, setAddOpen] = useState(false);
@@ -228,6 +230,21 @@ export default function DoNotHire() {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    const viewId = String(searchParams.get("view") || "").trim();
+    if (!viewId) return;
+    if (viewOpen || editOpen || removeOpen || addOpen) return;
+
+    const match = items.find((i) => String(i.id) === viewId);
+    if (!match) return;
+
+    onView(match);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("view");
+    setSearchParams(next, { replace: true });
+  }, [items, searchParams, setSearchParams, viewOpen, editOpen, removeOpen, addOpen]);
 
   const refresh = async () => {
     const list = await listResource<BackendDoNotHire>("do-not-hire");

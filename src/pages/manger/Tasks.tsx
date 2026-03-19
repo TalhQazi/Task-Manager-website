@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
@@ -186,6 +187,7 @@ const createTaskSchema = z.object({
 type CreateTaskValues = z.infer<typeof createTaskSchema>;
 
 export default function Tasks() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
@@ -229,6 +231,21 @@ export default function Tasks() {
       setTasks(tasksQuery.data);
     }
   }, [tasksQuery.data]);
+
+  useEffect(() => {
+    const viewId = String(searchParams.get("view") || "").trim();
+    if (!viewId) return;
+    if (isViewOpen || isEditOpen || isDeleteOpen || isCreateOpen) return;
+
+    const match = tasks.find((t) => String(t.id) === viewId);
+    if (!match) return;
+
+    openView(match);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("view");
+    setSearchParams(next, { replace: true });
+  }, [tasks, searchParams, setSearchParams, isViewOpen, isEditOpen, isDeleteOpen, isCreateOpen]);
 
   // Fetch employees
   useEffect(() => {

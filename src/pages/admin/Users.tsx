@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { AdminLayout } from "@/components/admin/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
@@ -145,6 +146,7 @@ const cardVariants: Variants = {
 };
 
 const Users = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [users, setUsers] = useState<User[]>(() => []);
@@ -214,6 +216,32 @@ const Users = () => {
       mounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    const viewId = String(searchParams.get("view") || "").trim();
+    if (!viewId) return;
+    if (viewDetailsOpen || editUserOpen || changeRoleOpen || deactivateOpen || deleteOpen || resetPasswordOpen || open) return;
+
+    const match = users.find((u) => String(u.id) === viewId);
+    if (!match) return;
+
+    handleViewDetails(match);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("view");
+    setSearchParams(next, { replace: true });
+  }, [
+    users,
+    searchParams,
+    setSearchParams,
+    viewDetailsOpen,
+    editUserOpen,
+    changeRoleOpen,
+    deactivateOpen,
+    deleteOpen,
+    resetPasswordOpen,
+    open,
+  ]);
 
   type FormValues = {
     firstName: string;

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
 import { Badge } from "@/components/manger/ui/badge";
+import { useSearchParams } from "react-router-dom";
 import {
   Select,
   SelectContent,
@@ -163,6 +164,7 @@ const createVehicleSchema = z.object({
 type CreateVehicleValues = z.infer<typeof createVehicleSchema>;
 
 export default function Vehicles() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -255,6 +257,21 @@ export default function Vehicles() {
   });
 
   const vehicles = vehiclesQuery.data ?? [];
+
+  useEffect(() => {
+    const viewId = String(searchParams.get("view") || "").trim();
+    if (!viewId) return;
+    if (isViewOpen || isEditOpen || isDeleteOpen || isCreateOpen) return;
+
+    const match = vehicles.find((v) => String(v.id) === viewId);
+    if (!match) return;
+
+    openView(match);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("view");
+    setSearchParams(next, { replace: true });
+  }, [vehicles, searchParams, setSearchParams, isViewOpen, isEditOpen, isDeleteOpen, isCreateOpen]);
 
   const createVehicleMutation = useMutation({
     mutationFn: async (payload: Omit<Vehicle, "id">) => {

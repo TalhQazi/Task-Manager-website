@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
@@ -275,6 +276,7 @@ const statsVariants: Variants = {
 };
 
 export default function Employees() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -303,6 +305,21 @@ export default function Employees() {
   });
 
   const employees = employeesQuery.data ?? [];
+
+  useEffect(() => {
+    const viewId = String(searchParams.get("view") || "").trim();
+    if (!viewId) return;
+    if (isViewOpen || isEditOpen || isDeleteOpen || isCreateOpen) return;
+
+    const match = employees.find((e) => String(e.id) === viewId);
+    if (!match) return;
+
+    openView(match);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("view");
+    setSearchParams(next, { replace: true });
+  }, [employees, searchParams, setSearchParams, isViewOpen, isEditOpen, isDeleteOpen, isCreateOpen]);
 
   const createEmployeeMutation = useMutation({
     mutationFn: async (payload: Omit<Employee, "id">) => {

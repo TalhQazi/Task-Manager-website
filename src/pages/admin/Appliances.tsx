@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
+
 import {
   Table,
   TableBody,
@@ -156,6 +158,7 @@ const cardVariants: Variants = {
 };
 
 export default function Appliances() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [addOpen, setAddOpen] = useState(false);
@@ -426,6 +429,30 @@ export default function Appliances() {
     setSelected(a);
     setViewOpen(true);
   };
+
+  useEffect(() => {
+    const viewId = String(searchParams.get("view") || "").trim();
+    if (!viewId) return;
+    if (viewOpen || editOpen || deactivateOpen || deleteOpen || addOpen) return;
+
+    const match = appliancesList.find((a) => String(a.id) === viewId);
+    if (!match) return;
+
+    onView(match);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("view");
+    setSearchParams(next, { replace: true });
+  }, [
+    appliancesList,
+    searchParams,
+    setSearchParams,
+    viewOpen,
+    editOpen,
+    deactivateOpen,
+    deleteOpen,
+    addOpen,
+  ]);
 
   const onEdit = (a: Appliance) => {
     setSelected(a);

@@ -36,6 +36,65 @@ export function MainLayout({ children }: MainLayoutProps) {
     timestamp?: string;
     createdAt?: string;
     status?: "sent" | "delivered" | "read";
+    meta?: {
+      resourceType?: string;
+      resourceId?: string;
+      link?: string;
+    };
+  };
+
+  const resolveNotificationLink = (n: MessageApi) => {
+    const direct = String(n.meta?.link || "").trim();
+    if (direct) return direct;
+
+    const resourceTypeRaw = String(n.meta?.resourceType || "").trim();
+    const resourceType = resourceTypeRaw.toLowerCase();
+    const resourceId = String(n.meta?.resourceId || "").trim();
+
+    if (resourceType === "vehicle") {
+      if (resourceId) return `/manager/vehicles?view=${encodeURIComponent(resourceId)}`;
+      return "/manager/vehicles";
+    }
+    if (resourceType === "employee") {
+      if (resourceId) return `/manager/employees?view=${encodeURIComponent(resourceId)}`;
+      return "/manager/employees";
+    }
+    if (resourceType === "location") {
+      if (resourceId) return `/manager/locations?view=${encodeURIComponent(resourceId)}`;
+      return "/manager/locations";
+    }
+    if (resourceType === "vendor") {
+      if (resourceId) return `/manager/vendors?view=${encodeURIComponent(resourceId)}`;
+      return "/manager/vendors";
+    }
+    if (resourceType === "onboarding") {
+      if (resourceId) return `/manager/onboarding?view=${encodeURIComponent(resourceId)}`;
+      return "/manager/onboarding";
+    }
+    if (resourceType === "do not hire entry" || resourceType === "donothire" || resourceType === "do_not_hire") {
+      if (resourceId) return `/manager/do-not-hire?view=${encodeURIComponent(resourceId)}`;
+      return "/manager/do-not-hire";
+    }
+    if (resourceType === "appliance") {
+      if (resourceId) return `/manager/appliances?view=${encodeURIComponent(resourceId)}`;
+      return "/manager/appliances";
+    }
+    if (resourceType === "task") {
+      if (resourceId) return `/manager/tasks?view=${encodeURIComponent(resourceId)}`;
+      return "/manager/tasks";
+    }
+
+    const content = String(n.content || "").toLowerCase();
+    if (content.includes(" employee")) return "/manager/employees";
+    if (content.includes(" vehicle")) return "/manager/vehicles";
+    if (content.includes(" location")) return "/manager/locations";
+    if (content.includes(" vendor")) return "/manager/vendors";
+    if (content.includes(" onboarding")) return "/manager/onboarding";
+    if (content.includes(" do not hire")) return "/manager/do-not-hire";
+    if (content.includes(" appliance")) return "/manager/appliances";
+    if (content.includes(" task")) return "/manager/tasks";
+
+    return "/manager/notifications";
   };
 
   const settingsQuery = useQuery({
@@ -164,7 +223,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                         className="flex flex-col items-start gap-0.5 text-xs"
                         onClick={() => {
                           void markRead(n.id);
-                          navigate("/manager/notifications");
+                          navigate(resolveNotificationLink(n));
                         }}
                       >
                         <span className="font-medium line-clamp-1">

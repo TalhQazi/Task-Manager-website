@@ -1,11 +1,11 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { Button } from "@/components/manger/ui/button";
 import { Badge } from "@/components/manger/ui/badge";
 import { Download, Clock, Calendar } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch } from "@/lib/manger/api";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 interface TimeEntry {
   id: string;
@@ -47,6 +47,7 @@ const statusStyles = {
 
 export default function TimeTracking() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const entriesQuery = useQuery({
     queryKey: ["time-entries"],
@@ -57,6 +58,23 @@ export default function TimeTracking() {
   });
 
   const timeEntries = entriesQuery.data ?? [];
+
+  useEffect(() => {
+    const viewId = String(searchParams.get("view") || "").trim();
+    if (!viewId) return;
+
+    const match = timeEntries.find((e) => String(e.id) === viewId);
+    if (!match) return;
+
+    const employee = String(match.employee || "").trim();
+    if (!employee) return;
+
+    navigate(`history/${encodeURIComponent(employee)}`);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("view");
+    setSearchParams(next, { replace: true });
+  }, [timeEntries, searchParams, setSearchParams, navigate]);
 
   const filteredEntries = useMemo(() => {
     return timeEntries.slice().sort((a, b) => {

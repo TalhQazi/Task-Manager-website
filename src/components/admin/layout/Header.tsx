@@ -32,6 +32,78 @@ export function Header({ onMenuClick }: HeaderProps) {
     timestamp?: string;
     createdAt?: string;
     status?: "sent" | "delivered" | "read";
+    meta?: {
+      resourceType?: string;
+      resourceId?: string;
+      link?: string;
+    };
+  };
+
+  const resolveNotificationLink = (n: MessageApi) => {
+    const direct = String(n.meta?.link || "").trim();
+    if (direct) return direct;
+
+    const resourceTypeRaw = String(n.meta?.resourceType || "").trim();
+    const resourceType = resourceTypeRaw.toLowerCase();
+    const resourceId = String(n.meta?.resourceId || "").trim();
+
+    if (resourceType === "vehicle") {
+      if (resourceId) return `/admin/vehicles?view=${encodeURIComponent(resourceId)}`;
+      return "/admin/vehicles";
+    }
+    if (resourceType === "employee") {
+      if (resourceId) return `/admin/employees?view=${encodeURIComponent(resourceId)}`;
+      return "/admin/employees";
+    }
+    if (resourceType === "location") {
+      if (resourceId) return `/admin/locations?view=${encodeURIComponent(resourceId)}`;
+      return "/admin/locations";
+    }
+    if (resourceType === "vendor") {
+      if (resourceId) return `/admin/vendors?view=${encodeURIComponent(resourceId)}`;
+      return "/admin/vendors";
+    }
+    if (resourceType === "company") {
+      if (resourceId) return `/admin/companies?view=${encodeURIComponent(resourceId)}`;
+      return "/admin/companies";
+    }
+    if (resourceType === "onboarding") {
+      if (resourceId) return `/admin/onboarding?view=${encodeURIComponent(resourceId)}`;
+      return "/admin/onboarding";
+    }
+    if (resourceType === "time entry" || resourceType === "timeentry" || resourceType === "time_entry") {
+      if (resourceId) return `/admin/time-tracking?view=${encodeURIComponent(resourceId)}`;
+      return "/admin/time-tracking";
+    }
+    if (resourceType === "do not hire entry" || resourceType === "donothire" || resourceType === "do_not_hire") {
+      if (resourceId) return `/admin/do-not-hire?view=${encodeURIComponent(resourceId)}`;
+      return "/admin/do-not-hire";
+    }
+    if (resourceType === "user") {
+      if (resourceId) return `/admin/users?view=${encodeURIComponent(resourceId)}`;
+      return "/admin/users";
+    }
+    if (resourceType === "appliance") {
+      if (resourceId) return `/admin/appliances?view=${encodeURIComponent(resourceId)}`;
+      return "/admin/appliances";
+    }
+    if (resourceType === "task") {
+      if (resourceId) return `/admin/tasks?view=${encodeURIComponent(resourceId)}`;
+      return "/admin/tasks";
+    }
+
+    const content = String(n.content || "").toLowerCase();
+    if (content.includes(" employee")) return "/admin/employees";
+    if (content.includes(" vehicle")) return "/admin/vehicles";
+    if (content.includes(" location")) return "/admin/locations";
+    if (content.includes(" vendor")) return "/admin/vendors";
+    if (content.includes(" company")) return "/admin/companies";
+    if (content.includes(" onboarding")) return "/admin/onboarding";
+    if (content.includes(" do not hire")) return "/admin/do-not-hire";
+    if (content.includes(" appliance")) return "/admin/appliances";
+    if (content.includes(" task")) return "/admin/tasks";
+
+    return "/admin/notifications";
   };
 
   const settingsQuery = useQuery({
@@ -154,7 +226,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                       className="flex flex-col items-start gap-0.5 text-xs"
                       onClick={() => {
                         void markRead(n.id);
-                        navigate("/admin/notifications");
+                        navigate(resolveNotificationLink(n));
                       }}
                     >
                       <span className="font-medium line-clamp-2">{String(n.content || "")}</span>

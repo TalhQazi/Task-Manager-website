@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
@@ -141,6 +142,7 @@ const itemVariants = {
 };
 
 const Companies = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [companiesList, setCompaniesList] = useState<Company[]>([]);
@@ -286,6 +288,29 @@ const Companies = () => {
     setSelectedCompany(company);
     setViewCompanyOpen(true);
   };
+
+  useEffect(() => {
+    const viewId = String(searchParams.get("view") || "").trim();
+    if (!viewId) return;
+    if (viewCompanyOpen || editCompanyOpen || deleteConfirmOpen || addCompanyOpen) return;
+
+    const match = companiesList.find((c) => String(c.id) === viewId);
+    if (!match) return;
+
+    handleViewCompany(match);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("view");
+    setSearchParams(next, { replace: true });
+  }, [
+    companiesList,
+    searchParams,
+    setSearchParams,
+    viewCompanyOpen,
+    editCompanyOpen,
+    deleteConfirmOpen,
+    addCompanyOpen,
+  ]);
 
   const handleEditCompany = (company: Company) => {
     setSelectedCompany(company);

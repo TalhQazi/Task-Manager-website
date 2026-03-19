@@ -68,6 +68,7 @@ import {
   Users,
   X,
   Loader2,
+  Bug,
 } from "lucide-react";
 import jsPDF from "jspdf";
 import { apiFetch, createResource, deleteResource, listResource, updateResource } from "@/lib/admin/apiClient";
@@ -1234,6 +1235,83 @@ const Tasks = () => {
 
 
 
+  const [createBugOpen, setCreateBugOpen] = useState(false);
+  const [bugTask, setBugTask] = useState<Task | null>(null);
+  const [bugTitle, setBugTitle] = useState("");
+  const [bugDescription, setBugDescription] = useState("");
+  const [bugImageFile, setBugImageFile] = useState<File | null>(null);
+  const [bugImagePreviewUrl, setBugImagePreviewUrl] = useState("");
+  const [bugImageOpen, setBugImageOpen] = useState(false);
+  const [bugSubmitting, setBugSubmitting] = useState(false);
+  const [bugError, setBugError] = useState<string | null>(null);
+
+  const openCreateBug = (task: Task) => {
+    setBugTask(task);
+    setBugTitle("");
+    setBugDescription("");
+    setBugImageFile(null);
+    if (bugImagePreviewUrl) URL.revokeObjectURL(bugImagePreviewUrl);
+    setBugImagePreviewUrl("");
+    setBugImageOpen(false);
+    setBugError(null);
+    setCreateBugOpen(true);
+  };
+
+  const submitBugReport = async () => {
+    if (!bugTask) return;
+    const title = bugTitle.trim();
+    const description = bugDescription.trim();
+    if (!title || !description) {
+      setBugError("Title and description are required");
+      return;
+    }
+
+    try {
+      setBugSubmitting(true);
+      setBugError(null);
+
+      const toDataUrl = (file: File) =>
+        new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ""));
+          reader.onerror = () => reject(new Error("Failed to read image"));
+          reader.readAsDataURL(file);
+        });
+
+      const attachment = bugImageFile
+        ? {
+            fileName: bugImageFile.name,
+            url: await toDataUrl(bugImageFile),
+            mimeType: bugImageFile.type,
+            size: bugImageFile.size,
+          }
+        : undefined;
+
+      await apiFetch<{ item: { id: string } }>("/api/bugs", {
+        method: "POST",
+        body: JSON.stringify({
+          taskId: bugTask.id,
+          title,
+          description,
+          attachment,
+        }),
+      });
+
+      setCreateBugOpen(false);
+      setBugTask(null);
+      setBugTitle("");
+      setBugDescription("");
+      setBugImageFile(null);
+      if (bugImagePreviewUrl) URL.revokeObjectURL(bugImagePreviewUrl);
+      setBugImagePreviewUrl("");
+      setBugImageOpen(false);
+    } catch (e) {
+      setBugError(e instanceof Error ? e.message : "Failed to submit bug report");
+    } finally {
+      setBugSubmitting(false);
+    }
+  };
+
   return (
 
     <AdminLayout>
@@ -1988,9 +2066,9 @@ const Tasks = () => {
 
               variants={itemVariants}
 
-              whileHover="hover"
+              whileHover={{ scale: 1.01 }}
 
-              whileTap={{ scale: 0.98 }}
+              transition={{ type: "spring" as const, stiffness: 300, damping: 20 }}
 
             >
 
@@ -2340,6 +2418,20 @@ const Tasks = () => {
 
                                   e.stopPropagation();
 
+                                  openCreateBug(task);
+
+                                }}>
+
+                                  <Bug className="mr-2 h-4 w-4" />
+
+                                  Bug
+
+                                </DropdownMenuItem>
+
+                                <DropdownMenuItem onClick={(e) => {
+
+                                  e.stopPropagation();
+
                                   handleEditTask(task);
 
                                 }}>
@@ -2364,13 +2456,19 @@ const Tasks = () => {
 
                                 </DropdownMenuItem>
 
-                                <DropdownMenuItem onClick={(e) => {
+                                <DropdownMenuItem
 
-                                  e.stopPropagation();
+                                  onClick={(e) => {
 
-                                  handleDeleteConfirm(task);
+                                    e.stopPropagation();
 
-                                }} className="text-destructive">
+                                    handleDeleteConfirm(task);
+
+                                  }}
+
+                                  className="text-destructive"
+
+                                >
 
                                   <Trash2 className="mr-2 h-4 w-4" />
 
@@ -2776,33 +2874,65 @@ const Tasks = () => {
 
                               <TableCell className="text-right">
 
-                                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                                <div className="flex items-center justify-end gap-2">
 
-                                  <Button
+                                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
 
-                                    variant="outline"
+                                    <Button
 
-                                    size="sm"
+                                      variant="outline"
 
-                                    className="gap-2"
+                                      size="sm"
 
-                                    onClick={(e) => {
+                                      className="gap-2"
 
-                                      e.stopPropagation();
+                                      onClick={(e) => {
 
-                                      void handlePrintTask(task);
+                                        e.stopPropagation();
 
-                                    }}
+                                        void handlePrintTask(task);
 
-                                  >
+                                      }}
 
-                                    <Printer className="h-4 w-4" />
+                                    >
 
-                                    Print
+                                      <Printer className="h-4 w-4" />
 
-                                  </Button>
+                                      Print
 
-                                </motion.div>
+                                    </Button>
+
+                                  </motion.div>
+
+                                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+
+                                    <Button
+
+                                      variant="outline"
+
+                                      size="sm"
+
+                                      className="gap-2"
+
+                                      onClick={(e) => {
+
+                                        e.stopPropagation();
+
+                                        openCreateBug(task);
+
+                                      }}
+
+                                    >
+
+                                      <Bug className="h-4 w-4" />
+
+                                      Bug
+
+                                    </Button>
+
+                                  </motion.div>
+
+                                </div>
 
                               </TableCell>
 
@@ -2867,6 +2997,20 @@ const Tasks = () => {
                                       <Printer className="mr-2 h-4 w-4" />
 
                                       Print
+
+                                    </DropdownMenuItem>
+
+                                    <DropdownMenuItem onClick={(e) => {
+
+                                      e.stopPropagation();
+
+                                      openCreateBug(task);
+
+                                    }}>
+
+                                      <Bug className="mr-2 h-4 w-4" />
+
+                                      Bug
 
                                     </DropdownMenuItem>
 
@@ -4116,7 +4260,6 @@ const Tasks = () => {
       </Dialog>
 
 
-
       {/* Delete Confirmation Dialog - Animated */}
 
       <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
@@ -4214,6 +4357,254 @@ const Tasks = () => {
               </Button>
 
             </motion.div>
+
+          </DialogFooter>
+
+        </DialogContent>
+
+      </Dialog>
+
+
+
+      {/* Create Bug Report Dialog - Animated */}
+
+      <Dialog
+
+        open={createBugOpen}
+
+        onOpenChange={(open) => {
+
+          setCreateBugOpen(open);
+
+          if (!open) {
+
+            setBugTask(null);
+
+            setBugTitle("");
+
+            setBugDescription("");
+
+            setBugImageFile(null);
+
+            if (bugImagePreviewUrl) URL.revokeObjectURL(bugImagePreviewUrl);
+
+            setBugImagePreviewUrl("");
+
+            setBugImageOpen(false);
+
+            setBugError(null);
+
+          }
+
+        }}
+
+      >
+
+        <DialogContent className="w-[95vw] max-w-xl mx-auto p-4 sm:p-6">
+
+          <DialogHeader className="space-y-1.5 sm:space-y-2">
+
+            <DialogTitle className="text-lg sm:text-xl">Create Bug Report</DialogTitle>
+
+            <DialogDescription className="text-xs sm:text-sm">
+
+              {bugTask ? `Task: ${bugTask.title}` : "Report a bug for this task"}
+
+            </DialogDescription>
+
+          </DialogHeader>
+
+          {bugError && (
+
+            <div className="rounded-lg bg-destructive/10 p-3 border border-destructive/20">
+
+              <p className="text-xs text-destructive break-words">{bugError}</p>
+
+            </div>
+
+          )}
+
+          <div className="space-y-4">
+
+            <div className="space-y-1.5">
+
+              <label className="block text-xs sm:text-sm font-medium">Title *</label>
+
+              <Input
+
+                value={bugTitle}
+
+                onChange={(e) => setBugTitle(e.target.value)}
+
+                placeholder="e.g., Print button not working"
+
+              />
+
+            </div>
+
+            <div className="space-y-1.5">
+
+              <label className="block text-xs sm:text-sm font-medium">Description *</label>
+
+              <textarea
+
+                value={bugDescription}
+
+                onChange={(e) => setBugDescription(e.target.value)}
+
+                placeholder="Steps to reproduce, expected vs actual..."
+
+                className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base min-h-[110px] resize-none"
+
+              />
+
+            </div>
+
+            <div className="space-y-1.5">
+
+              <label className="block text-xs sm:text-sm font-medium">Image (optional)</label>
+
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+
+                <div className="flex-1 min-w-0">
+
+                  <input
+
+                    type="file"
+
+                    accept="image/*"
+
+                    disabled={bugSubmitting}
+
+                    onChange={(e) => {
+
+                      const f = e.target.files?.[0] || null;
+
+                      setBugImageFile(f);
+
+                      if (bugImagePreviewUrl) URL.revokeObjectURL(bugImagePreviewUrl);
+
+                      setBugImagePreviewUrl(f ? URL.createObjectURL(f) : "");
+
+                    }}
+
+                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base"
+
+                  />
+
+                </div>
+
+                {bugImagePreviewUrl ? (
+
+                  <button
+
+                    type="button"
+
+                    onClick={() => setBugImageOpen(true)}
+
+                    className="w-full sm:w-[140px] h-[110px] rounded-lg border overflow-hidden bg-muted/30"
+
+                  >
+
+                    <img
+
+                      src={bugImagePreviewUrl}
+
+                      alt="Bug attachment"
+
+                      className="w-full h-full object-cover"
+
+                    />
+
+                  </button>
+
+                ) : null}
+
+              </div>
+
+            </div>
+
+          </div>
+
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
+
+            <Button
+
+              variant="outline"
+
+              onClick={() => setCreateBugOpen(false)}
+
+              className="w-full sm:w-auto order-2 sm:order-1"
+
+              disabled={bugSubmitting}
+
+            >
+
+              Cancel
+
+            </Button>
+
+            <Button
+
+              onClick={() => void submitBugReport()}
+
+              className="w-full sm:w-auto order-1 sm:order-2"
+
+              disabled={bugSubmitting}
+
+            >
+
+              {bugSubmitting ? "Submitting..." : "Submit"}
+
+            </Button>
+
+          </DialogFooter>
+
+        </DialogContent>
+
+      </Dialog>
+
+
+
+      <Dialog open={bugImageOpen} onOpenChange={setBugImageOpen}>
+
+        <DialogContent className="w-[95vw] max-w-3xl mx-auto p-3 sm:p-6">
+
+          <DialogHeader className="space-y-1.5 sm:space-y-2">
+
+            <DialogTitle className="text-base sm:text-lg">Image Preview</DialogTitle>
+
+          </DialogHeader>
+
+          {bugImagePreviewUrl ? (
+
+            <div className="w-full overflow-hidden rounded-lg border bg-white">
+
+              <img
+
+                src={bugImagePreviewUrl}
+
+                alt="Bug attachment preview"
+
+                className="w-full h-auto max-h-[75vh] object-contain"
+
+              />
+
+            </div>
+
+          ) : (
+
+            <p className="text-sm text-muted-foreground">No image selected</p>
+
+          )}
+
+          <DialogFooter className="mt-4">
+
+            <Button onClick={() => setBugImageOpen(false)} className="w-full sm:w-auto">
+
+              Close
+
+            </Button>
 
           </DialogFooter>
 

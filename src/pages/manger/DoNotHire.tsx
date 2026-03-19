@@ -1,5 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
 import {
@@ -164,8 +166,11 @@ const buttonVariants = {
 };
 
 export default function DoNotHire() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [viewOpen, setViewOpen] = useState(false);
+  const [selected, setSelected] = useState<DoNotHireEntry | null>(null);
   const queryClient = useQueryClient();
 
   const entriesQuery = useQuery({
@@ -190,6 +195,22 @@ export default function DoNotHire() {
   });
 
   const entries = entriesQuery.data ?? [];
+
+  useEffect(() => {
+    const viewId = String(searchParams.get("view") || "").trim();
+    if (!viewId) return;
+    if (viewOpen || open) return;
+
+    const match = entries.find((e) => String(e.id) === viewId);
+    if (!match) return;
+
+    setSelected(match);
+    setViewOpen(true);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("view");
+    setSearchParams(next, { replace: true });
+  }, [entries, searchParams, setSearchParams, viewOpen, open]);
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),

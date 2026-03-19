@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AdminLayout } from "@/components/admin/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
@@ -92,6 +93,7 @@ const approvalClasses = {
 const allSteps = ["Personal Info", "W-4 Form", "I-9 Form", "Direct Deposit", "Handbook"];
 
 const Onboarding = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<OnboardingEmployee | null>(null);
   const [detailsApprovalStatus, setDetailsApprovalStatus] = useState<OnboardingEmployee["approvalStatus"]>("pending");
@@ -265,6 +267,21 @@ const Onboarding = () => {
     setDetailsApprovalStatus(employee.approvalStatus);
     setViewDetailsOpen(true);
   };
+
+  useEffect(() => {
+    const viewId = String(searchParams.get("view") || "").trim();
+    if (!viewId) return;
+    if (viewDetailsOpen) return;
+
+    const match = onboardingList.find((e) => String(e.id) === viewId);
+    if (!match) return;
+
+    handleViewDetails(match);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("view");
+    setSearchParams(next, { replace: true });
+  }, [onboardingList, searchParams, setSearchParams, viewDetailsOpen]);
 
   return (
     <AdminLayout>

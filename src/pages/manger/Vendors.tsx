@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/manger/ui/card";
 import { Input } from "@/components/manger/ui/input";
@@ -64,6 +65,7 @@ const itemVariants = {
 };
 
 export default function Vendors() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,6 +90,21 @@ export default function Vendors() {
     };
     fetchData();
   }, []);
+
+  useEffect(() => {
+    const viewId = String(searchParams.get("view") || "").trim();
+    if (!viewId) return;
+    if (loading) return;
+
+    const match = vendors.find((v) => String(v._id) === viewId);
+    if (!match) return;
+
+    setSearchQuery(match.name || match.phone || "");
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("view");
+    setSearchParams(next, { replace: true });
+  }, [vendors, loading, searchParams, setSearchParams]);
 
   const filteredVendors = useMemo(() => {
     return vendors.filter((vendor) => {
