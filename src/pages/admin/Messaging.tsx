@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
@@ -318,7 +317,6 @@ export default function Messaging() {
   // Empty state - No conversations yet
   if (!loading && conversations.length === 0 && view === "list") {
     return (
-      <AdminLayout>
         <div className="h-[calc(100vh-200px)] flex flex-col items-center justify-center px-4">
           <div className="text-center space-y-6">
             <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
@@ -340,12 +338,10 @@ export default function Messaging() {
             </Button>
           </div>
         </div>
-      </AdminLayout>
     );
   }
 
   return (
-    <AdminLayout>
       <div className="space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0">
         
         {/* Header */}
@@ -770,6 +766,5 @@ export default function Messaging() {
           </Card>
         )}
       </div>
-    </AdminLayout>
   );
 }

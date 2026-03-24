@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Navigate, useLocation, useRoutes } from "react-router-dom";
 import { getAuthState } from "@/lib/auth";
+import { AdminLayout } from "@/components/admin/layout/AdminLayout";
 
 import Dashboard from "@/pages/admin/Dashboard";
 import Users from "@/pages/admin/Users";
@@ -73,5 +74,5 @@ export default function AdminRoutes() {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  return element;
+  return <AdminLayout>{element}</AdminLayout>;
 }

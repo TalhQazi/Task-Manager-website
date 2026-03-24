@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { AdminLayout } from "@/components/admin/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import {
   Table,
@@ -43,7 +42,6 @@ export default function RolesPermissions() {
   };
 
   return (
-    <AdminLayout>
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
@@ -105,6 +103,5 @@ export default function RolesPermissions() {
           </CardContent>
         </Card>
       </div>
-    </AdminLayout>
   );
 }
