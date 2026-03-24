@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
-import { AdminLayout } from "@/components/admin/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
@@ -1115,7 +1114,7 @@ const Tasks = () => {
 
   return (
 
-    <AdminLayout>
+    <>
 
       <motion.div
 
@@ -4509,7 +4508,7 @@ const Tasks = () => {
         </motion.div>
       )}
 
-    </AdminLayout>
+    </>
   );
 };
 

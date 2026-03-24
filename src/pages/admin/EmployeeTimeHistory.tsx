@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
-import { AdminLayout } from "@/components/admin/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Badge } from "@/components/admin/ui/badge";
 import { apiFetch } from "@/lib/admin/apiClient";
@@ -72,7 +71,7 @@ export default function EmployeeTimeHistory() {
   }, [employeeName]);
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0">
         <div className="space-y-2">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">{title}</h1>
@@ -131,6 +130,6 @@ export default function EmployeeTimeHistory() {
           </CardContent>
         </Card>
       </div>
-    </AdminLayout>
+    </>
   );
 }

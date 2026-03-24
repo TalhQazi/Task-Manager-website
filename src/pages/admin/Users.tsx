@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
-import { AdminLayout } from "@/components/admin/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
@@ -465,7 +464,7 @@ const Users = () => {
   });
 
   return (
-    <AdminLayout>
+    <>
       <motion.div 
         className="space-y-4 sm:space-y-5 md:space-y-6"
         variants={containerVariants}
@@ -1559,7 +1558,7 @@ const Users = () => {
         }
       `}</style>
       </motion.div>
-    </AdminLayout>
+    </>
   );
 };
 

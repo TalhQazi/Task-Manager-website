@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
@@ -341,7 +340,7 @@ export default function ActivityLogs() {
   ].filter(Boolean).length;
 
   return (
-    <AdminLayout>
+    <>
       <div className="space-y-4 md:space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -871,6 +870,6 @@ export default function ActivityLogs() {
           </CardContent>
         </Card>
       </div>
-    </AdminLayout>
+    </>
   );
 }

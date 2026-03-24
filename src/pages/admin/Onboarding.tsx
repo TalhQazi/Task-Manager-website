@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { AdminLayout } from "@/components/admin/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Badge } from "@/components/admin/ui/badge";
@@ -284,7 +283,7 @@ const Onboarding = () => {
   }, [onboardingList, searchParams, setSearchParams, viewDetailsOpen]);
 
   return (
-    <AdminLayout>
+    <>
       {/* Mobile-first container */}
       <div className="space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0">
         
@@ -622,7 +621,7 @@ const Onboarding = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </AdminLayout>
+    </>
   );
 };
 

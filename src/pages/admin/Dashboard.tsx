@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence, type Variants } from "framer-motion";
-import { AdminLayout } from "@/components/layout/AdminLayout";
 import { StatCard } from "@/components/admin/dashboard/StatCard";
 import { RecentTasksList } from "@/components/admin/dashboard/RecentTasksList";
 import { ActiveEmployees } from "@/components/admin/dashboard/ActiveEmployees";
@@ -166,7 +165,7 @@ const Dashboard = () => {
   };
 
   return (
-    <AdminLayout>
+    <>
       <motion.div 
         className="space-y-4 sm:space-y-5 md:space-y-6"
         variants={containerVariants}
@@ -270,7 +269,7 @@ const Dashboard = () => {
         }
       `}</style>
       </motion.div>
-    </AdminLayout>
+    </>
   );
 };
 
