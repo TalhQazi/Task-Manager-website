@@ -151,7 +151,7 @@ export default function Bugs() {
     <div className="space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
         <div className="space-y-1.5 sm:space-y-2">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Bug Reports</h1>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Developer Bugs</h1>
           <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl">Bugs reported from the system.</p>
         </div>
         <Button variant="outline" onClick={() => void load()} disabled={loading} className="w-full sm:w-auto">
@@ -275,8 +275,8 @@ export default function Bugs() {
                 Reopen
               </Button>
             ) : (
-              <Button onClick={() => void updateStatus("closed")} className="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white" disabled={updating}>
-                Solve
+              <Button onClick={() => void updateStatus("closed")} className="w-full sm:w-auto" disabled={updating}>
+                Mark Closed
               </Button>
             )}
           </DialogFooter>
