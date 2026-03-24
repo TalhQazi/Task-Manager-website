@@ -1091,6 +1091,28 @@ const Tasks = () => {
     }
   };
 
+  // Load initial data on mount
+  useEffect(() => {
+    const loadInitialData = async () => {
+      try {
+        setLoading(true);
+        setApiError(null);
+        // Load tasks
+        const tasks = await listResource<Task>("tasks");
+        setTasksList(tasks.map(normalizeTaskAssignees));
+        // Load employees for assignee selection
+        const employeesData = await listResource<Employee>("employees");
+        setEmployees(employeesData);
+      } catch (e) {
+        console.error("Failed to load initial data:", e);
+        setApiError(e instanceof Error ? e.message : "Failed to load data");
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadInitialData();
+  }, []);
+
   return (
 
     <AdminLayout>

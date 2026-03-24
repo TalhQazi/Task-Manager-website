@@ -83,7 +83,6 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
     try {
       await apiFetch("/api/auth/logout", { method: "POST" });
     } catch {
-      // Ignore errors - still logout locally
     }
     clearAuthState();
     onNavigate?.();
