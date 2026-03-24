@@ -1,3 +1,4 @@
+import { AdminLayout } from "@/components/admin/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Construction } from "lucide-react";
 
@@ -8,6 +9,7 @@ interface PlaceholderPageProps {
 
 export function PlaceholderPage({ title, description }: PlaceholderPageProps) {
   return (
+    <AdminLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold">{title}</h1>
@@ -27,6 +29,7 @@ export function PlaceholderPage({ title, description }: PlaceholderPageProps) {
           </CardContent>
         </Card>
       </div>
+    </AdminLayout>
   );
 }
 

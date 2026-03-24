@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate, useParams } from "react-router-dom";
+import { AdminLayout } from "@/components/admin/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Badge } from "@/components/admin/ui/badge";
@@ -126,6 +127,7 @@ const EmployeeTaskHistory = () => {
   );
 
   return (
+    <AdminLayout>
       <motion.div
         className="space-y-4 sm:space-y-6"
         initial={{ opacity: 0 }}
@@ -294,6 +296,7 @@ const EmployeeTaskHistory = () => {
           </CardContent>
         </Card>
       </motion.div>
+    </AdminLayout>
   );
 };
 

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Badge } from "@/components/admin/ui/badge";
@@ -558,6 +559,7 @@ const Payroll = () => {
   };
 
   return (
+    <AdminLayout>
       <motion.div
         className="space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0 pb-6"
         variants={containerVariants}
@@ -1109,6 +1111,7 @@ const Payroll = () => {
           )}
         </DialogContent>
       </Dialog>
+    </AdminLayout>
   );
 };
 

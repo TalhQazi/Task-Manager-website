@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import { AdminLayout } from "@/components/admin/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Input } from "@/components/admin/ui/input";
 import { Avatar, AvatarFallback } from "@/components/admin/ui/avatar";
@@ -141,6 +142,7 @@ const TaskHistory = () => {
   };
 
   return (
+    <AdminLayout>
       <motion.div
         className="space-y-4 sm:space-y-6"
         initial={{ opacity: 0 }}
@@ -258,6 +260,7 @@ const TaskHistory = () => {
           </CardContent>
         </Card>
       </motion.div>
+    </AdminLayout>
   );
 };
 

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { AdminLayout } from "@/components/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
@@ -481,6 +482,7 @@ const Locations = () => {
   }, [locationsList]);
 
   return (
+    <AdminLayout>
       {/* Mobile-first container */}
       <div className="space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0">
         {/* Page Header - Responsive */}
@@ -1402,6 +1404,7 @@ const Locations = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </AdminLayout>
   );
 };
 

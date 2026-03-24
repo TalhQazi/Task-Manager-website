@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { AdminLayout } from "@/components/admin/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { AlertCircle, Loader2 } from "lucide-react";
@@ -228,6 +229,7 @@ export default function AsanaData() {
   }, [selectedTaskAsanaId]);
 
   return (
+    <AdminLayout>
       <div className="space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0">
         <div className="space-y-1.5 sm:space-y-2">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Imported Asana Data</h1>
@@ -447,5 +449,6 @@ export default function AsanaData() {
           </div>
         </div>
       </div>
+    </AdminLayout>
   );
 }

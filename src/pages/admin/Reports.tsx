@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { AdminLayout } from "@/components/admin/layout/AdminLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Badge } from "@/components/admin/ui/badge";
 import {
@@ -165,6 +166,7 @@ export default function Reports() {
   }, [notifications]);
 
   return (
+    <AdminLayout>
       {/* Mobile-first container */}
       <div className="space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0">
         
@@ -477,5 +479,6 @@ export default function Reports() {
           </CardContent>
         </Card>
       </div>
+    </AdminLayout>
   );
 }
