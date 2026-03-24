@@ -17,7 +17,7 @@ export function EmployeeLayout() {
           <EmployeeSidebar />
         </div>
 
-        <main className={cn("flex-1 min-h-[calc(100vh-9rem)]", "md:ml-20")}>
+        <main className={cn("flex-1 min-h-[calc(100vh-9rem)]", "md:ml-56")}>
           <div className="w-full px-2 sm:px-3 lg:px-4 py-2 sm:py-3 animate-fade-in">
             <Outlet />
           </div>

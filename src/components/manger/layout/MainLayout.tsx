@@ -529,7 +529,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         <div className="hidden md:block">
           <Sidebar />
         </div>
-        <main className="flex-1 min-h-screen md:ml-20 pt-20 sm:pt-24 md:pt-36">
+        <main className="flex-1 min-h-screen md:ml-56 pt-20 sm:pt-24 md:pt-36">
           <div className="w-full pl-2 pr-2 py-6 sm:py-8 animate-fade-in">
             {children}
           </div>
