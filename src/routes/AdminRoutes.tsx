@@ -29,6 +29,7 @@ import Profile from "@/pages/admin/Profile";
 import RolesPermissions from "@/pages/admin/RolesPermissions";
 import AsanaImport from "@/pages/admin/AsanaImport";
 import AsanaData from "@/pages/admin/AsanaData";
+import BugReport from "@/pages/admin/BugReport";
 import NotFound from "@/pages/admin/NotFound";
 
 export default function AdminRoutes() {
@@ -62,6 +63,7 @@ export default function AdminRoutes() {
       { path: "settings", element: <Settings /> },
       { path: "asana-import", element: <AsanaImport /> },
       { path: "asana-data", element: <AsanaData /> },
+      { path: "bug-report", element: <BugReport /> },
       { path: "profile", element: <Profile /> },
       { path: "*", element: <NotFound /> },
     ],
