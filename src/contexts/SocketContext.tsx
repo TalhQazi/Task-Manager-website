@@ -29,9 +29,18 @@ export function SocketProvider({ children }: SocketProviderProps) {
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
+
     // Get API URL from env and convert http to ws
-    const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000";
-    const socketUrl = apiUrl.replace(/^http/, "ws");
+    const apiUrl = import.meta.env.VITE_API_URL || "";
+    let socketUrl = "";
+
+    if (apiUrl && !apiUrl.startsWith("/") && !apiUrl.includes(window.location.host)) {
+      // Cross-origin: use the defined URL
+      socketUrl = apiUrl.replace(/^http/, "ws");
+    } else {
+      // Same-origin or relative: use window origin
+      socketUrl = window.location.origin.replace(/^http/, "ws");
+    }
 
     // Initialize socket connection
     const socket = io(socketUrl, {
