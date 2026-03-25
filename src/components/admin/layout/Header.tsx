@@ -361,7 +361,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             <div className="relative h-full flex items-center">
               <div className="absolute inset-0 -z-10 blur-2xl bg-blue-400/30 scale-110 rounded-full" />
               <img
-                src="/clock2.png"
+                src="/newlogo.jpeg"
                 alt="TaskManager by Reardon"
                 className="w-auto h-full max-w-[140px] sm:max-w-[190px] md:max-w-[280px] lg:max-w-[380px] object-contain mix-blend-screen opacity-95 [mask-image:radial-gradient(closest-side,black_79%,transparent_100%)] transition-all duration-300"
               />
