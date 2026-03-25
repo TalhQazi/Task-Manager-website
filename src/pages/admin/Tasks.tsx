@@ -1465,6 +1465,56 @@ export default function Tasks() {
                 />
                 {validationErrors.description && <p className="text-xs text-destructive">{validationErrors.description}</p>}
               </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Assignees</label>
+                <Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}>
+                  <PopoverTrigger asChild>
+                    <Button type="button" variant="outline" className="w-full justify-between h-10">
+                      <span className="truncate">
+                        {selectedAssignees.length > 0 ? selectedAssignees.join(", ") : "Select assignees"}
+                      </span>
+                      <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search employees..." />
+                      <CommandList>
+                        <CommandEmpty>No employee found.</CommandEmpty>
+                        <CommandGroup>
+                          {activeEmployees.map((employee) => (
+                            <CommandItem
+                              key={employee.id}
+                              value={employee.name}
+                              onSelect={() => {
+                                setSelectedAssignees((prev) =>
+                                  prev.includes(employee.name)
+                                    ? prev.filter((name) => name !== employee.name)
+                                    : [...prev, employee.name]
+                                );
+                                setAssigneesOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <Avatar className="h-6 w-6 mr-2">
+                                <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                  {employee.initials}
+                                </AvatarFallback>
+                              </Avatar>
+                              {employee.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
               <div className="sm:col-span-1 space-y-1.5">
                 <label className="text-sm font-medium">Priority</label>
                 <Select value={formData.priority} onValueChange={(value) => setFormData((prev) => ({ ...prev, priority: value as Task['priority'] }))}>

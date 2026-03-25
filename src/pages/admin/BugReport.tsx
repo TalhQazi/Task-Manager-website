@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { apiFetch } from "@/lib/manger/api";
+import { getAuthState } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
@@ -56,7 +57,17 @@ export default function Bugs() {
   const load = async () => {
     const res = await apiFetch<{ items?: any[] }>("/api/bugs");
     const list = Array.isArray(res?.items) ? res.items : [];
-    const mapped: BugItem[] = list
+    
+    // Get current user to filter bugs
+    const auth = getAuthState();
+    const currentUsername = auth?.username || "";
+    
+    // Filter bugs to only show the ones posted by the current user
+    const userBugs = list.filter((x: any) => 
+      x.createdByUsername && x.createdByUsername === currentUsername
+    );
+
+    const mapped: BugItem[] = userBugs
       .map((x: any) => ({
         id: String(x.id || x._id || ""),
         title: toText(x.title),

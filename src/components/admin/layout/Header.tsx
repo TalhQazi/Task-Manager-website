@@ -349,21 +349,21 @@ export function Header({ onMenuClick }: HeaderProps) {
         <div 
           className="relative flex h-full items-center justify-between px-3 sm:px-6 lg:px-10 py-2 md:py-4 animate-fade-in"
         >
-          <div className="flex items-center z-10">
+          <div className="flex items-center z-10" style={{ height: `${headerHeight * 0.8}px`, minHeight: '56px' }}>
             <img
               src="/seven logo.png"
               alt="SE7EN Inc. logo"
-              className="h-14 sm:h-16 md:h-36 w-auto max-w-[180px] sm:max-w-[200px] md:max-w-[300px] object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)]"
+              className="w-auto h-full max-w-[180px] sm:max-w-[200px] md:max-w-[300px] object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)] transition-all duration-300"
             />
           </div>
 
-          <div className="flex absolute left-1/2 -translate-x-1/2 items-center">
-            <div className="relative">
+          <div className="flex absolute left-1/2 -translate-x-1/2 items-center" style={{ height: `${headerHeight * 0.9}px`, minHeight: '48px' }}>
+            <div className="relative h-full flex items-center">
               <div className="absolute inset-0 -z-10 blur-2xl bg-blue-400/30 scale-110 rounded-full" />
               <img
                 src="/clock2.png"
                 alt="TaskManager by Reardon"
-                className="h-12 sm:h-16 md:h-32 lg:h-40 w-auto max-w-[140px] sm:max-w-[190px] md:max-w-[280px] lg:max-w-[380px] object-contain mix-blend-screen opacity-95 [mask-image:radial-gradient(closest-side,black_79%,transparent_100%)]"
+                className="w-auto h-full max-w-[140px] sm:max-w-[190px] md:max-w-[280px] lg:max-w-[380px] object-contain mix-blend-screen opacity-95 [mask-image:radial-gradient(closest-side,black_79%,transparent_100%)] transition-all duration-300"
               />
             </div>
           </div>
