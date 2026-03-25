@@ -79,6 +79,7 @@ import {
   Edit,
   Trash2,
   Loader2,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch } from "@/lib/manger/api";
@@ -414,6 +415,22 @@ export default function Tasks() {
     },
   });
 
+  const updateProjectStatusMutation = useMutation({
+    mutationFn: async ({ projectId, status }: { projectId: string; status: string }) => {
+      const res = await apiFetch<any>(`/api/projects/${projectId}`, {
+        method: "PUT",
+        body: JSON.stringify({ status }),
+      });
+      return res;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      if (selectedProject) {
+        setSelectedProject({ ...selectedProject, status: selectedProject.status });
+      }
+    },
+  });
+
   const form = useForm<CreateTaskValues>({
     resolver: zodResolver(createTaskSchema),
     defaultValues: {
@@ -444,6 +461,9 @@ export default function Tasks() {
     const errors: { projectName?: string; title?: string; description?: string } = {};
     if (!projectName.trim()) {
       errors.projectName = "Project name is required";
+    }
+    if (projectTasks.length === 0) {
+      errors.title = "At least one task is required";
     }
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
@@ -547,6 +567,7 @@ export default function Tasks() {
     }));
     setSelectedAssignees([]);
     setAttachmentFile(null);
+    setIsCreateTaskOpen(false);
   };
 
   const handleCreateProject = async () => {
@@ -1037,7 +1058,7 @@ export default function Tasks() {
       </div>
 
       {selectedProject ? (
-        <div className="bg-card rounded-xl border border-border p-4 mb-4">
+        <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
           <div className="flex items-start gap-3">
             {selectedProject.logo?.url ? (
               <img src={selectedProject.logo.url} alt={`${selectedProject.name} logo`} className="w-12 h-12 rounded-md object-cover" />
@@ -1052,15 +1073,32 @@ export default function Tasks() {
           </div>
           <div className="flex items-center justify-between text-xs text-muted-foreground mt-3">
             <span>{selectedProject.tasks.length} tasks</span>
-            <span>{selectedProject.status || "No status"}</span>
+            <Select value={selectedProject.status || "No status"} onValueChange={(value) => {
+              updateProjectStatusMutation.mutate({ projectId: selectedProject.id, status: value }, {
+                onSuccess: () => {
+                  setSelectedProject({...selectedProject, status: value});
+                }
+              });
+            }}>
+              <SelectTrigger className="w-[120px] h-8">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="No tasks">No tasks</SelectItem>
+                <SelectItem value="Pending">Pending</SelectItem>
+                <SelectItem value="In Progress">In Progress</SelectItem>
+                <SelectItem value="Completed">Completed</SelectItem>
+                <SelectItem value="Overdue">Overdue</SelectItem>
+              </SelectContent>
+            </Select>
             <span>{selectedProject.createdAt ? new Date(selectedProject.createdAt).toLocaleDateString() : ""}</span>
           </div>
         </div>
       ) : (
-        <div className="bg-card rounded-xl border border-border p-4 mb-4">
+        <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
           <h2 className="font-semibold text-lg mb-3">Projects</h2>
           {projectsQuery.isLoading ? (
-            <p>Loading projects...</p>
+            <p className="text-muted-foreground">Loading projects...</p>
           ) : projectsQuery.isError ? (
             <p className="text-destructive">Failed to load projects</p>
           ) : projects.length === 0 ? (
@@ -1077,7 +1115,7 @@ export default function Tasks() {
                   <button
                     key={project.id}
                     onClick={() => void loadProject(project.id)}
-                    className="text-left p-3 rounded-lg border border-muted/50 hover:border-primary transition"
+                    className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card"
                   >
                     <div className="flex items-center gap-2 mb-2">
                       {project.logo?.url ? (
@@ -1249,55 +1287,65 @@ export default function Tasks() {
               
               
               </div>
+            </div>
 
-              <div className="sm:col-span-2 space-y-2">
-                <label className="text-sm font-medium">Attachment</label>
-                <div
-                  className="w-full rounded-lg border px-3 py-3 text-sm bg-gradient-to-br from-muted/20 to-muted/5 hover:from-muted/30 hover:to-muted/10 transition-all cursor-pointer"
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.currentTarget.classList.add("border-primary", "bg-primary/5");
-                  }}
-                  onDragLeave={(e) => {
-                    e.currentTarget.classList.remove("border-primary", "bg-primary/5");
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.currentTarget.classList.remove("border-primary", "bg-primary/5");
-                    const f = e.dataTransfer.files?.[0];
-                    if (f) setAttachmentFile(f);
-                  }}
-                  onClick={() => {
-                    const el = document.getElementById("manager-task-attachment-input") as HTMLInputElement | null;
-                    el?.click();
-                  }}
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      const el = document.getElementById("manager-task-attachment-input") as HTMLInputElement | null;
-                      el?.click();
-                    }
-                  }}
+            {/* Tasks Section */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Project Tasks</label>
+                <Button 
+                  type="button" 
+                  size="sm" 
+                  onClick={() => setIsCreateTaskOpen(true)}
+                  className="gap-2"
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {attachmentFile ? attachmentFile.name : "Click to choose or drag & drop a file"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">Max 10MB</p>
-                    </div>
-                    <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                  </div>
-                </div>
+                  <Plus className="h-4 w-4" />
+                  Add Task
+                </Button>
               </div>
+              
+              {projectTasks.length > 0 ? (
+                <div className="space-y-2 max-h-[300px] overflow-y-auto border border-border rounded-md p-3">
+                  {projectTasks.map((task, idx) => (
+                    <div key={idx} className="flex items-start gap-3 p-2 bg-muted/50 rounded-md">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{task.title || `Task ${idx + 1}`}</p>
+                        <p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p>
+                        <div className="flex gap-2 mt-1 flex-wrap text-xs">
+                          <span className="px-2 py-0.5 bg-muted rounded capitalize">{task.priority}</span>
+                          <span className="px-2 py-0.5 bg-muted rounded capitalize">{task.status}</span>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setProjectTasks((prev) => prev.filter((_, i) => i !== idx));
+                        }}
+                        className="h-8 w-8 p-0 flex-shrink-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="border border-dashed border-border rounded-md p-4 text-center text-sm text-muted-foreground">
+                  No tasks added yet. Add at least one task to create the project.
+                </div>
+              )}
+              {validationErrors.title && (
+                <p className="text-xs text-destructive">{validationErrors.title}</p>
+              )}
             </div>
 
             <DialogFooter className="flex-col sm:flex-row gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} className="w-full sm:w-auto">
+                <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={isCreating} className="w-full sm:w-auto">
                   Cancel
                 </Button>
-                <Button type="submit" className="w-full sm:w-auto">
+                <Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">
+                  {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
                   Create Project
                 </Button>
               </DialogFooter>
@@ -1315,7 +1363,7 @@ export default function Tasks() {
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                void handleCreateTask();
+                void (isCreateOpen ? addTaskToProject() : handleCreateTask());
               }}
               className="space-y-4"
             >
@@ -1366,8 +1414,8 @@ export default function Tasks() {
               </div>
 
               <DialogFooter className="flex-col sm:flex-row gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsCreateTaskOpen(false)} className="w-full sm:w-auto">Cancel</Button>
-                <Button type="submit" className="w-full sm:w-auto">Create Task</Button>
+                <Button type="button" variant="outline" onClick={() => setIsCreateTaskOpen(false)} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button>
+                <Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">{isCreating && <Loader2 className="h-4 w-4 animate-spin" />}Create Task</Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -1866,10 +1914,10 @@ export default function Tasks() {
               </div>
 
               <DialogFooter className="flex-col sm:flex-row gap-2">
-                <Button type="button" variant="outline" onClick={() => { setIsEditOpen(false); setEditSelectedAssignees([]); }} className="w-full sm:w-auto">
+                <Button type="button" variant="outline" onClick={() => { setIsEditOpen(false); setEditSelectedAssignees([]); }} disabled={updateTaskMutation.isPending} className="w-full sm:w-auto">
                   Cancel
                 </Button>
-                <Button type="submit" className="w-full sm:w-auto">Save</Button>
+                <Button type="submit" disabled={updateTaskMutation.isPending} className="w-full sm:w-auto gap-2">{updateTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Save</Button>
               </DialogFooter>
             </form>
           </Form>
@@ -1885,8 +1933,8 @@ export default function Tasks() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction>
+            <AlertDialogCancel disabled={deleteTaskMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} disabled={deleteTaskMutation.isPending} className="gap-2">{deleteTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

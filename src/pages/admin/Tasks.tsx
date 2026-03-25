@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { motion, AnimatePresence, type Variants } from "framer-motion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
+import { useMemo, useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
@@ -13,28 +13,38 @@ import {
   SelectValue,
 } from "@/components/admin/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/admin/ui/table";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/admin/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/admin/ui/form";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/admin/ui/dropdown-menu";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-  DialogTrigger,
-} from "@/components/admin/ui/dialog";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/admin/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/admin/ui/popover";
 import {
   Command,
@@ -44,36 +54,38 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/admin/ui/command";
+import { Textarea } from "@/components/admin/ui/textarea";
+import { toast } from "@/components/admin/ui/use-toast";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import {
   Plus,
   Search,
   Filter,
   MoreHorizontal,
-  Eye,
-  Edit,
-  Trash2,
-  MapPin,
-  Clock,
-  User,
   Calendar,
+  MapPin,
   FileText,
   Printer,
   Check,
   ChevronsUpDown,
-  AlertTriangle,
-  CheckCircle2,
+  Clock,
   AlertCircle,
-  Sparkles,
+  CheckCircle2,
+  AlertTriangle,
   Users,
-  X,
+  Eye,
+  Edit,
+  Trash2,
   Loader2,
-  Bug,
+  X,
 } from "lucide-react";
-import jsPDF from "jspdf";
-import { apiFetch, createResource, deleteResource, listResource, updateResource } from "@/lib/admin/apiClient";
+import { cn } from "@/lib/admin/utils";
+import { apiFetch } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
-import { getAuthState as getAdminAuthState } from "@/lib/admin/auth";
-import { useSocket } from "@/contexts/SocketContext";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import jsPDF from "jspdf";
 
 interface Task {
   id: string;
@@ -81,18 +93,12 @@ interface Task {
   description: string;
   assignees: string[];
   assignee?: string;
-  assigneeInitials?: string;
-  location?: string;
   priority: "low" | "medium" | "high";
   status: "pending" | "in-progress" | "completed" | "overdue";
   dueDate: string;
-  dueTime: string;
+  dueTime?: string;
+  location?: string;
   createdAt: string;
-  projectId?: string;
-  project?: {
-    name?: string;
-    description?: string;
-  };
   attachmentFileName?: string;
   attachmentNote?: string;
   attachment?: {
@@ -103,31 +109,6 @@ interface Task {
   };
 }
 
-interface Employee {
-  id: string;
-  name: string;
-  initials: string;
-  email: string;
-  status: "active" | "inactive" | "on-leave";
-}
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: "admin" | "manager" | "employee";
-  status: "active" | "inactive" | "pending";
-}
-
-type TaskComment = {
-  id: string;
-  taskId: string;
-  message: string;
-  authorUsername: string;
-  authorRole?: string;
-  createdAt: string;
-};
-
 type CreateProjectTaskDraft = {
   title: string;
   description: string;
@@ -136,6 +117,7 @@ type CreateProjectTaskDraft = {
   status: Task["status"];
   dueDate: string;
   dueTime?: string;
+  location?: string;
   createdAt: string;
   attachmentFileName?: string;
   attachmentNote?: string;
@@ -150,274 +132,340 @@ type CreateProjectTaskDraft = {
 type CreateProjectPayload = {
   name: string;
   description: string;
-  tasks: Array<CreateProjectTaskDraft>;
+  assignees?: string[];
+  logo?: ProjectLogo;
+  tasks: Array<Omit<CreateProjectTaskDraft, "location">>;
 };
 
-// Enhanced priority classes with beautiful gradients
-const priorityClasses = {
-  high: "bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive border-destructive/20 shadow-sm",
-  medium: "bg-gradient-to-r from-[#eab308]/20 to-[#f59e0b]/20 text-[#eab308] dark:text-[#fbbf24] border-[#eab308]/20 shadow-sm",
-  low: "bg-gradient-to-r from-[#22c55e]/20 to-[#10b981]/20 text-[#22c55e] dark:text-[#34d399] border-[#22c55e]/20 shadow-sm",
+interface Employee {
+  id: string;
+  name: string;
+  initials: string;
+  email: string;
+  status: "active" | "inactive" | "on-leave";
+}
+
+type TaskComment = {
+  id: string;
+  taskId: string;
+  message: string;
+  authorUsername: string;
+  authorRole?: string;
+  createdAt: string;
 };
 
-const toDateOnly = (value: string) => {
-  const v = String(value || "").trim();
-  if (!v) return "";
-  const idx = v.indexOf("T");
-  return idx >= 0 ? v.slice(0, idx) : v;
+type TaskApi = Omit<Task, "id"> & {
+  _id: string;
 };
 
-const getInitials = (name: string) => {
-  return String(name || "")
-    .split(" ")
-    .filter(Boolean)
-    .map((n) => n[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
+type TaskApiAttachmentFields = {
+  attachmentFileName?: string;
+  attachmentNote?: string;
+  attachment?: Task["attachment"];
 };
 
-const assigneesLabel = (assignees: string[]) => {
-  return (assignees || []).filter(Boolean).join(", ");
-};
+interface ProjectLogo {
+  fileName?: string;
+  url?: string;
+  mimeType?: string;
+  size?: number;
+}
 
-const getDisplayTaskId = (id: string) => {
-  const v = String(id || "").trim();
-  if (!v) return "";
-  return `#${v.slice(-6).toUpperCase()}`;
-};
+interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  createdByUsername?: string;
+  createdAt?: string;
+  assignees?: string[];
+  logo?: ProjectLogo;
+  taskCount?: number;
+  status?: string;
+}
 
-// Calculate task statistics for an employee
-const getEmployeeTaskStats = (employeeName: string, allTasks: Task[]) => {
-  const employeeTasks = allTasks.filter((task) =>
-    task.assignees?.includes(employeeName) || task.assignee === employeeName
-  );
+interface ProjectWithTasks extends Project {
+  tasks: Task[];
+  taskCount?: number;
+  status?: string;
+}
 
-  const total = employeeTasks.length;
-  const completed = employeeTasks.filter((t) => t.status === "completed").length;
-  const pending = employeeTasks.filter((t) => t.status === "pending" || t.status === "in-progress").length;
-  const overdue = employeeTasks.filter((t) => t.status === "overdue").length;
-
-  return { total, completed, pending, overdue };
-};
-
-const normalizeTaskAssignees = (task: Task): Task => {
-  const legacyAssignee = typeof task.assignee === "string" ? task.assignee.trim() : "";
-  const assignees = Array.isArray(task.assignees)
-    ? task.assignees.filter(Boolean)
+function normalizeTask(t: TaskApi): Task {
+  const legacyAssignee = typeof t.assignee === "string" ? t.assignee.trim() : "";
+  const assignees = Array.isArray(t.assignees)
+    ? t.assignees.filter(Boolean)
     : legacyAssignee
       ? [legacyAssignee]
       : [];
-  return { ...task, assignees };
+  const extra = t as TaskApi & TaskApiAttachmentFields;
+  return {
+    id: t._id,
+    title: t.title,
+    description: t.description,
+    assignees,
+    priority: t.priority,
+    status: t.status,
+    dueDate: t.dueDate,
+    dueTime: t.dueTime,
+    location: t.location,
+    createdAt: t.createdAt,
+    attachmentFileName: extra.attachmentFileName,
+    attachmentNote: extra.attachmentNote,
+    attachment: extra.attachment,
+  };
+}
+
+const priorityClasses = {
+  high: "bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive border-destructive/20",
+  medium: "bg-gradient-to-r from-yellow-500/20 to-amber-500/10 text-yellow-600 border-yellow-500/20",
+  low: "bg-gradient-to-r from-green-500/20 to-emerald-500/10 text-green-600 border-green-500/20",
 };
 
-// Enhanced status classes with beautiful gradients
 const statusClasses = {
-  pending: "bg-gradient-to-r from-muted to-muted/50 text-muted-foreground border-muted-foreground/20 shadow-sm",
-  "in-progress": "bg-gradient-to-r from-[#3b82f6]/20 to-[#6366f1]/20 text-[#3b82f6] dark:text-[#818cf8] border-[#3b82f6]/20 shadow-sm",
-  completed: "bg-gradient-to-r from-[#22c55e]/20 to-[#10b981]/20 text-[#22c55e] dark:text-[#34d399] border-[#22c55e]/20 shadow-sm",
-  overdue: "bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive border-destructive/20 shadow-sm",
+  pending: "bg-gradient-to-r from-blue-500/20 to-blue-400/10 text-blue-600 border-blue-500/20",
+  "in-progress": "bg-gradient-to-r from-amber-500/20 to-yellow-400/10 text-amber-600 border-amber-500/20",
+  completed: "bg-gradient-to-r from-green-500/20 to-emerald-400/10 text-green-600 border-green-500/20",
+  overdue: "bg-gradient-to-r from-red-500/20 to-rose-400/10 text-red-600 border-red-500/20",
 };
 
-// Animation variants
-const containerVariants: Variants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.2,
-    },
-  },
-};
+const createTaskSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().min(1, "Description is required"),
+  priority: z.enum(["low", "medium", "high"]),
+  status: z.enum(["pending", "in-progress", "completed", "overdue"]),
+  dueDate: z.string().optional(),
+  dueTime: z.string().optional(),
+  location: z.string().optional(),
+  assignees: z.array(z.string()).optional().default([]),
+});
 
-const itemVariants: Variants = {
-  hidden: { y: 20, opacity: 0 },
-  visible: {
-    y: 0,
-    opacity: 1,
-    transition: {
-      type: "spring" as const,
-      stiffness: 100,
-      damping: 12,
-    },
-  },
-};
+type CreateTaskValues = z.infer<typeof createTaskSchema>;
 
-const cardVariants: Variants = {
-  hidden: { scale: 0.95, opacity: 0 },
-  visible: {
-    scale: 1,
-    opacity: 1,
-    transition: {
-      type: "spring" as const,
-      stiffness: 100,
-      damping: 15,
-    },
-  },
-  hover: {
-    scale: 1.02,
-    boxShadow: "0 20px 25px -5px rgba(59, 130, 246, 0.1), 0 10px 10px -5px rgba(59, 130, 246, 0.04)",
-    transition: {
-      type: "spring" as const,
-      stiffness: 400,
-      damping: 17,
-    },
-  },
-};
-
-const Tasks = () => {
-  const { socket, isConnected, joinTask, leaveTask, emitTyping, emitStopTyping } = useSocket();
+export default function Tasks() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [priorityFilter, setPriorityFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [projectName, setProjectName] = useState("");
+  const [projectDescription, setProjectDescription] = useState("");
+  const [projectLogoFile, setProjectLogoFile] = useState<File | null>(null);
+  const [projectLogoPreview, setProjectLogoPreview] = useState<string>("");
+  const [projectTasks, setProjectTasks] = useState<CreateProjectTaskDraft[]>([]);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isViewOpen, setIsViewOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [attachmentNoteDraft, setAttachmentNoteDraft] = useState<string>("");
+  const [isCreating, setIsCreating] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<{ projectName?: string; title?: string; description?: string }>({});
+  const [assigneesOpen, setAssigneesOpen] = useState(false);
+  const [editAssigneesOpen, setEditAssigneesOpen] = useState(false);
 
-  const [tasksList, setTasksList] = useState<Task[]>(() => []);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [selectedProject, setSelectedProject] = useState<ProjectWithTasks | null>(null);
+  const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
+  const [isLoadingProject, setIsLoadingProject] = useState(false);
+  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
+  const [editSelectedAssignees, setEditSelectedAssignees] = useState<string[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
-  const [createTaskOpen, setCreateTaskOpen] = useState(false);
+  const [comments, setComments] = useState<TaskComment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [commentError, setCommentError] = useState<string | null>(null);
+  const [statusSaving, setStatusSaving] = useState(false);
+  const queryClient = useQueryClient();
 
-  const [editFormData, setEditFormData] = useState({
+  const currentUsername = getAuthState().username || "";
+
+  // Fetch tasks
+  const tasksQuery = useQuery({
+    queryKey: ["tasks"],
+    queryFn: async () => {
+      const res = await apiFetch<{ items: TaskApi[] }>("/api/tasks");
+      return res.items.map(normalizeTask);
+    },
+  });
+
+  // Fetch projects
+  const projectsQuery = useQuery({
+    queryKey: ["projects"],
+    queryFn: async () => {
+      const res = await apiFetch<{ items: Project[] }>("/api/projects");
+      return res.items;
+    },
+  });
+
+  useEffect(() => {
+    if (tasksQuery.data) {
+      setTasks(tasksQuery.data);
+    }
+  }, [tasksQuery.data]);
+
+  useEffect(() => {
+    if (!selectedProject && tasksQuery.data) {
+      setTasks(tasksQuery.data);
+    }
+  }, [selectedProject, tasksQuery.data]);
+
+  useEffect(() => {
+    if (projectsQuery.data) {
+      setProjects(projectsQuery.data);
+    }
+  }, [projectsQuery.data]);
+
+  const loadProject = async (projectId: string) => {
+    setIsLoadingProject(true);
+    setSelectedProject(null);
+
+    try {
+      const res = await apiFetch<{ item: ProjectWithTasks }>(`/api/projects/${encodeURIComponent(projectId)}`);
+      if (!res.item) {
+        throw new Error("Project not found");
+      }
+
+      const project = res.item;
+      const projectTasks: Task[] = Array.isArray(project.tasks) ? project.tasks : [];
+
+      setSelectedProject({ ...project, tasks: projectTasks });
+      setTasks(projectTasks);
+    } catch (err) {
+      toast({ title: "Failed to load project", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });
+      setSelectedProject(null);
+      setTasks([]);
+    } finally {
+      setIsLoadingProject(false);
+    }
+  };
+
+  useEffect(() => {
+    const viewId = String(searchParams.get("view") || "").trim();
+    if (!viewId) return;
+    if (isViewOpen || isEditOpen || isDeleteOpen || isCreateOpen) return;
+
+    const match = tasks.find((t) => String(t.id) === viewId);
+    if (!match) return;
+
+    openView(match);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("view");
+    setSearchParams(next, { replace: true });
+  }, [tasks, searchParams, setSearchParams, isViewOpen, isEditOpen, isDeleteOpen, isCreateOpen]);
+
+  // Fetch employees
+  useEffect(() => {
+    const loadEmployees = async () => {
+      try {
+        const res = await apiFetch<{ items: Employee[] }>("/api/employees");
+        setEmployees(res.items.filter((e) => e.status === "active"));
+      } catch {
+        setEmployees([]);
+      }
+    };
+    void loadEmployees();
+  }, []);
+
+  const activeEmployees = useMemo(() => {
+    return employees.filter((e) => e.status === "active");
+  }, [employees]);
+
+  useEffect(() => {
+    if (isCreateOpen) {
+      const today = new Date().toISOString().split("T")[0];
+      setFormData((prev) => ({ ...prev, dueDate: today }));
+    }
+  }, [isCreateOpen]);
+
+  // Admin-style form state
+  const [formData, setFormData] = useState({
     title: "",
     description: "",
-    assignees: [] as string[],
     priority: "medium" as Task["priority"],
     status: "pending" as Task["status"],
     dueDate: "",
     dueTime: "",
+    location: "",
     attachmentFileName: "",
     attachmentNote: "",
   });
 
-  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const updateTaskMutation = useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: CreateTaskValues }) => {
+      const res = await apiFetch<{ item: TaskApi }>(`/api/tasks/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+      return normalizeTask(res.item);
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
 
-  const [isCreating, setIsCreating] = useState(false);
+  const deleteTaskMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiFetch<{ ok: true }>(`/api/tasks/${id}`, { method: "DELETE" });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
 
-  const [validationErrors, setValidationErrors] = useState<{ projectName?: string; title?: string; description?: string }>({});
+  const updateProjectStatusMutation = useMutation({
+    mutationFn: async ({ projectId, status }: { projectId: string; status: string }) => {
+      const res = await apiFetch<any>(`/api/projects/${projectId}`, {
+        method: "PUT",
+        body: JSON.stringify({ status }),
+      });
+      return res;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      if (selectedProject) {
+        setSelectedProject({ ...selectedProject, status: selectedProject.status });
+      }
+    },
+  });
 
-  const [projectName, setProjectName] = useState("");
-  const [projectDescription, setProjectDescription] = useState("");
-  const [projectTasks, setProjectTasks] = useState<CreateProjectTaskDraft[]>([]);
+  const form = useForm<CreateTaskValues>({
+    resolver: zodResolver(createTaskSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      priority: "medium",
+      status: "pending",
+      dueDate: "",
+      dueTime: "",
+      location: "",
+    },
+  });
 
-  const [editTaskOpen, setEditTaskOpen] = useState(false);
-  const [reassignOpen, setReassignOpen] = useState(false);
-  const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [assigneesOpen, setAssigneesOpen] = useState(false);
-  const [editAssigneesOpen, setEditAssigneesOpen] = useState(false);
-  const [reassignAssigneesOpen, setReassignAssigneesOpen] = useState(false);
-  const [hoveredTask, setHoveredTask] = useState<string | null>(null);
-
-  const [comments, setComments] = useState<TaskComment[]>([]);
-  const [commentDraft, setCommentDraft] = useState("");
-  const [commentError, setCommentError] = useState<string | null>(null);
-  const [commentsLoading, setCommentsLoading] = useState(false);
-
-  const currentUsername = useMemo(() => {
-    const base = getAuthState();
-    if (base?.username) return base.username;
-    const admin = getAdminAuthState();
-    return admin?.user?.name || "";
-  }, []);
-
-  // Bug report states
-  const [createBugOpen, setCreateBugOpen] = useState(false);
-  const [bugTask, setBugTask] = useState<Task | null>(null);
-  const [bugTitle, setBugTitle] = useState("");
-  const [bugDescription, setBugDescription] = useState("");
-  const [bugImageFile, setBugImageFile] = useState<File | null>(null);
-  const [bugImagePreviewUrl, setBugImagePreviewUrl] = useState("");
-  const [bugImageOpen, setBugImageOpen] = useState(false);
-  const [bugSubmitting, setBugSubmitting] = useState(false);
-  const [bugError, setBugError] = useState<string | null>(null);
-
-  const refreshTasks = async () => {
-    try {
-      setLoading(true);
-      setApiError(null);
-      const tasks = await listResource<Task>("tasks");
-      setTasksList(tasks.map(normalizeTaskAssignees));
-    } catch (e) {
-      setApiError(e instanceof Error ? e.message : "Failed to load tasks");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadComments = async (taskId: string) => {
-    try {
-      setCommentsLoading(true);
-      setCommentError(null);
-      setComments([]);
-      void taskId;
-    } catch (e) {
-      setCommentError(e instanceof Error ? e.message : "Failed to load comments");
-    } finally {
-      setCommentsLoading(false);
-    }
-  };
-
-  const sendComment = async () => {
-    const message = commentDraft.trim();
-    if (!selectedTask || !message) return;
-
-    setCommentDraft("");
-    setCommentError(null);
-
-    setComments((prev) => [
-      ...prev,
-      {
-        id: `${Date.now()}`,
-        taskId: selectedTask.id,
-        message,
-        authorUsername: currentUsername || "You",
-        authorRole: "admin",
-        createdAt: new Date().toISOString(),
-      },
-    ]);
-  };
-
-  const openCreateBug = (task: Task) => {
-    setBugTask(task);
-    setCreateBugOpen(true);
-  };
-
-  const submitBugReport = async () => {
-    // Placeholder for bug submission
-    console.log("Submit bug report");
-  };
-
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    assignees: [] as string[],
-    priority: "medium" as Task["priority"],
-    status: "pending" as Task["status"],
-    dueDate: "",
-    dueTime: "",
-    attachmentFileName: "",
-    attachmentNote: "",
+  const editForm = useForm<CreateTaskValues>({
+    resolver: zodResolver(createTaskSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      priority: "medium",
+      status: "pending",
+      dueDate: "",
+      dueTime: "",
+      location: "",
+    },
   });
 
   const validateForm = () => {
     const errors: { projectName?: string; title?: string; description?: string } = {};
-
     if (!projectName.trim()) {
       errors.projectName = "Project name is required";
     }
-
-    if (!formData.title.trim()) {
-      errors.title = "Task title is required";
+    if (projectTasks.length === 0) {
+      errors.title = "At least one task is required";
     }
-
-    if (!formData.description.trim()) {
-      errors.description = "Task description is required";
-    }
-
     setValidationErrors(errors);
-
     return Object.keys(errors).length === 0;
   };
 
@@ -425,24 +473,26 @@ const Tasks = () => {
     setProjectName("");
     setProjectDescription("");
     setProjectTasks([]);
+    setProjectLogoFile(null);
+    setProjectLogoPreview("");
     setValidationErrors({});
     setFormData({
       title: "",
       description: "",
-      assignees: [],
       priority: "medium",
       status: "pending",
       dueDate: "",
       dueTime: "",
+      location: "",
       attachmentFileName: "",
       attachmentNote: "",
     });
+    setSelectedAssignees([]);
     setAttachmentFile(null);
   };
 
   const draftFromForm = (attachmentOverride?: CreateProjectTaskDraft["attachment"]) => {
     const createdAt = new Date().toISOString().split("T")[0];
-
     const att = attachmentOverride
       ? attachmentOverride
       : attachmentFile
@@ -457,11 +507,12 @@ const Tasks = () => {
     return {
       title: formData.title,
       description: formData.description,
-      assignees: formData.assignees,
+      assignees: selectedAssignees,
       priority: formData.priority,
       status: formData.status,
       dueDate: formData.dueDate,
       dueTime: formData.dueTime,
+      location: formData.location,
       createdAt,
       attachmentFileName: formData.attachmentFileName || attachmentFile?.name || "",
       attachmentNote: formData.attachmentNote || "",
@@ -471,9 +522,7 @@ const Tasks = () => {
 
   const addTaskToProject = async () => {
     const errors: { title?: string; description?: string } = {};
-
     if (!formData.title.trim()) errors.title = "Task title is required";
-
     if (!formData.description.trim()) errors.description = "Task description is required";
 
     if (Object.keys(errors).length > 0) {
@@ -481,21 +530,22 @@ const Tasks = () => {
       return;
     }
 
-    const toDataUrl = (file: File) =>
-      new Promise<string>((resolve, reject) => {
+    if (attachmentFile) {
+      const file = attachmentFile;
+      const attachment = await new Promise<CreateProjectTaskDraft["attachment"]>((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ""));
         reader.onerror = () => reject(new Error("Failed to read file"));
+        reader.onload = () => {
+          const url = typeof reader.result === "string" ? reader.result : "";
+          resolve({
+            fileName: file.name,
+            url,
+            mimeType: file.type,
+            size: file.size,
+          });
+        };
         reader.readAsDataURL(file);
       });
-
-    if (attachmentFile) {
-      const attachment = {
-        fileName: attachmentFile.name,
-        url: await toDataUrl(attachmentFile),
-        mimeType: attachmentFile.type,
-        size: attachmentFile.size,
-      };
 
       setProjectTasks((prev) => [...prev, draftFromForm(attachment)]);
     } else {
@@ -503,20 +553,21 @@ const Tasks = () => {
     }
 
     setValidationErrors((prev) => ({ ...prev, title: undefined, description: undefined }));
-
-    setFormData({
+    setFormData((prev) => ({
+      ...prev,
       title: "",
       description: "",
-      assignees: [],
       priority: "medium",
       status: "pending",
-      dueDate: formData.dueDate,
+      dueDate: "",
       dueTime: "",
+      location: "",
       attachmentFileName: "",
       attachmentNote: "",
-    });
-
+    }));
+    setSelectedAssignees([]);
     setAttachmentFile(null);
+    setIsCreateTaskOpen(false);
   };
 
   const handleCreateProject = async () => {
@@ -526,12 +577,33 @@ const Tasks = () => {
       setIsCreating(true);
       setApiError(null);
 
+      const description = projectDescription?.trim() || "—";
+
+      const projectLogo = projectLogoFile
+        ? await new Promise<ProjectLogo>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = () => reject(new Error("Failed to read project logo"));
+            reader.onload = () => {
+              const url = typeof reader.result === "string" ? reader.result : "";
+              resolve({
+                fileName: projectLogoFile.name,
+                url,
+                mimeType: projectLogoFile.type,
+                size: projectLogoFile.size,
+              });
+            };
+            reader.readAsDataURL(projectLogoFile);
+          })
+        : undefined;
+
       const tasksToCreate: CreateProjectTaskDraft[] =
         projectTasks.length > 0 ? projectTasks : [draftFromForm(undefined)];
 
-      const payload: CreateProjectPayload = {
+      const payload: CreateProjectPayload & { assignees?: string[]; logo?: ProjectLogo } = {
         name: projectName.trim(),
-        description: projectDescription,
+        description,
+        assignees: selectedAssignees,
+        logo: projectLogo,
         tasks: tasksToCreate,
       };
 
@@ -540,3978 +612,1493 @@ const Tasks = () => {
         body: JSON.stringify(payload),
       });
 
-      await refreshTasks();
-
-      setCreateTaskOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      setIsCreateOpen(false);
       setIsCreating(false);
       resetProjectFlow();
+      toast({
+        title: "Project created",
+        description: "Your project has been created with tasks.",
+      });
     } catch (e) {
       setIsCreating(false);
       setApiError(e instanceof Error ? e.message : "Failed to create project");
-    }
-  };
-
-  const handleViewDetails = (task: Task) => {
-    setEditTaskOpen(false);
-    setReassignOpen(false);
-    setSelectedTask(normalizeTaskAssignees(task));
-    setViewDetailsOpen(true);
-    void loadComments(task.id);
-  };
-
-  const handleEditTask = (task: Task) => {
-    setViewDetailsOpen(false);
-
-    setReassignOpen(false);
-
-    setSelectedTask(task);
-
-    setEditFormData({
-
-      title: task.title,
-
-      description: task.description,
-
-      assignees: task.assignees || [],
-
-      priority: task.priority,
-
-      status: task.status,
-
-      dueDate: task.dueDate,
-
-      dueTime: task.dueTime,
-
-      attachmentFileName: task.attachmentFileName || "",
-
-      attachmentNote: task.attachmentNote || "",
-
-    });
-
-    setEditTaskOpen(true);
-
-  };
-
-
-
-  const handleReassign = (task: Task) => {
-
-    setViewDetailsOpen(false);
-
-    setEditTaskOpen(false);
-
-    setSelectedTask(task);
-
-    setEditFormData((prev) => ({ ...prev, assignees: task.assignees || [] }));
-
-    setReassignOpen(true);
-
-  };
-
-
-
-  const handleDeleteConfirm = (task: Task) => {
-
-    setSelectedTask(task);
-
-    setDeleteConfirmOpen(true);
-
-  };
-
-
-
-  const saveEditTask = async () => {
-
-    if (!selectedTask) return;
-
-    try {
-
-      setApiError(null);
-
-      await updateResource<Task>("tasks", selectedTask.id, {
-
-        ...selectedTask,
-
-        title: editFormData.title,
-
-        description: editFormData.description,
-
-        assignees: editFormData.assignees,
-
-        priority: editFormData.priority,
-
-        status: editFormData.status,
-
-        dueDate: editFormData.dueDate,
-
-        dueTime: editFormData.dueTime,
-
-        attachmentFileName: editFormData.attachmentFileName || "",
-
-        attachmentNote: editFormData.attachmentNote || "",
-
+      toast({
+        title: "Failed to create project",
+        description: e instanceof Error ? e.message : "Something went wrong",
+        variant: "destructive",
       });
+    }
+  };
 
-
-
-      await refreshTasks();
-
-      setEditTaskOpen(false);
-
-      setSelectedTask(null);
-
-    } catch (e) {
-
-      setApiError(e instanceof Error ? e.message : "Failed to update task");
-
+  const handleCreateTask = async () => {
+    if (!selectedProject) {
+      toast({ title: "Select a project first", description: "Please choose a project before creating a task.", variant: "destructive" });
+      return;
     }
 
-  };
-
-
-
-  const saveReassign = async () => {
-
-    if (!selectedTask) return;
-
-    try {
-
-      setApiError(null);
-
-      await updateResource<Task>("tasks", selectedTask.id, {
-
-        ...selectedTask,
-
-        assignees: editFormData.assignees,
-
-      });
-
-      await refreshTasks();
-
-      setReassignOpen(false);
-
-      setSelectedTask(null);
-
-    } catch (e) {
-
-      setApiError(e instanceof Error ? e.message : "Failed to reassign task");
-
-    }
-
-  };
-
-
-
-  const confirmDelete = async () => {
-
-    if (!selectedTask) return;
-
-    try {
-
-      setApiError(null);
-
-      await deleteResource("tasks", selectedTask.id);
-
-      await refreshTasks();
-
-      setDeleteConfirmOpen(false);
-
-      setSelectedTask(null);
-
-    } catch (e) {
-
-      setApiError(e instanceof Error ? e.message : "Failed to delete task");
-
-    }
-
-  };
-
-
-
-  const filteredTasks = tasksList.filter((task) => {
-
-    const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
-
-    const matchesSearch =
-
-      task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-
-      assigneesText.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesStatus = statusFilter === "all" || task.status === statusFilter;
-
-    const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
-
-    return matchesSearch && matchesStatus && matchesPriority;
-
-  });
-
-
-
-  // Get status icon
-
-  const getStatusIcon = (status: string) => {
-
-    switch (status) {
-
-      case "pending":
-
-        return <Clock className="h-3 w-3" />;
-
-      case "in-progress":
-
-        return <AlertCircle className="h-3 w-3" />;
-
-      case "completed":
-
-        return <CheckCircle2 className="h-3 w-3" />;
-
-      case "overdue":
-
-        return <AlertTriangle className="h-3 w-3" />;
-
-      default:
-
-        return null;
-
-    }
-
-  };
-
-
-
-  const handlePrintTask = async (task: Task) => {
-
-    try {
-
-      const doc = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
-
-
-
-      const pageWidth = doc.internal.pageSize.getWidth();
-
-      const pageHeight = doc.internal.pageSize.getHeight();
-
-      const margin = 36;
-
-      const maxWidth = pageWidth - margin * 2;
-
-
-
-      let y = margin;
-
-
-
-      const addHeading = (text: string) => {
-
-        doc.setFont("helvetica", "bold");
-
-        doc.setFontSize(16);
-
-        const lines = doc.splitTextToSize(text || "—", maxWidth);
-
-        doc.text(lines, margin, y);
-
-        y += lines.length * 18 + 6;
-
-      };
-
-
-
-      const addLabelValue = (label: string, value: string) => {
-
-        doc.setFont("helvetica", "bold");
-
-        doc.setFontSize(11);
-
-        doc.text(`${label}:`, margin, y);
-
-        doc.setFont("helvetica", "normal");
-
-        const valLines = doc.splitTextToSize(value || "—", maxWidth - 80);
-
-        doc.text(valLines, margin + 80, y);
-
-        y += valLines.length * 14 + 6;
-
-      };
-
-
-
-      const ensureSpace = (needed: number) => {
-
-        if (y + needed <= pageHeight - margin) return;
-
-        doc.addPage();
-
-        y = margin;
-
-      };
-
-
-
-      addHeading(task.title || "Task");
-
-      doc.setFont("helvetica", "normal");
-
-      doc.setFontSize(11);
-
-      doc.text(`Assigned to: ${(task.assignees || []).join(", ") || "—"}`, margin, y);
-
-      y += 18;
-
-
-
-      ensureSpace(120);
-
-      addLabelValue("Status", task.status || "—");
-
-      addLabelValue("Priority", task.priority || "—");
-
-      addLabelValue("Due Date", toDateOnly(task.dueDate) || "—");
-
-      addLabelValue("Due Time", task.dueTime || "—");
-
-
-
-      ensureSpace(80);
-
-      doc.setFont("helvetica", "bold");
-
-      doc.setFontSize(12);
-
-      doc.text("Description", margin, y);
-
-      y += 14;
-
-      doc.setFont("helvetica", "normal");
-
-      doc.setFontSize(11);
-
-      const descLines = doc.splitTextToSize(task.description || "—", maxWidth);
-
-      doc.text(descLines, margin, y);
-
-      y += descLines.length * 14 + 12;
-
-
-
-      doc.setFont("helvetica", "bold");
-
-      doc.setFontSize(12);
-
-      ensureSpace(30);
-
-      doc.text("Attachment", margin, y);
-
-      y += 14;
-
-      doc.setFont("helvetica", "normal");
-
-      doc.setFontSize(11);
-
-
-
-      const attUrl = String(task.attachment?.url || "").trim();
-
-      const attMime = String(task.attachment?.mimeType || "").trim();
-
-      const attIsImage = !!attUrl && (attMime.startsWith("image/") || attUrl.startsWith("data:image/"));
-
-      const attName = task.attachment?.fileName || task.attachmentFileName || "";
-
-
-
-      if (attIsImage) {
-
-        const img = new Image();
-
-        img.src = attUrl;
-
-        await new Promise<void>((resolve) => {
-
-          if (img.complete) return resolve();
-
-          img.onload = () => resolve();
-
-          img.onerror = () => resolve();
-
-        });
-
-
-
-        const imgW = img.naturalWidth || 1;
-
-        const imgH = img.naturalHeight || 1;
-
-
-
-        const renderW = maxWidth;
-
-        const renderH = (imgH / imgW) * renderW;
-
-
-
-        ensureSpace(Math.min(renderH + 10, pageHeight - margin * 2));
-
-
-
-        const type = attMime.includes("png") || attUrl.startsWith("data:image/png") ? "PNG" : "JPEG";
-
-        doc.addImage(attUrl, type as any, margin, y, renderW, renderH);
-
-        y += renderH + 10;
-
-      } else if (attName) {
-
-        const attLines = doc.splitTextToSize(attName, maxWidth);
-
-        doc.text(attLines, margin, y);
-
-        y += attLines.length * 14 + 6;
-
-      } else {
-
-        doc.text("—", margin, y);
-
-        y += 18;
-
-      }
-
-
-
-      if (task.attachmentNote) {
-
-        ensureSpace(40);
-
-        doc.setFont("helvetica", "bold");
-
-        doc.setFontSize(12);
-
-        doc.text("Attachment Note", margin, y);
-
-        y += 14;
-
-        doc.setFont("helvetica", "normal");
-
-        doc.setFontSize(11);
-
-        const noteLines = doc.splitTextToSize(task.attachmentNote, maxWidth);
-
-        doc.text(noteLines, margin, y);
-
-        y += noteLines.length * 14 + 6;
-
-      }
-
-
-
-      const safeName = String(task.title || "task")
-
-        .trim()
-
-        .replace(/[\\/:*?\"<>|]+/g, "-")
-
-        .slice(0, 80);
-
-      doc.save(`${safeName || "task"}.pdf`);
-
-    } catch (e) {
-
-      console.error("PDF generation failed:", e);
-
-      setApiError(e instanceof Error ? e.message : "Failed to generate PDF");
-  };
-
-  const openCreateBug = (task: Task) => {
-    setBugTask(task);
-    setBugTitle("");
-    setBugDescription("");
-    setBugImageFile(null);
-    if (bugImagePreviewUrl) URL.revokeObjectURL(bugImagePreviewUrl);
-    setBugImagePreviewUrl("");
-    setBugImageOpen(false);
-    setBugError(null);
-    setCreateBugOpen(true);
-  };
-
-  const submitBugReport = async () => {
-    if (!bugTask) return;
-    const title = bugTitle.trim();
-    const description = bugDescription.trim();
-    if (!title || !description) {
-      setBugError("Title and description are required");
+    const errors: { title?: string; description?: string } = {};
+    if (!formData.title.trim()) errors.title = "Task title is required";
+    if (!formData.description.trim()) errors.description = "Task description is required";
+
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors((prev) => ({ ...prev, ...errors }));
       return;
     }
 
     try {
-      setBugSubmitting(true);
-      setBugError(null);
+      setIsCreating(true);
+      const nowDate = new Date().toISOString().split("T")[0];
 
-      const toDataUrl = (file: File) =>
-        new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result || ""));
-          reader.onerror = () => reject(new Error("Failed to read image"));
-          reader.readAsDataURL(file);
-        });
-
-      const attachment = bugImageFile
-        ? {
-            fileName: bugImageFile.name,
-            url: await toDataUrl(bugImageFile),
-            mimeType: bugImageFile.type,
-            size: bugImageFile.size,
-          }
+      const attachment = attachmentFile
+        ? await new Promise<CreateProjectTaskDraft["attachment"]>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = () => reject(new Error("Failed to read file"));
+            reader.onload = () => {
+              const url = typeof reader.result === "string" ? reader.result : "";
+              resolve({
+                fileName: attachmentFile.name,
+                url,
+                mimeType: attachmentFile.type,
+                size: attachmentFile.size,
+              });
+            };
+            reader.readAsDataURL(attachmentFile);
+          })
         : undefined;
 
-      await apiFetch<{ item: { id: string } }>("/api/bugs", {
+      await apiFetch("/api/tasks", {
         method: "POST",
         body: JSON.stringify({
-          taskId: bugTask.id,
-          title,
-          description,
+          title: formData.title,
+          description: formData.description,
+          assignees: selectedAssignees,
+          priority: formData.priority,
+          status: formData.status,
+          dueDate: formData.dueDate || nowDate,
+          dueTime: formData.dueTime,
+          location: formData.location,
+          createdAt: nowDate,
+          attachmentFileName: attachmentFile?.name || "",
+          attachmentNote: formData.attachmentNote,
           attachment,
+          projectId: selectedProject.id,
         }),
       });
 
-      setCreateBugOpen(false);
-      setBugTask(null);
-      setBugTitle("");
-      setBugDescription("");
-      setBugImageFile(null);
-      if (bugImagePreviewUrl) URL.revokeObjectURL(bugImagePreviewUrl);
-      setBugImagePreviewUrl("");
-      setBugImageOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      if (selectedProject?.id) {
+        void loadProject(selectedProject.id);
+      }
+
+      setIsCreating(false);
+      setIsCreateTaskOpen(false);
+      setFormData({
+        title: "",
+        description: "",
+        priority: "medium",
+        status: "pending",
+        dueDate: "",
+        dueTime: "",
+        location: "",
+        attachmentFileName: "",
+        attachmentNote: "",
+      });
+      setSelectedAssignees([]);
+      setAttachmentFile(null);
+      setValidationErrors({});
+
+      toast({
+        title: "Task created",
+        description: "New task has been added to the project.",
+      });
     } catch (e) {
-      setBugError(e instanceof Error ? e.message : "Failed to submit bug report");
-    } finally {
-      setBugSubmitting(false);
+      setIsCreating(false);
+      toast({
+        title: "Failed to create task",
+        description: e instanceof Error ? e.message : "Something went wrong",
+        variant: "destructive",
+      });
     }
   };
 
-  // Load initial data on mount
-  useEffect(() => {
-    const loadInitialData = async () => {
-      try {
-        setLoading(true);
-        setApiError(null);
-        // Load tasks
-        const tasks = await listResource<Task>("tasks");
-        setTasksList(tasks.map(normalizeTaskAssignees));
-        // Load employees for assignee selection
-        const employeesData = await listResource<Employee>("employees");
-        setEmployees(employeesData);
-      } catch (e) {
-        console.error("Failed to load initial data:", e);
-        setApiError(e instanceof Error ? e.message : "Failed to load data");
-      } finally {
-        setLoading(false);
+  const openView = (task: Task) => {
+    setSelectedTask(task);
+    setIsViewOpen(true);
+    void loadComments(task.id);
+  };
+
+  const loadComments = async (taskId: string) => {
+    try {
+      setCommentsLoading(true);
+      setCommentError(null);
+      const res = await apiFetch<{ items: TaskComment[] }>(`/api/tasks/${encodeURIComponent(taskId)}/comments`);
+      setComments(Array.isArray(res.items) ? res.items : []);
+    } catch (e) {
+      setCommentError(e instanceof Error ? e.message : "Failed to load messages");
+      setComments([]);
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
+
+  const sendComment = async () => {
+    if (!selectedTask) return;
+    const msg = commentDraft.trim();
+    if (!msg) return;
+
+    try {
+      setCommentError(null);
+      const res = await apiFetch<{ item: TaskComment }>(`/api/tasks/${encodeURIComponent(selectedTask.id)}/comments`, {
+        method: "POST",
+        body: JSON.stringify({ message: msg }),
+      });
+      setComments((prev) => [...prev, res.item]);
+      setCommentDraft("");
+    } catch (e) {
+      setCommentError(e instanceof Error ? e.message : "Failed to send message");
+    }
+  };
+
+  const updateStatus = async (next: Task["status"]) => {
+    if (!selectedTask) return;
+    try {
+      setStatusSaving(true);
+      setCommentError(null);
+      const res = await apiFetch<{ item: TaskApi }>(`/api/tasks/${encodeURIComponent(selectedTask.id)}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: next }),
+      });
+      const normalized = normalizeTask(res.item);
+      setSelectedTask(normalized);
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    } catch (e) {
+      setCommentError(e instanceof Error ? e.message : "Failed to update status");
+    } finally {
+      setStatusSaving(false);
+    }
+  };
+
+  const openEdit = (task: Task) => {
+    setSelectedTask(task);
+    setEditSelectedAssignees(task.assignees || []);
+    editForm.reset({
+      title: task.title,
+      description: task.description,
+      priority: task.priority,
+      status: task.status,
+      dueDate: task.dueDate,
+      dueTime: task.dueTime || "",
+      location: task.location || "",
+    });
+    setIsEditOpen(true);
+  };
+
+  const openDelete = (task: Task) => {
+    setSelectedTask(task);
+    setIsDeleteOpen(true);
+  };
+
+  const handlePrintTask = async (task: Task) => {
+    try {
+      const doc = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
+
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 36;
+      const maxWidth = pageWidth - margin * 2;
+
+      let y = margin;
+
+      const addHeading = (text: string) => {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+        const lines = doc.splitTextToSize(text || "—", maxWidth);
+        doc.text(lines, margin, y);
+        y += lines.length * 18 + 6;
+      };
+
+      const addLabelValue = (label: string, value: string) => {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text(`${label}:`, margin, y);
+        doc.setFont("helvetica", "normal");
+        const valLines = doc.splitTextToSize(value || "—", maxWidth - 80);
+        doc.text(valLines, margin + 80, y);
+        y += valLines.length * 14 + 6;
+      };
+
+      const ensureSpace = (needed: number) => {
+        if (y + needed <= pageHeight - margin) return;
+        doc.addPage();
+        y = margin;
+      };
+
+      addHeading(task.title || "Task");
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      doc.text(`Assigned to: ${(task.assignees || []).join(", ") || "—"}`, margin, y);
+      y += 18;
+
+      ensureSpace(120);
+      addLabelValue("Status", task.status || "—");
+      addLabelValue("Priority", task.priority || "—");
+      addLabelValue("Due Date", task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—");
+      addLabelValue("Location", task.location || "—");
+      addLabelValue("Created", task.createdAt ? new Date(task.createdAt).toLocaleDateString() : "—");
+
+      ensureSpace(80);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      doc.text("Description", margin, y);
+      y += 14;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+      const descLines = doc.splitTextToSize(task.description || "—", maxWidth);
+      doc.text(descLines, margin, y);
+      y += descLines.length * 14 + 12;
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(12);
+      ensureSpace(30);
+      doc.text("Attachment", margin, y);
+      y += 14;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(11);
+
+      const attUrl = String(task.attachment?.url || "").trim();
+      const attMime = String(task.attachment?.mimeType || "").trim();
+      const attIsImage = !!attUrl && (attMime.startsWith("image/") || attUrl.startsWith("data:image/"));
+      const attName = task.attachment?.fileName || task.attachmentFileName || "";
+
+      if (attIsImage) {
+        const img = new Image();
+        img.src = attUrl;
+        await new Promise<void>((resolve) => {
+          if (img.complete) return resolve();
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+        });
+
+        const imgW = img.naturalWidth || 1;
+        const imgH = img.naturalHeight || 1;
+        const renderW = maxWidth;
+        const renderH = (imgH / imgW) * renderW;
+        ensureSpace(Math.min(renderH + 10, pageHeight - margin * 2));
+        const type: "PNG" | "JPEG" = attMime.includes("png") || attUrl.startsWith("data:image/png") ? "PNG" : "JPEG";
+        doc.addImage(attUrl, type, margin, y, renderW, renderH);
+        y += renderH + 10;
+      } else if (attName) {
+        const attLines = doc.splitTextToSize(attName, maxWidth);
+        doc.text(attLines, margin, y);
+        y += attLines.length * 14 + 6;
+      } else {
+        doc.text("—", margin, y);
+        y += 18;
       }
-    };
-    loadInitialData();
-  }, []);
+
+      if (task.attachmentNote) {
+        ensureSpace(40);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(12);
+        doc.text("Attachment Note", margin, y);
+        y += 14;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(11);
+        const noteLines = doc.splitTextToSize(task.attachmentNote, maxWidth);
+        doc.text(noteLines, margin, y);
+        y += noteLines.length * 14 + 6;
+      }
+
+      const safeName = String(task.title || "task")
+        .trim()
+        .replace(/[\\/:*?"<>|]+/g, "-")
+        .slice(0, 80);
+      doc.save(`${safeName || "task"}.pdf`);
+    } catch (e) {
+      console.error("PDF generation failed:", e);
+      toast({
+        title: "Failed to generate PDF",
+        description: e instanceof Error ? e.message : "Something went wrong",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const onEditTask = (values: CreateTaskValues) => {
+    if (!selectedTask) return;
+
+    updateTaskMutation.mutate(
+      { id: selectedTask.id, payload: { ...values, assignees: editSelectedAssignees } },
+      {
+        onSuccess: () => {
+          setIsEditOpen(false);
+          setEditSelectedAssignees([]);
+          toast({
+            title: "Task updated",
+            description: "Task has been updated.",
+          });
+        },
+        onError: (err) => {
+          toast({
+            title: "Failed to update task",
+            description: err instanceof Error ? err.message : "Something went wrong",
+          });
+        },
+      },
+    );
+  };
+
+  const confirmDelete = () => {
+    if (!selectedTask) return;
+    const toDelete = selectedTask;
+
+    deleteTaskMutation.mutate(toDelete.id, {
+      onSuccess: () => {
+        setIsDeleteOpen(false);
+        setSelectedTask(null);
+        toast({
+          title: "Task deleted",
+          description: "Task has been removed.",
+        });
+      },
+      onError: (err) => {
+        toast({
+          title: "Failed to delete task",
+          description: err instanceof Error ? err.message : "Something went wrong",
+        });
+      },
+    });
+  };
+
+  const sourceTasks = selectedProject ? selectedProject.tasks : tasks;
+
+  const filteredTasks = useMemo(() => {
+    return sourceTasks.filter((task) => {
+      const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
+      const matchesSearch =
+        task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        assigneesText.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus =
+        statusFilter === "all" || task.status === statusFilter;
+      const matchesPriority =
+        priorityFilter === "all" || task.priority === priorityFilter;
+      return matchesSearch && matchesStatus && matchesPriority;
+    });
+  }, [sourceTasks, searchQuery, statusFilter, priorityFilter]);
 
   return (
-
-    <>
-
-      <motion.div
-
-        className="space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0 pb-6"
-
-        variants={containerVariants}
-
-        initial="hidden"
-
-        animate="visible"
-
-      >
-
-        {/* Page Header with animated gradient */}
-
-        <motion.div
-
-          className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-4 sm:p-6"
-
-          variants={itemVariants}
-
-          whileHover={{ scale: 1.01 }}
-
-          transition={{ type: "spring" as const, stiffness: 300, damping: 20 }}
-
-        >
-
-          <div className="absolute inset-0 bg-grid-white/10 [mask-image:radial-gradient(ellipse_at_center,white,transparent)]" />
-
-          <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
-
-            <div className="space-y-1.5 sm:space-y-2">
-
-              <div className="flex items-center gap-2">
-
-                <motion.div
-
-                  animate={{ rotate: 360 }}
-
-                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-
-                >
-
-                  <FileText className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-
-                </motion.div>
-
-                <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-
-                  Task Management
-
-                </h1>
-
-              </div>
-
-              <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl">
-
-                Create, assign, and track all tasks.
-
-              </p>
-
-            </div>
-
-
-
-            {/* API Error Message */}
-
-            <AnimatePresence>
-
-              {apiError && (
-
-                <motion.div
-
-                  initial={{ opacity: 0, y: -20, height: 0 }}
-
-                  animate={{ opacity: 1, y: 0, height: "auto" }}
-
-                  exit={{ opacity: 0, y: -20, height: 0 }}
-
-                  transition={{ type: "spring" as const, stiffness: 500, damping: 30 }}
-
-                  className="rounded-lg bg-destructive/10 p-3 sm:p-4 w-full sm:w-auto border border-destructive/20"
-
-                >
-
-                  <p className="text-xs sm:text-sm text-destructive break-words flex items-center gap-2">
-
-                    <AlertTriangle className="h-4 w-4" />
-
-                    {apiError}
-
-                  </p>
-
-                </motion.div>
-
-              )}
-
-            </AnimatePresence>
-
-
-
-            {/* Create Task Dialog */}
-
-            <Dialog open={createTaskOpen} onOpenChange={setCreateTaskOpen}>
-
-              <DialogTrigger asChild>
-
-                <motion.div
-
-                  whileHover={{ scale: 1.05 }}
-
-                  whileTap={{ scale: 0.95 }}
-
-                >
-
-                  <Button
-
-                    className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-white w-full sm:w-auto mt-2 sm:mt-0 shadow-lg hover:shadow-xl transition-all duration-300"
-
-                  >
-
-                    <Plus className="h-4 w-4 mr-2 flex-shrink-0" />
-
-                    <span className="sm:hidden">Create</span>
-
-                    <span className="hidden sm:inline">Create Project</span>
-
-                  </Button>
-
-                </motion.div>
-
-              </DialogTrigger>
-
-
-
-              <DialogContent
-
-                className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto"
-
-              >
-
-                <DialogHeader className="space-y-1.5 sm:space-y-2">
-
-                  <div className="flex items-center justify-between">
-
-                    <Button
-
-                      variant="ghost"
-
-                      size="icon"
-
-                      onClick={() => setCreateTaskOpen(false)}
-
-                      className="h-8 w-8 rounded-full hover:bg-muted"
-
-                    >
-
-                      <X className="h-5 w-5" />
-
-                    </Button>
-
-                    <DialogTitle
-                      className="text-lg sm:text-xl bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent"
-                    >
-                      Create New Project
-                    </DialogTitle>
-
-                    <Button
-                      onClick={handleCreateProject}
-                      className="bg-gradient-to-r from-primary to-primary/50 text-white h-9 px-4 -mt-3 -mr-3 text-sm shadow-lg hover:shadow-xl transition-all duration-300"
-                    >
-                      <Plus className="h-4 w-4 mr-1" />
-                      Create
-                    </Button>
-                  </div>
-
-                  <DialogDescription className="text-xs sm:text-sm text-center">
-                    Create a project with one or more tasks
-                  </DialogDescription>
-
-                </DialogHeader>
-
-
-
-                <motion.form
-
-                  className="space-y-4 sm:space-y-5"
-
-                  initial={{ opacity: 0, y: 20 }}
-
-                  animate={{ opacity: 1, y: 0 }}
-
-                  transition={{ delay: 0.2 }}
-
-                >
-
-                  {/* Project Name */}
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">
-                      Project Name *
-                    </label>
-                    <input
-                      type="text"
-                      value={projectName}
-                      onChange={(e) => {
-                        setProjectName(e.target.value);
-                        if (validationErrors.projectName) setValidationErrors({...validationErrors, projectName: undefined});
-                      }}
-                      placeholder="Enter project name"
-                      className={`w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all ${validationErrors.projectName ? 'border-destructive ring-1 ring-destructive' : ''}`}
-                    />
-                    {validationErrors.projectName && (
-                      <p className="text-xs text-destructive mt-1">{validationErrors.projectName}</p>
-                    )}
-                  </div>
-
-                  {/* Project Description */}
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">
-                      Project Description
-                    </label>
-                    <textarea
-                      value={projectDescription}
-                      onChange={(e) => setProjectDescription(e.target.value)}
-                      placeholder="Optional project description"
-                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base min-h-[60px] resize-none focus:ring-2 focus:ring-primary/20 transition-all"
-                    />
-                  </div>
-
-                  {/* Task List */}
-                  {projectTasks.length > 0 && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <label className="text-xs sm:text-sm font-medium">Tasks ({projectTasks.length})</label>
-                      </div>
-                      <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-2 bg-muted/20">
-                        {projectTasks.map((t, idx) => (
-                          <div key={idx} className="flex items-center justify-between text-xs bg-background p-2 rounded border">
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium truncate">{t.title}</div>
-                              <div className="text-muted-foreground truncate">{t.description}</div>
-                            </div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setProjectTasks(prev => prev.filter((_, i) => i !== idx))}
-                              className="h-6 w-6 p-0 text-destructive hover:bg-destructive/10"
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Add Task Button */}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={addTaskToProject}
-                    className="w-full border-dashed"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Task
-                  </Button>
-
-                  {/* Task Title */}
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">
-
-                      Task Title *
-
-                    </label>
-
-                    <input
-
-                      type="text"
-
-                      value={formData.title}
-
-                      onChange={(e) => {
-
-                        setFormData({ ...formData, title: e.target.value });
-
-                        if (validationErrors.title) setValidationErrors({...validationErrors, title: undefined});
-
-                      }}
-
-                      placeholder="e.g., HVAC Filter Replacement"
-
-                      className={`w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all ${validationErrors.title ? 'border-destructive ring-1 ring-destructive' : ''}`}
-
-                    />
-
-                    {validationErrors.title && (
-
-                      <p className="text-xs text-destructive mt-1">{validationErrors.title}</p>
-
-                    )}
-
-                  </div>
-
-
-
-                  {/* Description */}
-
-                  <div>
-
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">
-
-                      Description *
-
-                    </label>
-
-                    <textarea
-
-                      value={formData.description}
-
-                      onChange={(e) => {
-
-                        setFormData({ ...formData, description: e.target.value });
-
-                        if (validationErrors.description) setValidationErrors({...validationErrors, description: undefined});
-
-                      }}
-
-                      placeholder="Provide task details..."
-
-                      className={`w-full rounded-lg border px-3 py-2 text-sm sm:text-base min-h-[80px] sm:min-h-24 resize-none focus:ring-2 focus:ring-primary/20 transition-all ${validationErrors.description ? 'border-destructive ring-1 ring-destructive' : ''}`}
-
-                    />
-
-                    {validationErrors.description && (
-
-                      <p className="text-xs text-destructive mt-1">{validationErrors.description}</p>
-
-                    )}
-
-                  </div>
-
-
-
-                  {/* Assignees */}
-
-                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-
-                    <div className="flex-1 min-w-0">
-
-                      <label className="block text-xs sm:text-sm font-medium mb-1.5">
-
-                        Assignees 
-
-                      </label>
-
-                      <Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}>
-
-                        <PopoverTrigger asChild>
-
-                          <Button
-
-                            type="button"
-
-                            variant="outline"
-
-                            className="w-full justify-between h-10"
-
-                          >
-
-                            <span className="truncate">
-
-                              {formData.assignees.length > 0
-
-                                ? formData.assignees.join(", ")
-
-                                : "Select assignees"}
-
-                            </span>
-
-                            <ChevronsUpDown className="h-4 w-4 opacity-50" />
-
-                          </Button>
-
-                        </PopoverTrigger>
-
-                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-
-                          <Command>
-
-                            <CommandInput placeholder="Search employees..." />
-
-                            <CommandList>
-
-                              <CommandEmpty>No employee found.</CommandEmpty>
-
-                              <CommandGroup>
-
-                                {employees.map((emp) => {
-
-                                  const isSelected = formData.assignees.includes(emp.name);
-
-                                  return (
-
-                                    <CommandItem
-
-                                      key={emp.id}
-
-                                      onSelect={() => {
-
-                                        const next = isSelected
-
-                                          ? formData.assignees.filter((n) => n !== emp.name)
-
-                                          : [...formData.assignees, emp.name];
-
-                                        setFormData({ ...formData, assignees: next });
-
-                                        setAssigneesOpen(false);
-
-                                      }}
-
-                                      className="flex items-center justify-between"
-
-                                    >
-
-                                      <span className="truncate">{emp.name}</span>
-
-                                      <Check className={"h-4 w-4 " + (isSelected ? "opacity-100" : "opacity-0")} />
-
-                                    </CommandItem>
-
-                                  );
-
-                                })}
-
-                              </CommandGroup>
-
-                            </CommandList>
-
-                          </Command>
-
-                        </PopoverContent>
-
-                      </Popover>
-
-                      {employees.length === 0 && (
-
-                        <p className="text-xs text-warning mt-1">
-
-                          No employees found. Check console for errors.
-
-                        </p>
-
-                      )}
-
-                    </div>
-
-                  </div>
-
-
-
-                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-
-                    <div className="flex-1 min-w-0">
-
-                      <label className="block text-xs sm:text-sm font-medium mb-1.5">
-
-                        Priority
-
-                      </label>
-
-                      <select
-
-                        value={formData.priority}
-
-                        onChange={(e) => setFormData({ ...formData, priority: e.target.value as Task["priority"] })}
-
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
-
-                      >
-
-                        <option value="low">Low</option>
-
-                        <option value="medium">Medium</option>
-
-                        <option value="high">High</option>
-
-                      </select>
-
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-
-                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Status</label>
-
-                      <select
-
-                        value={formData.status}
-
-                        onChange={(e) => setFormData({ ...formData, status: e.target.value as Task["status"] })}
-
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
-
-                      >
-
-                        <option value="pending">Pending</option>
-
-                        <option value="in-progress">In Progress</option>
-
-                        <option value="completed">Completed</option>
-
-                        <option value="overdue">Overdue</option>
-
-                      </select>
-
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-
-                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Created</label>
-
-                      <input
-
-                        type="date"
-
-                        value={formData.dueDate}
-
-                        disabled
-
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-muted/50 cursor-not-allowed focus:ring-2 focus:ring-primary/20 transition-all"
-
-                      />
-
-                    </div>
-
-                  </div>
-
-
-
-                  {/* Due Time */}
-
-                  <div>
-
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Due Time(optional)</label>
-
-                    <input
-
-                      type="time"
-
-                      value={formData.dueTime}
-
-                      onChange={(e) => setFormData({ ...formData, dueTime: e.target.value })}
-
-                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-
-                    />
-
-                  </div>
-
-
-
-                  {/* Attachment File Name & Note */}
-
-                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-
-                    <div className="flex-1 min-w-0">
-
-                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Attachment</label>
-
-                      <motion.div
-
-                        className="w-full rounded-lg border px-3 py-3 text-sm sm:text-base bg-gradient-to-br from-muted/20 to-muted/5 hover:from-muted/30 hover:to-muted/10 transition-all cursor-pointer"
-
-                        onDragOver={(e) => {
-
-                          e.preventDefault();
-
-                        }}
-
-                        onDrop={(e) => {
-
-                          e.preventDefault();
-
-                          const f = e.dataTransfer.files?.[0];
-
-                          if (f) {
-
-                            setAttachmentFile(f);
-
-                            setFormData({ ...formData, attachmentFileName: f.name });
-
-                          }
-
-                        }}
-
-                        onClick={() => {
-
-                          const el = document.getElementById("task-attachment-input") as HTMLInputElement | null;
-
-                          el?.click();
-
-                        }}
-
-                        role="button"
-
-                        tabIndex={0}
-
-                        onKeyDown={(e) => {
-
-                          if (e.key === "Enter" || e.key === " ") {
-
-                            const el = document.getElementById("task-attachment-input") as HTMLInputElement | null;
-
-                            el?.click();
-
-                          }
-
-                        }}
-
-                        whileHover={{ scale: 1.01 }}
-
-                        whileTap={{ scale: 0.99 }}
-
-                      >
-
-                        <div className="flex items-center justify-between gap-3">
-
-                          <div className="min-w-0">
-
-                            <p className="text-xs sm:text-sm font-medium truncate">
-
-                              {attachmentFile ? attachmentFile.name : "Click to choose or drag & drop a file"}
-
-                            </p>
-
-                            <p className="text-[10px] sm:text-xs text-muted-foreground">
-
-                              Max 10MB
-
-                            </p>
-
-                          </div>
-
-                          <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-
-                        </div>
-
-                        <input
-
-                          id="task-attachment-input"
-
-                          type="file"
-
-                          className="hidden"
-
-                          onChange={(e) => {
-
-                            const f = e.target.files?.[0] || null;
-
-                            setAttachmentFile(f);
-
-                            setFormData({ ...formData, attachmentFileName: f?.name || "" });
-
-                          }}
-
-                        />
-
-                      </motion.div>
-
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-
-                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Attachment Note (optional)</label>
-
-                      <input
-
-                        type="text"
-
-                        value={formData.attachmentNote}
-
-                        onChange={(e) => setFormData({ ...formData, attachmentNote: e.target.value })}
-
-                        placeholder="e.g., before/after photo"
-
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-
-                      />
-
-                    </div>
-
-                  </div>
-
-                </motion.form>
-
-
-
-                <DialogFooter className="flex flex-col sm:flex-row justify-between items-center pt-4 gap-3">
-
-                  <div className="order-2 sm:order-1">
-
-                    <Button 
-
-                      variant="outline" 
-
-                      onClick={() => setCreateTaskOpen(false)}
-
-                      className="h-10 px-6"
-
-                    >
-
-                      Cancel
-
-                    </Button>
-
-                  </div>
-
-                  <div className="order-1 sm:order-2 flex-1 flex justify-center">
-
-                    <motion.div
-
-                      whileHover={{ scale: 1.05 }}
-
-                      whileTap={{ scale: 0.95 }}
-
-                    >
-
-                      <Button 
-
-                        onClick={handleCreateProject} 
-
-                        disabled={isCreating}
-
-                        className="bg-gradient-to-r from-primary to-primary/80 text-white h-14 px-12 text-lg shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-70"
-
-                      >
-
-                        {isCreating ? (
-
-                          <>
-
-                            <Loader2 className="h-6 w-6 mr-3 flex-shrink-0 animate-spin" />
-
-                            Creating...
-
-                          </>
-
-                        ) : (
-
-                          <>
-
-                            <Plus className="h-6 w-6 mr-3 flex-shrink-0" />
-
-                            Create Project
-
-                          </>
-
-                        )}
-
-                      </Button>
-
-                    </motion.div>
-
-                  </div>
-
-                  <div className="order-3 sm:order-3 w-[100px] sm:w-[140px]" />
-
-                </DialogFooter>
-
-              </DialogContent>
-
-            </Dialog>
-
-          </div>
-
-        </motion.div>
-
-
-
-        {/* Task Summary Cards - Animated */}
-
-        <motion.div 
-
-          className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4"
-
-          variants={containerVariants}
-
-        >
-
-          {[
-
-            { label: "Total Tasks", value: tasksList.length, icon: FileText, color: "primary" },
-
-            { label: "In Progress", value: tasksList.filter(t => t.status === "in-progress").length, icon: AlertCircle, color: "[#3b82f6]" },
-
-            { label: "Completed", value: tasksList.filter(t => t.status === "completed").length, icon: CheckCircle2, color: "[#22c55e]" },
-
-            { label: "Overdue", value: tasksList.filter(t => t.status === "overdue").length, icon: AlertTriangle, color: "destructive" },
-
-          ].map((item, index) => (
-
-            <motion.div
-
-              key={item.label}
-
-              variants={itemVariants}
-
-              whileHover={{ scale: 1.01 }}
-
-              transition={{ type: "spring" as const, stiffness: 300, damping: 20 }}
-
-            >
-
-              <Card className={`shadow-lg border-0 bg-gradient-to-br from-${item.color}/10 to-${item.color}/5 backdrop-blur-sm overflow-hidden`}>
-
-                <CardContent className="p-3 sm:p-4">
-
-                  <div className="flex items-center gap-2 sm:gap-3">
-
-                    <motion.div 
-
-                      className={`h-8 w-8 sm:h-10 sm:w-10 rounded-lg bg-${item.color}/10 flex items-center justify-center flex-shrink-0`}
-
-                      whileHover={{ rotate: 10 }}
-
-                      transition={{ type: "spring" as const, stiffness: 300, damping: 10 }}
-
-                    >
-
-                      <item.icon className={`h-4 w-4 sm:h-5 sm:w-5 text-${item.color}`} />
-
-                    </motion.div>
-
-                    <div className="min-w-0">
-
-                      <p className="text-xs sm:text-sm text-muted-foreground truncate">{item.label}</p>
-
-                      <p className="text-lg sm:text-xl font-bold">{item.value}</p>
-
-                    </div>
-
-                  </div>
-
-                </CardContent>
-
-              </Card>
-
-            </motion.div>
-
-          ))}
-
-        </motion.div>
-
-
-
-        {/* Filters Card - Animated */}
-
-        <motion.div variants={itemVariants}>
-
-          <Card className="shadow-lg border-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm">
-
-            <CardContent className="p-3 sm:p-6">
-
-              <div className="flex flex-col gap-3 sm:gap-4">
-
-                {/* Search - Full width on mobile */}
-
-                <div className="relative w-full">
-
-                  <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
-
-                    Search Tasks
-
-                  </label>
-
-                  <div className="relative">
-
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
-
-                    <Input
-
-                      placeholder="Search by title or assignee..."
-
-                      value={searchQuery}
-
-                      onChange={(e) => setSearchQuery(e.target.value)}
-
-                      className="pl-8 sm:pl-10 h-9 sm:h-10 text-sm sm:text-base rounded-lg border-0 bg-muted/50 focus:ring-2 focus:ring-primary/20 transition-all"
-
-                    />
-
-                  </div>
-
-                </div>
-
-
-
-                {/* Filter Dropdowns - Grid on mobile, row on tablet+ */}
-
-                <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:gap-3">
-
-                  <div className="col-span-1">
-
-                    <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
-
-                      Status
-
-                    </label>
-
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-
-                      <SelectTrigger className="w-full h-9 sm:h-10 text-xs sm:text-sm rounded-lg border-0 bg-muted/50 focus:ring-2 focus:ring-primary/20">
-
-                        <SelectValue placeholder="Status" />
-
-                      </SelectTrigger>
-
-                      <SelectContent>
-
-                        <SelectItem value="all">All Status</SelectItem>
-
-                        <SelectItem value="pending">Pending</SelectItem>
-
-                        <SelectItem value="in-progress">In Progress</SelectItem>
-
-                        <SelectItem value="completed">Completed</SelectItem>
-
-                        <SelectItem value="overdue">Overdue</SelectItem>
-
-                      </SelectContent>
-
-                    </Select>
-
-                  </div>
-
-
-
-                  <div className="col-span-1">
-
-                    <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
-
-                      Priority
-
-                    </label>
-
-                    <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-
-                      <SelectTrigger className="w-full h-9 sm:h-10 text-xs sm:text-sm rounded-lg border-0 bg-muted/50 focus:ring-2 focus:ring-primary/20">
-
-                        <SelectValue placeholder="Priority" />
-
-                      </SelectTrigger>
-
-                      <SelectContent>
-
-                        <SelectItem value="all">All Priority</SelectItem>
-
-                        <SelectItem value="high">High</SelectItem>
-
-                        <SelectItem value="medium">Medium</SelectItem>
-
-                        <SelectItem value="low">Low</SelectItem>
-
-                      </SelectContent>
-
-                    </Select>
-
-                  </div>
-
-                </div>
-
-              </div>
-
-            </CardContent>
-
-          </Card>
-
-        </motion.div>
-
-
-
-        {/* Tasks Card */}
-
-        <motion.div variants={itemVariants}>
-
-          <Card className="shadow-xl border-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm overflow-hidden">
-
-            <CardHeader className="px-4 sm:px-6 py-4 sm:py-5 border-b bg-muted/20">
-
-              <CardTitle className="text-base sm:text-lg md:text-xl font-semibold flex items-center gap-2">
-
-                <FileText className="h-5 w-5 text-primary" />
-
-                All Tasks
-
-                {filteredTasks.length > 0 && (
-
-                  <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary">
-
-                    {filteredTasks.length} tasks
-
-                  </Badge>
-
-                )}
-
-              </CardTitle>
-
-            </CardHeader>
-
-            <CardContent className="p-0 sm:p-6">
-
-              {loading ? (
-
-                <div className="flex justify-center items-center py-8 sm:py-12">
-
-                  <motion.div
-
-                    animate={{ rotate: 360 }}
-
-                    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-
-                    className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full"
-
-                  />
-
-                </div>
-
-              ) : (
-
-                <>
-
-                  {/* Mobile View - Cards */}
-
-                  <div className="block sm:hidden space-y-3 p-4">
-
-                    <AnimatePresence>
-
-                      {filteredTasks.map((task, index) => (
-
-                        <motion.div
-
-                          key={task.id}
-
-                          initial={{ opacity: 0, y: 20 }}
-
-                          animate={{ opacity: 1, y: 0 }}
-
-                          exit={{ opacity: 0, y: -20 }}
-
-                          transition={{ delay: index * 0.05 }}
-
-                          whileHover={{ scale: 1.02, x: 5 }}
-
-                          onHoverStart={() => setHoveredTask(task.id)}
-
-                          onHoverEnd={() => setHoveredTask(null)}
-
-                          onClick={() => handleViewDetails(task)}
-
-                          className="bg-gradient-to-br from-card to-card/50 rounded-xl border p-4 space-y-3 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer"
-
-                        >
-
-                          {/* Header with ID and Actions */}
-
-                          <div className="flex items-start justify-between">
-
-                            <div>
-
-                              <p className="text-xs font-mono text-muted-foreground flex items-center gap-1">
-
-                                {getDisplayTaskId(task.id)}
-
-                                {hoveredTask === task.id && (
-
-                                  <motion.span
-
-                                    initial={{ scale: 0 }}
-
-                                    animate={{ scale: 1 }}
-
-                                    className="inline-block w-1.5 h-1.5 bg-primary rounded-full"
-
-                                  />
-
-                                )}
-
-                              </p>
-
-                              <h4 className="font-medium text-sm mt-1">{task.title}</h4>
-
-                            </div>
-
-                            <DropdownMenu>
-
-                              <DropdownMenuTrigger asChild>
-
-                                <motion.div
-
-                                  whileHover={{ scale: 1.1 }}
-
-                                  whileTap={{ scale: 0.9 }}
-
-                                >
-
-                                  <Button
-
-                                    variant="ghost"
-
-                                    size="icon"
-
-                                    className="h-8 w-8 flex-shrink-0"
-
-                                    onClick={(e) => e.stopPropagation()}
-
-                                  >
-
-                                    <MoreHorizontal className="h-4 w-4" />
-
-                                  </Button>
-
-                                </motion.div>
-
-                              </DropdownMenuTrigger>
-
-                              <DropdownMenuContent align="end">
-
-                                <DropdownMenuItem onClick={(e) => {
-
-                                  e.stopPropagation();
-
-                                  handleViewDetails(task);
-
-                                }}>
-
-                                  <Eye className="mr-2 h-4 w-4" />
-
-                                  View Details
-
-                                </DropdownMenuItem>
-
-                                <DropdownMenuItem onClick={(e) => {
-
-                                  e.stopPropagation();
-
-                                  void handlePrintTask(task);
-
-                                }}>
-
-                                  <Printer className="mr-2 h-4 w-4" />
-
-                                  Print
-
-                                </DropdownMenuItem>
-
-                                <DropdownMenuItem onClick={(e) => {
-
-                                  e.stopPropagation();
-
-                                  openCreateBug(task);
-
-                                }}>
-
-                                  <Bug className="mr-2 h-4 w-4" />
-
-                                  Bug
-
-                                </DropdownMenuItem>
-
-                                <DropdownMenuItem onClick={(e) => {
-
-                                  e.stopPropagation();
-
-                                  handleEditTask(task);
-
-                                }}>
-
-                                  <Edit className="mr-2 h-4 w-4" />
-
-                                  Edit Task
-
-                                </DropdownMenuItem>
-
-                                <DropdownMenuItem onClick={(e) => {
-
-                                  e.stopPropagation();
-
-                                  handleReassign(task);
-
-                                }}>
-
-                                  <User className="mr-2 h-4 w-4" />
-
-                                  Reassign
-
-                                </DropdownMenuItem>
-
-                                <DropdownMenuItem
-
-                                  onClick={(e) => {
-
-                                    e.stopPropagation();
-
-                                    handleDeleteConfirm(task);
-
-                                  }}
-
-                                  className="text-destructive"
-
-                                >
-
-                                  <Trash2 className="mr-2 h-4 w-4" />
-
-                                  Delete
-
-                                </DropdownMenuItem>
-
-                              </DropdownMenuContent>
-
-                            </DropdownMenu>
-
-                          </div>
-
-
-
-                          <div className="flex flex-wrap gap-2">
-
-                            <motion.div
-
-                              whileHover={{ scale: 1.1 }}
-
-                              whileTap={{ scale: 0.95 }}
-
-                            >
-
-                              <Badge className={`${priorityClasses[task.priority]} text-xs`} variant="secondary">
-
-                                {task.priority}
-
-                              </Badge>
-
-                            </motion.div>
-
-                            <motion.div
-
-                              whileHover={{ scale: 1.1 }}
-
-                              whileTap={{ scale: 0.95 }}
-
-                            >
-
-                              <Badge className={`${statusClasses[task.status]} text-xs flex items-center gap-1`} variant="secondary">
-
-                                {getStatusIcon(task.status)}
-
-                                {task.status}
-
-                              </Badge>
-
-                            </motion.div>
-
-                          </div>
-
-
-
-                          {/* Description (if exists) */}
-
-                          {task.description && (
-
-                            <p className="text-xs text-muted-foreground line-clamp-2">
-
-                              {task.description}
-
-                            </p>
-
-                          )}
-
-
-
-                          {/* Assignees */}
-
-                          <motion.div 
-
-                            className="flex items-start gap-2"
-
-                            whileHover={{ x: 5 }}
-
-                          >
-
-                            <div className="h-4 w-4 flex-shrink-0 mt-0.5">
-
-                              <Avatar className="h-4 w-4 ring-2 ring-primary/20">
-
-                                <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-[10px]">
-
-                                  {getInitials(task.assignees?.[0] || "")}
-
-                                </AvatarFallback>
-
-                              </Avatar>
-
-                            </div>
-
-                            <div>
-
-                              <p className="text-xs font-medium">Assignees</p>
-
-                              <p className="text-sm">{assigneesLabel(task.assignees) || "—"}</p>
-
-                            </div>
-
-                          </motion.div>
-
-
-
-                          {/* Due Date & Time */}
-
-                          <motion.div 
-
-                            className="flex items-start gap-2"
-
-                            whileHover={{ x: 5 }}
-
-                          >
-
-                            <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
-
-                            <div>
-
-                              <p className="text-xs font-medium">Due</p>
-
-                              <p className="text-sm">{toDateOnly(task.dueDate)}{task.dueTime ? ` at ${task.dueTime}` : ""}</p>
-
-                            </div>
-
-                          </motion.div>
-
-
-
-                          {/* Attachment (if exists) */}
-
-                          {task.attachmentFileName && (
-
-                            <motion.div 
-
-                              className="pt-2 border-t"
-
-                              whileHover={{ x: 5 }}
-
-                            >
-
-                              <div className="flex items-center gap-2">
-
-                                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-
-                                <span className="text-xs text-muted-foreground truncate">
-
-                                  {task.attachmentFileName}
-
-                                </span>
-
-                              </div>
-
-                              {task.attachmentNote && (
-
-                                <p className="text-xs text-muted-foreground mt-1">
-
-                                  {task.attachmentNote}
-
-                                </p>
-
-                              )}
-
-                            </motion.div>
-
-                          )}
-
-                        </motion.div>
-
-                      ))}
-
-                    </AnimatePresence>
-
-                    
-
-                    {filteredTasks.length === 0 && (
-
-                      <motion.div 
-
-                        className="text-center py-8"
-
-                        initial={{ opacity: 0 }}
-
-                        animate={{ opacity: 1 }}
-
-                      >
-
-                        <div className="flex justify-center mb-3">
-
-                          <motion.div 
-
-                            className="h-12 w-12 rounded-full bg-muted flex items-center justify-center"
-
-                            animate={{ scale: [1, 1.1, 1] }}
-
-                            transition={{ duration: 2, repeat: Infinity }}
-
-                          >
-
-                            <FileText className="h-6 w-6 text-muted-foreground" />
-
-                          </motion.div>
-
-                        </div>
-
-                        <p className="text-sm text-muted-foreground">No tasks found</p>
-
-                        <p className="text-xs text-muted-foreground mt-1">
-
-                          Try adjusting your filters or create a new task
-
-                        </p>
-
-                      </motion.div>
-
-                    )}
-
-                  </div>
-
-
-
-                  {/* Desktop View - Table */}
-
-                  <div className="hidden sm:block overflow-x-auto">
-
-                    <Table>
-
-                      <TableHeader>
-
-                        <TableRow className="bg-muted/50">
-
-                          <TableHead className="w-[100px]">Task ID</TableHead>
-
-                          <TableHead>Title</TableHead>
-
-                          <TableHead>Assignees</TableHead>
-
-                          <TableHead>Priority</TableHead>
-
-                          <TableHead>Status</TableHead>
-
-                          <TableHead>Created</TableHead>
-
-                          <TableHead className="text-right">Print</TableHead>
-
-                          <TableHead className="text-right w-[50px]">Actions</TableHead>
-
-                        </TableRow>
-
-                      </TableHeader>
-
-                      <TableBody>
-
-                        <AnimatePresence>
-
-                          {filteredTasks.map((task, index) => (
-
-                            <motion.tr
-
-                              key={task.id}
-
-                              initial={{ opacity: 0, y: 20 }}
-
-                              animate={{ opacity: 1, y: 0 }}
-
-                              exit={{ opacity: 0, y: -20 }}
-
-                              transition={{ delay: index * 0.05 }}
-
-                              whileHover={{ 
-
-                                scale: 1.01,
-
-                                backgroundColor: "rgba(59, 130, 246, 0.05)",
-
-                                transition: { type: "spring", stiffness: 400, damping: 17 }
-
-                              }}
-
-                              className="border-b transition-colors hover:bg-muted/50 cursor-pointer"
-
-                              onClick={() => handleViewDetails(task)}
-
-                            >
-
-                              <TableCell className="font-mono text-xs md:text-sm">
-
-                                <div className="flex items-center gap-2">
-
-                                  {getDisplayTaskId(task.id)}
-
-                                  {hoveredTask === task.id && (
-
-                                    <motion.span
-
-                                      initial={{ scale: 0 }}
-
-                                      animate={{ scale: 1 }}
-
-                                      className="inline-block w-1.5 h-1.5 bg-primary rounded-full"
-
-                                    />
-
-                                  )}
-
-                                </div>
-
-                              </TableCell>
-
-                              <TableCell className="font-medium text-xs md:text-sm max-w-[200px] truncate">
-
-                                {task.title}
-
-                              </TableCell>
-
-                              <TableCell>
-
-                                <div className="flex items-center gap-2">
-
-                                  <motion.div
-
-                                    whileHover={{ scale: 1.1, rotate: 5 }}
-
-                                    transition={{ type: "spring", stiffness: 300, damping: 10 }}
-
-                                  >
-
-                                    <Avatar className="h-6 w-6 ring-2 ring-primary/20">
-
-                                      <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-xs">
-
-                                        {getInitials(task.assignees?.[0] || "")}
-
-                                      </AvatarFallback>
-
-                                    </Avatar>
-
-                                  </motion.div>
-
-                                  <span className="text-xs md:text-sm truncate max-w-[150px]">
-
-                                    {assigneesLabel(task.assignees)}
-
-                                  </span>
-
-                                </div>
-
-                              </TableCell>
-
-                              <TableCell>
-
-                                <motion.div
-
-                                  whileHover={{ scale: 1.1 }}
-
-                                  whileTap={{ scale: 0.95 }}
-
-                                >
-
-                                  <Badge className={`${priorityClasses[task.priority]} text-xs md:text-sm`} variant="secondary">
-
-                                    {task.priority}
-
-                                  </Badge>
-
-                                </motion.div>
-
-                              </TableCell>
-
-                              <TableCell>
-
-                                <motion.div
-
-                                  whileHover={{ scale: 1.1 }}
-
-                                  whileTap={{ scale: 0.95 }}
-
-                                >
-
-                                  <Badge className={`${statusClasses[task.status]} text-xs md:text-sm flex items-center gap-1`} variant="secondary">
-
-                                    {getStatusIcon(task.status)}
-
-                                    {task.status}
-
-                                  </Badge>
-
-                                </motion.div>
-
-                              </TableCell>
-
-                              <TableCell>
-
-                                <div className="flex items-center gap-1 text-xs md:text-sm">
-
-                                  <Calendar className="h-3 w-3 md:h-3.5 md:w-3.5 text-muted-foreground flex-shrink-0" />
-
-                                  <span>{toDateOnly(task.createdAt)}</span>
-
-                                </div>
-
-                              </TableCell>
-
-                              <TableCell className="text-right">
-
-                                <div className="flex items-center justify-end gap-2">
-
-                                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-
-                                    <Button
-
-                                      variant="outline"
-
-                                      size="sm"
-
-                                      className="gap-2"
-
-                                      onClick={(e) => {
-
-                                        e.stopPropagation();
-
-                                        void handlePrintTask(task);
-
-                                      }}
-
-                                    >
-
-                                      <Printer className="h-4 w-4" />
-
-                                      Print
-
-                                    </Button>
-
-                                  </motion.div>
-
-                                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-
-                                    <Button
-
-                                      variant="outline"
-
-                                      size="sm"
-
-                                      className="gap-2"
-
-                                      onClick={(e) => {
-
-                                        e.stopPropagation();
-
-                                        openCreateBug(task);
-
-                                      }}
-
-                                    >
-
-                                      <Bug className="h-4 w-4" />
-
-                                      Bug
-
-                                    </Button>
-
-                                  </motion.div>
-
-                                </div>
-
-                              </TableCell>
-
-                              <TableCell className="text-right">
-
-                                <DropdownMenu>
-
-                                  <DropdownMenuTrigger asChild>
-
-                                    <motion.div
-
-                                      whileHover={{ scale: 1.1 }}
-
-                                      whileTap={{ scale: 0.9 }}
-
-                                    >
-
-                                      <Button
-
-                                        variant="ghost"
-
-                                        size="icon"
-
-                                        className="h-8 w-8"
-
-                                        onClick={(e) => e.stopPropagation()}
-
-                                      >
-
-                                        <MoreHorizontal className="h-4 w-4" />
-
-                                      </Button>
-
-                                    </motion.div>
-
-                                  </DropdownMenuTrigger>
-
-                                  <DropdownMenuContent align="end">
-
-                                    <DropdownMenuItem onClick={(e) => {
-
-                                      e.stopPropagation();
-
-                                      handleViewDetails(task);
-
-                                    }}>
-
-                                      <Eye className="mr-2 h-4 w-4" />
-
-                                      View Details
-
-                                    </DropdownMenuItem>
-
-                                    <DropdownMenuItem onClick={(e) => {
-
-                                      e.stopPropagation();
-
-                                      void handlePrintTask(task);
-
-                                    }}>
-
-                                      <Printer className="mr-2 h-4 w-4" />
-
-                                      Print
-
-                                    </DropdownMenuItem>
-
-                                    <DropdownMenuItem onClick={(e) => {
-
-                                      e.stopPropagation();
-
-                                      openCreateBug(task);
-
-                                    }}>
-
-                                      <Bug className="mr-2 h-4 w-4" />
-
-                                      Bug
-
-                                    </DropdownMenuItem>
-
-                                    <DropdownMenuItem onClick={(e) => {
-
-                                      e.stopPropagation();
-
-                                      handleEditTask(task);
-
-                                    }}>
-
-                                      <Edit className="mr-2 h-4 w-4" />
-
-                                      Edit Task
-
-                                    </DropdownMenuItem>
-
-                                    <DropdownMenuItem onClick={(e) => {
-
-                                      e.stopPropagation();
-
-                                      handleReassign(task);
-
-                                    }}>
-
-                                      <User className="mr-2 h-4 w-4" />
-
-                                      Reassign
-
-                                    </DropdownMenuItem>
-
-                                    <DropdownMenuItem
-
-                                      onClick={(e) => {
-
-                                        e.stopPropagation();
-
-                                        handleDeleteConfirm(task);
-
-                                      }}
-
-                                      className="text-destructive"
-
-                                    >
-
-                                      <Trash2 className="mr-2 h-4 w-4" />
-
-                                      Delete
-
-                                    </DropdownMenuItem>
-
-                                  </DropdownMenuContent>
-
-                                </DropdownMenu>
-
-                              </TableCell>
-
-                            </motion.tr>
-
-                          ))}
-
-                        </AnimatePresence>
-
-                        
-
-                        {filteredTasks.length === 0 && (
-
-                          <TableRow>
-
-                            <TableCell colSpan={8} className="text-center py-8">
-
-                              <motion.div 
-
-                                className="flex flex-col items-center justify-center"
-
-                                initial={{ opacity: 0 }}
-
-                                animate={{ opacity: 1 }}
-
-                              >
-
-                                <div className="flex justify-center mb-3">
-
-                                  <motion.div 
-
-                                    className="h-12 w-12 rounded-full bg-muted flex items-center justify-center"
-
-                                    animate={{ scale: [1, 1.1, 1] }}
-
-                                    transition={{ duration: 2, repeat: Infinity }}
-
-                                  >
-
-                                    <FileText className="h-6 w-6 text-muted-foreground" />
-
-                                  </motion.div>
-
-                                </div>
-
-                                <p className="text-sm text-muted-foreground">No tasks found</p>
-
-                                <p className="text-xs text-muted-foreground mt-1">
-
-                                  Try adjusting your filters or create a new task
-
-                                </p>
-
-                              </motion.div>
-
-                            </TableCell>
-
-                          </TableRow>
-
-                        )}
-
-                      </TableBody>
-
-                    </Table>
-
-                  </div>
-
-                </>
-
-              )}
-
-            </CardContent>
-
-          </Card>
-
-        </motion.div>
-
-      </motion.div>
-
-
-
-      {/* View Details Dialog - Animated */}
-
-      <Dialog open={viewDetailsOpen} onOpenChange={(open) => {
-
-        setViewDetailsOpen(open);
-
-        if (!open) {
-
-          setSelectedTask(null);
-
-          setComments([]);
-
-          setCommentDraft("");
-
-          setCommentError(null);
-
-        }
-
-      }}>
-
-        <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
-
-          <DialogHeader className="space-y-1.5 sm:space-y-2">
-
-            <DialogTitle className="text-lg sm:text-xl bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-
-              Task Details
-
-            </DialogTitle>
-
-          </DialogHeader>
-
-          {selectedTask && (
-
-            <motion.div 
-
-              className="space-y-4 sm:space-y-5"
-
-              initial={{ opacity: 0, y: 20 }}
-
-              animate={{ opacity: 1, y: 0 }}
-
-              transition={{ delay: 0.2 }}
-
-            >
-
-              <div className="pb-4 border-b">
-
-                <p className="text-xs sm:text-sm text-muted-foreground">{getDisplayTaskId(selectedTask.id)}</p>
-
-                <p className="text-base sm:text-xl font-semibold break-words mt-1">{selectedTask.title}</p>
-
-              </div>
-
-              
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-
-                <motion.div 
-
-                  className="sm:col-span-2 space-y-1.5"
-
-                  whileHover={{ x: 5 }}
-
-                >
-
-                  <label className="text-xs sm:text-sm font-medium">Description</label>
-
-                  <p className="text-xs sm:text-sm text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10 p-2 sm:p-3 rounded-lg">
-
-                    {selectedTask.description || "—"}
-
-                  </p>
-
-                </motion.div>
-
-                
-
-                <motion.div 
-
-                  className="space-y-1.5"
-
-                  whileHover={{ x: 5 }}
-
-                >
-
-                  <label className="text-xs sm:text-sm font-medium">Due Date & Time</label>
-
-                  <div className="flex items-center gap-1 text-xs sm:text-sm">
-
-                    <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
-
-                    <span>{toDateOnly(selectedTask.dueDate)}</span>
-
-                  </div>
-
-                  <div className="flex items-center gap-1 text-xs sm:text-sm">
-
-                    <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground flex-shrink-0" />
-
-                    <span>{selectedTask.dueTime || "—"}</span>
-
-                  </div>
-
-                </motion.div>
-
-
-
-                <motion.div 
-
-                  className="sm:col-span-2 space-y-1.5"
-
-                  whileHover={{ x: 5 }}
-
-                >
-
-                  <label className="text-xs sm:text-sm font-medium">Attachment</label>
-
-                  <div className="bg-gradient-to-br from-muted/30 to-muted/10 p-2 sm:p-3 rounded-lg space-y-2">
-
-                    {selectedTask.attachment?.url ? (
-
-                      <>
-
-                        {/* Image Preview */}
-
-                        {selectedTask.attachment.mimeType?.startsWith("image/") ? (
-
-                          <div className="w-full overflow-hidden rounded-lg border bg-white">
-
-                            <img
-
-                              src={selectedTask.attachment.url}
-
-                              alt={selectedTask.attachment.fileName || "Attachment"}
-
-                              className="w-full h-auto max-h-64 object-contain"
-
-                            />
-
-                          </div>
-
-                        ) : null}
-
-                        
-
-                        {/* File Info & Download */}
-
-                        <div className="flex items-center gap-3 p-2 bg-white/50 rounded-lg">
-
-                          <FileText className="h-8 w-8 text-primary flex-shrink-0" />
-
-                          <div className="flex-1 min-w-0">
-
-                            <p className="text-xs sm:text-sm font-medium truncate">
-
-                              {selectedTask.attachment.fileName || selectedTask.attachmentFileName || "Attachment"}
-
-                            </p>
-
-                            {selectedTask.attachment.size > 0 && (
-
-                              <p className="text-xs text-muted-foreground">
-
-                                {(selectedTask.attachment.size / 1024 / 1024).toFixed(2)} MB
-
-                              </p>
-
-                            )}
-
-                          </div>
-
-                          <a
-
-                            href={selectedTask.attachment.url}
-
-                            download={selectedTask.attachment.fileName}
-
-                            target="_blank"
-
-                            rel="noopener noreferrer"
-
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-primary text-white rounded-md hover:bg-primary/90 transition-colors"
-
-                          >
-
-                            <Eye className="h-3 w-3" />
-
-                            View / Download
-
-                          </a>
-
-                        </div>
-
-                      </>
-
-                    ) : selectedTask.attachmentFileName ? (
-
-                      <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-
-                        <FileText className="h-4 w-4" />
-
-                        <span>{selectedTask.attachmentFileName}</span>
-
-                      </div>
-
-                    ) : (
-
-                      <p className="text-xs sm:text-sm text-muted-foreground">—</p>
-
-                    )}
-
-                    
-
-                    {selectedTask.attachmentNote && (
-
-                      <p className="text-xs sm:text-sm text-muted-foreground break-words border-t pt-2 mt-2">
-
-                        <span className="font-medium">Note:</span> {selectedTask.attachmentNote}
-
-                      </p>
-
-                    )}
-
-                  </div>
-
-                </motion.div>
-
-                <motion.div
-
-                  className="sm:col-span-2 space-y-3"
-
-                  whileHover={{ x: 5 }}
-
-                >
-
-                  <div className="flex items-center justify-between mb-2">
-
-                    <label className="text-xs sm:text-sm font-medium flex items-center gap-2">
-
-                      <span className="w-1 h-4 bg-primary rounded-full"></span>
-
-                      Messages
-
-                    </label>
-
-                    <Button
-
-                      type="button"
-
-                      variant="ghost"
-
-                      size="sm"
-
-                      onClick={() => {
-
-                        if (!selectedTask) return;
-
-                        void loadComments(selectedTask.id);
-
-                      }}
-
-                      disabled={commentsLoading}
-
-                      className="h-8 px-3 text-xs gap-1"
-
-                    >
-
-                      <span className={`${commentsLoading ? 'animate-spin' : ''}`}>⟳</span>
-
-                      Refresh
-
-                    </Button>
-
-                  </div>
-
-
-
-                  {commentError ? (
-
-                    <div className="text-xs text-destructive bg-destructive/10 p-3 rounded-lg flex items-center gap-2">
-
-                      <AlertTriangle className="h-4 w-4" />
-
-                      {commentError}
-
-                    </div>
-
-                  ) : null}
-
-
-
-                  {/* Messages Container - WhatsApp Style */}
-
-                  <div className="rounded-xl bg-[#e5ded7] dark:bg-[#0b141a] p-4 space-y-3 min-h-[300px]">
-
-                    {commentsLoading ? (
-
-                      <div className="flex justify-center items-center h-32">
-
-                        <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent"></div>
-
-                      </div>
-
-                    ) : comments.length === 0 ? (
-
-                      <div className="flex flex-col items-center justify-center h-32 text-center">
-
-                        <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-2">
-
-                          <span className="text-lg">💬</span>
-
-                        </div>
-
-                        <p className="text-xs text-muted-foreground">No messages yet</p>
-
-                        <p className="text-xs text-muted-foreground/70 mt-1">Start the conversation</p>
-
-                      </div>
-
-                    ) : (
-
-                      comments.map((c, index) => {
-
-                        const isMine = !!currentUsername && c.authorUsername === currentUsername;
-
-                        return (
-
-                          <motion.div
-
-                            key={c.id}
-
-                            initial={{ opacity: 0, y: 10, scale: 0.95 }}
-
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-
-                            transition={{ delay: index * 0.05 }}
-
-                            className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
-
-                          >
-
-                            <div
-
-                              className={`
-
-                                max-w-[85%] relative group
-
-                                ${isMine 
-                                  ? 'bg-[#bfdbfe] dark:bg-[#2563eb] text-foreground dark:text-white' 
-                                  : 'bg-white dark:bg-[#202c33] text-foreground dark:text-white'
-                                }
-
-                                rounded-lg px-3 py-2 shadow-sm
-
-                              `}
-
-                              style={{
-
-                                borderRadius: isMine 
-                                  ? '18px 18px 4px 18px' 
-                                  : '18px 18px 18px 4px'
-
-                              }}
-
-                            >
-
-                              {/* Author Name - Only show for others */}
-
-                              {!isMine && (
-
-                                <p className="text-xs font-semibold text-primary dark:text-primary/90 mb-1">
-
-                                  {c.authorUsername}
-
-                                  {c.authorRole && (
-
-                                    <span className="text-[10px] text-muted-foreground ml-1">
-
-                                      • {c.authorRole}
-
-                                    </span>
-
-                                  )}
-
-                                </p>
-
-                              )}
-
-                              
-
-                              {/* Message Content */}
-
-                              <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
-
-                                {c.message}
-
-                              </p>
-
-                              
-
-                              {/* Message Footer with Time */}
-
-                              <div className="flex items-center justify-end gap-1 mt-1">
-
-                                <span className="text-[10px] opacity-70">
-
-                                  {new Date(c.createdAt).toLocaleTimeString([], { 
-                                    hour: '2-digit', 
-                                    minute: '2-digit' 
-                                  })}
-
-                                </span>
-
-                                {isMine && (
-
-                                  <span className="text-[10px] opacity-70">✓✓</span>
-
-                                )}
-
-                              </div>
-
-                            </div>
-                          </motion.div>
-                        );
-                      })
-                    )}
-                  </div>
-                  {/* Message Input - WhatsApp Style */}
-                  <div className="flex items-center gap-2 bg-background rounded-lg p-1 border">
-                    <Input
-                      value={commentDraft}
-                      onChange={(e) => setCommentDraft(e.target.value)}
-                      placeholder="Type a message..."
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          void sendComment();
-                        }
-                      }}
-                      className="flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm"
-                    />
-
-                    <Button 
-                      type="button" 
-                      onClick={() => void sendComment()} 
-                      disabled={!commentDraft.trim()}
-                      size="sm"
-                      className="rounded-full w-9 h-9 p-0 bg-primary hover:bg-primary/90"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                        className="w-4 h-4"
-                      >
-                        <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
-                      </svg>
-
-                    </Button>
-
-                  </div>
-
-                </motion.div>
-
-              </div>
-
-            </motion.div>
-
-          )}
-
-          <DialogFooter className="mt-4 sm:mt-6">
-
-            <motion.div
-
-              whileHover={{ scale: 1.05 }}
-
-              whileTap={{ scale: 0.95 }}
-
-            >
-
-              <Button onClick={() => setViewDetailsOpen(false)} className="w-full sm:w-auto">
-
-                Close
-
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="page-header mb-0">
+          <h1 className="page-title">Task Management</h1>
+          <p className="page-subtitle">Create, assign, and track all tasks</p>
+        </div>
+        <div className="flex gap-2">
+          {selectedProject ? (
+            <>
+              <Button variant="outline" onClick={() => setSelectedProject(null)}>
+                Back to Projects
               </Button>
-
-            </motion.div>
-
-          </DialogFooter>
-
-        </DialogContent>
-
-      </Dialog>
-
-
-
-      {/* Edit Task Dialog - Animated */}
-
-      <Dialog open={editTaskOpen} onOpenChange={setEditTaskOpen}>
-
-        <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
-
-          <DialogHeader className="space-y-1.5 sm:space-y-2">
-
-            <DialogTitle className="text-lg sm:text-xl bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-
-              Edit Task
-
-            </DialogTitle>
-
-            <DialogDescription className="text-xs sm:text-sm">
-
-              Update task information and save changes
-
-            </DialogDescription>
-
-          </DialogHeader>
-
-          {selectedTask && (
-
-            <motion.form 
-
-              className="space-y-4 sm:space-y-5"
-
-              initial={{ opacity: 0, y: 20 }}
-
-              animate={{ opacity: 1, y: 0 }}
-
-              transition={{ delay: 0.2 }}
-
-            >
-
-              {/* Task Title */}
-
-              <div>
-
-                <label className="block text-xs sm:text-sm font-medium mb-1.5">Task Title</label>
-
-                <input
-
-                  type="text"
-
-                  value={editFormData.title}
-
-                  onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
-
-                  className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-
-                />
-
-              </div>
-
-
-
-              {/* Description */}
-
-              <div>
-
-                <label className="block text-xs sm:text-sm font-medium mb-1.5">Description</label>
-
-                <textarea
-
-                  value={editFormData.description}
-
-                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
-
-                  className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base min-h-[80px] sm:min-h-24 resize-none focus:ring-2 focus:ring-primary/20 transition-all"
-
-                />
-
-              </div>
-
-
-
-              {/* Assignees */}
-
-              <div>
-
-                <label className="block text-xs sm:text-sm font-medium mb-1.5">Assignees</label>
-
-                <Popover open={editAssigneesOpen} onOpenChange={setEditAssigneesOpen}>
-
-                  <PopoverTrigger asChild>
-
-                    <Button
-
-                      type="button"
-
-                      variant="outline"
-
-                      className="w-full justify-between h-10"
-
-                    >
-
-                      <span className="truncate">
-
-                        {editFormData.assignees.length > 0
-
-                          ? editFormData.assignees.join(", ")
-
-                          : "Select assignees"}
-
-                      </span>
-
-                      <ChevronsUpDown className="h-4 w-4 opacity-50" />
-
-                    </Button>
-
-                  </PopoverTrigger>
-
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-
-                    <Command>
-
-                      <CommandInput placeholder="Search employees..." />
-
-                      <CommandList>
-
-                        <CommandEmpty>No employee found.</CommandEmpty>
-
-                        <CommandGroup>
-
-                          {employees.map((emp) => {
-
-                            const isSelected = editFormData.assignees.includes(emp.name);
-
-                            return (
-
-                              <CommandItem
-
-                                key={emp.id}
-
-                                onSelect={() => {
-
-                                  const next = isSelected
-
-                                    ? editFormData.assignees.filter((n) => n !== emp.name)
-
-                                    : [...editFormData.assignees, emp.name];
-
-                                  setEditFormData({ ...editFormData, assignees: next });
-
-                                  setEditAssigneesOpen(false);
-
-                                }}
-
-                                className="flex items-center justify-between"
-
-                              >
-
-                                <span className="truncate">{emp.name}</span>
-
-                                <Check className={"h-4 w-4 " + (isSelected ? "opacity-100" : "opacity-0")} />
-
-                              </CommandItem>
-
-                            );
-
-                          })}
-
-                        </CommandGroup>
-
-                      </CommandList>
-
-                    </Command>
-
-                  </PopoverContent>
-
-                </Popover>
-
-              </div>
-
-
-
-              {/* Priority, Status, Due Date */}
-
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-
-                <div className="flex-1 min-w-0">
-
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Priority</label>
-
-                  <select
-
-                    value={editFormData.priority}
-
-                    onChange={(e) => setEditFormData({ ...editFormData, priority: e.target.value as Task["priority"] })}
-
-                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
-
-                  >
-
-                    <option value="low">Low</option>
-
-                    <option value="medium">Medium</option>
-
-                    <option value="high">High</option>
-
-                  </select>
-
-                </div>
-
-                <div className="flex-1 min-w-0">
-
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Status</label>
-
-                  <select
-
-                    value={editFormData.status}
-
-                    onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value as Task["status"] })}
-
-                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
-
-                  >
-
-                    <option value="pending">Pending</option>
-
-                    <option value="in-progress">In Progress</option>
-
-                    <option value="completed">Completed</option>
-
-                    <option value="overdue">Overdue</option>
-
-                  </select>
-
-                </div>
-
-                <div className="flex-1 min-w-0">
-
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Due Date</label>
-
-                  <input
-
-                    type="date"
-
-                    value={editFormData.dueDate}
-
-                    onChange={(e) => setEditFormData({ ...editFormData, dueDate: e.target.value })}
-
-                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-
-                  />
-
-                </div>
-
-              </div>
-
-
-
-              {/* Due Time */}
-
-              <div>
-
-                <label className="block text-xs sm:text-sm font-medium mb-1.5">Due Time</label>
-
-                <input
-
-                  type="time"
-
-                  value={editFormData.dueTime}
-
-                  onChange={(e) => setEditFormData({ ...editFormData, dueTime: e.target.value })}
-
-                  className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-
-                />
-
-              </div>
-
-
-
-              {/* Attachment File Name & Note */}
-
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-
-                <div className="flex-1 min-w-0">
-
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Attachment File Name</label>
-
-                  <input
-
-                    type="text"
-
-                    value={editFormData.attachmentFileName}
-
-                    onChange={(e) => setEditFormData({ ...editFormData, attachmentFileName: e.target.value })}
-
-                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-
-                  />
-
-                </div>
-
-                <div className="flex-1 min-w-0">
-
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Attachment Note</label>
-
-                  <input
-
-                    type="text"
-
-                    value={editFormData.attachmentNote}
-
-                    onChange={(e) => setEditFormData({ ...editFormData, attachmentNote: e.target.value })}
-
-                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-
-                  />
-
-                </div>
-
-              </div>
-
-            </motion.form>
-
-          )}
-
-          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-
-            <motion.div
-
-              whileHover={{ scale: 1.05 }}
-
-              whileTap={{ scale: 0.95 }}
-
-              className="w-full sm:w-auto"
-
-            >
-
-              <Button 
-
-                variant="outline" 
-
-                onClick={() => setEditTaskOpen(false)}
-
-                className="w-full sm:w-auto order-2 sm:order-1"
-
-              >
-
-                Cancel
-
+              <Button className="gap-2" onClick={() => setIsCreateTaskOpen(true)}>
+                <Plus className="w-4 h-4" />
+                Add Task
               </Button>
-
-            </motion.div>
-
-            <motion.div
-
-              whileHover={{ scale: 1.05 }}
-
-              whileTap={{ scale: 0.95 }}
-
-              className="w-full sm:w-auto"
-
-            >
-
-              <Button 
-
-                onClick={saveEditTask} 
-
-                className="bg-gradient-to-r from-primary to-primary/80 text-white w-full sm:w-auto order-1 sm:order-2 shadow-lg hover:shadow-xl transition-all duration-300"
-
-              >
-
-                Save Changes
-
-              </Button>
-
-            </motion.div>
-
-          </DialogFooter>
-
-        </DialogContent>
-
-      </Dialog>
-
-
-
-      {/* Reassign Task Dialog - Animated */}
-
-      <Dialog open={reassignOpen} onOpenChange={setReassignOpen}>
-
-        <DialogContent className="w-[95vw] max-w-md mx-auto p-4 sm:p-6">
-
-          <DialogHeader className="space-y-1.5 sm:space-y-2">
-
-            <DialogTitle className="text-lg sm:text-xl bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-
-              Reassign Task
-
-            </DialogTitle>
-
-            <DialogDescription className="text-xs sm:text-sm">
-
-              Change the task assignees
-
-            </DialogDescription>
-
-          </DialogHeader>
-
-          {selectedTask && (
-
-            <motion.div 
-
-              className="space-y-4"
-
-              initial={{ opacity: 0, y: 20 }}
-
-              animate={{ opacity: 1, y: 0 }}
-
-              transition={{ delay: 0.2 }}
-
-            >
-
-              <div className="rounded-lg bg-gradient-to-r from-muted/30 to-muted/10 p-3 sm:p-4 space-y-1">
-
-                <p className="text-xs sm:text-sm font-medium">Task</p>
-
-                <p className="text-sm sm:text-base">{selectedTask.title}</p>
-
-              </div>
-
-              <div className="rounded-lg bg-gradient-to-r from-muted/30 to-muted/10 p-3 sm:p-4 space-y-1">
-
-                <p className="text-xs sm:text-sm font-medium">Current Assignees</p>
-
-                <div className="flex items-center gap-2 mt-1">
-
-                  <motion.div
-
-                    whileHover={{ scale: 1.1, rotate: 5 }}
-
-                    transition={{ type: "spring", stiffness: 300, damping: 10 }}
-
-                  >
-
-                    <Avatar className="h-5 w-5 sm:h-6 sm:w-6 ring-2 ring-primary/20">
-
-                      <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-[10px] sm:text-xs">
-
-                        {getInitials(selectedTask.assignees?.[0] || "")}
-
-                      </AvatarFallback>
-
-                    </Avatar>
-
-                  </motion.div>
-
-                  <span className="text-xs sm:text-sm">{assigneesLabel(selectedTask.assignees) || "—"}</span>
-
-                </div>
-
-              </div>
-
-              <div className="space-y-1.5">
-
-                <label className="block text-xs sm:text-sm font-medium mb-1.5">New Assignees</label>
-
-                <Popover open={reassignAssigneesOpen} onOpenChange={setReassignAssigneesOpen}>
-
-                  <PopoverTrigger asChild>
-
-                    <Button
-
-                      type="button"
-
-                      variant="outline"
-
-                      className="w-full justify-between h-10"
-
-                    >
-
-                      <span className="truncate">
-
-                        {editFormData.assignees.length > 0
-
-                          ? editFormData.assignees.join(", ")
-
-                          : "Select assignees"}
-
-                      </span>
-
-                      <ChevronsUpDown className="h-4 w-4 opacity-50" />
-
-                    </Button>
-
-                  </PopoverTrigger>
-
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-
-                    <Command>
-
-                      <CommandInput placeholder="Search employees..." />
-
-                      <CommandList>
-
-                        <CommandEmpty>No employee found.</CommandEmpty>
-
-                        <CommandGroup>
-
-                          {employees.map((emp) => {
-
-                            const isSelected = editFormData.assignees.includes(emp.name);
-
-                            return (
-
-                              <CommandItem
-
-                                key={emp.id}
-
-                                onSelect={() => {
-
-                                  const next = isSelected
-
-                                    ? editFormData.assignees.filter((n) => n !== emp.name)
-
-                                    : [...editFormData.assignees, emp.name];
-
-                                  setEditFormData({ ...editFormData, assignees: next });
-
-                                  setReassignAssigneesOpen(false);
-
-                                }}
-
-                                className="flex items-center justify-between"
-
-                              >
-
-                                <span className="truncate">{emp.name}</span>
-
-                                <Check className={"h-4 w-4 " + (isSelected ? "opacity-100" : "opacity-0")} />
-
-                              </CommandItem>
-
-                            );
-
-                          })}
-
-                        </CommandGroup>
-
-                      </CommandList>
-
-                    </Command>
-
-                  </PopoverContent>
-
-                </Popover>
-
-              </div>
-
-            </motion.div>
-
-          )}
-
-          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-
-            <motion.div
-
-              whileHover={{ scale: 1.05 }}
-
-              whileTap={{ scale: 0.95 }}
-
-              className="w-full sm:w-auto"
-
-            >
-
-              <Button 
-
-                variant="outline" 
-
-                onClick={() => setReassignOpen(false)}
-
-                className="w-full sm:w-auto order-2 sm:order-1"
-
-              >
-
-                Cancel
-
-              </Button>
-
-            </motion.div>
-
-            <motion.div
-
-              whileHover={{ scale: 1.05 }}
-
-              whileTap={{ scale: 0.95 }}
-
-              className="w-full sm:w-auto"
-
-            >
-
-              <Button 
-
-                onClick={saveReassign} 
-
-                className="bg-gradient-to-r from-primary to-primary/80 text-white w-full sm:w-auto order-1 sm:order-2 shadow-lg hover:shadow-xl transition-all duration-300"
-
-              >
-
-                Reassign
-
-              </Button>
-
-            </motion.div>
-
-          </DialogFooter>
-
-        </DialogContent>
-
-      </Dialog>
-
-
-      {/* Delete Confirmation Dialog - Animated */}
-
-      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-
-        <DialogContent className="w-[95vw] max-w-md mx-auto p-4 sm:p-6">
-
-          <DialogHeader className="space-y-1.5 sm:space-y-2">
-
-            <DialogTitle className="text-base sm:text-lg text-destructive">
-
-              Delete Task
-
-            </DialogTitle>
-
-            <DialogDescription className="text-xs sm:text-sm">
-
-              Are you sure you want to delete this task? This action cannot be undone.
-
-            </DialogDescription>
-
-          </DialogHeader>
-
-          {selectedTask && (
-
-            <motion.div 
-
-              className="rounded-lg bg-gradient-to-r from-destructive/10 to-destructive/5 p-3 sm:p-4 text-xs sm:text-sm mt-2 space-y-1"
-
-              initial={{ opacity: 0, y: 20 }}
-
-              animate={{ opacity: 1, y: 0 }}
-
-              transition={{ delay: 0.2 }}
-
-            >
-
-              <p className="font-medium break-words">{selectedTask.title}</p>
-
-              <p className="text-muted-foreground break-words">{selectedTask.id}</p>
-
-            </motion.div>
-
-          )}
-
-          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-
-            <motion.div
-
-              whileHover={{ scale: 1.05 }}
-
-              whileTap={{ scale: 0.95 }}
-
-              className="w-full sm:w-auto"
-
-            >
-
-              <Button 
-
-                variant="outline" 
-
-                onClick={() => setDeleteConfirmOpen(false)}
-
-                className="w-full sm:w-auto order-2 sm:order-1"
-
-              >
-
-                Cancel
-
-              </Button>
-
-            </motion.div>
-
-            <motion.div
-
-              whileHover={{ scale: 1.05 }}
-
-              whileTap={{ scale: 0.95 }}
-
-              className="w-full sm:w-auto"
-
-            >
-
-              <Button 
-
-                onClick={confirmDelete} 
-
-                variant="destructive"
-
-                className="w-full sm:w-auto order-1 sm:order-2"
-
-              >
-
-                Delete Task
-
-              </Button>
-
-            </motion.div>
-
-          </DialogFooter>
-
-        </DialogContent>
-
-      </Dialog>
-
-
-
-      {/* Create Bug Report Dialog - Animated */}
-
-      <Dialog
-
-        open={createBugOpen}
-
-        onOpenChange={(open) => {
-
-          setCreateBugOpen(open);
-
-          if (!open) {
-
-            setBugTask(null);
-
-            setBugTitle("");
-
-            setBugDescription("");
-
-            setBugImageFile(null);
-
-            if (bugImagePreviewUrl) URL.revokeObjectURL(bugImagePreviewUrl);
-
-            setBugImagePreviewUrl("");
-
-            setBugImageOpen(false);
-
-            setBugError(null);
-
-          }
-
-        }}
-
-      >
-
-        <DialogContent className="w-[95vw] max-w-xl mx-auto p-4 sm:p-6">
-
-          <DialogHeader className="space-y-1.5 sm:space-y-2">
-
-            <DialogTitle className="text-lg sm:text-xl">Create Bug Report</DialogTitle>
-
-            <DialogDescription className="text-xs sm:text-sm">
-
-              {bugTask ? `Task: ${bugTask.title}` : "Report a bug for this task"}
-
-            </DialogDescription>
-
-          </DialogHeader>
-
-          {bugError && (
-
-            <div className="rounded-lg bg-destructive/10 p-3 border border-destructive/20">
-
-              <p className="text-xs text-destructive break-words">{bugError}</p>
-
-            </div>
-
-          )}
-
-          <div className="space-y-4">
-
-            <div className="space-y-1.5">
-
-              <label className="block text-xs sm:text-sm font-medium">Title *</label>
-
-              <Input
-
-                value={bugTitle}
-
-                onChange={(e) => setBugTitle(e.target.value)}
-
-                placeholder="e.g., Print button not working"
-
-              />
-
-            </div>
-
-            <div className="space-y-1.5">
-
-              <label className="block text-xs sm:text-sm font-medium">Description *</label>
-
-              <textarea
-
-                value={bugDescription}
-
-                onChange={(e) => setBugDescription(e.target.value)}
-
-                placeholder="Steps to reproduce, expected vs actual..."
-
-                className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base min-h-[110px] resize-none"
-
-              />
-
-            </div>
-
-            <div className="space-y-1.5">
-
-              <label className="block text-xs sm:text-sm font-medium">Image (optional)</label>
-
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-
-                <div className="flex-1 min-w-0">
-
-                  <input
-
-                    type="file"
-
-                    accept="image/*"
-
-                    disabled={bugSubmitting}
-
-                    onChange={(e) => {
-
-                      const f = e.target.files?.[0] || null;
-
-                      setBugImageFile(f);
-
-                      if (bugImagePreviewUrl) URL.revokeObjectURL(bugImagePreviewUrl);
-
-                      setBugImagePreviewUrl(f ? URL.createObjectURL(f) : "");
-
-                    }}
-
-                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base"
-
-                  />
-
-                </div>
-
-                {bugImagePreviewUrl ? (
-
-                  <button
-
-                    type="button"
-
-                    onClick={() => setBugImageOpen(true)}
-
-                    className="w-full sm:w-[140px] h-[110px] rounded-lg border overflow-hidden bg-muted/30"
-
-                  >
-
-                    <img
-
-                      src={bugImagePreviewUrl}
-
-                      alt="Bug attachment"
-
-                      className="w-full h-full object-cover"
-
-                    />
-
-                  </button>
-
-                ) : null}
-
-              </div>
-
-            </div>
-
-          </div>
-
-          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-
-            <Button
-
-              variant="outline"
-
-              onClick={() => setCreateBugOpen(false)}
-
-              className="w-full sm:w-auto order-2 sm:order-1"
-
-              disabled={bugSubmitting}
-
-            >
-
-              Cancel
-
-            </Button>
-
-            <Button
-
-              onClick={() => void submitBugReport()}
-
-              className="w-full sm:w-auto order-1 sm:order-2"
-
-              disabled={bugSubmitting}
-
-            >
-
-              {bugSubmitting ? "Submitting..." : "Submit"}
-
-            </Button>
-
-          </DialogFooter>
-
-        </DialogContent>
-
-      </Dialog>
-
-
-
-      <Dialog open={bugImageOpen} onOpenChange={setBugImageOpen}>
-
-        <DialogContent className="w-[95vw] max-w-3xl mx-auto p-3 sm:p-6">
-
-          <DialogHeader className="space-y-1.5 sm:space-y-2">
-
-            <DialogTitle className="text-base sm:text-lg">Image Preview</DialogTitle>
-
-          </DialogHeader>
-
-          {bugImagePreviewUrl ? (
-
-            <div className="w-full overflow-hidden rounded-lg border bg-white">
-
-              <img
-
-                src={bugImagePreviewUrl}
-
-                alt="Bug attachment preview"
-
-                className="w-full h-auto max-h-[75vh] object-contain"
-
-              />
-
-            </div>
-
+            </>
           ) : (
-
-            <p className="text-sm text-muted-foreground">No image selected</p>
-
-          )}
-
-          <DialogFooter className="mt-4">
-
-            <Button onClick={() => setBugImageOpen(false)} className="w-full sm:w-auto">
-
-              Close
-
+            <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
+              <Plus className="w-4 h-4" />
+              Create Project
             </Button>
+          )}
+        </div>
+      </div>
 
-          </DialogFooter>
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-4 mb-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <Input
+            placeholder="Search tasks or assignee..."
+            className="pl-10"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 sm:mx-0 sm:px-0 sm:pb-0">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[140px] sm:w-[140px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+            <SelectTrigger className="w-[140px] sm:w-[140px]">
+              <SelectValue placeholder="Priority" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Priority</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="low">Low</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button variant="outline" size="icon" className="shrink-0">
+            <Filter className="w-4 h-4" />
+          </Button>
+        </div>
+      </div>
 
-        </DialogContent>
-
-      </Dialog>
-
-
-
-      {/* Add global styles for grid pattern */}
-
-      <style>{`
-        .bg-grid-white {
-          background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgb(255 255 255 / 0.05)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
-        }
-        .bg-grid-white {
-          background-size: 8px 8px;
-        }
-      `}</style>
-
-      {/* Projects Section */}
-      {tasksList.some(t => t.projectId) && (
-        <motion.div variants={itemVariants} className="mt-6 space-y-4">
-          <h2 className="text-lg font-semibold">Projects</h2>
-          <div className="grid gap-4">
-            {Array.from(new Set(tasksList.filter(t => t.projectId).map(t => t.projectId))).map(projectId => {
-              const projectTasks = tasksList.filter(t => t.projectId === projectId);
-              const project = projectTasks[0]?.project;
-              return (
-                <div key={String(projectId)} className="border rounded-lg p-4 bg-muted/20">
-                  <h3 className="font-medium">{project?.name || 'Untitled Project'}</h3>
-                  {project?.description && <p className="text-sm text-muted-foreground">{project.description}</p>}
-                  <div className="mt-2 space-y-1">
-                    {projectTasks.map(task => (
-                      <div key={task.id} className="text-sm pl-2 border-l-2 border-primary/30">
-                        {task.title}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
+      {selectedProject ? (
+        <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
+          <div className="flex items-start gap-3">
+            {selectedProject.logo?.url ? (
+              <img src={selectedProject.logo.url} alt={`${selectedProject.name} logo`} className="w-12 h-12 rounded-md object-cover" />
+            ) : (
+              <div className="w-12 h-12 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">Logo</div>
+            )}
+            <div>
+              <h2 className="font-semibold text-lg">Project: {selectedProject.name}</h2>
+              <p className="text-sm text-muted-foreground">{selectedProject.description || "No description"}</p>
+              <p className="text-xs text-muted-foreground mt-1">{selectedProject.assignees && selectedProject.assignees.length > 0 ? selectedProject.assignees.join(", ") : "No assignees"}</p>
+            </div>
           </div>
-        </motion.div>
+          <div className="flex items-center justify-between text-xs text-muted-foreground mt-3">
+            <span>{selectedProject.tasks.length} tasks</span>
+            <Select value={selectedProject.status || "No status"} onValueChange={(value) => {
+              updateProjectStatusMutation.mutate({ projectId: selectedProject.id, status: value }, {
+                onSuccess: () => {
+                  setSelectedProject({...selectedProject, status: value});
+                }
+              });
+            }}>
+              <SelectTrigger className="w-[120px] h-8">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="No tasks">No tasks</SelectItem>
+                <SelectItem value="Pending">Pending</SelectItem>
+                <SelectItem value="In Progress">In Progress</SelectItem>
+                <SelectItem value="Completed">Completed</SelectItem>
+                <SelectItem value="Overdue">Overdue</SelectItem>
+              </SelectContent>
+            </Select>
+            <span>{selectedProject.createdAt ? new Date(selectedProject.createdAt).toLocaleDateString() : ""}</span>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
+          <h2 className="font-semibold text-lg mb-3">Projects</h2>
+          {projectsQuery.isLoading ? (
+            <p className="text-muted-foreground">Loading projects...</p>
+          ) : projectsQuery.isError ? (
+            <p className="text-destructive">Failed to load projects</p>
+          ) : projects.length === 0 ? (
+            <p className="text-muted-foreground">No projects found. Create one to begin.</p>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {projects.map((project) => {
+                const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0 
+                  ? project.assignees 
+                  : [];
+                const taskNum = project.taskCount ?? 0;
+                
+                return (
+                  <button
+                    key={project.id}
+                    onClick={() => void loadProject(project.id)}
+                    className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      {project.logo?.url ? (
+                        <img src={project.logo.url} alt={`${project.name} logo`} className="w-10 h-10 rounded-md object-cover" />
+                      ) : (
+                        <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">Logo</div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-medium truncate">{project.name}</p>
+                        <p className="text-xs text-muted-foreground truncate">{project.description || "No description"}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                      <span className="truncate">{assigneeList.length > 0 ? assigneeList.join(", ") : "No assignees"}</span>
+                      <span className="ml-2 flex-shrink-0">{taskNum} task{taskNum === 1 ? "" : "s"}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs">
+                      <Badge className="capitalize" variant="outline">
+                        {project.status || "No tasks"}
+                      </Badge>
+                      <span className="text-muted-foreground">
+                        {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       )}
 
-    </>
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent className="w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create Project</DialogTitle>
+            <DialogDescription>Create a project and assign it.</DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={(e) => { e.preventDefault(); void handleCreateProject(); }} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Project Name *</label>
+                <Input
+                  placeholder="Project name"
+                  value={projectName}
+                  onChange={(e) => {
+                    setProjectName(e.target.value);
+                    if (validationErrors.projectName) {
+                      setValidationErrors({ ...validationErrors, projectName: undefined });
+                    }
+                  }}
+                  className={validationErrors.projectName ? "border-destructive ring-1 ring-destructive" : ""}
+                />
+                {validationErrors.projectName && (
+                  <p className="text-xs text-destructive">{validationErrors.projectName}</p>
+                )}
+              </div>
+
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Project Description</label>
+                <Textarea
+                  placeholder="Short project description"
+                  className="min-h-[80px]"
+                  value={projectDescription}
+                  onChange={(e) => setProjectDescription(e.target.value)}
+                />
+              </div>
+
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Project Logo</label>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted"
+                    onClick={() => {
+                      const el = document.getElementById("project-logo-input") as HTMLInputElement | null;
+                      el?.click();
+                    }}
+                  >
+                    Upload Logo
+                  </button>
+                  {projectLogoPreview ? (
+                    <img src={projectLogoPreview} alt="Project Logo" className="w-10 h-10 rounded-md object-cover" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">No logo</div>
+                  )}
+                </div>
+                <input
+                  id="project-logo-input"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    setProjectLogoFile(file);
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        setProjectLogoPreview(typeof reader.result === "string" ? reader.result : "");
+                      };
+                      reader.readAsDataURL(file);
+                    } else {
+                      setProjectLogoPreview("");
+                    }
+                  }}
+                />
+              </div>
+
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Assignees</label>
+                <Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full justify-between h-10"
+                    >
+                      <span className="truncate">
+                        {selectedAssignees.length > 0
+                          ? selectedAssignees.join(", ")
+                          : "Select assignees"}
+                      </span>
+                      <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search employees..." />
+                      <CommandList>
+                        <CommandEmpty>No employee found.</CommandEmpty>
+                        <CommandGroup>
+                          {activeEmployees.map((employee) => (
+                            <CommandItem
+                              key={employee.id}
+                              value={employee.name}
+                              onSelect={() => {
+                                setSelectedAssignees((prev) =>
+                                  prev.includes(employee.name)
+                                    ? prev.filter((name) => name !== employee.name)
+                                    : [...prev, employee.name]
+                                );
+                                setAssigneesOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedAssignees.includes(employee.name)
+                                    ? "opacity-100"
+                                    : "opacity-0"
+                                )}
+                              />
+                              <Avatar className="h-6 w-6 mr-2">
+                                <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                  {employee.initials}
+                                </AvatarFallback>
+                              </Avatar>
+                              {employee.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
+            {/* Tasks Section */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium">Project Tasks</label>
+                <Button 
+                  type="button" 
+                  size="sm" 
+                  onClick={() => setIsCreateTaskOpen(true)}
+                  className="gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Task
+                </Button>
+              </div>
+              
+              {projectTasks.length > 0 ? (
+                <div className="space-y-2 max-h-[300px] overflow-y-auto border border-border rounded-md p-3">
+                  {projectTasks.map((task, idx) => (
+                    <div key={idx} className="flex items-start gap-3 p-2 bg-muted/50 rounded-md">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm truncate">{task.title || `Task ${idx + 1}`}</p>
+                        <p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p>
+                        <div className="flex gap-2 mt-1 flex-wrap text-xs">
+                          <span className="px-2 py-0.5 bg-muted rounded capitalize">{task.priority}</span>
+                          <span className="px-2 py-0.5 bg-muted rounded capitalize">{task.status}</span>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setProjectTasks((prev) => prev.filter((_, i) => i !== idx));
+                        }}
+                        className="h-8 w-8 p-0 flex-shrink-0"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="border border-dashed border-border rounded-md p-4 text-center text-sm text-muted-foreground">
+                  No tasks added yet. Add at least one task to create the project.
+                </div>
+              )}
+              {validationErrors.title && (
+                <p className="text-xs text-destructive">{validationErrors.title}</p>
+              )}
+            </div>
+
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={isCreating} className="w-full sm:w-auto">
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">
+                {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
+                Create Project
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isCreateTaskOpen} onOpenChange={setIsCreateTaskOpen}>
+        <DialogContent className="w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create Task</DialogTitle>
+            <DialogDescription>Create a new task under the selected project.</DialogDescription>
+          </DialogHeader>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              void (isCreateOpen ? addTaskToProject() : handleCreateTask());
+            }}
+            className="space-y-4"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Task Title *</label>
+                <Input
+                  value={formData.title}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
+                />
+                {validationErrors.title && <p className="text-xs text-destructive">{validationErrors.title}</p>}
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Task Description *</label>
+                <Textarea
+                  value={formData.description}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                />
+                {validationErrors.description && <p className="text-xs text-destructive">{validationErrors.description}</p>}
+              </div>
+              <div className="sm:col-span-1 space-y-1.5">
+                <label className="text-sm font-medium">Priority</label>
+                <Select value={formData.priority} onValueChange={(value) => setFormData((prev) => ({ ...prev, priority: value as Task['priority'] }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Priority" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="sm:col-span-1 space-y-1.5">
+                <label className="text-sm font-medium">Status</label>
+                <Select value={formData.status} onValueChange={(value) => setFormData((prev) => ({ ...prev, status: value as Task['status'] }))}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="in-progress">In Progress</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="overdue">Overdue</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button type="button" variant="outline" onClick={() => setIsCreateTaskOpen(false)} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button>
+              <Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">{isCreating && <Loader2 className="h-4 w-4 animate-spin" />}Create Task</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+        <DialogContent className="w-[95vw] sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Task Details</DialogTitle>
+            <DialogDescription>View task information.</DialogDescription>
+          </DialogHeader>
+
+          {selectedTask && (
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <p className="font-semibold text-foreground">{selectedTask.title}</p>
+                <p className="text-sm text-muted-foreground">{selectedTask.description}</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                <div className="space-y-1 sm:col-span-2">
+                  <p className="text-muted-foreground">Assignees</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedTask.assignees && selectedTask.assignees.length > 0 ? (
+                      selectedTask.assignees.map((assignee, idx) => (
+                        <div key={idx} className="flex items-center gap-2 bg-muted/50 rounded-full px-3 py-1">
+                          <Avatar className="w-6 h-6">
+                            <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                              {assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-foreground text-sm">{assignee}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <span className="text-foreground">Unassigned</span>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-muted-foreground">Location</p>
+                  <p className="text-foreground">{selectedTask.location}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-muted-foreground">Priority</p>
+                  <p className="text-foreground capitalize">{selectedTask.priority}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-muted-foreground">Status</p>
+                  <Select
+                    value={selectedTask.status}
+                    onValueChange={(v) => {
+                      void updateStatus(v as Task["status"]);
+                    }}
+                    disabled={statusSaving}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="in-progress">In Progress</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="overdue">Overdue</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-muted-foreground">Due Date</p>
+                  <p className="text-foreground">{new Date(selectedTask.dueDate).toLocaleDateString()}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-muted-foreground">Created</p>
+                  <p className="text-foreground">{new Date(selectedTask.createdAt).toLocaleDateString()}</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-muted-foreground text-sm">Attachment</p>
+                <div className="rounded-lg border bg-muted/20 p-3 space-y-2">
+                  {selectedTask.attachment?.url ? (
+                    <>
+                      {selectedTask.attachment.mimeType?.startsWith("image/") ? (
+                        <div className="w-full overflow-hidden rounded-lg border bg-background">
+                          <img
+                            src={selectedTask.attachment.url}
+                            alt={selectedTask.attachment.fileName || "Attachment"}
+                            className="w-full h-auto max-h-64 object-contain"
+                          />
+                        </div>
+                      ) : null}
+
+                      <div className="flex items-center gap-3 rounded-lg bg-background/60 p-2">
+                        <FileText className="h-8 w-8 text-primary shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">
+                            {selectedTask.attachment.fileName || selectedTask.attachmentFileName || "Attachment"}
+                          </p>
+                          {selectedTask.attachment.size > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              {(selectedTask.attachment.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          )}
+                        </div>
+                        <a
+                          href={selectedTask.attachment.url}
+                          download={selectedTask.attachment.fileName}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md"
+                        >
+                          Download
+                        </a>
+                      </div>
+                    </>
+                  ) : selectedTask.attachmentFileName ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <FileText className="h-4 w-4" />
+                      <span className="break-words">{selectedTask.attachmentFileName}</span>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">—</p>
+                  )}
+
+                  {selectedTask.attachmentNote ? (
+                    <p className="text-xs text-muted-foreground border-t pt-2">
+                      <span className="font-medium">Note:</span> {selectedTask.attachmentNote}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <span className="w-1 h-4 bg-primary rounded-full"></span>
+                    Messages
+                  </label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (!selectedTask) return;
+                      void loadComments(selectedTask.id);
+                    }}
+                    disabled={commentsLoading}
+                    className="h-8 px-3 text-xs gap-1"
+                  >
+                    <span className={`${commentsLoading ? 'animate-spin' : ''}`}>⟳</span>
+                    Refresh
+                  </Button>
+                </div>
+
+                {commentError ? (
+                  <div className="text-xs text-destructive bg-destructive/10 p-3 rounded-lg flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    {commentError}
+                  </div>
+                ) : null}
+
+                {/* Messages Container - WhatsApp Style */}
+                <div className="rounded-xl bg-[#e5ded7] dark:bg-[#0b141a] p-4 space-y-3 min-h-[300px]">
+                  {commentsLoading ? (
+                    <div className="flex justify-center items-center h-32">
+                      <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent"></div>
+                    </div>
+                  ) : comments.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-32 text-center">
+                      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-2">
+                        <span className="text-lg">💬</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">No messages yet</p>
+                      <p className="text-xs text-muted-foreground/70 mt-1">Start the conversation</p>
+                    </div>
+                  ) : (
+                    comments.map((c, index) => {
+                      const isMine = !!currentUsername && c.authorUsername === currentUsername;
+                      return (
+                        <motion.div
+                          key={c.id}
+                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          transition={{ delay: index * 0.05 }}
+                          className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div
+                            className={`
+                              max-w-[85%] relative group
+                              ${isMine 
+                                ? 'bg-[#bfdbfe] dark:bg-[#2563eb] text-foreground dark:text-white' 
+                                : 'bg-white dark:bg-[#202c33] text-foreground dark:text-white'
+                              }
+                              rounded-lg px-3 py-2 shadow-sm
+                            `}
+                            style={{
+                              borderRadius: isMine 
+                                ? '18px 18px 4px 18px' 
+                                : '18px 18px 18px 4px'
+                            }}
+                          >
+                            {/* Author Name - Only show for others */}
+                            {!isMine && (
+                              <p className="text-xs font-semibold text-primary dark:text-primary/90 mb-1">
+                                {c.authorUsername}
+                                {c.authorRole && (
+                                  <span className="text-[10px] text-muted-foreground ml-1">
+                                    • {c.authorRole}
+                                  </span>
+                                )}
+                              </p>
+                            )}
+                            
+                            {/* Message Content */}
+                            <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+                              {c.message}
+                            </p>
+                            
+                            {/* Message Footer with Time */}
+                            <div className="flex items-center justify-end gap-1 mt-1">
+                              <span className="text-[10px] opacity-70">
+                                {new Date(c.createdAt).toLocaleTimeString([], { 
+                                  hour: '2-digit', 
+                                  minute: '2-digit' 
+                                })}
+                              </span>
+                              {isMine && (
+                                <span className="text-[10px] opacity-70">✓✓</span>
+                              )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Message Input - WhatsApp Style */}
+                <div className="flex items-center gap-2 bg-background rounded-lg p-1 border">
+                  <Input
+                    value={commentDraft}
+                    onChange={(e) => setCommentDraft(e.target.value)}
+                    placeholder="Type a message..."
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        void sendComment();
+                      }
+                    }}
+                    className="flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm"
+                  />
+                  <Button 
+                    type="button" 
+                    onClick={() => void sendComment()} 
+                    disabled={!commentDraft.trim()}
+                    size="sm"
+                    className="rounded-full w-9 h-9 p-0 bg-primary hover:bg-primary/90"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      className="w-4 h-4"
+                    >
+                      <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
+                    </svg>
+                  </Button>
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setIsViewOpen(false)}>
+                  Close
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    if (!selectedTask) return;
+                    void handlePrintTask(selectedTask);
+                  }}
+                >
+                  Print
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    if (!selectedTask) return;
+                    setIsViewOpen(false);
+                    openEdit(selectedTask);
+                  }}
+                >
+                  Edit
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={isEditOpen}
+        onOpenChange={(open) => {
+          setIsEditOpen(open);
+          if (!open) setSelectedTask(null);
+        }}
+      >
+        <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Task</DialogTitle>
+            <DialogDescription>Update task details.</DialogDescription>
+          </DialogHeader>
+
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditTask)} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem className="sm:col-span-2">
+                      <FormLabel>Title</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Task title" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem className="sm:col-span-2">
+                      <FormLabel>Description</FormLabel>
+                      <FormControl>
+                        <Textarea placeholder="Short description" className="min-h-[90px]" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Multi-Assignees Edit */}
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="text-sm font-medium">Assignees *</label>
+                  <Popover open={editAssigneesOpen} onOpenChange={setEditAssigneesOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full justify-between h-10"
+                      >
+                        <span className="truncate">
+                          {editSelectedAssignees.length > 0
+                            ? editSelectedAssignees.join(", ")
+                            : "Select assignees"}
+                        </span>
+                        <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Search employees..." />
+                        <CommandList>
+                          <CommandEmpty>No employee found.</CommandEmpty>
+                          <CommandGroup>
+                            {activeEmployees.map((employee) => (
+                              <CommandItem
+                                key={employee.id}
+                                value={employee.name}
+                                onSelect={() => {
+                                  setEditSelectedAssignees((prev) =>
+                                    prev.includes(employee.name)
+                                      ? prev.filter((name) => name !== employee.name)
+                                      : [...prev, employee.name]
+                                  );
+                                  setEditAssigneesOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    editSelectedAssignees.includes(employee.name)
+                                      ? "opacity-100"
+                                      : "opacity-0"
+                                  )}
+                                />
+                                <Avatar className="h-6 w-6 mr-2">
+                                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                    {employee.initials}
+                                  </AvatarFallback>
+                                </Avatar>
+                                {employee.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {editSelectedAssignees.length === 0 && (
+                    <p className="text-xs text-destructive">At least one assignee is required</p>
+                  )}
+                </div>
+
+                <FormField
+                  control={editForm.control}
+                  name="location"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Location</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. Main Office" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="priority"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Priority</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select priority" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="high">High</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="low">Low</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="in-progress">In Progress</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value="overdue">Overdue</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="dueDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Due Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="dueTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Due Time</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                <Button type="button" variant="outline" onClick={() => { setIsEditOpen(false); setEditSelectedAssignees([]); }} disabled={updateTaskMutation.isPending} className="w-full sm:w-auto">
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={updateTaskMutation.isPending} className="w-full sm:w-auto gap-2">{updateTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Save</Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete task?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently remove the task.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteTaskMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} disabled={deleteTaskMutation.isPending} className="gap-2">{deleteTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Task Cards Grid (only visible after project selected) */}
+      {selectedProject && (
+        <div className="space-y-6">
+          {tasksQuery.isLoading ? (
+            <div className="bg-card rounded-xl border border-border p-6 text-sm text-muted-foreground">
+              Loading tasks...
+            </div>
+          ) : tasksQuery.isError ? (
+            <div className="bg-card rounded-xl border border-border p-6 text-sm text-destructive">
+              {tasksQuery.error instanceof Error
+                ? tasksQuery.error.message
+                : "Failed to load tasks"}
+            </div>
+          ) : filteredTasks.length === 0 ? (
+            <div className="bg-card rounded-xl border border-border p-6 text-sm text-muted-foreground text-center">
+              No tasks found
+            </div>
+          ) : (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {filteredTasks.map((task, index) => (
+                  <motion.div
+                    key={task.id}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="bg-card rounded-xl border border-muted/50 hover:border-primary/50 transition-all hover:shadow-md overflow-hidden flex flex-col group cursor-pointer"
+                    onClick={() => openView(task)}
+                  >
+                    {/* Card Header with Title and Menu */}
+                    <div className="p-4 border-b border-muted/30 flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-foreground line-clamp-1">{task.title}</p>
+                        <p className="text-xs text-muted-foreground mt-1 capitalize">{task.priority} priority</p>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            className="p-1 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100"
+                            aria-label="Task actions"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openView(task); }}>
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handlePrintTask(task); }}>
+                            Print
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(task); }}>
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }}>
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    {/* Card Body */}
+                    <div className="p-4 flex-1 space-y-3">
+                      {/* Description */}
+                      <p className="text-sm text-muted-foreground line-clamp-2">{task.description}</p>
+
+                      {/* Assignees */}
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-2">Assigned to</p>
+                        <div className="flex items-center gap-2">
+                          {task.assignees && task.assignees.length > 0 ? (
+                            <>
+                              <div className="flex -space-x-2">
+                                {task.assignees.slice(0, 3).map((assignee, idx) => (
+                                  <Avatar key={idx} className="w-7 h-7 border-2 border-background">
+                                    <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
+                                      {assignee
+                                        .split(" ")
+                                        .map((n) => n[0])
+                                        .join("")
+                                        .toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                ))}
+                                {task.assignees.length > 3 && (
+                                  <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">
+                                    +{task.assignees.length - 3}
+                                  </div>
+                                )}
+                              </div>
+                              <span className="text-sm text-foreground">
+                                {task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}
+                              </span>
+                            </>
+                          ) : (
+                            <span className="text-sm text-muted-foreground">Unassigned</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Status & Priority Badges */}
+                      <div className="flex gap-2 flex-wrap">
+                        <Badge
+                          variant="secondary"
+                          className={cn("text-xs", statusClasses[task.status])}
+                        >
+                          {task.status}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className={cn("text-xs border", priorityClasses[task.priority])}
+                        >
+                          {task.priority}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {/* Card Footer with Dates and Location */}
+                    <div className="p-4 border-t border-muted/30 bg-muted/10 space-y-2 text-sm">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span className="text-xs">Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span className="text-xs">Created: {new Date(task.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      {task.location && (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <MapPin className="w-3.5 h-3.5" />
+                          <span className="text-xs">{task.location}</span>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+
+              {/* Stats Footer */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-muted-foreground mt-6 pt-4 border-t border-muted/20">
+                <span className="text-center sm:text-left">Showing {filteredTasks.length} of {tasks.length} tasks</span>
+                <div className="flex items-center justify-center sm:justify-end gap-4 overflow-x-auto pb-1 sm:pb-0">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-success" />
+                    {tasks.filter((t) => t.status === "completed").length} completed
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-primary" />
+                    {tasks.filter((t) => t.status === "in-progress").length} in progress
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-warning" />
+                    {tasks.filter((t) => t.status === "pending").length} pending
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
   );
-};
-
 }
-
-export default Tasks;
