@@ -337,7 +337,7 @@ export function Header({ onMenuClick }: HeaderProps) {
     >
       <div 
         className="w-full h-full relative"
-        style={bgStyle}
+        style={{...bgStyle, backgroundSize: headerSettings?.backgroundType === "image" ? "100% 100%" : bgStyle.backgroundSize}}
       >
         {isImageBackground && headerSettings?.overlay?.enabled && (
           <div 
@@ -345,79 +345,58 @@ export function Header({ onMenuClick }: HeaderProps) {
             style={{ backgroundColor: headerSettings.overlay.color }}
           />
         )}
-        <div className="hidden md:block fixed top-0 left-0 h-full w-20" style={bgStyle} />
+        <div className="hidden md:block fixed top-0 left-0 h-full w-20" style={{...bgStyle, backgroundSize: headerSettings?.backgroundType === "image" ? "100% 100%" : bgStyle.backgroundSize}} />
         <div 
           className="relative flex h-full items-center justify-between px-3 sm:px-6 lg:px-10 py-2 md:py-4 animate-fade-in"
         >
-          <div className="flex items-center z-10" style={{ height: `${headerHeight * 0.8}px`, minHeight: '56px' }}>
-            <img
-              src="/seven logo.png"
-              alt="SE7EN Inc. logo"
-              className="w-auto h-full max-w-[180px] sm:max-w-[200px] md:max-w-[300px] object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)] transition-all duration-300"
-            />
-          </div>
-
-          <div className="flex absolute left-1/2 -translate-x-1/2 items-center" style={{ height: `${headerHeight * 0.9}px`, minHeight: '48px' }}>
-            <div className="relative h-full flex items-center">
-              <div className="absolute inset-0 -z-10 blur-2xl bg-blue-400/30 scale-110 rounded-full" />
-              <img
-                src="/newlogo.jpeg"
-                alt="TaskManager by Reardon"
-                className="w-auto h-full max-w-[140px] sm:max-w-[190px] md:max-w-[280px] lg:max-w-[380px] object-contain mix-blend-screen opacity-95 [mask-image:radial-gradient(closest-side,black_79%,transparent_100%)] transition-all duration-300"
-              />
-            </div>
-          </div>
-
+          {/* LEFT SIDE: Profile Menu Swap */}
           <div className="flex items-center gap-2 sm:gap-3 text-white z-10">
-            <Button
+            <button
               type="button"
-              variant="ghost"
-              size="icon"
-              className="hidden sm:inline-flex relative h-9 w-9 rounded-full bg-white/10 hover:bg-white/20"
-              aria-label="Report Issue"
-              onClick={() => {
-                resetReport();
-                setReportOpen(true);
-              }}
+              className="inline-flex md:hidden h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors mr-2"
+              aria-label="Open navigation"
+              onClick={() => onMenuClick?.()}
             >
-              <Bug className="h-4 w-4" />
-            </Button>
+              <Menu className="h-5 w-5" />
+            </button>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   type="button"
                   variant="ghost"
-                  size="icon"
-                  className="hidden sm:inline-flex relative h-9 w-9 rounded-full bg-white/10 hover:bg-white/20"
-                  aria-label="Notifications"
+                  className="hidden sm:inline-flex items-center justify-center h-12 w-12 p-0 rounded-full bg-transparent hover:bg-transparent"
+                  aria-label="Account menu"
                 >
-                  <Bell className="h-4 w-4" />
-                  {unreadCount > 0 && (
-                    <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[10px]">
-                      {Math.min(unreadCount, 9)}
-                    </Badge>
-                  )}
+                  <Avatar className="h-12 w-12 border border-white/70">
+                    {avatarUrl ? (
+                      <AvatarImage src={avatarUrl} alt={fullName} className="object-cover" />
+                    ) : (
+                      <AvatarFallback className="bg-white/20 text-sm font-semibold">{initials}</AvatarFallback>
+                    )}
+                  </Avatar>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72 mr-2">
+              <DropdownMenuContent align="start" className="w-56 ml-2">
+                <DropdownMenuLabel className="text-xs">
+                  {fullName}
+                  {email && <span className="block text-[11px] text-muted-foreground">{email}</span>}
+                </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {notifications.length === 0 ? (
-                  <DropdownMenuItem className="text-xs text-muted-foreground">No notifications</DropdownMenuItem>
-                ) : (
-                  notifications.map((n) => (
-                    <DropdownMenuItem
-                      key={n.id}
-                      className="flex flex-col items-start gap-0.5 text-xs"
-                      onClick={() => {
-                        void markRead(n.id);
-                        navigate(resolveNotificationLink(n));
-                      }}
-                    >
-                      <span className="font-medium line-clamp-2">{String(n.content || "")}</span>
-                    </DropdownMenuItem>
-                  ))
-                )}
+                <DropdownMenuItem className="text-xs" onClick={() => navigate("/admin/settings")}>
+                  <User className="mr-2 h-4 w-4" />
+                  Profile & Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-xs text-destructive"
+                  onClick={() => {
+                    clearAuthState();
+                    navigate("/login", { replace: true });
+                  }}
+                >
+                  Logout
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -438,7 +417,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80 mr-2">
+              <DropdownMenuContent align="start" className="w-80 ml-2">
                 <DropdownMenuSeparator />
                 {(messagesQuery.data || []).length === 0 ? (
                   <DropdownMenuItem className="text-xs text-muted-foreground">No messages</DropdownMenuItem>
@@ -474,49 +453,72 @@ export function Header({ onMenuClick }: HeaderProps) {
                 <Button
                   type="button"
                   variant="ghost"
-                  className="hidden sm:inline-flex items-center justify-center h-12 w-12 p-0 rounded-full bg-transparent hover:bg-transparent"
-                  aria-label="Account menu"
+                  size="icon"
+                  className="hidden sm:inline-flex relative h-9 w-9 rounded-full bg-white/10 hover:bg-white/20"
+                  aria-label="Notifications"
                 >
-                  <Avatar className="h-12 w-12 border border-white/70">
-                    {avatarUrl ? (
-                      <AvatarImage src={avatarUrl} alt={fullName} className="object-cover" />
-                    ) : (
-                      <AvatarFallback className="bg-white/20 text-sm font-semibold">{initials}</AvatarFallback>
-                    )}
-                  </Avatar>
+                  <Bell className="h-4 w-4" />
+                  {unreadCount > 0 && (
+                    <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[10px]">
+                      {Math.min(unreadCount, 9)}
+                    </Badge>
+                  )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 mr-2">
-                <DropdownMenuLabel className="text-xs">
-                  {fullName}
-                  {email && <span className="block text-[11px] text-muted-foreground">{email}</span>}
-                </DropdownMenuLabel>
+              <DropdownMenuContent align="start" className="w-72 ml-2">
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-xs" onClick={() => navigate("/admin/settings")}>
-                  <User className="mr-2 h-4 w-4" />
-                  Profile & Settings
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-xs text-destructive"
-                  onClick={() => {
-                    clearAuthState();
-                    navigate("/login", { replace: true });
-                  }}
-                >
-                  Logout
-                </DropdownMenuItem>
+                {notifications.length === 0 ? (
+                  <DropdownMenuItem className="text-xs text-muted-foreground">No notifications</DropdownMenuItem>
+                ) : (
+                  notifications.map((n) => (
+                    <DropdownMenuItem
+                      key={n.id}
+                      className="flex flex-col items-start gap-0.5 text-xs"
+                      onClick={() => {
+                        void markRead(n.id);
+                        navigate(resolveNotificationLink(n));
+                      }}
+                    >
+                      <span className="font-medium line-clamp-2">{String(n.content || "")}</span>
+                    </DropdownMenuItem>
+                  ))
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <button
+            <Button
               type="button"
-              className="inline-flex md:hidden h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-              aria-label="Open navigation"
-              onClick={() => onMenuClick?.()}
+              variant="ghost"
+              size="icon"
+              className="hidden sm:inline-flex relative h-9 w-9 rounded-full bg-white/10 hover:bg-white/20"
+              aria-label="Report Issue"
+              onClick={() => {
+                resetReport();
+                setReportOpen(true);
+              }}
             >
-              <Menu className="h-5 w-5" />
-            </button>
+              <Bug className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {/* CENTER LOGO */}
+          <div className="flex absolute left-1/2 -translate-x-1/2 items-center" style={{ height: `${headerHeight * 0.9}px`, minHeight: '48px' }}>
+            <div className="relative h-full flex items-center">
+              <img
+                src="/newlogo.jpeg"
+                alt="TaskManager by Reardon"
+                className="w-auto h-full max-w-[140px] sm:max-w-[190px] md:max-w-[280px] lg:max-w-[380px] object-contain transition-all duration-300 rounded-md shadow-md"
+              />
+            </div>
+          </div>
+
+          {/* RIGHT SIDE: SE7EN Logo Swap */}
+          <div className="flex items-center z-10" style={{ height: `${headerHeight * 0.8}px`, minHeight: '56px' }}>
+            <img
+              src="/seven logo.png"
+              alt="SE7EN Inc. logo"
+              className="w-auto h-full max-w-[180px] sm:max-w-[200px] md:max-w-[300px] object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)] transition-all duration-300"
+            />
           </div>
         </div>
       </div>
