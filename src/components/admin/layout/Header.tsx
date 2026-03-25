@@ -503,21 +503,11 @@ export function Header({ onMenuClick }: HeaderProps) {
 
           {/* CENTER LOGO */}
           <div className="flex absolute left-1/2 -translate-x-1/2 items-center" style={{ height: `${headerHeight * 0.9}px`, minHeight: '48px' }}>
-            <svg width="0" height="0" className="absolute">
-              <filter id="remove-white" colorInterpolationFilters="sRGB">
-                <feColorMatrix type="matrix" values="
-                  1 0 0 0 0
-                  0 1 0 0 0
-                  0 0 1 0 0
-                  -1 -1 -1 0 2.95" />
-              </filter>
-            </svg>
             <div className="relative h-full flex items-center">
               <img
                 src="/newlogo.jpeg"
                 alt="TaskManager by Reardon"
-                className="w-auto h-full max-w-[140px] sm:max-w-[190px] md:max-w-[280px] lg:max-w-[380px] object-contain transition-all duration-300"
-                style={{ filter: "url(#remove-white)" }}
+                className="w-auto h-full max-w-[140px] sm:max-w-[190px] md:max-w-[280px] lg:max-w-[380px] object-contain transition-all duration-300 rounded-md shadow-md"
               />
             </div>
           </div>
