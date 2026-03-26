@@ -551,7 +551,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           <div className="flex absolute left-1/2 -translate-x-1/2 items-center" style={{ height: `${headerHeight * 0.9}px`, minHeight: '48px' }}>
             <div className="relative h-full flex items-center">
               <img
-                src="/newlogo.jpeg"
+                src="/clock2.png"
                 alt="TaskManager by Reardon"
                 className="w-auto h-full max-w-[140px] sm:max-w-[190px] md:max-w-[280px] lg:max-w-[380px] object-contain transition-all duration-300 rounded-md shadow-md"
               />
