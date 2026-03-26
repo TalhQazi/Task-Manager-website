@@ -545,7 +545,7 @@ export default function Locations() {
       initial="hidden"
       animate="visible"
       variants={containerVariants}
-      className="space-y-6"
+      className="pl-6 space-y-6"
     >
       {/* Header */}
       <motion.div variants={headerVariants} className="flex items-center justify-between">

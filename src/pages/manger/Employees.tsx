@@ -530,7 +530,7 @@ export default function Employees() {
       initial="hidden"
       animate="visible"
       variants={containerVariants}
-      className="space-y-6"
+      className="pl-6 space-y-6"
     >
       {/* Header */}
       <motion.div

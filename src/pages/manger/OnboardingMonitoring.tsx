@@ -79,7 +79,7 @@ export default function OnboardingMonitoring() {
   const pendingCount = items.filter((i) => i.approvalStatus === "pending").length;
 
   return (
-    <div className="space-y-6">
+    <div className="pl-6 space-y-6">
       <div className="page-header">
         <h1 className="page-title">Onboarding Monitoring</h1>
         <p className="page-subtitle">Track employee onboarding progress and approvals</p>

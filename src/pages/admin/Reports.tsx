@@ -167,7 +167,7 @@ export default function Reports() {
   return (
     <>
       {/* Mobile-first container */}
-      <div className="space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0">
+      <div className="pl-12 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-0">
         
         {/* Page Header - Responsive */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">

@@ -72,7 +72,7 @@ export default function EmployeeTimeHistory() {
 
   return (
     <>
-      <div className="space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0">
+      <div className="pl-6 space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0">
         <div className="space-y-2">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">{title}</h1>
           <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl">

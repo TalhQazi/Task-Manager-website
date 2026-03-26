@@ -141,7 +141,7 @@ export default function Vendors() {
   };
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="pl-6 space-y-6 p-6">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}

@@ -350,7 +350,7 @@ export default function Settings() {
     .toUpperCase() || "M";
 
   return (
-    <div className="space-y-6 max-w-3xl mx-auto">
+    <div className="pl-6 space-y-6 max-w-3xl mx-auto">
       {/* Header */}
       <div className="page-header">
         <h1 className="page-title">Settings</h1>

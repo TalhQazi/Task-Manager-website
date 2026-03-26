@@ -466,7 +466,7 @@ const Users = () => {
   return (
     <>
       <motion.div 
-        className="space-y-4 sm:space-y-5 md:space-y-6"
+        className="pl-6 space-y-4 sm:space-y-5 md:space-y-6"
         variants={containerVariants}
         initial="hidden"
         animate="visible"

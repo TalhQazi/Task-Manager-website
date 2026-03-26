@@ -470,7 +470,7 @@ export default function Vehicles() {
   const maintenanceCount = useMemo(() => vehicles.filter((v) => v.status === "maintenance").length, [vehicles]);
 
   return (
-    <div className="space-y-6">
+    <div className="pl-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="page-header mb-0">

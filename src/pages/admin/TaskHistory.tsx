@@ -143,7 +143,7 @@ const TaskHistory = () => {
   return (
     <>
       <motion.div
-        className="space-y-4 sm:space-y-6"
+        className="pl-6 space-y-4 sm:space-y-6"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}

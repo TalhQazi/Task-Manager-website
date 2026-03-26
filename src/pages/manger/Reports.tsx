@@ -203,7 +203,7 @@ export default function Reports() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="pl-6 space-y-6">
       <div className="flex items-center justify-between">
         <div className="page-header mb-0">
           <h1 className="page-title">Reports & Analytics</h1>

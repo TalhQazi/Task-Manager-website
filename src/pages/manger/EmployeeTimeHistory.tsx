@@ -69,7 +69,7 @@ export default function EmployeeTimeHistory() {
   }, [employeeName]);
 
   return (
-    <div className="space-y-6">
+    <div className="pl-6 space-y-6">
       <div className="page-header mb-0">
         <h1 className="page-title">{title}</h1>
         <p className="page-subtitle">Check-in / check-out history</p>

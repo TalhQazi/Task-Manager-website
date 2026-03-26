@@ -629,7 +629,7 @@ export default function Appliances() {
       initial="hidden"
       animate="visible"
       variants={containerVariants}
-      className="space-y-4 sm:space-y-6 px-2 sm:px-4 md:px-6"
+      className="pl-6 space-y-4 sm:space-y-6 px-2 sm:px-4 md:px-6"
     >
       {/* Header - Responsive */}
       <motion.div variants={itemVariants} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
