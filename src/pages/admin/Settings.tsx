@@ -645,7 +645,7 @@ export default function Settings() {
                       alt="Header preview"
                       className="absolute inset-0 w-full h-full"
                       style={{
-                        objectFit: headerSettings.imageConfig.size === 'contain' ? 'contain' : 'cover',
+                        objectFit: 'fill',
                         objectPosition: headerSettings.imageConfig.position || 'center',
                       }}
                     />

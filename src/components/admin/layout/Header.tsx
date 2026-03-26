@@ -23,7 +23,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { getAuthState, clearAuthState } from "@/lib/auth";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 interface HeaderSettings {
   backgroundType: "color" | "image";
@@ -151,14 +151,51 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   const headerSettings = headerSettingsQuery.data;
   const isImageBackground = headerSettings?.backgroundType === "image";
-  const headerHeight = headerSettings?.height || 144;
+  const settingsHeight = headerSettings?.height || 144;
 
   // Build background style based on settings
   const hasImageBackground = isImageBackground && headerSettings?.imageConfig?.dataUrl;
 
+  // Auto-calculate header height from image aspect ratio
+  const [autoImageHeight, setAutoImageHeight] = useState<number | null>(null);
+  const imgAspectRef = useRef<number | null>(null);
+
+  const calcHeight = useCallback(() => {
+    if (imgAspectRef.current) {
+      const screenW = window.innerWidth;
+      const calculated = Math.round(screenW / imgAspectRef.current);
+      // Clamp between 80px and 400px so it doesn't get too extreme
+      setAutoImageHeight(Math.max(80, Math.min(400, calculated)));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hasImageBackground || !headerSettings?.imageConfig?.dataUrl) {
+      imgAspectRef.current = null;
+      setAutoImageHeight(null);
+      return;
+    }
+
+    const img = new Image();
+    img.onload = () => {
+      imgAspectRef.current = img.naturalWidth / img.naturalHeight;
+      calcHeight();
+    };
+    img.src = headerSettings.imageConfig.dataUrl;
+  }, [hasImageBackground, headerSettings?.imageConfig?.dataUrl, calcHeight]);
+
+  // Recalculate on window resize
+  useEffect(() => {
+    if (!hasImageBackground) return;
+    window.addEventListener('resize', calcHeight);
+    return () => window.removeEventListener('resize', calcHeight);
+  }, [hasImageBackground, calcHeight]);
+
+  // Use auto height for images, settings height for colors
+  const headerHeight = (hasImageBackground && autoImageHeight) ? autoImageHeight : settingsHeight;
+
   const getBackgroundStyle = () => {
     if (hasImageBackground) {
-      // When using image background, the <img> tag handles it — just transparent bg
       return { background: 'transparent' };
     }
 
@@ -166,7 +203,6 @@ export function Header({ onMenuClick }: HeaderProps) {
       return { background: "linear-gradient(to right, #133767, #133767, #133767)" };
     }
 
-    // Color gradient
     const { from, via, to } = headerSettings.colorConfig || {};
     return {
       background: `linear-gradient(to right, ${from || "#133767"}, ${via || "#133767"}, ${to || "#133767"})`,
@@ -344,7 +380,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               alt="header background"
               className="absolute inset-0 w-full h-full"
               style={{
-                objectFit: headerSettings?.imageConfig?.size === 'contain' ? 'contain' : 'cover',
+                objectFit: 'fill',
                 objectPosition: headerSettings?.imageConfig?.position || 'center',
               }}
             />
