@@ -55,7 +55,7 @@ const getEmployeeTaskStats = (employeeName: string, allTasks: Task[]) => {
 
   return { total, completed, pending, overdue };
 };
-
+//noramlize the task assinged
 const normalizeTaskAssignees = (task: Task): Task => {
   const legacyAssignee = typeof task.assignee === "string" ? task.assignee.trim() : "";
   const assignees = Array.isArray(task.assignees)
