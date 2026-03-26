@@ -635,17 +635,25 @@ export default function Settings() {
                   style={{
                     height: `${Math.min(headerSettings.height, 120)}px`,
                     background: headerSettings.imageConfig.dataUrl
-                      ? `url(${headerSettings.imageConfig.dataUrl})`
+                      ? 'transparent'
                       : `linear-gradient(to right, ${headerSettings.colorConfig.from}, ${headerSettings.colorConfig.via}, ${headerSettings.colorConfig.to})`,
-                    backgroundSize: headerSettings.imageConfig.size,
-                    backgroundPosition: headerSettings.imageConfig.position,
-                    backgroundRepeat: headerSettings.imageConfig.repeat,
                   }}
                 >
+                  {headerSettings.imageConfig.dataUrl && (
+                    <img
+                      src={headerSettings.imageConfig.dataUrl}
+                      alt="Header preview"
+                      className="absolute inset-0 w-full h-full"
+                      style={{
+                        objectFit: headerSettings.imageConfig.size === 'contain' ? 'contain' : 'cover',
+                        objectPosition: headerSettings.imageConfig.position || 'center',
+                      }}
+                    />
+                  )}
                   {headerSettings.imageConfig.dataUrl && headerSettings.overlay.enabled && (
                     <div className="absolute inset-0" style={{ backgroundColor: headerSettings.overlay.color }} />
                   )}
-                  <div className="absolute inset-0 flex items-center justify-center text-white font-medium">
+                  <div className="absolute inset-0 flex items-center justify-center text-white font-medium drop-shadow-lg">
                     Header Preview
                   </div>
                 </div>
