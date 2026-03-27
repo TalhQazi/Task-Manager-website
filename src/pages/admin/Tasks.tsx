@@ -1139,31 +1139,30 @@ export default function Tasks() {
   }, [sourceTasks, searchQuery, statusFilter, priorityFilter]);
 
   return (
-    <div className="pl-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="px-4 md:px-0 md:pl-6 space-y-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div className="page-header mb-0">
-          <h1 className="page-title">Task Management</h1>
-          <p className="page-subtitle">Create, assign, and track all tasks</p>
+          <h1 className="page-title text-xl sm:text-2xl md:text-3xl">Task Management</h1>
+          <p className="page-subtitle text-sm sm:text-base text-muted-foreground">Create, assign, and track all tasks</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 sm:gap-3">
           {selectedProject ? (
             <>
-              <Button variant="outline" onClick={() => setSelectedProject(null)}>
+              <Button variant="outline" size="sm" onClick={() => setSelectedProject(null)} className="h-9">
                 Back to Projects
               </Button>
-              <Button className="gap-2" onClick={() => setIsCreateTaskOpen(true)}>
+              <Button size="sm" className="gap-2 h-9" onClick={() => setIsCreateTaskOpen(true)}>
                 <Plus className="w-4 h-4" />
                 Add Task
               </Button>
             </>
           ) : (
             <>
-              <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
+              <Button size="sm" className="gap-2 h-9" onClick={() => setIsCreateOpen(true)}>
                 <Plus className="w-4 h-4" />
                 Create Project
               </Button>
-              <Button className="gap-2" onClick={() => {
+              <Button size="sm" className="gap-2 h-9" onClick={() => {
                 setIsDirectTask(true);
                 setIsCreateTaskOpen(true);
               }}>
@@ -1176,19 +1175,19 @@ export default function Tasks() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-4">
+      <div className="flex flex-col md:flex-row gap-4 mb-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Search tasks or assignee..."
-            className="pl-10"
+            className="pl-10 h-10"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 sm:mx-0 sm:px-0 sm:pb-0">
+        <div className="flex flex-wrap md:flex-nowrap gap-2">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px] sm:w-[140px]">
+            <SelectTrigger className="w-full md:w-[150px] h-10">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -1199,7 +1198,7 @@ export default function Tasks() {
             </SelectContent>
           </Select>
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-[140px] sm:w-[140px]">
+            <SelectTrigger className="w-full md:w-[150px] h-10">
               <SelectValue placeholder="Priority" />
             </SelectTrigger>
             <SelectContent>
@@ -1209,7 +1208,7 @@ export default function Tasks() {
               <SelectItem value="low">Low</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" size="icon" className="shrink-0">
+          <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 hidden sm:flex">
             <Filter className="w-4 h-4" />
           </Button>
         </div>

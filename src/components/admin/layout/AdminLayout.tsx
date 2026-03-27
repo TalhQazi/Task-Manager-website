@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 // Context to share header height across components
-const HeaderHeightContext = createContext<number>(144);
+const HeaderHeightContext = createContext<number>(250);
 
 export function useHeaderHeight() {
   return useContext(HeaderHeightContext);
@@ -17,12 +17,12 @@ interface AdminLayoutProps {
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [headerHeight, setHeaderHeight] = useState(144);
+  const [headerHeight, setHeaderHeight] = useState(250);
 
   // Listen for header height updates
   useEffect(() => {
     const handleHeightUpdate = (e: CustomEvent) => {
-      setHeaderHeight(e.detail?.height || 144);
+      setHeaderHeight(e.detail?.height || 250);
     };
     window.addEventListener("header-height-changed", handleHeightUpdate as EventListener);
     return () => window.removeEventListener("header-height-changed", handleHeightUpdate as EventListener);
@@ -34,12 +34,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         <Header onMenuClick={() => setMobileSidebarOpen(true)} />
 
         <div className="flex items-start">
-          <div className="hidden md:block fixed left-0 z-50 bg-gradient-to-b from-[#0b2f6b] via-[#10428b] to-[#0a2a5c] h-[calc(100vh-var(--header-height,144px))] w-56" style={{ top: `${headerHeight}px`, '--header-height': `${headerHeight}px` } as React.CSSProperties}>
+          <div className="hidden md:block fixed left-0 z-40 w-56 border-r border-white/5 shadow-2xl transition-all duration-300" style={{ top: `${headerHeight}px`, height: `calc(100vh - ${headerHeight}px)`, '--header-height': `${headerHeight}px` } as React.CSSProperties}>
             <Sidebar />
           </div>
 
-          <main className={cn("flex-1 min-h-[calc(100vh-var(--header-height,144px))]", "md:ml-56")} style={{ '--header-height': `${headerHeight}px` } as React.CSSProperties}>
-            <div className="w-full pr-4 py-2 sm:py-3 animate-fade-in">
+          <main className={cn("flex-1 px-4 sm:px-6 lg:px-8 py-6 transition-all duration-300", "md:ml-56")}>
+            <div className="w-full max-w-full animate-fade-in">
               {children}
             </div>
           </main>

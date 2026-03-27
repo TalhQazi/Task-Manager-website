@@ -106,10 +106,10 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "flex flex-col text-white z-40 bg-gradient-to-b from-[#0b2f6b] via-[#10428b] to-[#0a2a5c] h-full",
+        "flex flex-col text-white z-40 bg-[#0b2f6b]/95 backdrop-blur-md h-full",
         isMobile
           ? "w-64"
-          : "w-56 shadow-floating animate-slide-in"
+          : "w-full shadow-floating animate-slide-in"
       )}
     >
       <nav className="flex-1 flex flex-col gap-1 px-2 py-4 overflow-y-auto overflow-x-hidden no-scrollbar">

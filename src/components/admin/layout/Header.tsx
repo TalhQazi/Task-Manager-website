@@ -482,7 +482,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   return (
     <header 
-      className="fixed top-0 left-0 right-0 z-30 shadow-floating"
+      className="fixed top-0 left-0 right-0 z-50 shadow-floating"
       style={{ 
         height: `${headerHeight}px`,
         left: '0',
