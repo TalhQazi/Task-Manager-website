@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
-import { AlertCircle, Loader2 } from "lucide-react";
+import { Badge } from "@/components/admin/ui/badge";
+import { AlertCircle, Loader2, User, Calendar, Paperclip, Image, Link as LinkIcon, FileText, ExternalLink } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/admin/ui/select";
 
@@ -36,6 +37,8 @@ type AsanaComment = {
   asanaId: string;
   taskAsanaId: string;
   authorAsanaId: string;
+  authorName?: string;
+  authorEmail?: string;
   message: string;
   createdAtAsana?: string;
 };
@@ -50,6 +53,31 @@ type AsanaAttachment = {
   size?: number;
 };
 
+type AsanaUser = {
+  _id: string;
+  asanaId: string;
+  name: string;
+  email: string;
+};
+
+function isImageMime(mime: string) {
+  return !!mime && mime.startsWith("image/");
+}
+
+function isLinkAttachment(att: AsanaAttachment) {
+  const path = att.filePath || "";
+  return path.startsWith("http://") || path.startsWith("https://");
+}
+
+function formatDate(d?: string) {
+  if (!d) return "—";
+  try {
+    return new Date(d).toLocaleString();
+  } catch {
+    return d;
+  }
+}
+
 export default function AsanaData() {
   const [workspaces, setWorkspaces] = useState<AsanaWorkspace[]>([]);
   const [workspaceAsanaId, setWorkspaceAsanaId] = useState<string>("");
@@ -63,6 +91,7 @@ export default function AsanaData() {
   const [taskDetails, setTaskDetails] = useState<{ task: AsanaTask; subtasks: AsanaTask[] } | null>(null);
   const [comments, setComments] = useState<AsanaComment[]>([]);
   const [attachments, setAttachments] = useState<AsanaAttachment[]>([]);
+  const [users, setUsers] = useState<AsanaUser[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -82,6 +111,13 @@ export default function AsanaData() {
     [tasks, selectedTaskAsanaId]
   );
 
+  // Build user lookup map
+  const userMap = useMemo(() => {
+    const map = new Map<string, AsanaUser>();
+    users.forEach((u) => map.set(u.asanaId, u));
+    return map;
+  }, [users]);
+
   const resetBelowWorkspace = () => {
     setProjects([]);
     setProjectAsanaId("");
@@ -100,17 +136,22 @@ export default function AsanaData() {
     setAttachments([]);
   };
 
+  // Load workspaces and users on mount
   useEffect(() => {
     let mounted = true;
     (async () => {
       setError(null);
       setLoading(true);
       try {
-        const res = await apiFetch<{ ok: true; items: AsanaWorkspace[] }>("/api/asana-import/workspaces");
+        const [wsRes, usersRes] = await Promise.all([
+          apiFetch<{ ok: true; items: AsanaWorkspace[] }>("/api/asana-import/workspaces"),
+          apiFetch<{ ok: true; items: AsanaUser[] }>("/api/asana-import/users"),
+        ]);
         if (!mounted) return;
-        setWorkspaces(res.items || []);
+        setWorkspaces(wsRes.items || []);
+        setUsers(usersRes.items || []);
 
-        const first = (res.items || [])[0];
+        const first = (wsRes.items || [])[0];
         if (first?.asanaId) {
           setWorkspaceAsanaId(first.asanaId);
         }
@@ -294,9 +335,17 @@ export default function AsanaData() {
                   </SelectContent>
                 </Select>
                 {selectedProject && (
-                  <p className="text-[11px] text-muted-foreground break-words">
-                    Tasks: {selectedProject.tasksCount ?? "—"}
-                  </p>
+                  <div className="space-y-0.5">
+                    <p className="text-[11px] text-muted-foreground break-words">
+                      Tasks: {selectedProject.tasksCount ?? "—"}
+                    </p>
+                    {selectedProject.createdAtAsana && (
+                      <p className="text-[11px] text-muted-foreground break-words flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        Created: {formatDate(selectedProject.createdAtAsana)}
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -392,55 +441,145 @@ export default function AsanaData() {
           </Card>
 
           <div className="space-y-4">
+            {/* Comments with author info */}
             <Card className="shadow-soft border-0 sm:border">
               <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
-                <CardTitle className="text-base sm:text-lg md:text-xl font-semibold">Comments</CardTitle>
+                <CardTitle className="text-base sm:text-lg md:text-xl font-semibold">
+                  Comments ({comments.length})
+                </CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 px-4 sm:px-6 pb-5 sm:pb-6 pt-0">
                 {comments.length === 0 ? (
                   <p className="text-xs sm:text-sm text-muted-foreground">—</p>
                 ) : (
-                  <div className="space-y-2">
-                    {comments.map((c) => (
-                      <div key={c.asanaId} className="rounded-md border p-2">
-                        <p className="text-[11px] text-muted-foreground break-words">{c.createdAtAsana || ""}</p>
-                        <p className="text-xs sm:text-sm break-words whitespace-pre-wrap">{c.message}</p>
-                      </div>
-                    ))}
+                  <div className="space-y-3">
+                    {comments.map((c) => {
+                      const authorUser = c.authorName || userMap.get(c.authorAsanaId)?.name || "";
+                      const authorEmailStr = c.authorEmail || userMap.get(c.authorAsanaId)?.email || "";
+                      
+                      return (
+                        <div key={c.asanaId} className="rounded-lg border p-3 space-y-1.5 bg-white/50">
+                          {/* Author & Time */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {authorUser && (
+                              <div className="flex items-center gap-1.5">
+                                <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                                  <User className="h-3 w-3 text-blue-600" />
+                                </div>
+                                <span className="text-xs font-semibold text-blue-700">{authorUser}</span>
+                                {authorEmailStr && (
+                                  <span className="text-[10px] text-muted-foreground">({authorEmailStr})</span>
+                                )}
+                              </div>
+                            )}
+                            {c.createdAtAsana && (
+                              <span className="text-[10px] text-muted-foreground flex items-center gap-1 ml-auto">
+                                <Calendar className="h-3 w-3" />
+                                {formatDate(c.createdAtAsana)}
+                              </span>
+                            )}
+                          </div>
+                          {/* Message */}
+                          <p className="text-xs sm:text-sm break-words whitespace-pre-wrap">{c.message}</p>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
             </Card>
 
+            {/* Attachments with previews */}
             <Card className="shadow-soft border-0 sm:border">
               <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
-                <CardTitle className="text-base sm:text-lg md:text-xl font-semibold">Attachments</CardTitle>
+                <CardTitle className="text-base sm:text-lg md:text-xl font-semibold">
+                  Attachments ({attachments.length})
+                </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2 px-4 sm:px-6 pb-5 sm:pb-6 pt-0">
+              <CardContent className="space-y-3 px-4 sm:px-6 pb-5 sm:pb-6 pt-0">
                 {attachments.length === 0 ? (
                   <p className="text-xs sm:text-sm text-muted-foreground">—</p>
                 ) : (
-                  <div className="space-y-2">
-                    {attachments.map((a) => (
-                      <div key={a.asanaId} className="rounded-md border p-2 flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-xs font-medium break-words">{a.fileName || "file"}</p>
-                          <p className="text-[11px] text-muted-foreground break-words">{a.mimeType || ""}</p>
+                  <div className="space-y-3">
+                    {attachments.map((a) => {
+                      const isImage = isImageMime(a.mimeType || "");
+                      const isLink = isLinkAttachment(a);
+                      const hasDownload = !!a.filePath;
+
+                      return (
+                        <div key={a.asanaId} className="rounded-lg border overflow-hidden bg-white/50">
+                          {/* Image preview */}
+                          {isImage && hasDownload && (
+                            <div className="bg-gray-50 border-b p-2 flex justify-center">
+                              <a href={a.filePath} target="_blank" rel="noreferrer">
+                                <img
+                                  src={a.filePath}
+                                  alt={a.fileName || "attachment"}
+                                  className="max-h-48 max-w-full rounded object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                                />
+                              </a>
+                            </div>
+                          )}
+                          
+                          <div className="p-3 flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-2 min-w-0 flex-1">
+                              {/* Icon based on type */}
+                              <div className={`rounded-full p-1.5 flex-shrink-0 ${
+                                isImage ? "bg-green-100" : isLink ? "bg-blue-100" : "bg-gray-100"
+                              }`}>
+                                {isImage ? (
+                                  <Image className="h-3.5 w-3.5 text-green-600" />
+                                ) : isLink ? (
+                                  <LinkIcon className="h-3.5 w-3.5 text-blue-600" />
+                                ) : (
+                                  <FileText className="h-3.5 w-3.5 text-gray-600" />
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium break-words">{a.fileName || "file"}</p>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  {a.mimeType && (
+                                    <span className="text-[10px] text-muted-foreground">{a.mimeType}</span>
+                                  )}
+                                  {(a.size || 0) > 0 && (
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {((a.size || 0) / 1024).toFixed(1)} KB
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Action buttons */}
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              {isLink && (
+                                <a
+                                  href={a.filePath}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
+                                >
+                                  <ExternalLink className="h-3 w-3" /> Open
+                                </a>
+                              )}
+                              {hasDownload && !isLink && (
+                                <a
+                                  href={a.filePath}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-1 text-xs text-accent hover:underline font-medium"
+                                >
+                                  <Paperclip className="h-3 w-3" /> Download
+                                </a>
+                              )}
+                              {!hasDownload && (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        {a.filePath ? (
-                          <a
-                            href={a.filePath}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="text-xs underline text-accent whitespace-nowrap"
-                          >
-                            Download
-                          </a>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>

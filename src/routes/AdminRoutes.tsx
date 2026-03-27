@@ -32,6 +32,7 @@ import AsanaData from "@/pages/admin/AsanaData";
 import { DigitalAssets } from "@/pages/admin/DigitalAssets";
 import { IntellectualProperty } from "@/pages/admin/IntellectualProperty";
 import NotFound from "@/pages/admin/NotFound";
+import ArchiveData from "@/pages/admin/ArchiveData";
 
 export default function AdminRoutes() {
   const location = useLocation();
@@ -67,6 +68,7 @@ export default function AdminRoutes() {
       { path: "asana-import", element: <AsanaImport /> },
       { path: "asana-data", element: <AsanaData /> },
       { path: "profile", element: <Profile /> },
+      { path: "archive-data", element: <ArchiveData /> },
       { path: "*", element: <NotFound /> },
     ],
     [],

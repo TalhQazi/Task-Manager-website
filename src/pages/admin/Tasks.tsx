@@ -80,6 +80,7 @@ import {
   Trash2,
   Loader2,
   X,
+  Archive,
 } from "lucide-react";
 import { cn } from "@/lib/admin/utils";
 import { apiFetch } from "@/lib/admin/apiClient";
@@ -340,6 +341,10 @@ export default function Tasks() {
   const queryClient = useQueryClient();
 
   const currentUsername = getAuthState().username || "";
+  const currentRole = getAuthState().role || "";
+  const isAdminRole = currentRole === "admin" || currentRole === "super-admin";
+  const [archivingCommentId, setArchivingCommentId] = useState<string | null>(null);
+  const [archivingAttachment, setArchivingAttachment] = useState<number | null>(null);
 
   // Fetch tasks
   const tasksQuery = useQuery({
@@ -822,6 +827,55 @@ export default function Tasks() {
       setCommentDraft("");
     } catch (e) {
       setCommentError(e instanceof Error ? e.message : "Failed to send message");
+    }
+  };
+
+  const archiveComment = async (commentId: string) => {
+    if (!selectedTask) return;
+    try {
+      setArchivingCommentId(commentId);
+      await apiFetch(`/api/tasks/${encodeURIComponent(selectedTask.id)}/comments/${encodeURIComponent(commentId)}/archive`, {
+        method: "POST",
+      });
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+      toast({ title: "Comment archived", description: "The comment has been moved to archive." });
+    } catch (e) {
+      toast({
+        title: "Archive failed",
+        description: e instanceof Error ? e.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setArchivingCommentId(null);
+    }
+  };
+
+  const archiveAttachment = async (attachmentIndex: number) => {
+    if (!selectedTask) return;
+    try {
+      setArchivingAttachment(attachmentIndex);
+      await apiFetch(`/api/tasks/${encodeURIComponent(selectedTask.id)}/attachments/${attachmentIndex}/archive`, {
+        method: "POST",
+      });
+      // Refresh task data
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      // Locally update the selected task
+      if (attachmentIndex === -1) {
+        setSelectedTask({ ...selectedTask, attachment: undefined, attachmentFileName: undefined });
+      } else if (selectedTask.attachments) {
+        const newAttachments = [...selectedTask.attachments];
+        newAttachments.splice(attachmentIndex, 1);
+        setSelectedTask({ ...selectedTask, attachments: newAttachments });
+      }
+      toast({ title: "Attachment archived", description: "The attachment has been moved to archive." });
+    } catch (e) {
+      toast({
+        title: "Archive failed",
+        description: e instanceof Error ? e.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setArchivingAttachment(null);
     }
   };
 
@@ -1888,6 +1942,21 @@ export default function Tasks() {
                                     </a>
                                   </>
                                 )}
+                                {isAdminRole && (
+                                  <button
+                                    type="button"
+                                    onClick={() => void archiveAttachment(idx)}
+                                    disabled={archivingAttachment === idx}
+                                    className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-sm z-10"
+                                    title="Archive this attachment"
+                                  >
+                                    {archivingAttachment === idx ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <Archive className="h-3.5 w-3.5" />
+                                    )}
+                                  </button>
+                                )}
                               </div>
                             ))
                           : selectedTask.attachment?.url
@@ -1927,6 +1996,21 @@ export default function Tasks() {
                                       <span className="text-white text-xs font-medium">Download</span>
                                     </a>
                                   </>
+                                )}
+                                {isAdminRole && (
+                                  <button
+                                    type="button"
+                                    onClick={() => void archiveAttachment(-1)}
+                                    disabled={archivingAttachment === -1}
+                                    className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-sm z-10"
+                                    title="Archive this attachment"
+                                  >
+                                    {archivingAttachment === -1 ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <Archive className="h-3.5 w-3.5" />
+                                    )}
+                                  </button>
                                 )}
                               </div>
                             )
@@ -2040,6 +2124,23 @@ export default function Tasks() {
                                 <span className="text-[10px] opacity-70">✓✓</span>
                               )}
                             </div>
+                            
+                            {/* Archive button for admin/super-admin */}
+                            {isAdminRole && (
+                              <button
+                                type="button"
+                                onClick={() => void archiveComment(c.id)}
+                                disabled={archivingCommentId === c.id}
+                                className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-6 h-6 flex items-center justify-center shadow-sm"
+                                title="Archive this comment"
+                              >
+                                {archivingCommentId === c.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Archive className="h-3 w-3" />
+                                )}
+                              </button>
+                            )}
                           </div>
                         </motion.div>
                       );

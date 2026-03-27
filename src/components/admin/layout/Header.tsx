@@ -1,4 +1,4 @@
-import { Bell, Bug, Mail, Menu, User } from "lucide-react";
+import { Bell, Bug, Camera, Mail, Menu, Move, Save, User, X as XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -25,6 +25,7 @@ import { apiFetch } from "@/lib/admin/apiClient";
 import { getAuthState, clearAuthState } from "@/lib/auth";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { AdminInfoManager } from "@/components/admin/AdminInfoManager";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface HeaderSettings {
   backgroundType: "color" | "image";
@@ -361,6 +362,96 @@ export function Header({ onMenuClick }: HeaderProps) {
       .join("")
       .toUpperCase() || "M";
 
+  // Cover photo edit state
+  const [coverEditMode, setCoverEditMode] = useState(false);
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
+  const [coverDragStart, setCoverDragStart] = useState<number | null>(null);
+  const [coverPositionY, setCoverPositionY] = useState(50); // percentage 0-100
+  const [coverSaving, setCoverSaving] = useState(false);
+  const coverFileRef = useRef<HTMLInputElement>(null);
+  const coverContainerRef = useRef<HTMLDivElement>(null);
+  const queryClient = useQueryClient();
+
+  const handleCoverFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      setCoverPreviewUrl(dataUrl);
+      setCoverEditMode(true);
+      setCoverPositionY(50);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const handleCoverMouseDown = (e: React.MouseEvent) => {
+    if (!coverEditMode) return;
+    e.preventDefault();
+    setCoverDragStart(e.clientY);
+  };
+
+  const handleCoverMouseMove = useCallback((e: MouseEvent) => {
+    if (coverDragStart === null || !coverContainerRef.current) return;
+    const containerHeight = coverContainerRef.current.getBoundingClientRect().height;
+    const delta = e.clientY - coverDragStart;
+    const percentDelta = (delta / containerHeight) * 100;
+    setCoverPositionY(prev => Math.max(0, Math.min(100, prev - percentDelta)));
+    setCoverDragStart(e.clientY);
+  }, [coverDragStart]);
+
+  const handleCoverMouseUp = useCallback(() => {
+    setCoverDragStart(null);
+  }, []);
+
+  useEffect(() => {
+    if (coverDragStart !== null) {
+      window.addEventListener('mousemove', handleCoverMouseMove);
+      window.addEventListener('mouseup', handleCoverMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleCoverMouseMove);
+        window.removeEventListener('mouseup', handleCoverMouseUp);
+      };
+    }
+  }, [coverDragStart, handleCoverMouseMove, handleCoverMouseUp]);
+
+  const saveCoverPhoto = async () => {
+    if (!coverPreviewUrl) return;
+    try {
+      setCoverSaving(true);
+      await apiFetch("/api/header-settings", {
+        method: "PUT",
+        body: JSON.stringify({
+          backgroundType: "image",
+          imageConfig: {
+            dataUrl: coverPreviewUrl,
+            url: coverPreviewUrl,
+            repeat: "no-repeat",
+            size: "cover",
+            position: `center ${coverPositionY}%`,
+          },
+        }),
+      });
+      await queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+      window.dispatchEvent(new Event("header-settings-updated"));
+      setCoverEditMode(false);
+      setCoverPreviewUrl(null);
+    } catch (e) {
+      console.error("Failed to save cover photo:", e);
+    } finally {
+      setCoverSaving(false);
+    }
+  };
+
+  const cancelCoverEdit = () => {
+    setCoverEditMode(false);
+    setCoverPreviewUrl(null);
+    setCoverDragStart(null);
+  };
+
+  const auth_role = auth.role;
+
   return (
     <header 
       className="fixed top-0 left-0 right-0 z-30 shadow-floating"
@@ -370,27 +461,83 @@ export function Header({ onMenuClick }: HeaderProps) {
       }}
     >
       <div 
-        className="w-full h-full relative overflow-hidden"
+        className="w-full h-full relative overflow-hidden group"
         style={bgStyle}
+        ref={coverContainerRef}
       >
-        {/* Background Image - using <img> with object-fit:cover for proper auto-adjustment */}
-        {hasImageBackground && (
+        {/* Background Image */}
+        {(hasImageBackground || coverEditMode) && (
           <>
             <img
-              src={headerSettings?.imageConfig?.dataUrl}
+              src={coverEditMode ? (coverPreviewUrl || headerSettings?.imageConfig?.dataUrl) : headerSettings?.imageConfig?.dataUrl}
               alt="header background"
               className="absolute inset-0 w-full h-full"
               style={{
-                objectFit: 'fill',
-                objectPosition: headerSettings?.imageConfig?.position || 'center',
+                objectFit: 'cover',
+                objectPosition: coverEditMode ? `center ${coverPositionY}%` : (headerSettings?.imageConfig?.position || 'center'),
+                cursor: coverEditMode ? 'grab' : 'default',
+                userSelect: 'none',
               }}
+              draggable={false}
+              onMouseDown={coverEditMode ? handleCoverMouseDown : undefined}
             />
-            {headerSettings?.overlay?.enabled && (
+            {headerSettings?.overlay?.enabled && !coverEditMode && (
               <div 
                 className="absolute inset-0"
                 style={{ backgroundColor: headerSettings.overlay.color || 'rgba(0,0,0,0.3)' }}
               />
             )}
+          </>
+        )}
+
+        {/* Cover Edit Overlay */}
+        {coverEditMode && (
+          <div className="absolute inset-0 z-20 pointer-events-none">
+            <div className="absolute inset-0 bg-black/30" />
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/60 backdrop-blur-sm rounded-full px-4 py-2 pointer-events-auto">
+              <Move className="h-4 w-4 text-white" />
+              <span className="text-white text-xs font-medium">Drag to reposition</span>
+            </div>
+            <div className="absolute bottom-3 right-3 flex items-center gap-2 pointer-events-auto">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="bg-white/90 hover:bg-white text-gray-800 text-xs h-8 rounded-full px-4"
+                onClick={cancelCoverEdit}
+                disabled={coverSaving}
+              >
+                <XIcon className="h-3.5 w-3.5 mr-1" /> Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8 rounded-full px-4"
+                onClick={() => void saveCoverPhoto()}
+                disabled={coverSaving}
+              >
+                <Save className="h-3.5 w-3.5 mr-1" /> {coverSaving ? "Saving..." : "Save"}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Cover Photo Edit Button (visible on hover, only for admin/super-admin) */}
+        {!coverEditMode && (auth_role === "admin" || auth_role === "super-admin") && (
+          <>
+            <input
+              ref={coverFileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleCoverFileSelect}
+            />
+            <button
+              type="button"
+              className="absolute bottom-2 right-3 z-20 flex items-center gap-1.5 bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white rounded-full px-3 py-1.5 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+              onClick={() => coverFileRef.current?.click()}
+            >
+              <Camera className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Edit Cover Photo</span>
+            </button>
           </>
         )}
         <div 
@@ -412,10 +559,10 @@ export function Header({ onMenuClick }: HeaderProps) {
                 <Button
                   type="button"
                   variant="ghost"
-                  className="hidden sm:inline-flex items-center justify-center h-12 w-12 p-0 rounded-full bg-transparent hover:bg-transparent"
+                  className="inline-flex items-center justify-center h-9 w-9 sm:h-12 sm:w-12 p-0 rounded-full bg-transparent hover:bg-transparent"
                   aria-label="Account menu"
                 >
-                  <Avatar className="h-12 w-12 border border-white/70">
+                  <Avatar className="h-9 w-9 sm:h-12 sm:w-12 border border-white/70">
                     {avatarUrl ? (
                       <AvatarImage src={avatarUrl} alt={fullName} className="object-cover" />
                     ) : (
@@ -453,10 +600,10 @@ export function Header({ onMenuClick }: HeaderProps) {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="hidden sm:inline-flex relative h-9 w-9 rounded-full bg-white/10 hover:bg-white/20"
+                  className="inline-flex relative h-7 w-7 sm:h-9 sm:w-9 rounded-full bg-white/10 hover:bg-white/20"
                   aria-label="Messages"
                 >
-                  <Mail className="h-4 w-4" />
+                  <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   {unreadMessageCount > 0 && (
                     <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[10px]">
                       {Math.min(unreadMessageCount, 9)}
@@ -501,10 +648,10 @@ export function Header({ onMenuClick }: HeaderProps) {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="hidden sm:inline-flex relative h-9 w-9 rounded-full bg-white/10 hover:bg-white/20"
+                  className="inline-flex relative h-7 w-7 sm:h-9 sm:w-9 rounded-full bg-white/10 hover:bg-white/20"
                   aria-label="Notifications"
                 >
-                  <Bell className="h-4 w-4" />
+                  <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   {unreadCount > 0 && (
                     <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[10px]">
                       {Math.min(unreadCount, 9)}
@@ -540,14 +687,14 @@ export function Header({ onMenuClick }: HeaderProps) {
               type="button"
               variant="ghost"
               size="icon"
-              className="hidden sm:inline-flex relative h-9 w-9 rounded-full bg-white/10 hover:bg-white/20"
+              className="inline-flex relative h-7 w-7 sm:h-9 sm:w-9 rounded-full bg-white/10 hover:bg-white/20"
               aria-label="Report Issue"
               onClick={() => {
                 resetReport();
                 setReportOpen(true);
               }}
             >
-              <Bug className="h-4 w-4" />
+              <Bug className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </Button>
           </div>
 
