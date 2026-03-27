@@ -23,7 +23,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { getAuthState, clearAuthState } from "@/lib/auth";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { AdminInfoManager } from "@/components/admin/AdminInfoManager";
 
 interface HeaderSettings {
@@ -152,25 +152,58 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   const headerSettings = headerSettingsQuery.data;
   const isImageBackground = headerSettings?.backgroundType === "image";
-  const headerHeight = headerSettings?.height || 144;
+  const settingsHeight = headerSettings?.height || 144;
 
   // Build background style based on settings
+  const hasImageBackground = isImageBackground && headerSettings?.imageConfig?.dataUrl;
+
+  // Auto-calculate header height from image aspect ratio
+  const [autoImageHeight, setAutoImageHeight] = useState<number | null>(null);
+  const imgAspectRef = useRef<number | null>(null);
+
+  const calcHeight = useCallback(() => {
+    if (imgAspectRef.current) {
+      const screenW = window.innerWidth;
+      const calculated = Math.round(screenW / imgAspectRef.current);
+      // Clamp between 80px and 400px so it doesn't get too extreme
+      setAutoImageHeight(Math.max(80, Math.min(400, calculated)));
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hasImageBackground || !headerSettings?.imageConfig?.dataUrl) {
+      imgAspectRef.current = null;
+      setAutoImageHeight(null);
+      return;
+    }
+
+    const img = new Image();
+    img.onload = () => {
+      imgAspectRef.current = img.naturalWidth / img.naturalHeight;
+      calcHeight();
+    };
+    img.src = headerSettings.imageConfig.dataUrl;
+  }, [hasImageBackground, headerSettings?.imageConfig?.dataUrl, calcHeight]);
+
+  // Recalculate on window resize
+  useEffect(() => {
+    if (!hasImageBackground) return;
+    window.addEventListener('resize', calcHeight);
+    return () => window.removeEventListener('resize', calcHeight);
+  }, [hasImageBackground, calcHeight]);
+
+  // Use auto height for images, settings height for colors
+  const headerHeight = (hasImageBackground && autoImageHeight) ? autoImageHeight : settingsHeight;
+
   const getBackgroundStyle = () => {
+    if (hasImageBackground) {
+      return { background: 'transparent' };
+    }
+
     if (!headerSettings) {
-      // Default gradient
       return { background: "linear-gradient(to right, #133767, #133767, #133767)" };
     }
 
-    if (headerSettings.backgroundType === "image" && headerSettings.imageConfig?.dataUrl) {
-      return {
-        backgroundImage: `url(${headerSettings.imageConfig.dataUrl})`,
-        backgroundRepeat: headerSettings.imageConfig.repeat || "no-repeat",
-        backgroundSize: headerSettings.imageConfig.size || "cover",
-        backgroundPosition: headerSettings.imageConfig.position || "center",
-      };
-    }
-
-    // Color gradient
     const { from, via, to } = headerSettings.colorConfig || {};
     return {
       background: `linear-gradient(to right, ${from || "#133767"}, ${via || "#133767"}, ${to || "#133767"})`,
@@ -337,16 +370,29 @@ export function Header({ onMenuClick }: HeaderProps) {
       }}
     >
       <div 
-        className="w-full h-full relative"
-        style={{...bgStyle, backgroundSize: headerSettings?.backgroundType === "image" ? "100% 100%" : bgStyle.backgroundSize}}
+        className="w-full h-full relative overflow-hidden"
+        style={bgStyle}
       >
-        {isImageBackground && headerSettings?.overlay?.enabled && (
-          <div 
-            className="absolute inset-0"
-            style={{ backgroundColor: headerSettings.overlay.color }}
-          />
+        {/* Background Image - using <img> with object-fit:cover for proper auto-adjustment */}
+        {hasImageBackground && (
+          <>
+            <img
+              src={headerSettings?.imageConfig?.dataUrl}
+              alt="header background"
+              className="absolute inset-0 w-full h-full"
+              style={{
+                objectFit: 'fill',
+                objectPosition: headerSettings?.imageConfig?.position || 'center',
+              }}
+            />
+            {headerSettings?.overlay?.enabled && (
+              <div 
+                className="absolute inset-0"
+                style={{ backgroundColor: headerSettings.overlay.color || 'rgba(0,0,0,0.3)' }}
+              />
+            )}
+          </>
         )}
-        <div className="hidden md:block fixed top-0 left-0 h-full w-20" style={{...bgStyle, backgroundSize: headerSettings?.backgroundType === "image" ? "100% 100%" : bgStyle.backgroundSize}} />
         <div 
           className="relative flex h-full items-center justify-between px-3 sm:px-6 lg:px-10 py-2 md:py-4 animate-fade-in"
         >
@@ -509,7 +555,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           <div className="flex absolute left-1/2 -translate-x-1/2 items-center" style={{ height: `${headerHeight * 0.9}px`, minHeight: '48px' }}>
             <div className="relative h-full flex items-center">
               <img
-                src="/newlogo.jpeg"
+                src="/clock2.png"
                 alt="TaskManager by Reardon"
                 className="w-auto h-full max-w-[140px] sm:max-w-[190px] md:max-w-[280px] lg:max-w-[380px] object-contain transition-all duration-300 rounded-md shadow-md"
               />

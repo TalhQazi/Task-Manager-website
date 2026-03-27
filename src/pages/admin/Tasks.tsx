@@ -240,7 +240,7 @@ const createTaskSchema = z.object({
 });
 
 type CreateTaskValues = z.infer<typeof createTaskSchema>;
-
+//use the export deafult function on it 
 export default function Tasks() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
