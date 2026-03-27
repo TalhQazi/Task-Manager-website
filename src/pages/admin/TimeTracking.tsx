@@ -514,7 +514,7 @@ const TimeTracking = () => {
   return (
     <>
       {/* Mobile-first container */}
-      <div className="pl-6 space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0">
+      <div className="ml-12 pl-6 space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0">
         
         {/* Page Header - Responsive */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">

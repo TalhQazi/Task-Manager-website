@@ -108,6 +108,12 @@ interface Task {
     mimeType: string;
     size: number;
   };
+  attachments?: Array<{
+    fileName: string;
+    url: string;
+    mimeType: string;
+    size: number;
+  }>;
 }
 
 type CreateProjectTaskDraft = {
@@ -182,6 +188,12 @@ interface Project {
   logo?: ProjectLogo;
   taskCount?: number;
   status?: string;
+  attachments?: Array<{
+    fileName: string;
+    url: string;
+    mimeType: string;
+    size: number;
+  }>;
 }
 
 interface ProjectWithTasks extends Project {
@@ -251,12 +263,16 @@ export default function Tasks() {
   const [projectDescription, setProjectDescription] = useState("");
   const [projectLogoFile, setProjectLogoFile] = useState<File | null>(null);
   const [projectLogoPreview, setProjectLogoPreview] = useState<string>("");
+  const [projectAttachmentFiles, setProjectAttachmentFiles] = useState<File[]>([]);
+  const [projectAttachmentPreviews, setProjectAttachmentPreviews] = useState<string[]>([]);
   const [projectTasks, setProjectTasks] = useState<CreateProjectTaskDraft[]>([]);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [attachmentFilePreviews, setAttachmentFilePreviews] = useState<string[]>([]);
   const [attachmentNoteDraft, setAttachmentNoteDraft] = useState<string>("");
   const [isCreating, setIsCreating] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{ projectName?: string; title?: string; description?: string }>({});
@@ -477,6 +493,8 @@ export default function Tasks() {
     setProjectTasks([]);
     setProjectLogoFile(null);
     setProjectLogoPreview("");
+    setProjectAttachmentFiles([]);
+    setProjectAttachmentPreviews([]);
     setValidationErrors({});
     setFormData({
       title: "",
@@ -491,6 +509,8 @@ export default function Tasks() {
     });
     setSelectedAssignees([]);
     setAttachmentFile(null);
+    setAttachmentFiles([]);
+    setAttachmentFilePreviews([]);
   };
 
   const draftFromForm = (attachmentOverride?: CreateProjectTaskDraft["attachment"]) => {
@@ -1304,6 +1324,70 @@ export default function Tasks() {
               </div>
 
               <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Project Attachments</label>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted w-full"
+                    onClick={() => {
+                      const el = document.getElementById("project-attachments-input") as HTMLInputElement | null;
+                      el?.click();
+                    }}
+                  >
+                    + Add Files/Images
+                  </button>
+                  <input
+                    id="project-attachments-input"
+                    type="file"
+                    accept="*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      const files = Array.from(e.target.files ?? []);
+                      setProjectAttachmentFiles((prev) => [...prev, ...files]);
+                      files.forEach((file) => {
+                        const reader = new FileReader();
+                        reader.onload = () => {
+                          const result = typeof reader.result === "string" ? reader.result : "";
+                          setProjectAttachmentPreviews((prev) => [...prev, result]);
+                        };
+                        if (file.type.startsWith("image/")) {
+                          reader.readAsDataURL(file);
+                        } else {
+                          setProjectAttachmentPreviews((prev) => [...prev, ""]);
+                        }
+                      });
+                    }}
+                  />
+                  {projectAttachmentFiles.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">
+                      {projectAttachmentFiles.map((file, idx) => (
+                        <div key={idx} className="relative group">
+                          {projectAttachmentPreviews[idx] ? (
+                            <img src={projectAttachmentPreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />
+                          ) : (
+                            <div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">
+                              📄 {file.name}
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setProjectAttachmentFiles((prev) => prev.filter((_, i) => i !== idx));
+                              setProjectAttachmentPreviews((prev) => prev.filter((_, i) => i !== idx));
+                            }}
+                            className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Assignees</label>
                 <Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}>
                   <PopoverTrigger asChild>
@@ -1544,6 +1628,70 @@ export default function Tasks() {
               </div>
             </div>
 
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Task Attachments</label>
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted w-full"
+                  onClick={() => {
+                    const el = document.getElementById("task-attachments-input") as HTMLInputElement | null;
+                    el?.click();
+                  }}
+                >
+                  + Add Files/Images
+                </button>
+                <input
+                  id="task-attachments-input"
+                  type="file"
+                  accept="*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files ?? []);
+                    setAttachmentFiles((prev) => [...prev, ...files]);
+                    files.forEach((file) => {
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        const result = typeof reader.result === "string" ? reader.result : "";
+                        setAttachmentFilePreviews((prev) => [...prev, result]);
+                      };
+                      if (file.type.startsWith("image/")) {
+                        reader.readAsDataURL(file);
+                      } else {
+                        setAttachmentFilePreviews((prev) => [...prev, ""]);
+                      }
+                    });
+                  }}
+                />
+                {attachmentFiles.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">
+                    {attachmentFiles.map((file, idx) => (
+                      <div key={idx} className="relative group">
+                        {attachmentFilePreviews[idx] ? (
+                          <img src={attachmentFilePreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />
+                        ) : (
+                          <div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">
+                            📄 {file.name}
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAttachmentFiles((prev) => prev.filter((_, i) => i !== idx));
+                            setAttachmentFilePreviews((prev) => prev.filter((_, i) => i !== idx));
+                          }}
+                          className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
             <DialogFooter className="flex-col sm:flex-row gap-2">
               <Button type="button" variant="outline" onClick={() => {
                 setIsCreateTaskOpen(false);
@@ -1630,59 +1778,134 @@ export default function Tasks() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <p className="text-muted-foreground text-sm">Attachment</p>
-                <div className="rounded-lg border bg-muted/20 p-3 space-y-2">
-                  {selectedTask.attachment?.url ? (
-                    <>
-                      {selectedTask.attachment.mimeType?.startsWith("image/") ? (
-                        <div className="w-full overflow-hidden rounded-lg border bg-background">
-                          <img
-                            src={selectedTask.attachment.url}
-                            alt={selectedTask.attachment.fileName || "Attachment"}
-                            className="w-full h-auto max-h-64 object-contain"
-                          />
-                        </div>
-                      ) : null}
-
-                      <div className="flex items-center gap-3 rounded-lg bg-background/60 p-2">
-                        <FileText className="h-8 w-8 text-primary shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">
-                            {selectedTask.attachment.fileName || selectedTask.attachmentFileName || "Attachment"}
-                          </p>
-                          {selectedTask.attachment.size > 0 && (
-                            <p className="text-xs text-muted-foreground">
-                              {(selectedTask.attachment.size / 1024 / 1024).toFixed(2)} MB
-                            </p>
+              <div className="space-y-4">
+                {selectedProject && selectedProject.attachments && selectedProject.attachments.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-muted-foreground text-sm font-medium">Project Attachments</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2 bg-muted/10">
+                      {selectedProject.attachments.map((file, idx) => (
+                        <div key={idx} className="relative group">
+                          {file.mimeType?.startsWith("image/") ? (
+                            <img src={file.url} alt={file.fileName} className="w-full h-20 object-cover rounded-md border border-border" />
+                          ) : (
+                            <div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2 border border-border">
+                              📄
+                            </div>
                           )}
+                          <a
+                            href={file.url}
+                            download={file.fileName}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center"
+                            title={file.fileName}
+                          >
+                            <span className="text-white text-xs font-medium">Download</span>
+                          </a>
                         </div>
-                        <a
-                          href={selectedTask.attachment.url}
-                          download={selectedTask.attachment.fileName}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium bg-primary text-primary-foreground rounded-md"
-                        >
-                          Download
-                        </a>
-                      </div>
-                    </>
-                  ) : selectedTask.attachmentFileName ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <FileText className="h-4 w-4" />
-                      <span className="break-words">{selectedTask.attachmentFileName}</span>
+                      ))}
                     </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">—</p>
-                  )}
+                  </div>
+                )}
 
-                  {selectedTask.attachmentNote ? (
-                    <p className="text-xs text-muted-foreground border-t pt-2">
-                      <span className="font-medium">Note:</span> {selectedTask.attachmentNote}
-                    </p>
-                  ) : null}
-                </div>
+                {(selectedTask.attachments && selectedTask.attachments.length > 0) || selectedTask.attachment?.url ? (
+                  <div className="space-y-2">
+                    <p className="text-muted-foreground text-sm font-medium">Task Attachments</p>
+                    <div className="border border-border rounded-md p-2 bg-muted/10">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto">
+                        {selectedTask.attachments && selectedTask.attachments.length > 0
+                          ? selectedTask.attachments.map((attachment, idx) => (
+                              <div
+                                key={idx}
+                                className="relative group rounded-md overflow-hidden border border-border bg-background"
+                              >
+                                {attachment.mimeType?.startsWith("image/") ? (
+                                  <>
+                                    <img
+                                      src={attachment.url}
+                                      alt={attachment.fileName || `Attachment ${idx + 1}`}
+                                      className="w-full h-24 object-cover"
+                                    />
+                                    <a
+                                      href={attachment.url}
+                                      download={attachment.fileName}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center"
+                                      title={attachment.fileName}
+                                    >
+                                      <span className="text-white text-xs font-medium">Download</span>
+                                    </a>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="w-full h-24 flex items-center justify-center bg-muted">
+                                      <FileText className="h-8 w-8 text-muted-foreground" />
+                                    </div>
+                                    <a
+                                      href={attachment.url}
+                                      download={attachment.fileName}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center"
+                                      title={attachment.fileName}
+                                    >
+                                      <span className="text-white text-xs font-medium">Download</span>
+                                    </a>
+                                  </>
+                                )}
+                              </div>
+                            ))
+                          : selectedTask.attachment?.url
+                          ? (
+                              <div className="relative group rounded-md overflow-hidden border border-border bg-background">
+                                {selectedTask.attachment.mimeType?.startsWith("image/") ? (
+                                  <>
+                                    <img
+                                      src={selectedTask.attachment.url}
+                                      alt={selectedTask.attachment.fileName || "Attachment"}
+                                      className="w-full h-24 object-cover"
+                                    />
+                                    <a
+                                      href={selectedTask.attachment.url}
+                                      download={selectedTask.attachment.fileName}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center"
+                                      title={selectedTask.attachment.fileName}
+                                    >
+                                      <span className="text-white text-xs font-medium">Download</span>
+                                    </a>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="w-full h-24 flex items-center justify-center bg-muted">
+                                      <FileText className="h-8 w-8 text-muted-foreground" />
+                                    </div>
+                                    <a
+                                      href={selectedTask.attachment.url}
+                                      download={selectedTask.attachment.fileName}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center"
+                                      title={selectedTask.attachment.fileName}
+                                    >
+                                      <span className="text-white text-xs font-medium">Download</span>
+                                    </a>
+                                  </>
+                                )}
+                              </div>
+                            )
+                          : null}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-muted-foreground text-sm">Attachments</p>
+                    <p className="text-sm text-muted-foreground">—</p>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3">
