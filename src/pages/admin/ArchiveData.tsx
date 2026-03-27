@@ -72,7 +72,7 @@ export default function ArchiveData() {
   const [restoring, setRestoring] = useState<string | null>(null);
 
   const auth = getAuthState();
-  const isSuperAdmin = auth.role === "super-admin";
+  const isAdminRole = auth.role === "admin" || auth.role === "super-admin";
 
   const fetchArchive = async () => {
     try {
@@ -281,6 +281,24 @@ export default function ArchiveData() {
                                 )}
                               </div>
                             )}
+                            {item.itemType === "task" && (
+                              <div className="space-y-1">
+                                <p className="text-sm font-medium break-words">
+                                  {item.itemData.title || "—"}
+                                </p>
+                                <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground">
+                                  {item.itemData.status && (
+                                    <span className="px-1.5 py-0.5 rounded bg-muted capitalize">{item.itemData.status}</span>
+                                  )}
+                                  {item.itemData.priority && (
+                                    <span className="px-1.5 py-0.5 rounded bg-muted capitalize">{item.itemData.priority}</span>
+                                  )}
+                                  {item.itemData.assignees?.length > 0 && (
+                                    <span>Assigned: {item.itemData.assignees.join(", ")}</span>
+                                  )}
+                                </div>
+                              </div>
+                            )}
 
                             {/* Meta */}
                             <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
@@ -312,7 +330,7 @@ export default function ArchiveData() {
                               )}
                               <span className="hidden sm:inline">Restore</span>
                             </Button>
-                            {isSuperAdmin && (
+                            {isAdminRole && (
                               <Button
                                 size="sm"
                                 variant="outline"

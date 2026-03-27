@@ -473,10 +473,11 @@ export default function Tasks() {
 
   const deleteTaskMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiFetch<{ ok: true }>(`/api/tasks/${id}`, { method: "DELETE" });
+      await apiFetch<{ ok: true }>(`/api/tasks/${id}/archive`, { method: "POST" });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 
@@ -1077,13 +1078,13 @@ export default function Tasks() {
         setIsDeleteOpen(false);
         setSelectedTask(null);
         toast({
-          title: "Task deleted",
-          description: "Task has been removed.",
+          title: "Task archived",
+          description: "Task has been moved to archive.",
         });
       },
       onError: (err) => {
         toast({
-          title: "Failed to delete task",
+          title: "Failed to archive task",
           description: err instanceof Error ? err.message : "Something went wrong",
         });
       },
@@ -2422,14 +2423,14 @@ export default function Tasks() {
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete task?</AlertDialogTitle>
+            <AlertDialogTitle>Archive task?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently remove the task.
+              This will move the task and its comments to the archive. You can restore it later from the Archive Data page.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleteTaskMutation.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} disabled={deleteTaskMutation.isPending} className="gap-2">{deleteTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Delete</AlertDialogAction>
+            <AlertDialogAction onClick={confirmDelete} disabled={deleteTaskMutation.isPending} className="gap-2 bg-amber-600 hover:bg-amber-700">{deleteTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}<Archive className="h-4 w-4" />Archive</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -2490,8 +2491,9 @@ export default function Tasks() {
                             Edit
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }}>
-                            Delete
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }} className="text-amber-600">
+                            <Archive className="w-4 h-4 mr-2" />
+                            Archive
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>

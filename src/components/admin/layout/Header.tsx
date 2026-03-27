@@ -1,4 +1,4 @@
-import { Bell, Bug, Camera, Mail, Menu, Move, Save, User, X as XIcon } from "lucide-react";
+import { Bell, Bug, Camera, ChevronDown, ChevronUp, Mail, Menu, Move, Save, User, X as XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -405,16 +405,44 @@ export function Header({ onMenuClick }: HeaderProps) {
     setCoverDragStart(null);
   }, []);
 
+  // Touch support for mobile
+  const handleCoverTouchStart = (e: React.TouchEvent) => {
+    if (!coverEditMode) return;
+    e.preventDefault();
+    setCoverDragStart(e.touches[0].clientY);
+  };
+
+  const handleCoverTouchMove = useCallback((e: TouchEvent) => {
+    if (coverDragStart === null || !coverContainerRef.current) return;
+    e.preventDefault();
+    const containerHeight = coverContainerRef.current.getBoundingClientRect().height;
+    const delta = e.touches[0].clientY - coverDragStart;
+    const percentDelta = (delta / containerHeight) * 100;
+    setCoverPositionY(prev => Math.max(0, Math.min(100, prev - percentDelta)));
+    setCoverDragStart(e.touches[0].clientY);
+  }, [coverDragStart]);
+
+  const handleCoverTouchEnd = useCallback(() => {
+    setCoverDragStart(null);
+  }, []);
+
   useEffect(() => {
     if (coverDragStart !== null) {
       window.addEventListener('mousemove', handleCoverMouseMove);
       window.addEventListener('mouseup', handleCoverMouseUp);
+      window.addEventListener('touchmove', handleCoverTouchMove, { passive: false });
+      window.addEventListener('touchend', handleCoverTouchEnd);
       return () => {
         window.removeEventListener('mousemove', handleCoverMouseMove);
         window.removeEventListener('mouseup', handleCoverMouseUp);
+        window.removeEventListener('touchmove', handleCoverTouchMove);
+        window.removeEventListener('touchend', handleCoverTouchEnd);
       };
     }
-  }, [coverDragStart, handleCoverMouseMove, handleCoverMouseUp]);
+  }, [coverDragStart, handleCoverMouseMove, handleCoverMouseUp, handleCoverTouchMove, handleCoverTouchEnd]);
+
+  const nudgeCoverUp = () => setCoverPositionY(prev => Math.max(0, prev - 5));
+  const nudgeCoverDown = () => setCoverPositionY(prev => Math.min(100, prev + 5));
 
   const saveCoverPhoto = async () => {
     if (!coverPreviewUrl) return;
@@ -475,11 +503,12 @@ export function Header({ onMenuClick }: HeaderProps) {
               style={{
                 objectFit: 'cover',
                 objectPosition: coverEditMode ? `center ${coverPositionY}%` : (headerSettings?.imageConfig?.position || 'center'),
-                cursor: coverEditMode ? 'grab' : 'default',
+                cursor: coverEditMode ? (coverDragStart !== null ? 'grabbing' : 'grab') : 'default',
                 userSelect: 'none',
               }}
               draggable={false}
               onMouseDown={coverEditMode ? handleCoverMouseDown : undefined}
+              onTouchStart={coverEditMode ? handleCoverTouchStart : undefined}
             />
             {headerSettings?.overlay?.enabled && !coverEditMode && (
               <div 
@@ -496,7 +525,29 @@ export function Header({ onMenuClick }: HeaderProps) {
             <div className="absolute inset-0 bg-black/30" />
             <div className="absolute top-2 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-black/60 backdrop-blur-sm rounded-full px-4 py-2 pointer-events-auto">
               <Move className="h-4 w-4 text-white" />
-              <span className="text-white text-xs font-medium">Drag to reposition</span>
+              <span className="text-white text-xs font-medium">Drag up/down to reposition</span>
+            </div>
+            {/* Up/Down arrow buttons for precise positioning */}
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-1 pointer-events-auto">
+              <button
+                type="button"
+                onClick={nudgeCoverUp}
+                className="w-10 h-10 rounded-full bg-white/80 hover:bg-white flex items-center justify-center shadow-md transition-all hover:scale-110"
+                title="Move image up"
+              >
+                <ChevronUp className="h-5 w-5 text-gray-800" />
+              </button>
+              <span className="text-white text-[10px] font-medium bg-black/50 rounded px-2 py-0.5">
+                {Math.round(coverPositionY)}%
+              </span>
+              <button
+                type="button"
+                onClick={nudgeCoverDown}
+                className="w-10 h-10 rounded-full bg-white/80 hover:bg-white flex items-center justify-center shadow-md transition-all hover:scale-110"
+                title="Move image down"
+              >
+                <ChevronDown className="h-5 w-5 text-gray-800" />
+              </button>
             </div>
             <div className="absolute bottom-3 right-3 flex items-center gap-2 pointer-events-auto">
               <Button
