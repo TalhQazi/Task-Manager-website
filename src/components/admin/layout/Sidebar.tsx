@@ -22,6 +22,8 @@ import {
   History,
   Wallet,
   Database,
+  Globe,
+  Lightbulb,
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
@@ -49,6 +51,8 @@ const navItemsBase = [
   { icon: UserX, label: "Do Not Hire", path: "/admin/do-not-hire" },
   { icon: ClipboardList, label: "Onboarding", path: "/admin/onboarding" },
   { icon: BarChart3, label: "Reports", path: "/admin/reports" },
+  { icon: Globe, label: "Digital Assets", path: "/admin/digital-assets" },
+  { icon: Lightbulb, label: "Intellectual Property", path: "/admin/intellectual-property" },
   { icon: Database, label: "Imported Asana Data", path: "/admin/asana-data" },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
 ];

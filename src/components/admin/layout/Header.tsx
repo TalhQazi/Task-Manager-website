@@ -24,6 +24,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { getAuthState, clearAuthState } from "@/lib/auth";
 import { useState, useEffect } from "react";
+import { AdminInfoManager } from "@/components/admin/AdminInfoManager";
 
 interface HeaderSettings {
   backgroundType: "color" | "image";
@@ -485,6 +486,9 @@ export function Header({ onMenuClick }: HeaderProps) {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
+
+            {/* Admin Info Manager */}
+            <AdminInfoManager />
 
             <Button
               type="button"

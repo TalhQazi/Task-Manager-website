@@ -29,6 +29,8 @@ import Profile from "@/pages/admin/Profile";
 import RolesPermissions from "@/pages/admin/RolesPermissions";
 import AsanaImport from "@/pages/admin/AsanaImport";
 import AsanaData from "@/pages/admin/AsanaData";
+import { DigitalAssets } from "@/pages/admin/DigitalAssets";
+import { IntellectualProperty } from "@/pages/admin/IntellectualProperty";
 import NotFound from "@/pages/admin/NotFound";
 
 export default function AdminRoutes() {
@@ -59,6 +61,8 @@ export default function AdminRoutes() {
       { path: "onboarding", element: <Onboarding /> },
       { path: "reports", element: <Reports /> },
       { path: "activity-logs", element: auth.role === "super-admin" ? <ActivityLogs /> : <Navigate to="/admin" replace /> },
+      { path: "digital-assets", element: <DigitalAssets /> },
+      { path: "intellectual-property", element: <IntellectualProperty /> },
       { path: "settings", element: <Settings /> },
       { path: "asana-import", element: <AsanaImport /> },
       { path: "asana-data", element: <AsanaData /> },
