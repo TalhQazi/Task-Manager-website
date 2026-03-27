@@ -87,6 +87,7 @@ import { apiFetch } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import jsPDF from "jspdf";
+import { useSocket } from "@/contexts/SocketContext";
 
 interface Task {
   id: string;
@@ -297,6 +298,7 @@ const createTaskSchema = z.object({
 type CreateTaskValues = z.infer<typeof createTaskSchema>;
 //use the export deafult function on it 
 export default function Tasks() {
+  const { socket, joinTask, leaveTask } = useSocket();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -824,12 +826,41 @@ export default function Tasks() {
         method: "POST",
         body: JSON.stringify({ message: msg }),
       });
-      setComments((prev) => [...prev, res.item]);
-      setCommentDraft("");
+      setComments((prev) => [...prev, res.item]);      setCommentDraft("");
+      // No need to dispatch here, standard fetch updates list, wait, we do.
+      // Wait, socket will also return the comment? Actually we push it manually 
+      // above, so we don't want to duplicate. The backend socket emit sends it to all EXCept sender
     } catch (e) {
       setCommentError(e instanceof Error ? e.message : "Failed to send message");
     }
   };
+
+  // Socket logic for live messages
+  useEffect(() => {
+    if (isViewOpen && selectedTask && socket) {
+      joinTask(selectedTask.id);
+
+      const handleNewComment = (comment: TaskComment) => {
+        setComments((prev) => {
+          if (prev.find((c) => c.id === comment.id)) return prev;
+          return [...prev, comment];
+        });
+        
+        // Auto scroll to bottom smoothly
+        setTimeout(() => {
+          const chatContainer = document.querySelector(".comments-container-scroll");
+          if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+        }, 100);
+      };
+
+      socket.on("new-comment", handleNewComment);
+
+      return () => {
+        socket.off("new-comment", handleNewComment);
+        leaveTask(selectedTask.id);
+      };
+    }
+  }, [isViewOpen, selectedTask?.id, socket, joinTask, leaveTask]);
 
   const archiveComment = async (commentId: string) => {
     if (!selectedTask) return;
@@ -2057,7 +2088,7 @@ export default function Tasks() {
                 ) : null}
 
                 {/* Messages Container - WhatsApp Style */}
-                <div className="rounded-xl bg-[#e5ded7] dark:bg-[#0b141a] p-4 space-y-3 min-h-[300px]">
+                <div className="rounded-xl bg-[#e5ded7] dark:bg-[#0b141a] p-4 space-y-3 min-h-[300px] max-h-[400px] overflow-y-auto comments-container-scroll">
                   {commentsLoading ? (
                     <div className="flex justify-center items-center h-32">
                       <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent"></div>

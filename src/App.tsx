@@ -11,6 +11,7 @@ import DeveloperController from "./routes/DeveloperController";
 import EmployeeController from "./Employee/routes/EmployeeController";
 import { getAuthState } from "./lib/auth";
 import { getEmployeeAuth } from "./Employee/lib/auth";
+import { SocketProvider } from "./contexts/SocketContext";
 
 const queryClient = new QueryClient();
 
@@ -25,24 +26,26 @@ function IndexRedirect() {
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<IndexRedirect />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/login/employee" element={<EmployeeLogin />} />
-          <Route path="/admin/*" element={<AdminRoutes />} />
-          <Route path="/manager/*" element={<ManagerController />} />
-          <Route path="/developer/*" element={<DeveloperController />} />
-          <Route path="/employee/*" element={<EmployeeController />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
+  <SocketProvider>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<IndexRedirect />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/login/employee" element={<EmployeeLogin />} />
+            <Route path="/admin/*" element={<AdminRoutes />} />
+            <Route path="/manager/*" element={<ManagerController />} />
+            <Route path="/developer/*" element={<DeveloperController />} />
+            <Route path="/employee/*" element={<EmployeeController />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  </SocketProvider>
 );
 
 export default App;
