@@ -134,6 +134,12 @@ type CreateProjectTaskDraft = {
     mimeType: string;
     size: number;
   };
+  attachments?: Array<{
+    fileName: string;
+    url: string;
+    mimeType: string;
+    size: number;
+  }>;
 };
 
 type CreateProjectPayload = {
@@ -141,6 +147,12 @@ type CreateProjectPayload = {
   description: string;
   assignees?: string[];
   logo?: ProjectLogo;
+  attachments?: Array<{
+    fileName: string;
+    url: string;
+    mimeType: string;
+    size: number;
+  }>;
   tasks: Array<Omit<CreateProjectTaskDraft, "location">>;
 };
 
@@ -224,7 +236,37 @@ function normalizeTask(t: TaskApi): Task {
     attachmentFileName: extra.attachmentFileName,
     attachmentNote: extra.attachmentNote,
     attachment: extra.attachment,
+    attachments: Array.isArray((t as any).attachments) ? (t as any).attachments : undefined,
   };
+}
+
+async function filesToAttachments(files: File[]) {
+  const results = await Promise.all(
+    files.map(
+      (file) =>
+        new Promise<{
+          fileName: string;
+          url: string;
+          mimeType: string;
+          size: number;
+        }>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = () => reject(new Error("Failed to read file"));
+          reader.onload = () => {
+            const url = typeof reader.result === "string" ? reader.result : "";
+            resolve({
+              fileName: file.name,
+              url,
+              mimeType: file.type,
+              size: file.size,
+            });
+          };
+          reader.readAsDataURL(file);
+        }),
+    ),
+  );
+
+  return results;
 }
 
 const priorityClasses = {
@@ -552,27 +594,21 @@ export default function Tasks() {
       return;
     }
 
-    if (attachmentFile) {
-      const file = attachmentFile;
-      const attachment = await new Promise<CreateProjectTaskDraft["attachment"]>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onerror = () => reject(new Error("Failed to read file"));
-        reader.onload = () => {
-          const url = typeof reader.result === "string" ? reader.result : "";
-          resolve({
-            fileName: file.name,
-            url,
-            mimeType: file.type,
-            size: file.size,
-          });
-        };
-        reader.readAsDataURL(file);
-      });
+    const attachments = attachmentFiles.length > 0 ? await filesToAttachments(attachmentFiles) : [];
+    const first = attachments[0];
+    const firstAttachment = first
+      ? { fileName: first.fileName, url: first.url, mimeType: first.mimeType, size: first.size }
+      : undefined;
 
-      setProjectTasks((prev) => [...prev, draftFromForm(attachment)]);
-    } else {
-      setProjectTasks((prev) => [...prev, draftFromForm(undefined)]);
-    }
+    setProjectTasks((prev) => [
+      ...prev,
+      {
+        ...draftFromForm(firstAttachment),
+        attachment: firstAttachment,
+        attachmentFileName: first?.fileName || formData.attachmentFileName || "",
+        attachments: attachments.length > 0 ? attachments : undefined,
+      },
+    ]);
 
     setValidationErrors((prev) => ({ ...prev, title: undefined, description: undefined }));
     setFormData((prev) => ({
@@ -590,6 +626,8 @@ export default function Tasks() {
     setSelectedAssignees([]);
     setAttachmentFile(null);
     setIsCreateTaskOpen(false);
+    setAttachmentFiles([]);
+    setAttachmentFilePreviews([]);
   };
 
   const handleCreateProject = async () => {
@@ -621,11 +659,15 @@ export default function Tasks() {
       const tasksToCreate: CreateProjectTaskDraft[] =
         projectTasks.length > 0 ? projectTasks : [draftFromForm(undefined)];
 
+      const projectAttachments =
+        projectAttachmentFiles.length > 0 ? await filesToAttachments(projectAttachmentFiles) : [];
+
       const payload: CreateProjectPayload & { assignees?: string[]; logo?: ProjectLogo } = {
         name: projectName.trim(),
         description,
         assignees: selectedAssignees,
         logo: projectLogo,
+        attachments: projectAttachments,
         tasks: tasksToCreate,
       };
 
@@ -673,21 +715,10 @@ export default function Tasks() {
       setIsCreating(true);
       const nowDate = new Date().toISOString().split("T")[0];
 
-      const attachment = attachmentFile
-        ? await new Promise<CreateProjectTaskDraft["attachment"]>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onerror = () => reject(new Error("Failed to read file"));
-            reader.onload = () => {
-              const url = typeof reader.result === "string" ? reader.result : "";
-              resolve({
-                fileName: attachmentFile.name,
-                url,
-                mimeType: attachmentFile.type,
-                size: attachmentFile.size,
-              });
-            };
-            reader.readAsDataURL(attachmentFile);
-          })
+      const attachments = attachmentFiles.length > 0 ? await filesToAttachments(attachmentFiles) : [];
+      const first = attachments[0];
+      const attachment = first
+        ? { fileName: first.fileName, url: first.url, mimeType: first.mimeType, size: first.size }
         : undefined;
 
       const taskPayload: Record<string, any> = {
@@ -700,9 +731,10 @@ export default function Tasks() {
         dueTime: formData.dueTime,
         location: formData.location,
         createdAt: nowDate,
-        attachmentFileName: attachmentFile?.name || "",
+        attachmentFileName: first?.fileName || "",
         attachmentNote: formData.attachmentNote,
         attachment,
+        attachments,
       };
 
       // Only add projectId if not a direct task
@@ -737,6 +769,8 @@ export default function Tasks() {
       });
       setSelectedAssignees([]);
       setAttachmentFile(null);
+      setAttachmentFiles([]);
+      setAttachmentFilePreviews([]);
       setValidationErrors({});
 
       toast({
