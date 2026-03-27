@@ -193,8 +193,8 @@ export function Header({ onMenuClick }: HeaderProps) {
     return () => window.removeEventListener('resize', calcHeight);
   }, [hasImageBackground, calcHeight]);
 
-  // Fixed header height of 160px
-  const headerHeight = 160;
+  // Fixed header height of 250px
+  const headerHeight = 250;
 
   const getBackgroundStyle = () => {
     if (hasImageBackground) {
@@ -592,10 +592,10 @@ export function Header({ onMenuClick }: HeaderProps) {
           </>
         )}
         <div 
-          className="relative flex h-full items-center justify-between px-3 sm:px-6 lg:px-10 py-2 md:py-4 animate-fade-in"
+          className="relative flex h-full items-start sm:items-center justify-between px-3 sm:px-6 lg:px-10 py-3 md:py-4 animate-fade-in pointer-events-none"
         >
           {/* LEFT SIDE: Profile Menu Swap */}
-          <div className="flex items-center gap-2 sm:gap-3 text-white z-10">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-white z-30 relative pointer-events-auto max-w-[50%] sm:max-w-none">
             <button
               type="button"
               className="inline-flex md:hidden h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors mr-2"
@@ -750,22 +750,22 @@ export function Header({ onMenuClick }: HeaderProps) {
           </div>
 
           {/* CENTER LOGO */}
-          <div className="flex absolute left-1/2 -translate-x-1/2 items-center" style={{ height: `${headerHeight * 0.9}px`, minHeight: '48px' }}>
+          <div className="flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center pointer-events-auto z-10" style={{ height: `${headerHeight * 0.7}px`, minHeight: '48px', maxHeight: '160px' }}>
             <div className="relative h-full flex items-center">
               <img
                 src="/logo.jpeg"
                 alt="TaskManager by Reardon"
-                className="w-auto h-full max-w-[140px] sm:max-w-[190px] md:max-w-[280px] lg:max-w-[380px] object-contain transition-all duration-300 rounded-md shadow-md"
+                className="w-auto h-full max-w-[120px] sm:max-w-[190px] md:max-w-[280px] lg:max-w-[380px] object-contain transition-all duration-300 rounded-md shadow-md"
               />
             </div>
           </div>
 
           {/* RIGHT SIDE: SE7EN Logo Swap */}
-          <div className="flex items-center z-10" style={{ height: `${headerHeight * 0.8}px`, minHeight: '56px' }}>
+          <div className="flex items-center sm:items-end sm:pb-2 z-20 pointer-events-auto" style={{ height: `${headerHeight * 0.6}px`, minHeight: '40px', maxHeight: '120px' }}>
             <img
               src="/seven logo.png"
               alt="SE7EN Inc. logo"
-              className="w-auto h-full max-w-[180px] sm:max-w-[200px] md:max-w-[300px] object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)] transition-all duration-300"
+              className="w-auto h-full max-w-[90px] sm:max-w-[180px] md:max-w-[250px] object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)] transition-all duration-300"
             />
           </div>
         </div>
