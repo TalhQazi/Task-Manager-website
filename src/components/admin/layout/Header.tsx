@@ -193,8 +193,8 @@ export function Header({ onMenuClick }: HeaderProps) {
     return () => window.removeEventListener('resize', calcHeight);
   }, [hasImageBackground, calcHeight]);
 
-  // Fixed header height of 144px
-  const headerHeight = 144;
+  // Fixed header height of 160px
+  const headerHeight = 160;
 
   const getBackgroundStyle = () => {
     if (hasImageBackground) {

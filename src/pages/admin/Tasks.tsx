@@ -803,7 +803,7 @@ export default function Tasks() {
     try {
       setCommentsLoading(true);
       setCommentError(null);
-      const res = await apiFetch<{ items: TaskComment[] }>(`/api/tasks/${encodeURIComponent(taskId)}/comments`);
+      const res = await apiFetch<{ items: TaskComment[] }>(`/api/tasks/${encodeURIComponent(taskId)}/comments?_t=${Date.now()}`);
       setComments(Array.isArray(res.items) ? res.items : []);
     } catch (e) {
       setCommentError(e instanceof Error ? e.message : "Failed to load messages");
