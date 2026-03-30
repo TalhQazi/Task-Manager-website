@@ -760,7 +760,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                   <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   {unreadCount > 0 && (
                     <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[10px]">
-                      {Math.min(unreadCount, 9)}
+                     {Math.min(unreadCount, 9)}
                     </Badge>
                   )}
                 </Button>

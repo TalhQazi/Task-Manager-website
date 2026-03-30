@@ -83,6 +83,7 @@ import {
   Archive,
   Send,
   RefreshCw,
+  UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/admin/utils";
 import { apiFetch } from "@/lib/admin/apiClient";
@@ -358,6 +359,18 @@ export default function Tasks() {
   const [isEditingProject, setIsEditingProject] = useState(false);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
 
+  // Reassign states
+  const [isReassignTaskOpen, setIsReassignTaskOpen] = useState(false);
+  const [isReassignProjectOpen, setIsReassignProjectOpen] = useState(false);
+  const [reassigningTask, setReassigningTask] = useState<Task | null>(null);
+  const [reassigningProject, setReassigningProject] = useState<Project | null>(null);
+  const [reassignTaskAssignees, setReassignTaskAssignees] = useState<string[]>([]);
+  const [reassignProjectAssignees, setReassignProjectAssignees] = useState<string[]>([]);
+  const [isReassigningTask, setIsReassigningTask] = useState(false);
+  const [isReassigningProject, setIsReassigningProject] = useState(false);
+  const [reassignTaskOpen, setReassignTaskOpen] = useState(false);
+  const [reassignProjectOpen, setReassignProjectOpen] = useState(false);
+
   const queryClient = useQueryClient();
 
   const currentUsername = getAuthState().username || "";
@@ -547,6 +560,93 @@ export default function Tasks() {
       }
     },
   });
+
+  // Reassign mutations - optimized to not refetch all data
+  const reassignTaskMutation = useMutation({
+    mutationFn: async ({ id, assignees }: { id: string; assignees: string[] }) => {
+      const res = await apiFetch<{ item: TaskApi }>(`/api/tasks/${id}/reassign`, {
+        method: "PUT",
+        body: JSON.stringify({ assignees }),
+      });
+      return normalizeTask(res.item);
+    },
+    onSuccess: (updatedTask) => {
+      // Update cache directly instead of refetching
+      queryClient.setQueryData<Task[]>(["tasks"], (old) => {
+        if (!old) return old;
+        return old.map((t) => (t.id === updatedTask.id ? updatedTask : t));
+      });
+      // Also update projects cache if needed
+      queryClient.setQueryData<Project[]>(["projects"], (old) => {
+        if (!old) return old;
+        // Update task count in affected project
+        return old.map((p) => {
+          if (p.id === updatedTask.projectId) {
+            return { ...p, assignees: updatedTask.assignees };
+          }
+          return p;
+        });
+      });
+    },
+  });
+
+  const reassignProjectMutation = useMutation({
+    mutationFn: async ({ id, assignees }: { id: string; assignees: string[] }) => {
+      const res = await apiFetch<{ item: Project }>(`/api/projects/${id}/reassign`, {
+        method: "PUT",
+        body: JSON.stringify({ assignees }),
+      });
+      return res.item;
+    },
+    onSuccess: (updatedProject) => {
+      // Update cache directly instead of refetching
+      queryClient.setQueryData<Project[]>(["projects"], (old) => {
+        if (!old) return old;
+        return old.map((p) => (p.id === updatedProject.id ? updatedProject : p));
+      });
+    },
+  });
+
+  // Reassign handlers
+  const handleReassignTask = async () => {
+    if (!reassigningTask) return;
+    setIsReassigningTask(true);
+    try {
+      await reassignTaskMutation.mutateAsync({ id: reassigningTask.id, assignees: reassignTaskAssignees });
+      setIsReassignTaskOpen(false);
+      setReassigningTask(null);
+      setReassignTaskAssignees([]);
+      toast({ title: "Task reassigned", description: "Task has been reassigned successfully." });
+    } catch (err) {
+      toast({
+        title: "Failed to reassign task",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setIsReassigningTask(false);
+    }
+  };
+
+  const handleReassignProject = async () => {
+    if (!reassigningProject) return;
+    setIsReassigningProject(true);
+    try {
+      await reassignProjectMutation.mutateAsync({ id: reassigningProject.id, assignees: reassignProjectAssignees });
+      setIsReassignProjectOpen(false);
+      setReassigningProject(null);
+      setReassignProjectAssignees([]);
+      toast({ title: "Project reassigned", description: "Project has been reassigned successfully." });
+    } catch (err) {
+      toast({
+        title: "Failed to reassign project",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setIsReassigningProject(false);
+    }
+  };
 
   const form = useForm<CreateTaskValues>({
     resolver: zodResolver(createTaskSchema),
@@ -1403,7 +1503,7 @@ export default function Tasks() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="absolute top-2 right-2 h-8 w-8 p-0 bg-background/80"
+                            className="absolute top-2 right-2 h-8 w-8 p-0 bg-background/80 hover:bg-background"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <MoreHorizontal className="h-4 w-4" />
@@ -1424,6 +1524,19 @@ export default function Tasks() {
                           >
                             <Edit className="h-4 w-4 mr-2" />
                             Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReassigningProject(project);
+                              setReassignProjectAssignees(project.assignees || []);
+                              setIsReassignProjectOpen(true);
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <UserCog className="h-4 w-4 mr-2" />
+                            Reassign
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
@@ -1515,6 +1628,19 @@ export default function Tasks() {
                           >
                             <Eye className="h-4 w-4 mr-2" />
                             View
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReassigningTask(task);
+                              setReassignTaskAssignees(task.assignees || []);
+                              setIsReassignTaskOpen(true);
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <UserCog className="h-4 w-4 mr-2" />
+                            Reassign
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
@@ -2157,7 +2283,166 @@ export default function Tasks() {
         </AlertDialogContent>
       </AlertDialog>
 
-      
+      {/* Reassign Task Dialog */}
+      <Dialog open={isReassignTaskOpen} onOpenChange={setIsReassignTaskOpen}>
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto rounded-lg">
+          <DialogHeader>
+            <DialogTitle>Reassign Task</DialogTitle>
+            <DialogDescription>
+              Change the assignees for task "{reassigningTask?.title}".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Select Assignees</label>
+              <Popover open={reassignTaskOpen} onOpenChange={setReassignTaskOpen}>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="outline" className="w-full justify-between h-10">
+                    <span className="truncate">{reassignTaskAssignees.length > 0 ? reassignTaskAssignees.join(", ") : "Select assignees"}</span>
+                    <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search employees..." />
+                    <CommandList>
+                      <CommandEmpty>No employee found.</CommandEmpty>
+                      <CommandGroup>
+                        {activeEmployees.map((employee) => (
+                          <CommandItem
+                            key={employee.id}
+                            value={employee.name}
+                            onSelect={() => {
+                              setReassignTaskAssignees((prev) =>
+                                prev.includes(employee.name)
+                                  ? prev.filter((name) => name !== employee.name)
+                                  : [...prev, employee.name]
+                              );
+                              setReassignTaskOpen(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", reassignTaskAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} />
+                            <Avatar className="h-6 w-6 mr-2">
+                              <AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback>
+                            </Avatar>
+                            {employee.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {reassignTaskAssignees.length === 0 && <p className="text-xs text-destructive">At least one assignee is required</p>}
+            </div>
+          </div>
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsReassignTaskOpen(false);
+                setReassigningTask(null);
+                setReassignTaskAssignees([]);
+              }}
+              disabled={isReassigningTask}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleReassignTask}
+              disabled={isReassigningTask || reassignTaskAssignees.length === 0}
+              className="w-full sm:w-auto gap-2"
+            >
+              {isReassigningTask && <Loader2 className="h-4 w-4 animate-spin" />}
+              Reassign Task
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reassign Project Dialog */}
+      <Dialog open={isReassignProjectOpen} onOpenChange={setIsReassignProjectOpen}>
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto rounded-lg">
+          <DialogHeader>
+            <DialogTitle>Reassign Project</DialogTitle>
+            <DialogDescription>
+              Change the assignees for project "{reassigningProject?.name}".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Select Assignees</label>
+              <Popover open={reassignProjectOpen} onOpenChange={setReassignProjectOpen}>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="outline" className="w-full justify-between h-10">
+                    <span className="truncate">{reassignProjectAssignees.length > 0 ? reassignProjectAssignees.join(", ") : "Select assignees"}</span>
+                    <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search employees..." />
+                    <CommandList>
+                      <CommandEmpty>No employee found.</CommandEmpty>
+                      <CommandGroup>
+                        {activeEmployees.map((employee) => (
+                          <CommandItem
+                            key={employee.id}
+                            value={employee.name}
+                            onSelect={() => {
+                              setReassignProjectAssignees((prev) =>
+                                prev.includes(employee.name)
+                                  ? prev.filter((name) => name !== employee.name)
+                                  : [...prev, employee.name]
+                              );
+                              setReassignProjectOpen(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", reassignProjectAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} />
+                            <Avatar className="h-6 w-6 mr-2">
+                              <AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback>
+                            </Avatar>
+                            {employee.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {reassignProjectAssignees.length === 0 && <p className="text-xs text-destructive">At least one assignee is required</p>}
+            </div>
+          </div>
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsReassignProjectOpen(false);
+                setReassigningProject(null);
+                setReassignProjectAssignees([]);
+              }}
+              disabled={isReassigningProject}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleReassignProject}
+              disabled={isReassigningProject || reassignProjectAssignees.length === 0}
+              className="w-full sm:w-auto gap-2"
+            >
+              {isReassigningProject && <Loader2 className="h-4 w-4 animate-spin" />}
+              Reassign Project
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {selectedProject && (
         <div className="space-y-6">
           {tasksQuery.isLoading ? (
