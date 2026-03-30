@@ -10,8 +10,8 @@ export function _getApiBaseUrl() {
   const raw = String(import.meta.env.VITE_API_URL || "").trim();
   if (raw) return raw;
   // Always use Vercel backend URL
-  // return "https://task.se7eninc.com";
-  return "http://localhost:5000";
+   return "https://task.se7eninc.com";
+  
 }
 
 export function getApiBaseUrl() {
