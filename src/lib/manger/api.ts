@@ -76,7 +76,7 @@ function getApiBaseUrl(): string {
 
 function getStoredToken(): string | null {
   try {
-    const raw = localStorage.getItem("taskflow_auth");
+    const raw = localStorage.getItem("employee_auth");
     if (!raw) return null;
     const parsed = JSON.parse(raw) as StoredAuth;
     return typeof parsed.token === "string" && parsed.token ? parsed.token : null;
@@ -84,6 +84,9 @@ function getStoredToken(): string | null {
     return null;
   }
 }
+
+
+
 
 export async function apiFetch<T>(
   path: string,

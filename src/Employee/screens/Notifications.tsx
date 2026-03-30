@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+import { useSocket } from "@/contexts/SocketContext"; 
+
 import {
   Bell,
   CheckCircle,
@@ -13,6 +16,9 @@ import {
   CheckCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { listResource } from "@/lib/manger/api";
+
+
 
 interface Notification {
   id: string;
@@ -22,6 +28,8 @@ interface Notification {
   timestamp: string;
   read: boolean;
 }
+
+
 
 const mockNotifications: Notification[] = [
   {
@@ -59,9 +67,106 @@ const mockNotifications: Notification[] = [
 ];
 
 export default function EmployeeNotifications() {
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+const [notifications, setNotifications] = useState<Notification[]>([]);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = useMemo(() => {
+  return notifications.filter((n) => !n.read).length;
+}, [notifications]);
+  const { socket } = useSocket();
+
+
+
+const user = JSON.parse(localStorage.getItem("employee") || "{}");
+const role = user?.role || "employees";
+
+
+useEffect(() => {
+  if (!socket) return;
+
+  const handleNotification = (data: any) => {
+    console.log("FROM BACKEND:", data);
+
+    if (data.audience !== "all" && data.audience !== role) {
+    return;
+  }
+
+    const formatted: Notification = {
+      id: data.id || data._id || Date.now().toString(),
+      title: data.title || "New Notification",
+      message: data.content || data.message || "No message body",
+      type: data.type === "broadcast" ? "info" : (data.type || "info"),
+      timestamp: data.timestamp || new Date().toISOString(),
+      read: false,
+    };
+
+    setNotifications((prev) => {
+      const exists = prev.find((n) => n.id === formatted.id);
+      if (exists) return prev;
+
+      return [formatted, ...prev]; 
+    });
+  };
+
+  socket.on("new-notification", handleNotification);
+
+  return () => {
+    socket.off("new-notification", handleNotification);
+  };
+}, [socket]);
+
+
+useEffect(() => {
+  const loadNotifications = async () => {
+    try {
+      const data = await listResource<Notification>("notifications");;
+     //console.log("API DATA:", data);
+     const filteredData = (data || []).filter((n: any) => {
+     return n.audience === "all" || n.audience === role;
+    });
+
+const formatted: Notification[] = filteredData.map((n: any) => {
+      const safeType: Notification["type"] =
+        n.type === "success" ||
+        n.type === "warning" ||
+        n.type === "task"
+          ? n.type
+          : "info";
+
+          return {
+            id: n.id || n._id,
+            title: n.title || "Notification",
+            message: n.content || n.message,
+            type: safeType, 
+            timestamp: n.timestamp,
+            read: false,
+          };
+        });
+
+      
+      formatted.sort(
+        (a, b) =>
+          new Date(b.timestamp).getTime() -
+          new Date(a.timestamp).getTime()
+      );
+
+      setNotifications((prev) => {
+    const merged = [...formatted, ...prev];
+    const unique = merged.filter(
+    (n, index, self) =>
+      index === self.findIndex((x) => x.id === n.id)
+    );
+
+    return unique;
+}   );
+    } catch (err) {
+      console.error("Failed to load notifications", err);
+    }
+  };
+
+  loadNotifications();
+}, []);
+
+
 
   const markAsRead = (id: string) => {
     setNotifications((prev) =>

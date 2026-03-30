@@ -86,6 +86,9 @@ export default function Notifications() {
     };
   }, []);
 
+
+  
+
   const refresh = async () => {
     const notificationsList = await listResource<NotificationItem>("notifications");
     setItems(notificationsList);

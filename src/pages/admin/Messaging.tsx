@@ -5,6 +5,8 @@ import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/admin/ui/avatar";
+import { io } from "socket.io-client";
+
 import {
   Dialog,
   DialogContent,
@@ -85,7 +87,7 @@ export default function Messaging() {
   const [conversationMessages, setConversationMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
-
+ const socketRef = useRef<any>(null);
   // View state
   const [view, setView] = useState<"list" | "conversation" | "employees">("list");
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -100,6 +102,43 @@ export default function Messaging() {
     const saved = localStorage.getItem("messaging-bookmarked");
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
+
+
+  useEffect(() => {
+  socketRef.current = io("http://192.168.31.13:5000", { 
+    path: "/api/socket.io",
+    transports: ["websocket"],
+  });
+
+  socketRef.current.on("connect", () => {
+    console.log("✅ Admin connected to socket");
+  });
+
+ 
+  socketRef.current.on("new-message", (data: any) => {
+    console.log("📩 New message received:", data);
+
+  
+    if (selectedEmployee && 
+        (data.sender === selectedEmployee.name || data.recipient === selectedEmployee.name)) {
+      
+      //setConversationMessages((prev) => [...prev, data]);
+      setConversationMessages((prev) => {
+        const exists = prev.find((m) => m.id === data.id);
+        if (exists) return prev;
+
+        return [...prev, data];
+      });
+    }
+
+  
+    loadConversations();
+  });
+
+  return () => {
+    socketRef.current.disconnect();
+  };
+}, [selectedEmployee]);
 
   // Save to localStorage when changed
   useEffect(() => {
@@ -290,10 +329,7 @@ export default function Messaging() {
 
       if (res?.item) {
         const newMsg = normalizeMessage(res.item);
-        setConversationMessages((prev) => [...prev, newMsg]);
         setNewMessageContent("");
-
-        // Refresh conversations to update last message
         await loadConversations();
       }
     } catch (e) {

@@ -28,50 +28,35 @@ export function SocketProvider({ children }: SocketProviderProps) {
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
 
+  
   useEffect(() => {
+  const socket = io("http://192.168.31.13:5000", {
+    path: "/api/socket.io/",
+    withCredentials: true,
+    transports: ["websocket", "polling"],
+  });
 
-    // Get API URL from env and convert http to ws
-    const apiUrl = import.meta.env.VITE_API_URL || "";
-    let socketUrl = "";
+  socketRef.current = socket;
 
-    if (apiUrl && !apiUrl.startsWith("/") && !apiUrl.includes(window.location.host)) {
-      // Cross-origin: use the defined URL
-      socketUrl = apiUrl.replace(/^http/, "ws");
-    } else {
-      // Same-origin or relative: use window origin
-      socketUrl = window.location.origin.replace(/^http/, "ws");
-    }
+  socket.on("connect", () => {
+    console.log("✅ Socket connected:", socket.id);
+    setIsConnected(true);
+  });
 
-    // Initialize socket connection
-    const socket = io(socketUrl, {
-      path: "/api/socket.io/",
-      withCredentials: true,
-      transports: ["polling"], // Forced polling to prevent Vercel websocket noise
-    });
+  socket.on("disconnect", () => {
+    console.log("❌ Socket disconnected");
+    setIsConnected(false);
+  });
 
-    socketRef.current = socket;
+  socket.on("connect_error", (error) => {
+    console.error("❌ Socket error:", error);
+  });
 
-    socket.on("connect", () => {
-      console.log("Socket connected:", socket.id);
-      setIsConnected(true);
-    });
-
-    socket.on("disconnect", () => {
-      console.log("Socket disconnected");
-      setIsConnected(false);
-    });
-
-    socket.on("connect_error", (error) => {
-      console.error("Socket connection error:", error);
-      setIsConnected(false);
-    });
-
-    // Cleanup on unmount
-    return () => {
-      socket.disconnect();
-      socketRef.current = null;
-    };
-  }, []);
+  return () => {
+    socket.disconnect();
+    socketRef.current = null;
+  };
+}, []);
 
   const joinTask = (taskId: string) => {
     if (socketRef.current && isConnected) {
