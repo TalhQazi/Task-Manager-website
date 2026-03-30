@@ -30,7 +30,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
 
   
   useEffect(() => {
-  const socket = io("http://192.168.31.13:5000", {
+  const socket = io("https://task.se7eninc.com", {
     path: "/api/socket.io/",
     withCredentials: true,
     transports: ["websocket", "polling"],
