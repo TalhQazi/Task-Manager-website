@@ -76,9 +76,16 @@ function getApiBaseUrl(): string {
 
 function getStoredToken(): string | null {
   try {
-    const raw = localStorage.getItem("employee_auth");
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as StoredAuth;
+    // Admin/manager token is stored under "taskflow_auth"
+    const adminRaw = localStorage.getItem("taskflow_auth");
+    if (adminRaw) {
+      const parsed = JSON.parse(adminRaw) as StoredAuth;
+      if (typeof parsed.token === "string" && parsed.token) return parsed.token;
+    }
+    // Employee token fallback
+    const empRaw = localStorage.getItem("employee_auth");
+    if (!empRaw) return null;
+    const parsed = JSON.parse(empRaw) as StoredAuth;
     return typeof parsed.token === "string" && parsed.token ? parsed.token : null;
   } catch {
     return null;
