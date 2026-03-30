@@ -1,4 +1,4 @@
-import { Bell, Bug, Camera, ChevronDown, ChevronUp, Mail, Menu, Move, Save, User, X as XIcon } from "lucide-react";
+import { Bell, Bug, Camera, ChevronDown, ChevronUp, Loader2, Mail, Menu, Move, Save, User, X as XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -272,55 +272,68 @@ export function Header({ onMenuClick }: HeaderProps) {
   const [reportOpen, setReportOpen] = useState(false);
   const [reportTitle, setReportTitle] = useState("");
   const [reportDescription, setReportDescription] = useState("");
-  const [reportImageFile, setReportImageFile] = useState<File | null>(null);
-  const [reportImagePreviewUrl, setReportImagePreviewUrl] = useState("");
+  const [reportImageFiles, setReportImageFiles] = useState<File[]>([]);
+  const [reportImagePreviewUrls, setReportImagePreviewUrls] = useState<string[]>([]);
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
+  const [reportSuccess, setReportSuccess] = useState<string | null>(null);
 
   const resetReport = () => {
     setReportTitle("");
     setReportDescription("");
-    setReportImageFile(null);
-    if (reportImagePreviewUrl) URL.revokeObjectURL(reportImagePreviewUrl);
-    setReportImagePreviewUrl("");
+    setReportImageFiles([]);
+    reportImagePreviewUrls.forEach(url => { if (url) URL.revokeObjectURL(url); });
+    setReportImagePreviewUrls([]);
     setReportError(null);
+    setReportSuccess(null);
   };
 
   const submitReport = async () => {
     const title = reportTitle.trim();
     const description = reportDescription.trim();
     if (!title || !description) {
-      setReportError("Title and description are required");
+      setReportError("Please enter both a title and description for the bug report.");
       return;
+    }
+
+    // Validate file sizes (16MB per file limit)
+    const MAX_FILE_SIZE = 16 * 1024 * 1024;
+    for (const file of reportImageFiles) {
+      if (file.size > MAX_FILE_SIZE) {
+        setReportError(`File "${file.name}" is too large. Maximum file size is 16MB.`);
+        return;
+      }
     }
 
     try {
       setReportSubmitting(true);
       setReportError(null);
+      setReportSuccess(null);
 
       const toDataUrl = (file: File) =>
         new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => resolve(String(reader.result || ""));
-          reader.onerror = () => reject(new Error("Failed to read image"));
+          reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
           reader.readAsDataURL(file);
         });
 
-      const attachment = reportImageFile
-        ? {
-            fileName: reportImageFile.name,
-            url: await toDataUrl(reportImageFile),
-            mimeType: reportImageFile.type,
-            size: reportImageFile.size,
-          }
-        : undefined;
+      // Convert all files to attachments
+      const attachments = await Promise.all(
+        reportImageFiles.map(async (file) => ({
+          fileName: file.name,
+          url: await toDataUrl(file),
+          mimeType: file.type,
+          size: file.size,
+        }))
+      );
 
       await apiFetch("/api/bugs", {
         method: "POST",
         body: JSON.stringify({
           title,
           description,
-          attachment,
+          attachments,
           source: {
             panel: "admin",
             path: typeof window !== "undefined" ? window.location.pathname : "/admin",
@@ -328,12 +341,54 @@ export function Header({ onMenuClick }: HeaderProps) {
         }),
       });
 
-      setReportOpen(false);
-      resetReport();
+      setReportSuccess("Bug report submitted successfully! Thank you for your feedback.");
+      setTimeout(() => {
+        setReportOpen(false);
+        resetReport();
+      }, 2000);
     } catch (e) {
-      setReportError(e instanceof Error ? e.message : "Failed to submit report");
+      const errorMessage = e instanceof Error ? e.message : "Failed to submit report";
+      setReportError(`Failed to submit bug report: ${errorMessage}. Please try again or contact support.`);
     } finally {
       setReportSubmitting(false);
+    }
+  };
+
+  const handlePasteImage = async () => {
+    try {
+      const clipboardItems = await navigator.clipboard.read();
+      let pastedCount = 0;
+      const newFiles: File[] = [];
+
+      for (const item of clipboardItems) {
+        // Check for image types
+        const imageType = item.types.find(type => type.startsWith("image/"));
+        if (imageType && reportImageFiles.length + pastedCount < 5) {
+          const blob = await item.getType(imageType);
+          const fileName = `pasted-image-${Date.now()}.png`;
+          const file = new File([blob], fileName, { type: imageType });
+          
+          if (file.size > 16 * 1024 * 1024) {
+            setReportError(`Pasted image is too large. Maximum file size is 16MB.`);
+            return;
+          }
+          
+          newFiles.push(file);
+          pastedCount++;
+        }
+      }
+
+      if (newFiles.length > 0) {
+        setReportImageFiles(prev => [...prev, ...newFiles]);
+        const newUrls = newFiles.map(file => URL.createObjectURL(file));
+        setReportImagePreviewUrls(prev => [...prev, ...newUrls]);
+        setReportError(null);
+      } else {
+        setReportError("No image found in clipboard. Please copy an image first.");
+      }
+    } catch (err) {
+      console.error("Paste error:", err);
+      setReportError("Unable to paste image. Please make sure you've copied an image to your clipboard.");
     }
   };
 
@@ -786,8 +841,14 @@ export function Header({ onMenuClick }: HeaderProps) {
             </DialogDescription>
           </DialogHeader>
 
+          {reportSuccess && (
+            <div className="rounded-md bg-green-100 p-3 border border-green-300">
+              <p className="text-xs sm:text-sm text-green-800 break-words">{reportSuccess}</p>
+            </div>
+          )}
+
           {reportError && (
-            <div className="rounded-md bg-destructive/10 p-3">
+            <div className="rounded-md bg-destructive/10 p-3 border border-destructive/30">
               <p className="text-xs sm:text-sm text-destructive break-words">{reportError}</p>
             </div>
           )}
@@ -813,22 +874,72 @@ export function Header({ onMenuClick }: HeaderProps) {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-xs sm:text-sm font-medium">Screenshot (optional)</label>
+              <label className="block text-xs sm:text-sm font-medium">Screenshots (optional)</label>
+              <p className="text-xs text-muted-foreground">Upload up to 5 images (max 16MB each)</p>
               <input
                 type="file"
                 accept="image/*"
+                multiple
+                disabled={reportImageFiles.length >= 5 || reportSubmitting}
                 onChange={(e) => {
-                  const file = e.target.files?.[0] || null;
-                  setReportImageFile(file);
-                  if (reportImagePreviewUrl) URL.revokeObjectURL(reportImagePreviewUrl);
-                  setReportImagePreviewUrl(file ? URL.createObjectURL(file) : "");
+                  const files = Array.from(e.target.files || []);
+                  const remainingSlots = 5 - reportImageFiles.length;
+                  const newFiles = files.slice(0, remainingSlots);
+                  
+                  // Check file sizes
+                  const oversizedFiles = newFiles.filter(f => f.size > 16 * 1024 * 1024);
+                  if (oversizedFiles.length > 0) {
+                    setReportError(`Some files exceed 16MB limit: ${oversizedFiles.map(f => f.name).join(", ")}`);
+                    return;
+                  }
+                  
+                  setReportImageFiles(prev => [...prev, ...newFiles]);
+                  const newUrls = newFiles.map(file => URL.createObjectURL(file));
+                  setReportImagePreviewUrls(prev => [...prev, ...newUrls]);
                 }}
+                className="block w-full text-xs sm:text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs sm:file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
               />
-              {reportImagePreviewUrl ? (
-                <div className="w-full overflow-hidden rounded-lg border bg-white">
-                  <img src={reportImagePreviewUrl} alt="preview" className="w-full h-auto max-h-64 object-contain" />
+              
+              {/* Paste Image Button */}
+              <button
+                type="button"
+                onClick={handlePasteImage}
+                disabled={reportImageFiles.length >= 5 || reportSubmitting}
+                className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-lg border-2 border-dashed border-gray-300 hover:border-primary hover:bg-primary/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                <span className="text-sm text-gray-600">Click to paste image from clipboard</span>
+                <span className="text-xs text-gray-400">(Ctrl+V)</span>
+              </button>
+              
+              {reportImagePreviewUrls.length > 0 && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+                  {reportImagePreviewUrls.map((url, index) => (
+                    <div key={index} className="relative group">
+                      <img 
+                        src={url} 
+                        alt={`Preview ${index + 1}`} 
+                        className="w-full h-24 sm:h-32 object-cover rounded-lg border"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          URL.revokeObjectURL(url);
+                          setReportImagePreviewUrls(prev => prev.filter((_, i) => i !== index));
+                          setReportImageFiles(prev => prev.filter((_, i) => i !== index));
+                        }}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        disabled={reportSubmitting}
+                      >
+                        <XIcon className="h-3 w-3" />
+                      </button>
+                      <p className="text-xs truncate mt-1 text-center">{reportImageFiles[index]?.name}</p>
+                    </div>
+                  ))}
                 </div>
-              ) : null}
+              )}
             </div>
           </div>
 
@@ -841,8 +952,21 @@ export function Header({ onMenuClick }: HeaderProps) {
             >
               Cancel
             </Button>
-            <Button onClick={() => void submitReport()} className="w-full sm:w-auto" disabled={reportSubmitting}>
-              Submit
+            <Button 
+              onClick={() => void submitReport()} 
+              className="w-full sm:w-auto min-w-[120px]" 
+              disabled={reportSubmitting || !!reportSuccess}
+            >
+              {reportSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Submitting...
+                </>
+              ) : reportSuccess ? (
+                "Submitted!"
+              ) : (
+                "Submit"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
