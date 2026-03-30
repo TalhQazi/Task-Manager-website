@@ -1590,14 +1590,37 @@ export default function Tasks() {
                         </div>
                         <div className="flex items-center justify-between text-xs gap-2 flex-wrap">
                           <div className="flex gap-1 flex-wrap">
-                            <Badge className="capitalize text-xs" variant="outline" style={{
-                              backgroundColor: task.priority === 'high' ? 'rgb(239, 68, 68)' : task.priority === 'medium' ? 'rgb(234, 179, 8)' : 'rgb(34, 197, 94)',
-                              color: 'white'
-                            }}>
+                            <Badge 
+                              className={cn(
+                                "capitalize text-xs relative overflow-hidden",
+                                task.status === 'completed' && "task-complete-pulse"
+                              )} 
+                              variant="outline"
+                              style={{
+                                backgroundColor: task.priority === 'high' ? 'rgb(239, 68, 68)' : task.priority === 'medium' ? 'rgb(234, 179, 8)' : 'rgb(34, 197, 94)',
+                                color: 'white'
+                              }}
+                            >
                               {task.priority}
                             </Badge>
-                            <Badge className="capitalize text-xs" variant="outline">
-                              {task.status}
+                            <Badge 
+                              className={cn(
+                                "capitalize text-xs relative overflow-hidden",
+                                task.status === 'completed' && "bg-green-500 text-white border-green-500"
+                              )} 
+                              variant="outline"
+                            >
+                              <span className="relative z-10">{task.status}</span>
+                              {task.status === 'completed' && (
+                                <>
+                                  {/* Neon pulse ring - 600ms */}
+                                  <span className="absolute inset-0 rounded-full animate-pulse-ring" />
+                                  {/* Electric streak - 300ms */}
+                                  <span className="absolute inset-0 animate-electric-streak" />
+                                  {/* Particle shimmer - <1s */}
+                                  <span className="absolute inset-0 animate-particle-shimmer" />
+                                </>
+                              )}
                             </Badge>
                           </div>
                           <span className="text-muted-foreground text-xs whitespace-nowrap">

@@ -1,4 +1,5 @@
 import { ReactNode, useState, useEffect, createContext, useContext } from "react";
+import { useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { cn } from "@/lib/utils";
@@ -16,8 +17,15 @@ interface AdminLayoutProps {
 }
 
 export function AdminLayout({ children }: AdminLayoutProps) {
+  const location = useLocation();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(250);
+  const [pageKey, setPageKey] = useState(0);
+
+  // Trigger page transition animation on route change
+  useEffect(() => {
+    setPageKey(prev => prev + 1);
+  }, [location.pathname]);
 
   // Listen for header height updates
   useEffect(() => {
@@ -39,7 +47,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </div>
 
           <main className={cn("flex-1 px-4 sm:px-6 lg:px-8 py-6 transition-all duration-300", "md:ml-56")}>
-            <div className="w-full max-w-full animate-fade-in">
+            <div key={pageKey} className="w-full max-w-full animate-page-enter">
               {children}
             </div>
           </main>

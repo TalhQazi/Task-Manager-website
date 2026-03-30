@@ -653,11 +653,11 @@ export function Header({ onMenuClick }: HeaderProps) {
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-white z-30 relative pointer-events-auto max-w-[50%] sm:max-w-none">
             <button
               type="button"
-              className="inline-flex md:hidden h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors mr-2"
+              className="group inline-flex md:hidden h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/[0.14] hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear mr-2"
               aria-label="Open navigation"
               onClick={() => onMenuClick?.()}
             >
-              <Menu className="h-5 w-5" />
+              <Menu className="h-5 w-5 group-hover:brightness-[108%] transition-all duration-100 linear" />
             </button>
 
             <DropdownMenu>
@@ -706,10 +706,10 @@ export function Header({ onMenuClick }: HeaderProps) {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="inline-flex relative h-7 w-7 sm:h-9 sm:w-9 rounded-full bg-white/10 hover:bg-white/20"
+                  className="group inline-flex relative h-7 w-7 sm:h-9 sm:w-9 rounded-full bg-white/10 hover:bg-white/[0.14] hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear"
                   aria-label="Messages"
                 >
-                  <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4 group-hover:brightness-[108%] transition-all duration-100 linear" />
                   {unreadMessageCount > 0 && (
                     <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[10px]">
                       {Math.min(unreadMessageCount, 9)}
@@ -754,10 +754,10 @@ export function Header({ onMenuClick }: HeaderProps) {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="inline-flex relative h-7 w-7 sm:h-9 sm:w-9 rounded-full bg-white/10 hover:bg-white/20"
+                  className="group inline-flex relative h-7 w-7 sm:h-9 sm:w-9 rounded-full bg-white/10 hover:bg-white/[0.14] hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear"
                   aria-label="Notifications"
                 >
-                  <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                  <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4 group-hover:brightness-[108%] transition-all duration-100 linear" />
                   {unreadCount > 0 && (
                     <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[10px]">
                      {Math.min(unreadCount, 9)}
@@ -793,14 +793,14 @@ export function Header({ onMenuClick }: HeaderProps) {
               type="button"
               variant="ghost"
               size="icon"
-              className="inline-flex relative h-7 w-7 sm:h-9 sm:w-9 rounded-full bg-white/10 hover:bg-white/20"
+              className="group inline-flex relative h-7 w-7 sm:h-9 sm:w-9 rounded-full bg-white/10 hover:bg-white/[0.14] hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear"
               aria-label="Report Issue"
               onClick={() => {
                 resetReport();
                 setReportOpen(true);
               }}
             >
-              <Bug className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <Bug className="h-3.5 w-3.5 sm:h-4 sm:w-4 group-hover:brightness-[108%] transition-all duration-100 linear" />
             </Button>
           </div>
 
