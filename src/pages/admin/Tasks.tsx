@@ -1785,7 +1785,7 @@ export default function Tasks() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Task Dialog */}
+      
       <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) setSelectedTask(null); }}>
         <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto rounded-lg">
           <DialogHeader><DialogTitle>Edit Task</DialogTitle><DialogDescription>Update task details.</DialogDescription></DialogHeader>
@@ -1807,7 +1807,7 @@ export default function Tasks() {
         </DialogContent>
       </Dialog>
 
-      {/* Archive Confirmation Dialog */}
+      
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent className="w-[95vw] max-w-[95vw] sm:max-w-md rounded-lg">
           <AlertDialogHeader><AlertDialogTitle>Archive task?</AlertDialogTitle><AlertDialogDescription>This will move the task and its comments to the archive. You can restore it later from the Archive Data page.</AlertDialogDescription></AlertDialogHeader>
@@ -1815,7 +1815,7 @@ export default function Tasks() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Task Cards Grid (only visible after project selected) */}
+      
       {selectedProject && (
         <div className="space-y-6">
           {tasksQuery.isLoading ? (
