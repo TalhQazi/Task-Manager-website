@@ -7,7 +7,7 @@ type ApiErrorBody = {
 };
 
 export function _getApiBaseUrl() {
-  const raw = String(import.meta.env.VITE_API_URL || "").trim();
+  const raw = String(import.meta.env.VITE_API_URL || "https://task.se7eninc.com").trim();
   if (raw) return raw;
   // Always use Vercel backend URL
    return "https://task.se7eninc.com";
@@ -15,7 +15,7 @@ export function _getApiBaseUrl() {
 }
 
 export function getApiBaseUrl() {
-  const apiBase = String(import.meta.env.VITE_API_URL || "").trim();
+  const apiBase = String(import.meta.env.VITE_API_URL || "https://task.se7eninc.com").trim();
 
   if (!apiBase) {
     throw new Error("VITE_API_URL is not set");
