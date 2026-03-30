@@ -6,6 +6,9 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+
+import { io } from "socket.io-client";
+
 import {
   MessageCircle,
   Send,
@@ -64,6 +67,8 @@ export default function EmployeeMessages() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  
+  const socketRef = useRef<any>(null);
 
   // Load conversations on mount
   useEffect(() => {
@@ -84,6 +89,39 @@ export default function EmployeeMessages() {
     };
     loadConversations();
   }, []);
+
+
+  useEffect(() => {
+  socketRef.current = io("http://192.168.31.13:5000", {
+    path: "/api/socket.io",
+    transports: ["websocket"],
+  });
+
+  socketRef.current.on("connect", () => {
+    console.log("✅ Employee connected");
+  });
+
+  socketRef.current.on("new-message", (data: any) => {
+    console.log("📩 Incoming:", data);
+
+    if (
+      data.sender === employeeName ||
+      data.recipient === employeeName
+    ) {
+       setMessages((prev) => {
+    const alreadyExists = prev.find((m) => m.id === data.id);
+
+    if (alreadyExists) {
+      return prev; 
+    }
+
+    return [...prev, data]; 
+  });
+    }
+  });
+
+  return () => socketRef.current.disconnect();
+}, [employeeName]);
 
   // Load messages when conversation is selected
   useEffect(() => {
@@ -133,7 +171,7 @@ export default function EmployeeMessages() {
       };
 
       const res = await sendMessage(newMessage);
-      setMessages((prev) => [...prev, res.item]);
+      //setMessages((prev) => [...prev, res.item]);
       setMessageInput("");
 
       // Update last message in conversations list

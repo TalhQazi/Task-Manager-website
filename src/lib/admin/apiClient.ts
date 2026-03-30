@@ -6,12 +6,22 @@ type ApiErrorBody = {
   };
 };
 
-export function getApiBaseUrl() {
+export function _getApiBaseUrl() {
   const raw = String(import.meta.env.VITE_API_URL || "").trim();
   if (raw) return raw;
   // Always use Vercel backend URL
   // return "https://task.se7eninc.com";
   return "http://localhost:5000";
+}
+
+export function getApiBaseUrl() {
+  const apiBase = String(import.meta.env.VITE_API_URL || "").trim();
+
+  if (!apiBase) {
+    throw new Error("VITE_API_URL is not set");
+  }
+
+  return apiBase;
 }
 
 async function parseJsonSafe(res: Response) {
@@ -33,7 +43,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   const headers = new Headers(init?.headers);
 
   const isFormData =
-    typeof FormData !== "undefined" &&
+    typeof FormData !== "undefined" && 
     !!init?.body &&
     init.body instanceof FormData;
 
