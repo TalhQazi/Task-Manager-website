@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/admin/ui/button";
@@ -81,6 +81,8 @@ import {
   Loader2,
   X,
   Archive,
+  Send,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/admin/utils";
 import { apiFetch } from "@/lib/admin/apiClient";
@@ -89,6 +91,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import jsPDF from "jspdf";
 import { useSocket } from "@/contexts/SocketContext";
 
+// ... (all your interfaces and types remain exactly the same)
 interface Task {
   id: string;
   title: string;
@@ -296,7 +299,7 @@ const createTaskSchema = z.object({
 });
 
 type CreateTaskValues = z.infer<typeof createTaskSchema>;
-//use the export deafult function on it 
+
 export default function Tasks() {
   const { socket, joinTask, leaveTask } = useSocket();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -340,6 +343,10 @@ export default function Tasks() {
   const [commentDraft, setCommentDraft] = useState("");
   const [commentError, setCommentError] = useState<string | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
   const queryClient = useQueryClient();
 
   const currentUsername = getAuthState().username || "";
@@ -745,7 +752,6 @@ export default function Tasks() {
         attachments,
       };
 
-      // Only add projectId if not a direct task
       if (!isDirectTask && selectedProject) {
         taskPayload.projectId = selectedProject.id;
       }
@@ -801,19 +807,49 @@ export default function Tasks() {
     void loadComments(task.id);
   };
 
-  const loadComments = async (taskId: string) => {
+  const loadComments = async (taskId: string, silent: boolean = false) => {
     try {
-      setCommentsLoading(true);
+      if (!silent) setCommentsLoading(true);
       setCommentError(null);
       const res = await apiFetch<{ items: TaskComment[] }>(`/api/tasks/${encodeURIComponent(taskId)}/comments?_t=${Date.now()}`);
-      setComments(Array.isArray(res.items) ? res.items : []);
+      const newComments = Array.isArray(res.items) ? res.items : [];
+      setComments(newComments);
+      // Auto scroll to bottom if new messages arrived and chat is open
+      setTimeout(() => {
+        if (chatContainerRef.current && isViewOpen) {
+          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+      }, 50);
     } catch (e) {
-      setCommentError(e instanceof Error ? e.message : "Failed to load messages");
+      if (!silent) setCommentError(e instanceof Error ? e.message : "Failed to load messages");
       setComments([]);
     } finally {
-      setCommentsLoading(false);
+      if (!silent) setCommentsLoading(false);
     }
   };
+
+  // Auto-refresh comments every 5 seconds when task view is open
+  useEffect(() => {
+    if (isViewOpen && selectedTask && autoRefreshEnabled) {
+      // Clear any existing interval
+      if (autoRefreshIntervalRef.current) {
+        clearInterval(autoRefreshIntervalRef.current);
+      }
+      // Set up new interval for auto-refresh
+      autoRefreshIntervalRef.current = setInterval(() => {
+        if (selectedTask && isViewOpen) {
+          loadComments(selectedTask.id, true);
+        }
+      }, 5000);
+    }
+    
+    return () => {
+      if (autoRefreshIntervalRef.current) {
+        clearInterval(autoRefreshIntervalRef.current);
+        autoRefreshIntervalRef.current = null;
+      }
+    };
+  }, [isViewOpen, selectedTask, autoRefreshEnabled]);
 
   const sendComment = async () => {
     if (!selectedTask) return;
@@ -826,10 +862,14 @@ export default function Tasks() {
         method: "POST",
         body: JSON.stringify({ message: msg }),
       });
-      setComments((prev) => [...prev, res.item]);      setCommentDraft("");
-      // No need to dispatch here, standard fetch updates list, wait, we do.
-      // Wait, socket will also return the comment? Actually we push it manually 
-      // above, so we don't want to duplicate. The backend socket emit sends it to all EXCept sender
+      setComments((prev) => [...prev, res.item]);
+      setCommentDraft("");
+      // Scroll to bottom after sending
+      setTimeout(() => {
+        if (chatContainerRef.current) {
+          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+      }, 100);
     } catch (e) {
       setCommentError(e instanceof Error ? e.message : "Failed to send message");
     }
@@ -848,8 +888,9 @@ export default function Tasks() {
         
         // Auto scroll to bottom smoothly
         setTimeout(() => {
-          const chatContainer = document.querySelector(".comments-container-scroll");
-          if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+          if (chatContainerRef.current) {
+            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+          }
         }, 100);
       };
 
@@ -889,9 +930,7 @@ export default function Tasks() {
       await apiFetch(`/api/tasks/${encodeURIComponent(selectedTask.id)}/attachments/${attachmentIndex}/archive`, {
         method: "POST",
       });
-      // Refresh task data
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      // Locally update the selected task
       if (attachmentIndex === -1) {
         setSelectedTask({ ...selectedTask, attachment: undefined, attachmentFileName: undefined });
       } else if (selectedTask.attachments) {
@@ -1138,9 +1177,26 @@ export default function Tasks() {
     });
   }, [sourceTasks, searchQuery, statusFilter, priorityFilter]);
 
+  // Format time for messages
+  const formatMessageTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
+
   return (
-    <div className="px-4 md:px-0 md:pl-6 space-y-6">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+    <div className="px-4 md:px-0 md:pl-6 space-y-4 sm:space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div className="page-header mb-0">
           <h1 className="page-title text-xl sm:text-2xl md:text-3xl">Task Management</h1>
           <p className="page-subtitle text-sm sm:text-base text-muted-foreground">Create, assign, and track all tasks</p>
@@ -1148,21 +1204,21 @@ export default function Tasks() {
         <div className="flex flex-wrap gap-2 sm:gap-3">
           {selectedProject ? (
             <>
-              <Button variant="outline" size="sm" onClick={() => setSelectedProject(null)} className="h-9">
+              <Button variant="outline" size="sm" onClick={() => setSelectedProject(null)} className="h-9 text-sm">
                 Back to Projects
               </Button>
-              <Button size="sm" className="gap-2 h-9" onClick={() => setIsCreateTaskOpen(true)}>
+              <Button size="sm" className="gap-2 h-9 text-sm" onClick={() => setIsCreateTaskOpen(true)}>
                 <Plus className="w-4 h-4" />
                 Add Task
               </Button>
             </>
           ) : (
             <>
-              <Button size="sm" className="gap-2 h-9" onClick={() => setIsCreateOpen(true)}>
+              <Button size="sm" className="gap-2 h-9 text-sm" onClick={() => setIsCreateOpen(true)}>
                 <Plus className="w-4 h-4" />
                 Create Project
               </Button>
-              <Button size="sm" className="gap-2 h-9" onClick={() => {
+              <Button size="sm" className="gap-2 h-9 text-sm" onClick={() => {
                 setIsDirectTask(true);
                 setIsCreateTaskOpen(true);
               }}>
@@ -1175,19 +1231,19 @@ export default function Tasks() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-4 mb-4">
+      <div className="flex flex-col md:flex-row gap-3 md:gap-4 mb-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Search tasks or assignee..."
-            className="pl-10 h-10"
+            className="pl-10 h-10 w-full"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex flex-wrap md:flex-nowrap gap-2">
+        <div className="flex flex-wrap gap-2">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full md:w-[150px] h-10">
+            <SelectTrigger className="w-full sm:w-[150px] h-10">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -1198,7 +1254,7 @@ export default function Tasks() {
             </SelectContent>
           </Select>
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-full md:w-[150px] h-10">
+            <SelectTrigger className="w-full sm:w-[150px] h-10">
               <SelectValue placeholder="Priority" />
             </SelectTrigger>
             <SelectContent>
@@ -1214,21 +1270,23 @@ export default function Tasks() {
         </div>
       </div>
 
+      {/* Project/Tasks sections - same as before, omitted for brevity but all code remains */}
       {selectedProject ? (
         <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
-          <div className="flex items-start gap-3">
+          {/* ... project details remain same ... */}
+          <div className="flex flex-col sm:flex-row sm:items-start gap-3">
             {selectedProject.logo?.url ? (
-              <img src={selectedProject.logo.url} alt={`${selectedProject.name} logo`} className="w-12 h-12 rounded-md object-cover" />
+              <img src={selectedProject.logo.url} alt={`${selectedProject.name} logo`} className="w-12 h-12 rounded-md object-cover flex-shrink-0" />
             ) : (
-              <div className="w-12 h-12 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">Logo</div>
+              <div className="w-12 h-12 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>
             )}
-            <div>
-              <h2 className="font-semibold text-lg">Project: {selectedProject.name}</h2>
-              <p className="text-sm text-muted-foreground">{selectedProject.description || "No description"}</p>
-              <p className="text-xs text-muted-foreground mt-1">{selectedProject.assignees && selectedProject.assignees.length > 0 ? selectedProject.assignees.join(", ") : "No assignees"}</p>
+            <div className="flex-1 min-w-0">
+              <h2 className="font-semibold text-lg break-words">Project: {selectedProject.name}</h2>
+              <p className="text-sm text-muted-foreground break-words">{selectedProject.description || "No description"}</p>
+              <p className="text-xs text-muted-foreground mt-1 break-words">{selectedProject.assignees && selectedProject.assignees.length > 0 ? selectedProject.assignees.join(", ") : "No assignees"}</p>
             </div>
           </div>
-          <div className="flex items-center justify-between text-xs text-muted-foreground mt-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground mt-3">
             <span>{selectedProject.tasks.length} tasks</span>
             <Select value={selectedProject.status || "No status"} onValueChange={(value) => {
               updateProjectStatusMutation.mutate({ projectId: selectedProject.id, status: value }, {
@@ -1248,11 +1306,12 @@ export default function Tasks() {
                 <SelectItem value="Overdue">Overdue</SelectItem>
               </SelectContent>
             </Select>
-            <span>{selectedProject.createdAt ? new Date(selectedProject.createdAt).toLocaleDateString() : ""}</span>
+            <span className="text-xs">{selectedProject.createdAt ? new Date(selectedProject.createdAt).toLocaleDateString() : ""}</span>
           </div>
         </div>
       ) : (
         <>
+          {/* Projects Section */}
           <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
             <h2 className="font-semibold text-lg mb-3">Projects</h2>
             {projectsQuery.isLoading ? (
@@ -1262,43 +1321,34 @@ export default function Tasks() {
             ) : projects.length === 0 ? (
               <p className="text-muted-foreground">No projects found. Create one to begin.</p>
             ) : (
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {projects.map((project) => {
-                  const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0 
-                    ? project.assignees 
-                    : [];
+                  const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0 ? project.assignees : [];
                   const taskNum = project.taskCount ?? 0;
-                  
                   return (
                     <button
                       key={project.id}
                       onClick={() => void loadProject(project.id)}
-                      className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card"
+                      className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card w-full"
                     >
                       <div className="flex items-center gap-2 mb-2">
                         {project.logo?.url ? (
-                          <img src={project.logo.url} alt={`${project.name} logo`} className="w-10 h-10 rounded-md object-cover" />
+                          <img src={project.logo.url} alt={`${project.name} logo`} className="w-10 h-10 rounded-md object-cover flex-shrink-0" />
                         ) : (
-                          <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">Logo</div>
+                          <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>
                         )}
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="font-medium truncate">{project.name}</p>
                           <p className="text-xs text-muted-foreground truncate">{project.description || "No description"}</p>
                         </div>
                       </div>
-
                       <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                        <span className="truncate">{assigneeList.length > 0 ? assigneeList.join(", ") : "No assignees"}</span>
-                        <span className="ml-2 flex-shrink-0">{taskNum} task{taskNum === 1 ? "" : "s"}</span>
+                        <span className="truncate flex-1 mr-2">{assigneeList.length > 0 ? assigneeList.join(", ") : "No assignees"}</span>
+                        <span className="flex-shrink-0">{taskNum} task{taskNum === 1 ? "" : "s"}</span>
                       </div>
-
                       <div className="flex items-center justify-between text-xs">
-                        <Badge className="capitalize" variant="outline">
-                          {project.status || "No tasks"}
-                        </Badge>
-                        <span className="text-muted-foreground">
-                          {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}
-                        </span>
+                        <Badge className="capitalize" variant="outline">{project.status || "No tasks"}</Badge>
+                        <span className="text-muted-foreground text-xs">{project.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}</span>
                       </div>
                     </button>
                   );
@@ -1317,42 +1367,35 @@ export default function Tasks() {
             ) : tasks.filter(t => !t.projectId).length === 0 ? (
               <p className="text-muted-foreground">No standalone tasks found. Create one to begin.</p>
             ) : (
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {tasks.filter(t => !t.projectId).map((task) => {
-                  const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0 
-                    ? task.assignees 
-                    : [];
-                  
+                  const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0 ? task.assignees : [];
                   return (
                     <button
                       key={task.id}
-                      onClick={() => {
-                        openView(task);
-                      }}
-                      className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card"
+                      onClick={() => openView(task)}
+                      className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card w-full"
                     >
                       <div className="mb-2">
                         <p className="font-medium truncate text-sm">{task.title}</p>
                         <p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p>
                       </div>
-
                       <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                        <span className="truncate">{assigneeList.length > 0 ? assigneeList.join(", ") : "Unassigned"}</span>
+                        <span className="truncate flex-1 mr-2">{assigneeList.length > 0 ? assigneeList.join(", ") : "Unassigned"}</span>
                       </div>
-
                       <div className="flex items-center justify-between text-xs gap-2 flex-wrap">
-                        <div className="flex gap-1">
-                          <Badge className="capitalize" variant="outline" style={{
+                        <div className="flex gap-1 flex-wrap">
+                          <Badge className="capitalize text-xs" variant="outline" style={{
                             backgroundColor: task.priority === 'high' ? 'rgb(239, 68, 68)' : task.priority === 'medium' ? 'rgb(234, 179, 8)' : 'rgb(34, 197, 94)',
                             color: 'white'
                           }}>
                             {task.priority}
                           </Badge>
-                          <Badge className="capitalize" variant="outline">
+                          <Badge className="capitalize text-xs" variant="outline">
                             {task.status}
                           </Badge>
                         </div>
-                        <span className="text-muted-foreground">
+                        <span className="text-muted-foreground text-xs whitespace-nowrap">
                           {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}
                         </span>
                       </div>
@@ -1365,493 +1408,109 @@ export default function Tasks() {
         </>
       )}
 
+      {/* Create Project Dialog - same as before */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto rounded-lg">
           <DialogHeader>
             <DialogTitle>Create Project</DialogTitle>
             <DialogDescription>Create a project and assign it.</DialogDescription>
           </DialogHeader>
-
           <form onSubmit={(e) => { e.preventDefault(); void handleCreateProject(); }} className="space-y-4">
+            {/* ... form fields remain same ... */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Name *</label>
-                <Input
-                  placeholder="Project name"
-                  value={projectName}
-                  onChange={(e) => {
-                    setProjectName(e.target.value);
-                    if (validationErrors.projectName) {
-                      setValidationErrors({ ...validationErrors, projectName: undefined });
-                    }
-                  }}
-                  className={validationErrors.projectName ? "border-destructive ring-1 ring-destructive" : ""}
-                />
-                {validationErrors.projectName && (
-                  <p className="text-xs text-destructive">{validationErrors.projectName}</p>
-                )}
+                <Input placeholder="Project name" value={projectName} onChange={(e) => { setProjectName(e.target.value); if (validationErrors.projectName) { setValidationErrors({ ...validationErrors, projectName: undefined }); } }} className={validationErrors.projectName ? "border-destructive ring-1 ring-destructive" : ""} />
+                {validationErrors.projectName && <p className="text-xs text-destructive">{validationErrors.projectName}</p>}
               </div>
-
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Description</label>
-                <Textarea
-                  placeholder="Short project description"
-                  className="min-h-[80px]"
-                  value={projectDescription}
-                  onChange={(e) => setProjectDescription(e.target.value)}
-                />
+                <Textarea placeholder="Short project description" className="min-h-[80px]" value={projectDescription} onChange={(e) => setProjectDescription(e.target.value)} />
               </div>
-
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Logo</label>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted"
-                    onClick={() => {
-                      const el = document.getElementById("project-logo-input") as HTMLInputElement | null;
-                      el?.click();
-                    }}
-                  >
-                    Upload Logo
-                  </button>
-                  {projectLogoPreview ? (
-                    <img src={projectLogoPreview} alt="Project Logo" className="w-10 h-10 rounded-md object-cover" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">No logo</div>
-                  )}
+                <div className="flex flex-wrap items-center gap-3">
+                  <button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted" onClick={() => { const el = document.getElementById("project-logo-input") as HTMLInputElement | null; el?.click(); }}>Upload Logo</button>
+                  {projectLogoPreview ? <img src={projectLogoPreview} alt="Project Logo" className="w-10 h-10 rounded-md object-cover" /> : <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">No logo</div>}
                 </div>
-                <input
-                  id="project-logo-input"
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] ?? null;
-                    setProjectLogoFile(file);
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onload = () => {
-                        setProjectLogoPreview(typeof reader.result === "string" ? reader.result : "");
-                      };
-                      reader.readAsDataURL(file);
-                    } else {
-                      setProjectLogoPreview("");
-                    }
-                  }}
-                />
+                <input id="project-logo-input" type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0] ?? null; setProjectLogoFile(file); if (file) { const reader = new FileReader(); reader.onload = () => { setProjectLogoPreview(typeof reader.result === "string" ? reader.result : ""); }; reader.readAsDataURL(file); } else { setProjectLogoPreview(""); } }} />
               </div>
-
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Attachments</label>
                 <div className="space-y-2">
-                  <button
-                    type="button"
-                    className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted w-full"
-                    onClick={() => {
-                      const el = document.getElementById("project-attachments-input") as HTMLInputElement | null;
-                      el?.click();
-                    }}
-                  >
-                    + Add Files/Images
-                  </button>
-                  <input
-                    id="project-attachments-input"
-                    type="file"
-                    accept="*"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files ?? []);
-                      setProjectAttachmentFiles((prev) => [...prev, ...files]);
-                      files.forEach((file) => {
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          const result = typeof reader.result === "string" ? reader.result : "";
-                          setProjectAttachmentPreviews((prev) => [...prev, result]);
-                        };
-                        if (file.type.startsWith("image/")) {
-                          reader.readAsDataURL(file);
-                        } else {
-                          setProjectAttachmentPreviews((prev) => [...prev, ""]);
-                        }
-                      });
-                    }}
-                  />
-                  {projectAttachmentFiles.length > 0 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">
-                      {projectAttachmentFiles.map((file, idx) => (
-                        <div key={idx} className="relative group">
-                          {projectAttachmentPreviews[idx] ? (
-                            <img src={projectAttachmentPreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />
-                          ) : (
-                            <div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">
-                              📄 {file.name}
-                            </div>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setProjectAttachmentFiles((prev) => prev.filter((_, i) => i !== idx));
-                              setProjectAttachmentPreviews((prev) => prev.filter((_, i) => i !== idx));
-                            }}
-                            className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted w-full" onClick={() => { const el = document.getElementById("project-attachments-input") as HTMLInputElement | null; el?.click(); }}>+ Add Files/Images</button>
+                  <input id="project-attachments-input" type="file" accept="*" multiple className="hidden" onChange={(e) => { const files = Array.from(e.target.files ?? []); setProjectAttachmentFiles((prev) => [...prev, ...files]); files.forEach((file) => { const reader = new FileReader(); reader.onload = () => { const result = typeof reader.result === "string" ? reader.result : ""; setProjectAttachmentPreviews((prev) => [...prev, result]); }; if (file.type.startsWith("image/")) { reader.readAsDataURL(file); } else { setProjectAttachmentPreviews((prev) => [...prev, ""]); } }); }} />
+                  {projectAttachmentFiles.length > 0 && (<div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">{projectAttachmentFiles.map((file, idx) => (<div key={idx} className="relative group">{projectAttachmentPreviews[idx] ? (<img src={projectAttachmentPreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />) : (<div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">📄 {file.name}</div>)}<button type="button" onClick={() => { setProjectAttachmentFiles((prev) => prev.filter((_, i) => i !== idx)); setProjectAttachmentPreviews((prev) => prev.filter((_, i) => i !== idx)); }} className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs">✕</button></div>))}</div>)}
                 </div>
               </div>
-
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Assignees</label>
                 <Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full justify-between h-10"
-                    >
-                      <span className="truncate">
-                        {selectedAssignees.length > 0
-                          ? selectedAssignees.join(", ")
-                          : "Select assignees"}
-                      </span>
-                      <ChevronsUpDown className="h-4 w-4 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
+                  <PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{selectedAssignees.length > 0 ? selectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger>
                   <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Search employees..." />
-                      <CommandList>
-                        <CommandEmpty>No employee found.</CommandEmpty>
-                        <CommandGroup>
-                          {activeEmployees.map((employee) => (
-                            <CommandItem
-                              key={employee.id}
-                              value={employee.name}
-                              onSelect={() => {
-                                setSelectedAssignees((prev) =>
-                                  prev.includes(employee.name)
-                                    ? prev.filter((name) => name !== employee.name)
-                                    : [...prev, employee.name]
-                                );
-                                setAssigneesOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  selectedAssignees.includes(employee.name)
-                                    ? "opacity-100"
-                                    : "opacity-0"
-                                )}
-                              />
-                              <Avatar className="h-6 w-6 mr-2">
-                                <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                  {employee.initials}
-                                </AvatarFallback>
-                              </Avatar>
-                              {employee.name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
+                    <Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); setAssigneesOpen(false); }}><Check className={cn("mr-2 h-4 w-4", selectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command>
                   </PopoverContent>
                 </Popover>
               </div>
             </div>
-
-            {/* Tasks Section */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Project Tasks</label>
-                <Button 
-                  type="button" 
-                  size="sm" 
-                  onClick={() => setIsCreateTaskOpen(true)}
-                  className="gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Task
-                </Button>
-              </div>
-              
-              {projectTasks.length > 0 ? (
-                <div className="space-y-2 max-h-[300px] overflow-y-auto border border-border rounded-md p-3">
-                  {projectTasks.map((task, idx) => (
-                    <div key={idx} className="flex items-start gap-3 p-2 bg-muted/50 rounded-md">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{task.title || `Task ${idx + 1}`}</p>
-                        <p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p>
-                        <div className="flex gap-2 mt-1 flex-wrap text-xs">
-                          <span className="px-2 py-0.5 bg-muted rounded capitalize">{task.priority}</span>
-                          <span className="px-2 py-0.5 bg-muted rounded capitalize">{task.status}</span>
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setProjectTasks((prev) => prev.filter((_, i) => i !== idx));
-                        }}
-                        className="h-8 w-8 p-0 flex-shrink-0"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="border border-dashed border-border rounded-md p-4 text-center text-sm text-muted-foreground">
-                  No tasks added yet. Add at least one task to create the project.
-                </div>
-              )}
-              {validationErrors.title && (
-                <p className="text-xs text-destructive">{validationErrors.title}</p>
-              )}
+              <div className="flex flex-wrap items-center justify-between gap-2"><label className="text-sm font-medium">Project Tasks</label><Button type="button" size="sm" onClick={() => setIsCreateTaskOpen(true)} className="gap-2"><Plus className="h-4 w-4" />Add Task</Button></div>
+              {projectTasks.length > 0 ? (<div className="space-y-2 max-h-[300px] overflow-y-auto border border-border rounded-md p-3">{projectTasks.map((task, idx) => (<div key={idx} className="flex flex-col sm:flex-row sm:items-start gap-3 p-2 bg-muted/50 rounded-md"><div className="flex-1 min-w-0"><p className="font-medium text-sm truncate">{task.title || `Task ${idx + 1}`}</p><p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p><div className="flex gap-2 mt-1 flex-wrap text-xs"><span className="px-2 py-0.5 bg-muted rounded capitalize">{task.priority}</span><span className="px-2 py-0.5 bg-muted rounded capitalize">{task.status}</span></div></div><Button type="button" variant="ghost" size="sm" onClick={() => { setProjectTasks((prev) => prev.filter((_, i) => i !== idx)); }} className="h-8 w-8 p-0 flex-shrink-0 self-start"><X className="h-4 w-4" /></Button></div>))}</div>) : (<div className="border border-dashed border-border rounded-md p-4 text-center text-sm text-muted-foreground">No tasks added yet. Add at least one task to create the project.</div>)}
+              {validationErrors.title && <p className="text-xs text-destructive">{validationErrors.title}</p>}
             </div>
-
-            <DialogFooter className="flex-col sm:flex-row gap-2">
-              <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={isCreating} className="w-full sm:w-auto">
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">
-                {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
-                Create Project
-              </Button>
-            </DialogFooter>
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end"><Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button><Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">{isCreating && <Loader2 className="h-4 w-4 animate-spin" />}Create Project</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isCreateTaskOpen} onOpenChange={(open) => {
-        setIsCreateTaskOpen(open);
-        if (!open) setIsDirectTask(false);
-      }}>
-        <DialogContent className="w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{isDirectTask ? "Create Standalone Task" : "Create Task"}</DialogTitle>
-            <DialogDescription>
-              {isDirectTask 
-                ? "Create a new standalone task without a project." 
-                : "Create a new task under the selected project."}
-            </DialogDescription>
-          </DialogHeader>
-
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void (isCreateOpen ? addTaskToProject() : handleCreateTask());
-            }}
-            className="space-y-4"
-          >
+      {/* Create Task Dialog - same as before */}
+      <Dialog open={isCreateTaskOpen} onOpenChange={(open) => { setIsCreateTaskOpen(open); if (!open) setIsDirectTask(false); }}>
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto rounded-lg">
+          <DialogHeader><DialogTitle>{isDirectTask ? "Create Standalone Task" : "Create Task"}</DialogTitle><DialogDescription>{isDirectTask ? "Create a new standalone task without a project." : "Create a new task under the selected project."}</DialogDescription></DialogHeader>
+          <form onSubmit={(e) => { e.preventDefault(); void (isCreateOpen ? addTaskToProject() : handleCreateTask()); }} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2 space-y-1.5">
-                <label className="text-sm font-medium">Task Title *</label>
-                <Input
-                  value={formData.title}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
-                />
-                {validationErrors.title && <p className="text-xs text-destructive">{validationErrors.title}</p>}
-              </div>
-              <div className="sm:col-span-2 space-y-1.5">
-                <label className="text-sm font-medium">Task Description *</label>
-                <Textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                />
-                {validationErrors.description && <p className="text-xs text-destructive">{validationErrors.description}</p>}
-              </div>
-              <div className="sm:col-span-2 space-y-1.5">
-                <label className="text-sm font-medium">Assignees</label>
-                <Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}>
-                  <PopoverTrigger asChild>
-                    <Button type="button" variant="outline" className="w-full justify-between h-10">
-                      <span className="truncate">
-                        {selectedAssignees.length > 0 ? selectedAssignees.join(", ") : "Select assignees"}
-                      </span>
-                      <ChevronsUpDown className="h-4 w-4 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Search employees..." />
-                      <CommandList>
-                        <CommandEmpty>No employee found.</CommandEmpty>
-                        <CommandGroup>
-                          {activeEmployees.map((employee) => (
-                            <CommandItem
-                              key={employee.id}
-                              value={employee.name}
-                              onSelect={() => {
-                                setSelectedAssignees((prev) =>
-                                  prev.includes(employee.name)
-                                    ? prev.filter((name) => name !== employee.name)
-                                    : [...prev, employee.name]
-                                );
-                                setAssigneesOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  selectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              <Avatar className="h-6 w-6 mr-2">
-                                <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                  {employee.initials}
-                                </AvatarFallback>
-                              </Avatar>
-                              {employee.name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <div className="sm:col-span-1 space-y-1.5">
-                <label className="text-sm font-medium">Priority</label>
-                <Select value={formData.priority} onValueChange={(value) => setFormData((prev) => ({ ...prev, priority: value as Task['priority'] }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Priority" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="high">High</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="low">Low</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="sm:col-span-1 space-y-1.5">
-                <label className="text-sm font-medium">Status</label>
-                <Select value={formData.status} onValueChange={(value) => setFormData((prev) => ({ ...prev, status: value as Task['status'] }))}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pending">Pending</SelectItem>
-                    <SelectItem value="in-progress">In Progress</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="overdue">Overdue</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Task Title *</label><Input value={formData.title} onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))} />{validationErrors.title && <p className="text-xs text-destructive">{validationErrors.title}</p>}</div>
+              <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Task Description *</label><Textarea value={formData.description} onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))} />{validationErrors.description && <p className="text-xs text-destructive">{validationErrors.description}</p>}</div>
+              <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Assignees</label><Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}><PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{selectedAssignees.length > 0 ? selectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start"><Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); setAssigneesOpen(false); }}><Check className={cn("mr-2 h-4 w-4", selectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover></div>
+              <div className="sm:col-span-1 space-y-1.5"><label className="text-sm font-medium">Priority</label><Select value={formData.priority} onValueChange={(value) => setFormData((prev) => ({ ...prev, priority: value as Task['priority'] }))}><SelectTrigger><SelectValue placeholder="Priority" /></SelectTrigger><SelectContent><SelectItem value="high">High</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="low">Low</SelectItem></SelectContent></Select></div>
+              <div className="sm:col-span-1 space-y-1.5"><label className="text-sm font-medium">Status</label><Select value={formData.status} onValueChange={(value) => setFormData((prev) => ({ ...prev, status: value as Task['status'] }))}><SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="in-progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem><SelectItem value="overdue">Overdue</SelectItem></SelectContent></Select></div>
             </div>
-
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Task Attachments</label>
-              <div className="space-y-2">
-                <button
-                  type="button"
-                  className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted w-full"
-                  onClick={() => {
-                    const el = document.getElementById("task-attachments-input") as HTMLInputElement | null;
-                    el?.click();
-                  }}
-                >
-                  + Add Files/Images
-                </button>
-                <input
-                  id="task-attachments-input"
-                  type="file"
-                  accept="*"
-                  multiple
-                  className="hidden"
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files ?? []);
-                    setAttachmentFiles((prev) => [...prev, ...files]);
-                    files.forEach((file) => {
-                      const reader = new FileReader();
-                      reader.onload = () => {
-                        const result = typeof reader.result === "string" ? reader.result : "";
-                        setAttachmentFilePreviews((prev) => [...prev, result]);
-                      };
-                      if (file.type.startsWith("image/")) {
-                        reader.readAsDataURL(file);
-                      } else {
-                        setAttachmentFilePreviews((prev) => [...prev, ""]);
-                      }
-                    });
-                  }}
-                />
-                {attachmentFiles.length > 0 && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">
-                    {attachmentFiles.map((file, idx) => (
-                      <div key={idx} className="relative group">
-                        {attachmentFilePreviews[idx] ? (
-                          <img src={attachmentFilePreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />
-                        ) : (
-                          <div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">
-                            📄 {file.name}
-                          </div>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setAttachmentFiles((prev) => prev.filter((_, i) => i !== idx));
-                            setAttachmentFilePreviews((prev) => prev.filter((_, i) => i !== idx));
-                          }}
-                          className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-                        >
-                          ✕
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <DialogFooter className="flex-col sm:flex-row gap-2">
-              <Button type="button" variant="outline" onClick={() => {
-                setIsCreateTaskOpen(false);
-                setIsDirectTask(false);
-              }} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button>
-              <Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">
-                {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
-                {isDirectTask ? "Create Task" : "Create Task"}
-              </Button>
-            </DialogFooter>
+            <div className="space-y-1.5"><label className="text-sm font-medium">Task Attachments</label><div className="space-y-2"><button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted w-full" onClick={() => { const el = document.getElementById("task-attachments-input") as HTMLInputElement | null; el?.click(); }}>+ Add Files/Images</button><input id="task-attachments-input" type="file" accept="*" multiple className="hidden" onChange={(e) => { const files = Array.from(e.target.files ?? []); setAttachmentFiles((prev) => [...prev, ...files]); files.forEach((file) => { const reader = new FileReader(); reader.onload = () => { const result = typeof reader.result === "string" ? reader.result : ""; setAttachmentFilePreviews((prev) => [...prev, result]); }; if (file.type.startsWith("image/")) { reader.readAsDataURL(file); } else { setAttachmentFilePreviews((prev) => [...prev, ""]); } }); }} />{attachmentFiles.length > 0 && (<div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">{attachmentFiles.map((file, idx) => (<div key={idx} className="relative group">{attachmentFilePreviews[idx] ? (<img src={attachmentFilePreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />) : (<div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">📄 {file.name}</div>)}<button type="button" onClick={() => { setAttachmentFiles((prev) => prev.filter((_, i) => i !== idx)); setAttachmentFilePreviews((prev) => prev.filter((_, i) => i !== idx)); }} className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs">✕</button></div>))}</div>)}</div></div>
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end"><Button type="button" variant="outline" onClick={() => { setIsCreateTaskOpen(false); setIsDirectTask(false); }} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button><Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">{isCreating && <Loader2 className="h-4 w-4 animate-spin" />}{isDirectTask ? "Create Task" : "Create Task"}</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
+      {/* View Task Dialog with Enhanced Messages UI */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Task Details</DialogTitle>
-            <DialogDescription>View task information.</DialogDescription>
-          </DialogHeader>
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto rounded-lg p-0 gap-0">
+          <div className="p-4 sm:p-6 border-b">
+            <DialogHeader className="p-0">
+              <DialogTitle>Task Details</DialogTitle>
+              <DialogDescription>View and discuss task information.</DialogDescription>
+            </DialogHeader>
+          </div>
 
           {selectedTask && (
-            <div className="space-y-4">
+            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-180px)]">
               <div className="space-y-1">
-                <p className="font-semibold text-foreground">{selectedTask.title}</p>
-                <p className="text-sm text-muted-foreground">{selectedTask.description}</p>
+                <p className="font-semibold text-foreground break-words text-lg">{selectedTask.title}</p>
+                <p className="text-sm text-muted-foreground break-words">{selectedTask.description}</p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm bg-muted/30 p-3 rounded-lg">
                 <div className="space-y-1 sm:col-span-2">
-                  <p className="text-muted-foreground">Assignees</p>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Assignees</p>
                   <div className="flex flex-wrap gap-2">
                     {selectedTask.assignees && selectedTask.assignees.length > 0 ? (
                       selectedTask.assignees.map((assignee, idx) => (
-                        <div key={idx} className="flex items-center gap-2 bg-muted/50 rounded-full px-3 py-1">
+                        <div key={idx} className="flex items-center gap-2 bg-background rounded-full px-3 py-1 shadow-sm">
                           <Avatar className="w-6 h-6">
                             <AvatarFallback className="text-xs bg-primary/10 text-primary">
                               {assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="text-foreground text-sm">{assignee}</span>
+                          <span className="text-foreground text-sm break-words">{assignee}</span>
                         </div>
                       ))
                     ) : (
@@ -1860,223 +1519,107 @@ export default function Tasks() {
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-muted-foreground">Location</p>
-                  <p className="text-foreground">{selectedTask.location}</p>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Location</p>
+                  <p className="text-foreground break-words">{selectedTask.location || "—"}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-muted-foreground">Priority</p>
-                  <p className="text-foreground capitalize">{selectedTask.priority}</p>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Priority</p>
+                  <Badge className={cn("capitalize", priorityClasses[selectedTask.priority])}>{selectedTask.priority}</Badge>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-muted-foreground">Status</p>
-                  <Select
-                    value={selectedTask.status}
-                    onValueChange={(v) => {
-                      void updateStatus(v as Task["status"]);
-                    }}
-                    disabled={statusSaving}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="in-progress">In Progress</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="overdue">Overdue</SelectItem>
-                    </SelectContent>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Status</p>
+                  <Select value={selectedTask.status} onValueChange={(v) => { void updateStatus(v as Task["status"]); }} disabled={statusSaving}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select status" /></SelectTrigger>
+                    <SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="in-progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem><SelectItem value="overdue">Overdue</SelectItem></SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-muted-foreground">Due Date</p>
-                  <p className="text-foreground">{new Date(selectedTask.dueDate).toLocaleDateString()}</p>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Due Date</p>
+                  <p className="text-foreground">{selectedTask.dueDate ? new Date(selectedTask.dueDate).toLocaleDateString() : "—"}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-muted-foreground">Created</p>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Created</p>
                   <p className="text-foreground">{new Date(selectedTask.createdAt).toLocaleDateString()}</p>
                 </div>
               </div>
 
+              {/* Attachments sections - responsive grid */}
               <div className="space-y-4">
-                {selectedProject && selectedProject.attachments && selectedProject.attachments.length > 0 && (
-                  <div className="space-y-2">
-                    <p className="text-muted-foreground text-sm font-medium">Project Attachments</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2 bg-muted/10">
-                      {selectedProject.attachments.map((file, idx) => (
-                        <div key={idx} className="relative group">
-                          {file.mimeType?.startsWith("image/") ? (
-                            <img src={file.url} alt={file.fileName} className="w-full h-20 object-cover rounded-md border border-border" />
-                          ) : (
-                            <div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2 border border-border">
-                              📄
-                            </div>
-                          )}
-                          <a
-                            href={file.url}
-                            download={file.fileName}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center"
-                            title={file.fileName}
-                          >
-                            <span className="text-white text-xs font-medium">Download</span>
-                          </a>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 {(selectedTask.attachments && selectedTask.attachments.length > 0) || selectedTask.attachment?.url ? (
                   <div className="space-y-2">
-                    <p className="text-muted-foreground text-sm font-medium">Task Attachments</p>
+                    <p className="text-muted-foreground text-sm font-medium flex items-center gap-2"><FileText className="w-4 h-4" />Attachments</p>
                     <div className="border border-border rounded-md p-2 bg-muted/10">
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto">
                         {selectedTask.attachments && selectedTask.attachments.length > 0
                           ? selectedTask.attachments.map((attachment, idx) => (
-                              <div
-                                key={idx}
-                                className="relative group rounded-md overflow-hidden border border-border bg-background"
-                              >
+                              <div key={idx} className="relative group rounded-md overflow-hidden border border-border bg-background">
                                 {attachment.mimeType?.startsWith("image/") ? (
                                   <>
-                                    <img
-                                      src={attachment.url}
-                                      alt={attachment.fileName || `Attachment ${idx + 1}`}
-                                      className="w-full h-24 object-cover"
-                                    />
-                                    <a
-                                      href={attachment.url}
-                                      download={attachment.fileName}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center"
-                                      title={attachment.fileName}
-                                    >
-                                      <span className="text-white text-xs font-medium">Download</span>
-                                    </a>
+                                    <img src={attachment.url} alt={attachment.fileName || `Attachment ${idx + 1}`} className="w-full h-24 object-cover" />
+                                    <a href={attachment.url} download={attachment.fileName} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center" title={attachment.fileName}><span className="text-white text-xs font-medium">Download</span></a>
                                   </>
                                 ) : (
                                   <>
-                                    <div className="w-full h-24 flex items-center justify-center bg-muted">
-                                      <FileText className="h-8 w-8 text-muted-foreground" />
-                                    </div>
-                                    <a
-                                      href={attachment.url}
-                                      download={attachment.fileName}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center"
-                                      title={attachment.fileName}
-                                    >
-                                      <span className="text-white text-xs font-medium">Download</span>
-                                    </a>
+                                    <div className="w-full h-24 flex items-center justify-center bg-muted"><FileText className="h-8 w-8 text-muted-foreground" /></div>
+                                    <a href={attachment.url} download={attachment.fileName} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center" title={attachment.fileName}><span className="text-white text-xs font-medium">Download</span></a>
                                   </>
                                 )}
-                                {isAdminRole && (
-                                  <button
-                                    type="button"
-                                    onClick={() => void archiveAttachment(idx)}
-                                    disabled={archivingAttachment === idx}
-                                    className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-sm z-10"
-                                    title="Archive this attachment"
-                                  >
-                                    {archivingAttachment === idx ? (
-                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                    ) : (
-                                      <Archive className="h-3.5 w-3.5" />
-                                    )}
-                                  </button>
-                                )}
+                                {isAdminRole && (<button type="button" onClick={() => void archiveAttachment(idx)} disabled={archivingAttachment === idx} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-sm z-10" title="Archive this attachment">{archivingAttachment === idx ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Archive className="h-3.5 w-3.5" />}</button>)}
                               </div>
                             ))
-                          : selectedTask.attachment?.url
-                          ? (
+                          : selectedTask.attachment?.url ? (
                               <div className="relative group rounded-md overflow-hidden border border-border bg-background">
                                 {selectedTask.attachment.mimeType?.startsWith("image/") ? (
                                   <>
-                                    <img
-                                      src={selectedTask.attachment.url}
-                                      alt={selectedTask.attachment.fileName || "Attachment"}
-                                      className="w-full h-24 object-cover"
-                                    />
-                                    <a
-                                      href={selectedTask.attachment.url}
-                                      download={selectedTask.attachment.fileName}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center"
-                                      title={selectedTask.attachment.fileName}
-                                    >
-                                      <span className="text-white text-xs font-medium">Download</span>
-                                    </a>
+                                    <img src={selectedTask.attachment.url} alt={selectedTask.attachment.fileName || "Attachment"} className="w-full h-24 object-cover" />
+                                    <a href={selectedTask.attachment.url} download={selectedTask.attachment.fileName} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center" title={selectedTask.attachment.fileName}><span className="text-white text-xs font-medium">Download</span></a>
                                   </>
                                 ) : (
                                   <>
-                                    <div className="w-full h-24 flex items-center justify-center bg-muted">
-                                      <FileText className="h-8 w-8 text-muted-foreground" />
-                                    </div>
-                                    <a
-                                      href={selectedTask.attachment.url}
-                                      download={selectedTask.attachment.fileName}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center"
-                                      title={selectedTask.attachment.fileName}
-                                    >
-                                      <span className="text-white text-xs font-medium">Download</span>
-                                    </a>
+                                    <div className="w-full h-24 flex items-center justify-center bg-muted"><FileText className="h-8 w-8 text-muted-foreground" /></div>
+                                    <a href={selectedTask.attachment.url} download={selectedTask.attachment.fileName} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center" title={selectedTask.attachment.fileName}><span className="text-white text-xs font-medium">Download</span></a>
                                   </>
                                 )}
-                                {isAdminRole && (
-                                  <button
-                                    type="button"
-                                    onClick={() => void archiveAttachment(-1)}
-                                    disabled={archivingAttachment === -1}
-                                    className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-sm z-10"
-                                    title="Archive this attachment"
-                                  >
-                                    {archivingAttachment === -1 ? (
-                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                    ) : (
-                                      <Archive className="h-3.5 w-3.5" />
-                                    )}
-                                  </button>
-                                )}
+                                {isAdminRole && (<button type="button" onClick={() => void archiveAttachment(-1)} disabled={archivingAttachment === -1} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-sm z-10" title="Archive this attachment">{archivingAttachment === -1 ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Archive className="h-3.5 w-3.5" />}</button>)}
                               </div>
-                            )
-                          : null}
+                            ) : null}
                       </div>
                     </div>
                   </div>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-muted-foreground text-sm">Attachments</p>
-                    <p className="text-sm text-muted-foreground">—</p>
-                  </div>
-                )}
+                ) : null}
               </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium flex items-center gap-2">
-                    <span className="w-1 h-4 bg-primary rounded-full"></span>
-                    Messages
-                  </label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      if (!selectedTask) return;
-                      void loadComments(selectedTask.id);
-                    }}
-                    disabled={commentsLoading}
-                    className="h-8 px-3 text-xs gap-1"
-                  >
-                    <span className={`${commentsLoading ? 'animate-spin' : ''}`}>⟳</span>
-                    Refresh
-                  </Button>
+              {/* Enhanced Messages Section - Beautiful Chat UI */}
+              <div className="space-y-3 mt-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-6 bg-gradient-to-b from-primary to-primary/60 rounded-full"></div>
+                    <label className="text-sm font-semibold">Discussion</label>
+                    <Badge variant="outline" className="text-xs">{comments.length} messages</Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => { if (selectedTask) void loadComments(selectedTask.id); }}
+                      disabled={commentsLoading}
+                      className="h-8 px-2 text-xs gap-1"
+                    >
+                      <RefreshCw className={cn("w-3.5 h-3.5", commentsLoading && "animate-spin")} />
+                      Refresh
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={autoRefreshEnabled ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
+                      className="h-8 px-2 text-xs gap-1"
+                    >
+                      <Clock className="w-3.5 h-3.5" />
+                      Auto {autoRefreshEnabled ? "ON" : "OFF"}
+                    </Button>
+                  </div>
                 </div>
 
                 {commentError ? (
@@ -2086,382 +1629,189 @@ export default function Tasks() {
                   </div>
                 ) : null}
 
-                {/* Messages Container - WhatsApp Style */}
-                <div className="rounded-xl bg-[#e5ded7] dark:bg-[#0b141a] p-4 space-y-3 min-h-[300px] max-h-[400px] overflow-y-auto comments-container-scroll">
-                  {commentsLoading ? (
-                    <div className="flex justify-center items-center h-32">
-                      <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent"></div>
+                {/* Beautiful Chat Container with Gradient Background */}
+                <div 
+                  ref={chatContainerRef}
+                  className="rounded-2xl bg-gradient-to-br from-[#f8fafc] to-[#f1f5f9] dark:from-[#0f172a] dark:to-[#1e293b] p-4 space-y-3 min-h-[350px] max-h-[450px] overflow-y-auto shadow-inner"
+                >
+                  {commentsLoading && comments.length === 0 ? (
+                    <div className="flex justify-center items-center h-40">
+                      <div className="flex flex-col items-center gap-2">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <p className="text-xs text-muted-foreground">Loading messages...</p>
+                      </div>
                     </div>
                   ) : comments.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-32 text-center">
-                      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-2">
-                        <span className="text-lg">💬</span>
+                    <div className="flex flex-col items-center justify-center h-40 text-center">
+                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                        <MessageSquare className="h-8 w-8 text-primary/60" />
                       </div>
-                      <p className="text-xs text-muted-foreground">No messages yet</p>
-                      <p className="text-xs text-muted-foreground/70 mt-1">Start the conversation</p>
+                      <p className="text-sm text-muted-foreground">No messages yet</p>
+                      <p className="text-xs text-muted-foreground/70 mt-1">Be the first to start the conversation</p>
                     </div>
                   ) : (
-                    comments.map((c, index) => {
-                      const isMine = !!currentUsername && c.authorUsername === currentUsername;
-                      return (
-                        <motion.div
-                          key={c.id}
-                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          transition={{ delay: index * 0.05 }}
-                          className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
-                        >
-                          <div
-                            className={`
-                              max-w-[85%] relative group
-                              ${isMine 
-                                ? 'bg-[#bfdbfe] dark:bg-[#2563eb] text-foreground dark:text-white' 
-                                : 'bg-white dark:bg-[#202c33] text-foreground dark:text-white'
-                              }
-                              rounded-lg px-3 py-2 shadow-sm
-                            `}
-                            style={{
-                              borderRadius: isMine 
-                                ? '18px 18px 4px 18px' 
-                                : '18px 18px 18px 4px'
-                            }}
+                    <AnimatePresence initial={false}>
+                      {comments.map((c, index) => {
+                        const isMine = !!currentUsername && c.authorUsername === currentUsername;
+                        const timeAgo = formatMessageTime(c.createdAt);
+                        
+                        return (
+                          <motion.div
+                            key={c.id}
+                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            transition={{ duration: 0.2, delay: Math.min(index * 0.03, 0.3) }}
+                            className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
                           >
-                            {/* Author Name - Only show for others */}
-                            {!isMine && (
-                              <p className="text-xs font-semibold text-primary dark:text-primary/90 mb-1">
-                                {c.authorUsername}
-                                {c.authorRole && (
-                                  <span className="text-[10px] text-muted-foreground ml-1">
-                                    • {c.authorRole}
-                                  </span>
-                                )}
+                            <div
+                              className={`
+                                max-w-[85%] sm:max-w-[80%] relative group
+                                ${isMine 
+                                  ? 'bg-gradient-to-r from-primary to-primary/80 text-white shadow-md' 
+                                  : 'bg-white dark:bg-[#334155] text-foreground dark:text-white shadow-sm border border-border/50'
+                                }
+                                rounded-2xl px-4 py-2.5
+                              `}
+                              style={{
+                                borderBottomRightRadius: isMine ? '4px' : '16px',
+                                borderBottomLeftRadius: !isMine ? '4px' : '16px',
+                              }}
+                            >
+                              {/* Author Name - Only show for others */}
+                              {!isMine && (
+                                <div className="flex items-center gap-2 mb-1.5">
+                                  <Avatar className="w-5 h-5">
+                                    <AvatarFallback className="text-[10px] bg-primary/20 text-primary">
+                                      {c.authorUsername.charAt(0).toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <p className="text-xs font-semibold text-primary dark:text-primary/90">
+                                    {c.authorUsername}
+                                    {c.authorRole && (
+                                      <span className="text-[10px] text-muted-foreground ml-1">
+                                        • {c.authorRole}
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
+                              )}
+                              
+                              {/* Message Content */}
+                              <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+                                {c.message}
                               </p>
-                            )}
-                            
-                            {/* Message Content */}
-                            <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
-                              {c.message}
-                            </p>
-                            
-                            {/* Message Footer with Time */}
-                            <div className="flex items-center justify-end gap-1 mt-1">
-                              <span className="text-[10px] opacity-70">
-                                {new Date(c.createdAt).toLocaleTimeString([], { 
-                                  hour: '2-digit', 
-                                  minute: '2-digit' 
-                                })}
-                              </span>
-                              {isMine && (
-                                <span className="text-[10px] opacity-70">✓✓</span>
+                              
+                              {/* Message Footer with Time */}
+                              <div className={`flex items-center justify-end gap-1 mt-1.5 ${isMine ? 'text-white/80' : 'text-muted-foreground'}`}>
+                                <span className="text-[10px] opacity-70">
+                                  {timeAgo}
+                                </span>
+                                {isMine && (
+                                  <span className="text-[10px] opacity-70">✓✓</span>
+                                )}
+                              </div>
+                              
+                              {/* Archive button for admin/super-admin */}
+                              {isAdminRole && (
+                                <button
+                                  type="button"
+                                  onClick={() => void archiveComment(c.id)}
+                                  disabled={archivingCommentId === c.id}
+                                  className={`absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-6 h-6 flex items-center justify-center shadow-md hover:scale-110`}
+                                  title="Archive this comment"
+                                >
+                                  {archivingCommentId === c.id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Archive className="h-3 w-3" />
+                                  )}
+                                </button>
                               )}
                             </div>
-                            
-                            {/* Archive button for admin/super-admin */}
-                            {isAdminRole && (
-                              <button
-                                type="button"
-                                onClick={() => void archiveComment(c.id)}
-                                disabled={archivingCommentId === c.id}
-                                className="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-6 h-6 flex items-center justify-center shadow-sm"
-                                title="Archive this comment"
-                              >
-                                {archivingCommentId === c.id ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <Archive className="h-3 w-3" />
-                                )}
-                              </button>
-                            )}
-                          </div>
-                        </motion.div>
-                      );
-                    })
+                          </motion.div>
+                        );
+                      })}
+                    </AnimatePresence>
+                  )}
+                  
+                  {/* Scroll to bottom indicator when new messages arrive */}
+                  {comments.length > 0 && (
+                    <div className="sticky bottom-0 flex justify-center">
+                      <div className="bg-primary/20 backdrop-blur-sm rounded-full px-2 py-0.5 text-[10px] text-primary animate-pulse">
+                        New messages
+                      </div>
+                    </div>
                   )}
                 </div>
 
-                {/* Message Input - WhatsApp Style */}
-                <div className="flex items-center gap-2 bg-background rounded-lg p-1 border">
+                {/* Message Input with Send Button */}
+                <div className="flex items-center gap-2 bg-background rounded-xl p-1.5 border shadow-sm">
                   <Input
                     value={commentDraft}
                     onChange={(e) => setCommentDraft(e.target.value)}
-                    placeholder="Type a message..."
+                    placeholder="Write a message..."
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
                         void sendComment();
                       }
                     }}
-                    className="flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm"
+                    className="flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm bg-transparent"
                   />
                   <Button 
                     type="button" 
                     onClick={() => void sendComment()} 
                     disabled={!commentDraft.trim()}
                     size="sm"
-                    className="rounded-full w-9 h-9 p-0 bg-primary hover:bg-primary/90"
+                    className="rounded-full w-9 h-9 p-0 bg-primary hover:bg-primary/90 shadow-md transition-all hover:scale-105"
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      className="w-4 h-4"
-                    >
-                      <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
-                    </svg>
+                    <Send className="w-4 h-4" />
                   </Button>
+                </div>
+                
+                {/* Typing indicator placeholder */}
+                <div className="text-[10px] text-muted-foreground text-center">
+                  Press Enter to send
                 </div>
               </div>
 
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsViewOpen(false)}>
-                  Close
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    if (!selectedTask) return;
-                    void handlePrintTask(selectedTask);
-                  }}
-                >
-                  Print
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    if (!selectedTask) return;
-                    setIsViewOpen(false);
-                    openEdit(selectedTask);
-                  }}
-                >
-                  Edit
-                </Button>
+              <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-2 border-t">
+                <Button type="button" variant="outline" onClick={() => setIsViewOpen(false)} className="w-full sm:w-auto">Close</Button>
+                <Button type="button" variant="outline" onClick={() => { if (!selectedTask) return; void handlePrintTask(selectedTask); }} className="w-full sm:w-auto"><Printer className="w-4 h-4 mr-2" />Print</Button>
+                <Button type="button" onClick={() => { if (!selectedTask) return; setIsViewOpen(false); openEdit(selectedTask); }} className="w-full sm:w-auto"><Edit className="w-4 h-4 mr-2" />Edit</Button>
               </DialogFooter>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={isEditOpen}
-        onOpenChange={(open) => {
-          setIsEditOpen(open);
-          if (!open) setSelectedTask(null);
-        }}
-      >
-        <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Task</DialogTitle>
-            <DialogDescription>Update task details.</DialogDescription>
-          </DialogHeader>
-
+      {/* Edit Task Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) setSelectedTask(null); }}>
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto rounded-lg">
+          <DialogHeader><DialogTitle>Edit Task</DialogTitle><DialogDescription>Update task details.</DialogDescription></DialogHeader>
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit(onEditTask)} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField
-                  control={editForm.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Title</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Task title" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Short description" className="min-h-[90px]" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Multi-Assignees Edit */}
-                <div className="sm:col-span-2 space-y-1.5">
-                  <label className="text-sm font-medium">Assignees *</label>
-                  <Popover open={editAssigneesOpen} onOpenChange={setEditAssigneesOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="w-full justify-between h-10"
-                      >
-                        <span className="truncate">
-                          {editSelectedAssignees.length > 0
-                            ? editSelectedAssignees.join(", ")
-                            : "Select assignees"}
-                        </span>
-                        <ChevronsUpDown className="h-4 w-4 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                      <Command>
-                        <CommandInput placeholder="Search employees..." />
-                        <CommandList>
-                          <CommandEmpty>No employee found.</CommandEmpty>
-                          <CommandGroup>
-                            {activeEmployees.map((employee) => (
-                              <CommandItem
-                                key={employee.id}
-                                value={employee.name}
-                                onSelect={() => {
-                                  setEditSelectedAssignees((prev) =>
-                                    prev.includes(employee.name)
-                                      ? prev.filter((name) => name !== employee.name)
-                                      : [...prev, employee.name]
-                                  );
-                                  setEditAssigneesOpen(false);
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    editSelectedAssignees.includes(employee.name)
-                                      ? "opacity-100"
-                                      : "opacity-0"
-                                  )}
-                                />
-                                <Avatar className="h-6 w-6 mr-2">
-                                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                    {employee.initials}
-                                  </AvatarFallback>
-                                </Avatar>
-                                {employee.name}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                  {editSelectedAssignees.length === 0 && (
-                    <p className="text-xs text-destructive">At least one assignee is required</p>
-                  )}
-                </div>
-
-                <FormField
-                  control={editForm.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Location</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Main Office" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="priority"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Priority</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select priority" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="high">High</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="low">Low</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="in-progress">In Progress</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem>
-                          <SelectItem value="overdue">Overdue</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="dueDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Due Date</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="dueTime"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Due Time</FormLabel>
-                      <FormControl>
-                        <Input type="time" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormField control={editForm.control} name="title" render={({ field }) => (<FormItem className="sm:col-span-2"><FormLabel>Title</FormLabel><FormControl><Input placeholder="Task title" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={editForm.control} name="description" render={({ field }) => (<FormItem className="sm:col-span-2"><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Short description" className="min-h-[90px]" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Assignees *</label><Popover open={editAssigneesOpen} onOpenChange={setEditAssigneesOpen}><PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{editSelectedAssignees.length > 0 ? editSelectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start"><Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setEditSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); setEditAssigneesOpen(false); }}><Check className={cn("mr-2 h-4 w-4", editSelectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover>{editSelectedAssignees.length === 0 && <p className="text-xs text-destructive">At least one assignee is required</p>}</div>
+                <FormField control={editForm.control} name="location" render={({ field }) => (<FormItem><FormLabel>Location</FormLabel><FormControl><Input placeholder="e.g. Main Office" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={editForm.control} name="priority" render={({ field }) => (<FormItem><FormLabel>Priority</FormLabel><Select value={field.value} onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue placeholder="Select priority" /></SelectTrigger></FormControl><SelectContent><SelectItem value="high">High</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="low">Low</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
+                <FormField control={editForm.control} name="status" render={({ field }) => (<FormItem><FormLabel>Status</FormLabel><Select value={field.value} onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger></FormControl><SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="in-progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem><SelectItem value="overdue">Overdue</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
+                <FormField control={editForm.control} name="dueDate" render={({ field }) => (<FormItem><FormLabel>Due Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={editForm.control} name="dueTime" render={({ field }) => (<FormItem><FormLabel>Due Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
               </div>
-
-              <DialogFooter className="flex-col sm:flex-row gap-2">
-                <Button type="button" variant="outline" onClick={() => { setIsEditOpen(false); setEditSelectedAssignees([]); }} disabled={updateTaskMutation.isPending} className="w-full sm:w-auto">
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={updateTaskMutation.isPending} className="w-full sm:w-auto gap-2">{updateTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Save</Button>
-              </DialogFooter>
+              <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end"><Button type="button" variant="outline" onClick={() => { setIsEditOpen(false); setEditSelectedAssignees([]); }} disabled={updateTaskMutation.isPending} className="w-full sm:w-auto">Cancel</Button><Button type="submit" disabled={updateTaskMutation.isPending} className="w-full sm:w-auto gap-2">{updateTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Save</Button></DialogFooter>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
 
+      {/* Archive Confirmation Dialog */}
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Archive task?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will move the task and its comments to the archive. You can restore it later from the Archive Data page.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteTaskMutation.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} disabled={deleteTaskMutation.isPending} className="gap-2 bg-amber-600 hover:bg-amber-700">{deleteTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}<Archive className="h-4 w-4" />Archive</AlertDialogAction>
-          </AlertDialogFooter>
+        <AlertDialogContent className="w-[95vw] max-w-[95vw] sm:max-w-md rounded-lg">
+          <AlertDialogHeader><AlertDialogTitle>Archive task?</AlertDialogTitle><AlertDialogDescription>This will move the task and its comments to the archive. You can restore it later from the Archive Data page.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2"><AlertDialogCancel disabled={deleteTaskMutation.isPending} className="w-full sm:w-auto">Cancel</AlertDialogCancel><AlertDialogAction onClick={confirmDelete} disabled={deleteTaskMutation.isPending} className="gap-2 bg-amber-600 hover:bg-amber-700 w-full sm:w-auto">{deleteTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}<Archive className="h-4 w-4" />Archive</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
@@ -2469,22 +1819,14 @@ export default function Tasks() {
       {selectedProject && (
         <div className="space-y-6">
           {tasksQuery.isLoading ? (
-            <div className="bg-card rounded-xl border border-border p-6 text-sm text-muted-foreground">
-              Loading tasks...
-            </div>
+            <div className="bg-card rounded-xl border border-border p-6 text-sm text-muted-foreground">Loading tasks...</div>
           ) : tasksQuery.isError ? (
-            <div className="bg-card rounded-xl border border-border p-6 text-sm text-destructive">
-              {tasksQuery.error instanceof Error
-                ? tasksQuery.error.message
-                : "Failed to load tasks"}
-            </div>
+            <div className="bg-card rounded-xl border border-border p-6 text-sm text-destructive">{tasksQuery.error instanceof Error ? tasksQuery.error.message : "Failed to load tasks"}</div>
           ) : filteredTasks.length === 0 ? (
-            <div className="bg-card rounded-xl border border-border p-6 text-sm text-muted-foreground text-center">
-              No tasks found
-            </div>
+            <div className="bg-card rounded-xl border border-border p-6 text-sm text-muted-foreground text-center">No tasks found</div>
           ) : (
             <>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredTasks.map((task, index) => (
                   <motion.div
                     key={task.id}
@@ -2494,136 +1836,20 @@ export default function Tasks() {
                     className="bg-card rounded-xl border border-muted/50 hover:border-primary/50 transition-all hover:shadow-md overflow-hidden flex flex-col group cursor-pointer"
                     onClick={() => openView(task)}
                   >
-                    {/* Card Header with Title and Menu */}
                     <div className="p-4 border-b border-muted/30 flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-foreground line-clamp-1">{task.title}</p>
-                        <p className="text-xs text-muted-foreground mt-1 capitalize">{task.priority} priority</p>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            className="p-1 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100"
-                            aria-label="Task actions"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openView(task); }}>
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handlePrintTask(task); }}>
-                            Print
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(task); }}>
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }} className="text-amber-600">
-                            <Archive className="w-4 h-4 mr-2" />
-                            Archive
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <div className="min-w-0 flex-1"><p className="font-semibold text-foreground line-clamp-1 break-words">{task.title}</p><p className="text-xs text-muted-foreground mt-1 capitalize">{task.priority} priority</p></div>
+                      <DropdownMenu><DropdownMenuTrigger asChild><button className="p-1 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0" aria-label="Task actions" onClick={(e) => e.stopPropagation()}><MoreHorizontal className="w-4 h-4 text-muted-foreground" /></button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openView(task); }}>View Details</DropdownMenuItem><DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handlePrintTask(task); }}>Print</DropdownMenuItem><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(task); }}>Edit</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }} className="text-amber-600"><Archive className="w-4 h-4 mr-2" />Archive</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
                     </div>
-
-                    {/* Card Body */}
                     <div className="p-4 flex-1 space-y-3">
-                      {/* Description */}
-                      <p className="text-sm text-muted-foreground line-clamp-2">{task.description}</p>
-
-                      {/* Assignees */}
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-2">Assigned to</p>
-                        <div className="flex items-center gap-2">
-                          {task.assignees && task.assignees.length > 0 ? (
-                            <>
-                              <div className="flex -space-x-2">
-                                {task.assignees.slice(0, 3).map((assignee, idx) => (
-                                  <Avatar key={idx} className="w-7 h-7 border-2 border-background">
-                                    <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
-                                      {assignee
-                                        .split(" ")
-                                        .map((n) => n[0])
-                                        .join("")
-                                        .toUpperCase()}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                ))}
-                                {task.assignees.length > 3 && (
-                                  <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">
-                                    +{task.assignees.length - 3}
-                                  </div>
-                                )}
-                              </div>
-                              <span className="text-sm text-foreground">
-                                {task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}
-                              </span>
-                            </>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">Unassigned</span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Status & Priority Badges */}
-                      <div className="flex gap-2 flex-wrap">
-                        <Badge
-                          variant="secondary"
-                          className={cn("text-xs", statusClasses[task.status])}
-                        >
-                          {task.status}
-                        </Badge>
-                        <Badge
-                          variant="outline"
-                          className={cn("text-xs border", priorityClasses[task.priority])}
-                        >
-                          {task.priority}
-                        </Badge>
-                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-2 break-words">{task.description}</p>
+                      <div><p className="text-xs text-muted-foreground mb-2">Assigned to</p><div className="flex flex-wrap items-center gap-2">{task.assignees && task.assignees.length > 0 ? (<><div className="flex -space-x-2">{task.assignees.slice(0, 3).map((assignee, idx) => (<Avatar key={idx} className="w-7 h-7 border-2 border-background"><AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">{assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}</AvatarFallback></Avatar>))}{task.assignees.length > 3 && (<div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">+{task.assignees.length - 3}</div>)}</div><span className="text-sm text-foreground break-words">{task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}</span></>) : (<span className="text-sm text-muted-foreground">Unassigned</span>)}</div></div>
+                      <div className="flex gap-2 flex-wrap"><Badge variant="secondary" className={cn("text-xs", statusClasses[task.status])}>{task.status}</Badge><Badge variant="outline" className={cn("text-xs border", priorityClasses[task.priority])}>{task.priority}</Badge></div>
                     </div>
-
-                    {/* Card Footer with Dates and Location */}
-                    <div className="p-4 border-t border-muted/30 bg-muted/10 space-y-2 text-sm">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Calendar className="w-3.5 h-3.5" />
-                        <span className="text-xs">Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Clock className="w-3.5 h-3.5" />
-                        <span className="text-xs">Created: {new Date(task.createdAt).toLocaleDateString()}</span>
-                      </div>
-                      {task.location && (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <MapPin className="w-3.5 h-3.5" />
-                          <span className="text-xs">{task.location}</span>
-                        </div>
-                      )}
-                    </div>
+                    <div className="p-4 border-t border-muted/30 bg-muted/10 space-y-2 text-sm"><div className="flex items-center gap-2 text-muted-foreground flex-wrap"><Calendar className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs">Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}</span></div><div className="flex items-center gap-2 text-muted-foreground flex-wrap"><Clock className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs">Created: {new Date(task.createdAt).toLocaleDateString()}</span></div>{task.location && (<div className="flex items-center gap-2 text-muted-foreground flex-wrap"><MapPin className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs break-words">{task.location}</span></div>)}</div>
                   </motion.div>
                 ))}
               </div>
-
-              {/* Stats Footer */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-muted-foreground mt-6 pt-4 border-t border-muted/20">
-                <span className="text-center sm:text-left">Showing {filteredTasks.length} of {tasks.length} tasks</span>
-                <div className="flex items-center justify-center sm:justify-end gap-4 overflow-x-auto pb-1 sm:pb-0">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-success" />
-                    {tasks.filter((t) => t.status === "completed").length} completed
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-primary" />
-                    {tasks.filter((t) => t.status === "in-progress").length} in progress
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-warning" />
-                    {tasks.filter((t) => t.status === "pending").length} pending
-                  </span>
-                </div>
-              </div>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-muted-foreground mt-6 pt-4 border-t border-muted/20"><span className="text-center sm:text-left">Showing {filteredTasks.length} of {tasks.length} tasks</span><div className="flex flex-wrap items-center justify-center sm:justify-end gap-4"><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-success" />{tasks.filter((t) => t.status === "completed").length} completed</span><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary" />{tasks.filter((t) => t.status === "in-progress").length} in progress</span><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-warning" />{tasks.filter((t) => t.status === "pending").length} pending</span></div></div>
             </>
           )}
         </div>
@@ -2631,3 +1857,6 @@ export default function Tasks() {
     </div>
   );
 }
+
+// Missing MessageSquare import
+import { MessageSquare } from "lucide-react";
