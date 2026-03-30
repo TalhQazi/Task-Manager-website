@@ -346,7 +346,18 @@ export default function Tasks() {
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  
+
+  // Project edit/delete states
+  const [isEditProjectOpen, setIsEditProjectOpen] = useState(false);
+  const [isDeleteProjectOpen, setIsDeleteProjectOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editProjectName, setEditProjectName] = useState("");
+  const [editProjectDescription, setEditProjectDescription] = useState("");
+  const [editProjectLogoFile, setEditProjectLogoFile] = useState<File | null>(null);
+  const [editProjectLogoPreview, setEditProjectLogoPreview] = useState<string>("");
+  const [isEditingProject, setIsEditingProject] = useState(false);
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
+
   const queryClient = useQueryClient();
 
   const currentUsername = getAuthState().username || "";
@@ -502,6 +513,37 @@ export default function Tasks() {
       await queryClient.invalidateQueries({ queryKey: ["projects"] });
       if (selectedProject) {
         setSelectedProject({ ...selectedProject, status: selectedProject.status });
+      }
+    },
+  });
+
+  const editProjectMutation = useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: Partial<Project> }) => {
+      const res = await apiFetch<{ item: Project }>(`/api/projects/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+      return res.item;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      if (selectedProject && editingProject && selectedProject.id === editingProject.id) {
+        void loadProject(selectedProject.id);
+      }
+    },
+  });
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiFetch<{ success: boolean }>(`/api/projects/${id}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      if (selectedProject && editingProject && selectedProject.id === editingProject.id) {
+        setSelectedProject(null);
       }
     },
   });
@@ -1326,31 +1368,78 @@ export default function Tasks() {
                   const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0 ? project.assignees : [];
                   const taskNum = project.taskCount ?? 0;
                   return (
-                    <button
+                    <div
                       key={project.id}
-                      onClick={() => void loadProject(project.id)}
-                      className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card w-full"
+                      className="relative text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card w-full group"
                     >
-                      <div className="flex items-center gap-2 mb-2">
-                        {project.logo?.url ? (
-                          <img src={project.logo.url} alt={`${project.name} logo`} className="w-10 h-10 rounded-md object-cover flex-shrink-0" />
-                        ) : (
-                          <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium truncate">{project.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{project.description || "No description"}</p>
+                      <button
+                        onClick={() => void loadProject(project.id)}
+                        className="w-full text-left"
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          {project.logo?.url ? (
+                            <img src={project.logo.url} alt={`${project.name} logo`} className="w-10 h-10 rounded-md object-cover flex-shrink-0" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium truncate">{project.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{project.description || "No description"}</p>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                        <span className="truncate flex-1 mr-2">{assigneeList.length > 0 ? assigneeList.join(", ") : "No assignees"}</span>
-                        <span className="flex-shrink-0">{taskNum} task{taskNum === 1 ? "" : "s"}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs">
-                        <Badge className="capitalize" variant="outline">{project.status || "No tasks"}</Badge>
-                        <span className="text-muted-foreground text-xs">{project.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}</span>
-                      </div>
-                    </button>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                          <span className="truncate flex-1 mr-2">{assigneeList.length > 0 ? assigneeList.join(", ") : "No assignees"}</span>
+                          <span className="flex-shrink-0">{taskNum} task{taskNum === 1 ? "" : "s"}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <Badge className="capitalize" variant="outline">{project.status || "No tasks"}</Badge>
+                          <span className="text-muted-foreground text-xs">{project.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}</span>
+                        </div>
+                      </button>
+                      
+                      {/* Three dots menu */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute top-2 right-2 h-8 w-8 p-0 bg-background/80"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40">
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingProject(project);
+                              setEditProjectName(project.name);
+                              setEditProjectDescription(project.description || "");
+                              setEditProjectLogoPreview(project.logo?.url || "");
+                              setEditProjectLogoFile(null);
+                              setIsEditProjectOpen(true);
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingProject(project);
+                              setIsDeleteProjectOpen(true);
+                            }}
+                            className="cursor-pointer text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   );
                 })}
               </div>
@@ -1371,35 +1460,87 @@ export default function Tasks() {
                 {tasks.filter(t => !t.projectId).map((task) => {
                   const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0 ? task.assignees : [];
                   return (
-                    <button
+                    <div
                       key={task.id}
-                      onClick={() => openView(task)}
-                      className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card w-full"
+                      className="relative text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card w-full group"
                     >
-                      <div className="mb-2">
-                        <p className="font-medium truncate text-sm">{task.title}</p>
-                        <p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p>
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                        <span className="truncate flex-1 mr-2">{assigneeList.length > 0 ? assigneeList.join(", ") : "Unassigned"}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-xs gap-2 flex-wrap">
-                        <div className="flex gap-1 flex-wrap">
-                          <Badge className="capitalize text-xs" variant="outline" style={{
-                            backgroundColor: task.priority === 'high' ? 'rgb(239, 68, 68)' : task.priority === 'medium' ? 'rgb(234, 179, 8)' : 'rgb(34, 197, 94)',
-                            color: 'white'
-                          }}>
-                            {task.priority}
-                          </Badge>
-                          <Badge className="capitalize text-xs" variant="outline">
-                            {task.status}
-                          </Badge>
+                      <button
+                        onClick={() => openView(task)}
+                        className="w-full text-left"
+                      >
+                        <div className="mb-2">
+                          <p className="font-medium truncate text-sm">{task.title}</p>
+                          <p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p>
                         </div>
-                        <span className="text-muted-foreground text-xs whitespace-nowrap">
-                          {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}
-                        </span>
-                      </div>
-                    </button>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                          <span className="truncate flex-1 mr-2">{assigneeList.length > 0 ? assigneeList.join(", ") : "Unassigned"}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs gap-2 flex-wrap">
+                          <div className="flex gap-1 flex-wrap">
+                            <Badge className="capitalize text-xs" variant="outline" style={{
+                              backgroundColor: task.priority === 'high' ? 'rgb(239, 68, 68)' : task.priority === 'medium' ? 'rgb(234, 179, 8)' : 'rgb(34, 197, 94)',
+                              color: 'white'
+                            }}>
+                              {task.priority}
+                            </Badge>
+                            <Badge className="capitalize text-xs" variant="outline">
+                              {task.status}
+                            </Badge>
+                          </div>
+                          <span className="text-muted-foreground text-xs whitespace-nowrap">
+                            {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}
+                          </span>
+                        </div>
+                      </button>
+                      
+                      {/* Three dots menu */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute top-2 right-2 h-8 w-8 p-0 bg-background/80 hover:bg-background"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40">
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openView(task);
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEdit(task);
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDelete(task);
+                            }}
+                            className="cursor-pointer text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   );
                 })}
               </div>
@@ -1812,6 +1953,207 @@ export default function Tasks() {
         <AlertDialogContent className="w-[95vw] max-w-[95vw] sm:max-w-md rounded-lg">
           <AlertDialogHeader><AlertDialogTitle>Archive task?</AlertDialogTitle><AlertDialogDescription>This will move the task and its comments to the archive. You can restore it later from the Archive Data page.</AlertDialogDescription></AlertDialogHeader>
           <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2"><AlertDialogCancel disabled={deleteTaskMutation.isPending} className="w-full sm:w-auto">Cancel</AlertDialogCancel><AlertDialogAction onClick={confirmDelete} disabled={deleteTaskMutation.isPending} className="gap-2 bg-amber-600 hover:bg-amber-700 w-full sm:w-auto">{deleteTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}<Archive className="h-4 w-4" />Archive</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      
+      {/* Edit Project Dialog */}
+      <Dialog open={isEditProjectOpen} onOpenChange={setIsEditProjectOpen}>
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto rounded-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+            <DialogDescription>Update project details.</DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!editingProject) return;
+              setIsEditingProject(true);
+              
+              const updateProject = async () => {
+                try {
+                  let logoPayload = undefined;
+                  if (editProjectLogoFile) {
+                    logoPayload = await new Promise<ProjectLogo>((resolve, reject) => {
+                      const reader = new FileReader();
+                      reader.onerror = () => reject(new Error("Failed to read project logo"));
+                      reader.onload = () => {
+                        const url = typeof reader.result === "string" ? reader.result : "";
+                        resolve({
+                          fileName: editProjectLogoFile.name,
+                          url,
+                          mimeType: editProjectLogoFile.type,
+                          size: editProjectLogoFile.size,
+                        });
+                      };
+                      reader.readAsDataURL(editProjectLogoFile);
+                    });
+                  }
+                  
+                  const payload: Partial<Project> = {
+                    name: editProjectName,
+                    description: editProjectDescription,
+                  };
+                  if (logoPayload) {
+                    payload.logo = logoPayload;
+                  }
+                  
+                  await editProjectMutation.mutateAsync({ id: editingProject.id, payload });
+                  
+                  setIsEditProjectOpen(false);
+                  setEditingProject(null);
+                  setEditProjectName("");
+                  setEditProjectDescription("");
+                  setEditProjectLogoPreview("");
+                  setEditProjectLogoFile(null);
+                  toast({ title: "Project updated", description: "Project has been updated successfully." });
+                } catch (err) {
+                  toast({
+                    title: "Failed to update project",
+                    description: err instanceof Error ? err.message : "Something went wrong",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setIsEditingProject(false);
+                }
+              };
+              
+              void updateProject();
+            }}
+            className="space-y-4"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Project Name *</label>
+                <Input
+                  placeholder="Project name"
+                  value={editProjectName}
+                  onChange={(e) => setEditProjectName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Project Description</label>
+                <Textarea
+                  placeholder="Short project description"
+                  className="min-h-[80px]"
+                  value={editProjectDescription}
+                  onChange={(e) => setEditProjectDescription(e.target.value)}
+                />
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Project Logo</label>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted"
+                    onClick={() => {
+                      const el = document.getElementById("edit-project-logo-input") as HTMLInputElement | null;
+                      el?.click();
+                    }}
+                  >
+                    Change Logo
+                  </button>
+                  {editProjectLogoPreview ? (
+                    <img src={editProjectLogoPreview} alt="Project Logo" className="w-10 h-10 rounded-md object-cover" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">No logo</div>
+                  )}
+                </div>
+                <input
+                  id="edit-project-logo-input"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    setEditProjectLogoFile(file);
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        setEditProjectLogoPreview(typeof reader.result === "string" ? reader.result : "");
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsEditProjectOpen(false);
+                  setEditingProject(null);
+                  setEditProjectName("");
+                  setEditProjectDescription("");
+                  setEditProjectLogoPreview("");
+                  setEditProjectLogoFile(null);
+                }}
+                disabled={isEditingProject}
+                className="w-full sm:w-auto"
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isEditingProject || !editProjectName.trim()} className="w-full sm:w-auto gap-2">
+                {isEditingProject && <Loader2 className="h-4 w-4 animate-spin" />}
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Project Dialog */}
+      <AlertDialog open={isDeleteProjectOpen} onOpenChange={setIsDeleteProjectOpen}>
+        <AlertDialogContent className="w-[95vw] max-w-[95vw] sm:max-w-md rounded-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the project "{editingProject?.name}" and all its associated tasks. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel
+              disabled={isDeletingProject}
+              className="w-full sm:w-auto"
+              onClick={() => {
+                setIsDeleteProjectOpen(false);
+                setEditingProject(null);
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!editingProject) return;
+                setIsDeletingProject(true);
+                deleteProjectMutation.mutate(editingProject.id, {
+                  onSuccess: () => {
+                    setIsDeleteProjectOpen(false);
+                    setEditingProject(null);
+                    setIsDeletingProject(false);
+                    toast({ title: "Project deleted", description: "Project and its tasks have been deleted." });
+                  },
+                  onError: (err) => {
+                    setIsDeletingProject(false);
+                    toast({
+                      title: "Failed to delete project",
+                      description: err instanceof Error ? err.message : "Something went wrong",
+                      variant: "destructive",
+                    });
+                  },
+                });
+              }}
+              disabled={isDeletingProject}
+              className="gap-2 bg-destructive hover:bg-destructive/90 w-full sm:w-auto"
+            >
+              {isDeletingProject && <Loader2 className="h-4 w-4 animate-spin" />}
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
