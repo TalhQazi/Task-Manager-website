@@ -58,6 +58,8 @@ interface Conversation {
   unreadCount: number;
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 function normalizeMessage(m: MessageApi): Message {
   return {
     id: m._id,
@@ -105,7 +107,11 @@ export default function Messaging() {
 
 
   useEffect(() => {
+
+  socketRef.current = io(API_BASE_URL, { 
+=======
   socketRef.current = io("https://task.se7eninc.com", { 
+
     path: "/api/socket.io",
     transports: ["websocket"],
   });
