@@ -28,6 +28,7 @@ import {
   Quote,
 } from "lucide-react";
 
+
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { clearAuthState, getAuthState } from "@/lib/auth";
@@ -58,7 +59,19 @@ const navItemsBase = [
   { icon: Database, label: "Imported Asana Data", path: "/admin/asana-data" },
   { icon: Archive, label: "Archive Data", path: "/admin/archive-data" },
   { icon: Quote, label: "Founder Messages", path: "/admin/founder-messages" },
+  {
+    label: "SignaCore",
+    path: "/admin/contracts",
+    customIcon: (
+      <img
+        src="/signa-core.png"
+        alt="SignaCore"
+        className="h-6 w-6 flex-shrink-0 object-contain opacity-80 group-hover:opacity-100 transition-opacity"
+      />
+    ),
+  },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
+
 ];
 
 // Activity Logs only for super-admin
@@ -91,6 +104,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
     try {
       await apiFetch("/api/auth/logout", { method: "POST" });
     } catch {
+      // Ignore logout logging failures and continue local sign-out.
     }
     clearAuthState();
     onNavigate?.();
@@ -126,41 +140,21 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
             activeClassName="bg-white/[0.06] text-white"
             onClick={handleNavigate}
           >
-            {({ isActive }) => (
-              <>
-                {/* Active indicator bar - 3px electric blue left accent bar */}
-                <span 
-                  className={cn(
-                    "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full",
-                    "bg-gradient-to-b from-[#00C6FF] to-[#0072FF]",
-                    "transition-all duration-[120ms] ease-in-out",
-                    isActive ? "opacity-100" : "opacity-0"
-                  )} 
-                />
-                
-                {/* Dashboard System Pulse Indicator - only for Dashboard */}
-                {item.label === "Dashboard" && (
-                  <span 
-                    className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gradient-to-b from-[#00C6FF] to-[#0072FF] animate-dashboard-pulse pointer-events-none"
-                    aria-hidden="true"
-                  />
-                )}
-                
-                <item.icon 
-                  className={cn(
-                    "h-5 w-5 flex-shrink-0 transition-all duration-100 linear relative z-10",
-                    isActive && [
-                      "brightness-[112%]", // 12% brightness increase on active
-                      "scale-[1.03]" // 3% scale increase on active
-                    ],
-                    // Hover brightness effect - 8% increase
-                    "group-hover:brightness-[108%]"
-                  )} 
-                />
-                <span className="text-sm font-medium truncate">{item.label}</span>
-              </>
+            {item.customIcon ? (
+              item.customIcon
+            ) : (
+              <item.icon className="h-5 w-5 flex-shrink-0" />
+            )}
+            {item.label === "SignaCore" ? (
+              <span className="text-sm font-bold truncate">
+                <span className="text-[#38bdf8]">Signa</span>
+                <span className="text-[#f97316]">Core</span>
+              </span>
+            ) : (
+              <span className="text-sm font-medium truncate">{item.label}</span>
             )}
           </NavLink>
+
         ))}
       </nav>
 
