@@ -113,14 +113,14 @@ export function PendingPatents() {
 
     try {
       if (selectedPatent) {
-        await apiFetch(`/api/patents/pending/${selectedPatent._id}`, {
+        await apiFetch(`/api/patents/${selectedPatent._id}`, {
           method: "PUT",
           body: JSON.stringify(formData),
         });
       } else {
-        await apiFetch("/api/patents/pending", {
+        await apiFetch("/api/patents", {
           method: "POST",
-          body: JSON.stringify(formData),
+          body: JSON.stringify({ ...formData, patentType: "pending" }),
         });
       }
       await patentsQuery.refetch();
@@ -135,7 +135,7 @@ export function PendingPatents() {
     if (!confirm("Are you sure you want to delete this patent?")) return;
 
     try {
-      await apiFetch(`/api/patents/pending/${id}`, { method: "DELETE" });
+      await apiFetch(`/api/patents/${id}`, { method: "DELETE" });
       await patentsQuery.refetch();
     } catch (error) {
       console.error("Failed to delete patent:", error);
