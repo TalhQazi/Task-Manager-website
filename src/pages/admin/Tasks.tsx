@@ -1428,6 +1428,25 @@ export default function Tasks() {
               <p className="text-xs text-muted-foreground mt-1 break-words">{selectedProject.assignees && selectedProject.assignees.length > 0 ? selectedProject.assignees.join(", ") : "No assignees"}</p>
             </div>
           </div>
+          {selectedProject.attachments && selectedProject.attachments.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({selectedProject.attachments.length})</p>
+              <div className="flex flex-wrap gap-2">
+                {selectedProject.attachments.map((att, idx) => (
+                  att.mimeType?.startsWith("image/") ? (
+                    <a key={idx} href={att.url} target="_blank" rel="noreferrer">
+                      <img src={att.url} alt={att.fileName} className="h-16 w-16 object-cover rounded-md border border-border" />
+                    </a>
+                  ) : (
+                    <a key={idx} href={att.url} target="_blank" rel="noreferrer" download={att.fileName}
+                      className="flex items-center gap-1 px-2 py-1 rounded-md border border-border text-xs hover:bg-muted truncate max-w-[160px]">
+                      📄 {att.fileName}
+                    </a>
+                  )
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground mt-3">
             <span>{selectedProject.tasks.length} tasks</span>
             <Select value={selectedProject.status || "No status"} onValueChange={(value) => {
