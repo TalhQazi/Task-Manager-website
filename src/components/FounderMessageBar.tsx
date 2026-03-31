@@ -155,37 +155,36 @@ export function FounderMessageBar({ onToggleSettings }: FounderMessageBarProps) 
   const currentMessage = messages[currentIndex];
 
   return (
-    <div className="w-full bg-gradient-to-r from-primary/10 via-primary/5 to-primary/10 border-b border-primary/20">
+    <div className="w-full bg-gradient-to-r from-[#133767]/20 via-[#1a4585]/15 to-[#133767]/20 border-b-2 border-[#133767]/30 shadow-lg backdrop-blur-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-10 sm:h-11">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <Quote className="h-3.5 w-3.5 text-primary/60 flex-shrink-0" />
-            <div className="flex-1 min-w-0 overflow-hidden">
-              <AnimatePresence mode="wait">
-                <motion.p
-                  key={currentMessage?.id || currentIndex}
-                  initial={prefersReducedMotion ? {} : { opacity: 0, y: 5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={prefersReducedMotion ? {} : { opacity: 0, y: -5 }}
-                  transition={{ duration: prefersReducedMotion ? 0 : FADE_DURATION }}
-                  className="text-xs sm:text-sm text-foreground/80 font-medium truncate"
-                >
-                  {currentMessage?.message}
-                </motion.p>
-              </AnimatePresence>
-            </div>
+        <div className="flex items-center justify-center h-12 sm:h-14 relative">
+          {/* Centered message */}
+          <div className="flex-1 flex items-center justify-center px-4 sm:px-8">
+            <AnimatePresence mode="wait">
+              <motion.p
+                key={currentMessage?.id || currentIndex}
+                initial={prefersReducedMotion ? {} : { opacity: 0, y: 8, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={prefersReducedMotion ? {} : { opacity: 0, y: -8, scale: 0.98 }}
+                transition={{ duration: prefersReducedMotion ? 0 : FADE_DURATION, ease: "easeOut" }}
+                className="text-sm sm:text-base text-[#133767] font-semibold text-center truncate"
+              >
+                {currentMessage?.message}
+              </motion.p>
+            </AnimatePresence>
           </div>
           
-          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 ml-2">
+          {/* Controls */}
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 absolute right-0">
             {/* Message counter - dots */}
-            <div className="hidden sm:flex items-center gap-1">
+            <div className="hidden sm:flex items-center gap-1.5 mr-1">
               {messages.slice(0, 5).map((_, idx) => (
                 <div
                   key={idx}
-                  className={`w-1 h-1 rounded-full transition-colors ${
+                  className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
                     idx === currentIndex % 5
-                      ? "bg-primary"
-                      : "bg-primary/30"
+                      ? "bg-[#133767] scale-110"
+                      : "bg-[#133767]/30"
                   }`}
                 />
               ))}
@@ -194,19 +193,19 @@ export function FounderMessageBar({ onToggleSettings }: FounderMessageBarProps) 
             {/* Settings button */}
             <button
               onClick={onToggleSettings || handleToggle}
-              className="p-1.5 rounded-full hover:bg-primary/10 transition-colors"
+              className="p-2 rounded-full hover:bg-[#133767]/10 transition-colors"
               title="Toggle founder messages"
             >
-              <Settings className="h-3.5 w-3.5 text-primary/60" />
+              <Settings className="h-4 w-4 text-[#133767]/70" />
             </button>
             
             {/* Dismiss button */}
             <button
               onClick={handleDismiss}
-              className="p-1.5 rounded-full hover:bg-primary/10 transition-colors"
+              className="p-2 rounded-full hover:bg-[#133767]/10 transition-colors"
               title="Dismiss for now"
             >
-              <X className="h-3.5 w-3.5 text-primary/60" />
+              <X className="h-4 w-4 text-[#133767]/70" />
             </button>
           </div>
         </div>

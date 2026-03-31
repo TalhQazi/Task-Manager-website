@@ -580,8 +580,8 @@ export function MainLayout({ children }: MainLayoutProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Founder Message Bar */}
-      <div className="fixed left-0 right-0 z-25" style={{ top: `${headerHeight}px` }}>
+      {/* Founder Message Bar - Full width above content, higher z-index than sidebar */}
+      <div className="fixed left-0 right-0 z-50 md:left-56" style={{ top: `${headerHeight}px` }}>
         <FounderMessageBar />
       </div>
 
