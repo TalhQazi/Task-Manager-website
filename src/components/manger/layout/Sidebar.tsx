@@ -17,6 +17,7 @@ import {
   Building2,
   Quote,
 } from "lucide-react";
+
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/manger/utils";
 import { clearAuthState } from "@/lib/auth";
@@ -36,6 +37,18 @@ const navItems = [
   { icon: BarChart3, label: "Reports", path: "/manager/reports" },
   { icon: Quote, label: "Founder Messages", path: "/manager/founder-messages" },
   { icon: MessageSquare, label: "Messages", path: "/manager/messages" },
+  { 
+    label: "SignaCore", 
+    path: "/manager/contracts",
+    customIcon: (
+      <img 
+        src="/signa-core.png" 
+        alt="SignaCore" 
+        className="h-6 w-6 flex-shrink-0 object-contain opacity-80 group-hover:opacity-100 transition-opacity" 
+      />
+
+    )
+  },
   { icon: Settings, label: "Settings", path: "/manager/settings" },
 ];
 
@@ -83,9 +96,22 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
             activeClassName="bg-white text-[#0b3f86] shadow-md"
             onClick={handleNavigate}
           >
-            <item.icon className="h-5 w-5 flex-shrink-0" />
-            <span className="text-sm font-medium truncate">{item.label}</span>
+            {item.customIcon ? (
+              item.customIcon
+            ) : (
+              <item.icon className="h-5 w-5 flex-shrink-0" />
+            )}
+            {item.label === "SignaCore" ? (
+              <span className="text-sm font-bold truncate">
+                <span className="text-[#38bdf8]">Signa</span>
+                <span className="text-[#f97316]">Core</span>
+              </span>
+            ) : (
+              <span className="text-sm font-medium truncate">{item.label}</span>
+            )}
           </NavLink>
+
+
         ))}
       </nav>
 

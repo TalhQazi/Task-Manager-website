@@ -128,7 +128,7 @@ export function FiledPatents() {
       } else {
         await apiFetch("/api/patents", {
           method: "POST",
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ ...payload, patentType: "filed" }),
         });
       }
 

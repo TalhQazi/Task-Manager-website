@@ -34,6 +34,7 @@ import { IntellectualProperty } from "@/pages/admin/IntellectualProperty";
 import NotFound from "@/pages/admin/NotFound";
 import ArchiveData from "@/pages/admin/ArchiveData";
 import FounderMessages from "@/pages/admin/FounderMessages";
+import SignaCore from "@/pages/admin/SignaCore";
 
 export default function AdminRoutes() {
   const location = useLocation();
@@ -71,9 +72,10 @@ export default function AdminRoutes() {
       { path: "profile", element: <Profile /> },
       { path: "archive-data", element: <ArchiveData /> },
       { path: "founder-messages", element: <FounderMessages /> },
+      { path: "contracts", element: <SignaCore /> },
       { path: "*", element: <NotFound /> },
     ],
-    [],
+    [auth.role],
   );
 
   const element = useRoutes(routes);
