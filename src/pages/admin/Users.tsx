@@ -467,7 +467,8 @@ const confirmArchiveUser = async () => {
         password: values.password,
         role: values.role as BackendUser["role"],
         status: values.status as NonNullable<BackendUser["status"]>,
-        username:`${values.firstName.trim()}${values.lastName.trim()}`.trim(),
+       // username:`${values.firstName.trim()}${values.lastName.trim()}`.trim(),
+       username: values.email.split("@")[0].trim()
       });
       await refreshUsers();
       setOpen(false);
