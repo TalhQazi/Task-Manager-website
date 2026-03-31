@@ -141,7 +141,7 @@ export async function updateResource<T>(resource: CrudResource, id: string, payl
 }
 
 export async function deleteResource(resource: CrudResource, id: string) {
-  return apiFetch<{ ok: true }>(`${resourcePath(resource)}/${encodeURIComponent(id)}`, {
+  return apiFetch<{ ok: true }>(`${resourcePath(resource)}/${encodeURIComponent(id)}`, { 
     method: "DELETE",
   });
 }

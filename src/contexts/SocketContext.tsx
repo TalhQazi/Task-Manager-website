@@ -24,13 +24,19 @@ interface SocketProviderProps {
   children: ReactNode;
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 export function SocketProvider({ children }: SocketProviderProps) {
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
 
   
   useEffect(() => {
+
+  const socket = io(API_BASE_URL, {
+
   const socket = io("https://task.se7eninc.com", {
+
     path: "/api/socket.io/",
     withCredentials: true,
     transports: ["websocket", "polling"],
