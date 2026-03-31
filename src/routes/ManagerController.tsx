@@ -19,6 +19,7 @@ import Settings from "@/pages/manger/Settings";
 import DoNotHire from "@/pages/manger/DoNotHire";
 import OnboardingMonitoring from "@/pages/manger/OnboardingMonitoring";
 import Reports from "@/pages/manger/Reports";
+import FounderMessages from "@/pages/manger/FounderMessages";
 import NotFound from "@/pages/manger/NotFound";
 
 export default function ManagerController() {
@@ -40,6 +41,7 @@ export default function ManagerController() {
       { path: "do-not-hire", element: <DoNotHire /> },
       { path: "onboarding", element: <OnboardingMonitoring /> },
       { path: "reports", element: <Reports /> },
+      { path: "founder-messages", element: <FounderMessages /> },
       { path: "messages", element: <Messages /> },
       { path: "notifications", element: <Notifications /> },
       { path: "settings", element: <Settings /> },

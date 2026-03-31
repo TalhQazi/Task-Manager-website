@@ -2,6 +2,7 @@ import { ReactNode, useState, useEffect, createContext, useContext } from "react
 import { useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
+import { FounderMessageBar } from "@/components/FounderMessageBar";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 
@@ -40,6 +41,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     <HeaderHeightContext.Provider value={headerHeight}>
       <div className="min-h-screen bg-[#e6f0ff]" style={{ paddingTop: `${headerHeight}px` }}>
         <Header onMenuClick={() => setMobileSidebarOpen(true)} />
+        
+        {/* Founder Message Bar */}
+        <div className="fixed left-0 right-0 z-30" style={{ top: `${headerHeight}px` }}>
+          <FounderMessageBar />
+        </div>
 
         <div className="flex items-start">
           <div className="hidden md:block fixed left-0 z-40 w-56 border-r border-white/5 shadow-2xl transition-all duration-300" style={{ top: `${headerHeight}px`, height: `calc(100vh - ${headerHeight}px)`, '--header-height': `${headerHeight}px` } as React.CSSProperties}>

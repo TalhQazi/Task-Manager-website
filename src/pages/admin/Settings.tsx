@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
-import { Camera, User, Loader2, CheckCircle, XCircle, AlertCircle, Upload, FileImage, Image } from "lucide-react";
+import { Camera, User, Loader2, CheckCircle, XCircle, AlertCircle, Upload, FileImage, Image, Quote, ToggleLeft, ToggleRight } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -73,6 +73,8 @@ export default function Settings() {
   const [settings, setSettings] = useState<SettingsState>(() => loadSettings());
 
   const [isSaving, setIsSaving] = useState(false);
+  const [founderMsgEnabled, setFounderMsgEnabled] = useState(true);
+  const [isLoadingFounderPref, setIsLoadingFounderPref] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [avatarUpload, setAvatarUpload] = useState<AvatarUploadState>({
     status: "idle",
@@ -389,7 +391,35 @@ export default function Settings() {
     } finally {
       setPasswordSaving(false);
     }
-  }; // Added closing brace here
+  };
+
+  // Load founder message preference
+  useEffect(() => {
+    const loadFounderPref = async () => {
+      try {
+        const res = await apiFetch<{ showFounderMessages: boolean }>("/api/founder-messages/preference");
+        setFounderMsgEnabled(res.showFounderMessages !== false);
+      } catch (e) {
+        console.error("Failed to load founder message preference:", e);
+      }
+    };
+    loadFounderPref();
+  }, []);
+
+  const handleToggleFounderMessages = async () => {
+    setIsLoadingFounderPref(true);
+    try {
+      await apiFetch<{ showFounderMessages: boolean }>("/api/founder-messages/preference", {
+        method: "PUT",
+        body: JSON.stringify({ showFounderMessages: !founderMsgEnabled }),
+      });
+      setFounderMsgEnabled(!founderMsgEnabled);
+    } catch (e) {
+      console.error("Failed to toggle founder messages:", e);
+    } finally {
+      setIsLoadingFounderPref(false);
+    }
+  };
 
   // Header Customization Card Component
   function HeaderCustomizationCard() {
@@ -887,6 +917,39 @@ export default function Settings() {
                   onChange={(e) => setSettings({ ...settings, email: e.target.value })}
                   className="h-9 sm:h-10 text-sm sm:text-base"
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Preferences Card */}
+          <Card className="shadow-soft border-0 sm:border">
+            <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
+              <CardTitle className="text-base sm:text-lg md:text-xl font-semibold flex items-center gap-2">
+                <Quote className="h-5 w-5" />
+                Preferences
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 sm:space-y-5 px-4 sm:px-6 pb-5 sm:pb-6 pt-0">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium">Founder Messages</p>
+                  <p className="text-xs text-muted-foreground">
+                    Show motivational messages on the dashboard
+                  </p>
+                </div>
+                <button
+                  onClick={handleToggleFounderMessages}
+                  disabled={isLoadingFounderPref}
+                  className="p-2 rounded-full hover:bg-muted transition-colors disabled:opacity-50"
+                >
+                  {isLoadingFounderPref ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : founderMsgEnabled ? (
+                    <ToggleRight className="h-6 w-6 text-green-600" />
+                  ) : (
+                    <ToggleLeft className="h-6 w-6 text-gray-400" />
+                  )}
+                </button>
               </div>
             </CardContent>
           </Card>

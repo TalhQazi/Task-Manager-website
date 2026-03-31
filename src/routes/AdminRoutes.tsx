@@ -33,6 +33,7 @@ import { DigitalAssets } from "@/pages/admin/DigitalAssets";
 import { IntellectualProperty } from "@/pages/admin/IntellectualProperty";
 import NotFound from "@/pages/admin/NotFound";
 import ArchiveData from "@/pages/admin/ArchiveData";
+import FounderMessages from "@/pages/admin/FounderMessages";
 
 export default function AdminRoutes() {
   const location = useLocation();
@@ -69,6 +70,7 @@ export default function AdminRoutes() {
       { path: "asana-data", element: <AsanaData /> },
       { path: "profile", element: <Profile /> },
       { path: "archive-data", element: <ArchiveData /> },
+      { path: "founder-messages", element: <FounderMessages /> },
       { path: "*", element: <NotFound /> },
     ],
     [],
