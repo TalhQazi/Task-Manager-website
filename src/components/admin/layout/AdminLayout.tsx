@@ -42,8 +42,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       <div className="min-h-screen bg-[#e6f0ff]" style={{ paddingTop: `${headerHeight}px` }}>
         <Header onMenuClick={() => setMobileSidebarOpen(true)} />
         
-        {/* Founder Message Bar */}
-        <div className="fixed left-0 right-0 z-30" style={{ top: `${headerHeight}px` }}>
+        {/* Founder Message Bar - Full width above content, higher z-index than sidebar */}
+        <div className="fixed left-0 right-0 z-50 md:left-56" style={{ top: `${headerHeight}px` }}>
           <FounderMessageBar />
         </div>
 
