@@ -277,14 +277,17 @@ export default function DoNotHire() {
   }, [items, searchQuery, sortBy]);
 
   const addItem = async () => {
-    if (!formData.employeeId || !formData.reason) return;
-    const selectedEmployee = employees.find((e) => e.id === formData.employeeId);
-    const selectedName = String(selectedEmployee?.name || formData.name || "").trim();
-    if (!selectedName) return;
+    // Allow manual entry: either employee selected OR manual name entered
+    const selectedEmployee = formData.employeeId ? employees.find((e) => e.id === formData.employeeId) : null;
+    const manualName = formData.name?.trim();
+    
+    // Validation: need either employee selection OR manual name, plus reason
+    const selectedName = selectedEmployee?.name || manualName;
+    if (!selectedName || !formData.reason) return;
     const payload: BackendDoNotHire = {
       fullName: selectedName,
       name: selectedName,
-      employeeId: formData.employeeId || undefined,
+      employeeId: selectedEmployee?.id || undefined,
       reason: formData.reason,
       incidentNotes: formData.incidentNotes,
       notes: formData.incidentNotes,
@@ -323,15 +326,19 @@ export default function DoNotHire() {
 
   const saveEdit = async () => {
     if (!selected) return;
-    if (!editFormData.employeeId || !editFormData.reason) return;
-    const selectedEmployee = employees.find((e) => e.id === editFormData.employeeId);
-    const selectedName = String(selectedEmployee?.name || editFormData.name || "").trim();
-    if (!selectedName) return;
+    
+    // Allow manual entry: either employee selected OR manual name entered
+    const selectedEmployee = editFormData.employeeId ? employees.find((e) => e.id === editFormData.employeeId) : null;
+    const manualName = editFormData.name?.trim();
+    const selectedName = selectedEmployee?.name || manualName;
+    
+    // Validation: need either employee selection OR manual name, plus reason
+    if (!selectedName || !editFormData.reason) return;
     try {
       setApiError(null);
       await updateResource<BackendDoNotHire>("do-not-hire", selected.id, {
         name: selectedName,
-        employeeId: editFormData.employeeId || undefined,
+        employeeId: selectedEmployee?.id || undefined,
         reason: editFormData.reason,
         incidentNotes: editFormData.incidentNotes,
         notes: editFormData.incidentNotes,
@@ -400,21 +407,20 @@ export default function DoNotHire() {
               </DialogHeader>
               
               <form className="space-y-4 sm:space-y-5">
-                {/* Name & Reason - Stack on mobile, row on tablet+ */}
+                {/* Employee Selection OR Manual Name Entry */}
                 <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                   <div className="flex-1 min-w-0">
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Employee *</label>
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Select Employee (Optional)</label>
                     <select
                       value={formData.employeeId}
                       onChange={(e) => {
                         const empId = e.target.value;
                         const emp = employees.find((e) => e.id === empId);
-                        setFormData({ ...formData, employeeId: empId, name: emp?.name || "" });
+                        setFormData({ ...formData, employeeId: empId, name: emp?.name || formData.name });
                       }}
                       className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
-                      required
                     >
-                      <option value="">Select employee</option>
+                      <option value="">Select employee or enter name below</option>
                       {employees.map((emp) => (
                         <option key={emp.id} value={emp.id}>
                           {emp.name}
@@ -426,15 +432,27 @@ export default function DoNotHire() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Reason *</label>
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Or Enter Name Manually *</label>
                     <input
-                      value={formData.reason}
-                      onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
-                      placeholder="Policy violation"
-                      required
+                      placeholder="John Doe"
+                      required={!formData.employeeId}
                     />
                   </div>
+                </div>
+
+                {/* Reason */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Reason *</label>
+                  <input
+                    value={formData.reason}
+                    onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                    placeholder="Policy violation"
+                    required
+                  />
                 </div>
 
                 {/* Incident Notes */}
@@ -765,21 +783,20 @@ export default function DoNotHire() {
           </DialogHeader>
           {selected && (
             <form className="space-y-4 sm:space-y-5">
-              {/* Employee & Reason */}
+              {/* Employee Selection OR Manual Name Entry */}
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <div className="flex-1 min-w-0">
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Employee *</label>
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Select Employee (Optional)</label>
                   <select
                     value={editFormData.employeeId}
                     onChange={(e) => {
                       const empId = e.target.value;
                       const emp = employees.find((e) => e.id === empId);
-                      setEditFormData({ ...editFormData, employeeId: empId, name: emp?.name || "" });
+                      setEditFormData({ ...editFormData, employeeId: empId, name: emp?.name || editFormData.name });
                     }}
                     className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
-                    required
                   >
-                    <option value="">Select employee</option>
+                    <option value="">Select employee or enter name below</option>
                     {employees.map((emp) => (
                       <option key={emp.id} value={emp.id}>
                         {emp.name}
@@ -788,14 +805,27 @@ export default function DoNotHire() {
                   </select>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Reason *</label>
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Or Enter Name Manually *</label>
                   <input
-                    value={editFormData.reason}
-                    onChange={(e) => setEditFormData({ ...editFormData, reason: e.target.value })}
+                    value={editFormData.name}
+                    onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
                     className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
-                    required
+                    placeholder="John Doe"
+                    required={!editFormData.employeeId}
                   />
                 </div>
+              </div>
+
+              {/* Reason */}
+              <div>
+                <label className="block text-xs sm:text-sm font-medium mb-1.5">Reason *</label>
+                <input
+                  value={editFormData.reason}
+                  onChange={(e) => setEditFormData({ ...editFormData, reason: e.target.value })}
+                  className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                  placeholder="Policy violation"
+                  required
+                />
               </div>
 
               {/* Incident Notes */}

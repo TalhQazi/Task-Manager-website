@@ -15,6 +15,7 @@ import {
   Settings,
   LogOut,
   Building2,
+  Quote,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/manger/utils";
@@ -33,6 +34,7 @@ const navItems = [
   { icon: UserX, label: "Do Not Hire", path: "/manager/do-not-hire" },
   { icon: ClipboardCheck, label: "Onboarding", path: "/manager/onboarding" },
   { icon: BarChart3, label: "Reports", path: "/manager/reports" },
+  { icon: Quote, label: "Founder Messages", path: "/manager/founder-messages" },
   { icon: MessageSquare, label: "Messages", path: "/manager/messages" },
   { icon: Settings, label: "Settings", path: "/manager/settings" },
 ];

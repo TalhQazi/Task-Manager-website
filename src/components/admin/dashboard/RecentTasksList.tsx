@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Clock, MapPin, AlertCircle } from "lucide-react";
-import { listResource } from "@/lib/apiClient";
+import { apiFetch, listResource } from "@/lib/api";
 
 interface Task {
   id: string;

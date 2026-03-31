@@ -27,6 +27,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/manger/api";
 import { getAuthState, clearAuthState } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { FounderMessageBar } from "@/components/FounderMessageBar";
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -578,6 +579,11 @@ export function MainLayout({ children }: MainLayoutProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Founder Message Bar */}
+      <div className="fixed left-0 right-0 z-25" style={{ top: `${headerHeight}px` }}>
+        <FounderMessageBar />
+      </div>
 
       {/* Body: left icon rail + content */}
       <div className="flex">

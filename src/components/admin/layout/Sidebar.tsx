@@ -25,6 +25,7 @@ import {
   Globe,
   Lightbulb,
   Archive,
+  Quote,
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
@@ -56,6 +57,7 @@ const navItemsBase = [
   { icon: Lightbulb, label: "Intellectual Property", path: "/admin/intellectual-property" },
   { icon: Database, label: "Imported Asana Data", path: "/admin/asana-data" },
   { icon: Archive, label: "Archive Data", path: "/admin/archive-data" },
+  { icon: Quote, label: "Founder Messages", path: "/admin/founder-messages" },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
 ];
 
@@ -106,7 +108,9 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "flex flex-col text-white z-40 bg-[#0b2f6b]/95 backdrop-blur-md h-full",
+        "flex flex-col text-white z-40 h-full",
+        // Deep matte navy with subtle vertical gradient
+        "bg-gradient-to-b from-[#0B1323] via-[#0B1323] to-[#0F172A]",
         isMobile
           ? "w-64"
           : "w-full shadow-floating animate-slide-in"
@@ -118,12 +122,44 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
             key={item.path}
             to={item.path}
             end={item.end}
-            className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-white/70 hover:bg-white/15 hover:text-white transition-colors"
-            activeClassName="bg-white text-[#0b3f86] shadow-md"
+            className="group relative flex h-10 w-full items-center gap-3 rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear"
+            activeClassName="bg-white/[0.06] text-white"
             onClick={handleNavigate}
           >
-            <item.icon className="h-5 w-5 flex-shrink-0" />
-            <span className="text-sm font-medium truncate">{item.label}</span>
+            {({ isActive }) => (
+              <>
+                {/* Active indicator bar - 3px electric blue left accent bar */}
+                <span 
+                  className={cn(
+                    "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full",
+                    "bg-gradient-to-b from-[#00C6FF] to-[#0072FF]",
+                    "transition-all duration-[120ms] ease-in-out",
+                    isActive ? "opacity-100" : "opacity-0"
+                  )} 
+                />
+                
+                {/* Dashboard System Pulse Indicator - only for Dashboard */}
+                {item.label === "Dashboard" && (
+                  <span 
+                    className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gradient-to-b from-[#00C6FF] to-[#0072FF] animate-dashboard-pulse pointer-events-none"
+                    aria-hidden="true"
+                  />
+                )}
+                
+                <item.icon 
+                  className={cn(
+                    "h-5 w-5 flex-shrink-0 transition-all duration-100 linear relative z-10",
+                    isActive && [
+                      "brightness-[112%]", // 12% brightness increase on active
+                      "scale-[1.03]" // 3% scale increase on active
+                    ],
+                    // Hover brightness effect - 8% increase
+                    "group-hover:brightness-[108%]"
+                  )} 
+                />
+                <span className="text-sm font-medium truncate">{item.label}</span>
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
@@ -132,7 +168,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
         <button
           type="button"
           onClick={onLogout}
-          className="flex w-full items-center gap-3 h-10 rounded-lg px-3 text-white/80 hover:bg-red-500/20 hover:text-red-100 transition-colors"
+          className="flex w-full items-center gap-3 h-10 rounded-lg px-3 text-white/60 hover:bg-red-500/10 hover:text-red-200 transition-all duration-[120ms] ease-in-out"
         >
           <LogOut className="h-5 w-5 flex-shrink-0" />
           <span className="text-sm font-medium">Logout</span>

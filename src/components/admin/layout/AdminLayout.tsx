@@ -1,6 +1,8 @@
 import { ReactNode, useState, useEffect, createContext, useContext } from "react";
+import { useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
+import { FounderMessageBar } from "@/components/FounderMessageBar";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 
@@ -16,8 +18,15 @@ interface AdminLayoutProps {
 }
 
 export function AdminLayout({ children }: AdminLayoutProps) {
+  const location = useLocation();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(250);
+  const [pageKey, setPageKey] = useState(0);
+
+  // Trigger page transition animation on route change
+  useEffect(() => {
+    setPageKey(prev => prev + 1);
+  }, [location.pathname]);
 
   // Listen for header height updates
   useEffect(() => {
@@ -32,6 +41,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     <HeaderHeightContext.Provider value={headerHeight}>
       <div className="min-h-screen bg-[#e6f0ff]" style={{ paddingTop: `${headerHeight}px` }}>
         <Header onMenuClick={() => setMobileSidebarOpen(true)} />
+        
+        {/* Founder Message Bar */}
+        <div className="fixed left-0 right-0 z-30" style={{ top: `${headerHeight}px` }}>
+          <FounderMessageBar />
+        </div>
 
         <div className="flex items-start">
           <div className="hidden md:block fixed left-0 z-40 w-56 border-r border-white/5 shadow-2xl transition-all duration-300" style={{ top: `${headerHeight}px`, height: `calc(100vh - ${headerHeight}px)`, '--header-height': `${headerHeight}px` } as React.CSSProperties}>
@@ -39,7 +53,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </div>
 
           <main className={cn("flex-1 px-4 sm:px-6 lg:px-8 py-6 transition-all duration-300", "md:ml-56")}>
-            <div className="w-full max-w-full animate-fade-in">
+            <div key={pageKey} className="w-full max-w-full animate-page-enter">
               {children}
             </div>
           </main>

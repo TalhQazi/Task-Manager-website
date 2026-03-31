@@ -1,1 +1,1 @@
-export { apiFetch } from "./manger/api";
+export { apiFetch, listResource } from "./manger/api";
