@@ -158,6 +158,7 @@ const Users = () => {
   const [changeRoleOpen, setChangeRoleOpen] = useState(false);
   const [deactivateOpen, setDeactivateOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
   const [resetPasswordData, setResetPasswordData] = useState({
     newPassword: "",
@@ -303,6 +304,11 @@ const Users = () => {
     setDeactivateOpen(true);
   };
 
+  const handleArchiveUser = (user: User) => {
+    setSelectedUser(user);
+    setArchiveOpen(true);
+  };
+
   const handleDeleteUser = (user: User) => {
     setSelectedUser(user);
     setDeleteOpen(true);
@@ -394,6 +400,21 @@ const Users = () => {
     }
   };
 
+const confirmArchiveUser = async () => {
+    if (!selectedUser) return;
+    try {
+     // await deleteResource("users", selectedUser.id);
+      await apiFetch(`/api/users/${selectedUser.id}/archive`, { 
+        method: "POST",
+      });
+      await refreshUsers();
+      setArchiveOpen(false);
+      setSelectedUser(null);
+    } catch (e) {
+      setApiError(e instanceof Error ? e.message : "Failed to archive user");
+    }
+  };
+
   const confirmDeleteUser = async () => {
     if (!selectedUser) return;
     try {
@@ -446,6 +467,7 @@ const Users = () => {
         password: values.password,
         role: values.role as BackendUser["role"],
         status: values.status as NonNullable<BackendUser["status"]>,
+       // username:'testusername'
       });
       await refreshUsers();
       setOpen(false);
@@ -456,6 +478,7 @@ const Users = () => {
   };
 
   const filteredUsers = users.filter((user) => {
+     if (user.status === "inactive") return false;
     const matchesSearch =
       String(user.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       String(user.email || "").toLowerCase().includes(searchQuery.toLowerCase());
@@ -884,10 +907,20 @@ const Users = () => {
                                   <Trash2 className="mr-2 h-4 w-4" />
                                   {user.status === "inactive" ? "Activate" : "Deactivate"}
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleDeleteUser(user)} className="text-destructive">
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete User
-                                </DropdownMenuItem>
+
+                                <DropdownMenuItem onClick={() => handleArchiveUser(user)} className="text-destructive">
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Archive User
+                                  </DropdownMenuItem>
+
+                                {/* <DropdownMenuItem onClick={() => handleDeleteUser(user)} className="text-destructive">
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Delete User
+                                  </DropdownMenuItem>*/}
+
+                                  
+                                
+      
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
@@ -898,7 +931,7 @@ const Users = () => {
                               {user.role}
                             </Badge>
                             <Badge className={`${statusClasses[user.status]} text-xs`} variant="secondary">
-                              {user.status}
+                              {user.status}ff
                             </Badge>
                           </div>
 
@@ -1068,10 +1101,16 @@ const Users = () => {
                                       <Trash2 className="mr-2 h-4 w-4" />
                                       {user.status === "inactive" ? "Activate" : "Deactivate"}
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleDeleteUser(user)} className="text-destructive">
+
+                                    <DropdownMenuItem onClick={() => handleArchiveUser(user)} className="text-destructive">
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Archive User
+                                  </DropdownMenuItem>
+
+                                   {/* <DropdownMenuItem onClick={() => handleDeleteUser(user)} className="text-destructive">
                                       <Trash2 className="mr-2 h-4 w-4" />
                                       Delete User
-                                    </DropdownMenuItem>
+                                    </DropdownMenuItem>*/}
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               </TableCell>
@@ -1416,6 +1455,59 @@ const Users = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+
+       {/* Archive User Dialog - Animated */}
+      <Dialog open={archiveOpen} onOpenChange={setArchiveOpen}>
+        <DialogContent className="w-[95vw] max-w-md mx-auto p-4 sm:p-6">
+          <DialogHeader className="space-y-1.5 sm:space-y-2">
+            <DialogTitle className="text-base sm:text-lg text-destructive">Archive User</DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
+              Are you sure you want to archive {selectedUser?.name}? This action can be reversed later.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <motion.div 
+              className="p-3 sm:p-4 rounded-lg bg-gradient-to-r from-destructive/10 to-destructive/5 space-y-1"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <p className="text-sm sm:text-base font-medium break-words">{selectedUser.name}</p>
+              <p className="text-xs sm:text-sm text-muted-foreground break-words">{selectedUser.email}</p>
+            </motion.div>
+          )}
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="w-full sm:w-auto"
+            >
+              <Button 
+                variant="outline" 
+                onClick={() => setArchiveOpen(false)}
+                className="w-full sm:w-auto order-2 sm:order-1"
+              >
+                Cancel
+              </Button>
+            </motion.div>
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="w-full sm:w-auto"
+            >
+              <Button 
+                onClick={confirmArchiveUser} 
+                variant="destructive"
+                className="w-full sm:w-auto order-1 sm:order-2"
+              >
+                Archive User
+              </Button>
+            </motion.div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
 
       {/* Delete User Dialog - Animated */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>

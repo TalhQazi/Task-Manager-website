@@ -57,6 +57,8 @@ interface Message {
   status: string;
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 export default function EmployeeMessages() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
@@ -92,7 +94,7 @@ export default function EmployeeMessages() {
 
 
   useEffect(() => {
-  socketRef.current = io("http://192.168.31.13:5000", {
+  socketRef.current = io(API_BASE_URL, {
     path: "/api/socket.io",
     transports: ["websocket"],
   });

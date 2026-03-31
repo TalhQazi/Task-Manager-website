@@ -58,6 +58,8 @@ interface Conversation {
   unreadCount: number;
 }
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 function normalizeMessage(m: MessageApi): Message {
   return {
     id: m._id,
@@ -105,7 +107,7 @@ export default function Messaging() {
 
 
   useEffect(() => {
-  socketRef.current = io("http://192.168.31.13:5000", { 
+  socketRef.current = io(API_BASE_URL, { 
     path: "/api/socket.io",
     transports: ["websocket"],
   });
