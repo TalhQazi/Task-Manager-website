@@ -33,10 +33,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
   
   useEffect(() => {
 
-  const socket = io(API_BASE_URL, {
-
   const socket = io("https://task.se7eninc.com", {
-
     path: "/api/socket.io/",
     withCredentials: true,
     transports: ["websocket", "polling"],

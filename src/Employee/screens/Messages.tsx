@@ -95,9 +95,7 @@ export default function EmployeeMessages() {
 
   useEffect(() => {
 
-  socketRef.current = io(API_BASE_URL, {
-
-  socketRef.current = io("https://task.se7eninc.com",
+  socketRef.current = io("https://task.se7eninc.com", {
     path: "/api/socket.io",
     transports: ["websocket"],
   });
