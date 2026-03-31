@@ -120,14 +120,14 @@ export function FiledPatents() {
       };
 
       if (selectedPatent) {
-        await apiFetch(`/api/patents/filed/${selectedPatent._id}`, {
+        await apiFetch(`/api/patents/${selectedPatent._id}`, {
           method: "PUT",
           body: JSON.stringify(payload),
         });
       } else {
-        await apiFetch("/api/patents/filed", {
+        await apiFetch("/api/patents", {
           method: "POST",
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ ...payload, patentType: "filed" }),
         });
       }
 
@@ -145,7 +145,7 @@ export function FiledPatents() {
     if (!confirm("Are you sure you want to delete this patent?")) return;
 
     try {
-      await apiFetch(`/api/patents/filed/${patent._id}`, {
+      await apiFetch(`/api/patents/${patent._id}`, {
         method: "DELETE",
       });
       await patentsQuery.refetch();
