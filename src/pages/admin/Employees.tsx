@@ -113,7 +113,7 @@ const itemVariants = {
     y: 0,
     opacity: 1,
     transition: {
-      type: "spring",
+      type: "spring" as const,
       stiffness: 100,
       damping: 12,
     },
@@ -126,7 +126,7 @@ const cardVariants = {
     scale: 1,
     opacity: 1,
     transition: {
-      type: "spring",
+      type: "spring" as const,
       stiffness: 100,
       damping: 15,
     },
@@ -135,7 +135,7 @@ const cardVariants = {
     scale: 1.02,
     boxShadow: "0 20px 25px -5px rgba(59, 130, 246, 0.1), 0 10px 10px -5px rgba(59, 130, 246, 0.04)",
     transition: {
-      type: "spring",
+      type: "spring" as const,
       stiffness: 400,
       damping: 17,
     },
@@ -170,6 +170,7 @@ const Employees = () => {
     userStatus: "active" | "inactive" | "pending";
     role: string;
     company: string;
+    department: string;
     status: Employee["status"];
     payType: "hourly" | "monthly";
     payRate: string;
@@ -567,7 +568,7 @@ const Employees = () => {
   return (
     <>
       <motion.div 
-        className="pl-12 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-0 pb-6"
+        className="pl-4 sm:pl-6 md:pl-12 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-4 pb-6"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -577,7 +578,7 @@ const Employees = () => {
           className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-4 sm:p-6"
           variants={itemVariants}
           whileHover={{ scale: 1.01 }}
-          transition={{ type: "spring", stiffness: 300, damping: 20 }}
+          transition={{ type: "spring" as const, stiffness: 300, damping: 20 }}
         >
           <div className="absolute inset-0 bg-grid-white/10 [mask-image:radial-gradient(ellipse_at_center,white,transparent)]" />
           <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
@@ -1043,8 +1044,8 @@ const Employees = () => {
                 </div>
 
                 {/* Filter Dropdowns - Grid on mobile, row on tablet+ */}
-                <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:gap-3">
-                  <div className="col-span-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-row gap-2 sm:gap-3">
+                  <div className="col-span-1 sm:col-span-1">
                     <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
                       Status
                     </label>
@@ -1061,7 +1062,7 @@ const Employees = () => {
                     </Select>
                   </div>
 
-                  <div className="col-span-1">
+                  <div className="col-span-1 sm:col-span-1">
                     <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
                       Category
                     </label>
@@ -1080,7 +1081,7 @@ const Employees = () => {
                     </Select>
                   </div>
 
-                  <div className="col-span-1">
+                  <div className="col-span-1 sm:col-span-1">
                     <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
                       Role
                     </label>
@@ -1099,7 +1100,7 @@ const Employees = () => {
                     </Select>
                   </div>
 
-                  <div className="col-span-1">
+                  <div className="col-span-1 sm:col-span-1">
                     <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
                       Company
                     </label>
@@ -2076,7 +2077,7 @@ const Employees = () => {
       </Dialog>
 
       {/* Add global styles for grid pattern */}
-      <style jsx global>{`
+      <style>{`
         .bg-grid-white {
           background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgb(255 255 255 / 0.05)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
         }
