@@ -326,6 +326,8 @@ const Employees = () => {
           password: values.password,
           role: values.userRole,
           status: values.userStatus,
+         // username:`${values.firstName.trim()}${values.lastName.trim()}`.trim()
+         username: values.email.split("@")[0].trim()
         });
       }
 

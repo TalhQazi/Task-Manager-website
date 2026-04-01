@@ -109,7 +109,7 @@ export default function Messaging() {
   useEffect(() => {
 
   socketRef.current = io("https://task.se7eninc.com", { 
-    path: "/api/socket.io",
+   path: "/api/socket.io",
     transports: ["websocket"],
   });
 

@@ -116,6 +116,7 @@ export function FiledPatents() {
 
       const payload = {
         ...formData,
+        patentType: "filed",
         provisionalExpiration: expirationDate,
       };
 
