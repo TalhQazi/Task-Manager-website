@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Worker, Viewer, SpecialZoomLevel, RenderPageProps, PageChangeEvent } from "@react-pdf-viewer/core";
-import "@react-pdf-viewer/core/lib/styles/index.css";
+
 import {
   Plus,
   Send,
