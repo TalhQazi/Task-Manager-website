@@ -483,7 +483,7 @@ const Locations = () => {
   return (
     <>
       {/* Mobile-first container */}
-      <div className="pl-4 sm:pl-6 md:pl-12 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-4 pb-6">
+      <div className="pl-12 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-0">
         {/* Page Header - Responsive */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
           <div className="space-y-1.5 sm:space-y-2">
@@ -750,7 +750,7 @@ const Locations = () => {
         {apiError && (
           <div className="rounded-md bg-destructive/10 p-3 sm:p-4">
             <p className="text-xs sm:text-sm text-destructive break-words">
-              {apiError}
+              {apiError.startsWith("<") ? "Server error: failed to load locations. The server may be temporarily unavailable (504 Gateway Timeout). Please try again later." : apiError}
             </p>
           </div>
         )}
@@ -945,20 +945,19 @@ const Locations = () => {
                   )}
                 </div>
 
-              {/* Tablet/Desktop View - Table */}
-              <div className="hidden sm:block w-full">
-                <div className="overflow-x-auto">
-                  <Table className="w-full min-w-[800px] lg:min-w-0">
+                {/* Tablet/Desktop View - Table */}
+                <div className="hidden sm:block w-full overflow-x-auto">
+                  <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="text-xs md:text-sm w-[8%] lg:w-[6%]">Code</TableHead>
-                        <TableHead className="text-xs md:text-sm w-[20%] lg:w-[22%]">Name</TableHead>
-                        <TableHead className="text-xs md:text-sm w-[12%] lg:w-[10%]">Type</TableHead>
-                        <TableHead className="text-xs md:text-sm w-[25%] lg:w-[28%]">Address</TableHead>
-                        <TableHead className="text-xs md:text-sm w-[12%] lg:w-[10%]">City</TableHead>
-                        <TableHead className="text-xs md:text-sm w-[10%] lg:w-[8%]">Status</TableHead>
-                        <TableHead className="text-xs md:text-sm w-[10%] lg:w-[8%]">Date</TableHead>
-                        <TableHead className="text-right text-xs md:text-sm w-[8%] lg:w-[8%]">Actions</TableHead>
+                        <TableHead className="text-xs md:text-sm w-[10%]">Code</TableHead>
+                        <TableHead className="text-xs md:text-sm w-[18%]">Name</TableHead>
+                        <TableHead className="text-xs md:text-sm w-[10%]">Type</TableHead>
+                        <TableHead className="text-xs md:text-sm w-[20%]">Address</TableHead>
+                        <TableHead className="text-xs md:text-sm w-[10%]">City</TableHead>
+                        <TableHead className="text-xs md:text-sm w-[10%]">Status</TableHead>
+                        <TableHead className="text-xs md:text-sm w-[12%]">Date</TableHead>
+                        <TableHead className="text-right text-xs md:text-sm w-[10%]">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -982,7 +981,7 @@ const Locations = () => {
                                   <MapPin className="h-4 w-4 text-muted-foreground" />
                                 </div>
                               )}
-                              <p className="font-medium text-sm md:text-base truncate max-w-[200px] lg:max-w-[300px] xl:max-w-[400px]">
+                              <p className="font-medium text-sm md:text-base truncate max-w-[160px] lg:max-w-[200px]">
                                 {location.name}
                               </p>
                             </div>
@@ -998,13 +997,13 @@ const Locations = () => {
                           <TableCell className="text-muted-foreground">
                             <div className="flex items-center gap-1.5 text-xs md:text-sm">
                               <MapPin className="h-3 w-3 md:h-3.5 md:w-3.5 flex-shrink-0" />
-                              <span className="truncate max-w-[250px] lg:max-w-[350px] xl:max-w-[450px] inline-block">
+                              <span className="truncate max-w-[200px] lg:max-w-[250px] inline-block">
                                 {location.address}
                               </span>
                             </div>
                           </TableCell>
                           <TableCell className="text-muted-foreground text-xs md:text-sm">
-                            <span className="truncate max-w-[160px] lg:max-w-[200px] xl:max-w-[250px] inline-block">
+                            <span className="truncate max-w-[160px] lg:max-w-[200px] inline-block">
                               {location.city}
                             </span>
                           </TableCell>
@@ -1050,9 +1049,8 @@ const Locations = () => {
                     </TableBody>
                   </Table>
                 </div>
-              </div>
-            </>
-          )}
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
