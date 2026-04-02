@@ -59,6 +59,29 @@ import {
 } from "lucide-react";
 import { createResource, listResource, updateResource, apiFetch } from "@/lib/admin/apiClient";
 
+function LocationPhoto({ locationId, alt, containerClassName, iconClassName }: { locationId: string; alt: string; containerClassName: string; iconClassName: string }) {
+  const [src, setSrc] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<{ photoDataUrl: string }>(`/api/locations/${encodeURIComponent(locationId)}/photo`)
+      .then(d => { if (!cancelled) setSrc(d.photoDataUrl || null); })
+      .catch(() => { if (!cancelled) setSrc(null); });
+    return () => { cancelled = true; };
+  }, [locationId]);
+  if (src) {
+    return (
+      <div className={`${containerClassName} overflow-hidden border flex-shrink-0`}>
+        <img src={src} alt={alt} className="h-full w-full object-cover" />
+      </div>
+    );
+  }
+  return (
+    <div className={`${containerClassName} bg-muted flex items-center justify-center flex-shrink-0`}>
+      <MapPin className={iconClassName} />
+    </div>
+  );
+}
+
 const LOCATION_TYPES = [
   "Property",
   "Building",
@@ -395,10 +418,18 @@ const Locations = () => {
       contactName: location.contactName,
       contactPhone: location.contactPhone,
       status: location.status,
-      photoDataUrl: location.photoDataUrl || "",
+      photoDataUrl: "",
       photoFileName: location.photoFileName || "",
     });
     setEditLocationOpen(true);
+    // Load existing photo in background
+    apiFetch<{ photoDataUrl: string; photoFileName: string }>(`/api/locations/${encodeURIComponent(location.id)}/photo`)
+      .then(d => {
+        if (d.photoDataUrl) {
+          setEditFormData(prev => ({ ...prev, photoDataUrl: d.photoDataUrl, photoFileName: d.photoFileName || prev.photoFileName }));
+        }
+      })
+      .catch(() => {});
   };
 
   const saveEditLocation = async () => {
@@ -863,19 +894,7 @@ const Locations = () => {
                       {/* Header with Name and Actions */}
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          {location.photoDataUrl ? (
-                            <div className="h-10 w-10 rounded-lg overflow-hidden flex-shrink-0 border">
-                              <img
-                                src={location.photoDataUrl}
-                                alt={location.name}
-                                className="h-full w-full object-cover"
-                              />
-                            </div>
-                          ) : (
-                            <div className="h-10 w-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                              <MapPin className="h-5 w-5 text-muted-foreground" />
-                            </div>
-                          )}
+                          <LocationPhoto locationId={location.id} alt={location.name} containerClassName="h-10 w-10 rounded-lg" iconClassName="h-5 w-5 text-muted-foreground" />
                           <div className="min-w-0 flex-1">
                             <p className="font-medium text-sm truncate">{location.name}</p>
                             <p className="text-xs text-muted-foreground">{locationCodeById.get(location.id) || "—"}</p>
@@ -968,19 +987,7 @@ const Locations = () => {
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center gap-2 min-w-0">
-                              {location.photoDataUrl ? (
-                                <div className="h-8 w-8 rounded overflow-hidden flex-shrink-0 border">
-                                  <img
-                                    src={location.photoDataUrl}
-                                    alt={location.name}
-                                    className="h-full w-full object-cover"
-                                  />
-                                </div>
-                              ) : (
-                                <div className="h-8 w-8 rounded bg-muted flex items-center justify-center flex-shrink-0">
-                                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                                </div>
-                              )}
+                              <LocationPhoto locationId={location.id} alt={location.name} containerClassName="h-8 w-8 rounded" iconClassName="h-4 w-4 text-muted-foreground" />
                               <p className="font-medium text-sm md:text-base truncate max-w-[160px] lg:max-w-[200px]">
                                 {location.name}
                               </p>
@@ -1065,19 +1072,7 @@ const Locations = () => {
             <div className="space-y-4 sm:space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 border-b pb-4">
                 <div className="flex items-center gap-3">
-                  {selectedLocation.photoDataUrl ? (
-                    <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-lg overflow-hidden flex-shrink-0 border">
-                      <img
-                        src={selectedLocation.photoDataUrl}
-                        alt={selectedLocation.name}
-                        className="h-full w-full object-cover"
-                      />
-                    </div>
-                  ) : (
-                    <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                      <MapPin className="h-8 w-8 sm:h-10 sm:w-10 text-muted-foreground" />
-                    </div>
-                  )}
+                  <LocationPhoto locationId={selectedLocation.id} alt={selectedLocation.name} containerClassName="h-16 w-16 sm:h-20 sm:w-20 rounded-lg" iconClassName="h-8 w-8 sm:h-10 sm:w-10 text-muted-foreground" />
                   <div>
                     <p className="text-base sm:text-lg font-semibold break-words">{selectedLocation.name}</p>
                     <p className="text-xs sm:text-sm text-muted-foreground">{locationCodeById.get(selectedLocation.id) || "—"}</p>
