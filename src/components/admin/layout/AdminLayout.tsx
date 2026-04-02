@@ -52,8 +52,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             <Sidebar />
           </div>
 
-          <main className={cn("flex-1 px-4 sm:px-6 lg:px-8 py-6 transition-all duration-300", "md:ml-56")}>
-            <div key={pageKey} className="w-full max-w-full animate-page-enter">
+          <main className={cn("flex-1 py-6 transition-all duration-300 min-w-0", "md:ml-56 px-4 sm:px-6 lg:px-8")}>
+            <div key={pageKey} className="w-full max-w-[1600px] mx-auto animate-page-enter">
               {children}
             </div>
           </main>

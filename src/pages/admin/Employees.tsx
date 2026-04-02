@@ -113,7 +113,7 @@ const itemVariants = {
     y: 0,
     opacity: 1,
     transition: {
-      type: "spring",
+      type: "spring" as const,
       stiffness: 100,
       damping: 12,
     },
@@ -126,7 +126,7 @@ const cardVariants = {
     scale: 1,
     opacity: 1,
     transition: {
-      type: "spring",
+      type: "spring" as const,
       stiffness: 100,
       damping: 15,
     },
@@ -135,7 +135,7 @@ const cardVariants = {
     scale: 1.02,
     boxShadow: "0 20px 25px -5px rgba(59, 130, 246, 0.1), 0 10px 10px -5px rgba(59, 130, 246, 0.04)",
     transition: {
-      type: "spring",
+      type: "spring" as const,
       stiffness: 400,
       damping: 17,
     },
@@ -176,6 +176,7 @@ const Employees = () => {
     shift: string;
     hireDate: string;
     password: string;
+    department: string;
   };
 
   const addForm = useForm<AddEmployeeValues>({
@@ -478,7 +479,7 @@ const Employees = () => {
 
   // Super Admin: Reset Password handlers
   const handleResetPassword = (employee: Employee) => {
-    if (!isSuperAdmin) return;
+    // Both Admin and Super Admin can reset employee passwords
     setSelectedEmployee(employee);
     setResetPasswordData({ newPassword: "", confirmPassword: "" });
     setResetPasswordOpen(true);
@@ -504,7 +505,7 @@ const Employees = () => {
       setApiError(null);
       
       // Call the backend endpoint to reset employee password
-      await apiFetch(`/api/employees/$/reset-password`, {
+      await apiFetch(`/api/employees/${selectedEmployee.id}/reset-password`, {
         method: "POST",
         body: JSON.stringify({
           newPassword: resetPasswordData.newPassword,
@@ -567,7 +568,7 @@ const Employees = () => {
   return (
     <>
       <motion.div 
-        className="pl-12 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-0 pb-6"
+        className="space-y-4 sm:space-y-5 md:space-y-6 pb-6"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -1137,7 +1138,7 @@ const Employees = () => {
                 )}
               </CardTitle>
             </CardHeader>
-            <CardContent className="p-0 sm:p-6">
+            <CardContent className="p-0 overflow-x-auto">
               {loading ? (
                 <div className="flex justify-center items-center py-8 sm:py-12">
                   <motion.div
@@ -2076,7 +2077,7 @@ const Employees = () => {
       </Dialog>
 
       {/* Add global styles for grid pattern */}
-      <style jsx global>{`
+      <style>{`
         .bg-grid-white {
           background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgb(255 255 255 / 0.05)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
         }
