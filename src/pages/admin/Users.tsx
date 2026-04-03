@@ -931,7 +931,7 @@ const confirmArchiveUser = async () => {
                               {user.role}
                             </Badge>
                             <Badge className={`${statusClasses[user.status]} text-xs`} variant="secondary">
-                              {user.status}ff
+                              {user.status}
                             </Badge>
                           </div>
 
