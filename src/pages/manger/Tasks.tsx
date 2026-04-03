@@ -55,6 +55,7 @@ import {
   CommandList,
 } from "@/components/manger/ui/command";
 import { Textarea } from "@/components/manger/ui/textarea";
+import { Label } from "@/components/manger/ui/label";
 import { toast } from "@/components/manger/ui/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -203,6 +204,42 @@ interface ProjectWithTasks extends Project {
   status?: string;
 }
 
+function toRenderableUrl(url: string): string {
+  const u = url.trim();
+  if (!u) return u;
+  if (/^https?:\/\//i.test(u)) return u;
+  if (u.startsWith("data:")) return u;
+  if (u.startsWith("/")) return u;
+  return `/${u}`;
+}
+
+function ProjectLogoThumb({ projectId, name }: { projectId: string; name: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<{ logo?: { url?: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
+      .then((d) => {
+        const next = d.logo?.url ? toRenderableUrl(d.logo.url) : null;
+        if (!cancelled) setSrc(next);
+      })
+      .catch(() => {
+        if (!cancelled) setSrc(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId]);
+
+  if (!src) {
+    return (
+      <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">Logo</div>
+    );
+  }
+
+  return <img src={src} alt={`${name} logo`} className="w-10 h-10 rounded-md object-cover" />;
+}
+
 function normalizeTask(t: TaskApi): Task {
   const legacyAssignee = typeof t.assignee === "string" ? t.assignee.trim() : "";
   const assignees = Array.isArray(t.assignees)
@@ -296,6 +333,28 @@ export default function Tasks() {
   const [commentDraft, setCommentDraft] = useState("");
   const [commentError, setCommentError] = useState<string | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
+
+  // Project edit/delete states
+  const [isEditProjectOpen, setIsEditProjectOpen] = useState(false);
+  const [isDeleteProjectOpen, setIsDeleteProjectOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editProjectName, setEditProjectName] = useState("");
+  const [editProjectDescription, setEditProjectDescription] = useState("");
+  const [editProjectLogoFile, setEditProjectLogoFile] = useState<File | null>(null);
+  const [editProjectLogoPreview, setEditProjectLogoPreview] = useState<string>("");
+  const [isEditingProject, setIsEditingProject] = useState(false);
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
+
+  // Reassign states
+  const [isReassignTaskOpen, setIsReassignTaskOpen] = useState(false);
+  const [isReassignProjectOpen, setIsReassignProjectOpen] = useState(false);
+  const [reassigningTask, setReassigningTask] = useState<Task | null>(null);
+  const [reassigningProject, setReassigningProject] = useState<Project | null>(null);
+  const [reassignTaskAssignees, setReassignTaskAssignees] = useState<string[]>([]);
+  const [reassignProjectAssignees, setReassignProjectAssignees] = useState<string[]>([]);
+  const [isReassigningTask, setIsReassigningTask] = useState(false);
+  const [isReassigningProject, setIsReassigningProject] = useState(false);
+
   const queryClient = useQueryClient();
 
   const currentUsername = getAuthState().username || "";
@@ -447,6 +506,79 @@ export default function Tasks() {
       if (selectedProject) {
         setSelectedProject({ ...selectedProject, status: selectedProject.status });
       }
+    },
+  });
+
+  const editProjectMutation = useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: Partial<Project> }) => {
+      const res = await apiFetch<{ item: Project }>(`/api/projects/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+      return res.item;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      if (selectedProject && editingProject && selectedProject.id === editingProject.id) {
+        void loadProject(selectedProject.id);
+      }
+    },
+  });
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiFetch<{ success: boolean }>(`/api/projects/${id}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      if (selectedProject && editingProject && selectedProject.id === editingProject.id) {
+        setSelectedProject(null);
+      }
+    },
+  });
+
+  // Reassign mutations
+  const reassignTaskMutation = useMutation({
+    mutationFn: async ({ id, assignees }: { id: string; assignees: string[] }) => {
+      const res = await apiFetch<{ item: TaskApi }>(`/api/tasks/${id}/reassign`, {
+        method: "PUT",
+        body: JSON.stringify({ assignees }),
+      });
+      return normalizeTask(res.item);
+    },
+    onSuccess: (updatedTask) => {
+      queryClient.setQueryData<Task[]>(["tasks"], (old) => {
+        if (!old) return old;
+        return old.map((t) => (t.id === updatedTask.id ? updatedTask : t));
+      });
+      queryClient.setQueryData<Project[]>(["projects"], (old) => {
+        if (!old) return old;
+        return old.map((p) => {
+          if (p.id === updatedTask.projectId) {
+            return { ...p, assignees: updatedTask.assignees };
+          }
+          return p;
+        });
+      });
+    },
+  });
+
+  const reassignProjectMutation = useMutation({
+    mutationFn: async ({ id, assignees }: { id: string; assignees: string[] }) => {
+      const res = await apiFetch<{ item: Project }>(`/api/projects/${id}/reassign`, {
+        method: "PUT",
+        body: JSON.stringify({ assignees }),
+      });
+      return res.item;
+    },
+    onSuccess: (updatedProject) => {
+      queryClient.setQueryData<Project[]>(["projects"], (old) => {
+        if (!old) return old;
+        return old.map((p) => (p.id === updatedProject.id ? updatedProject : p));
+      });
     },
   });
 
@@ -831,6 +963,153 @@ export default function Tasks() {
     setIsDeleteOpen(true);
   };
 
+  const confirmDelete = async () => {
+    if (!selectedTask) return;
+    try {
+      await deleteTaskMutation.mutateAsync(selectedTask.id);
+      setIsDeleteOpen(false);
+      setSelectedTask(null);
+      toast({ title: "Task deleted", description: "The task has been deleted successfully." });
+    } catch (err) {
+      toast({
+        title: "Failed to delete task",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openEditProject = (project: Project) => {
+    setEditingProject(project);
+    setEditProjectName(project.name);
+    setEditProjectDescription(project.description || "");
+    setEditProjectLogoPreview(project.logo?.url || "");
+    setEditProjectLogoFile(null);
+    setIsEditProjectOpen(true);
+  };
+
+  const openDeleteProject = (project: Project) => {
+    setEditingProject(project);
+    setIsDeleteProjectOpen(true);
+  };
+
+  const handleEditProject = async () => {
+    if (!editingProject) return;
+    if (!editProjectName.trim()) {
+      toast({ title: "Project name required", description: "Please enter a project name.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      setIsEditingProject(true);
+      let logo = editingProject.logo;
+      if (editProjectLogoFile) {
+        logo = await new Promise<ProjectLogo>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = () => reject(new Error("Failed to read logo"));
+          reader.onload = () => {
+            const url = typeof reader.result === "string" ? reader.result : "";
+            resolve({
+              fileName: editProjectLogoFile.name,
+              url,
+              mimeType: editProjectLogoFile.type,
+              size: editProjectLogoFile.size,
+            });
+          };
+          reader.readAsDataURL(editProjectLogoFile);
+        });
+      }
+
+      await editProjectMutation.mutateAsync({
+        id: editingProject.id,
+        payload: { name: editProjectName.trim(), description: editProjectDescription.trim(), logo },
+      });
+
+      setIsEditProjectOpen(false);
+      setEditingProject(null);
+      toast({ title: "Project updated", description: "The project has been updated successfully." });
+    } catch (err) {
+      toast({
+        title: "Failed to update project",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setIsEditingProject(false);
+    }
+  };
+
+  const handleDeleteProject = async () => {
+    if (!editingProject) return;
+    try {
+      setIsDeletingProject(true);
+      await deleteProjectMutation.mutateAsync(editingProject.id);
+      setIsDeleteProjectOpen(false);
+      setEditingProject(null);
+      toast({ title: "Project deleted", description: "The project has been deleted successfully." });
+    } catch (err) {
+      toast({
+        title: "Failed to delete project",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeletingProject(false);
+    }
+  };
+
+  const openReassignTask = (task: Task) => {
+    setReassigningTask(task);
+    setReassignTaskAssignees(task.assignees || []);
+    setIsReassignTaskOpen(true);
+  };
+
+  const openReassignProject = (project: Project) => {
+    setReassigningProject(project);
+    setReassignProjectAssignees(project.assignees || []);
+    setIsReassignProjectOpen(true);
+  };
+
+  const handleReassignTask = async () => {
+    if (!reassigningTask) return;
+    setIsReassigningTask(true);
+    try {
+      await reassignTaskMutation.mutateAsync({ id: reassigningTask.id, assignees: reassignTaskAssignees });
+      setIsReassignTaskOpen(false);
+      setReassigningTask(null);
+      setReassignTaskAssignees([]);
+      toast({ title: "Task reassigned", description: "Task has been reassigned successfully." });
+    } catch (err) {
+      toast({
+        title: "Failed to reassign task",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setIsReassigningTask(false);
+    }
+  };
+
+  const handleReassignProject = async () => {
+    if (!reassigningProject) return;
+    setIsReassigningProject(true);
+    try {
+      await reassignProjectMutation.mutateAsync({ id: reassigningProject.id, assignees: reassignProjectAssignees });
+      setIsReassignProjectOpen(false);
+      setReassigningProject(null);
+      setReassignProjectAssignees([]);
+      toast({ title: "Project reassigned", description: "Project has been reassigned successfully." });
+    } catch (err) {
+      toast({
+        title: "Failed to reassign project",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setIsReassigningProject(false);
+    }
+  };
+
   const handlePrintTask = async (task: Task) => {
     try {
       const doc = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
@@ -977,30 +1256,8 @@ export default function Tasks() {
             description: err instanceof Error ? err.message : "Something went wrong",
           });
         },
-      },
+      }
     );
-  };
-
-  const confirmDelete = () => {
-    if (!selectedTask) return;
-    const toDelete = selectedTask;
-
-    deleteTaskMutation.mutate(toDelete.id, {
-      onSuccess: () => {
-        setIsDeleteOpen(false);
-        setSelectedTask(null);
-        toast({
-          title: "Task deleted",
-          description: "Task has been removed.",
-        });
-      },
-      onError: (err) => {
-        toast({
-          title: "Failed to delete task",
-          description: err instanceof Error ? err.message : "Something went wrong",
-        });
-      },
-    });
   };
 
   const sourceTasks = selectedProject ? selectedProject.tasks : tasks;
@@ -1008,6 +1265,7 @@ export default function Tasks() {
   const filteredTasks = useMemo(() => {
     return sourceTasks.filter((task) => {
       const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
+      // ... rest of the code remains the same ...
       const matchesSearch =
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         assigneesText.toLowerCase().includes(searchQuery.toLowerCase());
@@ -1158,11 +1416,7 @@ export default function Tasks() {
                       className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card"
                     >
                       <div className="flex items-center gap-2 mb-2">
-                        {project.logo?.url ? (
-                          <img src={project.logo.url} alt={`${project.name} logo`} className="w-10 h-10 rounded-md object-cover" />
-                        ) : (
-                          <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">Logo</div>
-                        )}
+                        <ProjectLogoThumb projectId={project.id} name={project.name} />
                         <div className="min-w-0">
                           <p className="font-medium truncate">{project.name}</p>
                           <p className="text-xs text-muted-foreground truncate">{project.description || "No description"}</p>
@@ -2402,8 +2656,217 @@ export default function Tasks() {
           )}
         </div>
       )}
+      {/* Project Edit Dialog */}
+      <Dialog open={isEditProjectOpen} onOpenChange={setIsEditProjectOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+            <DialogDescription>Update the project name, description, and logo.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="editProjectName">Project Name</Label>
+              <Input
+                id="editProjectName"
+                value={editProjectName}
+                onChange={(e) => setEditProjectName(e.target.value)}
+                placeholder="Enter project name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editProjectDescription">Description</Label>
+              <Textarea
+                id="editProjectDescription"
+                value={editProjectDescription}
+                onChange={(e) => setEditProjectDescription(e.target.value)}
+                placeholder="Enter project description"
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Project Logo</Label>
+              <div className="flex items-center gap-4">
+                {editProjectLogoPreview && (
+                  <img src={editProjectLogoPreview} alt="Logo" className="h-12 w-12 object-cover rounded" />
+                )}
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      setEditProjectLogoFile(file);
+                      const reader = new FileReader();
+                      reader.onload = () => setEditProjectLogoPreview(String(reader.result));
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditProjectOpen(false)}>Cancel</Button>
+            <Button onClick={handleEditProject} disabled={isEditingProject}>
+              {isEditingProject && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Project Delete Dialog */}
+      <Dialog open={isDeleteProjectOpen} onOpenChange={setIsDeleteProjectOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Project</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete "{editingProject?.name}"? This action cannot be undone and will also delete all associated tasks.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteProjectOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteProject} disabled={isDeletingProject}>
+              {isDeletingProject && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Delete Project
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reassign Task Dialog */}
+      <Dialog open={isReassignTaskOpen} onOpenChange={setIsReassignTaskOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reassign Task</DialogTitle>
+            <DialogDescription>Select employees to reassign this task to.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Popover open={isReassignTaskOpen} onOpenChange={setIsReassignTaskOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-between">
+                  <span className="truncate">
+                    {reassignTaskAssignees.length > 0 ? reassignTaskAssignees.join(", ") : "Select assignees..."}
+                  </span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[300px] p-0">
+                <Command>
+                  <CommandInput placeholder="Search employees..." />
+                  <CommandList>
+                    <CommandEmpty>No employees found.</CommandEmpty>
+                    <CommandGroup>
+                      {activeEmployees.map((employee) => (
+                        <CommandItem
+                          key={employee.id}
+                          onSelect={() => {
+                            setReassignTaskAssignees((prev) =>
+                              prev.includes(employee.name)
+                                ? prev.filter((n) => n !== employee.name)
+                                : [...prev, employee.name]
+                            );
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              reassignTaskAssignees.includes(employee.name) ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          <Avatar className="h-6 w-6 mr-2">
+                            <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                              {employee.initials}
+                            </AvatarFallback>
+                          </Avatar>
+                          {employee.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            {reassignTaskAssignees.length === 0 && (
+              <p className="text-xs text-destructive mt-2">At least one assignee is required</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsReassignTaskOpen(false)}>Cancel</Button>
+            <Button onClick={handleReassignTask} disabled={isReassigningTask || reassignTaskAssignees.length === 0}>
+              {isReassigningTask && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Reassign Task
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reassign Project Dialog */}
+      <Dialog open={isReassignProjectOpen} onOpenChange={setIsReassignProjectOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reassign Project</DialogTitle>
+            <DialogDescription>Select employees to reassign this project to.</DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Popover open={isReassignProjectOpen} onOpenChange={setIsReassignProjectOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full justify-between">
+                  <span className="truncate">
+                    {reassignProjectAssignees.length > 0 ? reassignProjectAssignees.join(", ") : "Select assignees..."}
+                  </span>
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[300px] p-0">
+                <Command>
+                  <CommandInput placeholder="Search employees..." />
+                  <CommandList>
+                    <CommandEmpty>No employees found.</CommandEmpty>
+                    <CommandGroup>
+                      {activeEmployees.map((employee) => (
+                        <CommandItem
+                          key={employee.id}
+                          onSelect={() => {
+                            setReassignProjectAssignees((prev) =>
+                              prev.includes(employee.name)
+                                ? prev.filter((n) => n !== employee.name)
+                                : [...prev, employee.name]
+                            );
+                          }}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              reassignProjectAssignees.includes(employee.name) ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          <Avatar className="h-6 w-6 mr-2">
+                            <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                              {employee.initials}
+                            </AvatarFallback>
+                          </Avatar>
+                          {employee.name}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            {reassignProjectAssignees.length === 0 && (
+              <p className="text-xs text-destructive mt-2">At least one assignee is required</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsReassignProjectOpen(false)}>Cancel</Button>
+            <Button onClick={handleReassignProject} disabled={isReassigningProject || reassignProjectAssignees.length === 0}>
+              {isReassigningProject && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Reassign Project
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-
-            
