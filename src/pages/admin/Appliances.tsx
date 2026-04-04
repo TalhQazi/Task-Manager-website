@@ -5,6 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
+<<<<<<< HEAD
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/admin/ui/tabs";
+=======
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
 
 import {
   Table,
@@ -53,6 +57,12 @@ interface Appliance {
   id: string;
   frontendId: string;
   name: string;
+<<<<<<< HEAD
+  brand?: string;
+  model?: string;
+  serialNumber?: string;
+=======
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
   type: "residential" | "commercial";
   location: string;
   purchaseDate: string;
@@ -167,6 +177,10 @@ export default function Appliances() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selected, setSelected] = useState<Appliance | null>(null);
   const [hoveredAppliance, setHoveredAppliance] = useState<string | null>(null);
+<<<<<<< HEAD
+  const [activeTab, setActiveTab] = useState<"all" | "commercial" | "residential">("all");
+=======
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
 
   // Fetch appliances from backend
   const appliancesQuery = useQuery({
@@ -202,6 +216,12 @@ export default function Appliances() {
       id: String(a._id || a.id || ""),
       frontendId: String(a.frontendId || ""),
       name: String(a.name || ""),
+<<<<<<< HEAD
+      brand: String(a.brand || ""),
+      model: String(a.model || ""),
+      serialNumber: String(a.serialNumber || ""),
+=======
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
       type: String(a.type || a.category || "commercial") as "residential" | "commercial",
       location: String(a.location || ""),
       purchaseDate: String(a.purchaseDate || a.lastMaintenance || ""),
@@ -217,6 +237,12 @@ export default function Appliances() {
 
   const [formData, setFormData] = useState({
     name: "",
+<<<<<<< HEAD
+    brand: "",
+    model: "",
+    serialNumber: "",
+=======
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
     type: "commercial" as Appliance["type"],
     location: "",
     purchaseDate: "",
@@ -232,6 +258,12 @@ export default function Appliances() {
 
   const [editFormData, setEditFormData] = useState({
     name: "",
+<<<<<<< HEAD
+    brand: "",
+    model: "",
+    serialNumber: "",
+=======
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
     type: "commercial" as Appliance["type"],
     location: "",
     purchaseDate: "",
@@ -265,13 +297,24 @@ export default function Appliances() {
 
   // Mutations for CRUD operations
   const createApplianceMutation = useMutation({
+<<<<<<< HEAD
+    mutationFn: async (payload: Omit<Appliance, "id" | "frontendId">) => {
+=======
     mutationFn: async (payload: Omit<Appliance, "id">) => {
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
       const res = await apiFetch<{ item: any }>("/api/appliances", {
         method: "POST",
         body: JSON.stringify({
           name: payload.name,
+<<<<<<< HEAD
+          brand: payload.brand,
+          model: payload.model,
+          serialNumber: payload.serialNumber,
+          category: payload.type,
+=======
           category: payload.type,
           serialNumber: payload.location,
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
           location: payload.location,
           status: payload.status === "active" ? "operational" : "out-of-service",
           warrantyExpiry: payload.warrantyUntil,
@@ -294,8 +337,15 @@ export default function Appliances() {
         method: "PUT",
         body: JSON.stringify({
           name: payload.name,
+<<<<<<< HEAD
+          brand: payload.brand,
+          model: payload.model,
+          serialNumber: payload.serialNumber,
+          category: payload.type,
+=======
           category: payload.type,
           serialNumber: payload.location,
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
           location: payload.location,
           status: payload.status === "active" ? "operational" : "out-of-service",
           warrantyExpiry: payload.warrantyUntil,
@@ -384,6 +434,14 @@ export default function Appliances() {
     });
   }, [appliancesList, searchQuery]);
 
+<<<<<<< HEAD
+  const displayedAppliances = useMemo(() => {
+    if (activeTab === "all") return filtered;
+    return filtered.filter((a) => a.type === activeTab);
+  }, [filtered, activeTab]);
+
+=======
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
   const handleAdd = async () => {
     if (!formData.name || !formData.location) return;
 
@@ -396,8 +454,16 @@ export default function Appliances() {
       }
     }
 
+<<<<<<< HEAD
+    const payload: Omit<Appliance, "id" | "frontendId"> = {
+      name: formData.name,
+      brand: formData.brand,
+      model: formData.model,
+      serialNumber: formData.serialNumber,
+=======
     const payload: Omit<Appliance, "id"> = {
       name: formData.name,
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
       type: formData.type,
       location: formData.location,
       purchaseDate: formData.purchaseDate,
@@ -412,6 +478,12 @@ export default function Appliances() {
     setAddOpen(false);
     setFormData({
       name: "",
+<<<<<<< HEAD
+      brand: "",
+      model: "",
+      serialNumber: "",
+=======
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
       type: "commercial",
       location: "",
       purchaseDate: "",
@@ -458,6 +530,12 @@ export default function Appliances() {
     setEditTagPhotoFile(null);
     setEditFormData({
       name: a.name,
+<<<<<<< HEAD
+      brand: a.brand || "",
+      model: a.model || "",
+      serialNumber: a.serialNumber || "",
+=======
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
       type: a.type,
       location: a.location,
       purchaseDate: a.purchaseDate,
@@ -477,6 +555,12 @@ export default function Appliances() {
       id: selected.id,
       payload: {
         name: editFormData.name,
+<<<<<<< HEAD
+        brand: editFormData.brand,
+        model: editFormData.model,
+        serialNumber: editFormData.serialNumber,
+=======
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
         type: editFormData.type,
         location: editFormData.location,
         purchaseDate: editFormData.purchaseDate,
@@ -539,6 +623,10 @@ export default function Appliances() {
         initial="hidden"
         animate="visible"
       >
+<<<<<<< HEAD
+        <Tabs defaultValue="all" value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-4">
+=======
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
         {/* Page Header with animated gradient */}
         <motion.div 
           className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-4 sm:p-6"
@@ -581,7 +669,11 @@ export default function Appliances() {
               </DialogTrigger>
               
               {/* Add Dialog - Responsive */}
+<<<<<<< HEAD
+              <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+=======
               <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6">
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                 <DialogHeader className="space-y-1.5 sm:space-y-2">
                   <DialogTitle className="text-lg sm:text-xl bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
                     Add Appliance
@@ -591,6 +683,19 @@ export default function Appliances() {
                   </DialogDescription>
                 </DialogHeader>
                 
+<<<<<<< HEAD
+                <div className="flex-1 overflow-y-auto pr-2 py-2 min-h-0">
+                  <motion.form 
+                    className="space-y-4 sm:space-y-5"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                  {/* Name & Location - Stack on mobile, row on tablet+ */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    <div className="min-w-0">
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Asset Name *</label>
+=======
                 <motion.form 
                   className="space-y-4 sm:space-y-5"
                   initial={{ opacity: 0, y: 20 }}
@@ -601,15 +706,51 @@ export default function Appliances() {
                   <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                     <div className="flex-1 min-w-0">
                       <label className="block text-xs sm:text-sm font-medium mb-1.5">Name *</label>
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                       <input
                         value={formData.name}
                         onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                         className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+<<<<<<< HEAD
+                        placeholder="e.g. HVAC Unit 1"
+                        required
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Brand</label>
+                      <input
+                        value={formData.brand}
+                        onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                        placeholder="e.g. Carrier"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Model</label>
+                      <input
+                        value={formData.model}
+                        onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                        placeholder="e.g. 50TC"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Serial Number</label>
+                      <input
+                        value={formData.serialNumber}
+                        onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
+                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                        placeholder="SN-123456"
+                      />
+                    </div>
+                    <div className="min-w-0 sm:col-span-2">
+=======
                         placeholder="HVAC Unit - Floor 2"
                         required
                       />
                     </div>
                     <div className="flex-1 min-w-0">
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                       <label className="block text-xs sm:text-sm font-medium mb-1.5">Location *</label>
                       <select
                         value={formData.location}
@@ -783,7 +924,12 @@ export default function Appliances() {
                       </select>
                     </div>
                   </div>
+<<<<<<< HEAD
+                  </motion.form>
+                </div>
+=======
                 </motion.form>
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                 
                 <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
                   <motion.div
@@ -876,6 +1022,25 @@ export default function Appliances() {
         {/* Appliances Table Card */}
         <motion.div variants={itemVariants}>
           <Card className="shadow-xl border-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm overflow-hidden">
+<<<<<<< HEAD
+            <CardHeader className="px-4 sm:px-6 py-4 sm:py-5 border-b bg-muted/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <CardTitle className="text-base sm:text-lg md:text-xl font-semibold flex items-center gap-2">
+                <Wrench className="h-5 w-5 text-primary" />
+                Appliances
+                {displayedAppliances.length > 0 && (
+                  <Badge variant="secondary" className="ml-2 bg-primary/10 text-primary">
+                    {displayedAppliances.length} total
+                  </Badge>
+                )}
+              </CardTitle>
+              <div className="flex-shrink-0">
+                <TabsList className="bg-muted/50 border p-1 rounded-xl">
+                  <TabsTrigger value="all" className="data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg px-4 transition-all">All</TabsTrigger>
+                  <TabsTrigger value="commercial" className="data-[state=active]:bg-[#3b82f6]/10 data-[state=active]:text-[#3b82f6] rounded-lg px-4 transition-all">Commercial</TabsTrigger>
+                  <TabsTrigger value="residential" className="data-[state=active]:bg-[#22c55e]/10 data-[state=active]:text-[#22c55e] rounded-lg px-4 transition-all">Residential</TabsTrigger>
+                </TabsList>
+              </div>
+=======
             <CardHeader className="px-4 sm:px-6 py-4 sm:py-5 border-b bg-muted/20">
               <CardTitle className="text-base sm:text-lg md:text-xl font-semibold flex items-center gap-2">
                 <Wrench className="h-5 w-5 text-primary" />
@@ -886,12 +1051,17 @@ export default function Appliances() {
                   </Badge>
                 )}
               </CardTitle>
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
             </CardHeader>
             <CardContent className="p-0 sm:p-6">
               {/* Mobile View - Cards */}
               <div className="block sm:hidden space-y-3 p-4">
                 <AnimatePresence>
+<<<<<<< HEAD
+                  {displayedAppliances.map((a, index) => (
+=======
                   {filtered.map((a, index) => (
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                     <motion.div
                       key={a.id}
                       initial={{ opacity: 0, y: 20 }}
@@ -923,6 +1093,30 @@ export default function Appliances() {
                             </div>
                           </motion.div>
                           <div className="min-w-0 flex-1">
+<<<<<<< HEAD
+                            <div className="flex flex-col">
+                              <p className="font-medium text-sm truncate flex items-center gap-2">
+                                {a.name}
+                                {hoveredAppliance === a.id && (
+                                  <motion.span
+                                    initial={{ scale: 0 }}
+                                    animate={{ scale: 1 }}
+                                    className="inline-block w-1.5 h-1.5 bg-primary rounded-full"
+                                  />
+                                )}
+                              </p>
+                              {(a.brand || a.model) && (
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {[a.brand, a.model].filter(Boolean).join(" • ")}
+                                </p>
+                              )}
+                              {a.serialNumber && (
+                                <p className="text-[10px] text-muted-foreground/80 font-mono truncate">
+                                  SN: {a.serialNumber}
+                                </p>
+                              )}
+                            </div>
+=======
                             <p className="font-medium text-sm truncate flex items-center gap-2">
                               {a.name}
                               {hoveredAppliance === a.id && (
@@ -933,6 +1127,7 @@ export default function Appliances() {
                                 />
                               )}
                             </p>
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                           </div>
                         </div>
                         <DropdownMenu>
@@ -1008,7 +1203,11 @@ export default function Appliances() {
                   ))}
                 </AnimatePresence>
                 
+<<<<<<< HEAD
+                {displayedAppliances.length === 0 && (
+=======
                 {filtered.length === 0 && (
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                   <motion.div 
                     className="text-center py-8"
                     initial={{ opacity: 0 }}
@@ -1047,7 +1246,11 @@ export default function Appliances() {
                   </TableHeader>
                   <TableBody>
                     <AnimatePresence>
+<<<<<<< HEAD
+                      {displayedAppliances.map((a, index) => (
+=======
                       {filtered.map((a, index) => (
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                         <motion.tr
                           key={a.id}
                           initial={{ opacity: 0, y: 20 }}
@@ -1085,6 +1288,30 @@ export default function Appliances() {
                                 </div>
                               </motion.div>
                               <div className="min-w-0">
+<<<<<<< HEAD
+                                <div className="flex flex-col">
+                                  <p className="font-medium text-sm md:text-base truncate max-w-[200px] lg:max-w-[250px] flex items-center gap-2">
+                                    {a.name}
+                                    {hoveredAppliance === a.id && (
+                                      <motion.span
+                                        initial={{ scale: 0 }}
+                                        animate={{ scale: 1 }}
+                                        className="inline-block w-1.5 h-1.5 bg-primary rounded-full"
+                                      />
+                                    )}
+                                  </p>
+                                  {(a.brand || a.model) && (
+                                    <p className="text-xs text-muted-foreground truncate max-w-[200px] lg:max-w-[250px]">
+                                      {[a.brand, a.model].filter(Boolean).join(" • ")}
+                                    </p>
+                                  )}
+                                  {a.serialNumber && (
+                                    <p className="text-[10px] text-muted-foreground/80 font-mono truncate max-w-[200px] lg:max-w-[250px]">
+                                      SN: {a.serialNumber}
+                                    </p>
+                                  )}
+                                </div>
+=======
                                 <p className="font-medium text-sm md:text-base truncate max-w-[200px] lg:max-w-[250px] flex items-center gap-2">
                                   {a.name}
                                   {hoveredAppliance === a.id && (
@@ -1095,6 +1322,7 @@ export default function Appliances() {
                                     />
                                   )}
                                 </p>
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                               </div>
                             </div>
                           </TableCell>
@@ -1178,17 +1406,83 @@ export default function Appliances() {
             </CardContent>
           </Card>
         </motion.div>
+<<<<<<< HEAD
+        
+        </Tabs>
+=======
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
       </motion.div>
 
       {/* View Details Dialog - Animated */}
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
+<<<<<<< HEAD
+        <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+=======
         <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[85vh] overflow-y-auto">
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
           <DialogHeader className="space-y-1.5 sm:space-y-2">
             <DialogTitle className="text-lg sm:text-xl bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
               Appliance Details
             </DialogTitle>
           </DialogHeader>
           {selected && (
+<<<<<<< HEAD
+            <div className="max-h-[65vh] overflow-y-auto pr-2 py-2">
+              <motion.div 
+                className="space-y-4 sm:space-y-5"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
+                <div className="border-b pb-3 sm:pb-4">
+                  <p className="text-lg sm:text-xl font-semibold break-words">{selected.name}</p>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {selected.brand && (
+                      <Badge variant="outline" className="text-xs sm:text-sm bg-background/50">
+                        Brand: <span className="font-semibold ml-1">{selected.brand}</span>
+                      </Badge>
+                    )}
+                    {selected.model && (
+                      <Badge variant="outline" className="text-xs sm:text-sm bg-background/50">
+                        Model: <span className="font-semibold ml-1">{selected.model}</span>
+                      </Badge>
+                    )}
+                    {selected.serialNumber && (
+                      <Badge variant="outline" className="text-xs sm:text-sm bg-background/50 font-mono">
+                        SN: <span className="font-semibold ml-1">{selected.serialNumber}</span>
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+                  <motion.div 
+                    className="space-y-1.5"
+                    whileHover={{ x: 5 }}
+                  >
+                    <label className="text-xs sm:text-sm font-medium">Type</label>
+                    <div>
+                      <Badge className={`${typeClasses[selected.type]} text-xs sm:text-sm flex items-center gap-1 w-fit`} variant="secondary">
+                        {getTypeIcon(selected.type)}
+                        {selected.type}
+                      </Badge>
+                    </div>
+                  </motion.div>
+                  
+                  <motion.div 
+                    className="space-y-1.5"
+                    whileHover={{ x: 5 }}
+                  >
+                    <label className="text-xs sm:text-sm font-medium">Status</label>
+                    <div>
+                      <Badge className={`${statusClasses[selected.status]} text-xs sm:text-sm flex items-center gap-1 w-fit`} variant="secondary">
+                        {selected.status === "active" ? <Power className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
+                        {selected.status}
+                      </Badge>
+                    </div>
+                  </motion.div>
+                  
+=======
             <motion.div 
               className="space-y-4 sm:space-y-5"
               initial={{ opacity: 0, y: 20 }}
@@ -1237,10 +1531,83 @@ export default function Appliances() {
                 </motion.div>
 
                 {selected.assignedTo && (
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                   <motion.div 
                     className="sm:col-span-2 space-y-1.5"
                     whileHover={{ x: 5 }}
                   >
+<<<<<<< HEAD
+                    <label className="text-xs sm:text-sm font-medium">Location</label>
+                    <p className="text-sm sm:text-base text-muted-foreground break-words bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg">
+                      {getLocationLabel(selected.location)}
+                    </p>
+                  </motion.div>
+  
+                  {selected.assignedTo && (
+                    <motion.div 
+                      className="sm:col-span-2 space-y-1.5"
+                      whileHover={{ x: 5 }}
+                    >
+                      <label className="text-xs sm:text-sm font-medium">Assigned To</label>
+                      <div className="flex items-center gap-2 text-sm sm:text-base text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg">
+                        <User className="h-4 w-4" />
+                        <span>{selected.assignedTo}</span>
+                      </div>
+                    </motion.div>
+                  )}
+                  
+                  <motion.div 
+                    className="space-y-1.5"
+                    whileHover={{ x: 5 }}
+                  >
+                    <label className="text-xs sm:text-sm font-medium">Purchase Date</label>
+                    <div className="flex items-center gap-2 text-sm sm:text-base text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      <span>{selected.purchaseDate || "—"}</span>
+                    </div>
+                  </motion.div>
+                  
+                  <motion.div 
+                    className="space-y-1.5"
+                    whileHover={{ x: 5 }}
+                  >
+                    <label className="text-xs sm:text-sm font-medium">Warranty Until</label>
+                    <div className="flex items-center gap-2 text-sm sm:text-base text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      <span>{selected.warrantyUntil || "—"}</span>
+                    </div>
+                  </motion.div>
+                  
+                  <motion.div 
+                    className="sm:col-span-2 space-y-1.5"
+                    whileHover={{ x: 5 }}
+                  >
+                    <label className="text-xs sm:text-sm font-medium">Tag Photo</label>
+                    {getApplianceTagPhotoSrc(selected) ? (
+                      <div className="space-y-2">
+                        <div className="w-full overflow-hidden rounded-xl border bg-muted/10">
+                          <img
+                            src={getApplianceTagPhotoSrc(selected) || ""}
+                            alt={selected.name}
+                            className="w-full h-44 sm:h-64 object-contain bg-white"
+                          />
+                        </div>
+                        {selected.tagPhotoFileName && (
+                          <p className="text-xs sm:text-sm text-muted-foreground break-words">
+                            {selected.tagPhotoFileName}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-sm sm:text-base text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg break-words">
+                        {selected.tagPhotoFileName ? selected.tagPhotoFileName : "—"}
+                      </p>
+                    )}
+                  </motion.div>
+                </div>
+              </motion.div>
+            </div>
+=======
                     <label className="text-xs sm:text-sm font-medium">Assigned To</label>
                     <div className="flex items-center gap-2 text-sm sm:text-base text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg">
                       <User className="h-4 w-4" />
@@ -1299,6 +1666,7 @@ export default function Appliances() {
                 </motion.div>
               </div>
             </motion.div>
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
           )}
           <DialogFooter className="mt-4 sm:mt-6">
             <motion.div
@@ -1315,7 +1683,11 @@ export default function Appliances() {
 
       {/* Edit Dialog - Animated */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
+<<<<<<< HEAD
+        <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+=======
         <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[85vh] overflow-y-auto">
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
           <DialogHeader className="space-y-1.5 sm:space-y-2">
             <DialogTitle className="text-lg sm:text-xl bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
               Edit Appliance
@@ -1325,6 +1697,10 @@ export default function Appliances() {
             </DialogDescription>
           </DialogHeader>
           {selected && (
+<<<<<<< HEAD
+            <div className="flex-1 overflow-y-auto pr-2 py-2 min-h-0">
+=======
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
             <motion.form 
               className="space-y-4 sm:space-y-5"
               initial={{ opacity: 0, y: 20 }}
@@ -1332,8 +1708,13 @@ export default function Appliances() {
               transition={{ delay: 0.2 }}
             >
               {/* Name & Location */}
+<<<<<<< HEAD
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                <div className="min-w-0">
+=======
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <div className="flex-1 min-w-0">
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                   <label className="block text-xs sm:text-sm font-medium mb-1.5">Name *</label>
                   <input
                     value={editFormData.name}
@@ -1342,7 +1723,35 @@ export default function Appliances() {
                     required
                   />
                 </div>
+<<<<<<< HEAD
+                <div className="min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Brand</label>
+                  <input
+                    value={editFormData.brand}
+                    onChange={(e) => setEditFormData({ ...editFormData, brand: e.target.value })}
+                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Model</label>
+                  <input
+                    value={editFormData.model}
+                    onChange={(e) => setEditFormData({ ...editFormData, model: e.target.value })}
+                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                  />
+                </div>
+                <div className="min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Serial Number</label>
+                  <input
+                    value={editFormData.serialNumber}
+                    onChange={(e) => setEditFormData({ ...editFormData, serialNumber: e.target.value })}
+                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                  />
+                </div>
+                <div className="min-w-0 sm:col-span-2">
+=======
                 <div className="flex-1 min-w-0">
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                   <label className="block text-xs sm:text-sm font-medium mb-1.5">Location *</label>
                   <select
                     value={editFormData.location}
@@ -1563,7 +1972,12 @@ export default function Appliances() {
                 </div>
               </div>
             </motion.form>
+<<<<<<< HEAD
+          </div>
+        )}
+=======
           )}
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
           <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
             <motion.div
               whileHover={{ scale: 1.05 }}
@@ -1596,7 +2010,11 @@ export default function Appliances() {
 
       {/* Deactivate/Activate Dialog - Animated */}
       <Dialog open={deactivateOpen} onOpenChange={setDeactivateOpen}>
+<<<<<<< HEAD
+        <DialogContent className="w-[95vw] max-w-md mx-auto p-4 sm:p-6 max-h-[90vh] overflow-hidden flex flex-col">
+=======
         <DialogContent className="w-[95vw] max-w-md mx-auto p-4 sm:p-6">
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
           <DialogHeader className="space-y-1.5 sm:space-y-2">
             <DialogTitle className={`text-base sm:text-lg ${selected?.status === "inactive" ? "text-primary" : "text-destructive"}`}>
               {selected?.status === "inactive" ? "Activate Appliance" : "Deactivate Appliance"}
@@ -1657,7 +2075,11 @@ export default function Appliances() {
 
       {/* Delete Confirm Dialog - Animated */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+<<<<<<< HEAD
+        <DialogContent className="w-[95vw] max-w-md mx-auto p-4 sm:p-6 max-h-[90vh] overflow-hidden flex flex-col">
+=======
         <DialogContent className="w-[95vw] max-w-md mx-auto p-4 sm:p-6">
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
           <DialogHeader className="space-y-1.5 sm:space-y-2">
             <DialogTitle className="text-base sm:text-lg text-destructive">
               Delete Appliance

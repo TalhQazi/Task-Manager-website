@@ -26,6 +26,28 @@ import {
   Lightbulb,
   Archive,
   Quote,
+<<<<<<< HEAD
+  Layers,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
+
+import { useNavigate, useLocation } from "react-router-dom";
+import { cn } from "@/lib/utils";
+import { clearAuthState, getAuthState } from "@/lib/auth";
+import { useMemo, useState, useEffect } from "react";
+import { apiFetch } from "@/lib/admin/apiClient";
+
+type NavItem = {
+  icon: any;
+  label: string;
+  path?: string;
+  end?: boolean;
+  children?: NavItem[];
+};
+
+const navItemsBase: NavItem[] = [
+=======
 } from "lucide-react";
 
 
@@ -36,12 +58,31 @@ import { useMemo } from "react";
 import { apiFetch } from "@/lib/admin/apiClient";
 
 const navItemsBase = [
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin", end: true },
   { icon: Users, label: "User Management", path: "/admin/users" },
   { icon: CheckSquare, label: "Task Management", path: "/admin/tasks" },
   { icon: UserCircle, label: "Employee Directory", path: "/admin/employees" },
   { icon: Wallet, label: "Payroll", path: "/admin/payroll" },
   { icon: History, label: "Task History", path: "/admin/task-history" },
+<<<<<<< HEAD
+  {
+    icon: Layers,
+    label: "Operations",
+    children: [
+      { icon: Wrench, label: "Appliances", path: "/admin/appliances" },
+      { icon: Car, label: "Vehicles", path: "/admin/vehicles" },
+      { icon: UserX, label: "Do Not Hire", path: "/admin/do-not-hire" },
+      { icon: MapPin, label: "Locations", path: "/admin/locations" },
+      { icon: Calendar, label: "Scheduling", path: "/admin/scheduling" },
+      { icon: Bell, label: "Notifications", path: "/admin/notifications" },
+      { icon: Clock, label: "Time Tracking", path: "/admin/time-tracking" },
+    ],
+  },
+  { icon: Landmark, label: "Companies", path: "/admin/companies" },
+  { icon: Building2, label: "Vendors", path: "/admin/vendors" },
+  { icon: MessageSquare, label: "Messaging", path: "/admin/messaging" },
+=======
   { icon: Wrench, label: "Appliances", path: "/admin/appliances" },
   { icon: Car, label: "Vehicles", path: "/admin/vehicles" },
   { icon: MapPin, label: "Locations", path: "/admin/locations" },
@@ -52,6 +93,7 @@ const navItemsBase = [
   { icon: MessageSquare, label: "Messaging", path: "/admin/messaging" },
   { icon: Bell, label: "Notifications", path: "/admin/notifications" },
   { icon: UserX, label: "Do Not Hire", path: "/admin/do-not-hire" },
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
   { icon: ClipboardList, label: "Onboarding", path: "/admin/onboarding" },
   { icon: BarChart3, label: "Reports", path: "/admin/reports" },
   { icon: Globe, label: "Digital Assets", path: "/admin/digital-assets" },
@@ -59,6 +101,9 @@ const navItemsBase = [
   { icon: Database, label: "Imported Asana Data", path: "/admin/asana-data" },
   { icon: Archive, label: "Archive Data", path: "/admin/archive-data" },
   { icon: Quote, label: "Founder Messages", path: "/admin/founder-messages" },
+<<<<<<< HEAD
+  { icon: Settings, label: "Settings", path: "/admin/settings" },
+=======
   {
     label: "SignaCore",
     path: "/admin/contracts",
@@ -72,6 +117,7 @@ const navItemsBase = [
   },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
 
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
 ];
 
 // Activity Logs only for super-admin
@@ -104,7 +150,10 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
     try {
       await apiFetch("/api/auth/logout", { method: "POST" });
     } catch {
+<<<<<<< HEAD
+=======
       // Ignore logout logging failures and continue local sign-out.
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
     }
     clearAuthState();
     onNavigate?.();
@@ -113,12 +162,128 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
 
   const isMobile = mode === "mobile";
 
+<<<<<<< HEAD
+  const location = useLocation();
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+
+  // Auto-expand group if a child is active
+  useEffect(() => {
+    const currentPath = location.pathname;
+    navItems.forEach((item) => {
+      if (item.children) {
+        const hasActiveChild = item.children.some(child => child.path && currentPath.startsWith(child.path));
+        if (hasActiveChild) {
+          setExpandedGroups(prev => ({ ...prev, [item.label]: true }));
+        }
+      }
+    });
+  }, [location.pathname, navItems]);
+
+  const toggleGroup = (label: string) => {
+    setExpandedGroups(prev => ({ ...prev, [label]: !prev[label] }));
+  };
+
+=======
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
   const handleNavigate = () => {
     if (isMobile) {
       onNavigate?.();
     }
   };
 
+<<<<<<< HEAD
+  const renderNavItem = (item: NavItem, isChild = false) => {
+    if (item.children) {
+      const isExpanded = expandedGroups[item.label];
+      const hasActiveChild = item.children.some(child => child.path && location.pathname.startsWith(child.path));
+      
+      return (
+        <div key={item.label} className="flex flex-col mb-1">
+          <button
+            onClick={() => toggleGroup(item.label)}
+            className={cn(
+              "group relative flex h-10 w-full items-center justify-between rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white transition-all duration-100 linear",
+              hasActiveChild && "text-white bg-white/[0.02]"
+            )}
+          >
+            <div className="flex items-center gap-3">
+              <item.icon className={cn("h-5 w-5 flex-shrink-0 transition-all", hasActiveChild && "text-[#00C6FF]")} />
+              <span className="text-sm font-medium truncate">{item.label}</span>
+            </div>
+            {isExpanded ? (
+              <ChevronDown className="h-4 w-4 opacity-50 transition-transform" />
+            ) : (
+              <ChevronRight className="h-4 w-4 opacity-50 transition-transform" />
+            )}
+          </button>
+          
+          {isExpanded && (
+            <div className="mt-1 flex flex-col gap-1 pl-4 ml-2 border-l border-white/10">
+              {item.children.map(child => renderNavItem(child, true))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (!item.path) return null;
+
+    return (
+      <NavLink
+        key={item.path}
+        to={item.path}
+        end={item.end}
+        className={cn(
+          "group relative flex h-10 w-full items-center gap-3 rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear",
+          isChild && "h-9 text-[13px]"
+        )}
+        activeClassName="bg-white/[0.06] text-white"
+        onClick={handleNavigate}
+      >
+        {({ isActive }) => (
+          <>
+            {/* Active indicator bar */}
+            {!isChild && (
+              <span 
+                className={cn(
+                  "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full",
+                  "bg-gradient-to-b from-[#00C6FF] to-[#0072FF]",
+                  "transition-all duration-[120ms] ease-in-out",
+                  isActive ? "opacity-100" : "opacity-0"
+                )} 
+              />
+            )}
+            {isChild && isActive && (
+              <span 
+                className="absolute left-[-17px] top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#00C6FF]"
+              />
+            )}
+            
+            {/* Dashboard Pulse */}
+            {item.label === "Dashboard" && (
+              <span 
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gradient-to-b from-[#00C6FF] to-[#0072FF] animate-dashboard-pulse pointer-events-none"
+                aria-hidden="true"
+              />
+            )}
+            
+            <item.icon 
+              className={cn(
+                "flex-shrink-0 transition-all duration-100 linear relative z-10",
+                isChild ? "h-4 w-4" : "h-5 w-5",
+                isActive && ["brightness-[112%]", "scale-[1.03]"],
+                "group-hover:brightness-[108%]"
+              )} 
+            />
+            <span className="font-medium truncate">{item.label}</span>
+          </>
+        )}
+      </NavLink>
+    );
+  };
+
+=======
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
   return (
     <aside
       className={cn(
@@ -131,6 +296,9 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
       )}
     >
       <nav className="flex-1 flex flex-col gap-1 px-2 py-4 overflow-y-auto overflow-x-hidden no-scrollbar">
+<<<<<<< HEAD
+        {navItems.map((item) => renderNavItem(item))}
+=======
         {navItems.map((item) => (
           <NavLink
             key={item.path}
@@ -156,6 +324,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
           </NavLink>
 
         ))}
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
       </nav>
 
       <div className="border-t border-white/10 px-2 pb-4 pt-3">
@@ -170,4 +339,8 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
       </div>
     </aside>
   );
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081

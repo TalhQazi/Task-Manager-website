@@ -55,7 +55,10 @@ import {
   CommandList,
 } from "@/components/manger/ui/command";
 import { Textarea } from "@/components/manger/ui/textarea";
+<<<<<<< HEAD
+=======
 import { Label } from "@/components/manger/ui/label";
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
 import { toast } from "@/components/manger/ui/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -204,6 +207,8 @@ interface ProjectWithTasks extends Project {
   status?: string;
 }
 
+<<<<<<< HEAD
+=======
 function toRenderableUrl(url: string): string {
   const u = url.trim();
   if (!u) return u;
@@ -240,6 +245,7 @@ function ProjectLogoThumb({ projectId, name }: { projectId: string; name: string
   return <img src={src} alt={`${name} logo`} className="w-10 h-10 rounded-md object-cover" />;
 }
 
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
 function normalizeTask(t: TaskApi): Task {
   const legacyAssignee = typeof t.assignee === "string" ? t.assignee.trim() : "";
   const assignees = Array.isArray(t.assignees)
@@ -333,6 +339,8 @@ export default function Tasks() {
   const [commentDraft, setCommentDraft] = useState("");
   const [commentError, setCommentError] = useState<string | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
+<<<<<<< HEAD
+=======
 
   // Project edit/delete states
   const [isEditProjectOpen, setIsEditProjectOpen] = useState(false);
@@ -355,6 +363,7 @@ export default function Tasks() {
   const [isReassigningTask, setIsReassigningTask] = useState(false);
   const [isReassigningProject, setIsReassigningProject] = useState(false);
 
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
   const queryClient = useQueryClient();
 
   const currentUsername = getAuthState().username || "";
@@ -509,6 +518,8 @@ export default function Tasks() {
     },
   });
 
+<<<<<<< HEAD
+=======
   const editProjectMutation = useMutation({
     mutationFn: async ({ id, payload }: { id: string; payload: Partial<Project> }) => {
       const res = await apiFetch<{ item: Project }>(`/api/projects/${id}`, {
@@ -582,6 +593,7 @@ export default function Tasks() {
     },
   });
 
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
   const form = useForm<CreateTaskValues>({
     resolver: zodResolver(createTaskSchema),
     defaultValues: {
@@ -963,6 +975,8 @@ export default function Tasks() {
     setIsDeleteOpen(true);
   };
 
+<<<<<<< HEAD
+=======
   const confirmDelete = async () => {
     if (!selectedTask) return;
     try {
@@ -1110,6 +1124,7 @@ export default function Tasks() {
     }
   };
 
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
   const handlePrintTask = async (task: Task) => {
     try {
       const doc = new jsPDF({ orientation: "p", unit: "pt", format: "a4" });
@@ -1256,16 +1271,48 @@ export default function Tasks() {
             description: err instanceof Error ? err.message : "Something went wrong",
           });
         },
+<<<<<<< HEAD
+      },
+    );
+  };
+
+  const confirmDelete = () => {
+    if (!selectedTask) return;
+    const toDelete = selectedTask;
+
+    deleteTaskMutation.mutate(toDelete.id, {
+      onSuccess: () => {
+        setIsDeleteOpen(false);
+        setSelectedTask(null);
+        toast({
+          title: "Task deleted",
+          description: "Task has been removed.",
+        });
+      },
+      onError: (err) => {
+        toast({
+          title: "Failed to delete task",
+          description: err instanceof Error ? err.message : "Something went wrong",
+        });
+      },
+    });
+  };
+
+=======
       }
     );
   };
 
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
   const sourceTasks = selectedProject ? selectedProject.tasks : tasks;
 
   const filteredTasks = useMemo(() => {
     return sourceTasks.filter((task) => {
       const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
+<<<<<<< HEAD
+=======
       // ... rest of the code remains the same ...
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
       const matchesSearch =
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         assigneesText.toLowerCase().includes(searchQuery.toLowerCase());
@@ -1416,7 +1463,15 @@ export default function Tasks() {
                       className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card"
                     >
                       <div className="flex items-center gap-2 mb-2">
+<<<<<<< HEAD
+                        {project.logo?.url ? (
+                          <img src={project.logo.url} alt={`${project.name} logo`} className="w-10 h-10 rounded-md object-cover" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">Logo</div>
+                        )}
+=======
                         <ProjectLogoThumb projectId={project.id} name={project.name} />
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                         <div className="min-w-0">
                           <p className="font-medium truncate">{project.name}</p>
                           <p className="text-xs text-muted-foreground truncate">{project.description || "No description"}</p>
@@ -2656,6 +2711,13 @@ export default function Tasks() {
           )}
         </div>
       )}
+<<<<<<< HEAD
+    </div>
+  );
+}
+
+            
+=======
       {/* Project Edit Dialog */}
       <Dialog open={isEditProjectOpen} onOpenChange={setIsEditProjectOpen}>
         <DialogContent className="sm:max-w-lg">
@@ -2870,3 +2932,4 @@ export default function Tasks() {
     </div>
   );
 }
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081

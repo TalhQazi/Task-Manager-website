@@ -108,8 +108,13 @@ export default function Messaging() {
 
   useEffect(() => {
 
+<<<<<<< HEAD
+  socketRef.current = io(API_BASE_URL, { 
+    path: "/api/socket.io",
+=======
   socketRef.current = io("https://task.se7eninc.com", { 
    path: "/api/socket.io",
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
     transports: ["websocket"],
   });
 
@@ -810,4 +815,8 @@ export default function Messaging() {
       </div>
     </>
   );
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081

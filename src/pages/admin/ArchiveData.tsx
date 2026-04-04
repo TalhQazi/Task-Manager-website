@@ -78,6 +78,11 @@ export default function ArchiveData() {
     try {
       setLoading(true);
       setError(null);
+<<<<<<< HEAD
+      const query = typeFilter !== "all" ? `?itemType=${typeFilter}` : "";
+      const res = await apiFetch<{ items: ArchivedItem[] }>(`/api/archive${query}`);
+      setItems(res.items || []);
+=======
       
       // Try localStorage first (temporary solution until backend API is ready)
       const storedArchives = localStorage.getItem("archivedItems");
@@ -109,6 +114,7 @@ export default function ArchiveData() {
         // Backend API not available, use localStorage data
         console.log("Backend archive API not available, using localStorage");
       }
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load archive");
     } finally {
@@ -123,6 +129,9 @@ export default function ArchiveData() {
   const handleRestore = async (id: string) => {
     try {
       setRestoring(id);
+<<<<<<< HEAD
+      await apiFetch(`/api/archive/${id}/restore`, { method: "POST" });
+=======
       
       // Try backend API first (if available in future)
       try {
@@ -156,6 +165,7 @@ export default function ArchiveData() {
         }
       }
       
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
       setItems((prev) => prev.filter((i) => i.id !== id));
       toast({ title: "Restored", description: "Item has been restored successfully." });
     } catch (e) {
@@ -171,6 +181,9 @@ export default function ArchiveData() {
 
   const handleDelete = async (id: string) => {
     try {
+<<<<<<< HEAD
+      await apiFetch(`/api/archive/${id}`, { method: "DELETE" });
+=======
       // Try backend API first (if available in future)
       try {
         await apiFetch(`/api/archive/${id}`, { method: "DELETE" });
@@ -187,6 +200,7 @@ export default function ArchiveData() {
         localStorage.setItem("archivedItems", JSON.stringify(updatedArchives));
       }
       
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
       setItems((prev) => prev.filter((i) => i.id !== id));
       setDeleteId(null);
       toast({ title: "Deleted", description: "Item permanently deleted." });

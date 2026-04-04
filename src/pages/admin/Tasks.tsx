@@ -92,6 +92,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import jsPDF from "jspdf";
 import { useSocket } from "@/contexts/SocketContext";
 
+<<<<<<< HEAD
+=======
 function ProjectLogoImg({ projectId, projectName }: { projectId: string; projectName: string }) {
   const [src, setSrc] = useState<string | null | undefined>(undefined);
   useEffect(() => {
@@ -105,6 +107,7 @@ function ProjectLogoImg({ projectId, projectName }: { projectId: string; project
   return <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>;
 }
 
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
 // ... (all your interfaces and types remain exactly the same)
 interface Task {
   id: string;
@@ -318,6 +321,10 @@ export default function Tasks() {
   const { socket, joinTask, leaveTask } = useSocket();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
+<<<<<<< HEAD
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+=======
   const [projectSearchQuery, setProjectSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
@@ -325,6 +332,7 @@ export default function Tasks() {
   const [taskPage, setTaskPage] = useState(1);
   const [projectTaskPage, setProjectTaskPage] = useState(1);
   const PAGE_SIZE = 25;
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
@@ -1337,6 +1345,8 @@ export default function Tasks() {
     });
   }, [sourceTasks, searchQuery, statusFilter, priorityFilter]);
 
+<<<<<<< HEAD
+=======
   const filteredProjects = useMemo(() => {
     if (!projectSearchQuery.trim()) return projects;
     const q = projectSearchQuery.toLowerCase();
@@ -1375,6 +1385,7 @@ export default function Tasks() {
   }, [filteredTasks, projectTaskPage]);
   const projectTaskTotalPages = Math.ceil(filteredTasks.length / PAGE_SIZE) || 1;
 
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
   // Format time for messages
   const formatMessageTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -1484,6 +1495,8 @@ export default function Tasks() {
               <p className="text-xs text-muted-foreground mt-1 break-words">{selectedProject.assignees && selectedProject.assignees.length > 0 ? selectedProject.assignees.join(", ") : "No assignees"}</p>
             </div>
           </div>
+<<<<<<< HEAD
+=======
           {selectedProject.attachments && selectedProject.attachments.length > 0 && (
             <div className="mt-3">
               <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({selectedProject.attachments.length})</p>
@@ -1503,6 +1516,7 @@ export default function Tasks() {
               </div>
             </div>
           )}
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground mt-3">
             <span>{selectedProject.tasks.length} tasks</span>
             <Select value={selectedProject.status || "No status"} onValueChange={(value) => {
@@ -1530,6 +1544,18 @@ export default function Tasks() {
         <>
           {/* Projects Section */}
           <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
+<<<<<<< HEAD
+            <h2 className="font-semibold text-lg mb-3">Projects</h2>
+            {projectsQuery.isLoading ? (
+              <p className="text-muted-foreground">Loading projects...</p>
+            ) : projectsQuery.isError ? (
+              <p className="text-destructive">Failed to load projects</p>
+            ) : projects.length === 0 ? (
+              <p className="text-muted-foreground">No projects found. Create one to begin.</p>
+            ) : (
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {projects.map((project) => {
+=======
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
               <h2 className="font-semibold text-lg">Projects ({filteredProjects.length})</h2>
               <div className="relative w-full sm:w-64">
@@ -1552,6 +1578,7 @@ export default function Tasks() {
               <>
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {paginatedProjects.map((project) => {
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                   const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0 ? project.assignees : [];
                   const taskNum = project.taskCount ?? 0;
                   return (
@@ -1564,7 +1591,15 @@ export default function Tasks() {
                         className="w-full text-left"
                       >
                         <div className="flex items-center gap-2 mb-2">
+<<<<<<< HEAD
+                          {project.logo?.url ? (
+                            <img src={project.logo.url} alt={`${project.name} logo`} className="w-10 h-10 rounded-md object-cover flex-shrink-0" />
+                          ) : (
+                            <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>
+                          )}
+=======
                           <ProjectLogoImg projectId={project.id} projectName={project.name} />
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                           <div className="min-w-0 flex-1">
                             <p className="font-medium truncate">{project.name}</p>
                             <p className="text-xs text-muted-foreground truncate">{project.description || "No description"}</p>
@@ -1639,6 +1674,8 @@ export default function Tasks() {
                   );
                 })}
               </div>
+<<<<<<< HEAD
+=======
               {projectTotalPages > 1 && (
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-4 pt-4 border-t border-muted/20">
                   <span className="text-sm text-muted-foreground">
@@ -1652,22 +1689,35 @@ export default function Tasks() {
                 </div>
               )}
               </>
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
             )}
           </div>
 
           {/* Tasks Section */}
           <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
+<<<<<<< HEAD
+            <h2 className="font-semibold text-lg mb-3">Tasks</h2>
+=======
             <h2 className="font-semibold text-lg mb-3">Tasks ({filteredStandaloneTasks.length})</h2>
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
             {tasksQuery.isLoading ? (
               <p className="text-muted-foreground">Loading tasks...</p>
             ) : tasksQuery.isError ? (
               <p className="text-destructive">Failed to load tasks</p>
+<<<<<<< HEAD
+            ) : tasks.filter(t => !t.projectId).length === 0 ? (
+              <p className="text-muted-foreground">No standalone tasks found. Create one to begin.</p>
+            ) : (
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {tasks.filter(t => !t.projectId).map((task) => {
+=======
             ) : filteredStandaloneTasks.length === 0 ? (
               <p className="text-muted-foreground">{searchQuery ? "No tasks match your search." : "No standalone tasks found. Create one to begin."}</p>
             ) : (
               <>
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {paginatedStandaloneTasks.map((task) => {
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                   const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0 ? task.assignees : [];
                   return (
                     <div
@@ -1790,6 +1840,8 @@ export default function Tasks() {
                   );
                 })}
               </div>
+<<<<<<< HEAD
+=======
               {taskTotalPages > 1 && (
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-4 pt-4 border-t border-muted/20">
                   <span className="text-sm text-muted-foreground">
@@ -1803,6 +1855,7 @@ export default function Tasks() {
                 </div>
               )}
               </>
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
             )}
           </div>
         </>
@@ -2581,13 +2634,21 @@ export default function Tasks() {
           {tasksQuery.isLoading ? (
             <div className="bg-card rounded-xl border border-border p-6 text-sm text-muted-foreground">Loading tasks...</div>
           ) : tasksQuery.isError ? (
+<<<<<<< HEAD
+            <div className="bg-card rounded-xl border border-border p-6 text-sm text-destructive">{tasksQuery.error instanceof Error ? tasksQuery.error.message : "Failed to load tasks"}</div>
+=======
             <div className="bg-card rounded-xl border border-border p-6 text-sm text-destructive">{(() => { const msg = tasksQuery.error instanceof Error ? tasksQuery.error.message : "Failed to load tasks"; return msg.startsWith("<") ? "Server error: failed to load tasks. The server may be temporarily unavailable (504 Gateway Timeout). Please try again later." : msg; })()}</div>
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
           ) : filteredTasks.length === 0 ? (
             <div className="bg-card rounded-xl border border-border p-6 text-sm text-muted-foreground text-center">No tasks found</div>
           ) : (
             <>
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+<<<<<<< HEAD
+                {filteredTasks.map((task, index) => (
+=======
                 {paginatedProjectTasks.map((task, index) => (
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                   <motion.div
                     key={task.id}
                     initial={{ opacity: 0, y: 10 }}
@@ -2609,6 +2670,9 @@ export default function Tasks() {
                   </motion.div>
                 ))}
               </div>
+<<<<<<< HEAD
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-muted-foreground mt-6 pt-4 border-t border-muted/20"><span className="text-center sm:text-left">Showing {filteredTasks.length} of {tasks.length} tasks</span><div className="flex flex-wrap items-center justify-center sm:justify-end gap-4"><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-success" />{tasks.filter((t) => t.status === "completed").length} completed</span><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary" />{tasks.filter((t) => t.status === "in-progress").length} in progress</span><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-warning" />{tasks.filter((t) => t.status === "pending").length} pending</span></div></div>
+=======
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-muted-foreground mt-6 pt-4 border-t border-muted/20">
                 <span className="text-center sm:text-left">Showing {filteredTasks.length} of {tasks.length} tasks</span>
                 <div className="flex flex-wrap items-center justify-center sm:justify-end gap-4">
@@ -2629,6 +2693,7 @@ export default function Tasks() {
                   </div>
                 </div>
               )}
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
             </>
           )}
         </div>
@@ -2638,4 +2703,8 @@ export default function Tasks() {
 }
 
 // Missing MessageSquare import
+<<<<<<< HEAD
 import { MessageSquare } from "lucide-react";
+=======
+import { MessageSquare } from "lucide-react";
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
