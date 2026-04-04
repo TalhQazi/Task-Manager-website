@@ -116,18 +116,32 @@ export function FiledPatents() {
 
       const payload = {
         ...formData,
+<<<<<<< HEAD
+=======
+        patentType: "filed",
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
         provisionalExpiration: expirationDate,
       };
 
       if (selectedPatent) {
+<<<<<<< HEAD
         await apiFetch(`/api/patents/filed/${selectedPatent._id}`, {
+=======
+        await apiFetch(`/api/patents/${selectedPatent._id}`, {
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
           method: "PUT",
           body: JSON.stringify(payload),
         });
       } else {
+<<<<<<< HEAD
         await apiFetch("/api/patents/filed", {
           method: "POST",
           body: JSON.stringify(payload),
+=======
+        await apiFetch("/api/patents", {
+          method: "POST",
+          body: JSON.stringify({ ...payload, patentType: "filed" }),
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
         });
       }
 
@@ -145,7 +159,11 @@ export function FiledPatents() {
     if (!confirm("Are you sure you want to delete this patent?")) return;
 
     try {
+<<<<<<< HEAD
       await apiFetch(`/api/patents/filed/${patent._id}`, {
+=======
+      await apiFetch(`/api/patents/${patent._id}`, {
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
         method: "DELETE",
       });
       await patentsQuery.refetch();
@@ -408,4 +426,8 @@ export function FiledPatents() {
       </DialogContent>
     </Dialog>
   );
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081

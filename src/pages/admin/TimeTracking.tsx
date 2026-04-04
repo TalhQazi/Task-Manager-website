@@ -50,8 +50,11 @@ type TimeEntryApi = {
   clockOut?: string | null;
   status?: string;
   initials?: string;
+<<<<<<< HEAD
   gpsLocation?: { lat: number; lng: number };
   ipAddress?: string;
+=======
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
 };
 
 interface Employee {
@@ -191,6 +194,7 @@ function normalizeTimeEntry(e: TimeEntryApi): TimeEntry {
   };
 }
 
+<<<<<<< HEAD
 const getGeoLocation = (): Promise<{ lat: number; lng: number } | null> => {
   return new Promise((resolve) => {
     if (!navigator.geolocation) return resolve(null);
@@ -212,6 +216,8 @@ const getPublicIp = async (): Promise<string> => {
   }
 };
 
+=======
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
 const TimeTracking = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -474,6 +480,7 @@ const TimeTracking = () => {
   const addEntry = async () => {
     if (!formData.employee || !formData.location || !formData.date || !formData.clockIn) return;
 
+<<<<<<< HEAD
     let gps: { lat: number; lng: number } | null = null;
     let ip = "Unknown";
     
@@ -484,6 +491,9 @@ const TimeTracking = () => {
     }
 
     const entry: TimeEntryApi = {
+=======
+    const entry: TimeEntry = {
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
       id: `TIME-${Date.now().toString().slice(-6)}`,
       employee: formData.employee,
       initials: getInitials(formData.employee),
@@ -492,8 +502,11 @@ const TimeTracking = () => {
       clockIn: formData.clockIn,
       clockOut: formData.clockOut || null,
       status: formData.clockOut ? "clocked-out" : formData.status,
+<<<<<<< HEAD
       gpsLocation: gps || undefined,
       ipAddress: ip,
+=======
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
     };
 
     try {

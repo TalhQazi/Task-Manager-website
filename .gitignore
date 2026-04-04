@@ -1,2 +1,8 @@
 node_modules
+<<<<<<< HEAD
 .env.local
+=======
+.env.local
+.sixth
+.vscode
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081

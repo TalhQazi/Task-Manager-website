@@ -34,7 +34,11 @@ export function SocketProvider({ children }: SocketProviderProps) {
   useEffect(() => {
 
   const socket = io("https://task.se7eninc.com", {
+<<<<<<< HEAD
     path: "/api/socket.io/",
+=======
+  path: "/api/socket.io/",
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
     withCredentials: true,
     transports: ["websocket", "polling"],
   });

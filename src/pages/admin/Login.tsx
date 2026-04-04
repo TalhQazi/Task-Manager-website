@@ -8,7 +8,11 @@ import { getAuthState } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
 import { login } from "@/lib/apiClient";
 import { Eye, EyeOff, Lock, User, LogIn } from "lucide-react";
+<<<<<<< HEAD
 const logoImage = "/logo.png";
+=======
+import logoImage from "../../../public/logo.png";
+>>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
 
 export default function Login() {
   const navigate = useNavigate();
