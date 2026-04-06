@@ -145,3 +145,35 @@ export async function deleteResource(resource: CrudResource, id: string) {
     method: "DELETE",
   });
 }
+
+// Download task attachment with authentication
+export async function downloadTaskAttachment(
+  taskId: string,
+  attachmentIndex: number,
+  fileName: string
+): Promise<void> {
+  const baseUrl = getApiBaseUrl();
+  const url = `${String(baseUrl).replace(/\/$/, "")}/api/tasks/${encodeURIComponent(taskId)}/attachments/${attachmentIndex}/download`;
+  
+  const auth = getAuthState();
+  
+  const res = await fetch(url, {
+    headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
+  });
+  
+  if (!res.ok) {
+    throw new Error(`Download failed (${res.status})`);
+  }
+  
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  
+  URL.revokeObjectURL(objectUrl);
+}

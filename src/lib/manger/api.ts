@@ -144,3 +144,35 @@ export async function apiFetch<T>(
 
   return (await parseJsonSafe(res)) as T;
 }
+
+// Download task attachment with authentication
+export async function downloadTaskAttachment(
+  taskId: string,
+  attachmentIndex: number,
+  fileName: string
+): Promise<void> {
+  const baseUrl = getApiBaseUrl();
+  const url = `${String(baseUrl).replace(/\/$/, "")}/api/tasks/${encodeURIComponent(taskId)}/attachments/${attachmentIndex}/download`;
+  
+  const token = getStoredToken();
+  
+  const res = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  
+  if (!res.ok) {
+    throw new Error(`Download failed (${res.status})`);
+  }
+  
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  
+  URL.revokeObjectURL(objectUrl);
+}

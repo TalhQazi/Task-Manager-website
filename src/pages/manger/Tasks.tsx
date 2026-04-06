@@ -84,7 +84,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
-import { apiFetch } from "@/lib/manger/api";
+import { apiFetch, downloadTaskAttachment } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import jsPDF from "jspdf";
@@ -809,21 +809,31 @@ export default function Tasks() {
       setIsCreating(true);
       const nowDate = new Date().toISOString().split("T")[0];
 
-      const attachment = attachmentFile
-        ? await new Promise<CreateProjectTaskDraft["attachment"]>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onerror = () => reject(new Error("Failed to read file"));
-            reader.onload = () => {
-              const url = typeof reader.result === "string" ? reader.result : "";
-              resolve({
-                fileName: attachmentFile.name,
-                url,
-                mimeType: attachmentFile.type,
-                size: attachmentFile.size,
-              });
-            };
-            reader.readAsDataURL(attachmentFile);
-          })
+      const attachments = attachmentFiles.length > 0
+        ? await Promise.all(
+            attachmentFiles.map(
+              (file) =>
+                new Promise<{ fileName: string; url: string; mimeType: string; size: number }>((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onerror = () => reject(new Error("Failed to read file"));
+                  reader.onload = () => {
+                    const url = typeof reader.result === "string" ? reader.result : "";
+                    resolve({
+                      fileName: file.name,
+                      url,
+                      mimeType: file.type,
+                      size: file.size,
+                    });
+                  };
+                  reader.readAsDataURL(file);
+                }),
+            ),
+          )
+        : [];
+
+      const first = attachments[0];
+      const attachment = first
+        ? { fileName: first.fileName, url: first.url, mimeType: first.mimeType, size: first.size }
         : undefined;
 
       const taskPayload: Record<string, any> = {
@@ -836,9 +846,10 @@ export default function Tasks() {
         dueTime: formData.dueTime,
         location: formData.location,
         createdAt: nowDate,
-        attachmentFileName: attachmentFile?.name || "",
+        attachmentFileName: first?.fileName || "",
         attachmentNote: formData.attachmentNote,
         attachment,
+        attachments,
       };
 
       // Only add projectId if not a direct task
@@ -873,6 +884,8 @@ export default function Tasks() {
       });
       setSelectedAssignees([]);
       setAttachmentFile(null);
+      setAttachmentFiles([]);
+      setAttachmentFilePreviews([]);
       setValidationErrors({});
 
       toast({
@@ -889,10 +902,21 @@ export default function Tasks() {
     }
   };
 
-  const openView = (task: Task) => {
+  const openView = async (task: Task) => {
+    // First set the task from cache for quick display
     setSelectedTask(task);
     setIsViewOpen(true);
     void loadComments(task.id);
+    
+    // Then fetch fresh data from backend to ensure we have latest attachments
+    try {
+      const res = await apiFetch<{ item: TaskApi }>(`/api/tasks/${encodeURIComponent(task.id)}`);
+      const freshTask = normalizeTask(res.item);
+      setSelectedTask(freshTask);
+    } catch (e) {
+      // Silently fail - we'll keep showing the cached version
+      console.error("Failed to refresh task data:", e);
+    }
   };
 
   const loadComments = async (taskId: string) => {
@@ -2047,16 +2071,17 @@ export default function Tasks() {
                           </div>
                           {/* Hover overlay with download button */}
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded flex items-center justify-center gap-2">
-                            <a
-                              href={attachment.url}
-                              download={attachment.fileName}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <button
+                              onClick={() => {
+                                if (selectedTask?.id) {
+                                  void downloadTaskAttachment(selectedTask.id, index, attachment.fileName || "download");
+                                }
+                              }}
                               className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90"
                               title={attachment.fileName || "Download"}
                             >
                               <Download className="h-3 w-3" />
-                            </a>
+                            </button>
                           </div>
                         </div>
                       ))
@@ -2076,16 +2101,17 @@ export default function Tasks() {
                         </div>
                         {/* Hover overlay with download button */}
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded flex items-center justify-center gap-2">
-                          <a
-                            href={selectedTask.attachment.url}
-                            download={selectedTask.attachment.fileName}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            onClick={() => {
+                              if (selectedTask?.id && selectedTask.attachment) {
+                                void downloadTaskAttachment(selectedTask.id, -1, selectedTask.attachment.fileName || "download");
+                              }
+                            }}
                             className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90"
-                            title={selectedTask.attachment.fileName || "Download"}
+                            title={selectedTask.attachment?.fileName || "Download"}
                           >
                             <Download className="h-3 w-3" />
-                          </a>
+                          </button>
                         </div>
                       </div>
                     ) : selectedTask.attachmentFileName ? (
