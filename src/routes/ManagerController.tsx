@@ -25,7 +25,7 @@ import NotFound from "@/pages/manger/NotFound";
 export default function ManagerController() {
   const location = useLocation();
   const auth = getAuthState();
-
+// adding routes
   const routes = useMemo(
     () => [
       { index: true, element: <Dashboard /> },
