@@ -37,6 +37,7 @@ interface TaskItem {
   createdAt?: string;
   attachmentFileName?: string;
   attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number } | null;
+  attachments?: Array<{ fileName?: string; url?: string; mimeType?: string; size?: number }>;
 }
 
 interface TaskCommentItem {
@@ -103,16 +104,24 @@ export default function EmployeeTaskDetails() {
     }
   };
 
+  const downloadFromUrl = (url: string, fileName?: string) => {
+    const cleanUrl = String(url || "").trim();
+    if (!cleanUrl) return;
+    const a = document.createElement("a");
+    a.href = cleanUrl;
+    if (fileName) a.download = fileName;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
   const canDownloadAttachment = Boolean(task?.attachment?.url);
 
   const downloadAttachment = () => {
     if (!task?.attachment?.url) return;
-    const a = document.createElement("a");
-    a.href = task.attachment.url;
-    a.download = task.attachment.fileName || task.attachmentFileName || "attachment";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    downloadFromUrl(task.attachment.url, task.attachment.fileName || task.attachmentFileName || "attachment");
   };
 
   const loadTask = async () => {
@@ -131,6 +140,7 @@ export default function EmployeeTaskDetails() {
         createdAt: item.createdAt ? String(item.createdAt) : "",
         attachmentFileName: item.attachmentFileName ? String(item.attachmentFileName) : "",
         attachment: item.attachment || null,
+        attachments: Array.isArray(item.attachments) ? item.attachments : undefined,
       };
 
       setTask(mapped);
@@ -216,15 +226,20 @@ export default function EmployeeTaskDetails() {
     );
   }, [task]);
 
+  const normalizedAttachments = useMemo(() => {
+    if (!task) return [] as Array<{ fileName?: string; url?: string; mimeType?: string; size?: number }>;
+    if (Array.isArray(task.attachments) && task.attachments.length > 0) return task.attachments;
+    if (task.attachment?.url) return [task.attachment];
+    return [];
+  }, [task]);
+
   if (loading) {
     return (
-      <div className="space-y-6">
-        <Card>
-          <CardContent className="p-8 text-center text-muted-foreground">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-3 text-[#133767]" />
-            Loading task...
-          </CardContent>
-        </Card>
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading task...
+        </div>
       </div>
     );
   }
@@ -266,9 +281,9 @@ export default function EmployeeTaskDetails() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-xl">{task.title}</CardTitle>
+          <CardTitle className="text-base">Task</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-3">
           <div className="text-sm text-muted-foreground whitespace-pre-wrap">{task.description}</div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
@@ -309,20 +324,62 @@ export default function EmployeeTaskDetails() {
             </div>
 
             <div>
-              <Button
-                variant="outline"
-                onClick={downloadAttachment}
-                disabled={!canDownloadAttachment}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Download Attachment
-              </Button>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">Attachments</p>
+                {canDownloadAttachment ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={downloadAttachment}
+                    className="gap-2"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download
+                  </Button>
+                ) : null}
+              </div>
+
+              {normalizedAttachments.length > 0 ? (
+                <div className="space-y-2">
+                  {normalizedAttachments.map((att, idx) => {
+                    const fileName = att.fileName || `attachment-${idx + 1}`;
+                    const url = String(att.url || "").trim();
+                    const canDownload = Boolean(url);
+                    return (
+                      <div
+                        key={`${fileName}-${idx}`}
+                        className="flex items-center justify-between gap-3 rounded-md border p-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium break-words">{fileName}</p>
+                          {att.size ? (
+                            <p className="text-xs text-muted-foreground">{Math.round(att.size / 1024)} KB</p>
+                          ) : null}
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2 flex-shrink-0"
+                          disabled={!canDownload}
+                          onClick={() => {
+                            if (!url) return;
+                            downloadFromUrl(url, fileName);
+                          }}
+                        >
+                          <Download className="h-4 w-4" />
+                          Download
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : task.attachmentFileName ? (
+                <p className="text-xs text-muted-foreground break-words">{task.attachmentFileName}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">—</p>
+              )}
             </div>
           </div>
-
-          {task.attachmentFileName ? (
-            <div className="text-xs text-muted-foreground">File: {task.attachmentFileName}</div>
-          ) : null}
         </CardContent>
       </Card>
 

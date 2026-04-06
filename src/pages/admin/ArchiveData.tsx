@@ -78,43 +78,9 @@ export default function ArchiveData() {
     try {
       setLoading(true);
       setError(null);
-<<<<<<< HEAD
       const query = typeFilter !== "all" ? `?itemType=${typeFilter}` : "";
       const res = await apiFetch<{ items: ArchivedItem[] }>(`/api/archive${query}`);
       setItems(res.items || []);
-=======
-      
-      // Try localStorage first (temporary solution until backend API is ready)
-      const storedArchives = localStorage.getItem("archivedItems");
-      let localItems: ArchivedItem[] = [];
-      
-      if (storedArchives) {
-        try {
-          localItems = JSON.parse(storedArchives);
-        } catch {
-          localItems = [];
-        }
-      }
-      
-      // Filter by type if needed
-      if (typeFilter !== "all" && localItems.length > 0) {
-        localItems = localItems.filter((item) => item.itemType === typeFilter);
-      }
-      
-      setItems(localItems);
-      
-      // Try backend API as well (if available in future)
-      try {
-        const query = typeFilter !== "all" ? `?itemType=${typeFilter}` : "";
-        const res = await apiFetch<{ items: ArchivedItem[] }>(`/api/archive${query}`);
-        if (res.items && res.items.length > 0) {
-          setItems(res.items);
-        }
-      } catch {
-        // Backend API not available, use localStorage data
-        console.log("Backend archive API not available, using localStorage");
-      }
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load archive");
     } finally {
@@ -129,43 +95,7 @@ export default function ArchiveData() {
   const handleRestore = async (id: string) => {
     try {
       setRestoring(id);
-<<<<<<< HEAD
       await apiFetch(`/api/archive/${id}/restore`, { method: "POST" });
-=======
-      
-      // Try backend API first (if available in future)
-      try {
-        await apiFetch(`/api/archive/${id}/restore`, { method: "POST" });
-      } catch {
-        // Backend API not available, restore locally
-        console.log("Backend restore API not available, restoring locally");
-      }
-      
-      // Remove from localStorage
-      const storedArchives = localStorage.getItem("archivedItems");
-      if (storedArchives) {
-        const archives: ArchivedItem[] = JSON.parse(storedArchives);
-        const itemToRestore = archives.find((i) => i.id === id);
-        const updatedArchives = archives.filter((i) => i.id !== id);
-        localStorage.setItem("archivedItems", JSON.stringify(updatedArchives));
-        
-        // Restore to original location if possible
-        if (itemToRestore) {
-          const { itemType, parentType, itemData } = itemToRestore;
-          const storageKey = parentType === "messages" ? "founderMessages" : 
-                            parentType === "tasks" ? "tasks" : 
-                            itemType === "attachment" ? "attachments" : null;
-          
-          if (storageKey) {
-            const existingData = localStorage.getItem(storageKey);
-            const items = existingData ? JSON.parse(existingData) : [];
-            items.push({ ...itemData, id, restoredAt: new Date().toISOString() });
-            localStorage.setItem(storageKey, JSON.stringify(items));
-          }
-        }
-      }
-      
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
       setItems((prev) => prev.filter((i) => i.id !== id));
       toast({ title: "Restored", description: "Item has been restored successfully." });
     } catch (e) {
@@ -181,26 +111,7 @@ export default function ArchiveData() {
 
   const handleDelete = async (id: string) => {
     try {
-<<<<<<< HEAD
       await apiFetch(`/api/archive/${id}`, { method: "DELETE" });
-=======
-      // Try backend API first (if available in future)
-      try {
-        await apiFetch(`/api/archive/${id}`, { method: "DELETE" });
-      } catch {
-        // Backend API not available, delete locally
-        console.log("Backend delete API not available, deleting locally");
-      }
-      
-      // Remove from localStorage
-      const storedArchives = localStorage.getItem("archivedItems");
-      if (storedArchives) {
-        const archives: ArchivedItem[] = JSON.parse(storedArchives);
-        const updatedArchives = archives.filter((i) => i.id !== id);
-        localStorage.setItem("archivedItems", JSON.stringify(updatedArchives));
-      }
-      
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
       setItems((prev) => prev.filter((i) => i.id !== id));
       setDeleteId(null);
       toast({ title: "Deleted", description: "Item permanently deleted." });

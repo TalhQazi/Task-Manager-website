@@ -27,21 +27,14 @@ import {
   DialogTrigger,
 } from "@/components/admin/ui/dialog";
 import { 
-<<<<<<< HEAD
   ChevronLeft,
   ChevronRight,
-=======
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
   Plus, 
   Search, 
   MoreHorizontal, 
   Edit, 
   Trash2, 
-<<<<<<< HEAD
   Calendar as CalendarIcon,
-=======
-  Calendar,
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
   MapPin,
   User,
   Clock,
@@ -149,11 +142,8 @@ export default function Scheduling() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selected, setSelected] = useState<ScheduleItem | null>(null);
-<<<<<<< HEAD
   const [viewMode, setViewMode] = useState<"list" | "daily" | "weekly">("list");
   const [currentDate, setCurrentDate] = useState(new Date());
-=======
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
 
   const [schedules, setSchedules] = useState<ScheduleItem[]>(() => []);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -468,7 +458,6 @@ export default function Scheduling() {
             </p>
           </div>
 
-<<<<<<< HEAD
           <div className="flex items-center bg-muted p-1 rounded-lg self-start sm:self-center">
             <Button
               variant={viewMode === "list" ? "default" : "ghost"}
@@ -496,8 +485,6 @@ export default function Scheduling() {
             </Button>
           </div>
 
-=======
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
           {/* Add Schedule Dialog */}
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
             <DialogTrigger asChild>
@@ -709,11 +696,7 @@ export default function Scheduling() {
                   Loading schedules...
                 </div>
               </div>
-<<<<<<< HEAD
             ) : viewMode === "list" ? (
-=======
-            ) : (
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
               <>
                 {/* Mobile View - Cards */}
                 <div className="block sm:hidden space-y-3 p-4">
@@ -723,11 +706,7 @@ export default function Scheduling() {
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-2">
                           <div className="h-8 w-8 rounded-lg bg-info/10 flex items-center justify-center flex-shrink-0">
-<<<<<<< HEAD
                             <CalendarIcon className="h-4 w-4 text-info" />
-=======
-                            <Calendar className="h-4 w-4 text-info" />
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                           </div>
                           <div>
                             <p className="text-xs font-medium">{getDisplayScheduleId(s.id)}</p>
@@ -784,11 +763,7 @@ export default function Scheduling() {
                     <div className="text-center py-8">
                       <div className="flex justify-center mb-3">
                         <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-<<<<<<< HEAD
                           <CalendarIcon className="h-6 w-6 text-muted-foreground" />
-=======
-                          <Calendar className="h-6 w-6 text-muted-foreground" />
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                         </div>
                       </div>
                       <p className="text-sm text-muted-foreground">No schedules found</p>
@@ -861,7 +836,6 @@ export default function Scheduling() {
                   </Table>
                 </div>
               </>
-<<<<<<< HEAD
             ) : viewMode === "daily" ? (
               <DailyView 
                 date={currentDate} 
@@ -880,8 +854,6 @@ export default function Scheduling() {
                 onPrevWeek={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() - 7))}
                 onNextWeek={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 7))}
               />
-=======
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
             )}
           </CardContent>
         </Card>
@@ -1092,7 +1064,6 @@ export default function Scheduling() {
       </Dialog>
     </>
   );
-<<<<<<< HEAD
 }
 
 // --- Sub-components for Calendar Views ---
@@ -1251,6 +1222,4 @@ function WeeklyView({
       </div>
     </div>
   );
-=======
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
 }

@@ -15,13 +15,7 @@ import {
   Settings,
   LogOut,
   Building2,
-<<<<<<< HEAD
-  Quote,
 } from "lucide-react";
-=======
-} from "lucide-react";
-
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/manger/utils";
 import { clearAuthState } from "@/lib/auth";
@@ -39,10 +33,6 @@ const navItems = [
   { icon: UserX, label: "Do Not Hire", path: "/manager/do-not-hire" },
   { icon: ClipboardCheck, label: "Onboarding", path: "/manager/onboarding" },
   { icon: BarChart3, label: "Reports", path: "/manager/reports" },
-<<<<<<< HEAD
-  { icon: Quote, label: "Founder Messages", path: "/manager/founder-messages" },
-  { icon: MessageSquare, label: "Messages", path: "/manager/messages" },
-=======
   { icon: MessageSquare, label: "Messages", path: "/manager/messages" },
   { 
     label: "SignaCore", 
@@ -53,10 +43,8 @@ const navItems = [
         alt="SignaCore" 
         className="h-6 w-6 flex-shrink-0 object-contain opacity-80 group-hover:opacity-100 transition-opacity" 
       />
-
     )
   },
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
   { icon: Settings, label: "Settings", path: "/manager/settings" },
 ];
 
@@ -89,13 +77,8 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
       className={cn(
         "flex flex-col text-white",
         isMobile
-<<<<<<< HEAD
-          ? "h-full w-64 bg-gradient-to-b from-[#133767] via-[#133767] to-[#133767]"
-          : "fixed left-0 top-36 bottom-0 w-56 bg-gradient-to-b from-[#133767] via-[#133767] to-[#133767] shadow-floating animate-slide-in border-r-2 border-white/20"
-=======
           ? "h-full w-64 bg-gradient-to-b from-[#0B1323] via-[#0B1323] to-[#0F172A]"
           : "fixed left-0 top-36 bottom-0 w-56 bg-gradient-to-b from-[#0B1323] via-[#0B1323] to-[#0F172A] shadow-floating animate-slide-in border-r-2 border-white/20"
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
       )}
     >
       {/* Navigation icons */}
@@ -105,15 +88,6 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
             key={item.path}
             to={item.path}
             end={item.end}
-<<<<<<< HEAD
-            className="flex h-10 w-full items-center gap-3 rounded-lg px-3 text-white/70 hover:bg-white/15 hover:text-white transition-colors"
-            activeClassName="bg-white text-[#0b3f86] shadow-md"
-            onClick={handleNavigate}
-          >
-            <item.icon className="h-5 w-5 flex-shrink-0" />
-            <span className="text-sm font-medium truncate">{item.label}</span>
-          </NavLink>
-=======
             className="group relative flex h-10 w-full items-center gap-3 rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear"
             activeClassName="bg-white/[0.06] text-white"
             onClick={handleNavigate}
@@ -132,9 +106,6 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
               <span className="text-sm font-medium truncate">{item.label}</span>
             )}
           </NavLink>
-
-
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
         ))}
       </nav>
 

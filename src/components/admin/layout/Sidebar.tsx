@@ -26,7 +26,6 @@ import {
   Lightbulb,
   Archive,
   Quote,
-<<<<<<< HEAD
   Layers,
   ChevronDown,
   ChevronRight,
@@ -47,25 +46,12 @@ type NavItem = {
 };
 
 const navItemsBase: NavItem[] = [
-=======
-} from "lucide-react";
-
-
-import { useNavigate } from "react-router-dom";
-import { cn } from "@/lib/utils";
-import { clearAuthState, getAuthState } from "@/lib/auth";
-import { useMemo } from "react";
-import { apiFetch } from "@/lib/admin/apiClient";
-
-const navItemsBase = [
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin", end: true },
   { icon: Users, label: "User Management", path: "/admin/users" },
   { icon: CheckSquare, label: "Task Management", path: "/admin/tasks" },
   { icon: UserCircle, label: "Employee Directory", path: "/admin/employees" },
   { icon: Wallet, label: "Payroll", path: "/admin/payroll" },
   { icon: History, label: "Task History", path: "/admin/task-history" },
-<<<<<<< HEAD
   {
     icon: Layers,
     label: "Operations",
@@ -82,18 +68,6 @@ const navItemsBase = [
   { icon: Landmark, label: "Companies", path: "/admin/companies" },
   { icon: Building2, label: "Vendors", path: "/admin/vendors" },
   { icon: MessageSquare, label: "Messaging", path: "/admin/messaging" },
-=======
-  { icon: Wrench, label: "Appliances", path: "/admin/appliances" },
-  { icon: Car, label: "Vehicles", path: "/admin/vehicles" },
-  { icon: MapPin, label: "Locations", path: "/admin/locations" },
-  { icon: Landmark, label: "Companies", path: "/admin/companies" },
-  { icon: Building2, label: "Vendors", path: "/admin/vendors" },
-  { icon: Calendar, label: "Scheduling", path: "/admin/scheduling" },
-  { icon: Clock, label: "Time Tracking", path: "/admin/time-tracking" },
-  { icon: MessageSquare, label: "Messaging", path: "/admin/messaging" },
-  { icon: Bell, label: "Notifications", path: "/admin/notifications" },
-  { icon: UserX, label: "Do Not Hire", path: "/admin/do-not-hire" },
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
   { icon: ClipboardList, label: "Onboarding", path: "/admin/onboarding" },
   { icon: BarChart3, label: "Reports", path: "/admin/reports" },
   { icon: Globe, label: "Digital Assets", path: "/admin/digital-assets" },
@@ -101,23 +75,7 @@ const navItemsBase = [
   { icon: Database, label: "Imported Asana Data", path: "/admin/asana-data" },
   { icon: Archive, label: "Archive Data", path: "/admin/archive-data" },
   { icon: Quote, label: "Founder Messages", path: "/admin/founder-messages" },
-<<<<<<< HEAD
   { icon: Settings, label: "Settings", path: "/admin/settings" },
-=======
-  {
-    label: "SignaCore",
-    path: "/admin/contracts",
-    customIcon: (
-      <img
-        src="/signa-core.png"
-        alt="SignaCore"
-        className="h-6 w-6 flex-shrink-0 object-contain opacity-80 group-hover:opacity-100 transition-opacity"
-      />
-    ),
-  },
-  { icon: Settings, label: "Settings", path: "/admin/settings" },
-
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
 ];
 
 // Activity Logs only for super-admin
@@ -150,10 +108,6 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
     try {
       await apiFetch("/api/auth/logout", { method: "POST" });
     } catch {
-<<<<<<< HEAD
-=======
-      // Ignore logout logging failures and continue local sign-out.
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
     }
     clearAuthState();
     onNavigate?.();
@@ -162,7 +116,6 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
 
   const isMobile = mode === "mobile";
 
-<<<<<<< HEAD
   const location = useLocation();
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
@@ -183,15 +136,12 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
     setExpandedGroups(prev => ({ ...prev, [label]: !prev[label] }));
   };
 
-=======
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
   const handleNavigate = () => {
     if (isMobile) {
       onNavigate?.();
     }
   };
 
-<<<<<<< HEAD
   const renderNavItem = (item: NavItem, isChild = false) => {
     if (item.children) {
       const isExpanded = expandedGroups[item.label];
@@ -282,8 +232,6 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
     );
   };
 
-=======
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
   return (
     <aside
       className={cn(
@@ -296,35 +244,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
       )}
     >
       <nav className="flex-1 flex flex-col gap-1 px-2 py-4 overflow-y-auto overflow-x-hidden no-scrollbar">
-<<<<<<< HEAD
         {navItems.map((item) => renderNavItem(item))}
-=======
-        {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            end={item.end}
-            className="group relative flex h-10 w-full items-center gap-3 rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear"
-            activeClassName="bg-white/[0.06] text-white"
-            onClick={handleNavigate}
-          >
-            {item.customIcon ? (
-              item.customIcon
-            ) : (
-              <item.icon className="h-5 w-5 flex-shrink-0" />
-            )}
-            {item.label === "SignaCore" ? (
-              <span className="text-sm font-bold truncate">
-                <span className="text-[#38bdf8]">Signa</span>
-                <span className="text-[#f97316]">Core</span>
-              </span>
-            ) : (
-              <span className="text-sm font-medium truncate">{item.label}</span>
-            )}
-          </NavLink>
-
-        ))}
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
       </nav>
 
       <div className="border-t border-white/10 px-2 pb-4 pt-3">
@@ -339,8 +259,4 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
       </div>
     </aside>
   );
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081

@@ -19,16 +19,9 @@ import Settings from "@/pages/manger/Settings";
 import DoNotHire from "@/pages/manger/DoNotHire";
 import OnboardingMonitoring from "@/pages/manger/OnboardingMonitoring";
 import Reports from "@/pages/manger/Reports";
-<<<<<<< HEAD
 import FounderMessages from "@/pages/manger/FounderMessages";
 import NotFound from "@/pages/manger/NotFound";
 
-=======
-import SignaCore from "@/pages/admin/SignaCore";
-import NotFound from "@/pages/manger/NotFound";
-
-
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
 export default function ManagerController() {
   const location = useLocation();
   const auth = getAuthState();
@@ -48,14 +41,8 @@ export default function ManagerController() {
       { path: "do-not-hire", element: <DoNotHire /> },
       { path: "onboarding", element: <OnboardingMonitoring /> },
       { path: "reports", element: <Reports /> },
-<<<<<<< HEAD
       { path: "founder-messages", element: <FounderMessages /> },
       { path: "messages", element: <Messages /> },
-=======
-      { path: "contracts", element: <SignaCore /> },
-      { path: "messages", element: <Messages /> },
-
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
       { path: "notifications", element: <Notifications /> },
       { path: "settings", element: <Settings /> },
       { path: "*", element: <NotFound /> },

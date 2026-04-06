@@ -92,22 +92,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import jsPDF from "jspdf";
 import { useSocket } from "@/contexts/SocketContext";
 
-<<<<<<< HEAD
-=======
-function ProjectLogoImg({ projectId, projectName }: { projectId: string; projectName: string }) {
-  const [src, setSrc] = useState<string | null | undefined>(undefined);
-  useEffect(() => {
-    let cancelled = false;
-    apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
-      .then(d => { if (!cancelled) setSrc(d.logo?.url || null); })
-      .catch(() => { if (!cancelled) setSrc(null); });
-    return () => { cancelled = true; };
-  }, [projectId]);
-  if (src) return <img src={src} alt={`${projectName} logo`} className="w-10 h-10 rounded-md object-cover flex-shrink-0" />;
-  return <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>;
-}
-
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
 // ... (all your interfaces and types remain exactly the same)
 interface Task {
   id: string;
@@ -321,18 +305,8 @@ export default function Tasks() {
   const { socket, joinTask, leaveTask } = useSocket();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
-<<<<<<< HEAD
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
-=======
-  const [projectSearchQuery, setProjectSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [priorityFilter, setPriorityFilter] = useState<string>("all");
-  const [projectPage, setProjectPage] = useState(1);
-  const [taskPage, setTaskPage] = useState(1);
-  const [projectTaskPage, setProjectTaskPage] = useState(1);
-  const PAGE_SIZE = 25;
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
@@ -452,7 +426,9 @@ export default function Tasks() {
       }
 
       const project = res.item;
-      const projectTasks: Task[] = Array.isArray(project.tasks) ? project.tasks : [];
+      const projectTasks: Task[] = Array.isArray(project.tasks)
+        ? project.tasks.map((t: any) => normalizeTask({ ...t, _id: t.id || t._id }))
+        : [];
 
       setSelectedProject({ ...project, tasks: projectTasks });
       setTasks(projectTasks);
@@ -1345,47 +1321,6 @@ export default function Tasks() {
     });
   }, [sourceTasks, searchQuery, statusFilter, priorityFilter]);
 
-<<<<<<< HEAD
-=======
-  const filteredProjects = useMemo(() => {
-    if (!projectSearchQuery.trim()) return projects;
-    const q = projectSearchQuery.toLowerCase();
-    return projects.filter((p) =>
-      p.name.toLowerCase().includes(q) ||
-      (p.description || "").toLowerCase().includes(q) ||
-      (p.assignees || []).join(" ").toLowerCase().includes(q)
-    );
-  }, [projects, projectSearchQuery]);
-
-  const filteredStandaloneTasks = useMemo(() => {
-    const standalone = tasks.filter((t) => !t.projectId);
-    if (!searchQuery.trim()) return standalone;
-    const q = searchQuery.toLowerCase();
-    return standalone.filter((task) => {
-      const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
-      return task.title.toLowerCase().includes(q) || assigneesText.toLowerCase().includes(q);
-    });
-  }, [tasks, searchQuery]);
-
-  const paginatedProjects = useMemo(() => {
-    const start = (projectPage - 1) * PAGE_SIZE;
-    return filteredProjects.slice(start, start + PAGE_SIZE);
-  }, [filteredProjects, projectPage]);
-  const projectTotalPages = Math.ceil(filteredProjects.length / PAGE_SIZE) || 1;
-
-  const paginatedStandaloneTasks = useMemo(() => {
-    const start = (taskPage - 1) * PAGE_SIZE;
-    return filteredStandaloneTasks.slice(start, start + PAGE_SIZE);
-  }, [filteredStandaloneTasks, taskPage]);
-  const taskTotalPages = Math.ceil(filteredStandaloneTasks.length / PAGE_SIZE) || 1;
-
-  const paginatedProjectTasks = useMemo(() => {
-    const start = (projectTaskPage - 1) * PAGE_SIZE;
-    return filteredTasks.slice(start, start + PAGE_SIZE);
-  }, [filteredTasks, projectTaskPage]);
-  const projectTaskTotalPages = Math.ceil(filteredTasks.length / PAGE_SIZE) || 1;
-
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
   // Format time for messages
   const formatMessageTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -1495,28 +1430,6 @@ export default function Tasks() {
               <p className="text-xs text-muted-foreground mt-1 break-words">{selectedProject.assignees && selectedProject.assignees.length > 0 ? selectedProject.assignees.join(", ") : "No assignees"}</p>
             </div>
           </div>
-<<<<<<< HEAD
-=======
-          {selectedProject.attachments && selectedProject.attachments.length > 0 && (
-            <div className="mt-3">
-              <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({selectedProject.attachments.length})</p>
-              <div className="flex flex-wrap gap-2">
-                {selectedProject.attachments.map((att, idx) => (
-                  att.mimeType?.startsWith("image/") ? (
-                    <a key={idx} href={att.url} target="_blank" rel="noreferrer">
-                      <img src={att.url} alt={att.fileName} className="h-16 w-16 object-cover rounded-md border border-border" />
-                    </a>
-                  ) : (
-                    <a key={idx} href={att.url} target="_blank" rel="noreferrer" download={att.fileName}
-                      className="flex items-center gap-1 px-2 py-1 rounded-md border border-border text-xs hover:bg-muted truncate max-w-[160px]">
-                      📄 {att.fileName}
-                    </a>
-                  )
-                ))}
-              </div>
-            </div>
-          )}
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground mt-3">
             <span>{selectedProject.tasks.length} tasks</span>
             <Select value={selectedProject.status || "No status"} onValueChange={(value) => {
@@ -1544,7 +1457,6 @@ export default function Tasks() {
         <>
           {/* Projects Section */}
           <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
-<<<<<<< HEAD
             <h2 className="font-semibold text-lg mb-3">Projects</h2>
             {projectsQuery.isLoading ? (
               <p className="text-muted-foreground">Loading projects...</p>
@@ -1555,30 +1467,6 @@ export default function Tasks() {
             ) : (
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {projects.map((project) => {
-=======
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-              <h2 className="font-semibold text-lg">Projects ({filteredProjects.length})</h2>
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search projects..."
-                  className="pl-10 h-9 w-full"
-                  value={projectSearchQuery}
-                  onChange={(e) => { setProjectSearchQuery(e.target.value); setProjectPage(1); }}
-                />
-              </div>
-            </div>
-            {projectsQuery.isLoading ? (
-              <p className="text-muted-foreground">Loading projects...</p>
-            ) : projectsQuery.isError ? (
-              <p className="text-destructive">{(() => { const msg = projectsQuery.error instanceof Error ? projectsQuery.error.message : "Failed to load projects"; return msg.startsWith("<") ? "Server error: failed to load projects. The server may be temporarily unavailable (504 Gateway Timeout). Please try again later." : msg; })()}</p>
-            ) : filteredProjects.length === 0 ? (
-              <p className="text-muted-foreground">{projectSearchQuery ? "No projects match your search." : "No projects found. Create one to begin."}</p>
-            ) : (
-              <>
-              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {paginatedProjects.map((project) => {
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                   const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0 ? project.assignees : [];
                   const taskNum = project.taskCount ?? 0;
                   return (
@@ -1591,15 +1479,11 @@ export default function Tasks() {
                         className="w-full text-left"
                       >
                         <div className="flex items-center gap-2 mb-2">
-<<<<<<< HEAD
                           {project.logo?.url ? (
                             <img src={project.logo.url} alt={`${project.name} logo`} className="w-10 h-10 rounded-md object-cover flex-shrink-0" />
                           ) : (
                             <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>
                           )}
-=======
-                          <ProjectLogoImg projectId={project.id} projectName={project.name} />
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                           <div className="min-w-0 flex-1">
                             <p className="font-medium truncate">{project.name}</p>
                             <p className="text-xs text-muted-foreground truncate">{project.description || "No description"}</p>
@@ -1674,50 +1558,21 @@ export default function Tasks() {
                   );
                 })}
               </div>
-<<<<<<< HEAD
-=======
-              {projectTotalPages > 1 && (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-4 pt-4 border-t border-muted/20">
-                  <span className="text-sm text-muted-foreground">
-                    Showing {Math.min((projectPage - 1) * PAGE_SIZE + 1, filteredProjects.length)}–{Math.min(projectPage * PAGE_SIZE, filteredProjects.length)} of {filteredProjects.length} projects
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setProjectPage((p) => Math.max(1, p - 1))} disabled={projectPage === 1}>Previous</Button>
-                    <span className="text-sm px-1">{projectPage} / {projectTotalPages}</span>
-                    <Button variant="outline" size="sm" onClick={() => setProjectPage((p) => Math.min(projectTotalPages, p + 1))} disabled={projectPage === projectTotalPages}>Next</Button>
-                  </div>
-                </div>
-              )}
-              </>
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
             )}
           </div>
 
           {/* Tasks Section */}
           <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
-<<<<<<< HEAD
             <h2 className="font-semibold text-lg mb-3">Tasks</h2>
-=======
-            <h2 className="font-semibold text-lg mb-3">Tasks ({filteredStandaloneTasks.length})</h2>
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
             {tasksQuery.isLoading ? (
               <p className="text-muted-foreground">Loading tasks...</p>
             ) : tasksQuery.isError ? (
               <p className="text-destructive">Failed to load tasks</p>
-<<<<<<< HEAD
             ) : tasks.filter(t => !t.projectId).length === 0 ? (
               <p className="text-muted-foreground">No standalone tasks found. Create one to begin.</p>
             ) : (
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {tasks.filter(t => !t.projectId).map((task) => {
-=======
-            ) : filteredStandaloneTasks.length === 0 ? (
-              <p className="text-muted-foreground">{searchQuery ? "No tasks match your search." : "No standalone tasks found. Create one to begin."}</p>
-            ) : (
-              <>
-              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {paginatedStandaloneTasks.map((task) => {
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                   const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0 ? task.assignees : [];
                   return (
                     <div
@@ -1840,22 +1695,6 @@ export default function Tasks() {
                   );
                 })}
               </div>
-<<<<<<< HEAD
-=======
-              {taskTotalPages > 1 && (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-4 pt-4 border-t border-muted/20">
-                  <span className="text-sm text-muted-foreground">
-                    Showing {Math.min((taskPage - 1) * PAGE_SIZE + 1, filteredStandaloneTasks.length)}–{Math.min(taskPage * PAGE_SIZE, filteredStandaloneTasks.length)} of {filteredStandaloneTasks.length} tasks
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setTaskPage((p) => Math.max(1, p - 1))} disabled={taskPage === 1}>Previous</Button>
-                    <span className="text-sm px-1">{taskPage} / {taskTotalPages}</span>
-                    <Button variant="outline" size="sm" onClick={() => setTaskPage((p) => Math.min(taskTotalPages, p + 1))} disabled={taskPage === taskTotalPages}>Next</Button>
-                  </div>
-                </div>
-              )}
-              </>
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
             )}
           </div>
         </>
@@ -2634,21 +2473,13 @@ export default function Tasks() {
           {tasksQuery.isLoading ? (
             <div className="bg-card rounded-xl border border-border p-6 text-sm text-muted-foreground">Loading tasks...</div>
           ) : tasksQuery.isError ? (
-<<<<<<< HEAD
             <div className="bg-card rounded-xl border border-border p-6 text-sm text-destructive">{tasksQuery.error instanceof Error ? tasksQuery.error.message : "Failed to load tasks"}</div>
-=======
-            <div className="bg-card rounded-xl border border-border p-6 text-sm text-destructive">{(() => { const msg = tasksQuery.error instanceof Error ? tasksQuery.error.message : "Failed to load tasks"; return msg.startsWith("<") ? "Server error: failed to load tasks. The server may be temporarily unavailable (504 Gateway Timeout). Please try again later." : msg; })()}</div>
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
           ) : filteredTasks.length === 0 ? (
             <div className="bg-card rounded-xl border border-border p-6 text-sm text-muted-foreground text-center">No tasks found</div>
           ) : (
             <>
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-<<<<<<< HEAD
                 {filteredTasks.map((task, index) => (
-=======
-                {paginatedProjectTasks.map((task, index) => (
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                   <motion.div
                     key={task.id}
                     initial={{ opacity: 0, y: 10 }}
@@ -2670,30 +2501,7 @@ export default function Tasks() {
                   </motion.div>
                 ))}
               </div>
-<<<<<<< HEAD
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-muted-foreground mt-6 pt-4 border-t border-muted/20"><span className="text-center sm:text-left">Showing {filteredTasks.length} of {tasks.length} tasks</span><div className="flex flex-wrap items-center justify-center sm:justify-end gap-4"><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-success" />{tasks.filter((t) => t.status === "completed").length} completed</span><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary" />{tasks.filter((t) => t.status === "in-progress").length} in progress</span><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-warning" />{tasks.filter((t) => t.status === "pending").length} pending</span></div></div>
-=======
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-muted-foreground mt-6 pt-4 border-t border-muted/20">
-                <span className="text-center sm:text-left">Showing {filteredTasks.length} of {tasks.length} tasks</span>
-                <div className="flex flex-wrap items-center justify-center sm:justify-end gap-4">
-                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-success" />{tasks.filter((t) => t.status === "completed").length} completed</span>
-                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary" />{tasks.filter((t) => t.status === "in-progress").length} in progress</span>
-                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-warning" />{tasks.filter((t) => t.status === "pending").length} pending</span>
-                </div>
-              </div>
-              {projectTaskTotalPages > 1 && (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-4 pt-2">
-                  <span className="text-sm text-muted-foreground">
-                    Page {projectTaskPage} of {projectTaskTotalPages} ({filteredTasks.length} tasks)
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setProjectTaskPage((p) => Math.max(1, p - 1))} disabled={projectTaskPage === 1}>Previous</Button>
-                    <span className="text-sm px-1">{projectTaskPage} / {projectTaskTotalPages}</span>
-                    <Button variant="outline" size="sm" onClick={() => setProjectTaskPage((p) => Math.min(projectTaskTotalPages, p + 1))} disabled={projectTaskPage === projectTaskTotalPages}>Next</Button>
-                  </div>
-                </div>
-              )}
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
             </>
           )}
         </div>
@@ -2703,8 +2511,4 @@ export default function Tasks() {
 }
 
 // Missing MessageSquare import
-<<<<<<< HEAD
 import { MessageSquare } from "lucide-react";
-=======
-import { MessageSquare } from "lucide-react";
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081

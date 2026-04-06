@@ -316,22 +316,14 @@ const Users = () => {
 
   // Super Admin: Reset Password handlers
   const handleResetPassword = (user: User) => {
-<<<<<<< HEAD
     // Both Admin and Super Admin can reset user passwords
-=======
-    if (!isSuperAdmin) return;
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
     setSelectedUser(user);
     setResetPasswordData({ newPassword: "", confirmPassword: "" });
     setResetPasswordOpen(true);
   };
 
   const confirmResetPassword = async () => {
-<<<<<<< HEAD
     if (!selectedUser) return;
-=======
-    if (!selectedUser || !isSuperAdmin) return;
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
     
     // Validate passwords match
     if (resetPasswordData.newPassword !== resetPasswordData.confirmPassword) {
@@ -475,12 +467,7 @@ const confirmArchiveUser = async () => {
         password: values.password,
         role: values.role as BackendUser["role"],
         status: values.status as NonNullable<BackendUser["status"]>,
-<<<<<<< HEAD
        // username:'testusername'
-=======
-       // username:`${values.firstName.trim()}${values.lastName.trim()}`.trim(),
-       username: values.email.split("@")[0].trim()
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
       });
       await refreshUsers();
       setOpen(false);
@@ -502,11 +489,7 @@ const confirmArchiveUser = async () => {
   return (
     <>
       <motion.div 
-<<<<<<< HEAD
         className="space-y-4 sm:space-y-5 md:space-y-6"
-=======
-        className="pl-6 space-y-4 sm:space-y-5 md:space-y-6"
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -948,11 +931,7 @@ const confirmArchiveUser = async () => {
                               {user.role}
                             </Badge>
                             <Badge className={`${statusClasses[user.status]} text-xs`} variant="secondary">
-<<<<<<< HEAD
                               {user.status}
-=======
-                              {user.status}ff
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                             </Badge>
                           </div>
 

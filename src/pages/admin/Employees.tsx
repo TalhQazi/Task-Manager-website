@@ -170,20 +170,13 @@ const Employees = () => {
     userStatus: "active" | "inactive" | "pending";
     role: string;
     company: string;
-<<<<<<< HEAD
-=======
-    department: string;
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
     status: Employee["status"];
     payType: "hourly" | "monthly";
     payRate: string;
     shift: string;
     hireDate: string;
     password: string;
-<<<<<<< HEAD
     department: string;
-=======
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
   };
 
   const addForm = useForm<AddEmployeeValues>({
@@ -333,11 +326,6 @@ const Employees = () => {
           password: values.password,
           role: values.userRole,
           status: values.userStatus,
-<<<<<<< HEAD
-=======
-         // username:`${values.firstName.trim()}${values.lastName.trim()}`.trim()
-         username: values.email.split("@")[0].trim()
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
         });
       }
 
@@ -491,11 +479,7 @@ const Employees = () => {
 
   // Super Admin: Reset Password handlers
   const handleResetPassword = (employee: Employee) => {
-<<<<<<< HEAD
     // Both Admin and Super Admin can reset employee passwords
-=======
-    if (!isSuperAdmin) return;
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
     setSelectedEmployee(employee);
     setResetPasswordData({ newPassword: "", confirmPassword: "" });
     setResetPasswordOpen(true);
@@ -521,11 +505,7 @@ const Employees = () => {
       setApiError(null);
       
       // Call the backend endpoint to reset employee password
-<<<<<<< HEAD
       await apiFetch(`/api/employees/${selectedEmployee.id}/reset-password`, {
-=======
-      await apiFetch(`/api/employees/$/reset-password`, {
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
         method: "POST",
         body: JSON.stringify({
           newPassword: resetPasswordData.newPassword,
@@ -588,11 +568,7 @@ const Employees = () => {
   return (
     <>
       <motion.div 
-<<<<<<< HEAD
         className="space-y-4 sm:space-y-5 md:space-y-6 pb-6"
-=======
-        className="pl-4 sm:pl-6 md:pl-12 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-4 pb-6"
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -602,11 +578,7 @@ const Employees = () => {
           className="relative overflow-hidden rounded-xl bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-4 sm:p-6"
           variants={itemVariants}
           whileHover={{ scale: 1.01 }}
-<<<<<<< HEAD
           transition={{ type: "spring", stiffness: 300, damping: 20 }}
-=======
-          transition={{ type: "spring" as const, stiffness: 300, damping: 20 }}
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
         >
           <div className="absolute inset-0 bg-grid-white/10 [mask-image:radial-gradient(ellipse_at_center,white,transparent)]" />
           <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
@@ -1072,13 +1044,8 @@ const Employees = () => {
                 </div>
 
                 {/* Filter Dropdowns - Grid on mobile, row on tablet+ */}
-<<<<<<< HEAD
                 <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:gap-3">
                   <div className="col-span-1">
-=======
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-row gap-2 sm:gap-3">
-                  <div className="col-span-1 sm:col-span-1">
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                     <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
                       Status
                     </label>
@@ -1095,11 +1062,7 @@ const Employees = () => {
                     </Select>
                   </div>
 
-<<<<<<< HEAD
                   <div className="col-span-1">
-=======
-                  <div className="col-span-1 sm:col-span-1">
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                     <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
                       Category
                     </label>
@@ -1118,11 +1081,7 @@ const Employees = () => {
                     </Select>
                   </div>
 
-<<<<<<< HEAD
                   <div className="col-span-1">
-=======
-                  <div className="col-span-1 sm:col-span-1">
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                     <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
                       Role
                     </label>
@@ -1141,11 +1100,7 @@ const Employees = () => {
                     </Select>
                   </div>
 
-<<<<<<< HEAD
                   <div className="col-span-1">
-=======
-                  <div className="col-span-1 sm:col-span-1">
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
                     <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
                       Company
                     </label>
@@ -1183,11 +1138,7 @@ const Employees = () => {
                 )}
               </CardTitle>
             </CardHeader>
-<<<<<<< HEAD
             <CardContent className="p-0 overflow-x-auto">
-=======
-            <CardContent className="p-0 sm:p-6">
->>>>>>> 0f95b09cffeef036d647e3e7c9107418d2c97081
               {loading ? (
                 <div className="flex justify-center items-center py-8 sm:py-12">
                   <motion.div
