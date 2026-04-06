@@ -345,6 +345,8 @@ export default function Tasks() {
   const [validationErrors, setValidationErrors] = useState<{ projectName?: string; title?: string; description?: string }>({});
   const [assigneesOpen, setAssigneesOpen] = useState(false);
   const [editAssigneesOpen, setEditAssigneesOpen] = useState(false);
+  const [projectCreationAssignees, setProjectCreationAssignees] = useState<string[]>([]);
+  const [projectCreationAssigneesOpen, setProjectCreationAssigneesOpen] = useState(false);
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectWithTasks | null>(null);
@@ -725,6 +727,7 @@ export default function Tasks() {
       attachmentNote: "",
     });
     setSelectedAssignees([]);
+    setProjectCreationAssignees([]);
     setAttachmentFile(null);
     setAttachmentFiles([]);
     setAttachmentFilePreviews([]);
@@ -840,7 +843,7 @@ export default function Tasks() {
       const payload: CreateProjectPayload & { assignees?: string[]; logo?: ProjectLogo } = {
         name: projectName.trim(),
         description,
-        assignees: selectedAssignees,
+        assignees: projectCreationAssignees,
         logo: projectLogo,
         attachments: projectAttachments,
         tasks: tasksToCreate,
@@ -1845,10 +1848,10 @@ export default function Tasks() {
               </div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Assignees</label>
-                <Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}>
-                  <PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{selectedAssignees.length > 0 ? selectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger>
+                <Popover open={projectCreationAssigneesOpen} onOpenChange={setProjectCreationAssigneesOpen}>
+                  <PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{projectCreationAssignees.length > 0 ? projectCreationAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger>
                   <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); setAssigneesOpen(false); }}><Check className={cn("mr-2 h-4 w-4", selectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command>
+                    <Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setProjectCreationAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); setProjectCreationAssigneesOpen(false); }}><Check className={cn("mr-2 h-4 w-4", projectCreationAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command>
                   </PopoverContent>
                 </Popover>
               </div>
