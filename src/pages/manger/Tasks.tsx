@@ -229,6 +229,19 @@ function normalizeTask(t: TaskApi): Task {
   };
 }
 
+function ProjectLogoImg({ projectId, projectName }: { projectId: string; projectName: string }) {
+  const [src, setSrc] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
+      .then(d => { if (!cancelled) setSrc(d.logo?.url || null); })
+      .catch(() => { if (!cancelled) setSrc(null); });
+    return () => { cancelled = true; };
+  }, [projectId]);
+  if (src) return <img src={src} alt={`${projectName} logo`} className="w-10 h-10 rounded-md object-cover flex-shrink-0" />;
+  return <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>;
+}
+
 async function filesToAttachments(files: File[]) {
   return Promise.all(
     files.map(
@@ -276,6 +289,8 @@ export default function Tasks() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [projectPage, setProjectPage] = useState(1);
+  const PAGE_SIZE = 25;
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
@@ -1043,6 +1058,18 @@ export default function Tasks() {
     });
   }, [sourceTasks, searchQuery, statusFilter, priorityFilter]);
 
+  const filteredProjects = useMemo(() => {
+    if (!searchQuery.trim()) return projects;
+    const q = searchQuery.toLowerCase();
+    return projects.filter((p) => p.name.toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q));
+  }, [projects, searchQuery]);
+
+  const paginatedProjects = useMemo(() => {
+    const start = (projectPage - 1) * PAGE_SIZE;
+    return filteredProjects.slice(start, start + PAGE_SIZE);
+  }, [filteredProjects, projectPage]);
+  const projectTotalPages = Math.ceil(filteredProjects.length / PAGE_SIZE) || 1;
+
   return (
     <div className="pl-6 space-y-6">
       {/* Header */}
@@ -1168,13 +1195,14 @@ export default function Tasks() {
             ) : projects.length === 0 ? (
               <p className="text-muted-foreground">No projects found. Create one to begin.</p>
             ) : (
+              <>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {projects.map((project) => {
-                  const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0 
-                    ? project.assignees 
+                {paginatedProjects.map((project) => {
+                  const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0
+                    ? project.assignees
                     : [];
                   const taskNum = project.taskCount ?? 0;
-                  
+
                   return (
                     <button
                       key={project.id}
@@ -1182,11 +1210,7 @@ export default function Tasks() {
                       className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card"
                     >
                       <div className="flex items-center gap-2 mb-2">
-                        {project.logo?.url ? (
-                          <img src={project.logo.url} alt={`${project.name} logo`} className="w-10 h-10 rounded-md object-cover" />
-                        ) : (
-                          <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">Logo</div>
-                        )}
+                        <ProjectLogoImg projectId={project.id} projectName={project.name} />
                         <div className="min-w-0">
                           <p className="font-medium truncate">{project.name}</p>
                           <p className="text-xs text-muted-foreground truncate">{project.description || "No description"}</p>
@@ -1210,6 +1234,19 @@ export default function Tasks() {
                   );
                 })}
               </div>
+              {projectTotalPages > 1 && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-4 pt-4 border-t border-muted/20">
+                  <span className="text-sm text-muted-foreground">
+                    Showing {Math.min((projectPage - 1) * PAGE_SIZE + 1, filteredProjects.length)}–{Math.min(projectPage * PAGE_SIZE, filteredProjects.length)} of {filteredProjects.length} projects
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setProjectPage((p) => Math.max(1, p - 1))} disabled={projectPage === 1}>Previous</Button>
+                    <span className="text-sm px-1">{projectPage} / {projectTotalPages}</span>
+                    <Button variant="outline" size="sm" onClick={() => setProjectPage((p) => Math.min(projectTotalPages, p + 1))} disabled={projectPage === projectTotalPages}>Next</Button>
+                  </div>
+                </div>
+              )}
+              </>
             )}
           </div>
 
