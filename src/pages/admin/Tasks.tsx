@@ -1570,7 +1570,7 @@ export default function Tasks() {
                           <ProjectLogoImg projectId={project.id} projectName={project.name} />
                           <div className="min-w-0 flex-1">
                             <p className="font-medium truncate">{project.name}</p>
-                            <p className="text-xs text-muted-foreground truncate">{project.description || "No description"}</p>
+                            <p className="text-xs text-muted-foreground line-clamp-2">{project.description || "No description"}</p>
                           </div>
                         </div>
                         <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
