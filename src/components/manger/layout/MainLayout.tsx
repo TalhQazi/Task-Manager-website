@@ -134,7 +134,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   });
 
   const headerSettings = headerSettingsQuery.data?.item;
-  const headerHeight = headerSettings?.height || 144;
+  const headerHeight = 250;
   const hasImageBackground = headerSettings?.backgroundType === 'image' && headerSettings.imageConfig?.dataUrl;
 
   // System notifications (broadcasts only)
@@ -303,32 +303,11 @@ export function MainLayout({ children }: MainLayoutProps) {
           )}
           
           {/* Content - with left padding for sidebar on desktop */}
-          <div 
+          <div
             className="relative flex items-center justify-between px-3 sm:px-6 lg:px-10 py-2 md:py-4 animate-fade-in h-full md:pl-24"
           >
-            {/* Left side: Seven logo - responsive */}
-            <div className="flex items-center z-10">
-              <img
-                src="/seven logo.png"
-                alt="SE7EN Inc. logo"
-                className="h-14 sm:h-16 md:h-36 w-auto max-w-[180px] sm:max-w-[200px] md:max-w-[300px] object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)]"
-                style={{ height: `${headerHeight * 0.75}px`, maxHeight: '140px' }}
-              />
-            </div>
-
-            {/* Center: Task Manager logo - admin style */}
-            <div className="flex absolute left-1/2 -translate-x-1/2 items-center">
-              <div className="relative">
-                <div className="absolute inset-0 -z-10 blur-2xl bg-blue-400/30 scale-110 rounded-full" />
-                <img
-                  src="/clock2.png"
-                  alt="TaskManager by Reardon"
-                  className="h-12 sm:h-16 md:h-32 lg:h-40 w-auto max-w-[140px] sm:max-w-[190px] md:max-w-[280px] lg:max-w-[380px] object-contain mix-blend-screen opacity-95 [mask-image:radial-gradient(closest-side,black_79%,transparent_100%)]"
-                  style={{ height: `${headerHeight * 0.7}px`, maxHeight: '120px' }}
-                />
-              </div>
-            </div>
-            <div className="flex items-center gap-2 sm:gap-3 text-white z-10">
+            {/* LEFT SIDE: icons/profile */}
+            <div className="flex items-center gap-2 sm:gap-3 text-white z-30 relative pointer-events-auto">
               <Button
                 type="button"
                 variant="ghost"
@@ -498,6 +477,26 @@ export function MainLayout({ children }: MainLayoutProps) {
                   <Sidebar mode="mobile" onNavigate={() => setMobileSidebarOpen(false)} />
                 </SheetContent>
               </Sheet>
+            </div>
+
+            {/* CENTER LOGO */}
+            <div className="flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center pointer-events-auto z-10" style={{ height: `${headerHeight * 0.7}px`, minHeight: '48px', maxHeight: '160px' }}>
+              <div className="relative h-full flex items-center">
+                <img
+                  src="/logo.jpeg"
+                  alt="TaskManager by Reardon"
+                  className="w-auto h-full max-w-[120px] sm:max-w-[190px] md:max-w-[280px] lg:max-w-[380px] object-contain transition-all duration-300 rounded-md shadow-md"
+                />
+              </div>
+            </div>
+
+            {/* RIGHT SIDE: SE7EN Logo */}
+            <div className="flex items-center sm:items-end sm:pb-2 z-20 pointer-events-auto" style={{ height: `${headerHeight * 0.6}px`, minHeight: '40px', maxHeight: '120px' }}>
+              <img
+                src="/seven logo.png"
+                alt="SE7EN Inc. logo"
+                className="w-auto h-full max-w-[90px] sm:max-w-[180px] md:max-w-[250px] object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)] transition-all duration-300"
+              />
             </div>
           </div>
         </div>
