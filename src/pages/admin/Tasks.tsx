@@ -1350,14 +1350,34 @@ export default function Tasks() {
   }, [sourceTasks, searchQuery, statusFilter, priorityFilter]);
 
   const filteredProjects = useMemo(() => {
-    if (!projectSearchQuery.trim()) return projects;
-    const q = projectSearchQuery.toLowerCase();
-    return projects.filter((p) =>
-      p.name.toLowerCase().includes(q) ||
-      (p.description || "").toLowerCase().includes(q) ||
-      (p.assignees || []).join(" ").toLowerCase().includes(q)
-    );
-  }, [projects, projectSearchQuery]);
+    const qProject = projectSearchQuery.trim().toLowerCase();
+    const qMain = searchQuery.trim().toLowerCase();
+    const sFilter = statusFilter.toLowerCase();
+    
+    return projects.filter((p) => {
+      const name = p.name.toLowerCase();
+      const desc = (p.description || "").toLowerCase();
+      const assignees = (p.assignees || []).join(" ").toLowerCase();
+      const status = (p.status || "").toLowerCase();
+      
+      // Status Filter
+      if (sFilter !== "all" && status !== sFilter) {
+        return false;
+      }
+
+      // If projectSearchQuery is present, it takes priority or acts as an additional filter
+      if (qProject && !name.includes(qProject) && !desc.includes(qProject) && !assignees.includes(qProject)) {
+        return false;
+      }
+      
+      // If the main search bar has text, it must match either name, desc, or assignees
+      if (qMain && !name.includes(qMain) && !desc.includes(qMain) && !assignees.includes(qMain)) {
+        return false;
+      }
+      
+      return true;
+    });
+  }, [projects, projectSearchQuery, searchQuery, statusFilter]);
 
   const filteredStandaloneTasks = useMemo(() => {
     const standalone = tasks.filter((t) => !t.projectId);
