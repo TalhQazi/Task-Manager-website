@@ -392,6 +392,15 @@ export function Header({ onMenuClick }: HeaderProps) {
     }
   };
 
+  const markAllRead = async () => {
+    try {
+      await apiFetch("/api/messages/mark-all-read", { method: "POST" });
+      await notificationsQuery.refetch();
+    } catch {
+      // ignore errors
+    }
+  };
+
   const markRead = async (id: string) => {
     try {
       await apiFetch(`/api/messages/${id}/mark-read`, { method: "POST" });
@@ -780,6 +789,16 @@ export function Header({ onMenuClick }: HeaderProps) {
                     </DropdownMenuItem>
                   ))
                 )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-xs text-center justify-center font-medium text-primary cursor-pointer"
+                  onClick={async () => {
+                    await markAllRead();
+                    navigate("/admin/notifications");
+                  }}
+                >
+                  View all notifications
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
