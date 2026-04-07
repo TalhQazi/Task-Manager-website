@@ -1,17 +1,17 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/manger/ui/button";
-import { Input } from "@/components/manger/ui/input";
-import { Badge } from "@/components/manger/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/manger/ui/avatar";
+import { Button } from "@/components/admin/ui/button";
+import { Input } from "@/components/admin/ui/input";
+import { Badge } from "@/components/admin/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/admin/ui/avatar";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/manger/ui/select";
+} from "@/components/admin/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +19,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/manger/ui/dialog";
+} from "@/components/admin/ui/dialog";
 import {
   Form,
   FormControl,
@@ -27,14 +27,14 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/manger/ui/form";
+} from "@/components/admin/ui/form";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/manger/ui/dropdown-menu";
+} from "@/components/admin/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,8 +44,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/manger/ui/alert-dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/manger/ui/popover";
+} from "@/components/admin/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/admin/ui/popover";
 import {
   Command,
   CommandEmpty,
@@ -53,9 +53,9 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@/components/manger/ui/command";
-import { Textarea } from "@/components/manger/ui/textarea";
-import { toast } from "@/components/manger/ui/use-toast";
+} from "@/components/admin/ui/command";
+import { Textarea } from "@/components/admin/ui/textarea";
+import { toast } from "@/components/admin/ui/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -67,7 +67,6 @@ import {
   Calendar,
   MapPin,
   FileText,
-  Download,
   Printer,
   Check,
   ChevronsUpDown,
@@ -81,13 +80,32 @@ import {
   Trash2,
   Loader2,
   X,
+  Archive,
+  Send,
+  RefreshCw,
+  UserCog,
 } from "lucide-react";
-import { cn } from "@/lib/manger/utils";
-import { apiFetch } from "@/lib/manger/api";
+import { cn } from "@/lib/admin/utils";
+import { apiFetch } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import jsPDF from "jspdf";
+import { useSocket } from "@/contexts/SocketContext";
 
+function ProjectLogoImg({ projectId, projectName }: { projectId: string; projectName: string }) {
+  const [src, setSrc] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
+      .then(d => { if (!cancelled) setSrc(d.logo?.url || null); })
+      .catch(() => { if (!cancelled) setSrc(null); });
+    return () => { cancelled = true; };
+  }, [projectId]);
+  if (src) return <img src={src} alt={`${projectName} logo`} className="w-10 h-10 rounded-md object-cover flex-shrink-0" />;
+  return <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>;
+}
+
+// ... (all your interfaces and types remain exactly the same)
 interface Task {
   id: string;
   title: string;
@@ -135,7 +153,12 @@ type CreateProjectTaskDraft = {
     mimeType: string;
     size: number;
   };
-  attachments?: Array<{ fileName: string; url: string; mimeType: string; size: number }>;
+  attachments?: Array<{
+    fileName: string;
+    url: string;
+    mimeType: string;
+    size: number;
+  }>;
 };
 
 type CreateProjectPayload = {
@@ -143,7 +166,12 @@ type CreateProjectPayload = {
   description: string;
   assignees?: string[];
   logo?: ProjectLogo;
-  attachments?: Array<{ fileName: string; url: string; mimeType: string; size: number }>;
+  attachments?: Array<{
+    fileName: string;
+    url: string;
+    mimeType: string;
+    size: number;
+  }>;
   tasks: Array<Omit<CreateProjectTaskDraft, "location">>;
 };
 
@@ -231,33 +259,33 @@ function normalizeTask(t: TaskApi): Task {
   };
 }
 
-function ProjectLogoImg({ projectId, projectName }: { projectId: string; projectName: string }) {
-  const [src, setSrc] = useState<string | null | undefined>(undefined);
-  useEffect(() => {
-    let cancelled = false;
-    apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
-      .then(d => { if (!cancelled) setSrc(d.logo?.url || null); })
-      .catch(() => { if (!cancelled) setSrc(null); });
-    return () => { cancelled = true; };
-  }, [projectId]);
-  if (src) return <img src={src} alt={`${projectName} logo`} className="w-10 h-10 rounded-md object-cover flex-shrink-0" />;
-  return <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>;
-}
-
 async function filesToAttachments(files: File[]) {
-  return Promise.all(
+  const results = await Promise.all(
     files.map(
       (file) =>
-        new Promise<{ fileName: string; url: string; mimeType: string; size: number }>((resolve, reject) => {
+        new Promise<{
+          fileName: string;
+          url: string;
+          mimeType: string;
+          size: number;
+        }>((resolve, reject) => {
           const reader = new FileReader();
           reader.onerror = () => reject(new Error("Failed to read file"));
           reader.onload = () => {
-            resolve({ fileName: file.name, url: typeof reader.result === "string" ? reader.result : "", mimeType: file.type, size: file.size });
+            const url = typeof reader.result === "string" ? reader.result : "";
+            resolve({
+              fileName: file.name,
+              url,
+              mimeType: file.type,
+              size: file.size,
+            });
           };
           reader.readAsDataURL(file);
         }),
     ),
   );
+
+  return results;
 }
 
 const priorityClasses = {
@@ -287,12 +315,15 @@ const createTaskSchema = z.object({
 type CreateTaskValues = z.infer<typeof createTaskSchema>;
 
 export default function Tasks() {
+  const { socket, joinTask, leaveTask } = useSocket();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
+  const [projectSearchQuery, setProjectSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [projectPage, setProjectPage] = useState(1);
   const [taskPage, setTaskPage] = useState(1);
+  const [projectTaskPage, setProjectTaskPage] = useState(1);
   const PAGE_SIZE = 25;
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
@@ -333,9 +364,40 @@ export default function Tasks() {
   const [commentDraft, setCommentDraft] = useState("");
   const [commentError, setCommentError] = useState<string | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+  const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Project edit/delete states
+  const [isEditProjectOpen, setIsEditProjectOpen] = useState(false);
+  const [isDeleteProjectOpen, setIsDeleteProjectOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editProjectName, setEditProjectName] = useState("");
+  const [editProjectDescription, setEditProjectDescription] = useState("");
+  const [editProjectLogoFile, setEditProjectLogoFile] = useState<File | null>(null);
+  const [editProjectLogoPreview, setEditProjectLogoPreview] = useState<string>("");
+  const [isEditingProject, setIsEditingProject] = useState(false);
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
+
+  // Reassign states
+  const [isReassignTaskOpen, setIsReassignTaskOpen] = useState(false);
+  const [isReassignProjectOpen, setIsReassignProjectOpen] = useState(false);
+  const [reassigningTask, setReassigningTask] = useState<Task | null>(null);
+  const [reassigningProject, setReassigningProject] = useState<Project | null>(null);
+  const [reassignTaskAssignees, setReassignTaskAssignees] = useState<string[]>([]);
+  const [reassignProjectAssignees, setReassignProjectAssignees] = useState<string[]>([]);
+  const [isReassigningTask, setIsReassigningTask] = useState(false);
+  const [isReassigningProject, setIsReassigningProject] = useState(false);
+  const [reassignTaskOpen, setReassignTaskOpen] = useState(false);
+  const [reassignProjectOpen, setReassignProjectOpen] = useState(false);
+
   const queryClient = useQueryClient();
 
   const currentUsername = getAuthState().username || "";
+  const currentRole = getAuthState().role || "";
+  const isAdminRole = currentRole === "admin" || currentRole === "super-admin";
+  const [archivingCommentId, setArchivingCommentId] = useState<string | null>(null);
+  const [archivingAttachment, setArchivingAttachment] = useState<number | null>(null);
 
   // Fetch tasks
   const tasksQuery = useQuery({
@@ -438,16 +500,6 @@ export default function Tasks() {
     return employees.filter((e) => e.status === "active");
   }, [employees]);
 
-  // Resolve an assignee string (could be email or name) to display name
-  const resolveAssigneeName = useMemo(() => {
-    const byEmail = new Map(employees.map((e) => [e.email.toLowerCase(), e.name]));
-    const byName  = new Map(employees.map((e) => [e.name.toLowerCase(),  e.name]));
-    return (val: string): string => {
-      const v = (val || "").trim();
-      return byEmail.get(v.toLowerCase()) || byName.get(v.toLowerCase()) || v;
-    };
-  }, [employees]);
-
   useEffect(() => {
     if (isCreateOpen) {
       const today = new Date().toISOString().split("T")[0];
@@ -483,10 +535,11 @@ export default function Tasks() {
 
   const deleteTaskMutation = useMutation({
     mutationFn: async (id: string) => {
-      await apiFetch<{ ok: true }>(`/api/tasks/${id}`, { method: "DELETE" });
+      await apiFetch<{ ok: true }>(`/api/tasks/${id}/archive`, { method: "POST" });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 
@@ -505,6 +558,124 @@ export default function Tasks() {
       }
     },
   });
+
+  const editProjectMutation = useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: Partial<Project> }) => {
+      const res = await apiFetch<{ item: Project }>(`/api/projects/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+      return res.item;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      if (selectedProject && editingProject && selectedProject.id === editingProject.id) {
+        void loadProject(selectedProject.id);
+      }
+    },
+  });
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiFetch<{ success: boolean }>(`/api/projects/${id}`, {
+        method: "DELETE",
+      });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      if (selectedProject && editingProject && selectedProject.id === editingProject.id) {
+        setSelectedProject(null);
+      }
+    },
+  });
+
+  // Reassign mutations - optimized to not refetch all data
+  const reassignTaskMutation = useMutation({
+    mutationFn: async ({ id, assignees }: { id: string; assignees: string[] }) => {
+      const res = await apiFetch<{ item: TaskApi }>(`/api/tasks/${id}/reassign`, {
+        method: "PUT",
+        body: JSON.stringify({ assignees }),
+      });
+      return normalizeTask(res.item);
+    },
+    onSuccess: (updatedTask) => {
+      // Update cache directly instead of refetching
+      queryClient.setQueryData<Task[]>(["tasks"], (old) => {
+        if (!old) return old;
+        return old.map((t) => (t.id === updatedTask.id ? updatedTask : t));
+      });
+      // Also update projects cache if needed
+      queryClient.setQueryData<Project[]>(["projects"], (old) => {
+        if (!old) return old;
+        // Update task count in affected project
+        return old.map((p) => {
+          if (p.id === updatedTask.projectId) {
+            return { ...p, assignees: updatedTask.assignees };
+          }
+          return p;
+        });
+      });
+    },
+  });
+
+  const reassignProjectMutation = useMutation({
+    mutationFn: async ({ id, assignees }: { id: string; assignees: string[] }) => {
+      const res = await apiFetch<{ item: Project }>(`/api/projects/${id}/reassign`, {
+        method: "PUT",
+        body: JSON.stringify({ assignees }),
+      });
+      return res.item;
+    },
+    onSuccess: (updatedProject) => {
+      // Update cache directly instead of refetching
+      queryClient.setQueryData<Project[]>(["projects"], (old) => {
+        if (!old) return old;
+        return old.map((p) => (p.id === updatedProject.id ? updatedProject : p));
+      });
+    },
+  });
+
+  // Reassign handlers
+  const handleReassignTask = async () => {
+    if (!reassigningTask) return;
+    setIsReassigningTask(true);
+    try {
+      await reassignTaskMutation.mutateAsync({ id: reassigningTask.id, assignees: reassignTaskAssignees });
+      setIsReassignTaskOpen(false);
+      setReassigningTask(null);
+      setReassignTaskAssignees([]);
+      toast({ title: "Task reassigned", description: "Task has been reassigned successfully." });
+    } catch (err) {
+      toast({
+        title: "Failed to reassign task",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setIsReassigningTask(false);
+    }
+  };
+
+  const handleReassignProject = async () => {
+    if (!reassigningProject) return;
+    setIsReassigningProject(true);
+    try {
+      await reassignProjectMutation.mutateAsync({ id: reassigningProject.id, assignees: reassignProjectAssignees });
+      setIsReassignProjectOpen(false);
+      setReassigningProject(null);
+      setReassignProjectAssignees([]);
+      toast({ title: "Project reassigned", description: "Project has been reassigned successfully." });
+    } catch (err) {
+      toast({
+        title: "Failed to reassign project",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setIsReassigningProject(false);
+    }
+  };
 
   const form = useForm<CreateTaskValues>({
     resolver: zodResolver(createTaskSchema),
@@ -571,9 +742,18 @@ export default function Tasks() {
     setAttachmentFilePreviews([]);
   };
 
-  const draftFromForm = (attachmentOverride?: CreateProjectTaskDraft["attachment"], attachmentsOverride?: CreateProjectTaskDraft["attachments"]) => {
+  const draftFromForm = (attachmentOverride?: CreateProjectTaskDraft["attachment"]) => {
     const createdAt = new Date().toISOString().split("T")[0];
-    const att = attachmentOverride ?? attachmentsOverride?.[0] ?? undefined;
+    const att = attachmentOverride
+      ? attachmentOverride
+      : attachmentFile
+        ? {
+            fileName: attachmentFile.name,
+            url: "",
+            mimeType: attachmentFile.type,
+            size: attachmentFile.size,
+          }
+        : undefined;
 
     return {
       title: formData.title,
@@ -585,10 +765,9 @@ export default function Tasks() {
       dueTime: formData.dueTime,
       location: formData.location,
       createdAt,
-      attachmentFileName: att?.fileName || formData.attachmentFileName || "",
+      attachmentFileName: formData.attachmentFileName || attachmentFile?.name || "",
       attachmentNote: formData.attachmentNote || "",
       attachment: att,
-      attachments: attachmentsOverride,
     } satisfies CreateProjectTaskDraft;
   };
 
@@ -604,9 +783,18 @@ export default function Tasks() {
 
     const attachments = attachmentFiles.length > 0 ? await filesToAttachments(attachmentFiles) : [];
     const first = attachments[0];
+    const firstAttachment = first
+      ? { fileName: first.fileName, url: first.url, mimeType: first.mimeType, size: first.size }
+      : undefined;
+
     setProjectTasks((prev) => [
       ...prev,
-      draftFromForm(first, attachments.length > 0 ? attachments : undefined),
+      {
+        ...draftFromForm(firstAttachment),
+        attachment: firstAttachment,
+        attachmentFileName: first?.fileName || formData.attachmentFileName || "",
+        attachments: attachments.length > 0 ? attachments : undefined,
+      },
     ]);
 
     setValidationErrors((prev) => ({ ...prev, title: undefined, description: undefined }));
@@ -624,9 +812,9 @@ export default function Tasks() {
     }));
     setSelectedAssignees([]);
     setAttachmentFile(null);
+    setIsCreateTaskOpen(false);
     setAttachmentFiles([]);
     setAttachmentFilePreviews([]);
-    setIsCreateTaskOpen(false);
   };
 
   const handleCreateProject = async () => {
@@ -716,6 +904,9 @@ export default function Tasks() {
 
       const attachments = attachmentFiles.length > 0 ? await filesToAttachments(attachmentFiles) : [];
       const first = attachments[0];
+      const attachment = first
+        ? { fileName: first.fileName, url: first.url, mimeType: first.mimeType, size: first.size }
+        : undefined;
 
       const taskPayload: Record<string, any> = {
         title: formData.title,
@@ -729,11 +920,10 @@ export default function Tasks() {
         createdAt: nowDate,
         attachmentFileName: first?.fileName || "",
         attachmentNote: formData.attachmentNote,
-        attachment: first,
+        attachment,
         attachments,
       };
 
-      // Only add projectId if not a direct task
       if (!isDirectTask && selectedProject) {
         taskPayload.projectId = selectedProject.id;
       }
@@ -789,19 +979,49 @@ export default function Tasks() {
     void loadComments(task.id);
   };
 
-  const loadComments = async (taskId: string) => {
+  const loadComments = async (taskId: string, silent: boolean = false) => {
     try {
-      setCommentsLoading(true);
+      if (!silent) setCommentsLoading(true);
       setCommentError(null);
-      const res = await apiFetch<{ items: TaskComment[] }>(`/api/tasks/${encodeURIComponent(taskId)}/comments`);
-      setComments(Array.isArray(res.items) ? res.items : []);
+      const res = await apiFetch<{ items: TaskComment[] }>(`/api/tasks/${encodeURIComponent(taskId)}/comments?_t=${Date.now()}`);
+      const newComments = Array.isArray(res.items) ? res.items : [];
+      setComments(newComments);
+      // Auto scroll to bottom if new messages arrived and chat is open
+      setTimeout(() => {
+        if (chatContainerRef.current && isViewOpen) {
+          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+      }, 50);
     } catch (e) {
-      setCommentError(e instanceof Error ? e.message : "Failed to load messages");
+      if (!silent) setCommentError(e instanceof Error ? e.message : "Failed to load messages");
       setComments([]);
     } finally {
-      setCommentsLoading(false);
+      if (!silent) setCommentsLoading(false);
     }
   };
+
+  // Auto-refresh comments every 5 seconds when task view is open
+  useEffect(() => {
+    if (isViewOpen && selectedTask && autoRefreshEnabled) {
+      // Clear any existing interval
+      if (autoRefreshIntervalRef.current) {
+        clearInterval(autoRefreshIntervalRef.current);
+      }
+      // Set up new interval for auto-refresh
+      autoRefreshIntervalRef.current = setInterval(() => {
+        if (selectedTask && isViewOpen) {
+          loadComments(selectedTask.id, true);
+        }
+      }, 5000);
+    }
+    
+    return () => {
+      if (autoRefreshIntervalRef.current) {
+        clearInterval(autoRefreshIntervalRef.current);
+        autoRefreshIntervalRef.current = null;
+      }
+    };
+  }, [isViewOpen, selectedTask, autoRefreshEnabled]);
 
   const sendComment = async () => {
     if (!selectedTask) return;
@@ -816,8 +1036,89 @@ export default function Tasks() {
       });
       setComments((prev) => [...prev, res.item]);
       setCommentDraft("");
+      // Scroll to bottom after sending
+      setTimeout(() => {
+        if (chatContainerRef.current) {
+          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+      }, 100);
     } catch (e) {
       setCommentError(e instanceof Error ? e.message : "Failed to send message");
+    }
+  };
+
+  // Socket logic for live messages
+  useEffect(() => {
+    if (isViewOpen && selectedTask && socket) {
+      joinTask(selectedTask.id);
+
+      const handleNewComment = (comment: TaskComment) => {
+        setComments((prev) => {
+          if (prev.find((c) => c.id === comment.id)) return prev;
+          return [...prev, comment];
+        });
+        
+        // Auto scroll to bottom smoothly
+        setTimeout(() => {
+          if (chatContainerRef.current) {
+            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+          }
+        }, 100);
+      };
+
+      socket.on("new-comment", handleNewComment);
+
+      return () => {
+        socket.off("new-comment", handleNewComment);
+        leaveTask(selectedTask.id);
+      };
+    }
+  }, [isViewOpen, selectedTask?.id, socket, joinTask, leaveTask]);
+
+  const archiveComment = async (commentId: string) => {
+    if (!selectedTask) return;
+    try {
+      setArchivingCommentId(commentId);
+      await apiFetch(`/api/tasks/${encodeURIComponent(selectedTask.id)}/comments/${encodeURIComponent(commentId)}/archive`, {
+        method: "POST",
+      });
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+      toast({ title: "Comment archived", description: "The comment has been moved to archive." });
+    } catch (e) {
+      toast({
+        title: "Archive failed",
+        description: e instanceof Error ? e.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setArchivingCommentId(null);
+    }
+  };
+
+  const archiveAttachment = async (attachmentIndex: number) => {
+    if (!selectedTask) return;
+    try {
+      setArchivingAttachment(attachmentIndex);
+      await apiFetch(`/api/tasks/${encodeURIComponent(selectedTask.id)}/attachments/${attachmentIndex}/archive`, {
+        method: "POST",
+      });
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      if (attachmentIndex === -1) {
+        setSelectedTask({ ...selectedTask, attachment: undefined, attachmentFileName: undefined });
+      } else if (selectedTask.attachments) {
+        const newAttachments = [...selectedTask.attachments];
+        newAttachments.splice(attachmentIndex, 1);
+        setSelectedTask({ ...selectedTask, attachments: newAttachments });
+      }
+      toast({ title: "Attachment archived", description: "The attachment has been moved to archive." });
+    } catch (e) {
+      toast({
+        title: "Archive failed",
+        description: e instanceof Error ? e.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setArchivingAttachment(null);
     }
   };
 
@@ -1019,13 +1320,13 @@ export default function Tasks() {
         setIsDeleteOpen(false);
         setSelectedTask(null);
         toast({
-          title: "Task deleted",
-          description: "Task has been removed.",
+          title: "Task archived",
+          description: "Task has been moved to archive.",
         });
       },
       onError: (err) => {
         toast({
-          title: "Failed to delete task",
+          title: "Failed to archive task",
           description: err instanceof Error ? err.message : "Something went wrong",
         });
       },
@@ -1049,10 +1350,24 @@ export default function Tasks() {
   }, [sourceTasks, searchQuery, statusFilter, priorityFilter]);
 
   const filteredProjects = useMemo(() => {
-    if (!searchQuery.trim()) return projects;
+    if (!projectSearchQuery.trim()) return projects;
+    const q = projectSearchQuery.toLowerCase();
+    return projects.filter((p) =>
+      p.name.toLowerCase().includes(q) ||
+      (p.description || "").toLowerCase().includes(q) ||
+      (p.assignees || []).join(" ").toLowerCase().includes(q)
+    );
+  }, [projects, projectSearchQuery]);
+
+  const filteredStandaloneTasks = useMemo(() => {
+    const standalone = tasks.filter((t) => !t.projectId);
+    if (!searchQuery.trim()) return standalone;
     const q = searchQuery.toLowerCase();
-    return projects.filter((p) => p.name.toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q));
-  }, [projects, searchQuery]);
+    return standalone.filter((task) => {
+      const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
+      return task.title.toLowerCase().includes(q) || assigneesText.toLowerCase().includes(q);
+    });
+  }, [tasks, searchQuery]);
 
   const paginatedProjects = useMemo(() => {
     const start = (projectPage - 1) * PAGE_SIZE;
@@ -1060,38 +1375,60 @@ export default function Tasks() {
   }, [filteredProjects, projectPage]);
   const projectTotalPages = Math.ceil(filteredProjects.length / PAGE_SIZE) || 1;
 
-  const paginatedTasks = useMemo(() => {
+  const paginatedStandaloneTasks = useMemo(() => {
     const start = (taskPage - 1) * PAGE_SIZE;
+    return filteredStandaloneTasks.slice(start, start + PAGE_SIZE);
+  }, [filteredStandaloneTasks, taskPage]);
+  const taskTotalPages = Math.ceil(filteredStandaloneTasks.length / PAGE_SIZE) || 1;
+
+  const paginatedProjectTasks = useMemo(() => {
+    const start = (projectTaskPage - 1) * PAGE_SIZE;
     return filteredTasks.slice(start, start + PAGE_SIZE);
-  }, [filteredTasks, taskPage]);
-  const taskTotalPages = Math.ceil(filteredTasks.length / PAGE_SIZE) || 1;
+  }, [filteredTasks, projectTaskPage]);
+  const projectTaskTotalPages = Math.ceil(filteredTasks.length / PAGE_SIZE) || 1;
+
+  // Format time for messages
+  const formatMessageTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
 
   return (
-    <div className="pl-6 space-y-6">
+    <div className="px-4 md:px-0 md:pl-6 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div className="page-header mb-0">
-          <h1 className="page-title">Task Management</h1>
-          <p className="page-subtitle">Create, assign, and track all tasks</p>
+          <h1 className="page-title text-xl sm:text-2xl md:text-3xl">Task Management</h1>
+          <p className="page-subtitle text-sm sm:text-base text-muted-foreground">Create, assign, and track all tasks</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 sm:gap-3">
           {selectedProject ? (
             <>
-              <Button variant="outline" onClick={() => setSelectedProject(null)}>
+              <Button variant="outline" size="sm" onClick={() => setSelectedProject(null)} className="h-9 text-sm">
                 Back to Projects
               </Button>
-              <Button className="gap-2" onClick={() => setIsCreateTaskOpen(true)}>
+              <Button size="sm" className="gap-2 h-9 text-sm" onClick={() => setIsCreateTaskOpen(true)}>
                 <Plus className="w-4 h-4" />
                 Add Task
               </Button>
             </>
           ) : (
             <>
-              <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
+              <Button size="sm" className="gap-2 h-9 text-sm" onClick={() => setIsCreateOpen(true)}>
                 <Plus className="w-4 h-4" />
                 Create Project
               </Button>
-              <Button className="gap-2" onClick={() => {
+              <Button size="sm" className="gap-2 h-9 text-sm" onClick={() => {
                 setIsDirectTask(true);
                 setIsCreateTaskOpen(true);
               }}>
@@ -1104,19 +1441,19 @@ export default function Tasks() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-4">
+      <div className="flex flex-col md:flex-row gap-3 md:gap-4 mb-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Search tasks or assignee..."
-            className="pl-10"
+            className="pl-10 h-10 w-full"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 sm:mx-0 sm:px-0 sm:pb-0">
+        <div className="flex flex-wrap gap-2">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px] sm:w-[140px]">
+            <SelectTrigger className="w-full sm:w-[150px] h-10">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -1127,7 +1464,7 @@ export default function Tasks() {
             </SelectContent>
           </Select>
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-[140px] sm:w-[140px]">
+            <SelectTrigger className="w-full sm:w-[150px] h-10">
               <SelectValue placeholder="Priority" />
             </SelectTrigger>
             <SelectContent>
@@ -1137,27 +1474,48 @@ export default function Tasks() {
               <SelectItem value="low">Low</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" size="icon" className="shrink-0">
+          <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 hidden sm:flex">
             <Filter className="w-4 h-4" />
           </Button>
         </div>
       </div>
 
+      {/* Project/Tasks sections - same as before, omitted for brevity but all code remains */}
       {selectedProject ? (
         <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
-          <div className="flex items-start gap-3">
+          {/* ... project details remain same ... */}
+          <div className="flex flex-col sm:flex-row sm:items-start gap-3">
             {selectedProject.logo?.url ? (
-              <img src={selectedProject.logo.url} alt={`${selectedProject.name} logo`} className="w-12 h-12 rounded-md object-cover" />
+              <img src={selectedProject.logo.url} alt={`${selectedProject.name} logo`} className="w-12 h-12 rounded-md object-cover flex-shrink-0" />
             ) : (
-              <div className="w-12 h-12 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">Logo</div>
+              <div className="w-12 h-12 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>
             )}
-            <div>
-              <h2 className="font-semibold text-lg">Project: {selectedProject.name}</h2>
-              <p className="text-sm text-muted-foreground">{selectedProject.description || "No description"}</p>
-              <p className="text-xs text-muted-foreground mt-1">{selectedProject.assignees && selectedProject.assignees.length > 0 ? selectedProject.assignees.map(resolveAssigneeName).join(", ") : "No assignees"}</p>
+            <div className="flex-1 min-w-0">
+              <h2 className="font-semibold text-lg break-words">Project: {selectedProject.name}</h2>
+              <p className="text-sm text-muted-foreground break-words">{selectedProject.description || "No description"}</p>
+              <p className="text-xs text-muted-foreground mt-1 break-words">{selectedProject.assignees && selectedProject.assignees.length > 0 ? selectedProject.assignees.join(", ") : "No assignees"}</p>
             </div>
           </div>
-          <div className="flex items-center justify-between text-xs text-muted-foreground mt-3">
+          {selectedProject.attachments && selectedProject.attachments.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({selectedProject.attachments.length})</p>
+              <div className="flex flex-wrap gap-2">
+                {selectedProject.attachments.map((att, idx) => (
+                  att.mimeType?.startsWith("image/") ? (
+                    <a key={idx} href={att.url} target="_blank" rel="noreferrer">
+                      <img src={att.url} alt={att.fileName} className="h-16 w-16 object-cover rounded-md border border-border" />
+                    </a>
+                  ) : (
+                    <a key={idx} href={att.url} target="_blank" rel="noreferrer" download={att.fileName}
+                      className="flex items-center gap-1 px-2 py-1 rounded-md border border-border text-xs hover:bg-muted truncate max-w-[160px]">
+                      📄 {att.fileName}
+                    </a>
+                  )
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground mt-3">
             <span>{selectedProject.tasks.length} tasks</span>
             <Select value={selectedProject.status || "No status"} onValueChange={(value) => {
               updateProjectStatusMutation.mutate({ projectId: selectedProject.id, status: value }, {
@@ -1177,58 +1535,121 @@ export default function Tasks() {
                 <SelectItem value="Overdue">Overdue</SelectItem>
               </SelectContent>
             </Select>
-            <span>{selectedProject.createdAt ? new Date(selectedProject.createdAt).toLocaleDateString() : ""}</span>
+            <span className="text-xs">{selectedProject.createdAt ? new Date(selectedProject.createdAt).toLocaleDateString() : ""}</span>
           </div>
         </div>
       ) : (
         <>
+          {/* Projects Section */}
           <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
-            <h2 className="font-semibold text-lg mb-3">Projects</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+              <h2 className="font-semibold text-lg">Projects ({filteredProjects.length})</h2>
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search projects..."
+                  className="pl-10 h-9 w-full"
+                  value={projectSearchQuery}
+                  onChange={(e) => { setProjectSearchQuery(e.target.value); setProjectPage(1); }}
+                />
+              </div>
+            </div>
             {projectsQuery.isLoading ? (
               <p className="text-muted-foreground">Loading projects...</p>
             ) : projectsQuery.isError ? (
-              <p className="text-destructive">Failed to load projects</p>
-            ) : projects.length === 0 ? (
-              <p className="text-muted-foreground">No projects found. Create one to begin.</p>
+              <p className="text-destructive">{(() => { const msg = projectsQuery.error instanceof Error ? projectsQuery.error.message : "Failed to load projects"; return msg.startsWith("<") ? "Server error: failed to load projects. The server may be temporarily unavailable (504 Gateway Timeout). Please try again later." : msg; })()}</p>
+            ) : filteredProjects.length === 0 ? (
+              <p className="text-muted-foreground">{projectSearchQuery ? "No projects match your search." : "No projects found. Create one to begin."}</p>
             ) : (
               <>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {paginatedProjects.map((project, idx) => {
-                  const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0
-                    ? project.assignees.map(resolveAssigneeName)
-                    : [];
+                  const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0 ? project.assignees : [];
                   const taskNum = project.taskCount ?? 0;
                   const projectNumber = (projectPage - 1) * PAGE_SIZE + idx + 1;
-
                   return (
-                    <button
+                    <div
                       key={project.id}
-                      onClick={() => void loadProject(project.id)}
-                      className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card"
+                      className="relative text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card w-full group"
                     >
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="flex-shrink-0 text-xs font-bold text-muted-foreground w-5 text-right">{projectNumber}.</span>
-                        <ProjectLogoImg projectId={project.id} projectName={project.name} />
-                        <div className="min-w-0">
-                          <p className="font-medium truncate">{project.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{project.description || "No description"}</p>
+                      <button
+                        onClick={() => void loadProject(project.id)}
+                        className="w-full text-left"
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="flex-shrink-0 text-xs font-bold text-muted-foreground w-5 text-right">{projectNumber}.</span>
+                          <ProjectLogoImg projectId={project.id} projectName={project.name} />
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium truncate">{project.name}</p>
+                            <p className="text-xs text-muted-foreground line-clamp-2">{project.description || "No description"}</p>
+                          </div>
                         </div>
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                        <span className="truncate">{assigneeList.length > 0 ? assigneeList.join(", ") : "No assignees"}</span>
-                        <span className="ml-2 flex-shrink-0">{taskNum} task{taskNum === 1 ? "" : "s"}</span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs">
-                        <Badge className="capitalize" variant="outline">
-                          {project.status || "No tasks"}
-                        </Badge>
-                        <span className="text-muted-foreground">
-                          {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}
-                        </span>
-                      </div>
-                    </button>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                          <span className="truncate flex-1 mr-2">{assigneeList.length > 0 ? assigneeList.join(", ") : "No assignees"}</span>
+                          <span className="flex-shrink-0">{taskNum} task{taskNum === 1 ? "" : "s"}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <Badge className="capitalize" variant="outline">{project.status || "No tasks"}</Badge>
+                          <span className="text-muted-foreground text-xs">{project.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}</span>
+                        </div>
+                      </button>
+                      
+                      {/* Three dots menu */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute top-2 right-2 h-8 w-8 p-0 bg-background/80 hover:bg-background"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40">
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingProject(project);
+                              setEditProjectName(project.name);
+                              setEditProjectDescription(project.description || "");
+                              setEditProjectLogoPreview(project.logo?.url || "");
+                              setEditProjectLogoFile(null);
+                              setIsEditProjectOpen(true);
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReassigningProject(project);
+                              setReassignProjectAssignees(project.assignees || []);
+                              setIsReassignProjectOpen(true);
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <UserCog className="h-4 w-4 mr-2" />
+                            Reassign
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingProject(project);
+                              setIsDeleteProjectOpen(true);
+                            }}
+                            className="cursor-pointer text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   );
                 })}
               </div>
@@ -1250,687 +1671,369 @@ export default function Tasks() {
 
           {/* Tasks Section */}
           <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
-            <h2 className="font-semibold text-lg mb-3">Tasks</h2>
+            <h2 className="font-semibold text-lg mb-3">Tasks ({filteredStandaloneTasks.length})</h2>
             {tasksQuery.isLoading ? (
               <p className="text-muted-foreground">Loading tasks...</p>
             ) : tasksQuery.isError ? (
               <p className="text-destructive">Failed to load tasks</p>
-            ) : tasks.filter(t => !t.projectId).length === 0 ? (
-              <p className="text-muted-foreground">No standalone tasks found. Create one to begin.</p>
+            ) : filteredStandaloneTasks.length === 0 ? (
+              <p className="text-muted-foreground">{searchQuery ? "No tasks match your search." : "No standalone tasks found. Create one to begin."}</p>
             ) : (
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {tasks.filter(t => !t.projectId).map((task) => {
-                  const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0
-                    ? task.assignees.map(resolveAssigneeName)
-                    : [];
-                  
+              <>
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {paginatedStandaloneTasks.map((task) => {
+                  const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0 ? task.assignees : [];
                   return (
-                    <button
+                    <div
                       key={task.id}
-                      onClick={() => {
-                        openView(task);
-                      }}
-                      className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card"
+                      className="relative text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card w-full group"
                     >
-                      <div className="mb-2">
-                        <p className="font-medium truncate text-sm">{task.title}</p>
-                        <p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p>
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                        <span className="truncate">{assigneeList.length > 0 ? assigneeList.join(", ") : "Unassigned"}</span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs gap-2 flex-wrap">
-                        <div className="flex gap-1">
-                          <Badge className="capitalize" variant="outline" style={{
-                            backgroundColor: task.priority === 'high' ? 'rgb(239, 68, 68)' : task.priority === 'medium' ? 'rgb(234, 179, 8)' : 'rgb(34, 197, 94)',
-                            color: 'white'
-                          }}>
-                            {task.priority}
-                          </Badge>
-                          <Badge className="capitalize" variant="outline">
-                            {task.status}
-                          </Badge>
+                      <button
+                        onClick={() => openView(task)}
+                        className="w-full text-left"
+                      >
+                        <div className="mb-2">
+                          <p className="font-medium truncate text-sm">{task.title}</p>
+                          <p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p>
                         </div>
-                        <span className="text-muted-foreground">
-                          {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}
-                        </span>
-                      </div>
-                    </button>
+                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                          <span className="truncate flex-1 mr-2">{assigneeList.length > 0 ? assigneeList.join(", ") : "Unassigned"}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-xs gap-2 flex-wrap">
+                          <div className="flex gap-1 flex-wrap">
+                            <Badge 
+                              className={cn(
+                                "capitalize text-xs relative overflow-hidden",
+                                task.status === 'completed' && "task-complete-pulse"
+                              )} 
+                              variant="outline"
+                              style={{
+                                backgroundColor: task.priority === 'high' ? 'rgb(239, 68, 68)' : task.priority === 'medium' ? 'rgb(234, 179, 8)' : 'rgb(34, 197, 94)',
+                                color: 'white'
+                              }}
+                            >
+                              {task.priority}
+                            </Badge>
+                            <Badge 
+                              className={cn(
+                                "capitalize text-xs relative overflow-hidden",
+                                task.status === 'completed' && "bg-green-500 text-white border-green-500"
+                              )} 
+                              variant="outline"
+                            >
+                              <span className="relative z-10">{task.status}</span>
+                              {task.status === 'completed' && (
+                                <>
+                                  {/* Neon pulse ring - 600ms */}
+                                  <span className="absolute inset-0 rounded-full animate-pulse-ring" />
+                                  {/* Electric streak - 300ms */}
+                                  <span className="absolute inset-0 animate-electric-streak" />
+                                  {/* Particle shimmer - <1s */}
+                                  <span className="absolute inset-0 animate-particle-shimmer" />
+                                </>
+                              )}
+                            </Badge>
+                          </div>
+                          <span className="text-muted-foreground text-xs whitespace-nowrap">
+                            {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}
+                          </span>
+                        </div>
+                      </button>
+                      
+                      {/* Three dots menu */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="absolute top-2 right-2 h-8 w-8 p-0 bg-background/80 hover:bg-background"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-40">
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openView(task);
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReassigningTask(task);
+                              setReassignTaskAssignees(task.assignees || []);
+                              setIsReassignTaskOpen(true);
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <UserCog className="h-4 w-4 mr-2" />
+                            Reassign
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEdit(task);
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDelete(task);
+                            }}
+                            className="cursor-pointer text-destructive focus:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   );
                 })}
               </div>
+              {taskTotalPages > 1 && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-4 pt-4 border-t border-muted/20">
+                  <span className="text-sm text-muted-foreground">
+                    Showing {Math.min((taskPage - 1) * PAGE_SIZE + 1, filteredStandaloneTasks.length)}–{Math.min(taskPage * PAGE_SIZE, filteredStandaloneTasks.length)} of {filteredStandaloneTasks.length} tasks
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setTaskPage((p) => Math.max(1, p - 1))} disabled={taskPage === 1}>Previous</Button>
+                    <span className="text-sm px-1">{taskPage} / {taskTotalPages}</span>
+                    <Button variant="outline" size="sm" onClick={() => setTaskPage((p) => Math.min(taskTotalPages, p + 1))} disabled={taskPage === taskTotalPages}>Next</Button>
+                  </div>
+                </div>
+              )}
+              </>
             )}
           </div>
         </>
       )}
 
+      {/* Create Project Dialog - same as before */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto rounded-lg">
           <DialogHeader>
             <DialogTitle>Create Project</DialogTitle>
             <DialogDescription>Create a project and assign it.</DialogDescription>
           </DialogHeader>
-
           <form onSubmit={(e) => { e.preventDefault(); void handleCreateProject(); }} className="space-y-4">
+            {/* ... form fields remain same ... */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Name *</label>
-                <Input
-                  placeholder="Project name"
-                  value={projectName}
-                  onChange={(e) => {
-                    setProjectName(e.target.value);
-                    if (validationErrors.projectName) {
-                      setValidationErrors({ ...validationErrors, projectName: undefined });
-                    }
-                  }}
-                  className={validationErrors.projectName ? "border-destructive ring-1 ring-destructive" : ""}
-                />
-                {validationErrors.projectName && (
-                  <p className="text-xs text-destructive">{validationErrors.projectName}</p>
-                )}
+                <Input placeholder="Project name" value={projectName} onChange={(e) => { setProjectName(e.target.value); if (validationErrors.projectName) { setValidationErrors({ ...validationErrors, projectName: undefined }); } }} className={validationErrors.projectName ? "border-destructive ring-1 ring-destructive" : ""} />
+                {validationErrors.projectName && <p className="text-xs text-destructive">{validationErrors.projectName}</p>}
               </div>
-
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Description</label>
-                <Textarea
-                  placeholder="Short project description"
-                  className="min-h-[80px]"
-                  value={projectDescription}
-                  onChange={(e) => setProjectDescription(e.target.value)}
-                />
+                <Textarea placeholder="Short project description" className="min-h-[80px]" value={projectDescription} onChange={(e) => setProjectDescription(e.target.value)} />
               </div>
-
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Logo</label>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted"
-                    onClick={() => {
-                      const el = document.getElementById("project-logo-input") as HTMLInputElement | null;
-                      el?.click();
-                    }}
-                  >
-                    Upload Logo
-                  </button>
-                  {projectLogoPreview ? (
-                    <img src={projectLogoPreview} alt="Project Logo" className="w-10 h-10 rounded-md object-cover" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">No logo</div>
-                  )}
+                <div className="flex flex-wrap items-center gap-3">
+                  <button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted" onClick={() => { const el = document.getElementById("project-logo-input") as HTMLInputElement | null; el?.click(); }}>Upload Logo</button>
+                  {projectLogoPreview ? <img src={projectLogoPreview} alt="Project Logo" className="w-10 h-10 rounded-md object-cover" /> : <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">No logo</div>}
                 </div>
-                <input
-                  id="project-logo-input"
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] ?? null;
-                    setProjectLogoFile(file);
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onload = () => {
-                        setProjectLogoPreview(typeof reader.result === "string" ? reader.result : "");
-                      };
-                      reader.readAsDataURL(file);
-                    } else {
-                      setProjectLogoPreview("");
-                    }
-                  }}
-                />
+                <input id="project-logo-input" type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0] ?? null; setProjectLogoFile(file); if (file) { const reader = new FileReader(); reader.onload = () => { setProjectLogoPreview(typeof reader.result === "string" ? reader.result : ""); }; reader.readAsDataURL(file); } else { setProjectLogoPreview(""); } }} />
               </div>
-
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Attachments</label>
                 <div className="space-y-2">
-                  <button
-                    type="button"
-                    className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted w-full"
-                    onClick={() => {
-                      const el = document.getElementById("project-attachments-input") as HTMLInputElement | null;
-                      el?.click();
-                    }}
-                  >
-                    + Add Files/Images
-                  </button>
-                  <input
-                    id="project-attachments-input"
-                    type="file"
-                    accept="*"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files ?? []);
-                      setProjectAttachmentFiles((prev) => [...prev, ...files]);
-                      files.forEach((file) => {
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          const result = typeof reader.result === "string" ? reader.result : "";
-                          setProjectAttachmentPreviews((prev) => [...prev, result]);
-                        };
-                        if (file.type.startsWith("image/")) {
-                          reader.readAsDataURL(file);
-                        } else {
-                          setProjectAttachmentPreviews((prev) => [...prev, ""]);
-                        }
-                      });
-                    }}
-                  />
-                  {projectAttachmentFiles.length > 0 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">
-                      {projectAttachmentFiles.map((file, idx) => (
-                        <div key={idx} className="relative group">
-                          {projectAttachmentPreviews[idx] ? (
-                            <img src={projectAttachmentPreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />
-                          ) : (
-                            <div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">
-                              📄 {file.name}
-                            </div>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setProjectAttachmentFiles((prev) => prev.filter((_, i) => i !== idx));
-                              setProjectAttachmentPreviews((prev) => prev.filter((_, i) => i !== idx));
-                            }}
-                            className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted w-full" onClick={() => { const el = document.getElementById("project-attachments-input") as HTMLInputElement | null; el?.click(); }}>+ Add Files/Images</button>
+                  <input id="project-attachments-input" type="file" accept="*" multiple className="hidden" onChange={(e) => { const files = Array.from(e.target.files ?? []); setProjectAttachmentFiles((prev) => [...prev, ...files]); files.forEach((file) => { const reader = new FileReader(); reader.onload = () => { const result = typeof reader.result === "string" ? reader.result : ""; setProjectAttachmentPreviews((prev) => [...prev, result]); }; if (file.type.startsWith("image/")) { reader.readAsDataURL(file); } else { setProjectAttachmentPreviews((prev) => [...prev, ""]); } }); }} />
+                  {projectAttachmentFiles.length > 0 && (<div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">{projectAttachmentFiles.map((file, idx) => (<div key={idx} className="relative group">{projectAttachmentPreviews[idx] ? (<img src={projectAttachmentPreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />) : (<div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">📄 {file.name}</div>)}<button type="button" onClick={() => { setProjectAttachmentFiles((prev) => prev.filter((_, i) => i !== idx)); setProjectAttachmentPreviews((prev) => prev.filter((_, i) => i !== idx)); }} className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs">✕</button></div>))}</div>)}
                 </div>
               </div>
-
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Assignees</label>
                 <Popover open={projectCreationAssigneesOpen} onOpenChange={setProjectCreationAssigneesOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full justify-between h-10"
-                    >
-                      <span className="truncate">
-                        {projectCreationAssignees.length > 0
-                          ? projectCreationAssignees.join(", ")
-                          : "Select assignees"}
-                      </span>
-                      <ChevronsUpDown className="h-4 w-4 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
+                  <PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{projectCreationAssignees.length > 0 ? projectCreationAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger>
                   <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Search employees..." />
-                      <CommandList>
-                        <CommandEmpty>No employee found.</CommandEmpty>
-                        <CommandGroup>
-                          {activeEmployees.map((employee) => (
-                            <CommandItem
-                              key={employee.id}
-                              value={employee.name}
-                              onSelect={() => {
-                                setProjectCreationAssignees((prev) =>
-                                  prev.includes(employee.name)
-                                    ? prev.filter((name) => name !== employee.name)
-                                    : [...prev, employee.name]
-                                );
-                                setProjectCreationAssigneesOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  projectCreationAssignees.includes(employee.name)
-                                    ? "opacity-100"
-                                    : "opacity-0"
-                                )}
-                              />
-                              <Avatar className="h-6 w-6 mr-2">
-                                <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                  {employee.initials}
-                                </AvatarFallback>
-                              </Avatar>
-                              {employee.name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
+                    <Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setProjectCreationAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); }}><Check className={cn("mr-2 h-4 w-4", projectCreationAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command>
                   </PopoverContent>
                 </Popover>
-              
-              
               </div>
             </div>
-
-            {/* Tasks Section */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium">Project Tasks</label>
-                <Button 
-                  type="button" 
-                  size="sm" 
-                  onClick={() => setIsCreateTaskOpen(true)}
-                  className="gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Task
-                </Button>
-              </div>
-              
-              {projectTasks.length > 0 ? (
-                <div className="space-y-2 max-h-[300px] overflow-y-auto border border-border rounded-md p-3">
-                  {projectTasks.map((task, idx) => (
-                    <div key={idx} className="flex items-start gap-3 p-2 bg-muted/50 rounded-md">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm truncate">{task.title || `Task ${idx + 1}`}</p>
-                        <p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p>
-                        <div className="flex gap-2 mt-1 flex-wrap text-xs">
-                          <span className="px-2 py-0.5 bg-muted rounded capitalize">{task.priority}</span>
-                          <span className="px-2 py-0.5 bg-muted rounded capitalize">{task.status}</span>
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setProjectTasks((prev) => prev.filter((_, i) => i !== idx));
-                        }}
-                        className="h-8 w-8 p-0 flex-shrink-0"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="border border-dashed border-border rounded-md p-4 text-center text-sm text-muted-foreground">
-                  No tasks added yet. Add at least one task to create the project.
-                </div>
-              )}
-              {validationErrors.title && (
-                <p className="text-xs text-destructive">{validationErrors.title}</p>
-              )}
+              <div className="flex flex-wrap items-center justify-between gap-2"><label className="text-sm font-medium">Project Tasks</label><Button type="button" size="sm" onClick={() => setIsCreateTaskOpen(true)} className="gap-2"><Plus className="h-4 w-4" />Add Task</Button></div>
+              {projectTasks.length > 0 ? (<div className="space-y-2 max-h-[300px] overflow-y-auto border border-border rounded-md p-3">{projectTasks.map((task, idx) => (<div key={idx} className="flex flex-col sm:flex-row sm:items-start gap-3 p-2 bg-muted/50 rounded-md"><div className="flex-1 min-w-0"><p className="font-medium text-sm truncate">{task.title || `Task ${idx + 1}`}</p><p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p><div className="flex gap-2 mt-1 flex-wrap text-xs"><span className="px-2 py-0.5 bg-muted rounded capitalize">{task.priority}</span><span className="px-2 py-0.5 bg-muted rounded capitalize">{task.status}</span></div></div><Button type="button" variant="ghost" size="sm" onClick={() => { setProjectTasks((prev) => prev.filter((_, i) => i !== idx)); }} className="h-8 w-8 p-0 flex-shrink-0 self-start"><X className="h-4 w-4" /></Button></div>))}</div>) : (<div className="border border-dashed border-border rounded-md p-4 text-center text-sm text-muted-foreground">No tasks added yet. Add at least one task to create the project.</div>)}
+              {validationErrors.title && <p className="text-xs text-destructive">{validationErrors.title}</p>}
             </div>
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end"><Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button><Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">{isCreating && <Loader2 className="h-4 w-4 animate-spin" />}Create Project</Button></DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-            <DialogFooter className="flex-col sm:flex-row gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={isCreating} className="w-full sm:w-auto">
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">
-                  {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Create Project
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+      {/* Create Task Dialog - same as before */}
+      <Dialog open={isCreateTaskOpen} onOpenChange={(open) => { setIsCreateTaskOpen(open); if (!open) setIsDirectTask(false); }}>
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto rounded-lg">
+          <DialogHeader><DialogTitle>{isDirectTask ? "Create Standalone Task" : "Create Task"}</DialogTitle><DialogDescription>{isDirectTask ? "Create a new standalone task without a project." : "Create a new task under the selected project."}</DialogDescription></DialogHeader>
+          <form onSubmit={(e) => { e.preventDefault(); void (isCreateOpen ? addTaskToProject() : handleCreateTask()); }} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Task Title *</label><Input value={formData.title} onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))} />{validationErrors.title && <p className="text-xs text-destructive">{validationErrors.title}</p>}</div>
+              <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Task Description *</label><Textarea value={formData.description} onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))} />{validationErrors.description && <p className="text-xs text-destructive">{validationErrors.description}</p>}</div>
+              <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Assignees</label><Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}><PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{selectedAssignees.length > 0 ? selectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start"><Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); }}><Check className={cn("mr-2 h-4 w-4", selectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover></div>
+              <div className="sm:col-span-1 space-y-1.5"><label className="text-sm font-medium">Priority</label><Select value={formData.priority} onValueChange={(value) => setFormData((prev) => ({ ...prev, priority: value as Task['priority'] }))}><SelectTrigger><SelectValue placeholder="Priority" /></SelectTrigger><SelectContent><SelectItem value="high">High</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="low">Low</SelectItem></SelectContent></Select></div>
+              <div className="sm:col-span-1 space-y-1.5"><label className="text-sm font-medium">Status</label><Select value={formData.status} onValueChange={(value) => setFormData((prev) => ({ ...prev, status: value as Task['status'] }))}><SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="in-progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem><SelectItem value="overdue">Overdue</SelectItem></SelectContent></Select></div>
+            </div>
+            <div className="space-y-1.5"><label className="text-sm font-medium">Task Attachments</label><div className="space-y-2"><button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted w-full" onClick={() => { const el = document.getElementById("task-attachments-input") as HTMLInputElement | null; el?.click(); }}>+ Add Files/Images</button><input id="task-attachments-input" type="file" accept="*" multiple className="hidden" onChange={(e) => { const files = Array.from(e.target.files ?? []); setAttachmentFiles((prev) => [...prev, ...files]); files.forEach((file) => { const reader = new FileReader(); reader.onload = () => { const result = typeof reader.result === "string" ? reader.result : ""; setAttachmentFilePreviews((prev) => [...prev, result]); }; if (file.type.startsWith("image/")) { reader.readAsDataURL(file); } else { setAttachmentFilePreviews((prev) => [...prev, ""]); } }); }} />{attachmentFiles.length > 0 && (<div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">{attachmentFiles.map((file, idx) => (<div key={idx} className="relative group">{attachmentFilePreviews[idx] ? (<img src={attachmentFilePreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />) : (<div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">📄 {file.name}</div>)}<button type="button" onClick={() => { setAttachmentFiles((prev) => prev.filter((_, i) => i !== idx)); setAttachmentFilePreviews((prev) => prev.filter((_, i) => i !== idx)); }} className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs">✕</button></div>))}</div>)}</div></div>
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end"><Button type="button" variant="outline" onClick={() => { setIsCreateTaskOpen(false); setIsDirectTask(false); }} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button><Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">{isCreating && <Loader2 className="h-4 w-4 animate-spin" />}{isDirectTask ? "Create Task" : "Create Task"}</Button></DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-        <Dialog open={isCreateTaskOpen} onOpenChange={(open) => {
-          setIsCreateTaskOpen(open);
-          if (!open) setIsDirectTask(false);
-        }}>
-          <DialogContent className="w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{isDirectTask ? "Create Standalone Task" : "Create Task"}</DialogTitle>
-              <DialogDescription>
-                {isDirectTask 
-                  ? "Create a new standalone task without a project." 
-                  : "Create a new task under the selected project."}
-              </DialogDescription>
-            </DialogHeader>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                void (isCreateOpen ? addTaskToProject() : handleCreateTask());
-              }}
-              className="space-y-4"
-            >
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2 space-y-1.5">
-                  <label className="text-sm font-medium">Task Title *</label>
-                  <Input
-                    value={formData.title}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
-                  />
-                  {validationErrors.title && <p className="text-xs text-destructive">{validationErrors.title}</p>}
-                </div>
-                <div className="sm:col-span-2 space-y-1.5">
-                  <label className="text-sm font-medium">Task Description *</label>
-                  <Textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                  />
-                  {validationErrors.description && <p className="text-xs text-destructive">{validationErrors.description}</p>}
-                </div>
-                <div className="sm:col-span-1 space-y-1.5">
-                  <label className="text-sm font-medium">Priority</label>
-                  <Select value={formData.priority} onValueChange={(value) => setFormData((prev) => ({ ...prev, priority: value as Task['priority'] }))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Priority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="low">Low</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="sm:col-span-1 space-y-1.5">
-                  <label className="text-sm font-medium">Status</label>
-                  <Select value={formData.status} onValueChange={(value) => setFormData((prev) => ({ ...prev, status: value as Task['status'] }))}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="in-progress">In Progress</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="overdue">Overdue</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Task Attachments</label>
-                <div className="space-y-2">
-                  <button
-                    type="button"
-                    className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted w-full"
-                    onClick={() => {
-                      const el = document.getElementById("task-attachments-input") as HTMLInputElement | null;
-                      el?.click();
-                    }}
-                  >
-                    + Add Files/Images
-                  </button>
-                  <input
-                    id="task-attachments-input"
-                    type="file"
-                    accept="*"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files ?? []);
-                      setAttachmentFiles((prev) => [...prev, ...files]);
-                      files.forEach((file) => {
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          const result = typeof reader.result === "string" ? reader.result : "";
-                          setAttachmentFilePreviews((prev) => [...prev, result]);
-                        };
-                        if (file.type.startsWith("image/")) {
-                          reader.readAsDataURL(file);
-                        } else {
-                          setAttachmentFilePreviews((prev) => [...prev, ""]);
-                        }
-                      });
-                    }}
-                  />
-                  {attachmentFiles.length > 0 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">
-                      {attachmentFiles.map((file, idx) => (
-                        <div key={idx} className="relative group">
-                          {attachmentFilePreviews[idx] ? (
-                            <img src={attachmentFilePreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />
-                          ) : (
-                            <div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">
-                              📄 {file.name}
-                            </div>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAttachmentFiles((prev) => prev.filter((_, i) => i !== idx));
-                              setAttachmentFilePreviews((prev) => prev.filter((_, i) => i !== idx));
-                            }}
-                            className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <DialogFooter className="flex-col sm:flex-row gap-2">
-                <Button type="button" variant="outline" onClick={() => {
-                  setIsCreateTaskOpen(false);
-                  setIsDirectTask(false);
-                }} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button>
-                <Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">
-                  {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {isDirectTask ? "Create Task" : "Create Task"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-          <DialogContent className="w-[95vw] sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
+      {/* View Task Dialog with Enhanced Messages UI */}
+      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto rounded-lg p-0 gap-0">
+          <div className="p-4 sm:p-6 border-b">
+            <DialogHeader className="p-0">
               <DialogTitle>Task Details</DialogTitle>
-              <DialogDescription>View task information.</DialogDescription>
+              <DialogDescription>View and discuss task information.</DialogDescription>
             </DialogHeader>
+          </div>
 
           {selectedTask && (
-            <div className="space-y-4">
+            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-180px)]">
               <div className="space-y-1">
-                <p className="font-semibold text-foreground">{selectedTask.title}</p>
-                <p className="text-sm text-muted-foreground">{selectedTask.description}</p>
+                <p className="font-semibold text-foreground break-words text-lg">{selectedTask.title}</p>
+                <p className="text-sm text-muted-foreground break-words">{selectedTask.description}</p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm bg-muted/30 p-3 rounded-lg">
                 <div className="space-y-1 sm:col-span-2">
-                  <p className="text-muted-foreground">Assignees</p>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Assignees</p>
                   <div className="flex flex-wrap gap-2">
                     {selectedTask.assignees && selectedTask.assignees.length > 0 ? (
-                      selectedTask.assignees.map((assignee, idx) => {
-                        const displayName = resolveAssigneeName(assignee);
-                        return (
-                          <div key={idx} className="flex items-center gap-2 bg-muted/50 rounded-full px-3 py-1">
-                            <Avatar className="w-6 h-6">
-                              <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                {displayName.split(" ").map((n) => n[0]).join("").toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="text-foreground text-sm">{displayName}</span>
-                          </div>
-                        );
-                      })
+                      selectedTask.assignees.map((assignee, idx) => (
+                        <div key={idx} className="flex items-center gap-2 bg-background rounded-full px-3 py-1 shadow-sm">
+                          <Avatar className="w-6 h-6">
+                            <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                              {assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-foreground text-sm break-words">{assignee}</span>
+                        </div>
+                      ))
                     ) : (
                       <span className="text-foreground">Unassigned</span>
                     )}
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-muted-foreground">Location</p>
-                  <p className="text-foreground">{selectedTask.location}</p>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Location</p>
+                  <p className="text-foreground break-words">{selectedTask.location || "—"}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-muted-foreground">Priority</p>
-                  <p className="text-foreground capitalize">{selectedTask.priority}</p>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Priority</p>
+                  <Badge className={cn("capitalize", priorityClasses[selectedTask.priority])}>{selectedTask.priority}</Badge>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-muted-foreground">Status</p>
-                  <Select
-                    value={selectedTask.status}
-                    onValueChange={(v) => {
-                      void updateStatus(v as Task["status"]);
-                    }}
-                    disabled={statusSaving}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="in-progress">In Progress</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="overdue">Overdue</SelectItem>
-                    </SelectContent>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Status</p>
+                  <Select value={selectedTask.status} onValueChange={(v) => { void updateStatus(v as Task["status"]); }} disabled={statusSaving}>
+                    <SelectTrigger className="w-full"><SelectValue placeholder="Select status" /></SelectTrigger>
+                    <SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="in-progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem><SelectItem value="overdue">Overdue</SelectItem></SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-muted-foreground">Due Date</p>
-                  <p className="text-foreground">{new Date(selectedTask.dueDate).toLocaleDateString()}</p>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Due Date</p>
+                  <p className="text-foreground">{selectedTask.dueDate ? new Date(selectedTask.dueDate).toLocaleDateString() : "—"}</p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-muted-foreground">Created</p>
+                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Created</p>
                   <p className="text-foreground">{new Date(selectedTask.createdAt).toLocaleDateString()}</p>
                 </div>
               </div>
 
-              {/* Project Attachments Section */}
-              {selectedProject && selectedProject.attachments && selectedProject.attachments.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-muted-foreground text-sm">Project Attachments</p>
-                  <div className="border border-border rounded-md p-2 bg-muted/10 max-h-[200px] overflow-y-auto">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {selectedProject.attachments.map((attachment, index) => (
-                        <div key={index} className="relative group">
-                          <div className="w-full aspect-square bg-muted/20 rounded border border-border overflow-hidden flex items-center justify-center">
-                            {attachment.mimeType?.startsWith("image/") ? (
-                              <img
-                                src={attachment.url}
-                                alt={attachment.fileName || `Project Attachment ${index + 1}`}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <FileText className="h-8 w-8 text-muted-foreground" />
-                            )}
-                          </div>
-                          {/* Hover overlay with download button */}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded flex items-center justify-center gap-2">
-                            <a
-                              href={attachment.url}
-                              download={attachment.fileName}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90"
-                              title={attachment.fileName || "Download"}
-                            >
-                              <Download className="h-3 w-3" />
-                            </a>
-                          </div>
-                        </div>
-                      ))}
+              {/* Attachments sections - responsive grid */}
+              <div className="space-y-4">
+                {(selectedTask.attachments && selectedTask.attachments.length > 0) || selectedTask.attachment?.url ? (
+                  <div className="space-y-2">
+                    <p className="text-muted-foreground text-sm font-medium flex items-center gap-2"><FileText className="w-4 h-4" />Attachments</p>
+                    <div className="border border-border rounded-md p-2 bg-muted/10">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto">
+                        {selectedTask.attachments && selectedTask.attachments.length > 0
+                          ? selectedTask.attachments.map((attachment, idx) => (
+                              <div key={idx} className="relative group rounded-md overflow-hidden border border-border bg-background">
+                                {attachment.mimeType?.startsWith("image/") ? (
+                                  <>
+                                    <img src={attachment.url} alt={attachment.fileName || `Attachment ${idx + 1}`} className="w-full h-24 object-cover" />
+                                    <a href={attachment.url} download={attachment.fileName} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center" title={attachment.fileName}><span className="text-white text-xs font-medium">Download</span></a>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="w-full h-24 flex items-center justify-center bg-muted"><FileText className="h-8 w-8 text-muted-foreground" /></div>
+                                    <a href={attachment.url} download={attachment.fileName} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center" title={attachment.fileName}><span className="text-white text-xs font-medium">Download</span></a>
+                                  </>
+                                )}
+                                {isAdminRole && (<button type="button" onClick={() => void archiveAttachment(idx)} disabled={archivingAttachment === idx} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-sm z-10" title="Archive this attachment">{archivingAttachment === idx ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Archive className="h-3.5 w-3.5" />}</button>)}
+                              </div>
+                            ))
+                          : selectedTask.attachment?.url ? (
+                              <div className="relative group rounded-md overflow-hidden border border-border bg-background">
+                                {selectedTask.attachment.mimeType?.startsWith("image/") ? (
+                                  <>
+                                    <img src={selectedTask.attachment.url} alt={selectedTask.attachment.fileName || "Attachment"} className="w-full h-24 object-cover" />
+                                    <a href={selectedTask.attachment.url} download={selectedTask.attachment.fileName} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center" title={selectedTask.attachment.fileName}><span className="text-white text-xs font-medium">Download</span></a>
+                                  </>
+                                ) : (
+                                  <>
+                                    <div className="w-full h-24 flex items-center justify-center bg-muted"><FileText className="h-8 w-8 text-muted-foreground" /></div>
+                                    <a href={selectedTask.attachment.url} download={selectedTask.attachment.fileName} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center" title={selectedTask.attachment.fileName}><span className="text-white text-xs font-medium">Download</span></a>
+                                  </>
+                                )}
+                                {isAdminRole && (<button type="button" onClick={() => void archiveAttachment(-1)} disabled={archivingAttachment === -1} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-sm z-10" title="Archive this attachment">{archivingAttachment === -1 ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Archive className="h-3.5 w-3.5" />}</button>)}
+                              </div>
+                            ) : null}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-
-              <div className="space-y-2">
-                <p className="text-muted-foreground text-sm">Task Attachments</p>
-                <div className="border border-border rounded-md p-2 bg-muted/10 max-h-[200px] overflow-y-auto">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {/* Handle new attachments array */}
-                    {selectedTask.attachments && selectedTask.attachments.length > 0 ? (
-                      selectedTask.attachments.map((attachment, index) => (
-                        <div key={index} className="relative group">
-                          <div className="w-full aspect-square bg-muted/20 rounded border border-border overflow-hidden flex items-center justify-center">
-                            {attachment.mimeType?.startsWith("image/") ? (
-                              <img
-                                src={attachment.url}
-                                alt={attachment.fileName || `Attachment ${index + 1}`}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <FileText className="h-8 w-8 text-muted-foreground" />
-                            )}
-                          </div>
-                          {/* Hover overlay with download button */}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded flex items-center justify-center gap-2">
-                            <a
-                              href={attachment.url}
-                              download={attachment.fileName}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90"
-                              title={attachment.fileName || "Download"}
-                            >
-                              <Download className="h-3 w-3" />
-                            </a>
-                          </div>
-                        </div>
-                      ))
-                    ) : selectedTask.attachment?.url ? (
-                      /* Handle legacy single attachment */
-                      <div className="relative group">
-                        <div className="w-full aspect-square bg-muted/20 rounded border border-border overflow-hidden flex items-center justify-center">
-                          {selectedTask.attachment.mimeType?.startsWith("image/") ? (
-                            <img
-                              src={selectedTask.attachment.url}
-                              alt={selectedTask.attachment.fileName || "Attachment"}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <FileText className="h-8 w-8 text-muted-foreground" />
-                          )}
-                        </div>
-                        {/* Hover overlay with download button */}
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded flex items-center justify-center gap-2">
-                          <a
-                            href={selectedTask.attachment.url}
-                            download={selectedTask.attachment.fileName}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90"
-                            title={selectedTask.attachment.fileName || "Download"}
-                          >
-                            <Download className="h-3 w-3" />
-                          </a>
-                        </div>
-                      </div>
-                    ) : selectedTask.attachmentFileName ? (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground col-span-2 sm:col-span-3">
-                        <FileText className="h-4 w-4" />
-                        <span className="break-words">{selectedTask.attachmentFileName}</span>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground col-span-2 sm:col-span-3">—</p>
-                    )}
-                  </div>
-                </div>
-                {selectedTask.attachmentNote && (
-                  <p className="text-xs text-muted-foreground border-t pt-2">
-                    <span className="font-medium">Note:</span> {selectedTask.attachmentNote}
-                  </p>
-                )}
+                ) : null}
               </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium flex items-center gap-2">
-                    <span className="w-1 h-4 bg-primary rounded-full"></span>
-                    Messages
-                  </label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      if (!selectedTask) return;
-                      void loadComments(selectedTask.id);
-                    }}
-                    disabled={commentsLoading}
-                    className="h-8 px-3 text-xs gap-1"
-                  >
-                    <span className={`${commentsLoading ? 'animate-spin' : ''}`}>⟳</span>
-                    Refresh
-                  </Button>
+              {/* Enhanced Messages Section - Beautiful Chat UI */}
+              <div className="space-y-3 mt-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-6 bg-gradient-to-b from-primary to-primary/60 rounded-full"></div>
+                    <label className="text-sm font-semibold">Discussion</label>
+                    <Badge variant="outline" className="text-xs">{comments.length} messages</Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => { if (selectedTask) void loadComments(selectedTask.id); }}
+                      disabled={commentsLoading}
+                      className="h-8 px-2 text-xs gap-1"
+                    >
+                      <RefreshCw className={cn("w-3.5 h-3.5", commentsLoading && "animate-spin")} />
+                      Refresh
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={autoRefreshEnabled ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
+                      className="h-8 px-2 text-xs gap-1"
+                    >
+                      <Clock className="w-3.5 h-3.5" />
+                      Auto {autoRefreshEnabled ? "ON" : "OFF"}
+                    </Button>
+                  </div>
                 </div>
 
                 {commentError ? (
@@ -1940,389 +2043,565 @@ export default function Tasks() {
                   </div>
                 ) : null}
 
-                {/* Messages Container - WhatsApp Style */}
-                <div className="rounded-xl bg-[#e5ded7] dark:bg-[#0b141a] p-4 space-y-3 min-h-[300px]">
-                  {commentsLoading ? (
-                    <div className="flex justify-center items-center h-32">
-                      <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent"></div>
+                {/* Beautiful Chat Container with Gradient Background */}
+                <div 
+                  ref={chatContainerRef}
+                  className="rounded-2xl bg-gradient-to-br from-[#f8fafc] to-[#f1f5f9] dark:from-[#0f172a] dark:to-[#1e293b] p-4 space-y-3 min-h-[350px] max-h-[450px] overflow-y-auto shadow-inner"
+                >
+                  {commentsLoading && comments.length === 0 ? (
+                    <div className="flex justify-center items-center h-40">
+                      <div className="flex flex-col items-center gap-2">
+                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        <p className="text-xs text-muted-foreground">Loading messages...</p>
+                      </div>
                     </div>
                   ) : comments.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-32 text-center">
-                      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-2">
-                        <span className="text-lg">💬</span>
+                    <div className="flex flex-col items-center justify-center h-40 text-center">
+                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                        <MessageSquare className="h-8 w-8 text-primary/60" />
                       </div>
-                      <p className="text-xs text-muted-foreground">No messages yet</p>
-                      <p className="text-xs text-muted-foreground/70 mt-1">Start the conversation</p>
+                      <p className="text-sm text-muted-foreground">No messages yet</p>
+                      <p className="text-xs text-muted-foreground/70 mt-1">Be the first to start the conversation</p>
                     </div>
                   ) : (
-                    comments.map((c, index) => {
-                      const isMine = !!currentUsername && c.authorUsername === currentUsername;
-                      return (
-                        <motion.div
-                          key={c.id}
-                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          transition={{ delay: index * 0.05 }}
-                          className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
-                        >
-                          <div
-                            className={`
-                              max-w-[85%] relative group
-                              ${isMine 
-                                ? 'bg-[#bfdbfe] dark:bg-[#2563eb] text-foreground dark:text-white' 
-                                : 'bg-white dark:bg-[#202c33] text-foreground dark:text-white'
-                              }
-                              rounded-lg px-3 py-2 shadow-sm
-                            `}
-                            style={{
-                              borderRadius: isMine 
-                                ? '18px 18px 4px 18px' 
-                                : '18px 18px 18px 4px'
-                            }}
+                    <AnimatePresence initial={false}>
+                      {comments.map((c, index) => {
+                        const isMine = !!currentUsername && c.authorUsername === currentUsername;
+                        const timeAgo = formatMessageTime(c.createdAt);
+                        
+                        return (
+                          <motion.div
+                            key={c.id}
+                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            transition={{ duration: 0.2, delay: Math.min(index * 0.03, 0.3) }}
+                            className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
                           >
-                            {/* Author Name - Only show for others */}
-                            {!isMine && (
-                              <p className="text-xs font-semibold text-primary dark:text-primary/90 mb-1">
-                                {c.authorUsername}
-                                {c.authorRole && (
-                                  <span className="text-[10px] text-muted-foreground ml-1">
-                                    • {c.authorRole}
-                                  </span>
-                                )}
+                            <div
+                              className={`
+                                max-w-[85%] sm:max-w-[80%] relative group
+                                ${isMine 
+                                  ? 'bg-gradient-to-r from-primary to-primary/80 text-white shadow-md' 
+                                  : 'bg-white dark:bg-[#334155] text-foreground dark:text-white shadow-sm border border-border/50'
+                                }
+                                rounded-2xl px-4 py-2.5
+                              `}
+                              style={{
+                                borderBottomRightRadius: isMine ? '4px' : '16px',
+                                borderBottomLeftRadius: !isMine ? '4px' : '16px',
+                              }}
+                            >
+                              {/* Author Name - Only show for others */}
+                              {!isMine && (
+                                <div className="flex items-center gap-2 mb-1.5">
+                                  <Avatar className="w-5 h-5">
+                                    <AvatarFallback className="text-[10px] bg-primary/20 text-primary">
+                                      {c.authorUsername.charAt(0).toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <p className="text-xs font-semibold text-primary dark:text-primary/90">
+                                    {c.authorUsername}
+                                    {c.authorRole && (
+                                      <span className="text-[10px] text-muted-foreground ml-1">
+                                        • {c.authorRole}
+                                      </span>
+                                    )}
+                                  </p>
+                                </div>
+                              )}
+                              
+                              {/* Message Content */}
+                              <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
+                                {c.message}
                               </p>
-                            )}
-                            
-                            {/* Message Content */}
-                            <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
-                              {c.message}
-                            </p>
-                            
-                            {/* Message Footer with Time */}
-                            <div className="flex items-center justify-end gap-1 mt-1">
-                              <span className="text-[10px] opacity-70">
-                                {new Date(c.createdAt).toLocaleTimeString([], { 
-                                  hour: '2-digit', 
-                                  minute: '2-digit' 
-                                })}
-                              </span>
-                              {isMine && (
-                                <span className="text-[10px] opacity-70">✓✓</span>
+                              
+                              {/* Message Footer with Time */}
+                              <div className={`flex items-center justify-end gap-1 mt-1.5 ${isMine ? 'text-white/80' : 'text-muted-foreground'}`}>
+                                <span className="text-[10px] opacity-70">
+                                  {timeAgo}
+                                </span>
+                                {isMine && (
+                                  <span className="text-[10px] opacity-70">✓✓</span>
+                                )}
+                              </div>
+                              
+                              {/* Archive button for admin/super-admin */}
+                              {isAdminRole && (
+                                <button
+                                  type="button"
+                                  onClick={() => void archiveComment(c.id)}
+                                  disabled={archivingCommentId === c.id}
+                                  className={`absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-6 h-6 flex items-center justify-center shadow-md hover:scale-110`}
+                                  title="Archive this comment"
+                                >
+                                  {archivingCommentId === c.id ? (
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                  ) : (
+                                    <Archive className="h-3 w-3" />
+                                  )}
+                                </button>
                               )}
                             </div>
-                          </div>
-                        </motion.div>
-                      );
-                    })
+                          </motion.div>
+                        );
+                      })}
+                    </AnimatePresence>
+                  )}
+                  
+                  {/* Scroll to bottom indicator when new messages arrive */}
+                  {comments.length > 0 && (
+                    <div className="sticky bottom-0 flex justify-center">
+                      <div className="bg-primary/20 backdrop-blur-sm rounded-full px-2 py-0.5 text-[10px] text-primary animate-pulse">
+                        New messages
+                      </div>
+                    </div>
                   )}
                 </div>
 
-                {/* Message Input - WhatsApp Style */}
-                <div className="flex items-center gap-2 bg-background rounded-lg p-1 border">
+                {/* Message Input with Send Button */}
+                <div className="flex items-center gap-2 bg-background rounded-xl p-1.5 border shadow-sm">
                   <Input
                     value={commentDraft}
                     onChange={(e) => setCommentDraft(e.target.value)}
-                    placeholder="Type a message..."
+                    placeholder="Write a message..."
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
                         void sendComment();
                       }
                     }}
-                    className="flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm"
+                    className="flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm bg-transparent"
                   />
                   <Button 
                     type="button" 
                     onClick={() => void sendComment()} 
                     disabled={!commentDraft.trim()}
                     size="sm"
-                    className="rounded-full w-9 h-9 p-0 bg-primary hover:bg-primary/90"
+                    className="rounded-full w-9 h-9 p-0 bg-primary hover:bg-primary/90 shadow-md transition-all hover:scale-105"
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      className="w-4 h-4"
-                    >
-                      <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
-                    </svg>
+                    <Send className="w-4 h-4" />
                   </Button>
+                </div>
+                
+                {/* Typing indicator placeholder */}
+                <div className="text-[10px] text-muted-foreground text-center">
+                  Press Enter to send
                 </div>
               </div>
 
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsViewOpen(false)}>
-                  Close
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    if (!selectedTask) return;
-                    void handlePrintTask(selectedTask);
-                  }}
-                >
-                  Print
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    if (!selectedTask) return;
-                    setIsViewOpen(false);
-                    openEdit(selectedTask);
-                  }}
-                >
-                  Edit
-                </Button>
+              <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-2 border-t">
+                <Button type="button" variant="outline" onClick={() => setIsViewOpen(false)} className="w-full sm:w-auto">Close</Button>
+                <Button type="button" variant="outline" onClick={() => { if (!selectedTask) return; void handlePrintTask(selectedTask); }} className="w-full sm:w-auto"><Printer className="w-4 h-4 mr-2" />Print</Button>
+                <Button type="button" onClick={() => { if (!selectedTask) return; setIsViewOpen(false); openEdit(selectedTask); }} className="w-full sm:w-auto"><Edit className="w-4 h-4 mr-2" />Edit</Button>
               </DialogFooter>
             </div>
           )}
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={isEditOpen}
-        onOpenChange={(open) => {
-          setIsEditOpen(open);
-          if (!open) setSelectedTask(null);
-        }}
-      >
-        <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Task</DialogTitle>
-            <DialogDescription>Update task details.</DialogDescription>
-          </DialogHeader>
-
+      
+      <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) setSelectedTask(null); }}>
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto rounded-lg">
+          <DialogHeader><DialogTitle>Edit Task</DialogTitle><DialogDescription>Update task details.</DialogDescription></DialogHeader>
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit(onEditTask)} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField
-                  control={editForm.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Title</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Task title" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Short description" className="min-h-[90px]" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                {/* Multi-Assignees Edit */}
-                <div className="sm:col-span-2 space-y-1.5">
-                  <label className="text-sm font-medium">Assignees *</label>
-                  <Popover open={editAssigneesOpen} onOpenChange={setEditAssigneesOpen}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="w-full justify-between h-10"
-                      >
-                        <span className="truncate">
-                          {editSelectedAssignees.length > 0
-                            ? editSelectedAssignees.join(", ")
-                            : "Select assignees"}
-                        </span>
-                        <ChevronsUpDown className="h-4 w-4 opacity-50" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                      <Command>
-                        <CommandInput placeholder="Search employees..." />
-                        <CommandList>
-                          <CommandEmpty>No employee found.</CommandEmpty>
-                          <CommandGroup>
-                            {activeEmployees.map((employee) => (
-                              <CommandItem
-                                key={employee.id}
-                                value={employee.name}
-                                onSelect={() => {
-                                  setEditSelectedAssignees((prev) =>
-                                    prev.includes(employee.name)
-                                      ? prev.filter((name) => name !== employee.name)
-                                      : [...prev, employee.name]
-                                  );
-                                  setEditAssigneesOpen(false);
-                                }}
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    editSelectedAssignees.includes(employee.name)
-                                      ? "opacity-100"
-                                      : "opacity-0"
-                                  )}
-                                />
-                                <Avatar className="h-6 w-6 mr-2">
-                                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                    {employee.initials}
-                                  </AvatarFallback>
-                                </Avatar>
-                                {employee.name}
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                        </CommandList>
-                      </Command>
-                    </PopoverContent>
-                  </Popover>
-                  {editSelectedAssignees.length === 0 && (
-                    <p className="text-xs text-destructive">At least one assignee is required</p>
-                  )}
-                </div>
-
-                <FormField
-                  control={editForm.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Location</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Main Office" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="priority"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Priority</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select priority" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="high">High</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="low">Low</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="in-progress">In Progress</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem>
-                          <SelectItem value="overdue">Overdue</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="dueDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Due Date</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={editForm.control}
-                  name="dueTime"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Due Time</FormLabel>
-                      <FormControl>
-                        <Input type="time" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormField control={editForm.control} name="title" render={({ field }) => (<FormItem className="sm:col-span-2"><FormLabel>Title</FormLabel><FormControl><Input placeholder="Task title" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={editForm.control} name="description" render={({ field }) => (<FormItem className="sm:col-span-2"><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Short description" className="min-h-[90px]" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Assignees *</label><Popover open={editAssigneesOpen} onOpenChange={setEditAssigneesOpen}><PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{editSelectedAssignees.length > 0 ? editSelectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start"><Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setEditSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); }}><Check className={cn("mr-2 h-4 w-4", editSelectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover>{editSelectedAssignees.length === 0 && <p className="text-xs text-destructive">At least one assignee is required</p>}</div>
+                <FormField control={editForm.control} name="location" render={({ field }) => (<FormItem><FormLabel>Location</FormLabel><FormControl><Input placeholder="e.g. Main Office" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={editForm.control} name="priority" render={({ field }) => (<FormItem><FormLabel>Priority</FormLabel><Select value={field.value} onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue placeholder="Select priority" /></SelectTrigger></FormControl><SelectContent><SelectItem value="high">High</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="low">Low</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
+                <FormField control={editForm.control} name="status" render={({ field }) => (<FormItem><FormLabel>Status</FormLabel><Select value={field.value} onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger></FormControl><SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="in-progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem><SelectItem value="overdue">Overdue</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
+                <FormField control={editForm.control} name="dueDate" render={({ field }) => (<FormItem><FormLabel>Due Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={editForm.control} name="dueTime" render={({ field }) => (<FormItem><FormLabel>Due Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
               </div>
-
-              <DialogFooter className="flex-col sm:flex-row gap-2">
-                <Button type="button" variant="outline" onClick={() => { setIsEditOpen(false); setEditSelectedAssignees([]); }} disabled={updateTaskMutation.isPending} className="w-full sm:w-auto">
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={updateTaskMutation.isPending} className="w-full sm:w-auto gap-2">{updateTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Save</Button>
-              </DialogFooter>
+              <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end"><Button type="button" variant="outline" onClick={() => { setIsEditOpen(false); setEditSelectedAssignees([]); }} disabled={updateTaskMutation.isPending} className="w-full sm:w-auto">Cancel</Button><Button type="submit" disabled={updateTaskMutation.isPending} className="w-full sm:w-auto gap-2">{updateTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Save</Button></DialogFooter>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
 
+      
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="w-[95vw] max-w-[95vw] sm:max-w-md rounded-lg">
+          <AlertDialogHeader><AlertDialogTitle>Archive task?</AlertDialogTitle><AlertDialogDescription>This will move the task and its comments to the archive. You can restore it later from the Archive Data page.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2"><AlertDialogCancel disabled={deleteTaskMutation.isPending} className="w-full sm:w-auto">Cancel</AlertDialogCancel><AlertDialogAction onClick={confirmDelete} disabled={deleteTaskMutation.isPending} className="gap-2 bg-amber-600 hover:bg-amber-700 w-full sm:w-auto">{deleteTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}<Archive className="h-4 w-4" />Archive</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      
+      {/* Edit Project Dialog */}
+      <Dialog open={isEditProjectOpen} onOpenChange={setIsEditProjectOpen}>
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto rounded-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+            <DialogDescription>Update project details.</DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!editingProject) return;
+              setIsEditingProject(true);
+              
+              const updateProject = async () => {
+                try {
+                  let logoPayload = undefined;
+                  if (editProjectLogoFile) {
+                    logoPayload = await new Promise<ProjectLogo>((resolve, reject) => {
+                      const reader = new FileReader();
+                      reader.onerror = () => reject(new Error("Failed to read project logo"));
+                      reader.onload = () => {
+                        const url = typeof reader.result === "string" ? reader.result : "";
+                        resolve({
+                          fileName: editProjectLogoFile.name,
+                          url,
+                          mimeType: editProjectLogoFile.type,
+                          size: editProjectLogoFile.size,
+                        });
+                      };
+                      reader.readAsDataURL(editProjectLogoFile);
+                    });
+                  }
+                  
+                  const payload: Partial<Project> = {
+                    name: editProjectName,
+                    description: editProjectDescription,
+                  };
+                  if (logoPayload) {
+                    payload.logo = logoPayload;
+                  }
+                  
+                  await editProjectMutation.mutateAsync({ id: editingProject.id, payload });
+                  
+                  setIsEditProjectOpen(false);
+                  setEditingProject(null);
+                  setEditProjectName("");
+                  setEditProjectDescription("");
+                  setEditProjectLogoPreview("");
+                  setEditProjectLogoFile(null);
+                  toast({ title: "Project updated", description: "Project has been updated successfully." });
+                } catch (err) {
+                  toast({
+                    title: "Failed to update project",
+                    description: err instanceof Error ? err.message : "Something went wrong",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setIsEditingProject(false);
+                }
+              };
+              
+              void updateProject();
+            }}
+            className="space-y-4"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Project Name *</label>
+                <Input
+                  placeholder="Project name"
+                  value={editProjectName}
+                  onChange={(e) => setEditProjectName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Project Description</label>
+                <Textarea
+                  placeholder="Short project description"
+                  className="min-h-[80px]"
+                  value={editProjectDescription}
+                  onChange={(e) => setEditProjectDescription(e.target.value)}
+                />
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Project Logo</label>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted"
+                    onClick={() => {
+                      const el = document.getElementById("edit-project-logo-input") as HTMLInputElement | null;
+                      el?.click();
+                    }}
+                  >
+                    Change Logo
+                  </button>
+                  {editProjectLogoPreview ? (
+                    <img src={editProjectLogoPreview} alt="Project Logo" className="w-10 h-10 rounded-md object-cover" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">No logo</div>
+                  )}
+                </div>
+                <input
+                  id="edit-project-logo-input"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    setEditProjectLogoFile(file);
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        setEditProjectLogoPreview(typeof reader.result === "string" ? reader.result : "");
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsEditProjectOpen(false);
+                  setEditingProject(null);
+                  setEditProjectName("");
+                  setEditProjectDescription("");
+                  setEditProjectLogoPreview("");
+                  setEditProjectLogoFile(null);
+                }}
+                disabled={isEditingProject}
+                className="w-full sm:w-auto"
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isEditingProject || !editProjectName.trim()} className="w-full sm:w-auto gap-2">
+                {isEditingProject && <Loader2 className="h-4 w-4 animate-spin" />}
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Project Dialog */}
+      <AlertDialog open={isDeleteProjectOpen} onOpenChange={setIsDeleteProjectOpen}>
+        <AlertDialogContent className="w-[95vw] max-w-[95vw] sm:max-w-md rounded-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete task?</AlertDialogTitle>
+            <AlertDialogTitle>Delete Project?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently remove the task.
+              This will permanently delete the project "{editingProject?.name}" and all its associated tasks. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteTaskMutation.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} disabled={deleteTaskMutation.isPending} className="gap-2">{deleteTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Delete</AlertDialogAction>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel
+              disabled={isDeletingProject}
+              className="w-full sm:w-auto"
+              onClick={() => {
+                setIsDeleteProjectOpen(false);
+                setEditingProject(null);
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!editingProject) return;
+                setIsDeletingProject(true);
+                deleteProjectMutation.mutate(editingProject.id, {
+                  onSuccess: () => {
+                    setIsDeleteProjectOpen(false);
+                    setEditingProject(null);
+                    setIsDeletingProject(false);
+                    toast({ title: "Project deleted", description: "Project and its tasks have been deleted." });
+                  },
+                  onError: (err) => {
+                    setIsDeletingProject(false);
+                    toast({
+                      title: "Failed to delete project",
+                      description: err instanceof Error ? err.message : "Something went wrong",
+                      variant: "destructive",
+                    });
+                  },
+                });
+              }}
+              disabled={isDeletingProject}
+              className="gap-2 bg-destructive hover:bg-destructive/90 w-full sm:w-auto"
+            >
+              {isDeletingProject && <Loader2 className="h-4 w-4 animate-spin" />}
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Task Cards Grid (only visible after project selected) */}
+      {/* Reassign Task Dialog */}
+      <Dialog open={isReassignTaskOpen} onOpenChange={setIsReassignTaskOpen}>
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto rounded-lg">
+          <DialogHeader>
+            <DialogTitle>Reassign Task</DialogTitle>
+            <DialogDescription>
+              Change the assignees for task "{reassigningTask?.title}".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Select Assignees</label>
+              <Popover open={reassignTaskOpen} onOpenChange={setReassignTaskOpen}>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="outline" className="w-full justify-between h-10">
+                    <span className="truncate">{reassignTaskAssignees.length > 0 ? reassignTaskAssignees.join(", ") : "Select assignees"}</span>
+                    <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search employees..." />
+                    <CommandList>
+                      <CommandEmpty>No employee found.</CommandEmpty>
+                      <CommandGroup>
+                        {activeEmployees.map((employee) => (
+                          <CommandItem
+                            key={employee.id}
+                            value={employee.name}
+                            onSelect={() => {
+                              setReassignTaskAssignees((prev) =>
+                                prev.includes(employee.name)
+                                  ? prev.filter((name) => name !== employee.name)
+                                  : [...prev, employee.name]
+                              );
+                              setReassignTaskOpen(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", reassignTaskAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} />
+                            <Avatar className="h-6 w-6 mr-2">
+                              <AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback>
+                            </Avatar>
+                            {employee.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {reassignTaskAssignees.length === 0 && <p className="text-xs text-destructive">At least one assignee is required</p>}
+            </div>
+          </div>
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsReassignTaskOpen(false);
+                setReassigningTask(null);
+                setReassignTaskAssignees([]);
+              }}
+              disabled={isReassigningTask}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleReassignTask}
+              disabled={isReassigningTask || reassignTaskAssignees.length === 0}
+              className="w-full sm:w-auto gap-2"
+            >
+              {isReassigningTask && <Loader2 className="h-4 w-4 animate-spin" />}
+              Reassign Task
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reassign Project Dialog */}
+      <Dialog open={isReassignProjectOpen} onOpenChange={setIsReassignProjectOpen}>
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto rounded-lg">
+          <DialogHeader>
+            <DialogTitle>Reassign Project</DialogTitle>
+            <DialogDescription>
+              Change the assignees for project "{reassigningProject?.name}".
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Select Assignees</label>
+              <Popover open={reassignProjectOpen} onOpenChange={setReassignProjectOpen}>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="outline" className="w-full justify-between h-10">
+                    <span className="truncate">{reassignProjectAssignees.length > 0 ? reassignProjectAssignees.join(", ") : "Select assignees"}</span>
+                    <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search employees..." />
+                    <CommandList>
+                      <CommandEmpty>No employee found.</CommandEmpty>
+                      <CommandGroup>
+                        {activeEmployees.map((employee) => (
+                          <CommandItem
+                            key={employee.id}
+                            value={employee.name}
+                            onSelect={() => {
+                              setReassignProjectAssignees((prev) =>
+                                prev.includes(employee.name)
+                                  ? prev.filter((name) => name !== employee.name)
+                                  : [...prev, employee.name]
+                              );
+                              setReassignProjectOpen(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", reassignProjectAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} />
+                            <Avatar className="h-6 w-6 mr-2">
+                              <AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback>
+                            </Avatar>
+                            {employee.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+              {reassignProjectAssignees.length === 0 && <p className="text-xs text-destructive">At least one assignee is required</p>}
+            </div>
+          </div>
+          <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsReassignProjectOpen(false);
+                setReassigningProject(null);
+                setReassignProjectAssignees([]);
+              }}
+              disabled={isReassigningProject}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleReassignProject}
+              disabled={isReassigningProject || reassignProjectAssignees.length === 0}
+              className="w-full sm:w-auto gap-2"
+            >
+              {isReassigningProject && <Loader2 className="h-4 w-4 animate-spin" />}
+              Reassign Project
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {selectedProject && (
         <div className="space-y-6">
           {tasksQuery.isLoading ? (
-            <div className="bg-card rounded-xl border border-border p-6 text-sm text-muted-foreground">
-              Loading tasks...
-            </div>
+            <div className="bg-card rounded-xl border border-border p-6 text-sm text-muted-foreground">Loading tasks...</div>
           ) : tasksQuery.isError ? (
-            <div className="bg-card rounded-xl border border-border p-6 text-sm text-destructive">
-              {tasksQuery.error instanceof Error
-                ? tasksQuery.error.message
-                : "Failed to load tasks"}
-            </div>
+            <div className="bg-card rounded-xl border border-border p-6 text-sm text-destructive">{(() => { const msg = tasksQuery.error instanceof Error ? tasksQuery.error.message : "Failed to load tasks"; return msg.startsWith("<") ? "Server error: failed to load tasks. The server may be temporarily unavailable (504 Gateway Timeout). Please try again later." : msg; })()}</div>
           ) : filteredTasks.length === 0 ? (
-            <div className="bg-card rounded-xl border border-border p-6 text-sm text-muted-foreground text-center">
-              No tasks found
-            </div>
+            <div className="bg-card rounded-xl border border-border p-6 text-sm text-muted-foreground text-center">No tasks found</div>
           ) : (
             <>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {paginatedTasks.map((task, index) => (
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {paginatedProjectTasks.map((task, index) => (
                   <motion.div
                     key={task.id}
                     initial={{ opacity: 0, y: 10 }}
@@ -2331,129 +2610,39 @@ export default function Tasks() {
                     className="bg-card rounded-xl border border-muted/50 hover:border-primary/50 transition-all hover:shadow-md overflow-hidden flex flex-col group cursor-pointer"
                     onClick={() => openView(task)}
                   >
-                    {/* Card Header with Title and Menu */}
                     <div className="p-4 border-b border-muted/30 flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-foreground line-clamp-1">{task.title}</p>
-                        <p className="text-xs text-muted-foreground mt-1 capitalize">{task.priority} priority</p>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <button
-                            className="p-1 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100"
-                            aria-label="Task actions"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-                          </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openView(task); }}>
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handlePrintTask(task); }}>
-                            Print
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(task); }}>
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }}>
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <div className="min-w-0 flex-1"><p className="font-semibold text-foreground line-clamp-1 break-words">{task.title}</p><p className="text-xs text-muted-foreground mt-1 capitalize">{task.priority} priority</p></div>
+                      <DropdownMenu><DropdownMenuTrigger asChild><button className="p-1 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0" aria-label="Task actions" onClick={(e) => e.stopPropagation()}><MoreHorizontal className="w-4 h-4 text-muted-foreground" /></button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openView(task); }}>View Details</DropdownMenuItem><DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handlePrintTask(task); }}>Print</DropdownMenuItem><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(task); }}>Edit</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }} className="text-amber-600"><Archive className="w-4 h-4 mr-2" />Archive</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
                     </div>
-
-                    {/* Card Body */}
                     <div className="p-4 flex-1 space-y-3">
-                      {/* Description */}
-                      <p className="text-sm text-muted-foreground line-clamp-2">{task.description}</p>
-
-                      {/* Assignees */}
-                      <div>
-                        <p className="text-xs text-muted-foreground mb-2">Assigned to</p>
-                        <div className="flex items-center gap-2">
-                          {task.assignees && task.assignees.length > 0 ? (
-                            <>
-                              <div className="flex -space-x-2">
-                                {task.assignees.slice(0, 3).map((assignee, idx) => {
-                                  const displayName = resolveAssigneeName(assignee);
-                                  return (
-                                    <Avatar key={idx} className="w-7 h-7 border-2 border-background">
-                                      <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
-                                        {displayName.split(" ").map((n) => n[0]).join("").toUpperCase()}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                  );
-                                })}
-                                {task.assignees.length > 3 && (
-                                  <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">
-                                    +{task.assignees.length - 3}
-                                  </div>
-                                )}
-                              </div>
-                              <span className="text-sm text-foreground">
-                                {task.assignees.slice(0, 2).map(resolveAssigneeName).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}
-                              </span>
-                            </>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">Unassigned</span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Status & Priority Badges */}
-                      <div className="flex gap-2 flex-wrap">
-                        <Badge
-                          variant="secondary"
-                          className={cn("text-xs", statusClasses[task.status])}
-                        >
-                          {task.status}
-                        </Badge>
-                        <Badge
-                          variant="outline"
-                          className={cn("text-xs border", priorityClasses[task.priority])}
-                        >
-                          {task.priority}
-                        </Badge>
-                      </div>
+                      <p className="text-sm text-muted-foreground line-clamp-2 break-words">{task.description}</p>
+                      <div><p className="text-xs text-muted-foreground mb-2">Assigned to</p><div className="flex flex-wrap items-center gap-2">{task.assignees && task.assignees.length > 0 ? (<><div className="flex -space-x-2">{task.assignees.slice(0, 3).map((assignee, idx) => (<Avatar key={idx} className="w-7 h-7 border-2 border-background"><AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">{assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}</AvatarFallback></Avatar>))}{task.assignees.length > 3 && (<div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">+{task.assignees.length - 3}</div>)}</div><span className="text-sm text-foreground break-words">{task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}</span></>) : (<span className="text-sm text-muted-foreground">Unassigned</span>)}</div></div>
+                      <div className="flex gap-2 flex-wrap"><Badge variant="secondary" className={cn("text-xs", statusClasses[task.status])}>{task.status}</Badge><Badge variant="outline" className={cn("text-xs border", priorityClasses[task.priority])}>{task.priority}</Badge></div>
                     </div>
-
-                    {/* Card Footer with Dates and Location */}
-                    <div className="p-4 border-t border-muted/30 bg-muted/10 space-y-2 text-sm">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Calendar className="w-3.5 h-3.5" />
-                        <span className="text-xs">Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Clock className="w-3.5 h-3.5" />
-                        <span className="text-xs">Created: {new Date(task.createdAt).toLocaleDateString()}</span>
-                      </div>
-                      {task.location && (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <MapPin className="w-3.5 h-3.5" />
-                          <span className="text-xs">{task.location}</span>
-                        </div>
-                      )}
-                    </div>
+                    <div className="p-4 border-t border-muted/30 bg-muted/10 space-y-2 text-sm"><div className="flex items-center gap-2 text-muted-foreground flex-wrap"><Calendar className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs">Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}</span></div><div className="flex items-center gap-2 text-muted-foreground flex-wrap"><Clock className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs">Created: {new Date(task.createdAt).toLocaleDateString()}</span></div>{task.location && (<div className="flex items-center gap-2 text-muted-foreground flex-wrap"><MapPin className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs break-words">{task.location}</span></div>)}</div>
                   </motion.div>
                 ))}
               </div>
-
-              {/* Pagination + Stats Footer */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-muted-foreground mt-6 pt-4 border-t border-muted/20">
-                <span className="text-center sm:text-left">
-                  Showing {filteredTasks.length === 0 ? 0 : Math.min((taskPage - 1) * PAGE_SIZE + 1, filteredTasks.length)}–{Math.min(taskPage * PAGE_SIZE, filteredTasks.length)} of {filteredTasks.length} tasks
-                </span>
-                {taskTotalPages > 1 && (
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setTaskPage((p) => Math.max(1, p - 1))} disabled={taskPage === 1}>Previous</Button>
-                    <span className="text-sm px-1">{taskPage} / {taskTotalPages}</span>
-                    <Button variant="outline" size="sm" onClick={() => setTaskPage((p) => Math.min(taskTotalPages, p + 1))} disabled={taskPage === taskTotalPages}>Next</Button>
-                  </div>
-                )}
+                <span className="text-center sm:text-left">Showing {filteredTasks.length} of {tasks.length} tasks</span>
+                <div className="flex flex-wrap items-center justify-center sm:justify-end gap-4">
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-success" />{tasks.filter((t) => t.status === "completed").length} completed</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary" />{tasks.filter((t) => t.status === "in-progress").length} in progress</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-warning" />{tasks.filter((t) => t.status === "pending").length} pending</span>
+                </div>
               </div>
+              {projectTaskTotalPages > 1 && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-4 pt-2">
+                  <span className="text-sm text-muted-foreground">
+                    Page {projectTaskPage} of {projectTaskTotalPages} ({filteredTasks.length} tasks)
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setProjectTaskPage((p) => Math.max(1, p - 1))} disabled={projectTaskPage === 1}>Previous</Button>
+                    <span className="text-sm px-1">{projectTaskPage} / {projectTaskTotalPages}</span>
+                    <Button variant="outline" size="sm" onClick={() => setProjectTaskPage((p) => Math.min(projectTaskTotalPages, p + 1))} disabled={projectTaskPage === projectTaskTotalPages}>Next</Button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -2462,4 +2651,5 @@ export default function Tasks() {
   );
 }
 
-            
+// Missing MessageSquare import
+import { MessageSquare } from "lucide-react";
