@@ -242,10 +242,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   const markRead = async (id: string) => {
     try {
-      await apiFetch(`/api/messages/${id}`, {
-        method: "PUT",
-        body: JSON.stringify({ status: "read" }),
-      });
+      await apiFetch(`/api/messages/${id}/mark-read`, { method: "POST" });
       await notificationsQuery.refetch();
     } catch {
       // ignore errors
@@ -334,8 +331,8 @@ export function MainLayout({ children }: MainLayoutProps) {
                   >
                     <Bell className="h-4 w-4" />
                     {unreadCount > 0 && (
-                      <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[10px]">
-                        {Math.min(unreadCount, 9)}
+                      <Badge className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 p-0 flex items-center justify-center bg-red-500 text-[10px]">
+                        {unreadCount > 9 ? "9+" : unreadCount}
                       </Badge>
                     )}
                   </Button>
