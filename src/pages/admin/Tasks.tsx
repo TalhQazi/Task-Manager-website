@@ -1554,9 +1554,10 @@ export default function Tasks() {
             ) : (
               <>
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {paginatedProjects.map((project) => {
+                {paginatedProjects.map((project, idx) => {
                   const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0 ? project.assignees : [];
                   const taskNum = project.taskCount ?? 0;
+                  const projectNumber = (projectPage - 1) * PAGE_SIZE + idx + 1;
                   return (
                     <div
                       key={project.id}
@@ -1567,6 +1568,7 @@ export default function Tasks() {
                         className="w-full text-left"
                       >
                         <div className="flex items-center gap-2 mb-2">
+                          <span className="flex-shrink-0 text-xs font-bold text-muted-foreground w-5 text-right">{projectNumber}.</span>
                           <ProjectLogoImg projectId={project.id} projectName={project.name} />
                           <div className="min-w-0 flex-1">
                             <p className="font-medium truncate">{project.name}</p>
