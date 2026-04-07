@@ -291,6 +291,7 @@ export default function Tasks() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [projectPage, setProjectPage] = useState(1);
+  const [taskPage, setTaskPage] = useState(1);
   const PAGE_SIZE = 25;
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
@@ -1049,6 +1050,12 @@ export default function Tasks() {
   }, [filteredProjects, projectPage]);
   const projectTotalPages = Math.ceil(filteredProjects.length / PAGE_SIZE) || 1;
 
+  const paginatedTasks = useMemo(() => {
+    const start = (taskPage - 1) * PAGE_SIZE;
+    return filteredTasks.slice(start, start + PAGE_SIZE);
+  }, [filteredTasks, taskPage]);
+  const taskTotalPages = Math.ceil(filteredTasks.length / PAGE_SIZE) || 1;
+
   return (
     <div className="pl-6 space-y-6">
       {/* Header */}
@@ -1176,11 +1183,12 @@ export default function Tasks() {
             ) : (
               <>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {paginatedProjects.map((project) => {
+                {paginatedProjects.map((project, idx) => {
                   const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0
                     ? project.assignees.map(resolveAssigneeName)
                     : [];
                   const taskNum = project.taskCount ?? 0;
+                  const projectNumber = (projectPage - 1) * PAGE_SIZE + idx + 1;
 
                   return (
                     <button
@@ -1189,6 +1197,7 @@ export default function Tasks() {
                       className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card"
                     >
                       <div className="flex items-center gap-2 mb-2">
+                        <span className="flex-shrink-0 text-xs font-bold text-muted-foreground w-5 text-right">{projectNumber}.</span>
                         <ProjectLogoImg projectId={project.id} projectName={project.name} />
                         <div className="min-w-0">
                           <p className="font-medium truncate">{project.name}</p>
@@ -2350,7 +2359,7 @@ export default function Tasks() {
           ) : (
             <>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredTasks.map((task, index) => (
+                {paginatedTasks.map((task, index) => (
                   <motion.div
                     key={task.id}
                     initial={{ opacity: 0, y: 10 }}
@@ -2469,23 +2478,18 @@ export default function Tasks() {
                 ))}
               </div>
 
-              {/* Stats Footer */}
+              {/* Pagination + Stats Footer */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-muted-foreground mt-6 pt-4 border-t border-muted/20">
-                <span className="text-center sm:text-left">Showing {filteredTasks.length} of {tasks.length} tasks</span>
-                <div className="flex items-center justify-center sm:justify-end gap-4 overflow-x-auto pb-1 sm:pb-0">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-success" />
-                    {tasks.filter((t) => t.status === "completed").length} completed
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-primary" />
-                    {tasks.filter((t) => t.status === "in-progress").length} in progress
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-warning" />
-                    {tasks.filter((t) => t.status === "pending").length} pending
-                  </span>
-                </div>
+                <span className="text-center sm:text-left">
+                  Showing {filteredTasks.length === 0 ? 0 : Math.min((taskPage - 1) * PAGE_SIZE + 1, filteredTasks.length)}–{Math.min(taskPage * PAGE_SIZE, filteredTasks.length)} of {filteredTasks.length} tasks
+                </span>
+                {taskTotalPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setTaskPage((p) => Math.max(1, p - 1))} disabled={taskPage === 1}>Previous</Button>
+                    <span className="text-sm px-1">{taskPage} / {taskTotalPages}</span>
+                    <Button variant="outline" size="sm" onClick={() => setTaskPage((p) => Math.min(taskTotalPages, p + 1))} disabled={taskPage === taskTotalPages}>Next</Button>
+                  </div>
+                )}
               </div>
             </>
           )}
