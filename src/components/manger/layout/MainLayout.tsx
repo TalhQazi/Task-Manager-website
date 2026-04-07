@@ -240,6 +240,15 @@ export function MainLayout({ children }: MainLayoutProps) {
     }
   };
 
+  const markAllRead = async () => {
+    try {
+      await apiFetch("/api/messages/mark-all-read", { method: "POST" });
+      await notificationsQuery.refetch();
+    } catch {
+      // ignore errors
+    }
+  };
+
   const markRead = async (id: string) => {
     try {
       await apiFetch(`/api/messages/${id}/mark-read`, { method: "POST" });
@@ -359,6 +368,16 @@ export function MainLayout({ children }: MainLayoutProps) {
                       </DropdownMenuItem>
                     ))
                   )}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-xs text-center justify-center font-medium text-primary cursor-pointer"
+                    onClick={async () => {
+                      await markAllRead();
+                      navigate("/manager/notifications");
+                    }}
+                  >
+                    View all notifications
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
 
