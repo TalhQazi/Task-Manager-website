@@ -91,6 +91,15 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
 
   const unreadCount = (notificationsQuery.data || []).filter((n: any) => n.status !== "read").length;
 
+  const markAllRead = async () => {
+    try {
+      await apiFetch("/api/messages/mark-all-read", { method: "POST" });
+      await notificationsQuery.refetch();
+    } catch {
+      // ignore
+    }
+  };
+
   const markRead = async (id: string) => {
     try {
       await apiFetch(`/api/notifications/${id}/mark-read`, { method: "POST" });
@@ -199,6 +208,16 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                     </DropdownMenuItem>
                   ))
                 )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-xs text-center justify-center font-medium text-primary cursor-pointer"
+                  onClick={async () => {
+                    await markAllRead();
+                    navigate("/employee/notifications");
+                  }}
+                >
+                  View all notifications
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 
