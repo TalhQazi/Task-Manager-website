@@ -1,4 +1,4 @@
-import { Bell, Bug, Camera, ChevronDown, ChevronUp, Loader2, Mail, Menu, Move, Save, User, X as XIcon } from "lucide-react";
+import { Bell, Bug, Camera, ChevronDown, ChevronUp, Loader2, Mail, Menu, Move, Save, Search, User, X as XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -56,6 +56,14 @@ export function Header({ onMenuClick }: HeaderProps) {
   const navigate = useNavigate();
 
   const auth = getAuthState();
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/admin/tasks?search=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
 
   type MessageApi = {
     id: string;
@@ -665,6 +673,18 @@ export function Header({ onMenuClick }: HeaderProps) {
             >
               <Menu className="h-5 w-5 group-hover:brightness-[108%] transition-all duration-100 linear" />
             </button>
+
+            {/* SEARCH BAR */}
+            <form onSubmit={handleSearch} className="hidden lg:flex items-center relative mr-2">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50" />
+              <Input
+                type="text"
+                placeholder="Search everything..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-9 w-64 pl-10 pr-4 bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:bg-white/20 focus:border-white/40 focus:ring-0 transition-all rounded-full"
+              />
+            </form>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
