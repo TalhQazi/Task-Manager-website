@@ -74,17 +74,37 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
       .join("")
       .toUpperCase() || "E";
 
-  const unreadCount = 0;
+  const notificationsQuery = useQuery({
+    queryKey: ["employee-notifications"],
+    queryFn: async () => {
+      const res = await apiFetch<{ items?: any[] } | any[]>("/api/notifications?type=broadcast");
+      const items = Array.isArray(res) ? res : Array.isArray((res as any)?.items) ? (res as any).items : [];
+      return items.map((m: any) => ({ ...m, id: String(m.id || m._id || "") })).filter((m: any) => Boolean(m.id));
+    },
+    refetchInterval: 5000,
+  });
+
+  const notifications = (notificationsQuery.data || [])
+    .slice()
+    .sort((a: any, b: any) => String(b.timestamp || "").localeCompare(String(a.timestamp || "")))
+    .slice(0, 4);
+
+  const unreadCount = (notificationsQuery.data || []).filter((n: any) => n.status !== "read").length;
+
+  const markRead = async (id: string) => {
+    try {
+      await apiFetch(`/api/notifications/${id}/mark-read`, { method: "POST" });
+      await notificationsQuery.refetch();
+    } catch {
+      // ignore
+    }
+  };
 
   const onLogout = () => {
     clearEmployeeAuth();
     localStorage.removeItem("token");
     navigate("/login/employee", { replace: true });
   };
-
-  const notifications = useMemo(() => {
-    return [] as Array<{ id: string; content?: string }>;
-  }, []);
 
   return (
     <header 
@@ -158,8 +178,8 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                 >
                   <Bell className="h-4 w-4" />
                   {unreadCount > 0 && (
-                    <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[10px]">
-                      {Math.min(unreadCount, 9)}
+                    <Badge className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 p-0 flex items-center justify-center bg-red-500 text-[10px]">
+                      {unreadCount > 9 ? "9+" : unreadCount}
                     </Badge>
                   )}
                 </Button>
@@ -169,13 +189,13 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                 {notifications.length === 0 ? (
                   <DropdownMenuItem className="text-xs text-muted-foreground">No notifications</DropdownMenuItem>
                 ) : (
-                  notifications.map((n) => (
+                  notifications.map((n: any) => (
                     <DropdownMenuItem
                       key={n.id}
                       className="flex flex-col items-start gap-0.5 text-xs"
-                      onClick={() => navigate("/employee/notifications")}
+                      onClick={() => { void markRead(n.id); navigate("/employee/notifications"); }}
                     >
-                      <span className="font-medium line-clamp-2">{String(n.content || "")}</span>
+                      <span className={`font-medium line-clamp-2 ${n.status !== "read" ? "font-semibold" : "text-muted-foreground"}`}>{String(n.content || "")}</span>
                     </DropdownMenuItem>
                   ))
                 )}
