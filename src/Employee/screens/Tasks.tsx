@@ -135,6 +135,7 @@ type CreateProjectTaskDraft = {
     mimeType: string;
     size: number;
   };
+  attachments?: Array<{ fileName: string; url: string; mimeType: string; size: number }>;
 };
 
 type CreateProjectPayload = {
@@ -426,6 +427,16 @@ export default function Tasks() {
     return employees.filter((e) => e.status === "active");
   }, [employees]);
 
+  // Resolve an assignee string (could be email or name) to display name
+  const resolveAssigneeName = useMemo(() => {
+    const byEmail = new Map(employees.map((e) => [e.email.toLowerCase(), e.name]));
+    const byName  = new Map(employees.map((e) => [e.name.toLowerCase(),  e.name]));
+    return (val: string): string => {
+      const v = (val || "").trim();
+      return byEmail.get(v.toLowerCase()) || byName.get(v.toLowerCase()) || v;
+    };
+  }, [employees]);
+
   useEffect(() => {
     if (isCreateOpen) {
       const today = new Date().toISOString().split("T")[0];
@@ -549,18 +560,9 @@ export default function Tasks() {
     setAttachmentFilePreviews([]);
   };
 
-  const draftFromForm = (attachmentOverride?: CreateProjectTaskDraft["attachment"]) => {
+  const draftFromForm = (attachmentOverride?: CreateProjectTaskDraft["attachment"], attachmentsOverride?: CreateProjectTaskDraft["attachments"]) => {
     const createdAt = new Date().toISOString().split("T")[0];
-    const att = attachmentOverride
-      ? attachmentOverride
-      : attachmentFile
-        ? {
-            fileName: attachmentFile.name,
-            url: "",
-            mimeType: attachmentFile.type,
-            size: attachmentFile.size,
-          }
-        : undefined;
+    const att = attachmentOverride ?? attachmentsOverride?.[0] ?? undefined;
 
     return {
       title: formData.title,
@@ -572,9 +574,10 @@ export default function Tasks() {
       dueTime: formData.dueTime,
       location: formData.location,
       createdAt,
-      attachmentFileName: formData.attachmentFileName || attachmentFile?.name || "",
+      attachmentFileName: att?.fileName || formData.attachmentFileName || "",
       attachmentNote: formData.attachmentNote || "",
       attachment: att,
+      attachments: attachmentsOverride,
     } satisfies CreateProjectTaskDraft;
   };
 
@@ -588,27 +591,12 @@ export default function Tasks() {
       return;
     }
 
-    if (attachmentFile) {
-      const file = attachmentFile;
-      const attachment = await new Promise<CreateProjectTaskDraft["attachment"]>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onerror = () => reject(new Error("Failed to read file"));
-        reader.onload = () => {
-          const url = typeof reader.result === "string" ? reader.result : "";
-          resolve({
-            fileName: file.name,
-            url,
-            mimeType: file.type,
-            size: file.size,
-          });
-        };
-        reader.readAsDataURL(file);
-      });
-
-      setProjectTasks((prev) => [...prev, draftFromForm(attachment)]);
-    } else {
-      setProjectTasks((prev) => [...prev, draftFromForm(undefined)]);
-    }
+    const attachments = attachmentFiles.length > 0 ? await filesToAttachments(attachmentFiles) : [];
+    const first = attachments[0];
+    setProjectTasks((prev) => [
+      ...prev,
+      draftFromForm(first, attachments.length > 0 ? attachments : undefined),
+    ]);
 
     setValidationErrors((prev) => ({ ...prev, title: undefined, description: undefined }));
     setFormData((prev) => ({
@@ -625,6 +613,8 @@ export default function Tasks() {
     }));
     setSelectedAssignees([]);
     setAttachmentFile(null);
+    setAttachmentFiles([]);
+    setAttachmentFilePreviews([]);
     setIsCreateTaskOpen(false);
   };
 
@@ -713,22 +703,8 @@ export default function Tasks() {
       setIsCreating(true);
       const nowDate = new Date().toISOString().split("T")[0];
 
-      const attachment = attachmentFile
-        ? await new Promise<CreateProjectTaskDraft["attachment"]>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onerror = () => reject(new Error("Failed to read file"));
-            reader.onload = () => {
-              const url = typeof reader.result === "string" ? reader.result : "";
-              resolve({
-                fileName: attachmentFile.name,
-                url,
-                mimeType: attachmentFile.type,
-                size: attachmentFile.size,
-              });
-            };
-            reader.readAsDataURL(attachmentFile);
-          })
-        : undefined;
+      const attachments = attachmentFiles.length > 0 ? await filesToAttachments(attachmentFiles) : [];
+      const first = attachments[0];
 
       const taskPayload: Record<string, any> = {
         title: formData.title,
@@ -740,9 +716,10 @@ export default function Tasks() {
         dueTime: formData.dueTime,
         location: formData.location,
         createdAt: nowDate,
-        attachmentFileName: attachmentFile?.name || "",
+        attachmentFileName: first?.fileName || "",
         attachmentNote: formData.attachmentNote,
-        attachment,
+        attachment: first,
+        attachments,
       };
 
       // Only add projectId if not a direct task
@@ -777,6 +754,8 @@ export default function Tasks() {
       });
       setSelectedAssignees([]);
       setAttachmentFile(null);
+      setAttachmentFiles([]);
+      setAttachmentFilePreviews([]);
       setValidationErrors({});
 
       toast({
@@ -1158,7 +1137,7 @@ export default function Tasks() {
             <div>
               <h2 className="font-semibold text-lg">Project: {selectedProject.name}</h2>
               <p className="text-sm text-muted-foreground">{selectedProject.description || "No description"}</p>
-              <p className="text-xs text-muted-foreground mt-1">{selectedProject.assignees && selectedProject.assignees.length > 0 ? selectedProject.assignees.join(", ") : "No assignees"}</p>
+              <p className="text-xs text-muted-foreground mt-1">{selectedProject.assignees && selectedProject.assignees.length > 0 ? selectedProject.assignees.map(resolveAssigneeName).join(", ") : "No assignees"}</p>
             </div>
           </div>
           <div className="flex items-center justify-between text-xs text-muted-foreground mt-3">
@@ -1199,7 +1178,7 @@ export default function Tasks() {
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {paginatedProjects.map((project) => {
                   const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0
-                    ? project.assignees
+                    ? project.assignees.map(resolveAssigneeName)
                     : [];
                   const taskNum = project.taskCount ?? 0;
 
@@ -1262,8 +1241,8 @@ export default function Tasks() {
             ) : (
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {tasks.filter(t => !t.projectId).map((task) => {
-                  const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0 
-                    ? task.assignees 
+                  const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0
+                    ? task.assignees.map(resolveAssigneeName)
                     : [];
                   
                   return (
@@ -1739,16 +1718,19 @@ export default function Tasks() {
                   <p className="text-muted-foreground">Assignees</p>
                   <div className="flex flex-wrap gap-2">
                     {selectedTask.assignees && selectedTask.assignees.length > 0 ? (
-                      selectedTask.assignees.map((assignee, idx) => (
-                        <div key={idx} className="flex items-center gap-2 bg-muted/50 rounded-full px-3 py-1">
-                          <Avatar className="w-6 h-6">
-                            <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                              {assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-foreground text-sm">{assignee}</span>
-                        </div>
-                      ))
+                      selectedTask.assignees.map((assignee, idx) => {
+                        const displayName = resolveAssigneeName(assignee);
+                        return (
+                          <div key={idx} className="flex items-center gap-2 bg-muted/50 rounded-full px-3 py-1">
+                            <Avatar className="w-6 h-6">
+                              <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                {displayName.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-foreground text-sm">{displayName}</span>
+                          </div>
+                        );
+                      })
                     ) : (
                       <span className="text-foreground">Unassigned</span>
                     )}
@@ -2376,17 +2358,16 @@ export default function Tasks() {
                           {task.assignees && task.assignees.length > 0 ? (
                             <>
                               <div className="flex -space-x-2">
-                                {task.assignees.slice(0, 3).map((assignee, idx) => (
-                                  <Avatar key={idx} className="w-7 h-7 border-2 border-background">
-                                    <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
-                                      {assignee
-                                        .split(" ")
-                                        .map((n) => n[0])
-                                        .join("")
-                                        .toUpperCase()}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                ))}
+                                {task.assignees.slice(0, 3).map((assignee, idx) => {
+                                  const displayName = resolveAssigneeName(assignee);
+                                  return (
+                                    <Avatar key={idx} className="w-7 h-7 border-2 border-background">
+                                      <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
+                                        {displayName.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                  );
+                                })}
                                 {task.assignees.length > 3 && (
                                   <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">
                                     +{task.assignees.length - 3}
@@ -2394,7 +2375,7 @@ export default function Tasks() {
                                 )}
                               </div>
                               <span className="text-sm text-foreground">
-                                {task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}
+                                {task.assignees.slice(0, 2).map(resolveAssigneeName).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}
                               </span>
                             </>
                           ) : (
