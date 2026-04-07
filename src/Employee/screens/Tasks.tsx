@@ -1049,10 +1049,29 @@ export default function Tasks() {
   }, [sourceTasks, searchQuery, statusFilter, priorityFilter]);
 
   const filteredProjects = useMemo(() => {
-    if (!searchQuery.trim()) return projects;
-    const q = searchQuery.toLowerCase();
-    return projects.filter((p) => p.name.toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q));
-  }, [projects, searchQuery]);
+    const qMain = searchQuery.trim().toLowerCase();
+    const sFilter = statusFilter.toLowerCase();
+    
+    return projects.filter((p) => {
+      const name = p.name.toLowerCase();
+      const desc = (p.description || "").toLowerCase();
+      const assignees = (p.assignees || []).join(" ").toLowerCase();
+      const status = (p.status || "").toLowerCase();
+      
+      // Status Filter
+      if (sFilter !== "all" && status !== sFilter) {
+        return false;
+      }
+
+      if (!qMain) return true;
+      
+      return (
+        name.includes(qMain) || 
+        desc.includes(qMain) ||
+        assignees.includes(qMain)
+      );
+    });
+  }, [projects, searchQuery, statusFilter]);
 
   const paginatedProjects = useMemo(() => {
     const start = (projectPage - 1) * PAGE_SIZE;
