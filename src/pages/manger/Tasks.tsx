@@ -227,6 +227,7 @@ function normalizeTask(t: TaskApi): Task {
     attachmentFileName: extra.attachmentFileName,
     attachmentNote: extra.attachmentNote,
     attachment: extra.attachment,
+    attachments: Array.isArray((t as any).attachments) ? (t as any).attachments : undefined,
   };
 }
 
@@ -398,6 +399,15 @@ export default function Tasks() {
 
   useEffect(() => {
     const viewId = String(searchParams.get("view") || "").trim();
+    const searchVal = String(searchParams.get("search") || "").trim();
+    
+    if (searchVal) {
+      setSearchQuery(searchVal);
+      const next = new URLSearchParams(searchParams);
+      next.delete("search");
+      setSearchParams(next, { replace: true });
+    }
+
     if (!viewId) return;
     if (isViewOpen || isEditOpen || isDeleteOpen || isCreateOpen) return;
 
