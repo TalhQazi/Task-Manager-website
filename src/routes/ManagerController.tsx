@@ -21,6 +21,7 @@ import OnboardingMonitoring from "@/pages/manger/OnboardingMonitoring";
 import Reports from "@/pages/manger/Reports";
 import FounderMessages from "@/pages/manger/FounderMessages";
 import NotFound from "@/pages/manger/NotFound";
+import SignaCore from "@/pages/admin/SignaCore";
 
 export default function ManagerController() {
   const location = useLocation();
@@ -28,6 +29,7 @@ export default function ManagerController() {
 // adding routes
   const routes = useMemo(
     () => [
+      { path: "contracts", element: <SignaCore /> },
       { index: true, element: <Dashboard /> },
       { path: "tasks", element: <Tasks /> },
       { path: "employees", element: <Employees /> },
