@@ -35,15 +35,7 @@ interface MainLayoutProps {
 
 export function MainLayout({ children }: MainLayoutProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchQuery.trim()) {
-      navigate(`/manager/tasks?search=${encodeURIComponent(searchQuery.trim())}`);
-    }
-  };
 
   const auth = getAuthState();
 
@@ -501,18 +493,6 @@ export function MainLayout({ children }: MainLayoutProps) {
                   <Sidebar mode="mobile" onNavigate={() => setMobileSidebarOpen(false)} />
                 </SheetContent>
               </Sheet>
-
-              {/* SEARCH BAR */}
-              <form onSubmit={handleSearch} className="hidden lg:flex items-center relative ml-4">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50" />
-                <Input
-                  type="text"
-                  placeholder="Search tasks..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-9 w-64 pl-10 pr-4 bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:bg-white/20 focus:border-white/40 focus:ring-0 transition-all rounded-full"
-                />
-              </form>
             </div>
 
             {/* CENTER LOGO */}
