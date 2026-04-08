@@ -86,7 +86,7 @@ import {
   UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/admin/utils";
-import { apiFetch } from "@/lib/admin/apiClient";
+import { apiFetch, downloadTaskAttachment } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import jsPDF from "jspdf";
@@ -1972,7 +1972,7 @@ export default function Tasks() {
 
               {/* Attachments sections - responsive grid */}
               <div className="space-y-4">
-                {(selectedTask.attachments && selectedTask.attachments.length > 0) || selectedTask.attachment?.url ? (
+                {(selectedTask.attachments && selectedTask.attachments.length > 0) || selectedTask.attachment?.fileName ? (
                   <div className="space-y-2">
                     <p className="text-muted-foreground text-sm font-medium flex items-center gap-2"><FileText className="w-4 h-4" />Attachments</p>
                     <div className="border border-border rounded-md p-2 bg-muted/10">
@@ -1980,33 +1980,23 @@ export default function Tasks() {
                         {selectedTask.attachments && selectedTask.attachments.length > 0
                           ? selectedTask.attachments.map((attachment, idx) => (
                               <div key={idx} className="relative group rounded-md overflow-hidden border border-border bg-background">
-                                {attachment.mimeType?.startsWith("image/") ? (
-                                  <>
-                                    <img src={attachment.url} alt={attachment.fileName || `Attachment ${idx + 1}`} className="w-full h-24 object-cover" />
-                                    <a href={attachment.url} download={attachment.fileName} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center" title={attachment.fileName}><span className="text-white text-xs font-medium">Download</span></a>
-                                  </>
+                                {attachment.mimeType?.startsWith("image/") && attachment.url ? (
+                                  <img src={attachment.url} alt={attachment.fileName || `Attachment ${idx + 1}`} className="w-full h-24 object-cover" />
                                 ) : (
-                                  <>
-                                    <div className="w-full h-24 flex items-center justify-center bg-muted"><FileText className="h-8 w-8 text-muted-foreground" /></div>
-                                    <a href={attachment.url} download={attachment.fileName} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center" title={attachment.fileName}><span className="text-white text-xs font-medium">Download</span></a>
-                                  </>
+                                  <div className="w-full h-24 flex items-center justify-center bg-muted"><FileText className="h-8 w-8 text-muted-foreground" /></div>
                                 )}
+                                <button type="button" onClick={() => void downloadTaskAttachment(selectedTask.id, idx, attachment.fileName || "download")} className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center" title={attachment.fileName}><span className="text-white text-xs font-medium">Download</span></button>
                                 {isAdminRole && (<button type="button" onClick={() => void archiveAttachment(idx)} disabled={archivingAttachment === idx} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-sm z-10" title="Archive this attachment">{archivingAttachment === idx ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Archive className="h-3.5 w-3.5" />}</button>)}
                               </div>
                             ))
-                          : selectedTask.attachment?.url ? (
+                          : selectedTask.attachment?.fileName ? (
                               <div className="relative group rounded-md overflow-hidden border border-border bg-background">
-                                {selectedTask.attachment.mimeType?.startsWith("image/") ? (
-                                  <>
-                                    <img src={selectedTask.attachment.url} alt={selectedTask.attachment.fileName || "Attachment"} className="w-full h-24 object-cover" />
-                                    <a href={selectedTask.attachment.url} download={selectedTask.attachment.fileName} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center" title={selectedTask.attachment.fileName}><span className="text-white text-xs font-medium">Download</span></a>
-                                  </>
+                                {selectedTask.attachment.mimeType?.startsWith("image/") && selectedTask.attachment.url ? (
+                                  <img src={selectedTask.attachment.url} alt={selectedTask.attachment.fileName || "Attachment"} className="w-full h-24 object-cover" />
                                 ) : (
-                                  <>
-                                    <div className="w-full h-24 flex items-center justify-center bg-muted"><FileText className="h-8 w-8 text-muted-foreground" /></div>
-                                    <a href={selectedTask.attachment.url} download={selectedTask.attachment.fileName} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center" title={selectedTask.attachment.fileName}><span className="text-white text-xs font-medium">Download</span></a>
-                                  </>
+                                  <div className="w-full h-24 flex items-center justify-center bg-muted"><FileText className="h-8 w-8 text-muted-foreground" /></div>
                                 )}
+                                <button type="button" onClick={() => void downloadTaskAttachment(selectedTask.id, -1, selectedTask.attachment!.fileName || "download")} className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center" title={selectedTask.attachment.fileName}><span className="text-white text-xs font-medium">Download</span></button>
                                 {isAdminRole && (<button type="button" onClick={() => void archiveAttachment(-1)} disabled={archivingAttachment === -1} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-sm z-10" title="Archive this attachment">{archivingAttachment === -1 ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Archive className="h-3.5 w-3.5" />}</button>)}
                               </div>
                             ) : null}

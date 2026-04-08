@@ -83,7 +83,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
-import { apiFetch } from "@/lib/manger/api";
+import { apiFetch, downloadTaskAttachment } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import jsPDF from "jspdf";
@@ -1857,7 +1857,7 @@ export default function Tasks() {
                       selectedTask.attachments.map((attachment, index) => (
                         <div key={index} className="relative group">
                           <div className="w-full aspect-square bg-muted/20 rounded border border-border overflow-hidden flex items-center justify-center">
-                            {attachment.mimeType?.startsWith("image/") ? (
+                            {attachment.mimeType?.startsWith("image/") && attachment.url ? (
                               <img
                                 src={attachment.url}
                                 alt={attachment.fileName || `Attachment ${index + 1}`}
@@ -1869,24 +1869,22 @@ export default function Tasks() {
                           </div>
                           {/* Hover overlay with download button */}
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded flex items-center justify-center gap-2">
-                            <a
-                              href={attachment.url}
-                              download={attachment.fileName}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <button
+                              type="button"
+                              onClick={() => void downloadTaskAttachment(selectedTask.id, index, attachment.fileName || "download")}
                               className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90"
                               title={attachment.fileName || "Download"}
                             >
                               <Download className="h-3 w-3" />
-                            </a>
+                            </button>
                           </div>
                         </div>
                       ))
-                    ) : selectedTask.attachment?.url ? (
+                    ) : selectedTask.attachment?.fileName ? (
                       /* Handle legacy single attachment */
                       <div className="relative group">
                         <div className="w-full aspect-square bg-muted/20 rounded border border-border overflow-hidden flex items-center justify-center">
-                          {selectedTask.attachment.mimeType?.startsWith("image/") ? (
+                          {selectedTask.attachment.mimeType?.startsWith("image/") && selectedTask.attachment.url ? (
                             <img
                               src={selectedTask.attachment.url}
                               alt={selectedTask.attachment.fileName || "Attachment"}
@@ -1898,16 +1896,14 @@ export default function Tasks() {
                         </div>
                         {/* Hover overlay with download button */}
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded flex items-center justify-center gap-2">
-                          <a
-                            href={selectedTask.attachment.url}
-                            download={selectedTask.attachment.fileName}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            type="button"
+                            onClick={() => void downloadTaskAttachment(selectedTask.id, -1, selectedTask.attachment!.fileName || "download")}
                             className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90"
                             title={selectedTask.attachment.fileName || "Download"}
                           >
                             <Download className="h-3 w-3" />
-                          </a>
+                          </button>
                         </div>
                       </div>
                     ) : selectedTask.attachmentFileName ? (
