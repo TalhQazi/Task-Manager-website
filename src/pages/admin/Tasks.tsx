@@ -411,11 +411,11 @@ export default function Tasks() {
         status: statusFilter,
         priority: priorityFilter,
       });
-      const res = await apiFetch<{ items: TaskApi[], pagination: any }>(`/api/tasks?${params.toString()}`);
+      const res = await apiFetch<{ items: TaskApi[], totalPages: number, total: number }>(`/api/tasks?${params.toString()}`);
       return {
         items: res.items.map(normalizeTask),
-        totalPages: res.pagination?.totalPages || 1,
-        totalItems: res.pagination?.total || 0,
+        totalPages: res.totalPages || 1,
+        totalItems: res.total || 0,
       };
     },
     placeholderData: (previousData) => previousData,
@@ -430,11 +430,11 @@ export default function Tasks() {
         limit: PAGE_SIZE.toString(),
         search: projectSearchQuery,
       });
-      const res = await apiFetch<{ items: Project[], pagination: any }>(`/api/projects?${params.toString()}`);
+      const res = await apiFetch<{ items: Project[], totalPages: number, total: number }>(`/api/projects?${params.toString()}`);
       return {
         items: res.items,
-        totalPages: res.pagination?.totalPages || 1,
-        totalItems: res.pagination?.total || 0,
+        totalPages: res.totalPages || 1,
+        totalItems: res.total || 0,
       };
     },
     placeholderData: (previousData) => previousData,
