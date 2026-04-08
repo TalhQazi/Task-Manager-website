@@ -2463,7 +2463,6 @@ export default function Tasks() {
                 onPageChange={setTaskPage}
                 className="mt-6"
               />
-              </div>
             </>
           )}
         </div>
