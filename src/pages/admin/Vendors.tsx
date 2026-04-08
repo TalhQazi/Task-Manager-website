@@ -50,6 +50,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
+import { useToast } from "@/components/admin/ui/use-toast";
 
 interface Vendor {
   _id: string;
@@ -79,6 +80,7 @@ export default function Vendors() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   
   // Dialog states
+  const { toast } = useToast();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -136,7 +138,28 @@ export default function Vendors() {
   const approvedCount = vendors.filter((v) => v.status === "approved").length;
   const notApprovedCount = vendors.filter((v) => v.status === "not-approved").length;
 
+  const validateForm = () => {
+    if (!formData.name.trim()) {
+      toast({ title: "Name is required", variant: "destructive" });
+      return false;
+    }
+    if (!formData.phone.trim()) {
+      toast({ title: "Phone is required", variant: "destructive" });
+      return false;
+    }
+    if (!formData.serviceType.trim()) {
+      toast({ title: "Service type is required", variant: "destructive" });
+      return false;
+    }
+    if (!formData.location.trim()) {
+      toast({ title: "Location is required", description: "Please select a location from the dropdown.", variant: "destructive" });
+      return false;
+    }
+    return true;
+  };
+
   const handleCreate = async () => {
+    if (!validateForm()) return;
     try {
       const res = await apiFetch<{ item: Vendor }>("/api/vendors", {
         method: "POST",
@@ -145,13 +168,15 @@ export default function Vendors() {
       setVendors([res.item, ...vendors]);
       setIsCreateOpen(false);
       resetForm();
+      toast({ title: "Vendor added successfully" });
     } catch (error) {
-      console.error("Failed to create vendor:", error);
+      toast({ title: "Failed to create vendor", description: error instanceof Error ? error.message : "Something went wrong", variant: "destructive" });
     }
   };
 
   const handleUpdate = async () => {
     if (!selectedVendor) return;
+    if (!validateForm()) return;
     try {
       const res = await apiFetch<{ item: Vendor }>(`/api/vendors/${selectedVendor._id}`, {
         method: "PUT",
@@ -161,8 +186,9 @@ export default function Vendors() {
       setIsEditOpen(false);
       setSelectedVendor(null);
       resetForm();
+      toast({ title: "Vendor updated successfully" });
     } catch (error) {
-      console.error("Failed to update vendor:", error);
+      toast({ title: "Failed to update vendor", description: error instanceof Error ? error.message : "Something went wrong", variant: "destructive" });
     }
   };
 
