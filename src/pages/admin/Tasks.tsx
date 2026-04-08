@@ -1590,7 +1590,7 @@ export default function Tasks() {
                 {projectsQuery.data?.items.map((project, idx) => {
                   const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0 ? project.assignees : [];
                   const taskNum = project.taskCount ?? 0;
-                  const projectNumber = (projectPage - 1) * PAGE_SIZE + idx + 1;
+                  const projectLetter = String.fromCharCode(65 + (idx % 26));
                   return (
                     <div
                       key={project.id}
@@ -1601,7 +1601,7 @@ export default function Tasks() {
                         className="w-full text-left"
                       >
                         <div className="flex items-center gap-2 mb-2">
-                          <span className="flex-shrink-0 text-xs font-bold text-muted-foreground w-5 text-right">{projectNumber}.</span>
+                          <span className="flex-shrink-0 text-xs font-bold text-primary w-5 text-right">{projectLetter}.</span>
                           <ProjectLogoImg projectId={project.id} projectName={project.name} />
                           <div className="min-w-0 flex-1">
                             <p className="font-medium truncate">{project.name}</p>
@@ -1701,7 +1701,7 @@ export default function Tasks() {
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {tasks.map((task, idx) => {
                   const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0 ? task.assignees : [];
-                  const taskNumber = (taskPage - 1) * PAGE_SIZE + idx + 1;
+                  const taskLetter = String.fromCharCode(65 + (idx % 26));
                   return (
                     <div
                       key={task.id}
@@ -1712,7 +1712,10 @@ export default function Tasks() {
                         className="w-full text-left"
                       >
                         <div className="mb-2">
-                          <p className="font-medium truncate text-sm">{taskNumber}. {task.title}</p>
+                          <p className="font-medium truncate text-sm">
+                            <span className="text-primary mr-1">{taskLetter}.</span> 
+                            {task.title}
+                          </p>
                           <p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p>
                         </div>
                         <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
@@ -2604,27 +2607,36 @@ export default function Tasks() {
           ) : (
             <>
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredTasks.map((task, index) => (
-                  <motion.div
-                    key={task.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="bg-card rounded-xl border border-muted/50 hover:border-primary/50 transition-all hover:shadow-md overflow-hidden flex flex-col group cursor-pointer"
-                    onClick={() => openView(task)}
-                  >
-                    <div className="p-4 border-b border-muted/30 flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1"><p className="font-semibold text-foreground line-clamp-1 break-words">{task.title}</p><p className="text-xs text-muted-foreground mt-1 capitalize">{task.priority} priority</p></div>
-                      <DropdownMenu><DropdownMenuTrigger asChild><button className="p-1 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0" aria-label="Task actions" onClick={(e) => e.stopPropagation()}><MoreHorizontal className="w-4 h-4 text-muted-foreground" /></button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openView(task); }}>View Details</DropdownMenuItem><DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handlePrintTask(task); }}>Print</DropdownMenuItem><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(task); }}>Edit</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }} className="text-amber-600"><Archive className="w-4 h-4 mr-2" />Archive</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
-                    </div>
+                {filteredTasks.map((task, index) => {
+                  const letterIndex = String.fromCharCode(65 + (index % 26));
+                  return (
+                    <motion.div
+                      key={task.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="bg-card rounded-xl border border-muted/50 hover:border-primary/50 transition-all hover:shadow-md overflow-hidden flex flex-col group cursor-pointer"
+                      onClick={() => openView(task)}
+                    >
+                      <div className="p-4 border-b border-muted/30 flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-foreground line-clamp-1 break-words">
+                            <span className="text-primary mr-1.5">{letterIndex}.</span> 
+                            {task.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1 capitalize">{task.priority} priority</p>
+                        </div>
+                        <DropdownMenu><DropdownMenuTrigger asChild><button className="p-1 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0" aria-label="Task actions" onClick={(e) => e.stopPropagation()}><MoreHorizontal className="w-4 h-4 text-muted-foreground" /></button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openView(task); }}>View Details</DropdownMenuItem><DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handlePrintTask(task); }}>Print</DropdownMenuItem><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(task); }}>Edit</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }} className="text-amber-600"><Archive className="w-4 h-4 mr-2" />Archive</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+                      </div>
                     <div className="p-4 flex-1 space-y-3">
                       <p className="text-sm text-muted-foreground line-clamp-2 break-words">{task.description}</p>
                       <div><p className="text-xs text-muted-foreground mb-2">Assigned to</p><div className="flex flex-wrap items-center gap-2">{task.assignees && task.assignees.length > 0 ? (<><div className="flex -space-x-2">{task.assignees.slice(0, 3).map((assignee, idx) => (<Avatar key={idx} className="w-7 h-7 border-2 border-background"><AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">{assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}</AvatarFallback></Avatar>))}{task.assignees.length > 3 && (<div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">+{task.assignees.length - 3}</div>)}</div><span className="text-sm text-foreground break-words">{task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}</span></>) : (<span className="text-sm text-muted-foreground">Unassigned</span>)}</div></div>
                       <div className="flex gap-2 flex-wrap"><Badge variant="secondary" className={cn("text-xs", statusClasses[task.status])}>{task.status}</Badge><Badge variant="outline" className={cn("text-xs border", priorityClasses[task.priority])}>{task.priority}</Badge></div>
                     </div>
                     <div className="p-4 border-t border-muted/30 bg-muted/10 space-y-2 text-sm"><div className="flex items-center gap-2 text-muted-foreground flex-wrap"><Calendar className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs">Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}</span></div><div className="flex items-center gap-2 text-muted-foreground flex-wrap"><Clock className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs">Created: {new Date(task.createdAt).toLocaleDateString()}</span></div>{task.location && (<div className="flex items-center gap-2 text-muted-foreground flex-wrap"><MapPin className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs break-words">{task.location}</span></div>)}</div>
-                  </motion.div>
-                ))}
+                    </motion.div>
+                  );
+                })}
               </div>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-muted-foreground mt-6 pt-4 border-t border-muted/20">
                 <span className="text-center sm:text-left">Showing {filteredTasks.length} of {tasks.length} tasks</span>

@@ -33,6 +33,8 @@ import {
   Calendar,
   User,
   Search,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { Input } from "@/components/admin/ui/input";
 import { apiFetch } from "@/lib/admin/apiClient";
@@ -48,6 +50,13 @@ type ArchivedItem = {
   archivedByUsername: string;
   archivedByRole: string;
   createdAt: string;
+};
+
+type Pagination = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 };
 
 const itemTypeIcons: Record<string, any> = {
@@ -70,24 +79,35 @@ export default function ArchiveData() {
   const [searchQuery, setSearchQuery] = useState("");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [restoring, setRestoring] = useState<string | null>(null);
+  const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 20, total: 0, totalPages: 1 });
 
   const auth = getAuthState();
-  const isAdminRole = auth.role === "admin" || auth.role === "super-admin";
+  const isAdminRole = auth.role === "admin" || auth.role === "super-admin" || auth.role === "manager";
 
-  const fetchArchive = async () => {
+  const fetchArchive = async (page = pagination.page) => {
     try {
       setLoading(true);
       setError(null);
-      const query = typeFilter !== "all" ? `?itemType=${typeFilter}` : "";
+      const params = new URLSearchParams({ page: String(page), limit: "20" });
+      if (typeFilter !== "all") params.set("itemType", typeFilter);
 
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10000);
 
       try {
-        const res = await apiFetch<{ items: ArchivedItem[] }>(`/api/archive${query}`, {
-          signal: controller.signal,
-        });
+        const res = await apiFetch<{ items: ArchivedItem[]; totalPages: number; total: number; page: number; limit: number }>(
+          `/api/archive?${params.toString()}`,
+          { signal: controller.signal }
+        );
         setItems(res.items || []);
+        if (res.total !== undefined) {
+          setPagination({
+            page: res.page || 1,
+            limit: res.limit || 20,
+            total: res.total || 0,
+            totalPages: res.totalPages || 1
+          });
+        }
       } finally {
         clearTimeout(timeout);
       }
@@ -103,7 +123,8 @@ export default function ArchiveData() {
   };
 
   useEffect(() => {
-    void fetchArchive();
+    setPagination((p) => ({ ...p, page: 1 }));
+    void fetchArchive(1);
   }, [typeFilter]);
 
   const handleRestore = async (id: string) => {
@@ -214,7 +235,7 @@ export default function ArchiveData() {
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "Total Archived", count: items.length, color: "bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200" },
+            { label: "Total Archived", count: pagination.total, color: "bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200" },
             { label: "Comments", count: items.filter((i) => i.itemType === "comment").length, color: "bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200" },
             { label: "Attachments", count: items.filter((i) => i.itemType === "attachment").length, color: "bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200" },
             { label: "Tasks", count: items.filter((i) => i.itemType === "task").length, color: "bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200" },
@@ -248,7 +269,8 @@ export default function ArchiveData() {
               {filtered.map((item, idx) => {
                 const Icon = itemTypeIcons[item.itemType] || FileText;
                 const colorClass = itemTypeColors[item.itemType] || "bg-gray-100 text-gray-700";
-                
+                const letterIndex = String.fromCharCode(65 + (idx % 26));
+
                 return (
                   <motion.div
                     key={item.id}
@@ -261,8 +283,11 @@ export default function ArchiveData() {
                       <CardContent className="p-4 sm:p-5">
                         <div className="flex items-start gap-3">
                           {/* Icon */}
-                          <div className={`rounded-full p-2.5 flex-shrink-0 ${colorClass}`}>
+                          <div className={`relative rounded-full p-2.5 flex-shrink-0 ${colorClass}`}>
                             <Icon className="h-4 w-4" />
+                            <span className="absolute -top-1 -right-1 bg-white border border-current text-[9px] font-bold h-4 w-4 rounded-full flex items-center justify-center shadow-sm">
+                              {letterIndex}
+                            </span>
                           </div>
 
                           {/* Content */}
