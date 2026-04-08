@@ -433,13 +433,40 @@ export function Header({ onMenuClick }: HeaderProps) {
   const coverContainerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
+  const compressCoverImage = (dataUrl: string, maxWidth = 1920, quality = 0.85): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let w = img.naturalWidth;
+        let h = img.naturalHeight;
+        if (w > maxWidth) {
+          h = Math.round((h * maxWidth) / w);
+          w = maxWidth;
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        } else {
+          resolve(dataUrl);
+        }
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  };
+
   const handleCoverFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      setCoverPreviewUrl(dataUrl);
+    reader.onload = async () => {
+      const rawDataUrl = reader.result as string;
+      const compressed = await compressCoverImage(rawDataUrl);
+      setCoverPreviewUrl(compressed);
       setCoverEditMode(true);
       setCoverPositionY(50);
     };
@@ -515,7 +542,6 @@ export function Header({ onMenuClick }: HeaderProps) {
           backgroundType: "image",
           imageConfig: {
             dataUrl: coverPreviewUrl,
-            url: coverPreviewUrl,
             repeat: "no-repeat",
             size: "cover",
             position: `center ${coverPositionY}%`,
