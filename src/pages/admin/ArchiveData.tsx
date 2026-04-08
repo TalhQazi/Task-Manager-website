@@ -79,10 +79,24 @@ export default function ArchiveData() {
       setLoading(true);
       setError(null);
       const query = typeFilter !== "all" ? `?itemType=${typeFilter}` : "";
-      const res = await apiFetch<{ items: ArchivedItem[] }>(`/api/archive${query}`);
-      setItems(res.items || []);
+
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
+
+      try {
+        const res = await apiFetch<{ items: ArchivedItem[] }>(`/api/archive${query}`, {
+          signal: controller.signal,
+        });
+        setItems(res.items || []);
+      } finally {
+        clearTimeout(timeout);
+      }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load archive");
+      if (e instanceof Error && e.name === "AbortError") {
+        setError("Request timed out. The server is taking too long — try again.");
+      } else {
+        setError(e instanceof Error ? e.message : "Failed to load archive");
+      }
     } finally {
       setLoading(false);
     }
