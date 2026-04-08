@@ -452,9 +452,19 @@ export default function Tasks() {
     }
   }, [projectsQuery.data]);
 
-  const loadProject = async (projectId: string) => {
+  const loadProject = async (projectId: string, partialProject?: any) => {
     setIsLoadingProject(true);
-    setSelectedProject(null);
+
+    // Immediately show project with data we already have from the list
+    if (partialProject) {
+      setSelectedProject({
+        ...partialProject,
+        tasks: [],
+      });
+      setTasks([]);
+    } else {
+      setSelectedProject(null);
+    }
 
     try {
       const res = await apiFetch<{ item: ProjectWithTasks }>(`/api/projects/${encodeURIComponent(projectId)}`);
@@ -469,7 +479,9 @@ export default function Tasks() {
       setTasks(projectTasks);
     } catch (err) {
       toast({ title: "Failed to load project", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });
-      setSelectedProject(null);
+      if (!partialProject) {
+        setSelectedProject(null);
+      }
       setTasks([]);
     } finally {
       setIsLoadingProject(false);
@@ -1598,7 +1610,7 @@ export default function Tasks() {
                       className="relative text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card w-full group"
                     >
                       <button
-                        onClick={() => void loadProject(project.id)}
+                        onClick={() => void loadProject(project.id, project)}
                         className="w-full text-left"
                       >
                         <div className="flex items-center gap-2 mb-2">
