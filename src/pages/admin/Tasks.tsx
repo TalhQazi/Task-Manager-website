@@ -1602,7 +1602,7 @@ export default function Tasks() {
                         className="w-full text-left"
                       >
                         <div className="flex items-center gap-2 mb-2">
-                          <span className="flex-shrink-0 text-xs font-bold text-primary w-fit text-right min-w-[30px]">{projectNumber}. {projectLetter}</span>
+                          <span className="flex-shrink-0 text-xs font-bold text-primary w-fit text-right min-w-[20px]">{projectNumber}.</span>
                           <ProjectLogoImg projectId={project.id} projectName={project.name} />
                           <div className="min-w-0 flex-1">
                             <p className="font-medium truncate">{project.name}</p>
@@ -1715,7 +1715,7 @@ export default function Tasks() {
                       >
                         <div className="mb-2">
                           <p className="font-medium truncate text-sm">
-                            <span className="text-primary mr-1">{taskNumber}. {taskLetter}</span> 
+                            <span className="text-primary mr-1">{taskNumber}.</span> 
                             {task.title}
                           </p>
                           <p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p>
@@ -2624,7 +2624,7 @@ export default function Tasks() {
                       <div className="p-4 border-b border-muted/30 flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-foreground line-clamp-1 break-words">
-                            <span className="text-primary mr-1.5">{displayNumber}. {letterIndex}</span> 
+                            <span className="text-primary mr-1.5">{displayNumber}.</span> 
                             {task.title}
                           </p>
                           <p className="text-xs text-muted-foreground mt-1 capitalize">{task.priority} priority</p>

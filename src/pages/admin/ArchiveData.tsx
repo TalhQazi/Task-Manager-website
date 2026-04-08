@@ -286,8 +286,8 @@ export default function ArchiveData() {
                           {/* Icon */}
                           <div className={`relative rounded-full p-2.5 flex-shrink-0 ${colorClass}`}>
                             <Icon className="h-4 w-4" />
-                            <span className="absolute -top-1 -right-1 bg-white border border-current text-[9px] font-bold h-fit min-w-[24px] px-1 rounded-full flex items-center justify-center shadow-sm">
-                              {displayNumber}. {letterIndex}
+                            <span className="absolute -top-1 -right-1 bg-white border border-current text-[9px] font-bold h-fit min-w-[18px] px-1 rounded-full flex items-center justify-center shadow-sm">
+                              {displayNumber}.
                             </span>
                           </div>
 
