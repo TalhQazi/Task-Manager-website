@@ -1,40 +1,56 @@
-import { useMemo } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import { Navigate, useLocation, useRoutes } from "react-router-dom";
 import { getAuthState } from "@/lib/auth";
 import { AdminLayout } from "@/components/admin/layout/AdminLayout";
 
-import Dashboard from "@/pages/admin/Dashboard";
-import Users from "@/pages/admin/Users";
-import Tasks from "@/pages/admin/Tasks";
-import Employees from "@/pages/admin/Employees";
-import Payroll from "@/pages/admin/Payroll";
-import TaskHistory from "@/pages/admin/TaskHistory";
-import EmployeeTaskHistory from "@/pages/admin/EmployeeTaskHistory";
-import Appliances from "@/pages/admin/Appliances";
-import Vehicles from "@/pages/admin/Vehicles";
-import Locations from "@/pages/admin/Locations";
-import Companies from "@/pages/admin/Companies";
-import Vendors from "@/pages/admin/Vendors";
-import Scheduling from "@/pages/admin/Scheduling";
-import TimeTracking from "@/pages/admin/TimeTracking";
-import EmployeeTimeHistory from "@/pages/admin/EmployeeTimeHistory";
-import Messaging from "@/pages/admin/Messaging";
-import Notifications from "@/pages/admin/Notifications";
-import DoNotHire from "@/pages/admin/DoNotHire";
-import Onboarding from "@/pages/admin/Onboarding";
-import Reports from "@/pages/admin/Reports";
-import ActivityLogs from "@/pages/admin/ActivityLogs";
-import Settings from "@/pages/admin/Settings";
-import Profile from "@/pages/admin/Profile";
-import RolesPermissions from "@/pages/admin/RolesPermissions";
-import AsanaImport from "@/pages/admin/AsanaImport";
-import AsanaData from "@/pages/admin/AsanaData";
-import { DigitalAssets } from "@/pages/admin/DigitalAssets";
-import { IntellectualProperty } from "@/pages/admin/IntellectualProperty";
-import NotFound from "@/pages/admin/NotFound";
-import ArchiveData from "@/pages/admin/ArchiveData";
-import FounderMessages from "@/pages/admin/FounderMessages";
-import SignaCore from "@/pages/admin/SignaCore";
+// Lazy-loaded page components for code splitting
+const Dashboard = lazy(() => import("@/pages/admin/Dashboard"));
+const Users = lazy(() => import("@/pages/admin/Users"));
+const Tasks = lazy(() => import("@/pages/admin/Tasks"));
+const Employees = lazy(() => import("@/pages/admin/Employees"));
+const Payroll = lazy(() => import("@/pages/admin/Payroll"));
+const TaskHistory = lazy(() => import("@/pages/admin/TaskHistory"));
+const EmployeeTaskHistory = lazy(() => import("@/pages/admin/EmployeeTaskHistory"));
+const Appliances = lazy(() => import("@/pages/admin/Appliances"));
+const Vehicles = lazy(() => import("@/pages/admin/Vehicles"));
+const Locations = lazy(() => import("@/pages/admin/Locations"));
+const Companies = lazy(() => import("@/pages/admin/Companies"));
+const Vendors = lazy(() => import("@/pages/admin/Vendors"));
+const Scheduling = lazy(() => import("@/pages/admin/Scheduling"));
+const TimeTracking = lazy(() => import("@/pages/admin/TimeTracking"));
+const EmployeeTimeHistory = lazy(() => import("@/pages/admin/EmployeeTimeHistory"));
+const Messaging = lazy(() => import("@/pages/admin/Messaging"));
+const Notifications = lazy(() => import("@/pages/admin/Notifications"));
+const DoNotHire = lazy(() => import("@/pages/admin/DoNotHire"));
+const Onboarding = lazy(() => import("@/pages/admin/Onboarding"));
+const Reports = lazy(() => import("@/pages/admin/Reports"));
+const ActivityLogs = lazy(() => import("@/pages/admin/ActivityLogs"));
+const Settings = lazy(() => import("@/pages/admin/Settings"));
+const Profile = lazy(() => import("@/pages/admin/Profile"));
+const RolesPermissions = lazy(() => import("@/pages/admin/RolesPermissions"));
+const AsanaImport = lazy(() => import("@/pages/admin/AsanaImport"));
+const AsanaData = lazy(() => import("@/pages/admin/AsanaData"));
+const DigitalAssets = lazy(() => import("@/pages/admin/DigitalAssets").then(m => ({ default: m.DigitalAssets })));
+const IntellectualProperty = lazy(() => import("@/pages/admin/IntellectualProperty").then(m => ({ default: m.IntellectualProperty })));
+const NotFound = lazy(() => import("@/pages/admin/NotFound"));
+const ArchiveData = lazy(() => import("@/pages/admin/ArchiveData"));
+const FounderMessages = lazy(() => import("@/pages/admin/FounderMessages"));
+const SignaCore = lazy(() => import("@/pages/admin/SignaCore"));
+
+function PageLoader() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh" }}>
+      <div style={{
+        width: 36, height: 36,
+        border: "3px solid rgba(255,255,255,0.1)",
+        borderTopColor: "#6366f1",
+        borderRadius: "50%",
+        animation: "spin 0.7s linear infinite",
+      }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
 
 export default function AdminRoutes() {
   const location = useLocation();
@@ -84,5 +100,11 @@ export default function AdminRoutes() {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  return <AdminLayout>{element}</AdminLayout>;
+  return (
+    <AdminLayout>
+      <Suspense fallback={<PageLoader />}>
+        {element}
+      </Suspense>
+    </AdminLayout>
+  );
 }

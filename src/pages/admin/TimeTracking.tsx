@@ -26,6 +26,7 @@ import { apiFetch, createResource, deleteResource, getApiBaseUrl, listResource, 
 import { getAuthState } from "@/lib/auth";
 import jsPDF from "jspdf";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { Pagination } from "@/components/Pagination";
 
 interface TimeEntry {
   id: string;
@@ -237,6 +238,10 @@ const TimeTracking = () => {
     status: "clocked-in" as TimeEntry["status"],
   });
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const PAGE_SIZE = 25;
+
   useEffect(() => {
     let mounted = true;
     const load = async () => {
@@ -244,49 +249,50 @@ const TimeTracking = () => {
         setLoading(true);
         setApiError(null);
         
-        // Fetch time entries
-        const list = await listResource<TimeEntryApi>("time-entries");
+        // Fetch time entries with pagination
+        const res = await listResource<TimeEntryApi>("time-entries", { 
+          page: currentPage, 
+          limit: PAGE_SIZE 
+        });
+        
         if (!mounted) return;
-        setEntries(list.map(normalizeTimeEntry));
         
-        // Fetch employees from employees API
-        let allEmployees: Employee[] = [];
-        try {
-          const employeeList = await listResource<Employee>("employees");
-          if (mounted) {
-            allEmployees = employeeList.filter((e) => e.status === "active");
-          }
-        } catch (empErr) {
-          console.error("Failed to load employees:", empErr);
+        if (res && typeof res === 'object' && 'items' in res) {
+          setEntries(res.items.map(normalizeTimeEntry));
+          setTotalPages(res.pagination?.totalPages || 1);
+        } else {
+          setEntries(res.map(normalizeTimeEntry));
+          setTotalPages(1);
         }
         
-        // Fetch users with employee role from users API
-        try {
-          const userList = await listResource<User>("users");
-          if (mounted) {
-            const employeeUsers = userList
-              .filter((u) => u.role === "employee" && (u.status === "active" || u.status === "pending"))
-              .map((u) => ({
-                id: u.id,
-                name: u.name,
-                initials: getInitials(u.name),
-                email: u.email,
-                status: "active" as const,
-              }));
+        // Fetch employees and users (only on mount)
+        if (employees.length === 0) {
+          try {
+            const employeeList = await listResource<Employee>("employees");
+            const userList = await listResource<User>("users");
             
-            // Merge both lists (remove duplicates by email)
-            employeeUsers.forEach((eu) => {
-              if (!allEmployees.some((e) => e.email === eu.email)) {
-                allEmployees.push(eu);
-              }
-            });
+            if (mounted) {
+              let allEmployees = Array.isArray(employeeList) ? employeeList.filter((e) => e.status === "active") : [];
+              const employeeUsers = (Array.isArray(userList) ? userList : [])
+                .filter((u) => u.role === "employee" && (u.status === "active" || u.status === "pending"))
+                .map((u) => ({
+                  id: u.id,
+                  name: u.name,
+                  initials: getInitials(u.name),
+                  email: u.email,
+                  status: "active" as const,
+                }));
+              
+              employeeUsers.forEach((eu) => {
+                if (!allEmployees.some((e) => e.email === eu.email)) {
+                  allEmployees.push(eu);
+                }
+              });
+              setEmployees(allEmployees);
+            }
+          } catch (err) {
+            console.error("Failed to load dependency data:", err);
           }
-        } catch (userErr) {
-          console.error("Failed to load users:", userErr);
-        }
-        
-        if (mounted) {
-          setEmployees(allEmployees);
         }
       } catch (e) {
         if (!mounted) return;
@@ -300,7 +306,7 @@ const TimeTracking = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [currentPage]);
 
   useEffect(() => {
     const viewId = String(searchParams.get("view") || "").trim();
@@ -321,8 +327,13 @@ const TimeTracking = () => {
   }, [entries, searchParams, setSearchParams, navigate, addOpen]);
 
   const refresh = async () => {
-    const list = await listResource<TimeEntryApi>("time-entries");
-    setEntries(list.map(normalizeTimeEntry));
+    const res = await listResource<TimeEntryApi>("time-entries", { page: currentPage, limit: PAGE_SIZE });
+    if (res && typeof res === 'object' && 'items' in res) {
+      setEntries(res.items.map(normalizeTimeEntry));
+      setTotalPages(res.pagination?.totalPages || 1);
+    } else {
+      setEntries(res.map(normalizeTimeEntry));
+    }
   };
 
   const loadCompliance = async () => {
@@ -1059,6 +1070,13 @@ const TimeTracking = () => {
                     </div>
                   ))
                 )}
+                
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                  className="mt-4"
+                />
               </>
             )}
           </CardContent>

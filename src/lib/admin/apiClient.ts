@@ -119,11 +119,29 @@ function resourcePath(resource: CrudResource) {
   return `/api/${resource}`;
 }
 
-export async function listResource<T>(resource: CrudResource, params?: { q?: string }) {
-  const qs = params?.q ? `?q=${encodeURIComponent(params.q)}` : "";
-  const res = await apiFetch<ListResponse<T>>(`${resourcePath(resource)}${qs}`);
+export async function listResource<T>(resource: CrudResource, params?: Record<string, string | number | undefined>) {
+  const urlParams = new URLSearchParams();
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined) {
+        urlParams.append(key, String(value));
+      }
+    });
+  }
+  const qs = urlParams.toString() ? `?${urlParams.toString()}` : "";
+  const res = await apiFetch<ListResponse<T> & { pagination?: any }>(`${resourcePath(resource)}${qs}`);
+  
   if (Array.isArray(res)) return res;
-  return res.items ?? [];
+  
+  // Return as an object if pagination is present, otherwise just the items
+  if (res.pagination) {
+    return {
+      items: res.items ?? [],
+      pagination: res.pagination
+    } as any;
+  }
+  
+  return (res.items ?? []) as any;
 }
 
 export async function createResource<T>(resource: CrudResource, payload: unknown) {

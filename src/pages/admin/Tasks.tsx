@@ -91,6 +91,7 @@ import { getAuthState } from "@/lib/auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import jsPDF from "jspdf";
 import { useSocket } from "@/contexts/SocketContext";
+import { Pagination } from "@/components/Pagination";
 
 function ProjectLogoImg({ projectId, projectName }: { projectId: string; projectName: string }) {
   const [src, setSrc] = useState<string | null | undefined>(undefined);
@@ -399,39 +400,55 @@ export default function Tasks() {
   const [archivingCommentId, setArchivingCommentId] = useState<string | null>(null);
   const [archivingAttachment, setArchivingAttachment] = useState<number | null>(null);
 
-  // Fetch tasks
+  // Fetch tasks with server-side pagination
   const tasksQuery = useQuery({
-    queryKey: ["tasks"],
+    queryKey: ["tasks", taskPage, searchQuery, statusFilter, priorityFilter],
     queryFn: async () => {
-      const res = await apiFetch<{ items: TaskApi[] }>("/api/tasks");
-      return res.items.map(normalizeTask);
+      const params = new URLSearchParams({
+        page: taskPage.toString(),
+        limit: PAGE_SIZE.toString(),
+        search: searchQuery,
+        status: statusFilter,
+        priority: priorityFilter,
+      });
+      const res = await apiFetch<{ items: TaskApi[], pagination: any }>(`/api/tasks?${params.toString()}`);
+      return {
+        items: res.items.map(normalizeTask),
+        totalPages: res.pagination?.totalPages || 1,
+        totalItems: res.pagination?.total || 0,
+      };
     },
+    placeholderData: (previousData) => previousData,
   });
 
-  // Fetch projects
+  // Fetch projects with server-side pagination
   const projectsQuery = useQuery({
-    queryKey: ["projects"],
+    queryKey: ["projects", projectPage, projectSearchQuery],
     queryFn: async () => {
-      const res = await apiFetch<{ items: Project[] }>("/api/projects");
-      return res.items;
+      const params = new URLSearchParams({
+        page: projectPage.toString(),
+        limit: PAGE_SIZE.toString(),
+        search: projectSearchQuery,
+      });
+      const res = await apiFetch<{ items: Project[], pagination: any }>(`/api/projects?${params.toString()}`);
+      return {
+        items: res.items,
+        totalPages: res.pagination?.totalPages || 1,
+        totalItems: res.pagination?.total || 0,
+      };
     },
+    placeholderData: (previousData) => previousData,
   });
 
   useEffect(() => {
     if (tasksQuery.data) {
-      setTasks(tasksQuery.data);
+      setTasks(tasksQuery.data.items);
     }
   }, [tasksQuery.data]);
 
   useEffect(() => {
-    if (!selectedProject && tasksQuery.data) {
-      setTasks(tasksQuery.data);
-    }
-  }, [selectedProject, tasksQuery.data]);
-
-  useEffect(() => {
     if (projectsQuery.data) {
-      setProjects(projectsQuery.data);
+      setProjects(projectsQuery.data.items);
     }
   }, [projectsQuery.data]);
 
@@ -1389,23 +1406,10 @@ export default function Tasks() {
     });
   }, [tasks, searchQuery]);
 
-  const paginatedProjects = useMemo(() => {
-    const start = (projectPage - 1) * PAGE_SIZE;
-    return filteredProjects.slice(start, start + PAGE_SIZE);
-  }, [filteredProjects, projectPage]);
-  const projectTotalPages = Math.ceil(filteredProjects.length / PAGE_SIZE) || 1;
-
-  const paginatedStandaloneTasks = useMemo(() => {
-    const start = (taskPage - 1) * PAGE_SIZE;
-    return filteredStandaloneTasks.slice(start, start + PAGE_SIZE);
-  }, [filteredStandaloneTasks, taskPage]);
-  const taskTotalPages = Math.ceil(filteredStandaloneTasks.length / PAGE_SIZE) || 1;
-
-  const paginatedProjectTasks = useMemo(() => {
-    const start = (projectTaskPage - 1) * PAGE_SIZE;
-    return filteredTasks.slice(start, start + PAGE_SIZE);
-  }, [filteredTasks, projectTaskPage]);
-  const projectTaskTotalPages = Math.ceil(filteredTasks.length / PAGE_SIZE) || 1;
+  // Project & Task counts from server data
+  const projectTotalPages = projectsQuery.data?.totalPages || 1;
+  const taskTotalPages = tasksQuery.data?.totalPages || 1;
+  const projectTaskTotalPages = 1; // Handled within selective project view currently
 
   // Format time for messages
   const formatMessageTime = (dateString: string) => {
@@ -1578,12 +1582,12 @@ export default function Tasks() {
               <p className="text-muted-foreground">Loading projects...</p>
             ) : projectsQuery.isError ? (
               <p className="text-destructive">{(() => { const msg = projectsQuery.error instanceof Error ? projectsQuery.error.message : "Failed to load projects"; return msg.startsWith("<") ? "Server error: failed to load projects. The server may be temporarily unavailable (504 Gateway Timeout). Please try again later." : msg; })()}</p>
-            ) : filteredProjects.length === 0 ? (
+            ) : projectsQuery.data?.items.length === 0 ? (
               <p className="text-muted-foreground">{projectSearchQuery ? "No projects match your search." : "No projects found. Create one to begin."}</p>
             ) : (
               <>
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {paginatedProjects.map((project, idx) => {
+                {projectsQuery.data?.items.map((project, idx) => {
                   const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0 ? project.assignees : [];
                   const taskNum = project.taskCount ?? 0;
                   const projectNumber = (projectPage - 1) * PAGE_SIZE + idx + 1;
@@ -1673,18 +1677,12 @@ export default function Tasks() {
                   );
                 })}
               </div>
-              {projectTotalPages > 1 && (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-4 pt-4 border-t border-muted/20">
-                  <span className="text-sm text-muted-foreground">
-                    Showing {Math.min((projectPage - 1) * PAGE_SIZE + 1, filteredProjects.length)}–{Math.min(projectPage * PAGE_SIZE, filteredProjects.length)} of {filteredProjects.length} projects
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setProjectPage((p) => Math.max(1, p - 1))} disabled={projectPage === 1}>Previous</Button>
-                    <span className="text-sm px-1">{projectPage} / {projectTotalPages}</span>
-                    <Button variant="outline" size="sm" onClick={() => setProjectPage((p) => Math.min(projectTotalPages, p + 1))} disabled={projectPage === projectTotalPages}>Next</Button>
-                  </div>
-                </div>
-              )}
+              <Pagination
+                currentPage={projectPage}
+                totalPages={projectTotalPages}
+                onPageChange={setProjectPage}
+                className="mt-6"
+              />
               </>
             )}
           </div>
@@ -1701,8 +1699,9 @@ export default function Tasks() {
             ) : (
               <>
               <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {paginatedStandaloneTasks.map((task) => {
+                {tasks.map((task, idx) => {
                   const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0 ? task.assignees : [];
+                  const taskNumber = (taskPage - 1) * PAGE_SIZE + idx + 1;
                   return (
                     <div
                       key={task.id}
@@ -1713,7 +1712,7 @@ export default function Tasks() {
                         className="w-full text-left"
                       >
                         <div className="mb-2">
-                          <p className="font-medium truncate text-sm">{task.title}</p>
+                          <p className="font-medium truncate text-sm">{taskNumber}. {task.title}</p>
                           <p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p>
                         </div>
                         <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
@@ -1824,18 +1823,12 @@ export default function Tasks() {
                   );
                 })}
               </div>
-              {taskTotalPages > 1 && (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-4 pt-4 border-t border-muted/20">
-                  <span className="text-sm text-muted-foreground">
-                    Showing {Math.min((taskPage - 1) * PAGE_SIZE + 1, filteredStandaloneTasks.length)}–{Math.min(taskPage * PAGE_SIZE, filteredStandaloneTasks.length)} of {filteredStandaloneTasks.length} tasks
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setTaskPage((p) => Math.max(1, p - 1))} disabled={taskPage === 1}>Previous</Button>
-                    <span className="text-sm px-1">{taskPage} / {taskTotalPages}</span>
-                    <Button variant="outline" size="sm" onClick={() => setTaskPage((p) => Math.min(taskTotalPages, p + 1))} disabled={taskPage === taskTotalPages}>Next</Button>
-                  </div>
-                </div>
-              )}
+              <Pagination
+                currentPage={taskPage}
+                totalPages={taskTotalPages}
+                onPageChange={setTaskPage}
+                className="mt-6"
+              />
               </>
             )}
           </div>
