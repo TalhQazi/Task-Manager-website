@@ -2614,7 +2614,7 @@ export default function Tasks() {
           ) : (
             <>
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {paginatedProjectTasks.map((task, index) => (
+                {filteredTasks.map((task, index) => (
                   <motion.div
                     key={task.id}
                     initial={{ opacity: 0, y: 10 }}
