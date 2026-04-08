@@ -87,6 +87,7 @@ import { apiFetch } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import jsPDF from "jspdf";
+import { Pagination } from "@/components/Pagination";
 
 interface Task {
   id: string;
@@ -337,39 +338,65 @@ export default function Tasks() {
 
   const currentUsername = getAuthState().username || "";
 
-  // Fetch tasks
+  // Fetch tasks with server-side pagination
   const tasksQuery = useQuery({
-    queryKey: ["tasks"],
+    queryKey: ["tasks", taskPage, searchQuery, statusFilter, priorityFilter],
     queryFn: async () => {
-      const res = await apiFetch<{ items: TaskApi[] }>("/api/tasks");
-      return res.items.map(normalizeTask);
+      const params = new URLSearchParams({
+        page: taskPage.toString(),
+        limit: PAGE_SIZE.toString(),
+        search: searchQuery,
+        status: statusFilter,
+        priority: priorityFilter,
+      });
+      const res = await apiFetch<{ items: TaskApi[], totalPages: number, total: number }>(`/api/tasks?${params.toString()}`);
+      return {
+        items: res.items.map(normalizeTask),
+        totalPages: res.totalPages || 1,
+        totalItems: res.total || 0,
+      };
     },
+    placeholderData: (previousData) => previousData,
   });
 
-  // Fetch projects
+  // Fetch projects with server-side pagination
   const projectsQuery = useQuery({
-    queryKey: ["projects"],
+    queryKey: ["projects", projectPage, searchQuery],
     queryFn: async () => {
-      const res = await apiFetch<{ items: Project[] }>("/api/projects");
-      return res.items;
+      const params = new URLSearchParams({
+        page: projectPage.toString(),
+        limit: PAGE_SIZE.toString(),
+        search: searchQuery,
+      });
+      const res = await apiFetch<{ items: Project[], totalPages: number, total: number }>(`/api/projects?${params.toString()}`);
+      return {
+        items: res.items,
+        totalPages: res.totalPages || 1,
+        totalItems: res.total || 0,
+      };
     },
+    placeholderData: (previousData) => previousData,
   });
+
+  // Reset pages when filters change
+  useEffect(() => { setTaskPage(1); }, [searchQuery, statusFilter, priorityFilter]);
+  useEffect(() => { setProjectPage(1); }, [searchQuery]);
 
   useEffect(() => {
     if (tasksQuery.data) {
-      setTasks(tasksQuery.data);
+      setTasks(tasksQuery.data.items);
     }
   }, [tasksQuery.data]);
 
   useEffect(() => {
     if (!selectedProject && tasksQuery.data) {
-      setTasks(tasksQuery.data);
+      setTasks(tasksQuery.data.items);
     }
   }, [selectedProject, tasksQuery.data]);
 
   useEffect(() => {
     if (projectsQuery.data) {
-      setProjects(projectsQuery.data);
+      setProjects(projectsQuery.data.items);
     }
   }, [projectsQuery.data]);
 
@@ -1035,55 +1062,31 @@ export default function Tasks() {
   const sourceTasks = selectedProject ? selectedProject.tasks : tasks;
 
   const filteredTasks = useMemo(() => {
+    if (!selectedProject) return sourceTasks; // already filtered & paginated server-side
     return sourceTasks.filter((task) => {
       const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
       const matchesSearch =
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         assigneesText.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus =
-        statusFilter === "all" || task.status === statusFilter;
-      const matchesPriority =
-        priorityFilter === "all" || task.priority === priorityFilter;
+      const matchesStatus = statusFilter === "all" || task.status === statusFilter;
+      const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
       return matchesSearch && matchesStatus && matchesPriority;
     });
-  }, [sourceTasks, searchQuery, statusFilter, priorityFilter]);
+  }, [sourceTasks, searchQuery, statusFilter, priorityFilter, selectedProject]);
 
-  const filteredProjects = useMemo(() => {
-    const qMain = searchQuery.trim().toLowerCase();
-    const sFilter = statusFilter.toLowerCase();
-    
-    return projects.filter((p) => {
-      const name = p.name.toLowerCase();
-      const desc = (p.description || "").toLowerCase();
-      const assignees = (p.assignees || []).join(" ").toLowerCase();
-      const status = (p.status || "").toLowerCase();
-      
-      // Status Filter
-      if (sFilter !== "all" && status !== sFilter) {
-        return false;
-      }
+  const filteredProjects = projects; // filtering handled server-side
 
-      if (!qMain) return true;
-      
-      return (
-        name.includes(qMain) || 
-        desc.includes(qMain) ||
-        assignees.includes(qMain)
-      );
-    });
-  }, [projects, searchQuery, statusFilter]);
-
-  const paginatedProjects = useMemo(() => {
-    const start = (projectPage - 1) * PAGE_SIZE;
-    return filteredProjects.slice(start, start + PAGE_SIZE);
-  }, [filteredProjects, projectPage]);
-  const projectTotalPages = Math.ceil(filteredProjects.length / PAGE_SIZE) || 1;
+  const paginatedProjects = filteredProjects;
+  const projectTotalPages = projectsQuery.data?.totalPages || 1;
 
   const paginatedTasks = useMemo(() => {
+    if (!selectedProject) return filteredTasks; // already paginated server-side
     const start = (taskPage - 1) * PAGE_SIZE;
     return filteredTasks.slice(start, start + PAGE_SIZE);
-  }, [filteredTasks, taskPage]);
-  const taskTotalPages = Math.ceil(filteredTasks.length / PAGE_SIZE) || 1;
+  }, [filteredTasks, taskPage, selectedProject]);
+  const taskTotalPages = selectedProject
+    ? (Math.ceil(filteredTasks.length / PAGE_SIZE) || 1)
+    : (tasksQuery.data?.totalPages || 1);
 
   return (
     <div className="pl-6 space-y-6">
@@ -1251,18 +1254,12 @@ export default function Tasks() {
                   );
                 })}
               </div>
-              {projectTotalPages > 1 && (
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-4 pt-4 border-t border-muted/20">
-                  <span className="text-sm text-muted-foreground">
-                    Showing {Math.min((projectPage - 1) * PAGE_SIZE + 1, filteredProjects.length)}–{Math.min(projectPage * PAGE_SIZE, filteredProjects.length)} of {filteredProjects.length} projects
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setProjectPage((p) => Math.max(1, p - 1))} disabled={projectPage === 1}>Previous</Button>
-                    <span className="text-sm px-1">{projectPage} / {projectTotalPages}</span>
-                    <Button variant="outline" size="sm" onClick={() => setProjectPage((p) => Math.min(projectTotalPages, p + 1))} disabled={projectPage === projectTotalPages}>Next</Button>
-                  </div>
-                </div>
-              )}
+              <Pagination
+                currentPage={projectPage}
+                totalPages={projectTotalPages}
+                onPageChange={setProjectPage}
+                className="mt-4"
+              />
               </>
             )}
           </div>
@@ -2460,18 +2457,12 @@ export default function Tasks() {
                 ))}
               </div>
 
-              {/* Pagination + Stats Footer */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-muted-foreground mt-6 pt-4 border-t border-muted/20">
-                <span className="text-center sm:text-left">
-                  Showing {filteredTasks.length === 0 ? 0 : Math.min((taskPage - 1) * PAGE_SIZE + 1, filteredTasks.length)}–{Math.min(taskPage * PAGE_SIZE, filteredTasks.length)} of {filteredTasks.length} tasks
-                </span>
-                {taskTotalPages > 1 && (
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setTaskPage((p) => Math.max(1, p - 1))} disabled={taskPage === 1}>Previous</Button>
-                    <span className="text-sm px-1">{taskPage} / {taskTotalPages}</span>
-                    <Button variant="outline" size="sm" onClick={() => setTaskPage((p) => Math.min(taskTotalPages, p + 1))} disabled={taskPage === taskTotalPages}>Next</Button>
-                  </div>
-                )}
+              <Pagination
+                currentPage={taskPage}
+                totalPages={taskTotalPages}
+                onPageChange={setTaskPage}
+                className="mt-6"
+              />
               </div>
             </>
           )}
