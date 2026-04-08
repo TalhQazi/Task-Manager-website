@@ -1591,6 +1591,7 @@ export default function Tasks() {
                   const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0 ? project.assignees : [];
                   const taskNum = project.taskCount ?? 0;
                   const projectLetter = String.fromCharCode(65 + (idx % 26));
+                  const projectNumber = (projectPage - 1) * PAGE_SIZE + idx + 1;
                   return (
                     <div
                       key={project.id}
@@ -1601,7 +1602,7 @@ export default function Tasks() {
                         className="w-full text-left"
                       >
                         <div className="flex items-center gap-2 mb-2">
-                          <span className="flex-shrink-0 text-xs font-bold text-primary w-5 text-right">{projectLetter}.</span>
+                          <span className="flex-shrink-0 text-xs font-bold text-primary w-fit text-right min-w-[30px]">{projectNumber}. {projectLetter}</span>
                           <ProjectLogoImg projectId={project.id} projectName={project.name} />
                           <div className="min-w-0 flex-1">
                             <p className="font-medium truncate">{project.name}</p>
@@ -1702,6 +1703,7 @@ export default function Tasks() {
                 {tasks.map((task, idx) => {
                   const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0 ? task.assignees : [];
                   const taskLetter = String.fromCharCode(65 + (idx % 26));
+                  const taskNumber = (taskPage - 1) * PAGE_SIZE + idx + 1;
                   return (
                     <div
                       key={task.id}
@@ -1713,7 +1715,7 @@ export default function Tasks() {
                       >
                         <div className="mb-2">
                           <p className="font-medium truncate text-sm">
-                            <span className="text-primary mr-1">{taskLetter}.</span> 
+                            <span className="text-primary mr-1">{taskNumber}. {taskLetter}</span> 
                             {task.title}
                           </p>
                           <p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p>
@@ -2609,6 +2611,7 @@ export default function Tasks() {
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredTasks.map((task, index) => {
                   const letterIndex = String.fromCharCode(65 + (index % 26));
+                  const displayNumber = (projectTaskPage - 1) * PAGE_SIZE + index + 1;
                   return (
                     <motion.div
                       key={task.id}
@@ -2621,7 +2624,7 @@ export default function Tasks() {
                       <div className="p-4 border-b border-muted/30 flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-foreground line-clamp-1 break-words">
-                            <span className="text-primary mr-1.5">{letterIndex}.</span> 
+                            <span className="text-primary mr-1.5">{displayNumber}. {letterIndex}</span> 
                             {task.title}
                           </p>
                           <p className="text-xs text-muted-foreground mt-1 capitalize">{task.priority} priority</p>
