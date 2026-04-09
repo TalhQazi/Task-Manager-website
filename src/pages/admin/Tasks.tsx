@@ -108,6 +108,20 @@ function ProjectLogoImg({ projectId, projectName }: { projectId: string; project
   return <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>;
 }
 
+function TaskAttachmentImg({ taskId }: { taskId: string }) {
+  const [src, setSrc] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<{ attachment: { url: string } }>(`/api/tasks/${encodeURIComponent(taskId)}/attachment`)
+      .then(d => { if (!cancelled) setSrc(d.attachment?.url || null); })
+      .catch(() => { if (!cancelled) setSrc(null); });
+    return () => { cancelled = true; };
+  }, [taskId]);
+  if (src) return <img src={src} alt="Task preview" className="w-full h-full object-cover" />;
+  if (src === undefined) return <div className="w-full h-full flex items-center justify-center"><Loader2 className="h-4 w-4 animate-spin opacity-20" /></div>;
+  return null;
+}
+
 // ... (all your interfaces and types remain exactly the same)
 interface Task {
   id: string;
@@ -1807,9 +1821,9 @@ export default function Tasks() {
                             </p>
                             <p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p>
                           </div>
-                          {task.attachment?.url && task.attachment.mimeType?.startsWith("image/") && (
+                          {task.attachment?.fileName && (
                             <div className="mb-2 rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
-                              <img src={task.attachment.url} alt="Task preview" className="w-full h-full object-cover" />
+                              <TaskAttachmentImg taskId={task.id} />
                             </div>
                           )}
                           <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
@@ -2734,9 +2748,9 @@ export default function Tasks() {
                       </div>
                       <div className="p-4 flex-1 space-y-3">
                         <p className="text-sm text-muted-foreground line-clamp-2 break-words">{task.description}</p>
-                        {task.attachment?.url && task.attachment.mimeType?.startsWith("image/") && (
+                        {task.attachment?.fileName && (
                           <div className="rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
-                            <img src={task.attachment.url} alt="Task preview" className="w-full h-full object-cover" />
+                            <TaskAttachmentImg taskId={task.id} />
                           </div>
                         )}
                         <div><p className="text-xs text-muted-foreground mb-2">Assigned to</p><div className="flex flex-wrap items-center gap-2">{task.assignees && task.assignees.length > 0 ? (<><div className="flex -space-x-2">{task.assignees.slice(0, 3).map((assignee, idx) => (<Avatar key={idx} className="w-7 h-7 border-2 border-background"><AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">{assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}</AvatarFallback></Avatar>))}{task.assignees.length > 3 && (<div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">+{task.assignees.length - 3}</div>)}</div><span className="text-sm text-foreground break-words">{task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}</span></>) : (<span className="text-sm text-muted-foreground">Unassigned</span>)}</div></div>
