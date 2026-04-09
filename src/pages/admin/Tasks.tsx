@@ -592,14 +592,24 @@ export default function Tasks() {
     setSearchParams(next, { replace: true });
   }, [tasks, searchParams, setSearchParams, isViewOpen, isEditOpen, isDeleteOpen, isCreateOpen]);
 
-  // Fetch employees
+  // Fetch employees/users for mentions and assignees
   useEffect(() => {
     const loadEmployees = async () => {
       try {
-        const res = await apiFetch<{ items: Employee[] }>("/api/employees");
-        const list = (res.items || []).map(e => ({
-          ...e,
-          status: e.status || "active"
+        const res = await apiFetch<{ items: any[] }>("/api/users/all");
+        const list = (res.items || []).map(u => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          avatarUrl: u.avatarUrl,
+          avatarDataUrl: u.avatarUrl,
+          status: (u.status || "active") as Employee["status"],
+          initials: (u.name || u.username || "??")
+            .split(" ")
+            .map((n: string) => n[0])
+            .join("")
+            .toUpperCase()
+            .substring(0, 2)
         }));
 
         // Ensure current user is in the list of assignees for selection
@@ -2318,7 +2328,12 @@ export default function Tasks() {
                       <div className="flex flex-col gap-2">
                         {selectedTask.assignees && selectedTask.assignees.length > 0 ? (
                           selectedTask.assignees.map((assignee, idx) => {
-                            const emp = employees.find(e => e.name.toLowerCase() === assignee.toLowerCase() || e.email.toLowerCase() === assignee.toLowerCase());
+                            const term = assignee.toLowerCase().trim();
+                            const emp = employees.find(e => 
+                              e.name.toLowerCase().trim() === term || 
+                              e.email.toLowerCase().trim() === term ||
+                              (e.id && e.id.toLowerCase() === term)
+                            );
                             const avatar = emp?.avatarDataUrl || emp?.avatarUrl;
                             return (
                               <div key={idx} className="flex items-center gap-2.5 bg-background border border-border/60 rounded-lg px-3 py-2 shadow-sm transition-colors hover:border-border">
@@ -2820,9 +2835,14 @@ export default function Tasks() {
                           </div>
                         )}
                         <div><p className="text-xs text-muted-foreground mb-2">Assigned to</p><div className="flex flex-wrap items-center gap-2">{task.assignees && task.assignees.length > 0 ? (<><div className="flex -space-x-2">{task.assignees.slice(0, 3).map((assignee, idx) => {
-                          const emp = employees.find(e => e.name.toLowerCase() === assignee.toLowerCase() || e.email.toLowerCase() === assignee.toLowerCase());
+                          const term = assignee.toLowerCase().trim();
+                          const emp = employees.find(e => 
+                            e.name.toLowerCase().trim() === term || 
+                            e.email.toLowerCase().trim() === term ||
+                            (e.id && e.id.toLowerCase() === term)
+                          );
                           const avatar = emp?.avatarDataUrl || emp?.avatarUrl;
-                          return (<Avatar key={idx} className="w-7 h-7 border-2 border-background">{avatar ? (<img src={avatar} alt="avatar" className="w-full h-full object-cover" />) : (<AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">{assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}</AvatarFallback>)}</Avatar>);
+                          return (<Avatar key={idx} className="w-7 h-7 border-2 border-background">{avatar ? (<img src={avatar} alt="avatar" className="w-full h-full object-cover" />) : (<AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">{(emp?.initials || assignee.split(" ").map((n) => n[0]).join("").toUpperCase()).substring(0, 2)}</AvatarFallback>)}</Avatar>);
                         })}{task.assignees.length > 3 && (<div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">+{task.assignees.length - 3}</div>)}</div><span className="text-sm text-foreground break-words">{task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}</span></>) : (<span className="text-sm text-muted-foreground">Unassigned</span>)}</div></div>
                         <div className="flex gap-2 flex-wrap"><Badge variant="secondary" className={cn("text-xs", statusClasses[task.status])}>{task.status}</Badge><Badge variant="outline" className={cn("text-xs border", priorityClasses[task.priority])}>{task.priority}</Badge></div>
                       </div>
