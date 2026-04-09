@@ -1977,237 +1977,281 @@ export default function Tasks() {
         </DialogContent>
       </Dialog>
 
-      {/* View Task Dialog with Enhanced Messages UI */}
+      {/* View Task Dialog with Asana-style 2-pane UI */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto rounded-lg p-0 gap-0">
-          <div className="p-4 sm:p-6 border-b">
-            <DialogHeader className="p-0">
-              <DialogTitle>Task Details</DialogTitle>
-              <DialogDescription>View and discuss task information.</DialogDescription>
-            </DialogHeader>
-          </div>
-
+        <DialogContent className="w-[98vw] max-w-[1100px] h-[90vh] flex flex-col overflow-hidden rounded-xl p-0 gap-0 border-0 shadow-2xl">
           {selectedTask && (
-            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-180px)]">
-              <div className="space-y-1">
-                <p className="font-semibold text-foreground break-words text-lg">{selectedTask.title}</p>
-                <p className="text-sm text-muted-foreground break-words">{selectedTask.description}</p>
+            <>
+              {/* Asana-style Header: Status Badge and Actions */}
+              <div className="flex items-center justify-between p-3 border-b bg-background z-10 shrink-0">
+                <div className="flex items-center gap-3 ml-2">
+                  <Badge variant="outline" className={cn("capitalize px-3 py-1 font-semibold rounded-full border-2 cursor-pointer transition-colors hover:opacity-80", selectedTask.status === "completed" ? "border-green-500 text-green-700 bg-green-50" : selectedTask.status === "in-progress" ? "border-blue-500 text-blue-700 bg-blue-50" : selectedTask.status === "overdue" ? "border-red-500 text-red-700 bg-red-50" : "border-amber-500 text-amber-700 bg-amber-50")} onClick={() => {
+                        const next: Record<string, Task["status"]> = {
+                          "pending": "in-progress",
+                          "in-progress": "completed",
+                          "completed": "pending",
+                          "overdue": "completed"
+                        };
+                        void updateStatus(next[selectedTask.status] || "pending");
+                      }}>
+                    {selectedTask.status === "completed" ? <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> : selectedTask.status === "overdue" ? <AlertTriangle className="w-3.5 h-3.5 mr-1.5" /> : <Clock className="w-3.5 h-3.5 mr-1.5" />}
+                    {selectedTask.status}
+                  </Badge>
+                </div>
+                {/* We leave space for standard dialog close X button, so add marginRight */}
+                <div className="flex items-center gap-1.5 mr-10">
+                  <Button variant="ghost" size="sm" onClick={() => void handlePrintTask(selectedTask)} title="Print Task"><Printer className="w-4 h-4 mr-1.5 hidden sm:block" /> Print</Button>
+                  <Button variant="ghost" size="sm" onClick={() => { setIsViewOpen(false); openEdit(selectedTask); }} title="Edit Task"><Edit className="w-4 h-4 mr-1.5 hidden sm:block" /> Edit</Button>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm bg-muted/30 p-3 rounded-lg">
-                <div className="space-y-1 sm:col-span-2">
-                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Assignees</p>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedTask.assignees && selectedTask.assignees.length > 0 ? (
-                      selectedTask.assignees.map((assignee, idx) => (
-                        <div key={idx} className="flex items-center gap-2 bg-background rounded-full px-3 py-1 shadow-sm">
-                          <Avatar className="w-6 h-6">
-                            <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                              {assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-foreground text-sm break-words">{assignee}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <span className="text-foreground">Unassigned</span>
-                    )}
+              {/* 2-Pane Body */}
+              <div className="flex-1 flex flex-col md:flex-row shadow-inner overflow-hidden relative bg-background">
+                
+                {/* Left Pane: Title, Description, Attachments, Comments Feed */}
+                <div className="flex-1 overflow-y-auto w-full md:w-2/3 p-5 sm:p-8 space-y-8 scroll-smooth pb-24">
+                  {/* Task Title */}
+                  <div>
+                    <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight break-words">{selectedTask.title}</h2>
                   </div>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Location</p>
-                  <p className="text-foreground break-words">{selectedTask.location || "—"}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Priority</p>
-                  <Badge className={cn("capitalize", priorityClasses[selectedTask.priority])}>{selectedTask.priority}</Badge>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Status</p>
-                  <Select value={selectedTask.status} onValueChange={(v) => { void updateStatus(v as Task["status"]); }} disabled={statusSaving}>
-                    <SelectTrigger className="w-full"><SelectValue placeholder="Select status" /></SelectTrigger>
-                    <SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="in-progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem><SelectItem value="overdue">Overdue</SelectItem></SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Due Date</p>
-                  <p className="text-foreground">{selectedTask.dueDate ? new Date(selectedTask.dueDate).toLocaleDateString() : "—"}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Created</p>
-                  <p className="text-foreground">{new Date(selectedTask.createdAt).toLocaleDateString()}</p>
-                </div>
-              </div>
 
-              {/* Attachments sections - responsive grid */}
-              <div className="space-y-4">
-                {(selectedTask.attachments && selectedTask.attachments.length > 0) || selectedTask.attachment?.fileName ? (
+                  {/* Task Description */}
                   <div className="space-y-2">
-                    <p className="text-muted-foreground text-sm font-medium flex items-center gap-2"><FileText className="w-4 h-4" />Attachments</p>
-                    <div className="border border-border rounded-md p-2 bg-muted/10">
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto">
+                    <h4 className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><FileText className="w-4 h-4" /> Description</h4>
+                    <div className="text-[15px] leading-relaxed text-foreground/90 whitespace-pre-wrap break-words border border-border/60 rounded-xl p-4 sm:p-5 bg-muted/10 shadow-sm min-h-[100px]">
+                      {selectedTask.description ? selectedTask.description : <span className="text-muted-foreground italic">No description provided.</span>}
+                    </div>
+                  </div>
+
+                  {/* Task Attachments Grid */}
+                  {((selectedTask.attachments && selectedTask.attachments.length > 0) || selectedTask.attachment?.fileName) && (
+                    <div className="space-y-3 pt-2">
+                      <h4 className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><Paperclip className="w-4 h-4" /> Attached Files</h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 bg-muted/20 p-3 rounded-xl border border-border/50">
                         {selectedTask.attachments && selectedTask.attachments.length > 0
                           ? selectedTask.attachments.map((attachment, idx) => (
-                              <div key={idx} className="relative group rounded-md overflow-hidden border border-border bg-background">
+                              <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow">
                                 {attachment.mimeType?.startsWith("image/") && attachment.url ? (
-                                  <img src={attachment.url} alt={attachment.fileName || `Attachment ${idx + 1}`} className="w-full h-24 object-cover" />
+                                  <img src={attachment.url} alt={attachment.fileName || `Attachment`} className="w-full h-24 object-cover" />
                                 ) : (
-                                  <div className="w-full h-24 flex items-center justify-center bg-muted"><FileText className="h-8 w-8 text-muted-foreground" /></div>
+                                  <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
                                 )}
-                                <button type="button" onClick={() => void downloadTaskAttachment(selectedTask.id, idx, attachment.fileName || "download")} className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center" title={attachment.fileName}><span className="text-white text-xs font-medium">Download</span></button>
-                                {isAdminRole && (<button type="button" onClick={() => void archiveAttachment(idx)} disabled={archivingAttachment === idx} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-sm z-10" title="Archive this attachment">{archivingAttachment === idx ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Archive className="h-3.5 w-3.5" />}</button>)}
+                                <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
+                                <button type="button" onClick={() => void downloadTaskAttachment(selectedTask.id, idx, attachment.fileName || "download")} className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]" title={attachment.fileName}><span className="text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/50 bg-black/40">Download</span></button>
+                                {isAdminRole && (<button type="button" onClick={() => void archiveAttachment(idx)} disabled={archivingAttachment === idx} className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100/90 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-lg z-10" title="Archive attachment">{archivingAttachment === idx ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}</button>)}
                               </div>
                             ))
                           : selectedTask.attachment?.fileName ? (
-                              <div className="relative group rounded-md overflow-hidden border border-border bg-background">
+                              <div className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow">
                                 {selectedTask.attachment.mimeType?.startsWith("image/") && selectedTask.attachment.url ? (
                                   <img src={selectedTask.attachment.url} alt={selectedTask.attachment.fileName || "Attachment"} className="w-full h-24 object-cover" />
                                 ) : (
-                                  <div className="w-full h-24 flex items-center justify-center bg-muted"><FileText className="h-8 w-8 text-muted-foreground" /></div>
+                                  <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
                                 )}
-                                <button type="button" onClick={() => void downloadTaskAttachment(selectedTask.id, -1, selectedTask.attachment!.fileName || "download")} className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center" title={selectedTask.attachment.fileName}><span className="text-white text-xs font-medium">Download</span></button>
-                                {isAdminRole && (<button type="button" onClick={() => void archiveAttachment(-1)} disabled={archivingAttachment === -1} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-sm z-10" title="Archive this attachment">{archivingAttachment === -1 ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Archive className="h-3.5 w-3.5" />}</button>)}
+                                <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{selectedTask.attachment.fileName}</div>
+                                <button type="button" onClick={() => void downloadTaskAttachment(selectedTask.id, -1, selectedTask.attachment!.fileName || "download")} className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]" title={selectedTask.attachment.fileName}><span className="text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/50 bg-black/40">Download</span></button>
+                                {isAdminRole && (<button type="button" onClick={() => void archiveAttachment(-1)} disabled={archivingAttachment === -1} className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100/90 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-lg z-10" title="Archive attachment">{archivingAttachment === -1 ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}</button>)}
                               </div>
                             ) : null}
                       </div>
                     </div>
-                  </div>
-                ) : null}
-              </div>
+                  )}
 
-              {/* Tasks Comments / Thread Section (Asana Style) */}
-              <div className="mt-8 border-t pt-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <MessageSquare className="w-5 h-5 text-muted-foreground" /> Activity & Comments
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    <Button type="button" variant="ghost" size="sm" onClick={() => { if (selectedTask) void loadComments(selectedTask.id); }} disabled={commentsLoading} className="h-8 px-2 text-xs gap-1">
-                      <RefreshCw className={cn("w-3.5 h-3.5", commentsLoading && "animate-spin")} /> Refresh
-                    </Button>
-                    <Button type="button" variant={autoRefreshEnabled ? "default" : "outline"} size="sm" onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)} className="h-8 px-2 text-xs gap-1">
-                      <Clock className="w-3.5 h-3.5" /> Auto
-                    </Button>
-                  </div>
-                </div>
-
-                {commentError && (
-                  <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md mb-4 flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4" /> {commentError}
-                  </div>
-                )}
-
-                {/* Comment Feed */}
-                <div className="space-y-6 mb-6 px-1">
-                  {commentsLoading && comments.length === 0 ? (
-                    <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-                  ) : comments.length === 0 ? (
-                    <div className="text-center p-8 text-muted-foreground border border-dashed rounded-lg bg-muted/20">
-                      <p className="text-sm">No activity yet.</p>
+                  {/* Activity Thread */}
+                  <div className="pt-4 border-t border-border/60">
+                    <div className="flex items-center justify-between mb-5">
+                      <h4 className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4" /> Activity Feed
+                      </h4>
+                      <div className="flex items-center gap-2">
+                        <Button type="button" variant="ghost" size="sm" onClick={() => { if (selectedTask) void loadComments(selectedTask.id); }} disabled={commentsLoading} className="h-7 px-2 text-[11px] gap-1 hover:bg-muted/50">
+                          <RefreshCw className={cn("w-3 h-3", commentsLoading && "animate-spin")} /> Refresh
+                        </Button>
+                        <Button type="button" variant={autoRefreshEnabled ? "secondary" : "ghost"} size="sm" onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)} className="h-7 px-2 text-[11px] gap-1 hover:bg-muted/50 rounded-full">
+                          <Clock className="w-3 h-3" /> Auto Update {autoRefreshEnabled ? "On" : "Off"}
+                        </Button>
+                      </div>
                     </div>
-                  ) : (
-                    <div ref={chatContainerRef} className="space-y-6 max-h-[400px] overflow-y-auto pr-2" style={{ scrollBehavior: 'smooth' }}>
-                      {comments.map((c) => (
-                        <div key={c.id} className="flex gap-4 group">
-                          <Avatar className="w-8 h-8 mt-1 flex-shrink-0">
-                            <AvatarFallback className="text-xs bg-primary/10 text-primary font-medium">
-                              {c.authorUsername.charAt(0).toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex-1 space-y-1.5 min-w-0">
-                            <div className="flex items-center justify-between gap-2 flex-wrap">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-sm text-foreground">{c.authorUsername}</span>
-                                {c.authorRole && <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-sm capitalize">{c.authorRole}</span>}
-                                <span className="text-xs text-muted-foreground" title={new Date(c.createdAt).toLocaleString()}>
-                                  {formatMessageTime(c.createdAt)}
-                                </span>
-                              </div>
-                              {isAdminRole && (
-                                <button type="button" onClick={() => void archiveComment(c.id)} disabled={archivingCommentId === c.id} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive flex items-center gap-1 text-xs" title="Archive comment">
-                                  {archivingCommentId === c.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}
-                                </button>
-                              )}
-                            </div>
-                            <div className="text-sm text-foreground whitespace-pre-wrap break-words">
-                              {renderMessageWithMentions(c.message)}
-                            </div>
-                            {/* Render Comment Attachments */}
-                            {c.attachments && c.attachments.length > 0 && (
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
-                                {c.attachments.map((att, attIdx) => (
-                                  <div key={attIdx} className="relative rounded overflow-hidden border bg-muted/20">
-                                    {att.mimeType?.startsWith("image/") && att.url ? (
-                                      <img src={att.url} alt={att.fileName} className="w-full h-20 object-cover" />
-                                    ) : (
-                                      <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center">
-                                        <FileText className="w-6 h-6 text-muted-foreground mb-1" />
-                                        <span className="text-[10px] text-muted-foreground truncate w-full">{att.fileName}</span>
-                                      </div>
-                                    )}
-                                    {att.url && (
-                                      <a href={att.url} download={att.fileName} className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity text-white text-xs font-medium">
-                                        Download
-                                      </a>
-                                    )}
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
+
+                    {commentError && (
+                      <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-lg border border-destructive/20 mb-4 flex items-center gap-2 max-w-fit">
+                        <AlertTriangle className="h-4 w-4" /> {commentError}
+                      </div>
+                    )}
+
+                    {/* Feed Display */}
+                    <div className="space-y-6 lg:ml-2">
+                      {commentsLoading && comments.length === 0 ? (
+                        <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+                      ) : comments.length === 0 ? (
+                        <div className="text-center p-8 text-muted-foreground border-2 border-dashed border-border/50 rounded-2xl bg-muted/5">
+                          <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                          <p className="text-sm">No activity here yet. Start the conversation!</p>
                         </div>
-                      ))}
+                      ) : (
+                        <div ref={chatContainerRef} className="space-y-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                          {comments.map((c) => (
+                            <div key={c.id} className="flex gap-4 group">
+                              <Avatar className="w-9 h-9 border-2 border-background shadow-sm flex-shrink-0 z-10">
+                                <AvatarFallback className="text-sm bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-bold">
+                                  {c.authorUsername.charAt(0).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 space-y-1.5 min-w-0 bg-muted/5 p-3 rounded-2xl border border-border/40 ml-1 group-hover:border-border/80 transition-colors">
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-[13px] text-foreground">{c.authorUsername}</span>
+                                    {c.authorRole && <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded border border-border/50">{c.authorRole}</span>}
+                                    <span className="text-[11px] text-muted-foreground/80 font-medium" title={new Date(c.createdAt).toLocaleString()}>
+                                      {formatMessageTime(c.createdAt)}
+                                    </span>
+                                  </div>
+                                  {isAdminRole && (
+                                    <button type="button" onClick={() => void archiveComment(c.id)} disabled={archivingCommentId === c.id} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive flex items-center gap-1.5 text-[11px] font-medium bg-background px-2 py-1 rounded-md border border-border/50 shadow-sm" title="Archive comment">
+                                      {archivingCommentId === c.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3 text-destructive/70" />} Archive
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="text-[14px] leading-relaxed text-foreground/90 whitespace-pre-wrap break-words">
+                                  {renderMessageWithMentions(c.message)}
+                                </div>
+                                {/* Comment Attachments inline feed */}
+                                {c.attachments && c.attachments.length > 0 && (
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 pt-2">
+                                    {c.attachments.map((att, attIdx) => (
+                                      <div key={attIdx} className="relative rounded-lg overflow-hidden border border-border/50 bg-background shadow-xs group/att">
+                                        {att.mimeType?.startsWith("image/") && att.url ? (
+                                          <img src={att.url} alt={att.fileName} className="w-full h-20 object-cover" />
+                                        ) : (
+                                          <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/20">
+                                            <FileText className="w-6 h-6 text-muted-foreground/60 mb-1" />
+                                          </div>
+                                        )}
+                                        <div className="p-1.5 text-[10px] text-center font-medium text-muted-foreground truncate border-t bg-muted/10">{att.fileName}</div>
+                                        {att.url && (
+                                          <a href={att.url} download={att.fileName} className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-opacity text-white text-[11px] font-bold backdrop-blur-[1px]">
+                                            Save
+                                          </a>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                {/* Comment Composer */}
-                <div className="border rounded-lg bg-background overflow-hidden focus-within:ring-1 focus-within:ring-primary shadow-sm">
-                  {commentAttachments.length > 0 && (
-                    <div className="p-2 border-b bg-muted/10 grid grid-cols-3 sm:grid-cols-5 gap-2 max-h-32 overflow-y-auto">
-                      {commentAttachments.map((f, i) => (
-                         <div key={i} className="relative rounded border bg-background flex flex-col items-center justify-center p-2 text-center h-16 group">
-                           <FileText className="h-4 w-4 text-muted-foreground mb-1" />
-                           <span className="text-[10px] w-full truncate">{f.name}</span>
-                           <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1 -right-1 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-[10px] border border-white">✕</button>
-                         </div>
-                      ))}
+                    {/* Composer Box */}
+                    <div className="mt-6 ml-0 lg:ml-14 rounded-2xl border-2 border-border/60 bg-background overflow-hidden focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10 transition-all shadow-sm group">
+                      {commentAttachments.length > 0 && (
+                        <div className="p-2 border-b bg-muted/10 grid grid-cols-3 sm:grid-cols-5 gap-2 max-h-32 overflow-y-auto">
+                          {commentAttachments.map((f, i) => (
+                             <div key={i} className="relative rounded-md border border-border/50 bg-background flex flex-col items-center justify-center p-2 text-center h-16 group/rem">
+                               <span className="text-[10px] w-full mt-1 truncate font-medium text-muted-foreground">{f.name}</span>
+                               <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover/rem:opacity-100 transition-opacity text-[9px] shadow-sm ring-2 ring-background">✕</button>
+                             </div>
+                          ))}
+                        </div>
+                      )}
+                      <textarea
+                        value={commentDraft}
+                        onChange={(e) => setCommentDraft(e.target.value)}
+                        placeholder="Write a comment... (Type @ to mention)"
+                        className="w-full min-h-[90px] max-h-[300px] border-0 focus:ring-0 resize-y p-4 text-[14px] bg-transparent outline-none placeholder-muted-foreground/60 font-medium"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                            e.preventDefault();
+                            void sendComment();
+                          }
+                        }}
+                      />
+                      <div className="flex items-center justify-between p-2 pl-3 bg-muted/20 border-t border-border/40">
+                        <div className="flex items-center gap-1">
+                          <button type="button" onClick={() => { const el = document.getElementById("comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-primary/20" title="Attach file">
+                            <Paperclip className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Attach</span>
+                          </button>
+                          <span className="text-[11px] text-muted-foreground/60 px-3 hidden sm:inline-block font-medium border-l ml-1 border-border/50">Pro tip: Ctrl+Enter to send.</span>
+                          <input id="comment-attachment-input" type="file" multiple className="hidden" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value = ''; }} />
+                        </div>
+                        <Button type="button" onClick={() => void sendComment()} disabled={!commentDraft.trim() && commentAttachments.length === 0} size="sm" className="h-9 px-5 rounded-lg font-bold shadow hover:shadow-md transition-all">
+                          Comment
+                        </Button>
+                      </div>
                     </div>
-                  )}
-                  <textarea
-                    value={commentDraft}
-                    onChange={(e) => setCommentDraft(e.target.value)}
-                    placeholder="Ask a question or post an update..."
-                    className="w-full min-h-[80px] max-h-[200px] border-0 focus:ring-0 resize-y p-3 text-sm bg-transparent outline-none"
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                        e.preventDefault();
-                        void sendComment();
-                      }
-                    }}
-                  />
-                  <div className="flex items-center justify-between p-2 bg-muted/30 border-t">
-                    <div className="flex items-center gap-1">
-                      <button type="button" onClick={() => { const el = document.getElementById("comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors" title="Attach file">
-                        <Paperclip className="w-4 h-4" />
-                      </button>
-                      {/* Note about @mentions */}
-                      <span className="text-[10px] text-muted-foreground px-2 hidden sm:inline-block">Pro tip: Use @ to mention someone. Press Ctrl+Enter to send.</span>
-                      <input id="comment-attachment-input" type="file" multiple className="hidden" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value = ''; }} />
-                    </div>
-                    <Button type="button" onClick={() => void sendComment()} disabled={!commentDraft.trim() && commentAttachments.length === 0} size="sm" className="h-8 gap-1">
-                      Comment
-                    </Button>
                   </div>
                 </div>
-              </div>
 
-              <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-2 border-t">
-                <Button type="button" variant="outline" onClick={() => setIsViewOpen(false)} className="w-full sm:w-auto">Close</Button>
-                <Button type="button" variant="outline" onClick={() => { if (!selectedTask) return; void handlePrintTask(selectedTask); }} className="w-full sm:w-auto"><Printer className="w-4 h-4 mr-2" />Print</Button>
-                <Button type="button" onClick={() => { if (!selectedTask) return; setIsViewOpen(false); openEdit(selectedTask); }} className="w-full sm:w-auto"><Edit className="w-4 h-4 mr-2" />Edit</Button>
-              </DialogFooter>
-            </div>
+                {/* Right Pane: Properties Sidebar */}
+                <div className="w-full md:w-[320px] lg:w-[360px] bg-muted/10 shrink-0 border-t md:border-t-0 md:border-l border-border/50 overflow-y-auto hidden md:block">
+                  <div className="p-6 space-y-7">
+                    <h3 className="text-sm font-bold text-foreground flex items-center gap-2 pb-2 border-b">Properties</h3>
+                    
+                    {/* Assignees */}
+                    <div className="space-y-2">
+                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Assignees</label>
+                      <div className="flex flex-col gap-2">
+                        {selectedTask.assignees && selectedTask.assignees.length > 0 ? (
+                          selectedTask.assignees.map((assignee, idx) => (
+                            <div key={idx} className="flex items-center gap-2.5 bg-background border border-border/60 rounded-lg px-3 py-2 shadow-sm transition-colors hover:border-border">
+                              <Avatar className="w-6 h-6">
+                                <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
+                                  {assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-foreground text-sm font-medium truncate">{assignee}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-sm px-3 py-2 border border-dashed rounded-lg text-muted-foreground italic bg-muted/20">Unassigned</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Due Date */}
+                    <div className="space-y-2">
+                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Due Date</label>
+                      <div className={cn("text-sm font-semibold p-2.5 rounded-lg border", selectedTask.dueDate && new Date(selectedTask.dueDate) < new Date() && selectedTask.status !== "completed" ? "border-red-200 bg-red-50 text-red-700" : "border-border/60 bg-background text-foreground")}>
+                        {selectedTask.dueDate ? new Date(selectedTask.dueDate).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) : "No due date"}
+                      </div>
+                    </div>
+
+                    {/* Status Select */}
+                    <div className="space-y-2">
+                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" /> Status</label>
+                      <Select value={selectedTask.status} onValueChange={(v) => { void updateStatus(v as Task["status"]); }} disabled={statusSaving}>
+                        <SelectTrigger className="w-full h-10 border-border/60 bg-background font-semibold"><SelectValue placeholder="Select status" /></SelectTrigger>
+                        <SelectContent className="font-medium"><SelectItem value="pending">Pending</SelectItem><SelectItem value="in-progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem><SelectItem value="overdue">Overdue</SelectItem></SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Priority */}
+                    <div className="space-y-2">
+                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5" /> Priority</label>
+                      <div>
+                         <Badge className={cn("capitalize px-3 py-1 font-bold text-[12px] rounded-md shadow-none", priorityClasses[selectedTask.priority])}>{selectedTask.priority}</Badge>
+                      </div>
+                    </div>
+
+                    {/* Location */}
+                    <div className="space-y-2 pt-2 border-t border-border/40">
+                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> Location / Project</label>
+                      <p className="text-[13px] font-medium text-foreground bg-muted/20 p-2.5 rounded-lg border border-transparent hover:border-border transition-colors">{selectedTask.location || "Organizational Task"}</p>
+                    </div>
+                    
+                    {/* Created */}
+                    <div className="pt-4 border-t border-border/40 text-xs text-muted-foreground font-medium flex justify-between items-center">
+                      <span>Created</span>
+                      <span className="text-foreground/80">{new Date(selectedTask.createdAt).toLocaleDateString()}</span>
+                    </div>
+
+                  </div>
+                </div>
+
+              </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
