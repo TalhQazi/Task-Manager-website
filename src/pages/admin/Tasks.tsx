@@ -238,6 +238,8 @@ type TaskComment = {
   taskId: string;
   message: string;
   authorUsername: string;
+  authorFullName?: string;
+  authorAvatar?: string;
   authorRole?: string;
   createdAt: string;
   attachments?: Array<{
@@ -2190,13 +2192,14 @@ export default function Tasks() {
                             <div key={c.id} className="flex gap-4 group">
                               <Avatar className="w-9 h-9 border-2 border-background shadow-sm flex-shrink-0 z-10">
                                 <AvatarFallback className="text-sm bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-bold">
-                                  {c.authorUsername.charAt(0).toUpperCase()}
+                                  {(c.authorFullName || c.authorUsername).charAt(0).toUpperCase()}
                                 </AvatarFallback>
+                                {c.authorAvatar && <img src={c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />}
                               </Avatar>
                               <div className="flex-1 space-y-1.5 min-w-0 bg-muted/5 p-3 rounded-2xl border border-border/40 ml-1 group-hover:border-border/80 transition-colors">
                                 <div className="flex items-center justify-between gap-2 flex-wrap">
                                   <div className="flex items-center gap-2">
-                                    <span className="font-bold text-[13px] text-foreground">{c.authorUsername}</span>
+                                    <span className="font-bold text-[13px] text-foreground">{c.authorFullName || c.authorUsername}</span>
                                     {c.authorRole && <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded border border-border/50">{c.authorRole}</span>}
                                     <span className="text-[11px] text-muted-foreground/80 font-medium" title={new Date(c.createdAt).toLocaleString()}>
                                       {formatMessageTime(c.createdAt)}
