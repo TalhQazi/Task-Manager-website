@@ -75,6 +75,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Users,
+  User,
   Eye,
   Edit,
   Trash2,
@@ -2190,17 +2191,19 @@ export default function Tasks() {
                         <div ref={chatContainerRef} className="space-y-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
                           {comments.map((c) => (
                             <div key={c.id} className="flex gap-4 group">
-                              <Avatar className="w-9 h-9 border-2 border-background shadow-sm flex-shrink-0 z-10">
-                                <AvatarFallback className="text-sm bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-bold">
-                                  {(c.authorFullName || c.authorUsername).charAt(0).toUpperCase()}
-                                </AvatarFallback>
-                                {c.authorAvatar && <img src={c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />}
+                              <Avatar className="w-9 h-9 border-2 border-background shadow-sm flex-shrink-0 z-10 overflow-hidden">
+                                {c.authorAvatar ? (
+                                  <img src={c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+                                    <User className="w-4 h-4 text-primary opacity-60" />
+                                  </div>
+                                )}
                               </Avatar>
                               <div className="flex-1 space-y-1.5 min-w-0 bg-muted/5 p-3 rounded-2xl border border-border/40 ml-1 group-hover:border-border/80 transition-colors">
                                 <div className="flex items-center justify-between gap-2 flex-wrap">
                                   <div className="flex items-center gap-2">
                                     <span className="font-bold text-[13px] text-foreground">{c.authorFullName || c.authorUsername}</span>
-                                    {c.authorRole && <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground bg-muted/50 px-1.5 py-0.5 rounded border border-border/50">{c.authorRole}</span>}
                                     <span className="text-[11px] text-muted-foreground/80 font-medium" title={new Date(c.createdAt).toLocaleString()}>
                                       {formatMessageTime(c.createdAt)}
                                     </span>
