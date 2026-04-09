@@ -231,6 +231,8 @@ interface Employee {
   name: string;
   initials: string;
   email: string;
+  avatarUrl?: string;
+  avatarDataUrl?: string;
   status: "active" | "inactive" | "on-leave";
 }
 
@@ -2043,7 +2045,7 @@ export default function Tasks() {
                 <Popover open={projectCreationAssigneesOpen} onOpenChange={setProjectCreationAssigneesOpen}>
                   <PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{projectCreationAssignees.length > 0 ? projectCreationAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger>
                   <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setProjectCreationAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); }}><Check className={cn("mr-2 h-4 w-4", projectCreationAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command>
+                    <Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setProjectCreationAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); }}><Check className={cn("mr-2 h-4 w-4", projectCreationAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2">{employee.avatarDataUrl || employee.avatarUrl ? (<img src={employee.avatarDataUrl || employee.avatarUrl} alt="avatar" className="w-full h-full object-cover" />) : (<AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials || employee.name.substring(0, 2).toUpperCase()}</AvatarFallback>)}</Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command>
                   </PopoverContent>
                 </Popover>
               </div>
@@ -2243,18 +2245,24 @@ export default function Tasks() {
                         if (!match) return null;
                         const filterTerm = match[1].toLowerCase();
                         
-                        const results = activeEmployees.filter(e => e.name.toLowerCase().includes(filterTerm)).slice(0, 5);
+                        const results = employees.filter(e => e.name.toLowerCase().includes(filterTerm)).slice(0, 10);
                         if (results.length === 0) return null;
                         return (
-                          <div className="absolute bottom-[calc(100%+4px)] left-0 w-64 bg-background border border-border shadow-md rounded-lg z-50 overflow-hidden">
+                          <div className="absolute bottom-[calc(100%+4px)] left-0 w-64 bg-background border border-border shadow-md rounded-lg z-50 overflow-hidden max-h-60 overflow-y-auto">
                             <div className="px-2 py-1.5 border-b bg-muted/40 text-xs font-bold text-muted-foreground uppercase tracking-wide">Mentions</div>
                             {results.map(e => (
-                              <button key={e.id} type="button" className="w-full text-left px-3 py-2.5 text-sm hover:bg-muted font-medium flex items-center gap-2 transition-colors border-b last:border-b-0 border-border/50" onClick={() => {
+                              <button key={e.id} type="button" className="w-full text-left px-3 py-2 text-sm hover:bg-muted font-medium flex items-center gap-2 transition-colors border-b last:border-b-0 border-border/50" onClick={() => {
                                 const newDraft = commentDraft.replace(/@([a-zA-Z0-9 ]*)$/, `@${e.name} `);
                                 setCommentDraft(newDraft);
                               }}>
-                                <Avatar className="h-6 w-6"><AvatarFallback className="text-[10px] bg-primary/10 text-primary">{e.initials}</AvatarFallback></Avatar>
-                                {e.name}
+                                <Avatar className="h-6 w-6">
+                                  {e.avatarDataUrl || e.avatarUrl ? (
+                                    <img src={e.avatarDataUrl || e.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                                  ) : (
+                                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary">{e.initials}</AvatarFallback>
+                                  )}
+                                </Avatar>
+                                <span className="truncate">{e.name}</span>
                               </button>
                             ))}
                           </div>
@@ -2309,16 +2317,24 @@ export default function Tasks() {
                       <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Assignees</label>
                       <div className="flex flex-col gap-2">
                         {selectedTask.assignees && selectedTask.assignees.length > 0 ? (
-                          selectedTask.assignees.map((assignee, idx) => (
-                            <div key={idx} className="flex items-center gap-2.5 bg-background border border-border/60 rounded-lg px-3 py-2 shadow-sm transition-colors hover:border-border">
-                              <Avatar className="w-6 h-6">
-                                <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
-                                  {assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span className="text-foreground text-sm font-medium truncate">{assignee}</span>
-                            </div>
-                          ))
+                          selectedTask.assignees.map((assignee, idx) => {
+                            const emp = employees.find(e => e.name.toLowerCase() === assignee.toLowerCase() || e.email.toLowerCase() === assignee.toLowerCase());
+                            const avatar = emp?.avatarDataUrl || emp?.avatarUrl;
+                            return (
+                              <div key={idx} className="flex items-center gap-2.5 bg-background border border-border/60 rounded-lg px-3 py-2 shadow-sm transition-colors hover:border-border">
+                                <Avatar className="w-6 h-6">
+                                  {avatar ? (
+                                    <img src={avatar} alt="avatar" className="w-full h-full object-cover rounded-full" />
+                                  ) : (
+                                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
+                                      {assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                                    </AvatarFallback>
+                                  )}
+                                </Avatar>
+                                <span className="text-foreground text-sm font-medium truncate">{assignee}</span>
+                              </div>
+                            );
+                          })
                         ) : (
                           <div className="text-sm px-3 py-2 border border-dashed rounded-lg text-muted-foreground italic bg-muted/20">Unassigned</div>
                         )}
@@ -2803,7 +2819,11 @@ export default function Tasks() {
                             <TaskAttachmentImg taskId={task.id} />
                           </div>
                         )}
-                        <div><p className="text-xs text-muted-foreground mb-2">Assigned to</p><div className="flex flex-wrap items-center gap-2">{task.assignees && task.assignees.length > 0 ? (<><div className="flex -space-x-2">{task.assignees.slice(0, 3).map((assignee, idx) => (<Avatar key={idx} className="w-7 h-7 border-2 border-background"><AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">{assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}</AvatarFallback></Avatar>))}{task.assignees.length > 3 && (<div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">+{task.assignees.length - 3}</div>)}</div><span className="text-sm text-foreground break-words">{task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}</span></>) : (<span className="text-sm text-muted-foreground">Unassigned</span>)}</div></div>
+                        <div><p className="text-xs text-muted-foreground mb-2">Assigned to</p><div className="flex flex-wrap items-center gap-2">{task.assignees && task.assignees.length > 0 ? (<><div className="flex -space-x-2">{task.assignees.slice(0, 3).map((assignee, idx) => {
+                          const emp = employees.find(e => e.name.toLowerCase() === assignee.toLowerCase() || e.email.toLowerCase() === assignee.toLowerCase());
+                          const avatar = emp?.avatarDataUrl || emp?.avatarUrl;
+                          return (<Avatar key={idx} className="w-7 h-7 border-2 border-background">{avatar ? (<img src={avatar} alt="avatar" className="w-full h-full object-cover" />) : (<AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">{assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}</AvatarFallback>)}</Avatar>);
+                        })}{task.assignees.length > 3 && (<div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">+{task.assignees.length - 3}</div>)}</div><span className="text-sm text-foreground break-words">{task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}</span></>) : (<span className="text-sm text-muted-foreground">Unassigned</span>)}</div></div>
                         <div className="flex gap-2 flex-wrap"><Badge variant="secondary" className={cn("text-xs", statusClasses[task.status])}>{task.status}</Badge><Badge variant="outline" className={cn("text-xs border", priorityClasses[task.priority])}>{task.priority}</Badge></div>
                       </div>
                       <div className="p-4 border-t border-muted/30 bg-muted/10 space-y-2 text-sm"><div className="flex items-center gap-2 text-muted-foreground flex-wrap"><Calendar className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs">Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}</span></div><div className="flex items-center gap-2 text-muted-foreground flex-wrap"><Clock className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs">Created: {new Date(task.createdAt).toLocaleDateString()}</span></div>{task.location && (<div className="flex items-center gap-2 text-muted-foreground flex-wrap"><MapPin className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs break-words">{task.location}</span></div>)}</div>
