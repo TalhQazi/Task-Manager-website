@@ -257,16 +257,16 @@ interface ProjectWithTasks extends Project {
   status?: string;
 }
 
-function normalizeTask(t: TaskApi): Task {
+function normalizeTask(t: any): Task {
   const legacyAssignee = typeof t.assignee === "string" ? t.assignee.trim() : "";
   const assignees = Array.isArray(t.assignees)
-    ? t.assignees.filter(Boolean)
+    ? t.assignees.filter((s: any) => typeof s === "string" && s.trim())
     : legacyAssignee
       ? [legacyAssignee]
       : [];
-  const extra = t as TaskApi & TaskApiAttachmentFields;
+  const extra = t as TaskApiAttachmentFields;
   return {
-    id: t._id,
+    id: t._id || t.id,
     title: t.title,
     description: t.description,
     assignees,
@@ -514,12 +514,7 @@ export default function Tasks() {
 
       const project = res.item;
       const projectTasks: Task[] = Array.isArray(project.tasks) 
-        ? (project.tasks as any[]).map(t => {
-            // If the task from project aggregation already has 'id', use it, 
-            // otherwise help normalize it if it has _id
-            if (!t.id && t._id) return normalizeTask(t as any);
-            return t as Task;
-          })
+        ? project.tasks.map(t => normalizeTask(t))
         : [];
 
       setSelectedProject({ ...project, tasks: projectTasks });
@@ -703,17 +698,18 @@ export default function Tasks() {
         if (!old) return old;
         return old.map((t) => (t.id === updatedTask.id ? updatedTask : t));
       });
-      // Also update projects cache if needed
-      queryClient.setQueryData<Project[]>(["projects"], (old) => {
-        if (!old) return old;
-        // Update task count in affected project
-        return old.map((p) => {
-          if (p.id === updatedTask.projectId) {
-            return { ...p, assignees: updatedTask.assignees };
-          }
-          return p;
+      // Synchronize state immediately
+      if (selectedTask?.id === updatedTask.id) {
+        setSelectedTask(updatedTask);
+      }
+      if (selectedProject?.id === updatedTask.projectId) {
+        setSelectedProject({
+          ...selectedProject,
+          tasks: selectedProject.tasks.map(t => t.id === updatedTask.id ? updatedTask : t)
         });
-      });
+      }
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 
@@ -731,6 +727,10 @@ export default function Tasks() {
         if (!old) return old;
         return old.map((p) => (p.id === updatedProject.id ? updatedProject : p));
       });
+      if (selectedProject?.id === updatedProject.id) {
+        setSelectedProject({ ...selectedProject, ...updatedProject });
+      }
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 
@@ -2200,7 +2200,24 @@ export default function Tasks() {
                         const match = commentDraft.match(/@([a-zA-Z0-9 ]*)$/);
                         if (!match) return null;
                         const filterTerm = match[1].toLowerCase();
-                        const results = activeEmployees.filter(e => e.name.toLowerCase().includes(filterTerm)).slice(0, 5);
+                        
+                        // Filter mentionable users by project or task assignees
+                        const mentionableNames = new Set<string>();
+                        if (selectedProject?.assignees) {
+                          selectedProject.assignees.forEach(name => mentionableNames.add(name));
+                        }
+                        if (selectedTask?.assignees) {
+                          selectedTask.assignees.forEach(name => mentionableNames.add(name));
+                        }
+                        
+                        // Fallback to all active employees if no project/task assignees found
+                        // but prioritize the project/task members
+                        let mentionableList = activeEmployees.filter(e => mentionableNames.has(e.name));
+                        if (mentionableList.length === 0) {
+                          mentionableList = activeEmployees;
+                        }
+
+                        const results = mentionableList.filter(e => e.name.toLowerCase().includes(filterTerm)).slice(0, 5);
                         if (results.length === 0) return null;
                         return (
                           <div className="absolute bottom-[calc(100%+4px)] left-0 w-64 bg-background border border-border shadow-md rounded-lg z-50 overflow-hidden">
