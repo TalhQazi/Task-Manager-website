@@ -84,8 +84,8 @@ import {
   Send,
   RefreshCw,
   UserCog,
-  MessageSquare,
   Paperclip,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/admin/utils";
 import { apiFetch, downloadTaskAttachment } from "@/lib/admin/apiClient";
@@ -522,7 +522,7 @@ export default function Tasks() {
   useEffect(() => {
     const viewId = String(searchParams.get("view") || "").trim();
     const searchVal = String(searchParams.get("search") || "").trim();
-    
+
     if (searchVal) {
       setSearchQuery(searchVal);
       const next = new URLSearchParams(searchParams);
@@ -548,8 +548,27 @@ export default function Tasks() {
     const loadEmployees = async () => {
       try {
         const res = await apiFetch<{ items: Employee[] }>("/api/employees");
-        setEmployees(res.items.filter((e) => e.status === "active"));
-      } catch {
+        const list = (res.items || []).map(e => ({
+          ...e,
+          status: e.status || "active"
+        }));
+
+        // Ensure current user is in the list of assignees for selection
+        const auth = getAuthState();
+        const myUsername = auth.username || "";
+        if (myUsername && !list.find(e => e.name.toLowerCase() === myUsername.toLowerCase() || e.email.toLowerCase() === myUsername.toLowerCase())) {
+          list.push({
+            id: "me",
+            name: myUsername,
+            initials: myUsername.substring(0, 2).toUpperCase(),
+            status: "active",
+            email: myUsername
+          } as any);
+        }
+
+        setEmployees(list);
+      } catch (err) {
+        console.error("Failed to load employees:", err);
         setEmployees([]);
       }
     };
@@ -557,7 +576,10 @@ export default function Tasks() {
   }, []);
 
   const activeEmployees = useMemo(() => {
-    return employees.filter((e) => e.status === "active");
+    return employees.filter((e) => {
+      const s = String(e.status || "").toLowerCase();
+      return s === "active" || s === "on-leave" || !e.status;
+    });
   }, [employees]);
 
   useEffect(() => {
@@ -808,11 +830,11 @@ export default function Tasks() {
       ? attachmentOverride
       : attachmentFile
         ? {
-            fileName: attachmentFile.name,
-            url: "",
-            mimeType: attachmentFile.type,
-            size: attachmentFile.size,
-          }
+          fileName: attachmentFile.name,
+          url: "",
+          mimeType: attachmentFile.type,
+          size: attachmentFile.size,
+        }
         : undefined;
 
     return {
@@ -888,19 +910,19 @@ export default function Tasks() {
 
       const projectLogo = projectLogoFile
         ? await new Promise<ProjectLogo>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onerror = () => reject(new Error("Failed to read project logo"));
-            reader.onload = () => {
-              const url = typeof reader.result === "string" ? reader.result : "";
-              resolve({
-                fileName: projectLogoFile.name,
-                url,
-                mimeType: projectLogoFile.type,
-                size: projectLogoFile.size,
-              });
-            };
-            reader.readAsDataURL(projectLogoFile);
-          })
+          const reader = new FileReader();
+          reader.onerror = () => reject(new Error("Failed to read project logo"));
+          reader.onload = () => {
+            const url = typeof reader.result === "string" ? reader.result : "";
+            resolve({
+              fileName: projectLogoFile.name,
+              url,
+              mimeType: projectLogoFile.type,
+              size: projectLogoFile.size,
+            });
+          };
+          reader.readAsDataURL(projectLogoFile);
+        })
         : undefined;
 
       const tasksToCreate: CreateProjectTaskDraft[] =
@@ -1074,7 +1096,7 @@ export default function Tasks() {
         }
       }, 5000);
     }
-    
+
     return () => {
       if (autoRefreshIntervalRef.current) {
         clearInterval(autoRefreshIntervalRef.current);
@@ -1142,7 +1164,7 @@ export default function Tasks() {
           if (prev.find((c) => c.id === comment.id)) return prev;
           return [...prev, comment];
         });
-        
+
         // Auto scroll to bottom smoothly
         setTimeout(() => {
           if (chatContainerRef.current) {
@@ -1438,13 +1460,13 @@ export default function Tasks() {
     const qProject = projectSearchQuery.trim().toLowerCase();
     const qMain = searchQuery.trim().toLowerCase();
     const sFilter = statusFilter.toLowerCase();
-    
+
     return projects.filter((p) => {
       const name = p.name.toLowerCase();
       const desc = (p.description || "").toLowerCase();
       const assignees = (p.assignees || []).join(" ").toLowerCase();
       const status = (p.status || "").toLowerCase();
-      
+
       // Status Filter
       if (sFilter !== "all" && status !== sFilter) {
         return false;
@@ -1454,12 +1476,12 @@ export default function Tasks() {
       if (qProject && !name.includes(qProject) && !desc.includes(qProject) && !assignees.includes(qProject)) {
         return false;
       }
-      
+
       // If the main search bar has text, it must match either name, desc, or assignees
       if (qMain && !name.includes(qMain) && !desc.includes(qMain) && !assignees.includes(qMain)) {
         return false;
       }
-      
+
       return true;
     });
   }, [projects, projectSearchQuery, searchQuery, statusFilter]);
@@ -1612,7 +1634,7 @@ export default function Tasks() {
             <Select value={selectedProject.status || "No status"} onValueChange={(value) => {
               updateProjectStatusMutation.mutate({ projectId: selectedProject.id, status: value }, {
                 onSuccess: () => {
-                  setSelectedProject({...selectedProject, status: value});
+                  setSelectedProject({ ...selectedProject, status: value });
                 }
               });
             }}>
@@ -1654,104 +1676,104 @@ export default function Tasks() {
               <p className="text-muted-foreground">{projectSearchQuery ? "No projects match your search." : "No projects found. Create one to begin."}</p>
             ) : (
               <>
-              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {projectsQuery.data?.items.map((project, idx) => {
-                  const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0 ? project.assignees : [];
-                  const taskNum = project.taskCount ?? 0;
-                  const projectLetter = String.fromCharCode(65 + (idx % 26));
-                  const projectNumber = (projectPage - 1) * PAGE_SIZE + idx + 1;
-                  return (
-                    <div
-                      key={project.id}
-                      className="relative text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card w-full group"
-                    >
-                      <button
-                        onClick={() => void loadProject(project.id, project)}
-                        className="w-full text-left"
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                  {projectsQuery.data?.items.map((project, idx) => {
+                    const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0 ? project.assignees : [];
+                    const taskNum = project.taskCount ?? 0;
+                    const projectLetter = String.fromCharCode(65 + (idx % 26));
+                    const projectNumber = (projectPage - 1) * PAGE_SIZE + idx + 1;
+                    return (
+                      <div
+                        key={project.id}
+                        className="relative text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card w-full group"
                       >
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="flex-shrink-0 text-xs font-bold text-primary w-fit text-right min-w-[20px]">{projectNumber}.</span>
-                          <ProjectLogoImg projectId={project.id} projectName={project.name} />
-                          <div className="min-w-0 flex-1">
-                            <p className="font-medium truncate">{project.name}</p>
-                            <p className="text-xs text-muted-foreground line-clamp-2">{project.description || "No description"}</p>
+                        <button
+                          onClick={() => void loadProject(project.id, project)}
+                          className="w-full text-left"
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="flex-shrink-0 text-xs font-bold text-primary w-fit text-right min-w-[20px]">{projectNumber}.</span>
+                            <ProjectLogoImg projectId={project.id} projectName={project.name} />
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium truncate">{project.name}</p>
+                              <p className="text-xs text-muted-foreground line-clamp-2">{project.description || "No description"}</p>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                          <span className="truncate flex-1 mr-2">{assigneeList.length > 0 ? assigneeList.join(", ") : "No assignees"}</span>
-                          <span className="flex-shrink-0">{taskNum} task{taskNum === 1 ? "" : "s"}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs">
-                          <Badge className="capitalize" variant="outline">{project.status || "No tasks"}</Badge>
-                          <span className="text-muted-foreground text-xs">{project.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}</span>
-                        </div>
-                      </button>
-                      
-                      {/* Three dots menu */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="absolute top-2 right-2 h-8 w-8 p-0 bg-background/80 hover:bg-background"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40">
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingProject(project);
-                              setEditProjectName(project.name);
-                              setEditProjectDescription(project.description || "");
-                              setEditProjectLogoPreview(project.logo?.url || "");
-                              setEditProjectLogoFile(null);
-                              setIsEditProjectOpen(true);
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setReassigningProject(project);
-                              setReassignProjectAssignees(project.assignees || []);
-                              setIsReassignProjectOpen(true);
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <UserCog className="h-4 w-4 mr-2" />
-                            Reassign
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingProject(project);
-                              setIsDeleteProjectOpen(true);
-                            }}
-                            className="cursor-pointer text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  );
-                })}
-              </div>
-              <Pagination
-                currentPage={projectPage}
-                totalPages={projectTotalPages}
-                onPageChange={setProjectPage}
-                className="mt-6"
-              />
+                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                            <span className="truncate flex-1 mr-2">{assigneeList.length > 0 ? assigneeList.join(", ") : "No assignees"}</span>
+                            <span className="flex-shrink-0">{taskNum} task{taskNum === 1 ? "" : "s"}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <Badge className="capitalize" variant="outline">{project.status || "No tasks"}</Badge>
+                            <span className="text-muted-foreground text-xs">{project.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}</span>
+                          </div>
+                        </button>
+
+                        {/* Three dots menu */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="absolute top-2 right-2 h-8 w-8 p-0 bg-background/80 hover:bg-background"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingProject(project);
+                                setEditProjectName(project.name);
+                                setEditProjectDescription(project.description || "");
+                                setEditProjectLogoPreview(project.logo?.url || "");
+                                setEditProjectLogoFile(null);
+                                setIsEditProjectOpen(true);
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setReassigningProject(project);
+                                setReassignProjectAssignees(project.assignees || []);
+                                setIsReassignProjectOpen(true);
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <UserCog className="h-4 w-4 mr-2" />
+                              Reassign
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingProject(project);
+                                setIsDeleteProjectOpen(true);
+                              }}
+                              className="cursor-pointer text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    );
+                  })}
+                </div>
+                <Pagination
+                  currentPage={projectPage}
+                  totalPages={projectTotalPages}
+                  onPageChange={setProjectPage}
+                  className="mt-6"
+                />
               </>
             )}
           </div>
@@ -1767,141 +1789,146 @@ export default function Tasks() {
               <p className="text-muted-foreground">{searchQuery ? "No tasks match your search." : "No standalone tasks found. Create one to begin."}</p>
             ) : (
               <>
-              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {tasks.map((task, idx) => {
-                  const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0 ? task.assignees : [];
-                  const taskLetter = String.fromCharCode(65 + (idx % 26));
-                  const taskNumber = (taskPage - 1) * PAGE_SIZE + idx + 1;
-                  return (
-                    <div
-                      key={task.id}
-                      className="relative text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card w-full group"
-                    >
-                      <button
-                        onClick={() => openView(task)}
-                        className="w-full text-left"
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                  {tasks.map((task, idx) => {
+                    const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0 ? task.assignees : [];
+                    const taskLetter = String.fromCharCode(65 + (idx % 26));
+                    const taskNumber = (taskPage - 1) * PAGE_SIZE + idx + 1;
+                    return (
+                      <div
+                        key={task.id}
+                        className="relative text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card w-full group"
                       >
-                        <div className="mb-2">
-                          <p className="font-medium truncate text-sm">
-                            <span className="text-primary mr-1">{taskNumber}.</span> 
-                            {task.title}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p>
-                        </div>
-                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                          <span className="truncate flex-1 mr-2">{assigneeList.length > 0 ? assigneeList.join(", ") : "Unassigned"}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs gap-2 flex-wrap">
-                          <div className="flex gap-1 flex-wrap">
-                            <Badge 
-                              className={cn(
-                                "capitalize text-xs relative overflow-hidden",
-                                task.status === 'completed' && "task-complete-pulse"
-                              )} 
-                              variant="outline"
-                              style={{
-                                backgroundColor: task.priority === 'high' ? 'rgb(239, 68, 68)' : task.priority === 'medium' ? 'rgb(234, 179, 8)' : 'rgb(34, 197, 94)',
-                                color: 'white'
-                              }}
-                            >
-                              {task.priority}
-                            </Badge>
-                            <Badge 
-                              className={cn(
-                                "capitalize text-xs relative overflow-hidden",
-                                task.status === 'completed' && "bg-green-500 text-white border-green-500"
-                              )} 
-                              variant="outline"
-                            >
-                              <span className="relative z-10">{task.status}</span>
-                              {task.status === 'completed' && (
-                                <>
-                                  {/* Neon pulse ring - 600ms */}
-                                  <span className="absolute inset-0 rounded-full animate-pulse-ring" />
-                                  {/* Electric streak - 300ms */}
-                                  <span className="absolute inset-0 animate-electric-streak" />
-                                  {/* Particle shimmer - <1s */}
-                                  <span className="absolute inset-0 animate-particle-shimmer" />
-                                </>
-                              )}
-                            </Badge>
+                        <button
+                          onClick={() => openView(task)}
+                          className="w-full text-left"
+                        >
+                          <div className="mb-2">
+                            <p className="font-medium truncate text-sm">
+                              <span className="text-primary mr-1">{taskNumber}.</span>
+                              {task.title}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p>
                           </div>
-                          <span className="text-muted-foreground text-xs whitespace-nowrap">
-                            {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}
-                          </span>
-                        </div>
-                      </button>
-                      
-                      {/* Three dots menu */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="absolute top-2 right-2 h-8 w-8 p-0 bg-background/80 hover:bg-background"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40">
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openView(task);
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <Eye className="h-4 w-4 mr-2" />
-                            View
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setReassigningTask(task);
-                              setReassignTaskAssignees(task.assignees || []);
-                              setIsReassignTaskOpen(true);
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <UserCog className="h-4 w-4 mr-2" />
-                            Reassign
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openEdit(task);
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openDelete(task);
-                            }}
-                            className="cursor-pointer text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  );
-                })}
-              </div>
-              <Pagination
-                currentPage={taskPage}
-                totalPages={taskTotalPages}
-                onPageChange={setTaskPage}
-                className="mt-6"
-              />
+                          {task.attachment?.url && task.attachment.mimeType?.startsWith("image/") && (
+                            <div className="mb-2 rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
+                              <img src={task.attachment.url} alt="Task preview" className="w-full h-full object-cover" />
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                            <span className="truncate flex-1 mr-2">{assigneeList.length > 0 ? assigneeList.join(", ") : "Unassigned"}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs gap-2 flex-wrap">
+                            <div className="flex gap-1 flex-wrap">
+                              <Badge
+                                className={cn(
+                                  "capitalize text-xs relative overflow-hidden",
+                                  task.status === 'completed' && "task-complete-pulse"
+                                )}
+                                variant="outline"
+                                style={{
+                                  backgroundColor: task.priority === 'high' ? 'rgb(239, 68, 68)' : task.priority === 'medium' ? 'rgb(234, 179, 8)' : 'rgb(34, 197, 94)',
+                                  color: 'white'
+                                }}
+                              >
+                                {task.priority}
+                              </Badge>
+                              <Badge
+                                className={cn(
+                                  "capitalize text-xs relative overflow-hidden",
+                                  task.status === 'completed' && "bg-green-500 text-white border-green-500"
+                                )}
+                                variant="outline"
+                              >
+                                <span className="relative z-10">{task.status}</span>
+                                {task.status === 'completed' && (
+                                  <>
+                                    {/* Neon pulse ring - 600ms */}
+                                    <span className="absolute inset-0 rounded-full animate-pulse-ring" />
+                                    {/* Electric streak - 300ms */}
+                                    <span className="absolute inset-0 animate-electric-streak" />
+                                    {/* Particle shimmer - <1s */}
+                                    <span className="absolute inset-0 animate-particle-shimmer" />
+                                  </>
+                                )}
+                              </Badge>
+                            </div>
+                            <span className="text-muted-foreground text-xs whitespace-nowrap">
+                              {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}
+                            </span>
+                          </div>
+                        </button>
+
+                        {/* Three dots menu */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="absolute top-2 right-2 h-8 w-8 p-0 bg-background/80 hover:bg-background"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openView(task);
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              View
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setReassigningTask(task);
+                                setReassignTaskAssignees(task.assignees || []);
+                                setIsReassignTaskOpen(true);
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <UserCog className="h-4 w-4 mr-2" />
+                              Reassign
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEdit(task);
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openDelete(task);
+                              }}
+                              className="cursor-pointer text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    );
+                  })}
+                </div>
+                <Pagination
+                  currentPage={taskPage}
+                  totalPages={taskTotalPages}
+                  onPageChange={setTaskPage}
+                  className="mt-6"
+                />
               </>
             )}
           </div>
@@ -1990,14 +2017,14 @@ export default function Tasks() {
               <div className="flex items-center justify-between p-3 border-b bg-background z-10 shrink-0">
                 <div className="flex items-center gap-3 ml-2">
                   <Badge variant="outline" className={cn("capitalize px-3 py-1 font-semibold rounded-full border-2 cursor-pointer transition-colors hover:opacity-80", selectedTask.status === "completed" ? "border-green-500 text-green-700 bg-green-50" : selectedTask.status === "in-progress" ? "border-blue-500 text-blue-700 bg-blue-50" : selectedTask.status === "overdue" ? "border-red-500 text-red-700 bg-red-50" : "border-amber-500 text-amber-700 bg-amber-50")} onClick={() => {
-                        const next: Record<string, Task["status"]> = {
-                          "pending": "in-progress",
-                          "in-progress": "completed",
-                          "completed": "pending",
-                          "overdue": "completed"
-                        };
-                        void updateStatus(next[selectedTask.status] || "pending");
-                      }}>
+                    const next: Record<string, Task["status"]> = {
+                      "pending": "in-progress",
+                      "in-progress": "completed",
+                      "completed": "pending",
+                      "overdue": "completed"
+                    };
+                    void updateStatus(next[selectedTask.status] || "pending");
+                  }}>
                     {selectedTask.status === "completed" ? <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> : selectedTask.status === "overdue" ? <AlertTriangle className="w-3.5 h-3.5 mr-1.5" /> : <Clock className="w-3.5 h-3.5 mr-1.5" />}
                     {selectedTask.status}
                   </Badge>
@@ -2011,7 +2038,7 @@ export default function Tasks() {
 
               {/* 2-Pane Body */}
               <div className="flex-1 flex flex-col md:flex-row shadow-inner overflow-hidden relative bg-background">
-                
+
                 {/* Left Pane: Title, Description, Attachments, Comments Feed */}
                 <div className="flex-1 overflow-y-auto w-full md:w-2/3 p-5 sm:p-8 space-y-8 scroll-smooth pb-24">
                   {/* Task Title */}
@@ -2034,29 +2061,29 @@ export default function Tasks() {
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 bg-muted/20 p-3 rounded-xl border border-border/50">
                         {selectedTask.attachments && selectedTask.attachments.length > 0
                           ? selectedTask.attachments.map((attachment, idx) => (
-                              <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow">
-                                {attachment.mimeType?.startsWith("image/") && attachment.url ? (
-                                  <img src={attachment.url} alt={attachment.fileName || `Attachment`} className="w-full h-24 object-cover" />
-                                ) : (
-                                  <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
-                                )}
-                                <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
-                                <button type="button" onClick={() => void downloadTaskAttachment(selectedTask.id, idx, attachment.fileName || "download")} className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]" title={attachment.fileName}><span className="text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/50 bg-black/40">Download</span></button>
-                                {isAdminRole && (<button type="button" onClick={() => void archiveAttachment(idx)} disabled={archivingAttachment === idx} className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100/90 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-lg z-10" title="Archive attachment">{archivingAttachment === idx ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}</button>)}
-                              </div>
-                            ))
+                            <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow">
+                              {attachment.mimeType?.startsWith("image/") && attachment.url ? (
+                                <img src={attachment.url} alt={attachment.fileName || `Attachment`} className="w-full h-24 object-cover" />
+                              ) : (
+                                <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
+                              )}
+                              <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
+                              <button type="button" onClick={() => void downloadTaskAttachment(selectedTask.id, idx, attachment.fileName || "download")} className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]" title={attachment.fileName}><span className="text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/50 bg-black/40">Download</span></button>
+                              {isAdminRole && (<button type="button" onClick={() => void archiveAttachment(idx)} disabled={archivingAttachment === idx} className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100/90 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-lg z-10" title="Archive attachment">{archivingAttachment === idx ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}</button>)}
+                            </div>
+                          ))
                           : selectedTask.attachment?.fileName ? (
-                              <div className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow">
-                                {selectedTask.attachment.mimeType?.startsWith("image/") && selectedTask.attachment.url ? (
-                                  <img src={selectedTask.attachment.url} alt={selectedTask.attachment.fileName || "Attachment"} className="w-full h-24 object-cover" />
-                                ) : (
-                                  <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
-                                )}
-                                <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{selectedTask.attachment.fileName}</div>
-                                <button type="button" onClick={() => void downloadTaskAttachment(selectedTask.id, -1, selectedTask.attachment!.fileName || "download")} className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]" title={selectedTask.attachment.fileName}><span className="text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/50 bg-black/40">Download</span></button>
-                                {isAdminRole && (<button type="button" onClick={() => void archiveAttachment(-1)} disabled={archivingAttachment === -1} className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100/90 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-lg z-10" title="Archive attachment">{archivingAttachment === -1 ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}</button>)}
-                              </div>
-                            ) : null}
+                            <div className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow">
+                              {selectedTask.attachment.mimeType?.startsWith("image/") && selectedTask.attachment.url ? (
+                                <img src={selectedTask.attachment.url} alt={selectedTask.attachment.fileName || "Attachment"} className="w-full h-24 object-cover" />
+                              ) : (
+                                <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
+                              )}
+                              <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{selectedTask.attachment.fileName}</div>
+                              <button type="button" onClick={() => void downloadTaskAttachment(selectedTask.id, -1, selectedTask.attachment!.fileName || "download")} className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]" title={selectedTask.attachment.fileName}><span className="text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/50 bg-black/40">Download</span></button>
+                              {isAdminRole && (<button type="button" onClick={() => void archiveAttachment(-1)} disabled={archivingAttachment === -1} className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100/90 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-lg z-10" title="Archive attachment">{archivingAttachment === -1 ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}</button>)}
+                            </div>
+                          ) : null}
                       </div>
                     </div>
                   )}
@@ -2175,10 +2202,10 @@ export default function Tasks() {
                       {commentAttachments.length > 0 && (
                         <div className="p-2 border-b bg-muted/10 grid grid-cols-3 sm:grid-cols-5 gap-2 max-h-32 overflow-y-auto">
                           {commentAttachments.map((f, i) => (
-                             <div key={i} className="relative rounded-md border border-border/50 bg-background flex flex-col items-center justify-center p-2 text-center h-16 group/rem">
-                               <span className="text-[10px] w-full mt-1 truncate font-medium text-muted-foreground">{f.name}</span>
-                               <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover/rem:opacity-100 transition-opacity text-[9px] shadow-sm ring-2 ring-background">✕</button>
-                             </div>
+                            <div key={i} className="relative rounded-md border border-border/50 bg-background flex flex-col items-center justify-center p-2 text-center h-16 group/rem">
+                              <span className="text-[10px] w-full mt-1 truncate font-medium text-muted-foreground">{f.name}</span>
+                              <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover/rem:opacity-100 transition-opacity text-[9px] shadow-sm ring-2 ring-background">✕</button>
+                            </div>
                           ))}
                         </div>
                       )}
@@ -2215,7 +2242,7 @@ export default function Tasks() {
                 <div className="w-full md:w-[320px] lg:w-[360px] bg-muted/10 shrink-0 border-t md:border-t-0 md:border-l border-border/50 overflow-y-auto hidden md:block">
                   <div className="p-6 space-y-7">
                     <h3 className="text-sm font-bold text-foreground flex items-center gap-2 pb-2 border-b">Properties</h3>
-                    
+
                     {/* Assignees */}
                     <div className="space-y-2">
                       <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Assignees</label>
@@ -2258,7 +2285,7 @@ export default function Tasks() {
                     <div className="space-y-2">
                       <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5" /> Priority</label>
                       <div>
-                         <Badge className={cn("capitalize px-3 py-1 font-bold text-[12px] rounded-md shadow-none", priorityClasses[selectedTask.priority])}>{selectedTask.priority}</Badge>
+                        <Badge className={cn("capitalize px-3 py-1 font-bold text-[12px] rounded-md shadow-none", priorityClasses[selectedTask.priority])}>{selectedTask.priority}</Badge>
                       </div>
                     </div>
 
@@ -2267,7 +2294,7 @@ export default function Tasks() {
                       <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> Location / Project</label>
                       <p className="text-[13px] font-medium text-foreground bg-muted/20 p-2.5 rounded-lg border border-transparent hover:border-border transition-colors">{selectedTask.location || "Organizational Task"}</p>
                     </div>
-                    
+
                     {/* Created */}
                     <div className="pt-4 border-t border-border/40 text-xs text-muted-foreground font-medium flex justify-between items-center">
                       <span>Created</span>
@@ -2283,7 +2310,7 @@ export default function Tasks() {
         </DialogContent>
       </Dialog>
 
-      
+
       <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) setSelectedTask(null); }}>
         <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto rounded-lg">
           <DialogHeader><DialogTitle>Edit Task</DialogTitle><DialogDescription>Update task details.</DialogDescription></DialogHeader>
@@ -2305,7 +2332,7 @@ export default function Tasks() {
         </DialogContent>
       </Dialog>
 
-      
+
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent className="w-[95vw] max-w-[95vw] sm:max-w-md rounded-lg">
           <AlertDialogHeader><AlertDialogTitle>Archive task?</AlertDialogTitle><AlertDialogDescription>This will move the task and its comments to the archive. You can restore it later from the Archive Data page.</AlertDialogDescription></AlertDialogHeader>
@@ -2313,7 +2340,7 @@ export default function Tasks() {
         </AlertDialogContent>
       </AlertDialog>
 
-      
+
       {/* Edit Project Dialog */}
       <Dialog open={isEditProjectOpen} onOpenChange={setIsEditProjectOpen}>
         <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto rounded-lg">
@@ -2326,7 +2353,7 @@ export default function Tasks() {
               e.preventDefault();
               if (!editingProject) return;
               setIsEditingProject(true);
-              
+
               const updateProject = async () => {
                 try {
                   let logoPayload = undefined;
@@ -2346,7 +2373,7 @@ export default function Tasks() {
                       reader.readAsDataURL(editProjectLogoFile);
                     });
                   }
-                  
+
                   const payload: Partial<Project> = {
                     name: editProjectName,
                     description: editProjectDescription,
@@ -2354,9 +2381,9 @@ export default function Tasks() {
                   if (logoPayload) {
                     payload.logo = logoPayload;
                   }
-                  
+
                   await editProjectMutation.mutateAsync({ id: editingProject.id, payload });
-                  
+
                   setIsEditProjectOpen(false);
                   setEditingProject(null);
                   setEditProjectName("");
@@ -2374,7 +2401,7 @@ export default function Tasks() {
                   setIsEditingProject(false);
                 }
               };
-              
+
               void updateProject();
             }}
             className="space-y-4"
@@ -2542,7 +2569,7 @@ export default function Tasks() {
                         {activeEmployees.map((employee) => (
                           <CommandItem
                             key={employee.id}
-                            value={employee.name}
+                            value={employee.name.toLowerCase()}
                             onSelect={() => {
                               setReassignTaskAssignees((prev) =>
                                 prev.includes(employee.name)
@@ -2622,7 +2649,7 @@ export default function Tasks() {
                         {activeEmployees.map((employee) => (
                           <CommandItem
                             key={employee.id}
-                            value={employee.name}
+                            value={employee.name.toLowerCase()}
                             onSelect={() => {
                               setReassignProjectAssignees((prev) =>
                                 prev.includes(employee.name)
@@ -2700,19 +2727,24 @@ export default function Tasks() {
                       <div className="p-4 border-b border-muted/30 flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-foreground line-clamp-1 break-words">
-                            <span className="text-primary mr-1.5">{displayNumber}.</span> 
+                            <span className="text-primary mr-1.5">{displayNumber}.</span>
                             {task.title}
                           </p>
                           <p className="text-xs text-muted-foreground mt-1 capitalize">{task.priority} priority</p>
                         </div>
                         <DropdownMenu><DropdownMenuTrigger asChild><button className="p-1 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0" aria-label="Task actions" onClick={(e) => e.stopPropagation()}><MoreHorizontal className="w-4 h-4 text-muted-foreground" /></button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openView(task); }}>View Details</DropdownMenuItem><DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handlePrintTask(task); }}>Print</DropdownMenuItem><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(task); }}>Edit</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }} className="text-amber-600"><Archive className="w-4 h-4 mr-2" />Archive</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
                       </div>
-                    <div className="p-4 flex-1 space-y-3">
-                      <p className="text-sm text-muted-foreground line-clamp-2 break-words">{task.description}</p>
-                      <div><p className="text-xs text-muted-foreground mb-2">Assigned to</p><div className="flex flex-wrap items-center gap-2">{task.assignees && task.assignees.length > 0 ? (<><div className="flex -space-x-2">{task.assignees.slice(0, 3).map((assignee, idx) => (<Avatar key={idx} className="w-7 h-7 border-2 border-background"><AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">{assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}</AvatarFallback></Avatar>))}{task.assignees.length > 3 && (<div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">+{task.assignees.length - 3}</div>)}</div><span className="text-sm text-foreground break-words">{task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}</span></>) : (<span className="text-sm text-muted-foreground">Unassigned</span>)}</div></div>
-                      <div className="flex gap-2 flex-wrap"><Badge variant="secondary" className={cn("text-xs", statusClasses[task.status])}>{task.status}</Badge><Badge variant="outline" className={cn("text-xs border", priorityClasses[task.priority])}>{task.priority}</Badge></div>
-                    </div>
-                    <div className="p-4 border-t border-muted/30 bg-muted/10 space-y-2 text-sm"><div className="flex items-center gap-2 text-muted-foreground flex-wrap"><Calendar className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs">Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}</span></div><div className="flex items-center gap-2 text-muted-foreground flex-wrap"><Clock className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs">Created: {new Date(task.createdAt).toLocaleDateString()}</span></div>{task.location && (<div className="flex items-center gap-2 text-muted-foreground flex-wrap"><MapPin className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs break-words">{task.location}</span></div>)}</div>
+                      <div className="p-4 flex-1 space-y-3">
+                        <p className="text-sm text-muted-foreground line-clamp-2 break-words">{task.description}</p>
+                        {task.attachment?.url && task.attachment.mimeType?.startsWith("image/") && (
+                          <div className="rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
+                            <img src={task.attachment.url} alt="Task preview" className="w-full h-full object-cover" />
+                          </div>
+                        )}
+                        <div><p className="text-xs text-muted-foreground mb-2">Assigned to</p><div className="flex flex-wrap items-center gap-2">{task.assignees && task.assignees.length > 0 ? (<><div className="flex -space-x-2">{task.assignees.slice(0, 3).map((assignee, idx) => (<Avatar key={idx} className="w-7 h-7 border-2 border-background"><AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">{assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}</AvatarFallback></Avatar>))}{task.assignees.length > 3 && (<div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">+{task.assignees.length - 3}</div>)}</div><span className="text-sm text-foreground break-words">{task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}</span></>) : (<span className="text-sm text-muted-foreground">Unassigned</span>)}</div></div>
+                        <div className="flex gap-2 flex-wrap"><Badge variant="secondary" className={cn("text-xs", statusClasses[task.status])}>{task.status}</Badge><Badge variant="outline" className={cn("text-xs border", priorityClasses[task.priority])}>{task.priority}</Badge></div>
+                      </div>
+                      <div className="p-4 border-t border-muted/30 bg-muted/10 space-y-2 text-sm"><div className="flex items-center gap-2 text-muted-foreground flex-wrap"><Calendar className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs">Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}</span></div><div className="flex items-center gap-2 text-muted-foreground flex-wrap"><Clock className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs">Created: {new Date(task.createdAt).toLocaleDateString()}</span></div>{task.location && (<div className="flex items-center gap-2 text-muted-foreground flex-wrap"><MapPin className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs break-words">{task.location}</span></div>)}</div>
                     </motion.div>
                   );
                 })}
@@ -2742,8 +2774,6 @@ export default function Tasks() {
         </div>
       )}
     </div>
+
   );
 }
-
-// Missing MessageSquare import
-import { MessageSquare } from "lucide-react";
