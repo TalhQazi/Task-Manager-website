@@ -269,6 +269,26 @@ function normalizeTask(t: TaskApi): Task {
   };
 }
 
+function renderMessageWithMentions(text: string) {
+  if (!text) return null;
+  // Split by mentions that start with @ and don't contain spaces
+  const parts = text.split(/(@\S+)/g);
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith("@")) {
+          return (
+            <span key={i} className="text-primary font-medium bg-primary/10 px-1 py-0.5 rounded cursor-pointer hover:bg-primary/20 transition-colors">
+              {part}
+            </span>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </>
+  );
+}
+
 async function filesToAttachments(files: File[]) {
   const results = await Promise.all(
     files.map(
@@ -2110,7 +2130,7 @@ export default function Tasks() {
                               )}
                             </div>
                             <div className="text-sm text-foreground whitespace-pre-wrap break-words">
-                              {c.message}
+                              {renderMessageWithMentions(c.message)}
                             </div>
                             {/* Render Comment Attachments */}
                             {c.attachments && c.attachments.length > 0 && (
