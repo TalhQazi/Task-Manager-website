@@ -513,7 +513,14 @@ export default function Tasks() {
       }
 
       const project = res.item;
-      const projectTasks: Task[] = Array.isArray(project.tasks) ? project.tasks : [];
+      const projectTasks: Task[] = Array.isArray(project.tasks) 
+        ? (project.tasks as any[]).map(t => {
+            // If the task from project aggregation already has 'id', use it, 
+            // otherwise help normalize it if it has _id
+            if (!t.id && t._id) return normalizeTask(t as any);
+            return t as Task;
+          })
+        : [];
 
       setSelectedProject({ ...project, tasks: projectTasks });
       setTasks(projectTasks);
