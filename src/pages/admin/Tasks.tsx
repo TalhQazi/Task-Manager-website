@@ -122,6 +122,39 @@ function TaskAttachmentImg({ taskId }: { taskId: string }) {
   return null;
 }
 
+function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fallbackUrl }: { taskId: string; commentId: string; index: number; mimeType: string; fileName: string; fallbackUrl?: string }) {
+  const [src, setSrc] = useState<string | null | undefined>(fallbackUrl || undefined);
+  useEffect(() => {
+    if (fallbackUrl) return; // Already have URL from state (recently added)
+    let cancelled = false;
+    apiFetch<{ attachment: { url: string } }>(`/api/tasks/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}/attachments/${index}`)
+      .then(d => { if (!cancelled) setSrc(d.attachment?.url || null); })
+      .catch(() => { if (!cancelled) setSrc(null); });
+    return () => { cancelled = true; };
+  }, [taskId, commentId, index, fallbackUrl]);
+  
+  if (src && mimeType?.startsWith("image/")) return (
+    <>
+      <img src={src} alt={fileName} className="w-full h-20 object-cover" />
+      <a href={src} download={fileName} aria-label="Download" onClick={(e) => e.stopPropagation()} className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-opacity text-white text-[11px] font-bold backdrop-blur-[1px]">
+        Save
+      </a>
+    </>
+  );
+  if (src && !mimeType?.startsWith("image/")) return (
+    <>
+      <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/20">
+        <FileText className="w-6 h-6 text-muted-foreground/60 mb-1" />
+      </div>
+      <a href={src} download={fileName} aria-label="Download" onClick={(e) => e.stopPropagation()} className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-opacity text-white text-[11px] font-bold backdrop-blur-[1px]">
+        Save
+      </a>
+    </>
+  );
+  if (src === undefined) return <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/20"><Loader2 className="h-4 w-4 animate-spin opacity-20" /></div>;
+  return <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/20"><AlertCircle className="w-5 h-5 text-destructive/50" /></div>;
+}
+
 // ... (all your interfaces and types remain exactly the same)
 interface Task {
   id: string;
@@ -2183,19 +2216,8 @@ export default function Tasks() {
                                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 pt-2">
                                     {c.attachments.map((att, attIdx) => (
                                       <div key={attIdx} className="relative rounded-lg overflow-hidden border border-border/50 bg-background shadow-xs group/att">
-                                        {att.mimeType?.startsWith("image/") && att.url ? (
-                                          <img src={att.url} alt={att.fileName} className="w-full h-20 object-cover" />
-                                        ) : (
-                                          <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/20">
-                                            <FileText className="w-6 h-6 text-muted-foreground/60 mb-1" />
-                                          </div>
-                                        )}
+                                        <CommentAttachmentImg taskId={selectedTask.id} commentId={c.id} index={attIdx} mimeType={att.mimeType} fileName={att.fileName} fallbackUrl={att.url} />
                                         <div className="p-1.5 text-[10px] text-center font-medium text-muted-foreground truncate border-t bg-muted/10">{att.fileName}</div>
-                                        {att.url && (
-                                          <a href={att.url} download={att.fileName} className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-opacity text-white text-[11px] font-bold backdrop-blur-[1px]">
-                                            Save
-                                          </a>
-                                        )}
                                       </div>
                                     ))}
                                   </div>
