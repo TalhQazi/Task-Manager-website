@@ -621,8 +621,22 @@ export default function Tasks() {
       });
       return normalizeTask(res.item);
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    onSuccess: (updatedTask) => {
+      queryClient.setQueryData<Task[]>(["tasks"], (old) => {
+        if (!old) return old;
+        return old.map((t) => (t.id === updatedTask.id ? updatedTask : t));
+      });
+      if (selectedTask?.id === updatedTask.id) {
+        setSelectedTask(updatedTask);
+      }
+      if (selectedProject?.id === updatedTask.projectId) {
+        setSelectedProject({
+          ...selectedProject,
+          tasks: selectedProject.tasks.map(t => t.id === updatedTask.id ? updatedTask : t)
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 
