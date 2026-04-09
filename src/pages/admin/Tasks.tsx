@@ -84,6 +84,8 @@ import {
   Send,
   RefreshCw,
   UserCog,
+  MessageSquare,
+  Paperclip,
 } from "lucide-react";
 import { cn } from "@/lib/admin/utils";
 import { apiFetch, downloadTaskAttachment } from "@/lib/admin/apiClient";
@@ -191,6 +193,13 @@ type TaskComment = {
   authorUsername: string;
   authorRole?: string;
   createdAt: string;
+  attachments?: Array<{
+    fileName: string;
+    url: string;
+    mimeType: string;
+    size: number;
+    uploadedAt?: string;
+  }>;
 };
 
 type TaskApi = Omit<Task, "id"> & {
@@ -363,6 +372,7 @@ export default function Tasks() {
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentDraft, setCommentDraft] = useState("");
+  const [commentAttachments, setCommentAttachments] = useState<File[]>([]);
   const [commentError, setCommentError] = useState<string | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
@@ -1055,16 +1065,38 @@ export default function Tasks() {
   const sendComment = async () => {
     if (!selectedTask) return;
     const msg = commentDraft.trim();
-    if (!msg) return;
+    if (!msg && commentAttachments.length === 0) return;
 
     try {
       setCommentError(null);
+
+      // Process attachments into base64 data URLs
+      const processedAttachments = await Promise.all(
+        commentAttachments.map(
+          (file) =>
+            new Promise<{ fileName: string; mimeType: string; size: number; url: string }>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                resolve({
+                  fileName: file.name,
+                  mimeType: file.type,
+                  size: file.size,
+                  url: reader.result as string,
+                });
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            })
+        )
+      );
+
       const res = await apiFetch<{ item: TaskComment }>(`/api/tasks/${encodeURIComponent(selectedTask.id)}/comments`, {
         method: "POST",
-        body: JSON.stringify({ message: msg }),
+        body: JSON.stringify({ message: msg, attachments: processedAttachments }),
       });
       setComments((prev) => [...prev, res.item]);
       setCommentDraft("");
+      setCommentAttachments([]); // Clear attachments
       // Scroll to bottom after sending
       setTimeout(() => {
         if (chatContainerRef.current) {
@@ -2023,189 +2055,130 @@ export default function Tasks() {
                 ) : null}
               </div>
 
-              {/* Enhanced Messages Section - Beautiful Chat UI */}
-              <div className="space-y-3 mt-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
+              {/* Tasks Comments / Thread Section (Asana Style) */}
+              <div className="mt-8 border-t pt-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    <MessageSquare className="w-5 h-5 text-muted-foreground" /> Activity & Comments
+                  </h3>
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-6 bg-gradient-to-b from-primary to-primary/60 rounded-full"></div>
-                    <label className="text-sm font-semibold">Discussion</label>
-                    <Badge variant="outline" className="text-xs">{comments.length} messages</Badge>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => { if (selectedTask) void loadComments(selectedTask.id); }}
-                      disabled={commentsLoading}
-                      className="h-8 px-2 text-xs gap-1"
-                    >
-                      <RefreshCw className={cn("w-3.5 h-3.5", commentsLoading && "animate-spin")} />
-                      Refresh
+                    <Button type="button" variant="ghost" size="sm" onClick={() => { if (selectedTask) void loadComments(selectedTask.id); }} disabled={commentsLoading} className="h-8 px-2 text-xs gap-1">
+                      <RefreshCw className={cn("w-3.5 h-3.5", commentsLoading && "animate-spin")} /> Refresh
                     </Button>
-                    <Button
-                      type="button"
-                      variant={autoRefreshEnabled ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
-                      className="h-8 px-2 text-xs gap-1"
-                    >
-                      <Clock className="w-3.5 h-3.5" />
-                      Auto {autoRefreshEnabled ? "ON" : "OFF"}
+                    <Button type="button" variant={autoRefreshEnabled ? "default" : "outline"} size="sm" onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)} className="h-8 px-2 text-xs gap-1">
+                      <Clock className="w-3.5 h-3.5" /> Auto
                     </Button>
                   </div>
                 </div>
 
-                {commentError ? (
-                  <div className="text-xs text-destructive bg-destructive/10 p-3 rounded-lg flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4" />
-                    {commentError}
+                {commentError && (
+                  <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-md mb-4 flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" /> {commentError}
                   </div>
-                ) : null}
+                )}
 
-                {/* Beautiful Chat Container with Gradient Background */}
-                <div 
-                  ref={chatContainerRef}
-                  className="rounded-2xl bg-gradient-to-br from-[#f8fafc] to-[#f1f5f9] dark:from-[#0f172a] dark:to-[#1e293b] p-4 space-y-3 min-h-[350px] max-h-[450px] overflow-y-auto shadow-inner"
-                >
+                {/* Comment Feed */}
+                <div className="space-y-6 mb-6 px-1">
                   {commentsLoading && comments.length === 0 ? (
-                    <div className="flex justify-center items-center h-40">
-                      <div className="flex flex-col items-center gap-2">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        <p className="text-xs text-muted-foreground">Loading messages...</p>
-                      </div>
-                    </div>
+                    <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
                   ) : comments.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-40 text-center">
-                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-                        <MessageSquare className="h-8 w-8 text-primary/60" />
-                      </div>
-                      <p className="text-sm text-muted-foreground">No messages yet</p>
-                      <p className="text-xs text-muted-foreground/70 mt-1">Be the first to start the conversation</p>
+                    <div className="text-center p-8 text-muted-foreground border border-dashed rounded-lg bg-muted/20">
+                      <p className="text-sm">No activity yet.</p>
                     </div>
                   ) : (
-                    <AnimatePresence initial={false}>
-                      {comments.map((c, index) => {
-                        const isMine = !!currentUsername && c.authorUsername === currentUsername;
-                        const timeAgo = formatMessageTime(c.createdAt);
-                        
-                        return (
-                          <motion.div
-                            key={c.id}
-                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            transition={{ duration: 0.2, delay: Math.min(index * 0.03, 0.3) }}
-                            className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
-                          >
-                            <div
-                              className={`
-                                max-w-[85%] sm:max-w-[80%] relative group
-                                ${isMine 
-                                  ? 'bg-gradient-to-r from-primary to-primary/80 text-white shadow-md' 
-                                  : 'bg-white dark:bg-[#334155] text-foreground dark:text-white shadow-sm border border-border/50'
-                                }
-                                rounded-2xl px-4 py-2.5
-                              `}
-                              style={{
-                                borderBottomRightRadius: isMine ? '4px' : '16px',
-                                borderBottomLeftRadius: !isMine ? '4px' : '16px',
-                              }}
-                            >
-                              {/* Author Name - Only show for others */}
-                              {!isMine && (
-                                <div className="flex items-center gap-2 mb-1.5">
-                                  <Avatar className="w-5 h-5">
-                                    <AvatarFallback className="text-[10px] bg-primary/20 text-primary">
-                                      {c.authorUsername.charAt(0).toUpperCase()}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <p className="text-xs font-semibold text-primary dark:text-primary/90">
-                                    {c.authorUsername}
-                                    {c.authorRole && (
-                                      <span className="text-[10px] text-muted-foreground ml-1">
-                                        • {c.authorRole}
-                                      </span>
-                                    )}
-                                  </p>
-                                </div>
-                              )}
-                              
-                              {/* Message Content */}
-                              <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
-                                {c.message}
-                              </p>
-                              
-                              {/* Message Footer with Time */}
-                              <div className={`flex items-center justify-end gap-1 mt-1.5 ${isMine ? 'text-white/80' : 'text-muted-foreground'}`}>
-                                <span className="text-[10px] opacity-70">
-                                  {timeAgo}
+                    <div ref={chatContainerRef} className="space-y-6 max-h-[400px] overflow-y-auto pr-2" style={{ scrollBehavior: 'smooth' }}>
+                      {comments.map((c) => (
+                        <div key={c.id} className="flex gap-4 group">
+                          <Avatar className="w-8 h-8 mt-1 flex-shrink-0">
+                            <AvatarFallback className="text-xs bg-primary/10 text-primary font-medium">
+                              {c.authorUsername.charAt(0).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1 space-y-1.5 min-w-0">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm text-foreground">{c.authorUsername}</span>
+                                {c.authorRole && <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded-sm capitalize">{c.authorRole}</span>}
+                                <span className="text-xs text-muted-foreground" title={new Date(c.createdAt).toLocaleString()}>
+                                  {formatMessageTime(c.createdAt)}
                                 </span>
-                                {isMine && (
-                                  <span className="text-[10px] opacity-70">✓✓</span>
-                                )}
                               </div>
-                              
-                              {/* Archive button for admin/super-admin */}
                               {isAdminRole && (
-                                <button
-                                  type="button"
-                                  onClick={() => void archiveComment(c.id)}
-                                  disabled={archivingCommentId === c.id}
-                                  className={`absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-6 h-6 flex items-center justify-center shadow-md hover:scale-110`}
-                                  title="Archive this comment"
-                                >
-                                  {archivingCommentId === c.id ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <Archive className="h-3 w-3" />
-                                  )}
+                                <button type="button" onClick={() => void archiveComment(c.id)} disabled={archivingCommentId === c.id} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive flex items-center gap-1 text-xs" title="Archive comment">
+                                  {archivingCommentId === c.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}
                                 </button>
                               )}
                             </div>
-                          </motion.div>
-                        );
-                      })}
-                    </AnimatePresence>
-                  )}
-                  
-                  {/* Scroll to bottom indicator when new messages arrive */}
-                  {comments.length > 0 && (
-                    <div className="sticky bottom-0 flex justify-center">
-                      <div className="bg-primary/20 backdrop-blur-sm rounded-full px-2 py-0.5 text-[10px] text-primary animate-pulse">
-                        New messages
-                      </div>
+                            <div className="text-sm text-foreground whitespace-pre-wrap break-words">
+                              {c.message}
+                            </div>
+                            {/* Render Comment Attachments */}
+                            {c.attachments && c.attachments.length > 0 && (
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-2">
+                                {c.attachments.map((att, attIdx) => (
+                                  <div key={attIdx} className="relative rounded overflow-hidden border bg-muted/20">
+                                    {att.mimeType?.startsWith("image/") && att.url ? (
+                                      <img src={att.url} alt={att.fileName} className="w-full h-20 object-cover" />
+                                    ) : (
+                                      <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center">
+                                        <FileText className="w-6 h-6 text-muted-foreground mb-1" />
+                                        <span className="text-[10px] text-muted-foreground truncate w-full">{att.fileName}</span>
+                                      </div>
+                                    )}
+                                    {att.url && (
+                                      <a href={att.url} download={att.fileName} className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 flex items-center justify-center transition-opacity text-white text-xs font-medium">
+                                        Download
+                                      </a>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
 
-                {/* Message Input with Send Button */}
-                <div className="flex items-center gap-2 bg-background rounded-xl p-1.5 border shadow-sm">
-                  <Input
+                {/* Comment Composer */}
+                <div className="border rounded-lg bg-background overflow-hidden focus-within:ring-1 focus-within:ring-primary shadow-sm">
+                  {commentAttachments.length > 0 && (
+                    <div className="p-2 border-b bg-muted/10 grid grid-cols-3 sm:grid-cols-5 gap-2 max-h-32 overflow-y-auto">
+                      {commentAttachments.map((f, i) => (
+                         <div key={i} className="relative rounded border bg-background flex flex-col items-center justify-center p-2 text-center h-16 group">
+                           <FileText className="h-4 w-4 text-muted-foreground mb-1" />
+                           <span className="text-[10px] w-full truncate">{f.name}</span>
+                           <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1 -right-1 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-[10px] border border-white">✕</button>
+                         </div>
+                      ))}
+                    </div>
+                  )}
+                  <textarea
                     value={commentDraft}
                     onChange={(e) => setCommentDraft(e.target.value)}
-                    placeholder="Write a message..."
+                    placeholder="Ask a question or post an update..."
+                    className="w-full min-h-[80px] max-h-[200px] border-0 focus:ring-0 resize-y p-3 text-sm bg-transparent outline-none"
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                         e.preventDefault();
                         void sendComment();
                       }
                     }}
-                    className="flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm bg-transparent"
                   />
-                  <Button 
-                    type="button" 
-                    onClick={() => void sendComment()} 
-                    disabled={!commentDraft.trim()}
-                    size="sm"
-                    className="rounded-full w-9 h-9 p-0 bg-primary hover:bg-primary/90 shadow-md transition-all hover:scale-105"
-                  >
-                    <Send className="w-4 h-4" />
-                  </Button>
-                </div>
-                
-                {/* Typing indicator placeholder */}
-                <div className="text-[10px] text-muted-foreground text-center">
-                  Press Enter to send
+                  <div className="flex items-center justify-between p-2 bg-muted/30 border-t">
+                    <div className="flex items-center gap-1">
+                      <button type="button" onClick={() => { const el = document.getElementById("comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors" title="Attach file">
+                        <Paperclip className="w-4 h-4" />
+                      </button>
+                      {/* Note about @mentions */}
+                      <span className="text-[10px] text-muted-foreground px-2 hidden sm:inline-block">Pro tip: Use @ to mention someone. Press Ctrl+Enter to send.</span>
+                      <input id="comment-attachment-input" type="file" multiple className="hidden" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value = ''; }} />
+                    </div>
+                    <Button type="button" onClick={() => void sendComment()} disabled={!commentDraft.trim() && commentAttachments.length === 0} size="sm" className="h-8 gap-1">
+                      Comment
+                    </Button>
+                  </div>
                 </div>
               </div>
 
