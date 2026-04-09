@@ -394,6 +394,7 @@ export default function Tasks() {
   const [commentDraft, setCommentDraft] = useState("");
   const [commentAttachments, setCommentAttachments] = useState<File[]>([]);
   const [commentError, setCommentError] = useState<string | null>(null);
+  const [isSendingComment, setIsSendingComment] = useState(false);
   const [statusSaving, setStatusSaving] = useState(false);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -1083,11 +1084,12 @@ export default function Tasks() {
   }, [isViewOpen, selectedTask, autoRefreshEnabled]);
 
   const sendComment = async () => {
-    if (!selectedTask) return;
+    if (!selectedTask || isSendingComment) return;
     const msg = commentDraft.trim();
     if (!msg && commentAttachments.length === 0) return;
 
     try {
+      setIsSendingComment(true);
       setCommentError(null);
 
       // Process attachments into base64 data URLs
@@ -1125,6 +1127,8 @@ export default function Tasks() {
       }, 100);
     } catch (e) {
       setCommentError(e instanceof Error ? e.message : "Failed to send message");
+    } finally {
+      setIsSendingComment(false);
     }
   };
 
@@ -2145,7 +2149,29 @@ export default function Tasks() {
                     </div>
 
                     {/* Composer Box */}
-                    <div className="mt-6 ml-0 lg:ml-14 rounded-2xl border-2 border-border/60 bg-background overflow-hidden focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10 transition-all shadow-sm group">
+                    <div className="mt-6 ml-0 lg:ml-14 relative rounded-2xl border-2 border-border/60 bg-background overflow-visible focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10 transition-all shadow-sm group">
+                      {/* Mention Dropdown */}
+                      {(() => {
+                        const match = commentDraft.match(/@([a-zA-Z0-9 ]*)$/);
+                        if (!match) return null;
+                        const filterTerm = match[1].toLowerCase();
+                        const results = activeEmployees.filter(e => e.name.toLowerCase().includes(filterTerm)).slice(0, 5);
+                        if (results.length === 0) return null;
+                        return (
+                          <div className="absolute bottom-[calc(100%+4px)] left-0 w-64 bg-background border border-border shadow-md rounded-lg z-50 overflow-hidden">
+                            <div className="px-2 py-1.5 border-b bg-muted/40 text-xs font-bold text-muted-foreground uppercase tracking-wide">Mentions</div>
+                            {results.map(e => (
+                              <button key={e.id} type="button" className="w-full text-left px-3 py-2.5 text-sm hover:bg-muted font-medium flex items-center gap-2 transition-colors border-b last:border-b-0 border-border/50" onClick={() => {
+                                const newDraft = commentDraft.replace(/@([a-zA-Z0-9 ]*)$/, `@${e.name} `);
+                                setCommentDraft(newDraft);
+                              }}>
+                                <Avatar className="h-6 w-6"><AvatarFallback className="text-[10px] bg-primary/10 text-primary">{e.initials}</AvatarFallback></Avatar>
+                                {e.name}
+                              </button>
+                            ))}
+                          </div>
+                        );
+                      })()}
                       {commentAttachments.length > 0 && (
                         <div className="p-2 border-b bg-muted/10 grid grid-cols-3 sm:grid-cols-5 gap-2 max-h-32 overflow-y-auto">
                           {commentAttachments.map((f, i) => (
@@ -2176,8 +2202,9 @@ export default function Tasks() {
                           <span className="text-[11px] text-muted-foreground/60 px-3 hidden sm:inline-block font-medium border-l ml-1 border-border/50">Pro tip: Ctrl+Enter to send.</span>
                           <input id="comment-attachment-input" type="file" multiple className="hidden" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value = ''; }} />
                         </div>
-                        <Button type="button" onClick={() => void sendComment()} disabled={!commentDraft.trim() && commentAttachments.length === 0} size="sm" className="h-9 px-5 rounded-lg font-bold shadow hover:shadow-md transition-all">
-                          Comment
+                        <Button type="button" onClick={() => void sendComment()} disabled={(!commentDraft.trim() && commentAttachments.length === 0) || isSendingComment} size="sm" className="h-9 px-5 rounded-lg font-bold shadow hover:shadow-md transition-all gap-1.5 flex items-center">
+                          {isSendingComment && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                          {isSendingComment ? "Sending..." : "Comment"}
                         </Button>
                       </div>
                     </div>
