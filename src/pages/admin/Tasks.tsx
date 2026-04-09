@@ -483,21 +483,16 @@ export default function Tasks() {
     }
   }, [projectsQuery.data]);
 
-  const loadProject = async (projectId: string, partialProject?: any) => {
-    setIsLoadingProject(true);
-
-    // Immediately show project with data we already have from the list
-    if (partialProject) {
-      setSelectedProject({
-        ...partialProject,
-        tasks: [],
-      });
-      setTasks([]);
-    } else {
-      setSelectedProject(null);
-    }
-
+  const loadProject = async (projectId: string, partialProject?: Project) => {
     try {
+      setIsLoadingProject(true);
+      if (partialProject) {
+        // Only reset tasks if we are switching to a completely different project
+        const currentTasks = selectedProject?.id === projectId ? selectedProject.tasks : [];
+        setSelectedProject({ ...partialProject, tasks: currentTasks } as any);
+      }
+      setApiError(null);
+
       const res = await apiFetch<{ item: ProjectWithTasks }>(`/api/projects/${encodeURIComponent(projectId)}`);
       if (!res.item) {
         throw new Error("Project not found");
@@ -1657,7 +1652,9 @@ export default function Tasks() {
           {/* Projects Section */}
           <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
-              <h2 className="font-semibold text-lg">Projects ({filteredProjects.length})</h2>
+              <h2 className="font-semibold text-lg">
+                Projects ({Math.min(projectPage * PAGE_SIZE, projectsQuery.data?.totalItems || 0)} - {projectsQuery.data?.totalItems || 0})
+              </h2>
               <div className="relative w-full sm:w-64">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
@@ -1780,7 +1777,7 @@ export default function Tasks() {
 
           {/* Tasks Section */}
           <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
-            <h2 className="font-semibold text-lg mb-3">Tasks ({filteredStandaloneTasks.length})</h2>
+            <h2 className="font-semibold text-lg mb-3">Tasks ({Math.min(taskPage * PAGE_SIZE, tasksQuery.data?.totalItems || 0)} - {tasksQuery.data?.totalItems || 0})</h2>
             {tasksQuery.isLoading ? (
               <p className="text-muted-foreground">Loading tasks...</p>
             ) : tasksQuery.isError ? (
@@ -2703,10 +2700,11 @@ export default function Tasks() {
 
       {selectedProject && (
         <div className="space-y-6">
-          {tasksQuery.isLoading ? (
-            <div className="bg-card rounded-xl border border-border p-6 text-sm text-muted-foreground">Loading tasks...</div>
-          ) : tasksQuery.isError ? (
-            <div className="bg-card rounded-xl border border-border p-6 text-sm text-destructive">{(() => { const msg = tasksQuery.error instanceof Error ? tasksQuery.error.message : "Failed to load tasks"; return msg.startsWith("<") ? "Server error: failed to load tasks. The server may be temporarily unavailable (504 Gateway Timeout). Please try again later." : msg; })()}</div>
+          {isLoadingProject && (!selectedProject.tasks || selectedProject.tasks.length === 0) ? (
+            <div className="bg-card rounded-xl border border-border p-12 flex flex-col items-center justify-center text-center gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm font-medium text-muted-foreground">Loading tasks...</p>
+            </div>
           ) : filteredTasks.length === 0 ? (
             <div className="bg-card rounded-xl border border-border p-6 text-sm text-muted-foreground text-center">No tasks found</div>
           ) : (
