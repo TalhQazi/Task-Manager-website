@@ -2201,23 +2201,7 @@ export default function Tasks() {
                         if (!match) return null;
                         const filterTerm = match[1].toLowerCase();
                         
-                        // Filter mentionable users by project or task assignees
-                        const mentionableNames = new Set<string>();
-                        if (selectedProject?.assignees) {
-                          selectedProject.assignees.forEach(name => mentionableNames.add(name));
-                        }
-                        if (selectedTask?.assignees) {
-                          selectedTask.assignees.forEach(name => mentionableNames.add(name));
-                        }
-                        
-                        // Fallback to all active employees if no project/task assignees found
-                        // but prioritize the project/task members
-                        let mentionableList = activeEmployees.filter(e => mentionableNames.has(e.name));
-                        if (mentionableList.length === 0) {
-                          mentionableList = activeEmployees;
-                        }
-
-                        const results = mentionableList.filter(e => e.name.toLowerCase().includes(filterTerm)).slice(0, 5);
+                        const results = activeEmployees.filter(e => e.name.toLowerCase().includes(filterTerm)).slice(0, 5);
                         if (results.length === 0) return null;
                         return (
                           <div className="absolute bottom-[calc(100%+4px)] left-0 w-64 bg-background border border-border shadow-md rounded-lg z-50 overflow-hidden">
