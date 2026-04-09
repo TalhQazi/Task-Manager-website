@@ -46,13 +46,17 @@ type TaskRowApi = Omit<TaskRow, "id"> & { _id: string };
 type AttendanceRowApi = Omit<AttendanceRow, "id"> & { _id: string };
 
 function normalizeTask(t: TaskRowApi): TaskRow {
+  const raw = t as Record<string, unknown>;
+  const assignee = Array.isArray(raw.assignees) && (raw.assignees as string[]).length > 0
+    ? (raw.assignees as string[])[0]
+    : (typeof raw.assignee === "string" ? raw.assignee : "");
   return {
     id: t._id,
-    title: t.title,
-    assignee: t.assignee,
+    title: t.title || "",
+    assignee,
     status: t.status,
     priority: t.priority,
-    dueDate: t.dueDate,
+    dueDate: typeof t.dueDate === "string" ? t.dueDate : (t.dueDate as any)?.toISOString?.()?.split("T")[0] ?? "",
   };
 }
 
@@ -134,10 +138,10 @@ export default function Reports() {
     if (!q) return tasks;
     return tasks.filter((t) => {
       return (
-        t.title.toLowerCase().includes(q) ||
-        t.assignee.toLowerCase().includes(q) ||
-        t.status.toLowerCase().includes(q) ||
-        t.priority.toLowerCase().includes(q)
+        (t.title || "").toLowerCase().includes(q) ||
+        (t.assignee || "").toLowerCase().includes(q) ||
+        (t.status || "").toLowerCase().includes(q) ||
+        (t.priority || "").toLowerCase().includes(q)
       );
     });
   }, [tasks, taskQuery]);

@@ -86,6 +86,7 @@ import { cn } from "@/lib/manger/utils";
 import { apiFetch, downloadTaskAttachment } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSocket } from "@/contexts/SocketContext";
 import jsPDF from "jspdf";
 import { Pagination } from "@/components/Pagination";
 
@@ -337,6 +338,7 @@ export default function Tasks() {
   const queryClient = useQueryClient();
 
   const currentUsername = getAuthState().username || "";
+  const { socket, joinTask, leaveTask } = useSocket();
 
   // Fetch tasks with server-side pagination
   const tasksQuery = useQuery({
@@ -399,6 +401,24 @@ export default function Tasks() {
       setProjects(projectsQuery.data.items);
     }
   }, [projectsQuery.data]);
+
+  // Real-time task comments via socket
+  useEffect(() => {
+    if (!socket || !selectedTask) return;
+    joinTask(selectedTask.id);
+    const handleNewComment = (comment: TaskComment) => {
+      setComments((prev) => {
+        // Avoid duplicates (in case the sender already added it optimistically)
+        if (prev.some((c) => c.id === comment.id)) return prev;
+        return [...prev, comment];
+      });
+    };
+    socket.on("new-comment", handleNewComment);
+    return () => {
+      socket.off("new-comment", handleNewComment);
+      leaveTask(selectedTask.id);
+    };
+  }, [socket, selectedTask?.id]);
 
   const loadProject = async (projectId: string) => {
     setIsLoadingProject(true);
@@ -688,10 +708,15 @@ export default function Tasks() {
       const projectAttachments =
         projectAttachmentFiles.length > 0 ? await filesToAttachments(projectAttachmentFiles) : [];
 
+      // Always include the current manager so the project appears in their list
+      const assigneesWithSelf = currentUsername && !projectCreationAssignees.includes(currentUsername)
+        ? [currentUsername, ...projectCreationAssignees]
+        : projectCreationAssignees;
+
       const payload: CreateProjectPayload & { assignees?: string[]; logo?: ProjectLogo } = {
         name: projectName.trim(),
         description,
-        assignees: projectCreationAssignees,
+        assignees: assigneesWithSelf,
         logo: projectLogo,
         attachments: projectAttachments,
         tasks: tasksToCreate,
