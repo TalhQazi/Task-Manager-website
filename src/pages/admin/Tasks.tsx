@@ -1609,7 +1609,10 @@ export default function Tasks() {
               <Button variant="outline" size="sm" onClick={() => setSelectedProject(null)} className="h-9 text-sm">
                 Back to Projects
               </Button>
-              <Button size="sm" className="gap-2 h-9 text-sm" onClick={() => setIsCreateTaskOpen(true)}>
+              <Button size="sm" className="gap-2 h-9 text-sm" onClick={() => {
+                setIsDirectTask(false);
+                setIsCreateTaskOpen(true);
+              }}>
                 <Plus className="w-4 h-4" />
                 Add Task
               </Button>
