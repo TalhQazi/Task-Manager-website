@@ -159,7 +159,7 @@ const cardVariants: Variants = {
     },
   },
 };
-
+//exporting deafult function
 export default function Appliances() {
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();

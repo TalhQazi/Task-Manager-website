@@ -83,10 +83,12 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
-import { apiFetch } from "@/lib/manger/api";
+import { apiFetch, downloadTaskAttachment } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSocket } from "@/contexts/SocketContext";
 import jsPDF from "jspdf";
+import { Pagination } from "@/components/Pagination";
 
 interface Task {
   id: string;
@@ -135,6 +137,7 @@ type CreateProjectTaskDraft = {
     mimeType: string;
     size: number;
   };
+  attachments?: Array<{ fileName: string; url: string; mimeType: string; size: number }>;
 };
 
 type CreateProjectPayload = {
@@ -142,6 +145,7 @@ type CreateProjectPayload = {
   description: string;
   assignees?: string[];
   logo?: ProjectLogo;
+  attachments?: Array<{ fileName: string; url: string; mimeType: string; size: number }>;
   tasks: Array<Omit<CreateProjectTaskDraft, "location">>;
 };
 
@@ -225,7 +229,37 @@ function normalizeTask(t: TaskApi): Task {
     attachmentFileName: extra.attachmentFileName,
     attachmentNote: extra.attachmentNote,
     attachment: extra.attachment,
+    attachments: Array.isArray((t as any).attachments) ? (t as any).attachments : undefined,
   };
+}
+
+function ProjectLogoImg({ projectId, projectName }: { projectId: string; projectName: string }) {
+  const [src, setSrc] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
+      .then(d => { if (!cancelled) setSrc(d.logo?.url || null); })
+      .catch(() => { if (!cancelled) setSrc(null); });
+    return () => { cancelled = true; };
+  }, [projectId]);
+  if (src) return <img src={src} alt={`${projectName} logo`} className="w-10 h-10 rounded-md object-cover flex-shrink-0" />;
+  return <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>;
+}
+
+async function filesToAttachments(files: File[]) {
+  return Promise.all(
+    files.map(
+      (file) =>
+        new Promise<{ fileName: string; url: string; mimeType: string; size: number }>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = () => reject(new Error("Failed to read file"));
+          reader.onload = () => {
+            resolve({ fileName: file.name, url: typeof reader.result === "string" ? reader.result : "", mimeType: file.type, size: file.size });
+          };
+          reader.readAsDataURL(file);
+        }),
+    ),
+  );
 }
 
 const priorityClasses = {
@@ -259,6 +293,9 @@ export default function Tasks() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [projectPage, setProjectPage] = useState(1);
+  const [taskPage, setTaskPage] = useState(1);
+  const PAGE_SIZE = 25;
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
@@ -279,6 +316,8 @@ export default function Tasks() {
   const [validationErrors, setValidationErrors] = useState<{ projectName?: string; title?: string; description?: string }>({});
   const [assigneesOpen, setAssigneesOpen] = useState(false);
   const [editAssigneesOpen, setEditAssigneesOpen] = useState(false);
+  const [projectCreationAssignees, setProjectCreationAssignees] = useState<string[]>([]);
+  const [projectCreationAssigneesOpen, setProjectCreationAssigneesOpen] = useState(false);
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectWithTasks | null>(null);
@@ -299,42 +338,87 @@ export default function Tasks() {
   const queryClient = useQueryClient();
 
   const currentUsername = getAuthState().username || "";
+  const { socket, joinTask, leaveTask } = useSocket();
 
-  // Fetch tasks
+  // Fetch tasks with server-side pagination
   const tasksQuery = useQuery({
-    queryKey: ["tasks"],
+    queryKey: ["tasks", taskPage, searchQuery, statusFilter, priorityFilter],
     queryFn: async () => {
-      const res = await apiFetch<{ items: TaskApi[] }>("/api/tasks");
-      return res.items.map(normalizeTask);
+      const params = new URLSearchParams({
+        page: taskPage.toString(),
+        limit: PAGE_SIZE.toString(),
+        search: searchQuery,
+        status: statusFilter,
+        priority: priorityFilter,
+      });
+      const res = await apiFetch<{ items: TaskApi[], totalPages: number, total: number }>(`/api/tasks?${params.toString()}`);
+      return {
+        items: res.items.map(normalizeTask),
+        totalPages: res.totalPages || 1,
+        totalItems: res.total || 0,
+      };
     },
+    placeholderData: (previousData) => previousData,
   });
 
-  // Fetch projects
+  // Fetch projects with server-side pagination
   const projectsQuery = useQuery({
-    queryKey: ["projects"],
+    queryKey: ["projects", projectPage, searchQuery],
     queryFn: async () => {
-      const res = await apiFetch<{ items: Project[] }>("/api/projects");
-      return res.items;
+      const params = new URLSearchParams({
+        page: projectPage.toString(),
+        limit: PAGE_SIZE.toString(),
+        search: searchQuery,
+      });
+      const res = await apiFetch<{ items: Project[], totalPages: number, total: number }>(`/api/projects?${params.toString()}`);
+      return {
+        items: res.items,
+        totalPages: res.totalPages || 1,
+        totalItems: res.total || 0,
+      };
     },
+    placeholderData: (previousData) => previousData,
   });
+
+  // Reset pages when filters change
+  useEffect(() => { setTaskPage(1); }, [searchQuery, statusFilter, priorityFilter]);
+  useEffect(() => { setProjectPage(1); }, [searchQuery]);
 
   useEffect(() => {
     if (tasksQuery.data) {
-      setTasks(tasksQuery.data);
+      setTasks(tasksQuery.data.items);
     }
   }, [tasksQuery.data]);
 
   useEffect(() => {
     if (!selectedProject && tasksQuery.data) {
-      setTasks(tasksQuery.data);
+      setTasks(tasksQuery.data.items);
     }
   }, [selectedProject, tasksQuery.data]);
 
   useEffect(() => {
     if (projectsQuery.data) {
-      setProjects(projectsQuery.data);
+      setProjects(projectsQuery.data.items);
     }
   }, [projectsQuery.data]);
+
+  // Real-time task comments via socket
+  useEffect(() => {
+    if (!socket || !selectedTask) return;
+    joinTask(selectedTask.id);
+    const handleNewComment = (comment: TaskComment) => {
+      setComments((prev) => {
+        // Avoid duplicates (in case the sender already added it optimistically)
+        if (prev.some((c) => c.id === comment.id)) return prev;
+        return [...prev, comment];
+      });
+    };
+    socket.on("new-comment", handleNewComment);
+    return () => {
+      socket.off("new-comment", handleNewComment);
+      leaveTask(selectedTask.id);
+    };
+  }, [socket, selectedTask?.id]);
 
   const loadProject = async (projectId: string) => {
     setIsLoadingProject(true);
@@ -362,6 +446,15 @@ export default function Tasks() {
 
   useEffect(() => {
     const viewId = String(searchParams.get("view") || "").trim();
+    const searchVal = String(searchParams.get("search") || "").trim();
+    
+    if (searchVal) {
+      setSearchQuery(searchVal);
+      const next = new URLSearchParams(searchParams);
+      next.delete("search");
+      setSearchParams(next, { replace: true });
+    }
+
     if (!viewId) return;
     if (isViewOpen || isEditOpen || isDeleteOpen || isCreateOpen) return;
 
@@ -390,6 +483,16 @@ export default function Tasks() {
 
   const activeEmployees = useMemo(() => {
     return employees.filter((e) => e.status === "active");
+  }, [employees]);
+
+  // Resolve an assignee string (could be email or name) to display name
+  const resolveAssigneeName = useMemo(() => {
+    const byEmail = new Map(employees.map((e) => [e.email.toLowerCase(), e.name]));
+    const byName  = new Map(employees.map((e) => [e.name.toLowerCase(),  e.name]));
+    return (val: string): string => {
+      const v = (val || "").trim();
+      return byEmail.get(v.toLowerCase()) || byName.get(v.toLowerCase()) || v;
+    };
   }, [employees]);
 
   useEffect(() => {
@@ -509,23 +612,15 @@ export default function Tasks() {
       attachmentNote: "",
     });
     setSelectedAssignees([]);
+    setProjectCreationAssignees([]);
     setAttachmentFile(null);
     setAttachmentFiles([]);
     setAttachmentFilePreviews([]);
   };
 
-  const draftFromForm = (attachmentOverride?: CreateProjectTaskDraft["attachment"]) => {
+  const draftFromForm = (attachmentOverride?: CreateProjectTaskDraft["attachment"], attachmentsOverride?: CreateProjectTaskDraft["attachments"]) => {
     const createdAt = new Date().toISOString().split("T")[0];
-    const att = attachmentOverride
-      ? attachmentOverride
-      : attachmentFile
-        ? {
-            fileName: attachmentFile.name,
-            url: "",
-            mimeType: attachmentFile.type,
-            size: attachmentFile.size,
-          }
-        : undefined;
+    const att = attachmentOverride ?? attachmentsOverride?.[0] ?? undefined;
 
     return {
       title: formData.title,
@@ -537,9 +632,10 @@ export default function Tasks() {
       dueTime: formData.dueTime,
       location: formData.location,
       createdAt,
-      attachmentFileName: formData.attachmentFileName || attachmentFile?.name || "",
+      attachmentFileName: att?.fileName || formData.attachmentFileName || "",
       attachmentNote: formData.attachmentNote || "",
       attachment: att,
+      attachments: attachmentsOverride,
     } satisfies CreateProjectTaskDraft;
   };
 
@@ -553,27 +649,12 @@ export default function Tasks() {
       return;
     }
 
-    if (attachmentFile) {
-      const file = attachmentFile;
-      const attachment = await new Promise<CreateProjectTaskDraft["attachment"]>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onerror = () => reject(new Error("Failed to read file"));
-        reader.onload = () => {
-          const url = typeof reader.result === "string" ? reader.result : "";
-          resolve({
-            fileName: file.name,
-            url,
-            mimeType: file.type,
-            size: file.size,
-          });
-        };
-        reader.readAsDataURL(file);
-      });
-
-      setProjectTasks((prev) => [...prev, draftFromForm(attachment)]);
-    } else {
-      setProjectTasks((prev) => [...prev, draftFromForm(undefined)]);
-    }
+    const attachments = attachmentFiles.length > 0 ? await filesToAttachments(attachmentFiles) : [];
+    const first = attachments[0];
+    setProjectTasks((prev) => [
+      ...prev,
+      draftFromForm(first, attachments.length > 0 ? attachments : undefined),
+    ]);
 
     setValidationErrors((prev) => ({ ...prev, title: undefined, description: undefined }));
     setFormData((prev) => ({
@@ -590,6 +671,8 @@ export default function Tasks() {
     }));
     setSelectedAssignees([]);
     setAttachmentFile(null);
+    setAttachmentFiles([]);
+    setAttachmentFilePreviews([]);
     setIsCreateTaskOpen(false);
   };
 
@@ -622,11 +705,20 @@ export default function Tasks() {
       const tasksToCreate: CreateProjectTaskDraft[] =
         projectTasks.length > 0 ? projectTasks : [draftFromForm(undefined)];
 
+      const projectAttachments =
+        projectAttachmentFiles.length > 0 ? await filesToAttachments(projectAttachmentFiles) : [];
+
+      // Always include the current manager so the project appears in their list
+      const assigneesWithSelf = currentUsername && !projectCreationAssignees.includes(currentUsername)
+        ? [currentUsername, ...projectCreationAssignees]
+        : projectCreationAssignees;
+
       const payload: CreateProjectPayload & { assignees?: string[]; logo?: ProjectLogo } = {
         name: projectName.trim(),
         description,
-        assignees: selectedAssignees,
+        assignees: assigneesWithSelf,
         logo: projectLogo,
+        attachments: projectAttachments,
         tasks: tasksToCreate,
       };
 
@@ -674,22 +766,8 @@ export default function Tasks() {
       setIsCreating(true);
       const nowDate = new Date().toISOString().split("T")[0];
 
-      const attachment = attachmentFile
-        ? await new Promise<CreateProjectTaskDraft["attachment"]>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onerror = () => reject(new Error("Failed to read file"));
-            reader.onload = () => {
-              const url = typeof reader.result === "string" ? reader.result : "";
-              resolve({
-                fileName: attachmentFile.name,
-                url,
-                mimeType: attachmentFile.type,
-                size: attachmentFile.size,
-              });
-            };
-            reader.readAsDataURL(attachmentFile);
-          })
-        : undefined;
+      const attachments = attachmentFiles.length > 0 ? await filesToAttachments(attachmentFiles) : [];
+      const first = attachments[0];
 
       const taskPayload: Record<string, any> = {
         title: formData.title,
@@ -701,9 +779,10 @@ export default function Tasks() {
         dueTime: formData.dueTime,
         location: formData.location,
         createdAt: nowDate,
-        attachmentFileName: attachmentFile?.name || "",
+        attachmentFileName: first?.fileName || "",
         attachmentNote: formData.attachmentNote,
-        attachment,
+        attachment: first,
+        attachments,
       };
 
       // Only add projectId if not a direct task
@@ -738,6 +817,8 @@ export default function Tasks() {
       });
       setSelectedAssignees([]);
       setAttachmentFile(null);
+      setAttachmentFiles([]);
+      setAttachmentFilePreviews([]);
       setValidationErrors({});
 
       toast({
@@ -1003,21 +1084,39 @@ export default function Tasks() {
     });
   };
 
+  // When a project is selected, tasks come from that project (client-side filtered)
+  // Otherwise tasks come from the server-paginated query
   const sourceTasks = selectedProject ? selectedProject.tasks : tasks;
 
   const filteredTasks = useMemo(() => {
+    if (!selectedProject) return sourceTasks; // already filtered server-side
+    // Client-side filter only for selected-project task view
     return sourceTasks.filter((task) => {
       const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
       const matchesSearch =
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         assigneesText.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus =
-        statusFilter === "all" || task.status === statusFilter;
-      const matchesPriority =
-        priorityFilter === "all" || task.priority === priorityFilter;
+      const matchesStatus = statusFilter === "all" || task.status === statusFilter;
+      const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
       return matchesSearch && matchesStatus && matchesPriority;
     });
-  }, [sourceTasks, searchQuery, statusFilter, priorityFilter]);
+  }, [sourceTasks, searchQuery, statusFilter, priorityFilter, selectedProject]);
+
+  // Projects come from server-paginated query (filtering handled server-side)
+  const filteredProjects = projects;
+
+  // Pagination is server-driven when no project is selected; client-driven when project is selected
+  const paginatedProjects = filteredProjects;
+  const projectTotalPages = projectsQuery.data?.totalPages || 1;
+
+  const paginatedTasks = useMemo(() => {
+    if (!selectedProject) return filteredTasks; // already paginated server-side
+    const start = (taskPage - 1) * PAGE_SIZE;
+    return filteredTasks.slice(start, start + PAGE_SIZE);
+  }, [filteredTasks, taskPage, selectedProject]);
+  const taskTotalPages = selectedProject
+    ? (Math.ceil(filteredTasks.length / PAGE_SIZE) || 1)
+    : (tasksQuery.data?.totalPages || 1);
 
   return (
     <div className="pl-6 space-y-6">
@@ -1107,7 +1206,7 @@ export default function Tasks() {
             <div>
               <h2 className="font-semibold text-lg">Project: {selectedProject.name}</h2>
               <p className="text-sm text-muted-foreground">{selectedProject.description || "No description"}</p>
-              <p className="text-xs text-muted-foreground mt-1">{selectedProject.assignees && selectedProject.assignees.length > 0 ? selectedProject.assignees.join(", ") : "No assignees"}</p>
+              <p className="text-xs text-muted-foreground mt-1">{selectedProject.assignees && selectedProject.assignees.length > 0 ? selectedProject.assignees.map(resolveAssigneeName).join(", ") : "No assignees"}</p>
             </div>
           </div>
           <div className="flex items-center justify-between text-xs text-muted-foreground mt-3">
@@ -1144,13 +1243,15 @@ export default function Tasks() {
             ) : projects.length === 0 ? (
               <p className="text-muted-foreground">No projects found. Create one to begin.</p>
             ) : (
+              <>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {projects.map((project) => {
-                  const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0 
-                    ? project.assignees 
+                {paginatedProjects.map((project, idx) => {
+                  const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0
+                    ? project.assignees.map(resolveAssigneeName)
                     : [];
                   const taskNum = project.taskCount ?? 0;
-                  
+                  const projectNumber = (projectPage - 1) * PAGE_SIZE + idx + 1;
+
                   return (
                     <button
                       key={project.id}
@@ -1158,11 +1259,8 @@ export default function Tasks() {
                       className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card"
                     >
                       <div className="flex items-center gap-2 mb-2">
-                        {project.logo?.url ? (
-                          <img src={project.logo.url} alt={`${project.name} logo`} className="w-10 h-10 rounded-md object-cover" />
-                        ) : (
-                          <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">Logo</div>
-                        )}
+                        <span className="flex-shrink-0 text-xs font-bold text-muted-foreground w-5 text-right">{projectNumber}.</span>
+                        <ProjectLogoImg projectId={project.id} projectName={project.name} />
                         <div className="min-w-0">
                           <p className="font-medium truncate">{project.name}</p>
                           <p className="text-xs text-muted-foreground truncate">{project.description || "No description"}</p>
@@ -1186,6 +1284,13 @@ export default function Tasks() {
                   );
                 })}
               </div>
+              <Pagination
+                currentPage={projectPage}
+                totalPages={projectTotalPages}
+                onPageChange={setProjectPage}
+                className="mt-4"
+              />
+              </>
             )}
           </div>
 
@@ -1201,8 +1306,8 @@ export default function Tasks() {
             ) : (
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {tasks.filter(t => !t.projectId).map((task) => {
-                  const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0 
-                    ? task.assignees 
+                  const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0
+                    ? task.assignees.map(resolveAssigneeName)
                     : [];
                   
                   return (
@@ -1390,7 +1495,7 @@ export default function Tasks() {
 
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Assignees</label>
-                <Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}>
+                <Popover open={projectCreationAssigneesOpen} onOpenChange={setProjectCreationAssigneesOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       type="button"
@@ -1398,8 +1503,8 @@ export default function Tasks() {
                       className="w-full justify-between h-10"
                     >
                       <span className="truncate">
-                        {selectedAssignees.length > 0
-                          ? selectedAssignees.join(", ")
+                        {projectCreationAssignees.length > 0
+                          ? projectCreationAssignees.join(", ")
                           : "Select assignees"}
                       </span>
                       <ChevronsUpDown className="h-4 w-4 opacity-50" />
@@ -1416,18 +1521,17 @@ export default function Tasks() {
                               key={employee.id}
                               value={employee.name}
                               onSelect={() => {
-                                setSelectedAssignees((prev) =>
+                                setProjectCreationAssignees((prev) =>
                                   prev.includes(employee.name)
                                     ? prev.filter((name) => name !== employee.name)
                                     : [...prev, employee.name]
                                 );
-                                setAssigneesOpen(false);
                               }}
                             >
                               <Check
                                 className={cn(
                                   "mr-2 h-4 w-4",
-                                  selectedAssignees.includes(employee.name)
+                                  projectCreationAssignees.includes(employee.name)
                                     ? "opacity-100"
                                     : "opacity-0"
                                 )}
@@ -1551,6 +1655,55 @@ export default function Tasks() {
                     onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
                   />
                   {validationErrors.description && <p className="text-xs text-destructive">{validationErrors.description}</p>}
+                </div>
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="text-sm font-medium">Assignees</label>
+                  <Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}>
+                    <PopoverTrigger asChild>
+                      <Button type="button" variant="outline" className="w-full justify-between h-10">
+                        <span className="truncate">
+                          {selectedAssignees.length > 0 ? selectedAssignees.join(", ") : "Select assignees"}
+                        </span>
+                        <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Search employees..." />
+                        <CommandList>
+                          <CommandEmpty>No employee found.</CommandEmpty>
+                          <CommandGroup>
+                            {activeEmployees.map((employee) => (
+                              <CommandItem
+                                key={employee.id}
+                                value={employee.name}
+                                onSelect={() => {
+                                  setSelectedAssignees((prev) =>
+                                    prev.includes(employee.name)
+                                      ? prev.filter((name) => name !== employee.name)
+                                      : [...prev, employee.name]
+                                  );
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    selectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <Avatar className="h-6 w-6 mr-2">
+                                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                    {employee.initials}
+                                  </AvatarFallback>
+                                </Avatar>
+                                {employee.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div className="sm:col-span-1 space-y-1.5">
                   <label className="text-sm font-medium">Priority</label>
@@ -1678,16 +1831,19 @@ export default function Tasks() {
                   <p className="text-muted-foreground">Assignees</p>
                   <div className="flex flex-wrap gap-2">
                     {selectedTask.assignees && selectedTask.assignees.length > 0 ? (
-                      selectedTask.assignees.map((assignee, idx) => (
-                        <div key={idx} className="flex items-center gap-2 bg-muted/50 rounded-full px-3 py-1">
-                          <Avatar className="w-6 h-6">
-                            <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                              {assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-foreground text-sm">{assignee}</span>
-                        </div>
-                      ))
+                      selectedTask.assignees.map((assignee, idx) => {
+                        const displayName = resolveAssigneeName(assignee);
+                        return (
+                          <div key={idx} className="flex items-center gap-2 bg-muted/50 rounded-full px-3 py-1">
+                            <Avatar className="w-6 h-6">
+                              <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                {displayName.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-foreground text-sm">{displayName}</span>
+                          </div>
+                        );
+                      })
                     ) : (
                       <span className="text-foreground">Unassigned</span>
                     )}
@@ -1779,7 +1935,7 @@ export default function Tasks() {
                       selectedTask.attachments.map((attachment, index) => (
                         <div key={index} className="relative group">
                           <div className="w-full aspect-square bg-muted/20 rounded border border-border overflow-hidden flex items-center justify-center">
-                            {attachment.mimeType?.startsWith("image/") ? (
+                            {attachment.mimeType?.startsWith("image/") && attachment.url ? (
                               <img
                                 src={attachment.url}
                                 alt={attachment.fileName || `Attachment ${index + 1}`}
@@ -1791,24 +1947,22 @@ export default function Tasks() {
                           </div>
                           {/* Hover overlay with download button */}
                           <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded flex items-center justify-center gap-2">
-                            <a
-                              href={attachment.url}
-                              download={attachment.fileName}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <button
+                              type="button"
+                              onClick={() => void downloadTaskAttachment(selectedTask.id, index, attachment.fileName || "download")}
                               className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90"
                               title={attachment.fileName || "Download"}
                             >
                               <Download className="h-3 w-3" />
-                            </a>
+                            </button>
                           </div>
                         </div>
                       ))
-                    ) : selectedTask.attachment?.url ? (
+                    ) : selectedTask.attachment?.fileName ? (
                       /* Handle legacy single attachment */
                       <div className="relative group">
                         <div className="w-full aspect-square bg-muted/20 rounded border border-border overflow-hidden flex items-center justify-center">
-                          {selectedTask.attachment.mimeType?.startsWith("image/") ? (
+                          {selectedTask.attachment.mimeType?.startsWith("image/") && selectedTask.attachment.url ? (
                             <img
                               src={selectedTask.attachment.url}
                               alt={selectedTask.attachment.fileName || "Attachment"}
@@ -1820,16 +1974,14 @@ export default function Tasks() {
                         </div>
                         {/* Hover overlay with download button */}
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded flex items-center justify-center gap-2">
-                          <a
-                            href={selectedTask.attachment.url}
-                            download={selectedTask.attachment.fileName}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <button
+                            type="button"
+                            onClick={() => void downloadTaskAttachment(selectedTask.id, -1, selectedTask.attachment!.fileName || "download")}
                             className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90"
                             title={selectedTask.attachment.fileName || "Download"}
                           >
                             <Download className="h-3 w-3" />
-                          </a>
+                          </button>
                         </div>
                       </div>
                     ) : selectedTask.attachmentFileName ? (
@@ -2095,7 +2247,6 @@ export default function Tasks() {
                                       ? prev.filter((name) => name !== employee.name)
                                       : [...prev, employee.name]
                                   );
-                                  setEditAssigneesOpen(false);
                                 }}
                               >
                                 <Check
@@ -2260,7 +2411,7 @@ export default function Tasks() {
           ) : (
             <>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredTasks.map((task, index) => (
+                {paginatedTasks.map((task, index) => (
                   <motion.div
                     key={task.id}
                     initial={{ opacity: 0, y: 10 }}
@@ -2315,17 +2466,16 @@ export default function Tasks() {
                           {task.assignees && task.assignees.length > 0 ? (
                             <>
                               <div className="flex -space-x-2">
-                                {task.assignees.slice(0, 3).map((assignee, idx) => (
-                                  <Avatar key={idx} className="w-7 h-7 border-2 border-background">
-                                    <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
-                                      {assignee
-                                        .split(" ")
-                                        .map((n) => n[0])
-                                        .join("")
-                                        .toUpperCase()}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                ))}
+                                {task.assignees.slice(0, 3).map((assignee, idx) => {
+                                  const displayName = resolveAssigneeName(assignee);
+                                  return (
+                                    <Avatar key={idx} className="w-7 h-7 border-2 border-background">
+                                      <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
+                                        {displayName.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                  );
+                                })}
                                 {task.assignees.length > 3 && (
                                   <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">
                                     +{task.assignees.length - 3}
@@ -2333,7 +2483,7 @@ export default function Tasks() {
                                 )}
                               </div>
                               <span className="text-sm text-foreground">
-                                {task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}
+                                {task.assignees.slice(0, 2).map(resolveAssigneeName).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}
                               </span>
                             </>
                           ) : (
@@ -2380,24 +2530,12 @@ export default function Tasks() {
                 ))}
               </div>
 
-              {/* Stats Footer */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-muted-foreground mt-6 pt-4 border-t border-muted/20">
-                <span className="text-center sm:text-left">Showing {filteredTasks.length} of {tasks.length} tasks</span>
-                <div className="flex items-center justify-center sm:justify-end gap-4 overflow-x-auto pb-1 sm:pb-0">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-success" />
-                    {tasks.filter((t) => t.status === "completed").length} completed
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-primary" />
-                    {tasks.filter((t) => t.status === "in-progress").length} in progress
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-warning" />
-                    {tasks.filter((t) => t.status === "pending").length} pending
-                  </span>
-                </div>
-              </div>
+              <Pagination
+                currentPage={taskPage}
+                totalPages={taskTotalPages}
+                onPageChange={setTaskPage}
+                className="mt-6"
+              />
             </>
           )}
         </div>

@@ -9,7 +9,7 @@ export function EmployeeLayout() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-[#e6f0ff] pt-20 sm:pt-24 md:pt-36">
+    <div className="min-h-screen bg-[#e6f0ff]" style={{ paddingTop: '250px' }}>
       <EmployeeHeader onMenuClick={() => setMobileSidebarOpen(true)} />
 
       <div className="flex">

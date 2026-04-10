@@ -34,11 +34,12 @@ import {
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { clearAuthState, getAuthState } from "@/lib/auth";
-import { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { apiFetch } from "@/lib/admin/apiClient";
 
 type NavItem = {
-  icon: any;
+  icon?: any;
+  customIcon?: React.ReactNode;
   label: string;
   path?: string;
   end?: boolean;
@@ -75,6 +76,17 @@ const navItemsBase: NavItem[] = [
   { icon: Database, label: "Imported Asana Data", path: "/admin/asana-data" },
   { icon: Archive, label: "Archive Data", path: "/admin/archive-data" },
   { icon: Quote, label: "Founder Messages", path: "/admin/founder-messages" },
+  {
+    label: "SignaCore",
+    path: "/admin/contracts",
+    customIcon: (
+      <img
+        src="/signa-core.png"
+        alt="SignaCore"
+        className="h-6 w-6 flex-shrink-0 object-contain opacity-80 group-hover:opacity-100 transition-opacity"
+      />
+    ),
+  },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
 ];
 
@@ -217,15 +229,26 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
               />
             )}
             
-            <item.icon 
-              className={cn(
-                "flex-shrink-0 transition-all duration-100 linear relative z-10",
-                isChild ? "h-4 w-4" : "h-5 w-5",
-                isActive && ["brightness-[112%]", "scale-[1.03]"],
-                "group-hover:brightness-[108%]"
-              )} 
-            />
-            <span className="font-medium truncate">{item.label}</span>
+            {item.customIcon ? (
+              item.customIcon
+            ) : (
+              <item.icon
+                className={cn(
+                  "flex-shrink-0 transition-all duration-100 linear relative z-10",
+                  isChild ? "h-4 w-4" : "h-5 w-5",
+                  isActive && ["brightness-[112%]", "scale-[1.03]"],
+                  "group-hover:brightness-[108%]"
+                )}
+              />
+            )}
+            {item.label === "SignaCore" ? (
+              <span className="text-sm font-bold truncate">
+                <span className="text-[#38bdf8]">Signa</span>
+                <span className="text-[#f97316]">Core</span>
+              </span>
+            ) : (
+              <span className="font-medium truncate">{item.label}</span>
+            )}
           </>
         )}
       </NavLink>

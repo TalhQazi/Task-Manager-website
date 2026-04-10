@@ -1,110 +1,284 @@
-import { NavLink } from "@/components/NavLink";
+import { NavLink } from "@/components/admin/NavLink";
 import {
   LayoutDashboard,
-  ClipboardList,
   Users,
+  CheckSquare,
+  UserCircle,
+  Wrench,
+  Car,
+  MapPin,
   Calendar,
   Clock,
-  Car,
-  Wrench,
-  MapPin,
+  ClipboardList,
   UserX,
-  ClipboardCheck,
   BarChart3,
   MessageSquare,
+  Bell,
   Settings,
-  ChevronLeft,
-  Menu,
+  LogOut,
   Building2,
+  Landmark,
+  Activity,
+  History,
+  Wallet,
+  Database,
+  Globe,
+  Lightbulb,
+  Archive,
+  Quote,
+  Layers,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
-import { useState } from "react";
-import { cn } from "@/lib/utils";
 
-const navItems = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/" },
-  { icon: ClipboardList, label: "Tasks", path: "/tasks" },
-  { icon: Users, label: "Employees", path: "/employees" },
-  { icon: Calendar, label: "Scheduling", path: "/scheduling" },
-  { icon: Clock, label: "Time Tracking", path: "/time-tracking" },
-  { icon: Car, label: "Vehicles", path: "/vehicles" },
-  { icon: Wrench, label: "Appliances", path: "/appliances" },
-  { icon: MapPin, label: "Locations", path: "/locations" },
-  { icon: Building2, label: "Vendors", path: "/vendors" },
-  { icon: UserX, label: "Do Not Hire", path: "/do-not-hire" },
-  { icon: ClipboardCheck, label: "Onboarding", path: "/onboarding" },
-  { icon: BarChart3, label: "Reports", path: "/reports" },
-  { icon: MessageSquare, label: "Messages", path: "/messages" },
+import { useNavigate, useLocation } from "react-router-dom";
+import { cn } from "@/lib/utils";
+import { clearAuthState, getAuthState } from "@/lib/auth";
+import React, { useMemo, useState, useEffect } from "react";
+import { apiFetch } from "@/lib/admin/apiClient";
+
+type NavItem = {
+  icon?: any;
+  customIcon?: React.ReactNode;
+  label: string;
+  path?: string;
+  end?: boolean;
+  children?: NavItem[];
+};
+
+const navItemsBase: NavItem[] = [
+  { icon: LayoutDashboard, label: "Dashboard", path: "/admin", end: true },
+  { icon: Users, label: "User Management", path: "/admin/users" },
+  { icon: CheckSquare, label: "Task Management", path: "/admin/tasks" },
+  { icon: UserCircle, label: "Employee Directory", path: "/admin/employees" },
+  { icon: Wallet, label: "Payroll", path: "/admin/payroll" },
+  { icon: History, label: "Task History", path: "/admin/task-history" },
+  {
+    icon: Layers,
+    label: "Operations",
+    children: [
+      { icon: Wrench, label: "Appliances", path: "/admin/appliances" },
+      { icon: Car, label: "Vehicles", path: "/admin/vehicles" },
+      { icon: UserX, label: "Do Not Hire", path: "/admin/do-not-hire" },
+      { icon: MapPin, label: "Locations", path: "/admin/locations" },
+      { icon: Calendar, label: "Scheduling", path: "/admin/scheduling" },
+      { icon: Bell, label: "Notifications", path: "/admin/notifications" },
+      { icon: Clock, label: "Time Tracking", path: "/admin/time-tracking" },
+    ],
+  },
+  { icon: Landmark, label: "Companies", path: "/admin/companies" },
+  { icon: Building2, label: "Vendors", path: "/admin/vendors" },
+  { icon: MessageSquare, label: "Messaging", path: "/admin/messaging" },
+  { icon: ClipboardList, label: "Onboarding", path: "/admin/onboarding" },
+  { icon: BarChart3, label: "Reports", path: "/admin/reports" },
+  { icon: Globe, label: "Digital Assets", path: "/admin/digital-assets" },
+  { icon: Lightbulb, label: "Intellectual Property", path: "/admin/intellectual-property" },
+  { icon: Database, label: "Imported Asana Data", path: "/admin/asana-data" },
+  { icon: Archive, label: "Archive Data", path: "/admin/archive-data" },
+  { icon: Quote, label: "Founder Messages", path: "/admin/founder-messages" },
+  {
+    label: "SignaCore",
+    path: "/admin/contracts",
+    customIcon: (
+      <img
+        src="/signa-core.png"
+        alt="SignaCore"
+        className="h-6 w-6 flex-shrink-0 object-contain opacity-80 group-hover:opacity-100 transition-opacity"
+      />
+    ),
+  },
+  { icon: Settings, label: "Settings", path: "/admin/settings" },
 ];
 
-export function Sidebar() {
-  const [collapsed, setCollapsed] = useState(false);
+// Activity Logs only for super-admin
+const activityLogNavItem = { icon: Activity, label: "Activity Logs", path: "/admin/activity-logs" };
+
+type SidebarMode = "desktop" | "mobile";
+
+interface SidebarProps {
+  mode?: SidebarMode;
+  onNavigate?: () => void;
+}
+
+export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
+  const navigate = useNavigate();
+  const auth = getAuthState();
+
+  // Build nav items based on role
+  const navItems = useMemo(() => {
+    const items = [...navItemsBase];
+    // Insert Activity Logs before Settings (for super-admin only)
+    if (auth.role === "super-admin") {
+      const settingsIndex = items.findIndex((i) => i.label === "Settings");
+      items.splice(settingsIndex, 0, activityLogNavItem);
+    }
+    return items;
+  }, [auth.role]);
+
+  const onLogout = async () => {
+    // Call logout API to log the activity
+    try {
+      await apiFetch("/api/auth/logout", { method: "POST" });
+    } catch {
+    }
+    clearAuthState();
+    onNavigate?.();
+    navigate("/login", { replace: true });
+  };
+
+  const isMobile = mode === "mobile";
+
+  const location = useLocation();
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+
+  // Auto-expand group if a child is active
+  useEffect(() => {
+    const currentPath = location.pathname;
+    navItems.forEach((item) => {
+      if (item.children) {
+        const hasActiveChild = item.children.some(child => child.path && currentPath.startsWith(child.path));
+        if (hasActiveChild) {
+          setExpandedGroups(prev => ({ ...prev, [item.label]: true }));
+        }
+      }
+    });
+  }, [location.pathname, navItems]);
+
+  const toggleGroup = (label: string) => {
+    setExpandedGroups(prev => ({ ...prev, [label]: !prev[label] }));
+  };
+
+  const handleNavigate = () => {
+    if (isMobile) {
+      onNavigate?.();
+    }
+  };
+
+  const renderNavItem = (item: NavItem, isChild = false) => {
+    if (item.children) {
+      const isExpanded = expandedGroups[item.label];
+      const hasActiveChild = item.children.some(child => child.path && location.pathname.startsWith(child.path));
+      
+      return (
+        <div key={item.label} className="flex flex-col mb-1">
+          <button
+            onClick={() => toggleGroup(item.label)}
+            className={cn(
+              "group relative flex h-10 w-full items-center justify-between rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white transition-all duration-100 linear",
+              hasActiveChild && "text-white bg-white/[0.02]"
+            )}
+          >
+            <div className="flex items-center gap-3">
+              <item.icon className={cn("h-5 w-5 flex-shrink-0 transition-all", hasActiveChild && "text-[#00C6FF]")} />
+              <span className="text-sm font-medium truncate">{item.label}</span>
+            </div>
+            {isExpanded ? (
+              <ChevronDown className="h-4 w-4 opacity-50 transition-transform" />
+            ) : (
+              <ChevronRight className="h-4 w-4 opacity-50 transition-transform" />
+            )}
+          </button>
+          
+          {isExpanded && (
+            <div className="mt-1 flex flex-col gap-1 pl-4 ml-2 border-l border-white/10">
+              {item.children.map(child => renderNavItem(child, true))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (!item.path) return null;
+
+    return (
+      <NavLink
+        key={item.path}
+        to={item.path}
+        end={item.end}
+        className={cn(
+          "group relative flex h-10 w-full items-center gap-3 rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear",
+          isChild && "h-9 text-[13px]"
+        )}
+        activeClassName="bg-white/[0.06] text-white"
+        onClick={handleNavigate}
+      >
+        {({ isActive }) => (
+          <>
+            {/* Active indicator bar */}
+            {!isChild && (
+              <span 
+                className={cn(
+                  "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full",
+                  "bg-gradient-to-b from-[#00C6FF] to-[#0072FF]",
+                  "transition-all duration-[120ms] ease-in-out",
+                  isActive ? "opacity-100" : "opacity-0"
+                )} 
+              />
+            )}
+            {isChild && isActive && (
+              <span 
+                className="absolute left-[-17px] top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#00C6FF]"
+              />
+            )}
+            
+            {/* Dashboard Pulse */}
+            {item.label === "Dashboard" && (
+              <span 
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gradient-to-b from-[#00C6FF] to-[#0072FF] animate-dashboard-pulse pointer-events-none"
+                aria-hidden="true"
+              />
+            )}
+            
+            {item.customIcon ? (
+              item.customIcon
+            ) : (
+              <item.icon
+                className={cn(
+                  "flex-shrink-0 transition-all duration-100 linear relative z-10",
+                  isChild ? "h-4 w-4" : "h-5 w-5",
+                  isActive && ["brightness-[112%]", "scale-[1.03]"],
+                  "group-hover:brightness-[108%]"
+                )}
+              />
+            )}
+            {item.label === "SignaCore" ? (
+              <span className="text-sm font-bold truncate">
+                <span className="text-[#38bdf8]">Signa</span>
+                <span className="text-[#f97316]">Core</span>
+              </span>
+            ) : (
+              <span className="font-medium truncate">{item.label}</span>
+            )}
+          </>
+        )}
+      </NavLink>
+    );
+  };
 
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 h-screen bg-sidebar flex flex-col transition-all duration-300 z-50",
-        collapsed ? "w-16" : "w-64"
+        "flex flex-col text-white z-40 h-full",
+        // Deep matte navy with subtle vertical gradient
+        "bg-gradient-to-b from-[#0B1323] via-[#0B1323] to-[#0F172A]",
+        isMobile
+          ? "w-64"
+          : "w-full shadow-floating animate-slide-in"
       )}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between h-16 px-4 border-b border-sidebar-border">
-        {!collapsed && (
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg gradient-primary flex items-center justify-center">
-              <ClipboardList className="w-4 h-4 text-white" />
-            </div>
-            <span className="font-semibold text-sidebar-foreground">TaskManager</span>
-          </div>
-        )}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="p-2 rounded-lg hover:bg-sidebar-accent text-sidebar-muted hover:text-sidebar-foreground transition-colors"
-        >
-          {collapsed ? <Menu className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-        </button>
-      </div>
-
-      {/* Navigation */}
-      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto scrollbar-thin scrollbar-thumb-sidebar-border scrollbar-track-transparent">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            className={cn("nav-item nav-item-inactive", collapsed && "justify-center px-2")}
-            activeClassName="nav-item-active"
-          >
-            <item.icon className="w-5 h-5 flex-shrink-0" />
-            {!collapsed && <span>{item.label}</span>}
-          </NavLink>
-        ))}
+      <nav className="flex-1 flex flex-col gap-1 px-2 py-4 overflow-y-auto overflow-x-hidden no-scrollbar">
+        {navItems.map((item) => renderNavItem(item))}
       </nav>
 
-      {/* Footer */}
-      <div className="p-3 border-t border-sidebar-border">
-        <NavLink
-          to="/settings"
-          className={cn("nav-item nav-item-inactive", collapsed && "justify-center px-2")}
-          activeClassName="nav-item-active"
+      <div className="border-t border-white/10 px-2 pb-4 pt-3">
+        <button
+          type="button"
+          onClick={onLogout}
+          className="flex w-full items-center gap-3 h-10 rounded-lg px-3 text-white/60 hover:bg-red-500/10 hover:text-red-200 transition-all duration-[120ms] ease-in-out"
         >
-          <Settings className="w-5 h-5 flex-shrink-0" />
-          {!collapsed && <span>Settings</span>}
-        </NavLink>
-
-        {!collapsed && (
-          <div className="mt-4 p-3 rounded-lg bg-sidebar-accent/50">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-medium">
-                JD
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-sidebar-foreground truncate">
-                  John Doe
-                </p>
-                <p className="text-xs text-sidebar-muted truncate">Manager</p>
-              </div>
-            </div>
-          </div>
-        )}
+          <LogOut className="h-5 w-5 flex-shrink-0" />
+          <span className="text-sm font-medium">Logout</span>
+        </button>
       </div>
     </aside>
   );

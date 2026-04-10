@@ -37,6 +37,7 @@ interface TaskItem {
   createdAt?: string;
   attachmentFileName?: string;
   attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number } | null;
+  attachments?: Array<{ fileName: string; url: string; mimeType: string; size: number }>;
 }
 
 interface TaskCommentItem {
@@ -131,6 +132,7 @@ export default function EmployeeTaskDetails() {
         createdAt: item.createdAt ? String(item.createdAt) : "",
         attachmentFileName: item.attachmentFileName ? String(item.attachmentFileName) : "",
         attachment: item.attachment || null,
+        attachments: Array.isArray(item.attachments) ? item.attachments : undefined,
       };
 
       setTask(mapped);
@@ -320,7 +322,27 @@ export default function EmployeeTaskDetails() {
             </div>
           </div>
 
-          {task.attachmentFileName ? (
+          {task.attachments && task.attachments.length > 0 ? (
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-muted-foreground">Attachments ({task.attachments.length})</div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {task.attachments.map((att, idx) => (
+                  att.mimeType?.startsWith("image/") ? (
+                    <a key={idx} href={att.url} download={att.fileName} target="_blank" rel="noopener noreferrer" className="block">
+                      <img src={att.url} alt={att.fileName} className="w-full h-20 object-cover rounded-md border" />
+                      <span className="text-xs text-muted-foreground truncate block mt-1">{att.fileName}</span>
+                    </a>
+                  ) : (
+                    <a key={idx} href={att.url} download={att.fileName} target="_blank" rel="noopener noreferrer"
+                      className="flex flex-col items-center justify-center h-20 border rounded-md bg-muted/30 hover:bg-muted text-xs text-center p-2 gap-1">
+                      <Download className="h-5 w-5 text-muted-foreground" />
+                      <span className="truncate w-full">{att.fileName}</span>
+                    </a>
+                  )
+                ))}
+              </div>
+            </div>
+          ) : task.attachmentFileName ? (
             <div className="text-xs text-muted-foreground">File: {task.attachmentFileName}</div>
           ) : null}
         </CardContent>

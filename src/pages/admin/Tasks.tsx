@@ -75,6 +75,7 @@ import {
   CheckCircle2,
   AlertTriangle,
   Users,
+  User,
   Eye,
   Edit,
   Trash2,
@@ -84,13 +85,76 @@ import {
   Send,
   RefreshCw,
   UserCog,
+  Paperclip,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/admin/utils";
-import { apiFetch } from "@/lib/admin/apiClient";
+import { apiFetch, downloadTaskAttachment } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import jsPDF from "jspdf";
 import { useSocket } from "@/contexts/SocketContext";
+import { Pagination } from "@/components/Pagination";
+
+function ProjectLogoImg({ projectId, projectName }: { projectId: string; projectName: string }) {
+  const [src, setSrc] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
+      .then(d => { if (!cancelled) setSrc(d.logo?.url || null); })
+      .catch(() => { if (!cancelled) setSrc(null); });
+    return () => { cancelled = true; };
+  }, [projectId]);
+  if (src) return <img src={src} alt={`${projectName} logo`} className="w-10 h-10 rounded-md object-cover flex-shrink-0" />;
+  return <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>;
+}
+
+function TaskAttachmentImg({ taskId }: { taskId: string }) {
+  const [src, setSrc] = useState<string | null | undefined>(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch<{ attachment: { url: string } }>(`/api/tasks/${encodeURIComponent(taskId)}/attachment`)
+      .then(d => { if (!cancelled) setSrc(d.attachment?.url || null); })
+      .catch(() => { if (!cancelled) setSrc(null); });
+    return () => { cancelled = true; };
+  }, [taskId]);
+  if (src) return <img src={src} alt="Task preview" className="w-full h-full object-cover" />;
+  if (src === undefined) return <div className="w-full h-full flex items-center justify-center"><Loader2 className="h-4 w-4 animate-spin opacity-20" /></div>;
+  return null;
+}
+
+function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fallbackUrl }: { taskId: string; commentId: string; index: number; mimeType: string; fileName: string; fallbackUrl?: string }) {
+  const [src, setSrc] = useState<string | null | undefined>(fallbackUrl || undefined);
+  useEffect(() => {
+    if (fallbackUrl) return; // Already have URL from state (recently added)
+    let cancelled = false;
+    apiFetch<{ attachment: { url: string } }>(`/api/tasks/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}/attachments/${index}`)
+      .then(d => { if (!cancelled) setSrc(d.attachment?.url || null); })
+      .catch(() => { if (!cancelled) setSrc(null); });
+    return () => { cancelled = true; };
+  }, [taskId, commentId, index, fallbackUrl]);
+  
+  if (src && mimeType?.startsWith("image/")) return (
+    <>
+      <img src={src} alt={fileName} className="w-full h-20 object-cover" />
+      <a href={src} download={fileName} aria-label="Download" onClick={(e) => e.stopPropagation()} className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-opacity text-white text-[11px] font-bold backdrop-blur-[1px]">
+        Save
+      </a>
+    </>
+  );
+  if (src && !mimeType?.startsWith("image/")) return (
+    <>
+      <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/20">
+        <FileText className="w-6 h-6 text-muted-foreground/60 mb-1" />
+      </div>
+      <a href={src} download={fileName} aria-label="Download" onClick={(e) => e.stopPropagation()} className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-opacity text-white text-[11px] font-bold backdrop-blur-[1px]">
+        Save
+      </a>
+    </>
+  );
+  if (src === undefined) return <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/20"><Loader2 className="h-4 w-4 animate-spin opacity-20" /></div>;
+  return <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/20"><AlertCircle className="w-5 h-5 text-destructive/50" /></div>;
+}
 
 // ... (all your interfaces and types remain exactly the same)
 interface Task {
@@ -167,6 +231,8 @@ interface Employee {
   name: string;
   initials: string;
   email: string;
+  avatarUrl?: string;
+  avatarDataUrl?: string;
   status: "active" | "inactive" | "on-leave";
 }
 
@@ -175,8 +241,17 @@ type TaskComment = {
   taskId: string;
   message: string;
   authorUsername: string;
+  authorFullName?: string;
+  authorAvatar?: string;
   authorRole?: string;
   createdAt: string;
+  attachments?: Array<{
+    fileName: string;
+    url: string;
+    mimeType: string;
+    size: number;
+    uploadedAt?: string;
+  }>;
 };
 
 type TaskApi = Omit<Task, "id"> & {
@@ -220,16 +295,16 @@ interface ProjectWithTasks extends Project {
   status?: string;
 }
 
-function normalizeTask(t: TaskApi): Task {
+function normalizeTask(t: any): Task {
   const legacyAssignee = typeof t.assignee === "string" ? t.assignee.trim() : "";
   const assignees = Array.isArray(t.assignees)
-    ? t.assignees.filter(Boolean)
+    ? t.assignees.filter((s: any) => typeof s === "string" && s.trim())
     : legacyAssignee
       ? [legacyAssignee]
       : [];
-  const extra = t as TaskApi & TaskApiAttachmentFields;
+  const extra = t as TaskApiAttachmentFields;
   return {
-    id: t._id,
+    id: t._id || t.id,
     title: t.title,
     description: t.description,
     assignees,
@@ -244,6 +319,26 @@ function normalizeTask(t: TaskApi): Task {
     attachment: extra.attachment,
     attachments: Array.isArray((t as any).attachments) ? (t as any).attachments : undefined,
   };
+}
+
+function renderMessageWithMentions(text: string) {
+  if (!text) return null;
+  // Split by mentions that start with @ and don't contain spaces
+  const parts = text.split(/(@\S+)/g);
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith("@")) {
+          return (
+            <span key={i} className="text-primary font-medium bg-primary/10 px-1 py-0.5 rounded cursor-pointer hover:bg-primary/20 transition-colors">
+              {part}
+            </span>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </>
+  );
 }
 
 async function filesToAttachments(files: File[]) {
@@ -305,8 +400,13 @@ export default function Tasks() {
   const { socket, joinTask, leaveTask } = useSocket();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
+  const [projectSearchQuery, setProjectSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [projectPage, setProjectPage] = useState(1);
+  const [taskPage, setTaskPage] = useState(1);
+  const [projectTaskPage, setProjectTaskPage] = useState(1);
+  const PAGE_SIZE = 25;
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
@@ -327,6 +427,8 @@ export default function Tasks() {
   const [validationErrors, setValidationErrors] = useState<{ projectName?: string; title?: string; description?: string }>({});
   const [assigneesOpen, setAssigneesOpen] = useState(false);
   const [editAssigneesOpen, setEditAssigneesOpen] = useState(false);
+  const [projectCreationAssignees, setProjectCreationAssignees] = useState<string[]>([]);
+  const [projectCreationAssigneesOpen, setProjectCreationAssigneesOpen] = useState(false);
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectWithTasks | null>(null);
@@ -342,7 +444,9 @@ export default function Tasks() {
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentDraft, setCommentDraft] = useState("");
+  const [commentAttachments, setCommentAttachments] = useState<File[]>([]);
   const [commentError, setCommentError] = useState<string | null>(null);
+  const [isSendingComment, setIsSendingComment] = useState(false);
   const [statusSaving, setStatusSaving] = useState(false);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -379,60 +483,85 @@ export default function Tasks() {
   const [archivingCommentId, setArchivingCommentId] = useState<string | null>(null);
   const [archivingAttachment, setArchivingAttachment] = useState<number | null>(null);
 
-  // Fetch tasks
+  // Fetch tasks with server-side pagination
   const tasksQuery = useQuery({
-    queryKey: ["tasks"],
+    queryKey: ["tasks", taskPage, searchQuery, statusFilter, priorityFilter],
     queryFn: async () => {
-      const res = await apiFetch<{ items: TaskApi[] }>("/api/tasks");
-      return res.items.map(normalizeTask);
+      const params = new URLSearchParams({
+        page: taskPage.toString(),
+        limit: PAGE_SIZE.toString(),
+        search: searchQuery,
+        status: statusFilter,
+        priority: priorityFilter,
+      });
+      const res = await apiFetch<{ items: TaskApi[], totalPages: number, total: number }>(`/api/tasks?${params.toString()}`);
+      return {
+        items: res.items.map(normalizeTask),
+        totalPages: res.totalPages || 1,
+        totalItems: res.total || 0,
+      };
     },
+    placeholderData: (previousData) => previousData,
   });
 
-  // Fetch projects
+  // Fetch projects with server-side pagination
   const projectsQuery = useQuery({
-    queryKey: ["projects"],
+    queryKey: ["projects", projectPage, projectSearchQuery],
     queryFn: async () => {
-      const res = await apiFetch<{ items: Project[] }>("/api/projects");
-      return res.items;
+      const params = new URLSearchParams({
+        page: projectPage.toString(),
+        limit: PAGE_SIZE.toString(),
+        search: projectSearchQuery,
+      });
+      const res = await apiFetch<{ items: Project[], totalPages: number, total: number }>(`/api/projects?${params.toString()}`);
+      return {
+        items: res.items,
+        totalPages: res.totalPages || 1,
+        totalItems: res.total || 0,
+      };
     },
+    placeholderData: (previousData) => previousData,
   });
 
   useEffect(() => {
     if (tasksQuery.data) {
-      setTasks(tasksQuery.data);
+      setTasks(tasksQuery.data.items);
     }
   }, [tasksQuery.data]);
 
   useEffect(() => {
-    if (!selectedProject && tasksQuery.data) {
-      setTasks(tasksQuery.data);
-    }
-  }, [selectedProject, tasksQuery.data]);
-
-  useEffect(() => {
     if (projectsQuery.data) {
-      setProjects(projectsQuery.data);
+      setProjects(projectsQuery.data.items);
     }
   }, [projectsQuery.data]);
 
-  const loadProject = async (projectId: string) => {
-    setIsLoadingProject(true);
-    setSelectedProject(null);
-
+  const loadProject = async (projectId: string, partialProject?: Project) => {
     try {
+      setIsLoadingProject(true);
+      if (partialProject) {
+        // Only reset tasks if we are switching to a completely different project
+        const currentTasks = selectedProject?.id === projectId ? selectedProject.tasks : [];
+        setSelectedProject({ ...partialProject, tasks: currentTasks } as any);
+      }
+      setApiError(null);
+
       const res = await apiFetch<{ item: ProjectWithTasks }>(`/api/projects/${encodeURIComponent(projectId)}`);
       if (!res.item) {
         throw new Error("Project not found");
       }
 
       const project = res.item;
-      const projectTasks: Task[] = Array.isArray(project.tasks) ? project.tasks : [];
+      const projectTasks: Task[] = Array.isArray(project.tasks) 
+        ? project.tasks.map(t => normalizeTask(t))
+        : [];
 
       setSelectedProject({ ...project, tasks: projectTasks });
       setTasks(projectTasks);
     } catch (err) {
       toast({ title: "Failed to load project", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });
-      setSelectedProject(null);
+      if (!partialProject) {
+        setSelectedProject(null);
+      }
       setTasks([]);
     } finally {
       setIsLoadingProject(false);
@@ -441,6 +570,15 @@ export default function Tasks() {
 
   useEffect(() => {
     const viewId = String(searchParams.get("view") || "").trim();
+    const searchVal = String(searchParams.get("search") || "").trim();
+
+    if (searchVal) {
+      setSearchQuery(searchVal);
+      const next = new URLSearchParams(searchParams);
+      next.delete("search");
+      setSearchParams(next, { replace: true });
+    }
+
     if (!viewId) return;
     if (isViewOpen || isEditOpen || isDeleteOpen || isCreateOpen) return;
 
@@ -454,13 +592,42 @@ export default function Tasks() {
     setSearchParams(next, { replace: true });
   }, [tasks, searchParams, setSearchParams, isViewOpen, isEditOpen, isDeleteOpen, isCreateOpen]);
 
-  // Fetch employees
+  // Fetch employees/users for mentions and assignees
   useEffect(() => {
     const loadEmployees = async () => {
       try {
-        const res = await apiFetch<{ items: Employee[] }>("/api/employees");
-        setEmployees(res.items.filter((e) => e.status === "active"));
-      } catch {
+        const res = await apiFetch<{ items: any[] }>("/api/users/all");
+        const list = (res.items || []).map(u => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          avatarUrl: u.avatarUrl,
+          avatarDataUrl: u.avatarUrl,
+          status: (u.status || "active") as Employee["status"],
+          initials: (u.name || u.username || "??")
+            .split(" ")
+            .map((n: string) => n[0])
+            .join("")
+            .toUpperCase()
+            .substring(0, 2)
+        }));
+
+        // Ensure current user is in the list of assignees for selection
+        const auth = getAuthState();
+        const myUsername = auth.username || "";
+        if (myUsername && !list.find(e => e.name.toLowerCase() === myUsername.toLowerCase() || e.email.toLowerCase() === myUsername.toLowerCase())) {
+          list.push({
+            id: "me",
+            name: myUsername,
+            initials: myUsername.substring(0, 2).toUpperCase(),
+            status: "active",
+            email: myUsername
+          } as any);
+        }
+
+        setEmployees(list);
+      } catch (err) {
+        console.error("Failed to load employees:", err);
         setEmployees([]);
       }
     };
@@ -468,7 +635,10 @@ export default function Tasks() {
   }, []);
 
   const activeEmployees = useMemo(() => {
-    return employees.filter((e) => e.status === "active");
+    return employees.filter((e) => {
+      const s = String(e.status || "").toLowerCase();
+      return s === "active" || s === "on-leave" || !e.status;
+    });
   }, [employees]);
 
   useEffect(() => {
@@ -499,8 +669,22 @@ export default function Tasks() {
       });
       return normalizeTask(res.item);
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    onSuccess: (updatedTask) => {
+      queryClient.setQueryData<Task[]>(["tasks"], (old) => {
+        if (!old) return old;
+        return old.map((t) => (t.id === updatedTask.id ? updatedTask : t));
+      });
+      if (selectedTask?.id === updatedTask.id) {
+        setSelectedTask(updatedTask);
+      }
+      if (selectedProject?.id === updatedTask.projectId) {
+        setSelectedProject({
+          ...selectedProject,
+          tasks: selectedProject.tasks.map(t => t.id === updatedTask.id ? updatedTask : t)
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 
@@ -576,17 +760,18 @@ export default function Tasks() {
         if (!old) return old;
         return old.map((t) => (t.id === updatedTask.id ? updatedTask : t));
       });
-      // Also update projects cache if needed
-      queryClient.setQueryData<Project[]>(["projects"], (old) => {
-        if (!old) return old;
-        // Update task count in affected project
-        return old.map((p) => {
-          if (p.id === updatedTask.projectId) {
-            return { ...p, assignees: updatedTask.assignees };
-          }
-          return p;
+      // Synchronize state immediately
+      if (selectedTask?.id === updatedTask.id) {
+        setSelectedTask(updatedTask);
+      }
+      if (selectedProject?.id === updatedTask.projectId) {
+        setSelectedProject({
+          ...selectedProject,
+          tasks: selectedProject.tasks.map(t => t.id === updatedTask.id ? updatedTask : t)
         });
-      });
+      }
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 
@@ -604,6 +789,10 @@ export default function Tasks() {
         if (!old) return old;
         return old.map((p) => (p.id === updatedProject.id ? updatedProject : p));
       });
+      if (selectedProject?.id === updatedProject.id) {
+        setSelectedProject({ ...selectedProject, ...updatedProject });
+      }
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 
@@ -707,6 +896,7 @@ export default function Tasks() {
       attachmentNote: "",
     });
     setSelectedAssignees([]);
+    setProjectCreationAssignees([]);
     setAttachmentFile(null);
     setAttachmentFiles([]);
     setAttachmentFilePreviews([]);
@@ -718,11 +908,11 @@ export default function Tasks() {
       ? attachmentOverride
       : attachmentFile
         ? {
-            fileName: attachmentFile.name,
-            url: "",
-            mimeType: attachmentFile.type,
-            size: attachmentFile.size,
-          }
+          fileName: attachmentFile.name,
+          url: "",
+          mimeType: attachmentFile.type,
+          size: attachmentFile.size,
+        }
         : undefined;
 
     return {
@@ -798,19 +988,19 @@ export default function Tasks() {
 
       const projectLogo = projectLogoFile
         ? await new Promise<ProjectLogo>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onerror = () => reject(new Error("Failed to read project logo"));
-            reader.onload = () => {
-              const url = typeof reader.result === "string" ? reader.result : "";
-              resolve({
-                fileName: projectLogoFile.name,
-                url,
-                mimeType: projectLogoFile.type,
-                size: projectLogoFile.size,
-              });
-            };
-            reader.readAsDataURL(projectLogoFile);
-          })
+          const reader = new FileReader();
+          reader.onerror = () => reject(new Error("Failed to read project logo"));
+          reader.onload = () => {
+            const url = typeof reader.result === "string" ? reader.result : "";
+            resolve({
+              fileName: projectLogoFile.name,
+              url,
+              mimeType: projectLogoFile.type,
+              size: projectLogoFile.size,
+            });
+          };
+          reader.readAsDataURL(projectLogoFile);
+        })
         : undefined;
 
       const tasksToCreate: CreateProjectTaskDraft[] =
@@ -822,7 +1012,7 @@ export default function Tasks() {
       const payload: CreateProjectPayload & { assignees?: string[]; logo?: ProjectLogo } = {
         name: projectName.trim(),
         description,
-        assignees: selectedAssignees,
+        assignees: projectCreationAssignees,
         logo: projectLogo,
         attachments: projectAttachments,
         tasks: tasksToCreate,
@@ -984,7 +1174,7 @@ export default function Tasks() {
         }
       }, 5000);
     }
-    
+
     return () => {
       if (autoRefreshIntervalRef.current) {
         clearInterval(autoRefreshIntervalRef.current);
@@ -994,18 +1184,41 @@ export default function Tasks() {
   }, [isViewOpen, selectedTask, autoRefreshEnabled]);
 
   const sendComment = async () => {
-    if (!selectedTask) return;
+    if (!selectedTask || isSendingComment) return;
     const msg = commentDraft.trim();
-    if (!msg) return;
+    if (!msg && commentAttachments.length === 0) return;
 
     try {
+      setIsSendingComment(true);
       setCommentError(null);
+
+      // Process attachments into base64 data URLs
+      const processedAttachments = await Promise.all(
+        commentAttachments.map(
+          (file) =>
+            new Promise<{ fileName: string; mimeType: string; size: number; url: string }>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                resolve({
+                  fileName: file.name,
+                  mimeType: file.type,
+                  size: file.size,
+                  url: reader.result as string,
+                });
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            })
+        )
+      );
+
       const res = await apiFetch<{ item: TaskComment }>(`/api/tasks/${encodeURIComponent(selectedTask.id)}/comments`, {
         method: "POST",
-        body: JSON.stringify({ message: msg }),
+        body: JSON.stringify({ message: msg, attachments: processedAttachments }),
       });
       setComments((prev) => [...prev, res.item]);
       setCommentDraft("");
+      setCommentAttachments([]); // Clear attachments
       // Scroll to bottom after sending
       setTimeout(() => {
         if (chatContainerRef.current) {
@@ -1014,6 +1227,8 @@ export default function Tasks() {
       }, 100);
     } catch (e) {
       setCommentError(e instanceof Error ? e.message : "Failed to send message");
+    } finally {
+      setIsSendingComment(false);
     }
   };
 
@@ -1027,7 +1242,7 @@ export default function Tasks() {
           if (prev.find((c) => c.id === comment.id)) return prev;
           return [...prev, comment];
         });
-        
+
         // Auto scroll to bottom smoothly
         setTimeout(() => {
           if (chatContainerRef.current) {
@@ -1319,6 +1534,51 @@ export default function Tasks() {
     });
   }, [sourceTasks, searchQuery, statusFilter, priorityFilter]);
 
+  const filteredProjects = useMemo(() => {
+    const qProject = projectSearchQuery.trim().toLowerCase();
+    const qMain = searchQuery.trim().toLowerCase();
+    const sFilter = statusFilter.toLowerCase();
+
+    return projects.filter((p) => {
+      const name = p.name.toLowerCase();
+      const desc = (p.description || "").toLowerCase();
+      const assignees = (p.assignees || []).join(" ").toLowerCase();
+      const status = (p.status || "").toLowerCase();
+
+      // Status Filter
+      if (sFilter !== "all" && status !== sFilter) {
+        return false;
+      }
+
+      // If projectSearchQuery is present, it takes priority or acts as an additional filter
+      if (qProject && !name.includes(qProject) && !desc.includes(qProject) && !assignees.includes(qProject)) {
+        return false;
+      }
+
+      // If the main search bar has text, it must match either name, desc, or assignees
+      if (qMain && !name.includes(qMain) && !desc.includes(qMain) && !assignees.includes(qMain)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [projects, projectSearchQuery, searchQuery, statusFilter]);
+
+  const filteredStandaloneTasks = useMemo(() => {
+    const standalone = tasks.filter((t) => !t.projectId);
+    if (!searchQuery.trim()) return standalone;
+    const q = searchQuery.toLowerCase();
+    return standalone.filter((task) => {
+      const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
+      return task.title.toLowerCase().includes(q) || assigneesText.toLowerCase().includes(q);
+    });
+  }, [tasks, searchQuery]);
+
+  // Project & Task counts from server data
+  const projectTotalPages = projectsQuery.data?.totalPages || 1;
+  const taskTotalPages = tasksQuery.data?.totalPages || 1;
+  const projectTaskTotalPages = 1; // Handled within selective project view currently
+
   // Format time for messages
   const formatMessageTime = (dateString: string) => {
     const date = new Date(dateString);
@@ -1349,7 +1609,10 @@ export default function Tasks() {
               <Button variant="outline" size="sm" onClick={() => setSelectedProject(null)} className="h-9 text-sm">
                 Back to Projects
               </Button>
-              <Button size="sm" className="gap-2 h-9 text-sm" onClick={() => setIsCreateTaskOpen(true)}>
+              <Button size="sm" className="gap-2 h-9 text-sm" onClick={() => {
+                setIsDirectTask(false);
+                setIsCreateTaskOpen(true);
+              }}>
                 <Plus className="w-4 h-4" />
                 Add Task
               </Button>
@@ -1428,12 +1691,31 @@ export default function Tasks() {
               <p className="text-xs text-muted-foreground mt-1 break-words">{selectedProject.assignees && selectedProject.assignees.length > 0 ? selectedProject.assignees.join(", ") : "No assignees"}</p>
             </div>
           </div>
+          {selectedProject.attachments && selectedProject.attachments.length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({selectedProject.attachments.length})</p>
+              <div className="flex flex-wrap gap-2">
+                {selectedProject.attachments.map((att, idx) => (
+                  att.mimeType?.startsWith("image/") ? (
+                    <a key={idx} href={att.url} target="_blank" rel="noreferrer">
+                      <img src={att.url} alt={att.fileName} className="h-16 w-16 object-cover rounded-md border border-border" />
+                    </a>
+                  ) : (
+                    <a key={idx} href={att.url} target="_blank" rel="noreferrer" download={att.fileName}
+                      className="flex items-center gap-1 px-2 py-1 rounded-md border border-border text-xs hover:bg-muted truncate max-w-[160px]">
+                      📄 {att.fileName}
+                    </a>
+                  )
+                ))}
+              </div>
+            </div>
+          )}
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground mt-3">
             <span>{selectedProject.tasks.length} tasks</span>
             <Select value={selectedProject.status || "No status"} onValueChange={(value) => {
               updateProjectStatusMutation.mutate({ projectId: selectedProject.id, status: value }, {
                 onSuccess: () => {
-                  setSelectedProject({...selectedProject, status: value});
+                  setSelectedProject({ ...selectedProject, status: value });
                 }
               });
             }}>
@@ -1455,244 +1737,282 @@ export default function Tasks() {
         <>
           {/* Projects Section */}
           <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
-            <h2 className="font-semibold text-lg mb-3">Projects</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+              <h2 className="font-semibold text-lg">
+                Projects ({Math.min(projectPage * PAGE_SIZE, projectsQuery.data?.totalItems || 0)} - {projectsQuery.data?.totalItems || 0})
+              </h2>
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search projects..."
+                  className="pl-10 h-9 w-full"
+                  value={projectSearchQuery}
+                  onChange={(e) => { setProjectSearchQuery(e.target.value); setProjectPage(1); }}
+                />
+              </div>
+            </div>
             {projectsQuery.isLoading ? (
               <p className="text-muted-foreground">Loading projects...</p>
             ) : projectsQuery.isError ? (
-              <p className="text-destructive">Failed to load projects</p>
-            ) : projects.length === 0 ? (
-              <p className="text-muted-foreground">No projects found. Create one to begin.</p>
+              <p className="text-destructive">{(() => { const msg = projectsQuery.error instanceof Error ? projectsQuery.error.message : "Failed to load projects"; return msg.startsWith("<") ? "Server error: failed to load projects. The server may be temporarily unavailable (504 Gateway Timeout). Please try again later." : msg; })()}</p>
+            ) : projectsQuery.data?.items.length === 0 ? (
+              <p className="text-muted-foreground">{projectSearchQuery ? "No projects match your search." : "No projects found. Create one to begin."}</p>
             ) : (
-              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {projects.map((project) => {
-                  const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0 ? project.assignees : [];
-                  const taskNum = project.taskCount ?? 0;
-                  return (
-                    <div
-                      key={project.id}
-                      className="relative text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card w-full group"
-                    >
-                      <button
-                        onClick={() => void loadProject(project.id)}
-                        className="w-full text-left"
+              <>
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                  {projectsQuery.data?.items.map((project, idx) => {
+                    const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0 ? project.assignees : [];
+                    const taskNum = project.taskCount ?? 0;
+                    const projectLetter = String.fromCharCode(65 + (idx % 26));
+                    const projectNumber = (projectPage - 1) * PAGE_SIZE + idx + 1;
+                    return (
+                      <div
+                        key={project.id}
+                        className="relative text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card w-full group"
                       >
-                        <div className="flex items-center gap-2 mb-2">
-                          {project.logo?.url ? (
-                            <img src={project.logo.url} alt={`${project.name} logo`} className="w-10 h-10 rounded-md object-cover flex-shrink-0" />
-                          ) : (
-                            <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>
-                          )}
-                          <div className="min-w-0 flex-1">
-                            <p className="font-medium truncate">{project.name}</p>
-                            <p className="text-xs text-muted-foreground truncate">{project.description || "No description"}</p>
+                        <button
+                          onClick={() => void loadProject(project.id, project)}
+                          className="w-full text-left"
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="flex-shrink-0 text-xs font-bold text-primary w-fit text-right min-w-[20px]">{projectNumber}.</span>
+                            <ProjectLogoImg projectId={project.id} projectName={project.name} />
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium truncate">{project.name}</p>
+                              <p className="text-xs text-muted-foreground line-clamp-2">{project.description || "No description"}</p>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                          <span className="truncate flex-1 mr-2">{assigneeList.length > 0 ? assigneeList.join(", ") : "No assignees"}</span>
-                          <span className="flex-shrink-0">{taskNum} task{taskNum === 1 ? "" : "s"}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs">
-                          <Badge className="capitalize" variant="outline">{project.status || "No tasks"}</Badge>
-                          <span className="text-muted-foreground text-xs">{project.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}</span>
-                        </div>
-                      </button>
-                      
-                      {/* Three dots menu */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="absolute top-2 right-2 h-8 w-8 p-0 bg-background/80 hover:bg-background"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40">
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingProject(project);
-                              setEditProjectName(project.name);
-                              setEditProjectDescription(project.description || "");
-                              setEditProjectLogoPreview(project.logo?.url || "");
-                              setEditProjectLogoFile(null);
-                              setIsEditProjectOpen(true);
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setReassigningProject(project);
-                              setReassignProjectAssignees(project.assignees || []);
-                              setIsReassignProjectOpen(true);
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <UserCog className="h-4 w-4 mr-2" />
-                            Reassign
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingProject(project);
-                              setIsDeleteProjectOpen(true);
-                            }}
-                            className="cursor-pointer text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  );
-                })}
-              </div>
+                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                            <span className="truncate flex-1 mr-2">{assigneeList.length > 0 ? assigneeList.join(", ") : "No assignees"}</span>
+                            <span className="flex-shrink-0">{taskNum} task{taskNum === 1 ? "" : "s"}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs">
+                            <Badge className="capitalize" variant="outline">{project.status || "No tasks"}</Badge>
+                            <span className="text-muted-foreground text-xs">{project.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}</span>
+                          </div>
+                        </button>
+
+                        {/* Three dots menu */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="absolute top-2 right-2 h-8 w-8 p-0 bg-background/80 hover:bg-background"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingProject(project);
+                                setEditProjectName(project.name);
+                                setEditProjectDescription(project.description || "");
+                                setEditProjectLogoPreview(project.logo?.url || "");
+                                setEditProjectLogoFile(null);
+                                setIsEditProjectOpen(true);
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setReassigningProject(project);
+                                setReassignProjectAssignees(project.assignees || []);
+                                setIsReassignProjectOpen(true);
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <UserCog className="h-4 w-4 mr-2" />
+                              Reassign
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingProject(project);
+                                setIsDeleteProjectOpen(true);
+                              }}
+                              className="cursor-pointer text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    );
+                  })}
+                </div>
+                <Pagination
+                  currentPage={projectPage}
+                  totalPages={projectTotalPages}
+                  onPageChange={setProjectPage}
+                  className="mt-6"
+                />
+              </>
             )}
           </div>
 
           {/* Tasks Section */}
           <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
-            <h2 className="font-semibold text-lg mb-3">Tasks</h2>
+            <h2 className="font-semibold text-lg mb-3">Tasks ({Math.min(taskPage * PAGE_SIZE, tasksQuery.data?.totalItems || 0)} - {tasksQuery.data?.totalItems || 0})</h2>
             {tasksQuery.isLoading ? (
               <p className="text-muted-foreground">Loading tasks...</p>
             ) : tasksQuery.isError ? (
               <p className="text-destructive">Failed to load tasks</p>
-            ) : tasks.filter(t => !t.projectId).length === 0 ? (
-              <p className="text-muted-foreground">No standalone tasks found. Create one to begin.</p>
+            ) : filteredStandaloneTasks.length === 0 ? (
+              <p className="text-muted-foreground">{searchQuery ? "No tasks match your search." : "No standalone tasks found. Create one to begin."}</p>
             ) : (
-              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {tasks.filter(t => !t.projectId).map((task) => {
-                  const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0 ? task.assignees : [];
-                  return (
-                    <div
-                      key={task.id}
-                      className="relative text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card w-full group"
-                    >
-                      <button
-                        onClick={() => openView(task)}
-                        className="w-full text-left"
+              <>
+                <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                  {tasks.map((task, idx) => {
+                    const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0 ? task.assignees : [];
+                    const taskLetter = String.fromCharCode(65 + (idx % 26));
+                    const taskNumber = (taskPage - 1) * PAGE_SIZE + idx + 1;
+                    return (
+                      <div
+                        key={task.id}
+                        className="relative text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card w-full group"
                       >
-                        <div className="mb-2">
-                          <p className="font-medium truncate text-sm">{task.title}</p>
-                          <p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p>
-                        </div>
-                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                          <span className="truncate flex-1 mr-2">{assigneeList.length > 0 ? assigneeList.join(", ") : "Unassigned"}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-xs gap-2 flex-wrap">
-                          <div className="flex gap-1 flex-wrap">
-                            <Badge 
-                              className={cn(
-                                "capitalize text-xs relative overflow-hidden",
-                                task.status === 'completed' && "task-complete-pulse"
-                              )} 
-                              variant="outline"
-                              style={{
-                                backgroundColor: task.priority === 'high' ? 'rgb(239, 68, 68)' : task.priority === 'medium' ? 'rgb(234, 179, 8)' : 'rgb(34, 197, 94)',
-                                color: 'white'
-                              }}
-                            >
-                              {task.priority}
-                            </Badge>
-                            <Badge 
-                              className={cn(
-                                "capitalize text-xs relative overflow-hidden",
-                                task.status === 'completed' && "bg-green-500 text-white border-green-500"
-                              )} 
-                              variant="outline"
-                            >
-                              <span className="relative z-10">{task.status}</span>
-                              {task.status === 'completed' && (
-                                <>
-                                  {/* Neon pulse ring - 600ms */}
-                                  <span className="absolute inset-0 rounded-full animate-pulse-ring" />
-                                  {/* Electric streak - 300ms */}
-                                  <span className="absolute inset-0 animate-electric-streak" />
-                                  {/* Particle shimmer - <1s */}
-                                  <span className="absolute inset-0 animate-particle-shimmer" />
-                                </>
-                              )}
-                            </Badge>
+                        <button
+                          onClick={() => openView(task)}
+                          className="w-full text-left"
+                        >
+                          <div className="mb-2">
+                            <p className="font-medium truncate text-sm">
+                              <span className="text-primary mr-1">{taskNumber}.</span>
+                              {task.title}
+                            </p>
+                            <p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p>
                           </div>
-                          <span className="text-muted-foreground text-xs whitespace-nowrap">
-                            {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}
-                          </span>
-                        </div>
-                      </button>
-                      
-                      {/* Three dots menu */}
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="absolute top-2 right-2 h-8 w-8 p-0 bg-background/80 hover:bg-background"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-40">
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openView(task);
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <Eye className="h-4 w-4 mr-2" />
-                            View
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setReassigningTask(task);
-                              setReassignTaskAssignees(task.assignees || []);
-                              setIsReassignTaskOpen(true);
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <UserCog className="h-4 w-4 mr-2" />
-                            Reassign
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openEdit(task);
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openDelete(task);
-                            }}
-                            className="cursor-pointer text-destructive focus:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
-                  );
-                })}
-              </div>
+                          {task.attachment?.fileName && (
+                            <div className="mb-2 rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
+                              <TaskAttachmentImg taskId={task.id} />
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                            <span className="truncate flex-1 mr-2">{assigneeList.length > 0 ? assigneeList.join(", ") : "Unassigned"}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-xs gap-2 flex-wrap">
+                            <div className="flex gap-1 flex-wrap">
+                              <Badge
+                                className={cn(
+                                  "capitalize text-xs relative overflow-hidden",
+                                  task.status === 'completed' && "task-complete-pulse"
+                                )}
+                                variant="outline"
+                                style={{
+                                  backgroundColor: task.priority === 'high' ? 'rgb(239, 68, 68)' : task.priority === 'medium' ? 'rgb(234, 179, 8)' : 'rgb(34, 197, 94)',
+                                  color: 'white'
+                                }}
+                              >
+                                {task.priority}
+                              </Badge>
+                              <Badge
+                                className={cn(
+                                  "capitalize text-xs relative overflow-hidden",
+                                  task.status === 'completed' && "bg-green-500 text-white border-green-500"
+                                )}
+                                variant="outline"
+                              >
+                                <span className="relative z-10">{task.status}</span>
+                                {task.status === 'completed' && (
+                                  <>
+                                    {/* Neon pulse ring - 600ms */}
+                                    <span className="absolute inset-0 rounded-full animate-pulse-ring" />
+                                    {/* Electric streak - 300ms */}
+                                    <span className="absolute inset-0 animate-electric-streak" />
+                                    {/* Particle shimmer - <1s */}
+                                    <span className="absolute inset-0 animate-particle-shimmer" />
+                                  </>
+                                )}
+                              </Badge>
+                            </div>
+                            <span className="text-muted-foreground text-xs whitespace-nowrap">
+                              {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}
+                            </span>
+                          </div>
+                        </button>
+
+                        {/* Three dots menu */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="absolute top-2 right-2 h-8 w-8 p-0 bg-background/80 hover:bg-background"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openView(task);
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              View
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setReassigningTask(task);
+                                setReassignTaskAssignees(task.assignees || []);
+                                setIsReassignTaskOpen(true);
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <UserCog className="h-4 w-4 mr-2" />
+                              Reassign
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEdit(task);
+                              }}
+                              className="cursor-pointer"
+                            >
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openDelete(task);
+                              }}
+                              className="cursor-pointer text-destructive focus:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    );
+                  })}
+                </div>
+                <Pagination
+                  currentPage={taskPage}
+                  totalPages={taskTotalPages}
+                  onPageChange={setTaskPage}
+                  className="mt-6"
+                />
+              </>
             )}
           </div>
         </>
@@ -1735,10 +2055,10 @@ export default function Tasks() {
               </div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Assignees</label>
-                <Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}>
-                  <PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{selectedAssignees.length > 0 ? selectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger>
+                <Popover open={projectCreationAssigneesOpen} onOpenChange={setProjectCreationAssigneesOpen}>
+                  <PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{projectCreationAssignees.length > 0 ? projectCreationAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger>
                   <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); setAssigneesOpen(false); }}><Check className={cn("mr-2 h-4 w-4", selectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command>
+                    <Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setProjectCreationAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); }}><Check className={cn("mr-2 h-4 w-4", projectCreationAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2">{employee.avatarDataUrl || employee.avatarUrl ? (<img src={employee.avatarDataUrl || employee.avatarUrl} alt="avatar" className="w-full h-full object-cover" />) : (<AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials || employee.name.substring(0, 2).toUpperCase()}</AvatarFallback>)}</Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command>
                   </PopoverContent>
                 </Popover>
               </div>
@@ -1761,7 +2081,7 @@ export default function Tasks() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Task Title *</label><Input value={formData.title} onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))} />{validationErrors.title && <p className="text-xs text-destructive">{validationErrors.title}</p>}</div>
               <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Task Description *</label><Textarea value={formData.description} onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))} />{validationErrors.description && <p className="text-xs text-destructive">{validationErrors.description}</p>}</div>
-              <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Assignees</label><Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}><PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{selectedAssignees.length > 0 ? selectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start"><Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); setAssigneesOpen(false); }}><Check className={cn("mr-2 h-4 w-4", selectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover></div>
+              <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Assignees</label><Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}><PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{selectedAssignees.length > 0 ? selectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start"><Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); }}><Check className={cn("mr-2 h-4 w-4", selectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover></div>
               <div className="sm:col-span-1 space-y-1.5"><label className="text-sm font-medium">Priority</label><Select value={formData.priority} onValueChange={(value) => setFormData((prev) => ({ ...prev, priority: value as Task['priority'] }))}><SelectTrigger><SelectValue placeholder="Priority" /></SelectTrigger><SelectContent><SelectItem value="high">High</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="low">Low</SelectItem></SelectContent></Select></div>
               <div className="sm:col-span-1 space-y-1.5"><label className="text-sm font-medium">Status</label><Select value={formData.status} onValueChange={(value) => setFormData((prev) => ({ ...prev, status: value as Task['status'] }))}><SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="in-progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem><SelectItem value="overdue">Overdue</SelectItem></SelectContent></Select></div>
             </div>
@@ -1771,311 +2091,321 @@ export default function Tasks() {
         </DialogContent>
       </Dialog>
 
-      {/* View Task Dialog with Enhanced Messages UI */}
+      {/* View Task Dialog with Asana-style 2-pane UI */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto rounded-lg p-0 gap-0">
-          <div className="p-4 sm:p-6 border-b">
-            <DialogHeader className="p-0">
-              <DialogTitle>Task Details</DialogTitle>
-              <DialogDescription>View and discuss task information.</DialogDescription>
-            </DialogHeader>
-          </div>
-
+        <DialogContent className="w-[98vw] max-w-[1100px] h-[90vh] flex flex-col overflow-hidden rounded-xl p-0 gap-0 border-0 shadow-2xl">
           {selectedTask && (
-            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto max-h-[calc(90vh-180px)]">
-              <div className="space-y-1">
-                <p className="font-semibold text-foreground break-words text-lg">{selectedTask.title}</p>
-                <p className="text-sm text-muted-foreground break-words">{selectedTask.description}</p>
+            <>
+              {/* Asana-style Header: Status Badge and Actions */}
+              <div className="flex items-center justify-between p-3 border-b bg-background z-10 shrink-0">
+                <div className="flex items-center gap-3 ml-2">
+                  <Badge variant="outline" className={cn("capitalize px-3 py-1 font-semibold rounded-full border-2 cursor-pointer transition-colors hover:opacity-80", selectedTask.status === "completed" ? "border-green-500 text-green-700 bg-green-50" : selectedTask.status === "in-progress" ? "border-blue-500 text-blue-700 bg-blue-50" : selectedTask.status === "overdue" ? "border-red-500 text-red-700 bg-red-50" : "border-amber-500 text-amber-700 bg-amber-50")} onClick={() => {
+                    const next: Record<string, Task["status"]> = {
+                      "pending": "in-progress",
+                      "in-progress": "completed",
+                      "completed": "pending",
+                      "overdue": "completed"
+                    };
+                    void updateStatus(next[selectedTask.status] || "pending");
+                  }}>
+                    {selectedTask.status === "completed" ? <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> : selectedTask.status === "overdue" ? <AlertTriangle className="w-3.5 h-3.5 mr-1.5" /> : <Clock className="w-3.5 h-3.5 mr-1.5" />}
+                    {selectedTask.status}
+                  </Badge>
+                </div>
+                {/* We leave space for standard dialog close X button, so add marginRight */}
+                <div className="flex items-center gap-1.5 mr-10">
+                  <Button variant="ghost" size="sm" onClick={() => void handlePrintTask(selectedTask)} title="Print Task"><Printer className="w-4 h-4 mr-1.5 hidden sm:block" /> Print</Button>
+                  <Button variant="ghost" size="sm" onClick={() => { setIsViewOpen(false); openEdit(selectedTask); }} title="Edit Task"><Edit className="w-4 h-4 mr-1.5 hidden sm:block" /> Edit</Button>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm bg-muted/30 p-3 rounded-lg">
-                <div className="space-y-1 sm:col-span-2">
-                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Assignees</p>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedTask.assignees && selectedTask.assignees.length > 0 ? (
-                      selectedTask.assignees.map((assignee, idx) => (
-                        <div key={idx} className="flex items-center gap-2 bg-background rounded-full px-3 py-1 shadow-sm">
-                          <Avatar className="w-6 h-6">
-                            <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                              {assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-foreground text-sm break-words">{assignee}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <span className="text-foreground">Unassigned</span>
-                    )}
+              {/* 2-Pane Body */}
+              <div className="flex-1 flex flex-col md:flex-row shadow-inner overflow-hidden relative bg-background">
+
+                {/* Left Pane: Title, Description, Attachments, Comments Feed */}
+                <div className="flex-1 overflow-y-auto w-full md:w-2/3 p-5 sm:p-8 space-y-8 scroll-smooth pb-24">
+                  {/* Task Title */}
+                  <div>
+                    <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight break-words">{selectedTask.title}</h2>
                   </div>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Location</p>
-                  <p className="text-foreground break-words">{selectedTask.location || "—"}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Priority</p>
-                  <Badge className={cn("capitalize", priorityClasses[selectedTask.priority])}>{selectedTask.priority}</Badge>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Status</p>
-                  <Select value={selectedTask.status} onValueChange={(v) => { void updateStatus(v as Task["status"]); }} disabled={statusSaving}>
-                    <SelectTrigger className="w-full"><SelectValue placeholder="Select status" /></SelectTrigger>
-                    <SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="in-progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem><SelectItem value="overdue">Overdue</SelectItem></SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Due Date</p>
-                  <p className="text-foreground">{selectedTask.dueDate ? new Date(selectedTask.dueDate).toLocaleDateString() : "—"}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-muted-foreground text-xs uppercase tracking-wide">Created</p>
-                  <p className="text-foreground">{new Date(selectedTask.createdAt).toLocaleDateString()}</p>
-                </div>
-              </div>
 
-              {/* Attachments sections - responsive grid */}
-              <div className="space-y-4">
-                {(selectedTask.attachments && selectedTask.attachments.length > 0) || selectedTask.attachment?.url ? (
+                  {/* Task Description */}
                   <div className="space-y-2">
-                    <p className="text-muted-foreground text-sm font-medium flex items-center gap-2"><FileText className="w-4 h-4" />Attachments</p>
-                    <div className="border border-border rounded-md p-2 bg-muted/10">
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto">
+                    <h4 className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><FileText className="w-4 h-4" /> Description</h4>
+                    <div className="text-[15px] leading-relaxed text-foreground/90 whitespace-pre-wrap break-words border border-border/60 rounded-xl p-4 sm:p-5 bg-muted/10 shadow-sm min-h-[100px]">
+                      {selectedTask.description ? selectedTask.description : <span className="text-muted-foreground italic">No description provided.</span>}
+                    </div>
+                  </div>
+
+                  {/* Task Attachments Grid */}
+                  {((selectedTask.attachments && selectedTask.attachments.length > 0) || selectedTask.attachment?.fileName) && (
+                    <div className="space-y-3 pt-2">
+                      <h4 className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><Paperclip className="w-4 h-4" /> Attached Files</h4>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 bg-muted/20 p-3 rounded-xl border border-border/50">
                         {selectedTask.attachments && selectedTask.attachments.length > 0
                           ? selectedTask.attachments.map((attachment, idx) => (
-                              <div key={idx} className="relative group rounded-md overflow-hidden border border-border bg-background">
-                                {attachment.mimeType?.startsWith("image/") ? (
-                                  <>
-                                    <img src={attachment.url} alt={attachment.fileName || `Attachment ${idx + 1}`} className="w-full h-24 object-cover" />
-                                    <a href={attachment.url} download={attachment.fileName} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center" title={attachment.fileName}><span className="text-white text-xs font-medium">Download</span></a>
-                                  </>
-                                ) : (
-                                  <>
-                                    <div className="w-full h-24 flex items-center justify-center bg-muted"><FileText className="h-8 w-8 text-muted-foreground" /></div>
-                                    <a href={attachment.url} download={attachment.fileName} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center" title={attachment.fileName}><span className="text-white text-xs font-medium">Download</span></a>
-                                  </>
-                                )}
-                                {isAdminRole && (<button type="button" onClick={() => void archiveAttachment(idx)} disabled={archivingAttachment === idx} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-sm z-10" title="Archive this attachment">{archivingAttachment === idx ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Archive className="h-3.5 w-3.5" />}</button>)}
-                              </div>
-                            ))
-                          : selectedTask.attachment?.url ? (
-                              <div className="relative group rounded-md overflow-hidden border border-border bg-background">
-                                {selectedTask.attachment.mimeType?.startsWith("image/") ? (
-                                  <>
-                                    <img src={selectedTask.attachment.url} alt={selectedTask.attachment.fileName || "Attachment"} className="w-full h-24 object-cover" />
-                                    <a href={selectedTask.attachment.url} download={selectedTask.attachment.fileName} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center" title={selectedTask.attachment.fileName}><span className="text-white text-xs font-medium">Download</span></a>
-                                  </>
-                                ) : (
-                                  <>
-                                    <div className="w-full h-24 flex items-center justify-center bg-muted"><FileText className="h-8 w-8 text-muted-foreground" /></div>
-                                    <a href={selectedTask.attachment.url} download={selectedTask.attachment.fileName} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-md flex items-center justify-center" title={selectedTask.attachment.fileName}><span className="text-white text-xs font-medium">Download</span></a>
-                                  </>
-                                )}
-                                {isAdminRole && (<button type="button" onClick={() => void archiveAttachment(-1)} disabled={archivingAttachment === -1} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-sm z-10" title="Archive this attachment">{archivingAttachment === -1 ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Archive className="h-3.5 w-3.5" />}</button>)}
-                              </div>
-                            ) : null}
-                      </div>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-
-              {/* Enhanced Messages Section - Beautiful Chat UI */}
-              <div className="space-y-3 mt-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-6 bg-gradient-to-b from-primary to-primary/60 rounded-full"></div>
-                    <label className="text-sm font-semibold">Discussion</label>
-                    <Badge variant="outline" className="text-xs">{comments.length} messages</Badge>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => { if (selectedTask) void loadComments(selectedTask.id); }}
-                      disabled={commentsLoading}
-                      className="h-8 px-2 text-xs gap-1"
-                    >
-                      <RefreshCw className={cn("w-3.5 h-3.5", commentsLoading && "animate-spin")} />
-                      Refresh
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={autoRefreshEnabled ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)}
-                      className="h-8 px-2 text-xs gap-1"
-                    >
-                      <Clock className="w-3.5 h-3.5" />
-                      Auto {autoRefreshEnabled ? "ON" : "OFF"}
-                    </Button>
-                  </div>
-                </div>
-
-                {commentError ? (
-                  <div className="text-xs text-destructive bg-destructive/10 p-3 rounded-lg flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4" />
-                    {commentError}
-                  </div>
-                ) : null}
-
-                {/* Beautiful Chat Container with Gradient Background */}
-                <div 
-                  ref={chatContainerRef}
-                  className="rounded-2xl bg-gradient-to-br from-[#f8fafc] to-[#f1f5f9] dark:from-[#0f172a] dark:to-[#1e293b] p-4 space-y-3 min-h-[350px] max-h-[450px] overflow-y-auto shadow-inner"
-                >
-                  {commentsLoading && comments.length === 0 ? (
-                    <div className="flex justify-center items-center h-40">
-                      <div className="flex flex-col items-center gap-2">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        <p className="text-xs text-muted-foreground">Loading messages...</p>
-                      </div>
-                    </div>
-                  ) : comments.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-40 text-center">
-                      <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-3">
-                        <MessageSquare className="h-8 w-8 text-primary/60" />
-                      </div>
-                      <p className="text-sm text-muted-foreground">No messages yet</p>
-                      <p className="text-xs text-muted-foreground/70 mt-1">Be the first to start the conversation</p>
-                    </div>
-                  ) : (
-                    <AnimatePresence initial={false}>
-                      {comments.map((c, index) => {
-                        const isMine = !!currentUsername && c.authorUsername === currentUsername;
-                        const timeAgo = formatMessageTime(c.createdAt);
-                        
-                        return (
-                          <motion.div
-                            key={c.id}
-                            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            transition={{ duration: 0.2, delay: Math.min(index * 0.03, 0.3) }}
-                            className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
-                          >
-                            <div
-                              className={`
-                                max-w-[85%] sm:max-w-[80%] relative group
-                                ${isMine 
-                                  ? 'bg-gradient-to-r from-primary to-primary/80 text-white shadow-md' 
-                                  : 'bg-white dark:bg-[#334155] text-foreground dark:text-white shadow-sm border border-border/50'
-                                }
-                                rounded-2xl px-4 py-2.5
-                              `}
-                              style={{
-                                borderBottomRightRadius: isMine ? '4px' : '16px',
-                                borderBottomLeftRadius: !isMine ? '4px' : '16px',
-                              }}
-                            >
-                              {/* Author Name - Only show for others */}
-                              {!isMine && (
-                                <div className="flex items-center gap-2 mb-1.5">
-                                  <Avatar className="w-5 h-5">
-                                    <AvatarFallback className="text-[10px] bg-primary/20 text-primary">
-                                      {c.authorUsername.charAt(0).toUpperCase()}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <p className="text-xs font-semibold text-primary dark:text-primary/90">
-                                    {c.authorUsername}
-                                    {c.authorRole && (
-                                      <span className="text-[10px] text-muted-foreground ml-1">
-                                        • {c.authorRole}
-                                      </span>
-                                    )}
-                                  </p>
-                                </div>
+                            <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow">
+                              {attachment.mimeType?.startsWith("image/") && attachment.url ? (
+                                <img src={attachment.url} alt={attachment.fileName || `Attachment`} className="w-full h-24 object-cover" />
+                              ) : (
+                                <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
                               )}
-                              
-                              {/* Message Content */}
-                              <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
-                                {c.message}
-                              </p>
-                              
-                              {/* Message Footer with Time */}
-                              <div className={`flex items-center justify-end gap-1 mt-1.5 ${isMine ? 'text-white/80' : 'text-muted-foreground'}`}>
-                                <span className="text-[10px] opacity-70">
-                                  {timeAgo}
-                                </span>
-                                {isMine && (
-                                  <span className="text-[10px] opacity-70">✓✓</span>
-                                )}
-                              </div>
-                              
-                              {/* Archive button for admin/super-admin */}
-                              {isAdminRole && (
-                                <button
-                                  type="button"
-                                  onClick={() => void archiveComment(c.id)}
-                                  disabled={archivingCommentId === c.id}
-                                  className={`absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-amber-100 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-6 h-6 flex items-center justify-center shadow-md hover:scale-110`}
-                                  title="Archive this comment"
-                                >
-                                  {archivingCommentId === c.id ? (
-                                    <Loader2 className="h-3 w-3 animate-spin" />
-                                  ) : (
-                                    <Archive className="h-3 w-3" />
-                                  )}
-                                </button>
-                              )}
+                              <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
+                              <button type="button" onClick={() => void downloadTaskAttachment(selectedTask.id, idx, attachment.fileName || "download")} className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]" title={attachment.fileName}><span className="text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/50 bg-black/40">Download</span></button>
+                              {isAdminRole && (<button type="button" onClick={() => void archiveAttachment(idx)} disabled={archivingAttachment === idx} className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100/90 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-lg z-10" title="Archive attachment">{archivingAttachment === idx ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}</button>)}
                             </div>
-                          </motion.div>
-                        );
-                      })}
-                    </AnimatePresence>
-                  )}
-                  
-                  {/* Scroll to bottom indicator when new messages arrive */}
-                  {comments.length > 0 && (
-                    <div className="sticky bottom-0 flex justify-center">
-                      <div className="bg-primary/20 backdrop-blur-sm rounded-full px-2 py-0.5 text-[10px] text-primary animate-pulse">
-                        New messages
+                          ))
+                          : selectedTask.attachment?.fileName ? (
+                            <div className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow">
+                              {selectedTask.attachment.mimeType?.startsWith("image/") && selectedTask.attachment.url ? (
+                                <img src={selectedTask.attachment.url} alt={selectedTask.attachment.fileName || "Attachment"} className="w-full h-24 object-cover" />
+                              ) : (
+                                <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
+                              )}
+                              <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{selectedTask.attachment.fileName}</div>
+                              <button type="button" onClick={() => void downloadTaskAttachment(selectedTask.id, -1, selectedTask.attachment!.fileName || "download")} className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]" title={selectedTask.attachment.fileName}><span className="text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/50 bg-black/40">Download</span></button>
+                              {isAdminRole && (<button type="button" onClick={() => void archiveAttachment(-1)} disabled={archivingAttachment === -1} className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100/90 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-lg z-10" title="Archive attachment">{archivingAttachment === -1 ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}</button>)}
+                            </div>
+                          ) : null}
                       </div>
                     </div>
                   )}
+
+                  {/* Activity Thread */}
+                  <div className="pt-4 border-t border-border/60">
+                    <div className="flex items-center justify-between mb-5">
+                      <h4 className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4" /> Activity Feed
+                      </h4>
+                      <div className="flex items-center gap-2">
+                        <Button type="button" variant="ghost" size="sm" onClick={() => { if (selectedTask) void loadComments(selectedTask.id); }} disabled={commentsLoading} className="h-7 px-2 text-[11px] gap-1 hover:bg-muted/50">
+                          <RefreshCw className={cn("w-3 h-3", commentsLoading && "animate-spin")} /> Refresh
+                        </Button>
+                        <Button type="button" variant={autoRefreshEnabled ? "secondary" : "ghost"} size="sm" onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)} className="h-7 px-2 text-[11px] gap-1 hover:bg-muted/50 rounded-full">
+                          <Clock className="w-3 h-3" /> Auto Update {autoRefreshEnabled ? "On" : "Off"}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {commentError && (
+                      <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-lg border border-destructive/20 mb-4 flex items-center gap-2 max-w-fit">
+                        <AlertTriangle className="h-4 w-4" /> {commentError}
+                      </div>
+                    )}
+
+                    {/* Feed Display */}
+                    <div className="space-y-6 lg:ml-2">
+                      {commentsLoading && comments.length === 0 ? (
+                        <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+                      ) : comments.length === 0 ? (
+                        <div className="text-center p-8 text-muted-foreground border-2 border-dashed border-border/50 rounded-2xl bg-muted/5">
+                          <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                          <p className="text-sm">No activity here yet. Start the conversation!</p>
+                        </div>
+                      ) : (
+                        <div ref={chatContainerRef} className="space-y-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                          {comments.map((c) => (
+                            <div key={c.id} className="flex gap-4 group">
+                              <Avatar className="w-9 h-9 border-2 border-background shadow-sm flex-shrink-0 z-10 overflow-hidden">
+                                {c.authorAvatar ? (
+                                  <img src={c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+                                    <User className="w-4 h-4 text-primary opacity-60" />
+                                  </div>
+                                )}
+                              </Avatar>
+                              <div className="flex-1 space-y-1.5 min-w-0 bg-muted/5 p-3 rounded-2xl border border-border/40 ml-1 group-hover:border-border/80 transition-colors">
+                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-bold text-[13px] text-foreground">{c.authorFullName || c.authorUsername}</span>
+                                    <span className="text-[11px] text-muted-foreground/80 font-medium" title={new Date(c.createdAt).toLocaleString()}>
+                                      {formatMessageTime(c.createdAt)}
+                                    </span>
+                                  </div>
+                                  {isAdminRole && (
+                                    <button type="button" onClick={() => void archiveComment(c.id)} disabled={archivingCommentId === c.id} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive flex items-center gap-1.5 text-[11px] font-medium bg-background px-2 py-1 rounded-md border border-border/50 shadow-sm" title="Archive comment">
+                                      {archivingCommentId === c.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3 text-destructive/70" />} Archive
+                                    </button>
+                                  )}
+                                </div>
+                                <div className="text-[14px] leading-relaxed text-foreground/90 whitespace-pre-wrap break-words">
+                                  {renderMessageWithMentions(c.message)}
+                                </div>
+                                {/* Comment Attachments inline feed */}
+                                {c.attachments && c.attachments.length > 0 && (
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 pt-2">
+                                    {c.attachments.map((att, attIdx) => (
+                                      <div key={attIdx} className="relative rounded-lg overflow-hidden border border-border/50 bg-background shadow-xs group/att">
+                                        <CommentAttachmentImg taskId={selectedTask.id} commentId={c.id} index={attIdx} mimeType={att.mimeType} fileName={att.fileName} fallbackUrl={att.url} />
+                                        <div className="p-1.5 text-[10px] text-center font-medium text-muted-foreground truncate border-t bg-muted/10">{att.fileName}</div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Composer Box */}
+                    <div className="mt-6 ml-0 lg:ml-14 relative rounded-2xl border-2 border-border/60 bg-background overflow-visible focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10 transition-all shadow-sm group">
+                      {/* Mention Dropdown */}
+                      {(() => {
+                        const match = commentDraft.match(/@([a-zA-Z0-9 ]*)$/);
+                        if (!match) return null;
+                        const filterTerm = match[1].toLowerCase();
+                        
+                        const results = employees.filter(e => e.name.toLowerCase().includes(filterTerm)).slice(0, 10);
+                        if (results.length === 0) return null;
+                        return (
+                          <div className="absolute bottom-[calc(100%+4px)] left-0 w-64 bg-background border border-border shadow-md rounded-lg z-50 overflow-hidden max-h-60 overflow-y-auto">
+                            <div className="px-2 py-1.5 border-b bg-muted/40 text-xs font-bold text-muted-foreground uppercase tracking-wide">Mentions</div>
+                            {results.map(e => (
+                              <button key={e.id} type="button" className="w-full text-left px-3 py-2 text-sm hover:bg-muted font-medium flex items-center gap-2 transition-colors border-b last:border-b-0 border-border/50" onClick={() => {
+                                const newDraft = commentDraft.replace(/@([a-zA-Z0-9 ]*)$/, `@${e.name} `);
+                                setCommentDraft(newDraft);
+                              }}>
+                                <Avatar className="h-6 w-6">
+                                  {e.avatarDataUrl || e.avatarUrl ? (
+                                    <img src={e.avatarDataUrl || e.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                                  ) : (
+                                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary">{e.initials}</AvatarFallback>
+                                  )}
+                                </Avatar>
+                                <span className="truncate">{e.name}</span>
+                              </button>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                      {commentAttachments.length > 0 && (
+                        <div className="p-2 border-b bg-muted/10 grid grid-cols-3 sm:grid-cols-5 gap-2 max-h-32 overflow-y-auto">
+                          {commentAttachments.map((f, i) => (
+                            <div key={i} className="relative rounded-md border border-border/50 bg-background flex flex-col items-center justify-center p-2 text-center h-16 group/rem">
+                              <span className="text-[10px] w-full mt-1 truncate font-medium text-muted-foreground">{f.name}</span>
+                              <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover/rem:opacity-100 transition-opacity text-[9px] shadow-sm ring-2 ring-background">✕</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <textarea
+                        value={commentDraft}
+                        onChange={(e) => setCommentDraft(e.target.value)}
+                        placeholder="Write a comment... (Type @ to mention)"
+                        className="w-full min-h-[90px] max-h-[300px] border-0 focus:ring-0 resize-y p-4 text-[14px] bg-transparent outline-none placeholder-muted-foreground/60 font-medium"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                            e.preventDefault();
+                            void sendComment();
+                          }
+                        }}
+                      />
+                      <div className="flex items-center justify-between p-2 pl-3 bg-muted/20 border-t border-border/40">
+                        <div className="flex items-center gap-1">
+                          <button type="button" onClick={() => { const el = document.getElementById("comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-primary/20" title="Attach file">
+                            <Paperclip className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Attach</span>
+                          </button>
+                          <span className="text-[11px] text-muted-foreground/60 px-3 hidden sm:inline-block font-medium border-l ml-1 border-border/50">Pro tip: Ctrl+Enter to send.</span>
+                          <input id="comment-attachment-input" type="file" multiple className="hidden" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value = ''; }} />
+                        </div>
+                        <Button type="button" onClick={() => void sendComment()} disabled={(!commentDraft.trim() && commentAttachments.length === 0) || isSendingComment} size="sm" className="h-9 px-5 rounded-lg font-bold shadow hover:shadow-md transition-all gap-1.5 flex items-center">
+                          {isSendingComment && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                          {isSendingComment ? "Sending..." : "Comment"}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Message Input with Send Button */}
-                <div className="flex items-center gap-2 bg-background rounded-xl p-1.5 border shadow-sm">
-                  <Input
-                    value={commentDraft}
-                    onChange={(e) => setCommentDraft(e.target.value)}
-                    placeholder="Write a message..."
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        void sendComment();
-                      }
-                    }}
-                    className="flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm bg-transparent"
-                  />
-                  <Button 
-                    type="button" 
-                    onClick={() => void sendComment()} 
-                    disabled={!commentDraft.trim()}
-                    size="sm"
-                    className="rounded-full w-9 h-9 p-0 bg-primary hover:bg-primary/90 shadow-md transition-all hover:scale-105"
-                  >
-                    <Send className="w-4 h-4" />
-                  </Button>
+                {/* Right Pane: Properties Sidebar */}
+                <div className="w-full md:w-[320px] lg:w-[360px] bg-muted/10 shrink-0 border-t md:border-t-0 md:border-l border-border/50 overflow-y-auto hidden md:block">
+                  <div className="p-6 space-y-7">
+                    <h3 className="text-sm font-bold text-foreground flex items-center gap-2 pb-2 border-b">Properties</h3>
+
+                    {/* Assignees */}
+                    <div className="space-y-2">
+                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Assignees</label>
+                      <div className="flex flex-col gap-2">
+                        {selectedTask.assignees && selectedTask.assignees.length > 0 ? (
+                          selectedTask.assignees.map((assignee, idx) => {
+                            const term = assignee.toLowerCase().trim();
+                            const emp = employees.find(e => 
+                              e.name.toLowerCase().trim() === term || 
+                              e.email.toLowerCase().trim() === term ||
+                              (e.id && e.id.toLowerCase() === term)
+                            );
+                            const avatar = emp?.avatarDataUrl || emp?.avatarUrl;
+                            return (
+                              <div key={idx} className="flex items-center gap-2.5 bg-background border border-border/60 rounded-lg px-3 py-2 shadow-sm transition-colors hover:border-border">
+                                <Avatar className="w-6 h-6">
+                                  {avatar ? (
+                                    <img src={avatar} alt="avatar" className="w-full h-full object-cover rounded-full" />
+                                  ) : (
+                                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
+                                      {assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                                    </AvatarFallback>
+                                  )}
+                                </Avatar>
+                                <span className="text-foreground text-sm font-medium truncate">{assignee}</span>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="text-sm px-3 py-2 border border-dashed rounded-lg text-muted-foreground italic bg-muted/20">Unassigned</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Due Date */}
+                    <div className="space-y-2">
+                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Due Date</label>
+                      <div className={cn("text-sm font-semibold p-2.5 rounded-lg border", selectedTask.dueDate && new Date(selectedTask.dueDate) < new Date() && selectedTask.status !== "completed" ? "border-red-200 bg-red-50 text-red-700" : "border-border/60 bg-background text-foreground")}>
+                        {selectedTask.dueDate ? new Date(selectedTask.dueDate).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) : "No due date"}
+                      </div>
+                    </div>
+
+                    {/* Status Select */}
+                    <div className="space-y-2">
+                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" /> Status</label>
+                      <Select value={selectedTask.status} onValueChange={(v) => { void updateStatus(v as Task["status"]); }} disabled={statusSaving}>
+                        <SelectTrigger className="w-full h-10 border-border/60 bg-background font-semibold"><SelectValue placeholder="Select status" /></SelectTrigger>
+                        <SelectContent className="font-medium"><SelectItem value="pending">Pending</SelectItem><SelectItem value="in-progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem><SelectItem value="overdue">Overdue</SelectItem></SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* Priority */}
+                    <div className="space-y-2">
+                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5" /> Priority</label>
+                      <div>
+                        <Badge className={cn("capitalize px-3 py-1 font-bold text-[12px] rounded-md shadow-none", priorityClasses[selectedTask.priority])}>{selectedTask.priority}</Badge>
+                      </div>
+                    </div>
+
+                    {/* Location */}
+                    <div className="space-y-2 pt-2 border-t border-border/40">
+                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> Location / Project</label>
+                      <p className="text-[13px] font-medium text-foreground bg-muted/20 p-2.5 rounded-lg border border-transparent hover:border-border transition-colors">{selectedTask.location || "Organizational Task"}</p>
+                    </div>
+
+                    {/* Created */}
+                    <div className="pt-4 border-t border-border/40 text-xs text-muted-foreground font-medium flex justify-between items-center">
+                      <span>Created</span>
+                      <span className="text-foreground/80">{new Date(selectedTask.createdAt).toLocaleDateString()}</span>
+                    </div>
+
+                  </div>
                 </div>
-                
-                {/* Typing indicator placeholder */}
-                <div className="text-[10px] text-muted-foreground text-center">
-                  Press Enter to send
-                </div>
+
               </div>
-
-              <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end pt-2 border-t">
-                <Button type="button" variant="outline" onClick={() => setIsViewOpen(false)} className="w-full sm:w-auto">Close</Button>
-                <Button type="button" variant="outline" onClick={() => { if (!selectedTask) return; void handlePrintTask(selectedTask); }} className="w-full sm:w-auto"><Printer className="w-4 h-4 mr-2" />Print</Button>
-                <Button type="button" onClick={() => { if (!selectedTask) return; setIsViewOpen(false); openEdit(selectedTask); }} className="w-full sm:w-auto"><Edit className="w-4 h-4 mr-2" />Edit</Button>
-              </DialogFooter>
-            </div>
+            </>
           )}
         </DialogContent>
       </Dialog>
 
-      
+
       <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) setSelectedTask(null); }}>
         <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto rounded-lg">
           <DialogHeader><DialogTitle>Edit Task</DialogTitle><DialogDescription>Update task details.</DialogDescription></DialogHeader>
@@ -2084,7 +2414,7 @@ export default function Tasks() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField control={editForm.control} name="title" render={({ field }) => (<FormItem className="sm:col-span-2"><FormLabel>Title</FormLabel><FormControl><Input placeholder="Task title" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={editForm.control} name="description" render={({ field }) => (<FormItem className="sm:col-span-2"><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Short description" className="min-h-[90px]" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Assignees *</label><Popover open={editAssigneesOpen} onOpenChange={setEditAssigneesOpen}><PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{editSelectedAssignees.length > 0 ? editSelectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start"><Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setEditSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); setEditAssigneesOpen(false); }}><Check className={cn("mr-2 h-4 w-4", editSelectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover>{editSelectedAssignees.length === 0 && <p className="text-xs text-destructive">At least one assignee is required</p>}</div>
+                <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Assignees *</label><Popover open={editAssigneesOpen} onOpenChange={setEditAssigneesOpen}><PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{editSelectedAssignees.length > 0 ? editSelectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start"><Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setEditSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); }}><Check className={cn("mr-2 h-4 w-4", editSelectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover>{editSelectedAssignees.length === 0 && <p className="text-xs text-destructive">At least one assignee is required</p>}</div>
                 <FormField control={editForm.control} name="location" render={({ field }) => (<FormItem><FormLabel>Location</FormLabel><FormControl><Input placeholder="e.g. Main Office" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={editForm.control} name="priority" render={({ field }) => (<FormItem><FormLabel>Priority</FormLabel><Select value={field.value} onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue placeholder="Select priority" /></SelectTrigger></FormControl><SelectContent><SelectItem value="high">High</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="low">Low</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
                 <FormField control={editForm.control} name="status" render={({ field }) => (<FormItem><FormLabel>Status</FormLabel><Select value={field.value} onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger></FormControl><SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="in-progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem><SelectItem value="overdue">Overdue</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
@@ -2097,7 +2427,7 @@ export default function Tasks() {
         </DialogContent>
       </Dialog>
 
-      
+
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent className="w-[95vw] max-w-[95vw] sm:max-w-md rounded-lg">
           <AlertDialogHeader><AlertDialogTitle>Archive task?</AlertDialogTitle><AlertDialogDescription>This will move the task and its comments to the archive. You can restore it later from the Archive Data page.</AlertDialogDescription></AlertDialogHeader>
@@ -2105,7 +2435,7 @@ export default function Tasks() {
         </AlertDialogContent>
       </AlertDialog>
 
-      
+
       {/* Edit Project Dialog */}
       <Dialog open={isEditProjectOpen} onOpenChange={setIsEditProjectOpen}>
         <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto rounded-lg">
@@ -2118,7 +2448,7 @@ export default function Tasks() {
               e.preventDefault();
               if (!editingProject) return;
               setIsEditingProject(true);
-              
+
               const updateProject = async () => {
                 try {
                   let logoPayload = undefined;
@@ -2138,7 +2468,7 @@ export default function Tasks() {
                       reader.readAsDataURL(editProjectLogoFile);
                     });
                   }
-                  
+
                   const payload: Partial<Project> = {
                     name: editProjectName,
                     description: editProjectDescription,
@@ -2146,9 +2476,9 @@ export default function Tasks() {
                   if (logoPayload) {
                     payload.logo = logoPayload;
                   }
-                  
+
                   await editProjectMutation.mutateAsync({ id: editingProject.id, payload });
-                  
+
                   setIsEditProjectOpen(false);
                   setEditingProject(null);
                   setEditProjectName("");
@@ -2166,7 +2496,7 @@ export default function Tasks() {
                   setIsEditingProject(false);
                 }
               };
-              
+
               void updateProject();
             }}
             className="space-y-4"
@@ -2334,7 +2664,7 @@ export default function Tasks() {
                         {activeEmployees.map((employee) => (
                           <CommandItem
                             key={employee.id}
-                            value={employee.name}
+                            value={employee.name.toLowerCase()}
                             onSelect={() => {
                               setReassignTaskAssignees((prev) =>
                                 prev.includes(employee.name)
@@ -2414,7 +2744,7 @@ export default function Tasks() {
                         {activeEmployees.map((employee) => (
                           <CommandItem
                             key={employee.id}
-                            value={employee.name}
+                            value={employee.name.toLowerCase()}
                             onSelect={() => {
                               setReassignProjectAssignees((prev) =>
                                 prev.includes(employee.name)
@@ -2468,45 +2798,87 @@ export default function Tasks() {
 
       {selectedProject && (
         <div className="space-y-6">
-          {tasksQuery.isLoading ? (
-            <div className="bg-card rounded-xl border border-border p-6 text-sm text-muted-foreground">Loading tasks...</div>
-          ) : tasksQuery.isError ? (
-            <div className="bg-card rounded-xl border border-border p-6 text-sm text-destructive">{tasksQuery.error instanceof Error ? tasksQuery.error.message : "Failed to load tasks"}</div>
+          {isLoadingProject && (!selectedProject.tasks || selectedProject.tasks.length === 0) ? (
+            <div className="bg-card rounded-xl border border-border p-12 flex flex-col items-center justify-center text-center gap-3">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm font-medium text-muted-foreground">Loading tasks...</p>
+            </div>
           ) : filteredTasks.length === 0 ? (
             <div className="bg-card rounded-xl border border-border p-6 text-sm text-muted-foreground text-center">No tasks found</div>
           ) : (
             <>
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredTasks.map((task, index) => (
-                  <motion.div
-                    key={task.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="bg-card rounded-xl border border-muted/50 hover:border-primary/50 transition-all hover:shadow-md overflow-hidden flex flex-col group cursor-pointer"
-                    onClick={() => openView(task)}
-                  >
-                    <div className="p-4 border-b border-muted/30 flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1"><p className="font-semibold text-foreground line-clamp-1 break-words">{task.title}</p><p className="text-xs text-muted-foreground mt-1 capitalize">{task.priority} priority</p></div>
-                      <DropdownMenu><DropdownMenuTrigger asChild><button className="p-1 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0" aria-label="Task actions" onClick={(e) => e.stopPropagation()}><MoreHorizontal className="w-4 h-4 text-muted-foreground" /></button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openView(task); }}>View Details</DropdownMenuItem><DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handlePrintTask(task); }}>Print</DropdownMenuItem><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(task); }}>Edit</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }} className="text-amber-600"><Archive className="w-4 h-4 mr-2" />Archive</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
-                    </div>
-                    <div className="p-4 flex-1 space-y-3">
-                      <p className="text-sm text-muted-foreground line-clamp-2 break-words">{task.description}</p>
-                      <div><p className="text-xs text-muted-foreground mb-2">Assigned to</p><div className="flex flex-wrap items-center gap-2">{task.assignees && task.assignees.length > 0 ? (<><div className="flex -space-x-2">{task.assignees.slice(0, 3).map((assignee, idx) => (<Avatar key={idx} className="w-7 h-7 border-2 border-background"><AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">{assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}</AvatarFallback></Avatar>))}{task.assignees.length > 3 && (<div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">+{task.assignees.length - 3}</div>)}</div><span className="text-sm text-foreground break-words">{task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}</span></>) : (<span className="text-sm text-muted-foreground">Unassigned</span>)}</div></div>
-                      <div className="flex gap-2 flex-wrap"><Badge variant="secondary" className={cn("text-xs", statusClasses[task.status])}>{task.status}</Badge><Badge variant="outline" className={cn("text-xs border", priorityClasses[task.priority])}>{task.priority}</Badge></div>
-                    </div>
-                    <div className="p-4 border-t border-muted/30 bg-muted/10 space-y-2 text-sm"><div className="flex items-center gap-2 text-muted-foreground flex-wrap"><Calendar className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs">Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}</span></div><div className="flex items-center gap-2 text-muted-foreground flex-wrap"><Clock className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs">Created: {new Date(task.createdAt).toLocaleDateString()}</span></div>{task.location && (<div className="flex items-center gap-2 text-muted-foreground flex-wrap"><MapPin className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs break-words">{task.location}</span></div>)}</div>
-                  </motion.div>
-                ))}
+                {filteredTasks.map((task, index) => {
+                  const letterIndex = String.fromCharCode(65 + (index % 26));
+                  const displayNumber = (projectTaskPage - 1) * PAGE_SIZE + index + 1;
+                  return (
+                    <motion.div
+                      key={task.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="bg-card rounded-xl border border-muted/50 hover:border-primary/50 transition-all hover:shadow-md overflow-hidden flex flex-col group cursor-pointer"
+                      onClick={() => openView(task)}
+                    >
+                      <div className="p-4 border-b border-muted/30 flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-foreground line-clamp-1 break-words">
+                            <span className="text-primary mr-1.5">{displayNumber}.</span>
+                            {task.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1 capitalize">{task.priority} priority</p>
+                        </div>
+                        <DropdownMenu><DropdownMenuTrigger asChild><button className="p-1 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0" aria-label="Task actions" onClick={(e) => e.stopPropagation()}><MoreHorizontal className="w-4 h-4 text-muted-foreground" /></button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openView(task); }}>View Details</DropdownMenuItem><DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handlePrintTask(task); }}>Print</DropdownMenuItem><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(task); }}>Edit</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }} className="text-amber-600"><Archive className="w-4 h-4 mr-2" />Archive</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+                      </div>
+                      <div className="p-4 flex-1 space-y-3">
+                        <p className="text-sm text-muted-foreground line-clamp-2 break-words">{task.description}</p>
+                        {task.attachment?.fileName && (
+                          <div className="rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
+                            <TaskAttachmentImg taskId={task.id} />
+                          </div>
+                        )}
+                        <div><p className="text-xs text-muted-foreground mb-2">Assigned to</p><div className="flex flex-wrap items-center gap-2">{task.assignees && task.assignees.length > 0 ? (<><div className="flex -space-x-2">{task.assignees.slice(0, 3).map((assignee, idx) => {
+                          const term = assignee.toLowerCase().trim();
+                          const emp = employees.find(e => 
+                            e.name.toLowerCase().trim() === term || 
+                            e.email.toLowerCase().trim() === term ||
+                            (e.id && e.id.toLowerCase() === term)
+                          );
+                          const avatar = emp?.avatarDataUrl || emp?.avatarUrl;
+                          return (<Avatar key={idx} className="w-7 h-7 border-2 border-background">{avatar ? (<img src={avatar} alt="avatar" className="w-full h-full object-cover" />) : (<AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">{(emp?.initials || assignee.split(" ").map((n) => n[0]).join("").toUpperCase()).substring(0, 2)}</AvatarFallback>)}</Avatar>);
+                        })}{task.assignees.length > 3 && (<div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">+{task.assignees.length - 3}</div>)}</div><span className="text-sm text-foreground break-words">{task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}</span></>) : (<span className="text-sm text-muted-foreground">Unassigned</span>)}</div></div>
+                        <div className="flex gap-2 flex-wrap"><Badge variant="secondary" className={cn("text-xs", statusClasses[task.status])}>{task.status}</Badge><Badge variant="outline" className={cn("text-xs border", priorityClasses[task.priority])}>{task.priority}</Badge></div>
+                      </div>
+                      <div className="p-4 border-t border-muted/30 bg-muted/10 space-y-2 text-sm"><div className="flex items-center gap-2 text-muted-foreground flex-wrap"><Calendar className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs">Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}</span></div><div className="flex items-center gap-2 text-muted-foreground flex-wrap"><Clock className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs">Created: {new Date(task.createdAt).toLocaleDateString()}</span></div>{task.location && (<div className="flex items-center gap-2 text-muted-foreground flex-wrap"><MapPin className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs break-words">{task.location}</span></div>)}</div>
+                    </motion.div>
+                  );
+                })}
               </div>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-muted-foreground mt-6 pt-4 border-t border-muted/20"><span className="text-center sm:text-left">Showing {filteredTasks.length} of {tasks.length} tasks</span><div className="flex flex-wrap items-center justify-center sm:justify-end gap-4"><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-success" />{tasks.filter((t) => t.status === "completed").length} completed</span><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary" />{tasks.filter((t) => t.status === "in-progress").length} in progress</span><span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-warning" />{tasks.filter((t) => t.status === "pending").length} pending</span></div></div>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-muted-foreground mt-6 pt-4 border-t border-muted/20">
+                <span className="text-center sm:text-left">Showing {filteredTasks.length} of {tasks.length} tasks</span>
+                <div className="flex flex-wrap items-center justify-center sm:justify-end gap-4">
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-success" />{tasks.filter((t) => t.status === "completed").length} completed</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary" />{tasks.filter((t) => t.status === "in-progress").length} in progress</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-warning" />{tasks.filter((t) => t.status === "pending").length} pending</span>
+                </div>
+              </div>
+              {projectTaskTotalPages > 1 && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-4 pt-2">
+                  <span className="text-sm text-muted-foreground">
+                    Page {projectTaskPage} of {projectTaskTotalPages} ({filteredTasks.length} tasks)
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setProjectTaskPage((p) => Math.max(1, p - 1))} disabled={projectTaskPage === 1}>Previous</Button>
+                    <span className="text-sm px-1">{projectTaskPage} / {projectTaskTotalPages}</span>
+                    <Button variant="outline" size="sm" onClick={() => setProjectTaskPage((p) => Math.min(projectTaskTotalPages, p + 1))} disabled={projectTaskPage === projectTaskTotalPages}>Next</Button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
       )}
     </div>
+
   );
 }
-
-// Missing MessageSquare import
-import { MessageSquare } from "lucide-react";

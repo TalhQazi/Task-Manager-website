@@ -61,6 +61,7 @@ import {
 } from "lucide-react";
 import { createResource, deleteResource, listResource, updateResource, apiFetch } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
+import { Pagination } from "@/components/Pagination";
 
 interface Employee {
   id: string;
@@ -158,6 +159,10 @@ const Employees = () => {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [hoveredEmployee, setHoveredEmployee] = useState<string | null>(null);
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const PAGE_SIZE = 25;
 
   type AddEmployeeValues = {
     firstName: string;
@@ -255,18 +260,38 @@ const Employees = () => {
       try {
         setLoading(true);
         setApiError(null);
-        const list = await listResource<Employee>("employees");
-        if (!mounted) return;
-        setEmployeesList(list);
         
-        // Fetch companies for dropdown
-        try {
-          const companyList = await listResource<Company>("companies");
-          if (mounted) {
-            setCompanies(companyList.filter((c) => c.status === "active"));
+        const params: any = {
+          page: currentPage,
+          limit: PAGE_SIZE,
+          search: searchQuery,
+          status: statusFilter === 'all' ? undefined : statusFilter,
+          category: categoryFilter === 'all' ? undefined : categoryFilter,
+          role: roleFilter === 'all' ? undefined : roleFilter,
+          company: companyFilter === 'all' ? undefined : companyFilter,
+        };
+
+        const res = await listResource<Employee>("employees", params);
+        if (!mounted) return;
+        
+        if (res && typeof res === 'object' && 'items' in res) {
+          setEmployeesList(res.items);
+          setTotalPages(res.pagination?.totalPages || 1);
+        } else {
+          setEmployeesList(res);
+          setTotalPages(1);
+        }
+        
+        // Fetch companies for dropdown (only once)
+        if (companies.length === 0) {
+          try {
+            const companyList = await listResource<Company>("companies");
+            if (mounted) {
+              setCompanies(Array.isArray(companyList) ? companyList.filter((c) => c.status === "active") : []);
+            }
+          } catch (companyErr) {
+            console.error("Failed to load companies:", companyErr);
           }
-        } catch (companyErr) {
-          console.error("Failed to load companies:", companyErr);
         }
       } catch (e) {
         if (!mounted) return;
@@ -281,7 +306,7 @@ const Employees = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [currentPage, searchQuery, statusFilter, categoryFilter, roleFilter, companyFilter]);
 
   const refreshEmployees = async () => {
     const list = await listResource<Employee>("employees");
@@ -1309,7 +1334,7 @@ const Employees = () => {
                       ))}
                     </AnimatePresence>
                     
-                    {filteredEmployees.length === 0 && (
+                    {employeesList.length === 0 && (
                       <motion.div 
                         className="text-center py-8"
                         initial={{ opacity: 0 }}
@@ -1330,6 +1355,13 @@ const Employees = () => {
                         </p>
                       </motion.div>
                     )}
+                    
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      onPageChange={setCurrentPage}
+                      className="mt-4"
+                    />
                   </div>
 
                   {/* Tablet/Desktop View - Table */}
@@ -1349,7 +1381,7 @@ const Employees = () => {
                       </TableHeader>
                       <TableBody>
                         <AnimatePresence>
-                          {filteredEmployees.map((employee, index) => (
+                          {employeesList.map((employee, index) => (
                             <motion.tr
                               key={employee.id}
                               initial={{ opacity: 0, y: 20 }}
@@ -1398,54 +1430,67 @@ const Employees = () => {
                               <TableCell>
                                 <div className="space-y-1 min-w-0">
                                   <motion.div 
-                                    className="flex items-center gap-1.5 text-xs md:text-sm"
+                                    className="flex items-center gap-2 text-muted-foreground"
                                     whileHover={{ x: 5 }}
                                   >
-                                    <Mail className="h-3 w-3 md:h-3.5 md:w-3.5 text-muted-foreground flex-shrink-0" />
-                                    <span className="text-muted-foreground truncate max-w-[150px] lg:max-w-[200px]">
-                                      {employee.email}
-                                    </span>
+                                    <Mail className="h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0" />
+                                    <span className="text-[10px] sm:text-xs truncate">{employee.email}</span>
                                   </motion.div>
                                   <motion.div 
-                                    className="flex items-center gap-1.5 text-xs md:text-sm"
+                                    className="flex items-center gap-2 text-muted-foreground"
                                     whileHover={{ x: 5 }}
                                   >
-                                    <Phone className="h-3 w-3 md:h-3.5 md:w-3.5 text-muted-foreground flex-shrink-0" />
-                                    <span className="text-muted-foreground truncate max-w-[150px] lg:max-w-[200px]">
-                                      {employee.phone}
-                                    </span>
+                                    <Phone className="h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0" />
+                                    <span className="text-[10px] sm:text-xs truncate">{employee.phone}</span>
                                   </motion.div>
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <p className="text-sm md:text-base truncate max-w-[120px] lg:max-w-[150px]">
-                                  {employee.role}
-                                </p>
+                                <motion.div 
+                                  className="flex items-center gap-2 text-muted-foreground"
+                                  whileHover={{ x: 5 }}
+                                >
+                                  <Briefcase className="h-3.5 w-3.5 flex-shrink-0" />
+                                  <span className="text-xs truncate">{employee.role}</span>
+                                </motion.div>
                               </TableCell>
                               <TableCell>
-                                <p className="text-sm md:text-base truncate max-w-[120px] lg:max-w-[150px]">
-                                  {employee.company || "—"}
-                                </p>
+                                <motion.div 
+                                  className="flex items-center gap-2 text-muted-foreground"
+                                  whileHover={{ x: 5 }}
+                                >
+                                  <Building2 className="h-3.5 w-3.5 flex-shrink-0" />
+                                  <span className="text-xs truncate">{employee.company || "—"}</span>
+                                </motion.div>
                               </TableCell>
-                              <TableCell className="font-medium text-sm md:text-base">
-                                {employee.payRate}
+                              <TableCell>
+                                <motion.div 
+                                  className="flex items-center gap-2 text-muted-foreground"
+                                  whileHover={{ x: 5 }}
+                                >
+                                  <DollarSign className="h-3.5 w-3.5 flex-shrink-0" />
+                                  <span className="text-xs">{employee.payRate}</span>
+                                </motion.div>
                               </TableCell>
                               <TableCell>
                                 <motion.div
                                   whileHover={{ scale: 1.1 }}
                                   whileTap={{ scale: 0.95 }}
                                 >
-                                  <Badge 
-                                    className={`${statusClasses[employee.status]} text-xs md:text-sm flex items-center gap-1`} 
-                                    variant="secondary"
-                                  >
+                                  <Badge className={`${statusClasses[employee.status]} text-xs flex items-center gap-1 w-fit`} variant="secondary">
                                     {getStatusIcon(employee.status)}
-                                    {employee.status}
+                                    <span className="hidden md:inline">{employee.status}</span>
                                   </Badge>
                                 </motion.div>
                               </TableCell>
-                              <TableCell className="text-sm md:text-base text-muted-foreground">
-                                {employee.hireDate}
+                              <TableCell>
+                                <motion.div 
+                                  className="flex items-center gap-2 text-muted-foreground"
+                                  whileHover={{ x: 5 }}
+                                >
+                                  <Calendar className="h-3.5 w-3.5 flex-shrink-0" />
+                                  <span className="text-xs">{employee.hireDate}</span>
+                                </motion.div>
                               </TableCell>
                               <TableCell className="text-right">
                                 <DropdownMenu>
@@ -1500,6 +1545,13 @@ const Employees = () => {
                         </AnimatePresence>
                       </TableBody>
                     </Table>
+                    
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      onPageChange={setCurrentPage}
+                      className="p-4 border-t"
+                    />
                   </div>
                 </>
               )}
