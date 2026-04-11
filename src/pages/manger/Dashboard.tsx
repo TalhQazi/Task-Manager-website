@@ -3,6 +3,8 @@ import { StatCard } from "@/components/manger/dashboard/StatCard";
 import { TaskList } from "@/components/manger/dashboard/TaskList";
 import { EmployeeActivity } from "@/components/manger/dashboard/EmployeeActivity";
 import { ScheduleOverview } from "@/components/manger/dashboard/ScheduleOverview";
+import { DayAheadCard } from "@/components/manger/dashboard/DayAheadCard";
+import { WeekAheadCard } from "@/components/manger/dashboard/WeekAheadCard";
 import { ClipboardList, Users, Clock, AlertCircle } from "lucide-react";
 import { apiFetch } from "@/lib/manger/api";
 import { useQuery } from "@tanstack/react-query";
@@ -229,6 +231,27 @@ export default function Dashboard() {
           >
             <ScheduleOverview />
           </motion.div>
+        </motion.div>
+      </motion.div>
+
+      {/* Day & Week Ahead Planning Views */}
+      <motion.div
+        variants={scheduleVariants}
+        className="grid grid-cols-1 gap-4 sm:gap-5 lg:gap-6 lg:grid-cols-2"
+      >
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ type: "spring", stiffness: 300, damping: 30, delay: 0.55 }}
+        >
+          <DayAheadCard />
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ type: "spring", stiffness: 300, damping: 30, delay: 0.6 }}
+        >
+          <WeekAheadCard />
         </motion.div>
       </motion.div>
     </motion.div>
