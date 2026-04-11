@@ -2145,7 +2145,7 @@ export default function Tasks() {
                         {selectedTask.attachments && selectedTask.attachments.length > 0
                           ? selectedTask.attachments.map((attachment, idx) => (
                             <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow">
-                              {attachment.mimeType?.startsWith("image/") && attachment.url ? (
+                              {(attachment.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(attachment.fileName || "")) && attachment.url ? (
                                 <img src={attachment.url} alt={attachment.fileName || `Attachment`} className="w-full h-24 object-cover" />
                               ) : (
                                 <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>

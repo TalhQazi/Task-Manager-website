@@ -1954,7 +1954,7 @@ export default function Tasks() {
                             {selectedProject?.attachments?.map((att, idx) => (
                               <div key={`proj-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-primary/20 bg-primary/5 shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1">
                                 <div className="absolute top-2 left-2 z-10"><Badge className="text-[8px] h-4 bg-primary text-white font-black border-none px-1.5 uppercase">Project</Badge></div>
-                                {att.mimeType?.startsWith("image/") ? (
+                                {(att.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(att.fileName || "")) && att.url ? (
                                   <img src={att.url} alt={att.fileName} className="w-full h-24 object-cover" />
                                 ) : (
                                   <div className="w-full h-24 flex items-center justify-center bg-muted/20"><FileText className="h-8 w-8 text-muted-foreground/40" /></div>
