@@ -98,19 +98,51 @@ import { Pagination } from "@/components/Pagination";
 
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
   const [src, setSrc] = useState<string | null | undefined>(logoUrl !== undefined ? (logoUrl || null) : undefined);
+  const [error, setError] = useState(false);
+
   useEffect(() => {
     if (logoUrl !== undefined) {
       setSrc(logoUrl || null);
+      setError(false);
       return;
     }
     let cancelled = false;
     apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
-      .then(d => { if (!cancelled) setSrc(d.logo?.url || null); })
-      .catch(() => { if (!cancelled) setSrc(null); });
+      .then(d => { 
+        if (!cancelled) {
+          setSrc(d.logo?.url || null);
+          setError(false);
+        }
+      })
+      .catch(() => { 
+        if (!cancelled) {
+          setSrc(null);
+          setError(true);
+        }
+      });
     return () => { cancelled = true; };
   }, [projectId, logoUrl]);
-  if (src) return <img src={src} alt={`${projectName} logo`} className="w-10 h-10 rounded-md object-cover flex-shrink-0" />;
-  return <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>;
+
+  if (src && !error) {
+    return (
+      <img 
+        src={src} 
+        alt={`${projectName} logo`} 
+        className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-border" 
+        onError={() => setError(true)}
+      />
+    );
+  }
+
+  if (src === undefined && logoUrl === undefined) {
+    return <div className="w-10 h-10 rounded-md bg-muted/40 animate-pulse flex-shrink-0" />;
+  }
+
+  return (
+    <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary flex-shrink-0 border border-primary/20 uppercase">
+      {projectName.slice(0, 2).toUpperCase()}
+    </div>
+  );
 }
 
 function TaskAttachmentImg({ taskId }: { taskId: string }) {
@@ -1684,11 +1716,11 @@ export default function Tasks() {
         <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
           {/* ... project details remain same ... */}
           <div className="flex flex-col sm:flex-row sm:items-start gap-3">
-            {selectedProject.logo?.url ? (
-              <img src={selectedProject.logo.url} alt={`${selectedProject.name} logo`} className="w-12 h-12 rounded-md object-cover flex-shrink-0" />
-            ) : (
-              <div className="w-12 h-12 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>
-            )}
+            <ProjectLogoImg 
+              projectId={selectedProject.id} 
+              projectName={selectedProject.name} 
+              logoUrl={selectedProject.logo?.url} 
+            />
             <div className="flex-1 min-w-0">
               <h2 className="font-semibold text-lg break-words">Project: {selectedProject.name}</h2>
               <p className="text-sm text-muted-foreground break-words">{selectedProject.description || "No description"}</p>
@@ -2349,7 +2381,7 @@ export default function Tasks() {
                                     <img src={avatar} alt="avatar" className="w-full h-full object-cover rounded-full" />
                                   ) : (
                                     <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
-                                      {assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                                      {assignee.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()}
                                     </AvatarFallback>
                                   )}
                                 </Avatar>
@@ -2849,7 +2881,7 @@ export default function Tasks() {
                             (e.id && e.id.toLowerCase() === term)
                           );
                           const avatar = emp?.avatarDataUrl || emp?.avatarUrl;
-                          return (<Avatar key={idx} className="w-7 h-7 border-2 border-background">{avatar ? (<img src={avatar} alt="avatar" className="w-full h-full object-cover" />) : (<AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">{(emp?.initials || assignee.split(" ").map((n) => n[0]).join("").toUpperCase()).substring(0, 2)}</AvatarFallback>)}</Avatar>);
+                          return (<Avatar key={idx} className="w-7 h-7 border-2 border-background">{avatar ? (<img src={avatar} alt="avatar" className="w-full h-full object-cover" />) : (<AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">{(emp?.initials || assignee.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()).substring(0, 2)}</AvatarFallback>)}</Avatar>);
                         })}{task.assignees.length > 3 && (<div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">+{task.assignees.length - 3}</div>)}</div><span className="text-sm text-foreground break-words">{task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}</span></>) : (<span className="text-sm text-muted-foreground">Unassigned</span>)}</div></div>
                         <div className="flex gap-2 flex-wrap"><Badge variant="secondary" className={cn("text-xs", statusClasses[task.status])}>{task.status}</Badge><Badge variant="outline" className={cn("text-xs border", priorityClasses[task.priority])}>{task.priority}</Badge></div>
                       </div>

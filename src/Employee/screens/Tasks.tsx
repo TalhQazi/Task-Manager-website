@@ -250,19 +250,51 @@ function normalizeTask(t: TaskApi): Task {
 
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
   const [src, setSrc] = useState<string | null | undefined>(logoUrl !== undefined ? (logoUrl || null) : undefined);
+  const [error, setError] = useState(false);
+
   useEffect(() => {
     if (logoUrl !== undefined) {
       setSrc(logoUrl || null);
+      setError(false);
       return;
     }
     let cancelled = false;
     apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
-      .then(d => { if (!cancelled) setSrc(d.logo?.url || null); })
-      .catch(() => { if (!cancelled) setSrc(null); });
+      .then(d => { 
+        if (!cancelled) {
+          setSrc(d.logo?.url || null);
+          setError(false);
+        }
+      })
+      .catch(() => { 
+        if (!cancelled) {
+          setSrc(null);
+          setError(true);
+        }
+      });
     return () => { cancelled = true; };
   }, [projectId, logoUrl]);
-  if (src) return <img src={src} alt={`${projectName} logo`} className="w-10 h-10 rounded-md object-cover flex-shrink-0" />;
-  return <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>;
+
+  if (src && !error) {
+    return (
+      <img 
+        src={src} 
+        alt={`${projectName} logo`} 
+        className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-border" 
+        onError={() => setError(true)}
+      />
+    );
+  }
+
+  if (src === undefined && logoUrl === undefined) {
+    return <div className="w-10 h-10 rounded-md bg-muted/40 animate-pulse flex-shrink-0" />;
+  }
+
+  return (
+    <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary flex-shrink-0 border border-primary/20 uppercase">
+      {projectName.slice(0, 2).toUpperCase()}
+    </div>
+  );
 }
 
 function TaskAttachmentImg({ taskId, index, mimeType, fileName, fallbackUrl }: { taskId: string; index: number; mimeType?: string; fileName?: string; fallbackUrl?: string }) {

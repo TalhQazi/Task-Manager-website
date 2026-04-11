@@ -253,19 +253,51 @@ function normalizeTask(t: TaskApi): Task {
 
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
   const [src, setSrc] = useState<string | null | undefined>(logoUrl !== undefined ? (logoUrl || null) : undefined);
+  const [error, setError] = useState(false);
+
   useEffect(() => {
     if (logoUrl !== undefined) {
       setSrc(logoUrl || null);
+      setError(false);
       return;
     }
     let cancelled = false;
     apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
-      .then(d => { if (!cancelled) setSrc(d.logo?.url || null); })
-      .catch(() => { if (!cancelled) setSrc(null); });
+      .then(d => { 
+        if (!cancelled) {
+          setSrc(d.logo?.url || null);
+          setError(false);
+        }
+      })
+      .catch(() => { 
+        if (!cancelled) {
+          setSrc(null);
+          setError(true);
+        }
+      });
     return () => { cancelled = true; };
   }, [projectId, logoUrl]);
-  if (src) return <img src={src} alt={`${projectName} logo`} className="w-10 h-10 rounded-md object-cover flex-shrink-0" />;
-  return <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>;
+
+  if (src && !error) {
+    return (
+      <img 
+        src={src} 
+        alt={`${projectName} logo`} 
+        className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-border" 
+        onError={() => setError(true)}
+      />
+    );
+  }
+
+  if (src === undefined && logoUrl === undefined) {
+    return <div className="w-10 h-10 rounded-md bg-muted/40 animate-pulse flex-shrink-0" />;
+  }
+
+  return (
+    <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary flex-shrink-0 border border-primary/20 uppercase">
+      {projectName.slice(0, 2).toUpperCase()}
+    </div>
+  );
 }
 
 function TaskAttachmentImg({ taskId }: { taskId: string }) {
@@ -1376,11 +1408,11 @@ export default function Tasks() {
         <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-start gap-3 min-w-0">
-              {selectedProject.logo?.url ? (
-                <img src={selectedProject.logo.url} alt={`${selectedProject.name} logo`} className="w-12 h-12 rounded-md object-cover flex-shrink-0 shadow-sm border" />
-              ) : (
-                <div className="w-12 h-12 rounded-md bg-muted/40 flex items-center justify-center text-[10px] text-muted-foreground border flex-shrink-0">No Logo</div>
-              )}
+              <ProjectLogoImg 
+                projectId={selectedProject.id} 
+                projectName={selectedProject.name} 
+                logoUrl={selectedProject.logo?.url} 
+              />
               <div className="min-w-0">
                 <h2 className="font-bold text-lg truncate leading-tight flex items-center gap-2">
                   {selectedProject.name}
@@ -2247,7 +2279,7 @@ export default function Tasks() {
                               <div key={idx} className="flex items-center gap-2.5 bg-background border border-border/60 rounded-lg px-3 py-2 shadow-sm transition-colors hover:border-border">
                                 <Avatar className="w-6 h-6">
                                   <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
-                                    {assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                                    {assignee.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()}
                                   </AvatarFallback>
                                 </Avatar>
                                 <span className="text-sm font-medium text-foreground/80">{resolveAssigneeName(assignee)}</span>
@@ -2614,7 +2646,7 @@ export default function Tasks() {
                                   return (
                                     <Avatar key={idx} className="w-7 h-7 border-2 border-background">
                                       <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
-                                        {displayName.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                                        {displayName.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()}
                                       </AvatarFallback>
                                     </Avatar>
                                   );
@@ -2856,7 +2888,7 @@ export default function Tasks() {
                           selectedProject.assignees.map((assignee, idx) => (
                             <div key={idx} className="flex items-center gap-2.5 bg-background border border-border/60 rounded-lg px-3 py-2 shadow-xs transition-colors hover:border-border">
                               <Avatar className="w-7 h-7">
-                                <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">{assignee.split(" ").map(n => n[0]).join("").toUpperCase()}</AvatarFallback>
+                                <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">{assignee.split(" ").map(n => n ? n[0] : "").join("").toUpperCase()}</AvatarFallback>
                               </Avatar>
                               <span className="text-[13px] font-semibold text-foreground/80">{resolveAssigneeName(assignee)}</span>
                             </div>
