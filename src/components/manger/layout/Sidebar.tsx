@@ -57,6 +57,23 @@ interface SidebarProps {
 
 export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
   const navigate = useNavigate();
+  const [topOffset, setTopOffset] = useState(250);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setTopOffset(120);
+      } else if (window.innerWidth < 1024) {
+        setTopOffset(180);
+      } else {
+        setTopOffset(250);
+      }
+    };
+    
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const onLogout = () => {
     clearAuthState();
@@ -78,8 +95,9 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
         "flex flex-col text-white",
         isMobile
           ? "h-full w-64 bg-gradient-to-b from-[#0B1323] via-[#0B1323] to-[#0F172A]"
-          : "fixed left-0 top-[250px] bottom-0 w-56 bg-gradient-to-b from-[#0B1323] via-[#0B1323] to-[#0F172A] shadow-floating animate-slide-in border-r-2 border-white/20"
+          : "fixed left-0 bottom-0 w-56 lg:w-62 bg-gradient-to-b from-[#0B1323] via-[#0B1323] to-[#0F172A] shadow-floating animate-slide-in border-r-2 border-white/20"
       )}
+      style={!isMobile ? { top: `${topOffset}px` } : undefined}
     >
       {/* Navigation icons */}
       <nav className="flex-1 flex flex-col gap-1 px-2 py-4 overflow-y-auto overflow-x-hidden no-scrollbar mt-4" style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}>

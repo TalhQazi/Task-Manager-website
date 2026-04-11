@@ -135,7 +135,7 @@ export default function Dashboard() {
       initial="hidden"
       animate="visible"
       variants={containerVariants}
-      className="pl-6 space-y-5 sm:space-y-6 lg:space-y-8"
+      className="px-2 sm:px-4 lg:px-6 space-y-5 sm:space-y-6 lg:space-y-8"
     >
       {/* Welcome + top cards container */}
       <motion.div

@@ -1119,14 +1119,14 @@ export default function Tasks() {
     : (tasksQuery.data?.totalPages || 1);
 
   return (
-    <div className="pl-6 space-y-6">
+    <div className="px-2 sm:px-4 lg:px-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="page-header mb-0">
           <h1 className="page-title">Task Management</h1>
           <p className="page-subtitle">Create, assign, and track all tasks</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {selectedProject ? (
             <>
               <Button variant="outline" onClick={() => setSelectedProject(null)}>
