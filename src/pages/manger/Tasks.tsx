@@ -256,8 +256,8 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (logoUrl !== undefined) {
-      setSrc(logoUrl || null);
+    if (logoUrl) {
+      setSrc(logoUrl);
       setError(false);
       return;
     }
