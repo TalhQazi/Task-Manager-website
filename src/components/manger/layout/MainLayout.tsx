@@ -1,7 +1,7 @@
 import { Sidebar } from "./Sidebar";
 import { ReactNode, useState, useEffect } from "react";
 import { Bell, Bug, Mail, Menu, Search, User } from "lucide-react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/manger/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "@/components/manger/ui/sheet";
 import { Button } from "@/components/manger/ui/button";
 import {
   DropdownMenu,
@@ -507,6 +507,10 @@ export function MainLayout({ children }: MainLayoutProps) {
                   </button>
                 </SheetTrigger>
                 <SheetContent side="left" className="p-0 w-64">
+                  <SheetHeader className="sr-only">
+                    <SheetTitle>Navigation Menu</SheetTitle>
+                    <SheetDescription>Main navigation for managers</SheetDescription>
+                  </SheetHeader>
                   <Sidebar mode="mobile" onNavigate={() => setMobileSidebarOpen(false)} />
                 </SheetContent>
               </Sheet>

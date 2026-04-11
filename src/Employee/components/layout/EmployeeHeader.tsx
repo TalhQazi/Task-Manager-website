@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Bell, Menu, Search, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +13,6 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useNavigate } from "react-router-dom";
 import { getEmployeeAuth, clearEmployeeAuth } from "@/Employee/lib/auth";
-import { useEffect, useMemo, useState } from "react";
 import { getEmployeeProfile } from "@/Employee/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/manger/api";

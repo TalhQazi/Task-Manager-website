@@ -3,7 +3,7 @@ import { Outlet } from "react-router-dom";
 import { EmployeeSidebar } from "./EmployeeSidebar";
 import { EmployeeHeader } from "./EmployeeHeader";
 import { cn } from "@/lib/utils";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 
 export function EmployeeLayout() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -43,6 +43,10 @@ export function EmployeeLayout() {
 
       <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
         <SheetContent side="left" className="p-0 w-64">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Navigation Menu</SheetTitle>
+            <SheetDescription>Main navigation for employees</SheetDescription>
+          </SheetHeader>
           <EmployeeSidebar mode="mobile" onNavigate={() => setMobileSidebarOpen(false)} />
         </SheetContent>
       </Sheet>
