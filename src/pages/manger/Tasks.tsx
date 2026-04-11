@@ -2303,7 +2303,6 @@ export default function Tasks() {
                 </div>
               </>
             )}
-          )}
         </DialogContent>
       </Dialog>
 
@@ -2676,216 +2675,212 @@ export default function Tasks() {
               />
             </>
           )}
-        <Dialog open={isViewProjectOpen} onOpenChange={setIsViewProjectOpen}>
-          <DialogContent className="w-[98vw] sm:max-w-[95vw] lg:max-w-[1100px] h-[90vh] p-0 overflow-hidden flex flex-col gap-0 border-none shadow-2xl">
-            {selectedProject && (
-              <>
-                <DialogHeader className="p-4 sm:p-6 border-b bg-card flex-shrink-0">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="min-w-0 space-y-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="outline" className="text-[10px] h-5 uppercase tracking-wider font-bold bg-muted/30 text-primary border-primary/20">Project Overview</Badge>
-                        <span className="text-[10px] text-muted-foreground font-medium">• {selectedProject.id.slice(-6).toUpperCase()}</span>
-                      </div>
-                      <DialogTitle className="text-lg sm:text-2xl font-bold truncate leading-tight">{selectedProject.name}</DialogTitle>
-                    </div>
-                    <Button variant="ghost" size="icon" onClick={() => setIsViewProjectOpen(false)} className="rounded-full h-8 w-8 hover:bg-muted/80">
-                      <X className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </DialogHeader>
+        </div>
+      )}
 
-                <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-background">
-                  <div className="flex-1 overflow-y-auto custom-scrollbar bg-background">
-                    <div className="p-4 sm:p-7 space-y-8 max-w-4xl mx-auto">
+      <Dialog open={isViewProjectOpen} onOpenChange={setIsViewProjectOpen}>
+        <DialogContent className="w-[98vw] sm:max-w-[95vw] lg:max-w-[1100px] h-[90vh] p-0 overflow-hidden flex flex-col gap-0 border-none shadow-2xl">
+          {selectedProject && (
+            <>
+              <DialogHeader className="p-4 sm:p-6 border-b bg-card flex-shrink-0">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge variant="outline" className="text-[10px] h-5 uppercase tracking-wider font-bold bg-muted/30 text-primary border-primary/20">Project Overview</Badge>
+                      <span className="text-[10px] text-muted-foreground font-medium">• {selectedProject.id.slice(-6).toUpperCase()}</span>
+                    </div>
+                    <DialogTitle className="text-lg sm:text-2xl font-bold truncate leading-tight">{selectedProject.name}</DialogTitle>
+                  </div>
+                  <Button variant="ghost" size="icon" onClick={() => setIsViewProjectOpen(false)} className="rounded-full h-8 w-8 hover:bg-muted/80">
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </DialogHeader>
+
+              <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-background">
+                <div className="flex-1 overflow-y-auto custom-scrollbar bg-background">
+                  <div className="p-4 sm:p-7 space-y-8 max-w-4xl mx-auto">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <FileText className="w-4 h-4" />
+                        <h4 className="text-[13px] font-bold uppercase tracking-wider">About this project</h4>
+                      </div>
+                      <div className="bg-muted/10 border border-border/40 rounded-xl p-4 sm:p-5 shadow-inner">
+                        <p className="text-[15px] leading-relaxed text-foreground/90 whitespace-pre-wrap">
+                          {selectedProject.description || <span className="text-muted-foreground/50 italic">No description provided.</span>}
+                        </p>
+                      </div>
+                    </div>
+
+                    {selectedProject.attachments && selectedProject.attachments.length > 0 && (
                       <div className="space-y-4">
                         <div className="flex items-center gap-2 text-muted-foreground">
-                          <FileText className="w-4 h-4" />
-                          <h4 className="text-[13px] font-bold uppercase tracking-wider">About this project</h4>
+                          <Paperclip className="w-4 h-4" />
+                          <h4 className="text-[13px] font-bold uppercase tracking-wider">Project Files</h4>
                         </div>
-                        <div className="bg-muted/10 border border-border/40 rounded-xl p-4 sm:p-5 shadow-inner">
-                          <p className="text-[15px] leading-relaxed text-foreground/90 whitespace-pre-wrap">
-                            {selectedProject.description || <span className="text-muted-foreground/50 italic">No description provided.</span>}
-                          </p>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                          {selectedProject.attachments.map((attachment, idx) => (
+                            <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-xs hover:shadow-md transition-shadow">
+                              {attachment.mimeType?.startsWith("image/") ? (
+                                <img src={attachment.url} alt={attachment.fileName} className="w-full h-24 object-cover" />
+                              ) : (
+                                <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
+                              )}
+                              <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
+                              <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]"><span className="text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/50 bg-black/40">Open File</span></a>
+                            </div>
+                          ))}
                         </div>
                       </div>
+                    )}
 
-                      {/* Attachments Section */}
-                      {selectedProject.attachments && selectedProject.attachments.length > 0 && (
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Paperclip className="w-4 h-4" />
-                            <h4 className="text-[13px] font-bold uppercase tracking-wider">Project Files</h4>
+                    <div className="pt-4 border-t border-border/60">
+                      <div className="flex items-center justify-between mb-5">
+                        <h4 className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                          <MessageSquare className="w-4 h-4 text-primary" /> Project Discussion
+                        </h4>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => { if (selectedProject) void loadProjectComments(selectedProject.id); }} disabled={projectCommentsLoading} className="h-7 px-2 text-[11px] gap-1 hover:bg-muted/50">
+                          <RefreshCw className={cn("w-3 h-3", projectCommentsLoading && "animate-spin")} /> Refresh Feed
+                        </Button>
+                      </div>
+
+                      <div className="space-y-6 lg:ml-2">
+                        {projectCommentsLoading && projectComments.length === 0 ? (
+                          <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+                        ) : projectComments.length === 0 ? (
+                          <div className="text-center p-8 text-muted-foreground border-2 border-dashed border-border/50 rounded-2xl bg-muted/5">
+                            <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                            <p className="text-sm font-medium">No discussion yet on this project.</p>
                           </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                            {selectedProject.attachments.map((attachment, idx) => (
-                              <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-xs hover:shadow-md transition-shadow">
-                                {attachment.mimeType?.startsWith("image/") ? (
-                                  <img src={attachment.url} alt={attachment.fileName} className="w-full h-24 object-cover" />
-                                ) : (
-                                  <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
-                                )}
-                                <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
-                                <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]"><span className="text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/50 bg-black/40">Open File</span></a>
+                        ) : (
+                          <div className="space-y-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+                            {projectComments.map((c) => (
+                              <div key={c.id} className="flex gap-4 group">
+                                <Avatar className="w-9 h-9 border-2 border-background shadow-sm flex-shrink-0 z-10 overflow-hidden">
+                                  {c.authorAvatar ? (
+                                    <img src={c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
+                                  ) : (
+                                    <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+                                      <User className="w-4 h-4 text-primary opacity-60" />
+                                    </div>
+                                  )}
+                                </Avatar>
+                                <div className="flex-1 space-y-1.5 min-w-0 bg-muted/5 p-3 rounded-2xl border border-border/40 ml-1 group-hover:border-border/80 transition-colors shadow-xs">
+                                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-bold text-[13px] text-foreground">{c.authorFullName || c.authorUsername}</span>
+                                      <span className="text-[11px] text-muted-foreground/80 font-medium">{formatMessageTime(c.createdAt)}</span>
+                                    </div>
+                                  </div>
+                                  <div className="text-[14px] leading-relaxed text-foreground/90 whitespace-pre-wrap break-words">
+                                    {renderMessageWithMentions(c.message)}
+                                  </div>
+                                  {c.attachments && c.attachments.length > 0 && (
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 pt-2">
+                                      {c.attachments.map((att, attIdx) => (
+                                        <div key={attIdx} className="relative rounded-lg overflow-hidden border border-border/50 bg-background shadow-xs group/att aspect-square flex flex-col items-center justify-center bg-muted/5">
+                                          {att.mimeType?.startsWith("image/") ? (
+                                            <img src={att.url} alt={att.fileName} className="w-full h-full object-cover" />
+                                          ) : (
+                                            <FileText className="h-6 w-6 text-muted-foreground/60 mb-1" />
+                                          )}
+                                          <div className="p-1 px-2 text-[9px] w-full text-center font-medium text-muted-foreground truncate border-t bg-muted/10">{att.fileName}</div>
+                                          <a href={att.url} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]"><Download className="h-4 w-4 text-white" /></a>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             ))}
                           </div>
-                        </div>
-                      )}
-
-                      <div className="pt-4 border-t border-border/60">
-                        <div className="flex items-center justify-between mb-5">
-                          <h4 className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                            <MessageSquare className="w-4 h-4 text-primary" /> Project Discussion
-                          </h4>
-                          <Button type="button" variant="ghost" size="sm" onClick={() => { if (selectedProject) void loadProjectComments(selectedProject.id); }} disabled={projectCommentsLoading} className="h-7 px-2 text-[11px] gap-1 hover:bg-muted/50">
-                            <RefreshCw className={cn("w-3 h-3", projectCommentsLoading && "animate-spin")} /> Refresh Feed
-                          </Button>
-                        </div>
-
-                        {/* Project Feed Display */}
-                        <div className="space-y-6 lg:ml-2">
-                          {projectCommentsLoading && projectComments.length === 0 ? (
-                            <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-                          ) : projectComments.length === 0 ? (
-                            <div className="text-center p-8 text-muted-foreground border-2 border-dashed border-border/50 rounded-2xl bg-muted/5">
-                              <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                              <p className="text-sm font-medium">No discussion yet on this project.</p>
-                            </div>
-                          ) : (
-                            <div className="space-y-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                              {projectComments.map((c) => (
-                                <div key={c.id} className="flex gap-4 group">
-                                  <Avatar className="w-9 h-9 border-2 border-background shadow-sm flex-shrink-0 z-10 overflow-hidden">
-                                    {c.authorAvatar ? (
-                                      <img src={c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
-                                    ) : (
-                                      <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
-                                        <User className="w-4 h-4 text-primary opacity-60" />
-                                      </div>
-                                    )}
-                                  </Avatar>
-                                  <div className="flex-1 space-y-1.5 min-w-0 bg-muted/5 p-3 rounded-2xl border border-border/40 ml-1 group-hover:border-border/80 transition-colors shadow-xs">
-                                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-bold text-[13px] text-foreground">{c.authorFullName || c.authorUsername}</span>
-                                        <span className="text-[11px] text-muted-foreground/80 font-medium">{formatMessageTime(c.createdAt)}</span>
-                                      </div>
-                                    </div>
-                                    <div className="text-[14px] leading-relaxed text-foreground/90 whitespace-pre-wrap break-words">
-                                      {renderMessageWithMentions(c.message)}
-                                    </div>
-                                    {c.attachments && c.attachments.length > 0 && (
-                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 pt-2">
-                                        {c.attachments.map((att, attIdx) => (
-                                          <div key={attIdx} className="relative rounded-lg overflow-hidden border border-border/50 bg-background shadow-xs group/att aspect-square flex flex-col items-center justify-center bg-muted/5">
-                                            {att.mimeType?.startsWith("image/") ? (
-                                              <img src={att.url} alt={att.fileName} className="w-full h-full object-cover" />
-                                            ) : (
-                                              <FileText className="h-6 w-6 text-muted-foreground/60 mb-1" />
-                                            )}
-                                            <div className="p-1 px-2 text-[9px] w-full text-center font-medium text-muted-foreground truncate border-t bg-muted/10">{att.fileName}</div>
-                                            <a href={att.url} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]"><Download className="h-4 w-4 text-white" /></a>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Project Composer */}
-                        <div className="mt-6 ml-0 lg:ml-14 relative rounded-2xl border-2 border-border/60 bg-background overflow-visible focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10 transition-all shadow-sm">
-                          {commentAttachments.length > 0 && (
-                            <div className="p-2 border-b bg-muted/10 grid grid-cols-3 sm:grid-cols-5 gap-2 max-h-32 overflow-y-auto">
-                              {commentAttachments.map((f, i) => (
-                                <div key={i} className="relative rounded-md border border-border/50 bg-background flex flex-col items-center justify-center p-2 text-center h-16 group/remshadow-xs">
-                                  <span className="text-[10px] w-full mt-1 truncate font-medium text-muted-foreground">{f.name}</span>
-                                  <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover/rem:opacity-100 transition-opacity text-[9px] shadow-sm">✕</button>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          <textarea
-                            value={commentDraft}
-                            onChange={(e) => setCommentDraft(e.target.value)}
-                            placeholder="Announce something to the project team..."
-                            className="w-full min-h-[90px] max-h-[300px] border-0 focus:ring-0 resize-y p-4 text-[14px] bg-transparent outline-none placeholder-muted-foreground/60 font-medium"
-                          />
-                          <div className="flex items-center justify-between p-2 pl-3 bg-muted/20 border-t border-border/40">
-                            <button type="button" onClick={() => { const el = document.getElementById("project-comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center gap-1.5" title="Attach file">
-                              <Paperclip className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Attach Files</span>
-                            </button>
-                            <input id="project-comment-attachment-input" type="file" multiple className="hidden" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value = ''; }} />
-                            <Button type="button" onClick={() => void sendComment(true)} disabled={(!commentDraft.trim() && commentAttachments.length === 0) || isSendingComment} size="sm" className="h-9 px-5 rounded-lg font-bold shadow hover:shadow-md transition-all">
-                              {isSendingComment ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Post Announcement"}
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right Pane: Stats & Team */}
-                  <div className="w-full md:w-[320px] lg:w-[360px] bg-muted/10 shrink-0 border-t md:border-t-0 md:border-l border-border/50 overflow-y-auto hidden md:block">
-                    <div className="p-6 space-y-7">
-                      <h3 className="text-sm font-bold text-foreground flex items-center gap-2 pb-2 border-b">Project Summary</h3>
-                      
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-background rounded-xl p-3 border border-border/50 shadow-xs">
-                          <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Tasks</p>
-                          <p className="text-xl font-bold">{selectedProject.tasks.length}</p>
-                        </div>
-                        <div className="bg-background rounded-xl p-3 border border-border/50 shadow-xs">
-                          <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Attachments</p>
-                          <p className="text-xl font-bold">{selectedProject.attachments?.length || 0}</p>
-                        </div>
+                        )}
                       </div>
 
-                      <div className="space-y-4">
-                        <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Project Team</label>
-                        <div className="flex flex-col gap-2">
-                          {selectedProject.assignees && selectedProject.assignees.length > 0 ? (
-                            selectedProject.assignees.map((assignee, idx) => (
-                              <div key={idx} className="flex items-center gap-2.5 bg-background border border-border/60 rounded-lg px-3 py-2 shadow-xs transition-colors hover:border-border">
-                                <Avatar className="w-7 h-7">
-                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">{assignee.split(" ").map(n => n[0]).join("").toUpperCase()}</AvatarFallback>
-                                </Avatar>
-                                <span className="text-[13px] font-semibold text-foreground/80">{resolveAssigneeName(assignee)}</span>
+                      <div className="mt-6 ml-0 lg:ml-14 relative rounded-2xl border-2 border-border/60 bg-background overflow-visible focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10 transition-all shadow-sm">
+                        {commentAttachments.length > 0 && (
+                          <div className="p-2 border-b bg-muted/10 grid grid-cols-3 sm:grid-cols-5 gap-2 max-h-32 overflow-y-auto">
+                            {commentAttachments.map((f, i) => (
+                              <div key={i} className="relative rounded-md border border-border/50 bg-background flex flex-col items-center justify-center p-2 text-center h-16 group shadow-xs">
+                                <span className="text-[10px] w-full mt-1 truncate font-medium text-muted-foreground">{f.name}</span>
+                                <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-[9px] shadow-sm">✕</button>
                               </div>
-                            ))
-                          ) : (
-                            <div className="text-xs text-muted-foreground italic p-4 border border-dashed rounded-lg text-center">No team members assigned</div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="space-y-4 pt-2">
-                        <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">Timeline</label>
-                        <div className="bg-background border border-border/60 rounded-xl p-4 space-y-3 shadow-xs">
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-muted-foreground flex items-center gap-2"><Calendar className="w-3 h-3" /> Created On</span>
-                            <span className="text-xs font-bold">{new Date(selectedProject.createdAt).toLocaleDateString()}</span>
+                            ))}
                           </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-xs text-muted-foreground flex items-center gap-2"><TrendingUp className="w-3 h-3" /> Status</span>
-                            <Badge variant="outline" className="text-[10px] font-bold capitalize">{selectedProject.status || "In Planning"}</Badge>
-                          </div>
+                        )}
+                        <textarea
+                          value={commentDraft}
+                          onChange={(e) => setCommentDraft(e.target.value)}
+                          placeholder="Announce something to the project team..."
+                          className="w-full min-h-[90px] max-h-[300px] border-0 focus:ring-0 resize-y p-4 text-[14px] bg-transparent outline-none placeholder-muted-foreground/60 font-medium"
+                        />
+                        <div className="flex items-center justify-between p-2 pl-3 bg-muted/20 border-t border-border/40">
+                          <button type="button" onClick={() => { const el = document.getElementById("project-comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center gap-1.5" title="Attach file">
+                            <Paperclip className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Attach Files</span>
+                          </button>
+                          <input id="project-comment-attachment-input" type="file" multiple className="hidden" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value = ''; }} />
+                          <Button type="button" onClick={() => void sendComment(true)} disabled={(!commentDraft.trim() && commentAttachments.length === 0) || isSendingComment} size="sm" className="h-9 px-5 rounded-lg font-bold shadow hover:shadow-md transition-all">
+                            {isSendingComment ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Post Announcement"}
+                          </Button>
                         </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
-      </div>
+
+                <div className="w-full md:w-[320px] lg:w-[360px] bg-muted/10 shrink-0 border-t md:border-t-0 md:border-l border-border/50 overflow-y-auto hidden md:block">
+                  <div className="p-6 space-y-7">
+                    <h3 className="text-sm font-bold text-foreground flex items-center gap-2 pb-2 border-b">Project Summary</h3>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="bg-background rounded-xl p-3 border border-border/50 shadow-xs">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Tasks</p>
+                        <p className="text-xl font-bold">{selectedProject.tasks.length}</p>
+                      </div>
+                      <div className="bg-background rounded-xl p-3 border border-border/50 shadow-xs">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Attachments</p>
+                        <p className="text-xl font-bold">{selectedProject.attachments?.length || 0}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Project Team</label>
+                      <div className="flex flex-col gap-2">
+                        {selectedProject.assignees && selectedProject.assignees.length > 0 ? (
+                          selectedProject.assignees.map((assignee, idx) => (
+                            <div key={idx} className="flex items-center gap-2.5 bg-background border border-border/60 rounded-lg px-3 py-2 shadow-xs transition-colors hover:border-border">
+                              <Avatar className="w-7 h-7">
+                                <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">{assignee.split(" ").map(n => n[0]).join("").toUpperCase()}</AvatarFallback>
+                              </Avatar>
+                              <span className="text-[13px] font-semibold text-foreground/80">{resolveAssigneeName(assignee)}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-xs text-muted-foreground italic p-4 border border-dashed rounded-lg text-center">No team members assigned</div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 pt-2">
+                      <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">Timeline</label>
+                      <div className="bg-background border border-border/60 rounded-xl p-4 space-y-3 shadow-xs">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-muted-foreground flex items-center gap-2"><Calendar className="w-3 h-3" /> Created On</span>
+                          <span className="text-xs font-bold">{new Date(selectedProject.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs text-muted-foreground flex items-center gap-2"><TrendingUp className="w-3 h-3" /> Status</span>
+                          <Badge variant="outline" className="text-[10px] font-bold capitalize">{selectedProject.status || "In Planning"}</Badge>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-
-            
