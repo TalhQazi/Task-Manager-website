@@ -96,18 +96,18 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
         "flex flex-col text-white",
         isMobile
           ? "h-full w-64 bg-gradient-to-b from-[#0B1323] via-[#0B1323] to-[#0F172A]"
-          : "fixed left-0 bottom-0 w-56 lg:w-62 bg-gradient-to-b from-[#0B1323] via-[#0B1323] to-[#0F172A] shadow-floating animate-slide-in border-r-2 border-white/20"
+          : "fixed left-0 bottom-0 w-56 lg:w-64 bg-gradient-to-b from-[#0B1323] via-[#0B1323] to-[#0F172A] shadow-floating border-r-2 border-white/20 z-40"
       )}
       style={!isMobile ? { top: `${topOffset}px` } : undefined}
     >
       {/* Navigation icons */}
-      <nav className="flex-1 flex flex-col gap-1 px-2 py-4 overflow-y-auto overflow-x-hidden no-scrollbar mt-4" style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
+      <nav className="flex-1 flex flex-col gap-1 px-3 py-4 overflow-y-auto no-scrollbar mt-4" style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
         {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             end={item.end}
-            className="group relative flex h-10 w-full items-center gap-3 rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear"
+            className="group relative flex h-10 w-full items-center gap-3 rounded-lg px-4 text-white/60 hover:bg-white/[0.04] hover:text-white hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear"
             activeClassName="bg-white/[0.06] text-white"
             onClick={handleNavigate}
           >
@@ -133,7 +133,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
         <button
           type="button"
           onClick={onLogout}
-          className="flex w-full items-center gap-3 h-10 rounded-lg px-3 text-white/80 hover:bg-red-500/20 hover:text-red-100 transition-colors"
+          className="flex w-full items-center gap-3 h-10 rounded-lg px-4 text-white/80 hover:bg-red-500/20 hover:text-red-100 transition-colors"
         >
           <LogOut className="h-5 w-5 flex-shrink-0" />
           <span className="text-sm font-medium">Logout</span>
