@@ -251,15 +251,19 @@ function normalizeTask(t: TaskApi): Task {
   };
 }
 
-function ProjectLogoImg({ projectId, projectName }: { projectId: string; projectName: string }) {
-  const [src, setSrc] = useState<string | null | undefined>(undefined);
+function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
+  const [src, setSrc] = useState<string | null | undefined>(logoUrl !== undefined ? (logoUrl || null) : undefined);
   useEffect(() => {
+    if (logoUrl !== undefined) {
+      setSrc(logoUrl || null);
+      return;
+    }
     let cancelled = false;
     apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
       .then(d => { if (!cancelled) setSrc(d.logo?.url || null); })
       .catch(() => { if (!cancelled) setSrc(null); });
     return () => { cancelled = true; };
-  }, [projectId]);
+  }, [projectId, logoUrl]);
   if (src) return <img src={src} alt={`${projectName} logo`} className="w-10 h-10 rounded-md object-cover flex-shrink-0" />;
   return <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>;
 }
@@ -1455,7 +1459,7 @@ export default function Tasks() {
                       <div className="cursor-pointer flex flex-col flex-1" onClick={() => void loadProject(project.id)}>
                         <div className="flex items-center gap-3 mb-3">
                           <span className="flex-shrink-0 text-[10px] font-black text-muted-foreground/30 w-4">{projectNumber}</span>
-                          <ProjectLogoImg projectId={project.id} projectName={project.name} />
+                          <ProjectLogoImg projectId={project.id} projectName={project.name} logoUrl={project.logo?.url} />
                           <div className="min-w-0">
                             <p className="font-bold text-[15px] truncate group-hover:text-primary transition-colors">{project.name}</p>
                             <p className="text-[11px] text-muted-foreground truncate leading-tight">{project.description || "No description"}</p>

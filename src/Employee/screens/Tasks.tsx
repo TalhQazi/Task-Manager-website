@@ -86,6 +86,7 @@ import {
   TrendingUp,
   PlusCircle,
   Paperclip,
+  Layers,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { io, Socket } from "socket.io-client";
@@ -168,8 +169,16 @@ type TaskComment = {
   taskId: string;
   message: string;
   authorUsername: string;
+  authorFullName?: string;
   authorRole?: string;
   createdAt: string;
+  attachments?: Array<{
+    fileName: string;
+    url: string;
+    mimeType: string;
+    size: number;
+    uploadedAt?: string;
+  }>;
 };
 
 type TaskApi = Omit<Task, "id"> & {
@@ -239,15 +248,19 @@ function normalizeTask(t: TaskApi): Task {
   };
 }
 
-function ProjectLogoImg({ projectId, projectName }: { projectId: string; projectName: string }) {
-  const [src, setSrc] = useState<string | null | undefined>(undefined);
+function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
+  const [src, setSrc] = useState<string | null | undefined>(logoUrl !== undefined ? (logoUrl || null) : undefined);
   useEffect(() => {
+    if (logoUrl !== undefined) {
+      setSrc(logoUrl || null);
+      return;
+    }
     let cancelled = false;
     apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
       .then(d => { if (!cancelled) setSrc(d.logo?.url || null); })
       .catch(() => { if (!cancelled) setSrc(null); });
     return () => { cancelled = true; };
-  }, [projectId]);
+  }, [projectId, logoUrl]);
   if (src) return <img src={src} alt={`${projectName} logo`} className="w-10 h-10 rounded-md object-cover flex-shrink-0" />;
   return <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>;
 }
@@ -438,7 +451,7 @@ export default function Tasks() {
   });
 
   // Reset pages when filters change
-  useEffect(() => { setTaskPage(1); }, [searchQuery, statusFilter, priorityFilter]);
+  useEffect(() => { setTaskPage(1); }, [searchQuery, statusFilter, priorityFilter, selectedProject?.id]);
   useEffect(() => { setProjectPage(1); }, [searchQuery]);
 
   useEffect(() => {
@@ -584,10 +597,10 @@ export default function Tasks() {
       });
       return res;
     },
-    onSuccess: async () => {
+    onSuccess: async (_, variables) => {
       await queryClient.invalidateQueries({ queryKey: ["projects"] });
-      if (selectedProject) {
-        setSelectedProject({ ...selectedProject, status: selectedProject.status });
+      if (selectedProject && selectedProject.id === variables.projectId) {
+        setSelectedProject({ ...selectedProject, status: variables.status });
       }
     },
   });
@@ -896,8 +909,8 @@ export default function Tasks() {
       const res = await apiFetch<{ items: any[] }>(`/api/projects/${encodeURIComponent(projectId)}/comments`);
       setProjectComments(Array.isArray(res.items) ? res.items : []);
       setIsViewProjectOpen(true);
-    } catch (e) {
-      setCommentError(e instanceof Error ? e.message : "Failed to load project activity");
+    } catch (err) {
+      setCommentError("Failed to load project activity");
     } finally {
       setProjectCommentsLoading(false);
     }
@@ -914,20 +927,32 @@ export default function Tasks() {
       setIsSendingComment(true);
       setCommentError(null);
 
-      const endpoint = isProject 
+      const endpoint = isProject
         ? `/api/projects/${encodeURIComponent(id)}/comments`
         : `/api/tasks/${encodeURIComponent(id)}/comments`;
 
-      const formDataObj = new FormData();
-      formDataObj.append("message", msg);
-      commentAttachments.forEach((file) => {
-        formDataObj.append("attachments", file);
-      });
+      const processedAttachments = await Promise.all(
+        commentAttachments.map(
+          (file) =>
+            new Promise<{ fileName: string; mimeType: string; size: number; url: string }>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                resolve({
+                  fileName: file.name,
+                  mimeType: file.type,
+                  size: file.size,
+                  url: reader.result as string,
+                });
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            })
+        )
+      );
 
       const res = await apiFetch<any>(endpoint, {
         method: "POST",
-        body: formDataObj,
-        headers: {}, // Let browser set boundary
+        body: JSON.stringify({ message: msg, attachments: processedAttachments }),
       });
 
       if (isProject) {
@@ -1237,7 +1262,10 @@ export default function Tasks() {
         <div className="flex flex-wrap gap-2">
           {selectedProject ? (
             <>
-              <Button variant="outline" onClick={() => setSelectedProject(null)}>
+              <Button variant="outline" onClick={() => {
+                setSelectedProject(null);
+                setTaskPage(1);
+              }}>
                 Back to Projects
               </Button>
               <Button className="gap-2" onClick={() => setIsCreateTaskOpen(true)}>
@@ -1319,7 +1347,7 @@ export default function Tasks() {
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground mt-3">
             <div className="flex items-center gap-3">
-               <span>{selectedProject.tasks.length} tasks</span>
+               <span className="flex items-center gap-1"><Layers className="w-3.5 h-3.5" /> {(tasksQuery.data?.items.length ?? 0) > 0 ? tasksQuery.data?.items.length : (selectedProject.tasks?.length || 0)} tasks</span>
                <Button 
                  variant="outline" 
                  size="sm" 
@@ -1380,7 +1408,7 @@ export default function Tasks() {
                     >
                       <div className="flex items-center gap-2 mb-2">
                         <span className="flex-shrink-0 text-xs font-bold text-muted-foreground w-5 text-right">{projectNumber}.</span>
-                        <ProjectLogoImg projectId={project.id} projectName={project.name} />
+                        <ProjectLogoImg projectId={project.id} projectName={project.name} logoUrl={project.logo?.url} />
                         <div className="min-w-0">
                           <p className="font-medium truncate">{project.name}</p>
                           <p className="text-xs text-muted-foreground truncate">{project.description || "No description"}</p>
@@ -1399,7 +1427,7 @@ export default function Tasks() {
                         <button 
                           onClick={(e) => { 
                             e.stopPropagation(); 
-                            setSelectedProject(project);
+                            setSelectedProject({ ...project, tasks: [] });
                             void loadProjectComments(project.id); 
                           }} 
                           className="text-primary font-black text-[9px] uppercase tracking-widest hover:underline flex items-center gap-1 bg-primary/5 px-2 py-0.5 rounded-full"
@@ -2000,7 +2028,7 @@ export default function Tasks() {
                                 <div key={c.id} className="flex gap-4 group relative">
                                   <Avatar className="w-10 h-10 border-2 border-background shadow-md flex-shrink-0 z-10 overflow-hidden ring-4 ring-muted/10">
                                     <AvatarFallback className="text-xs bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-black uppercase tracking-tighter">
-                                      {(c.authorFullName || c.authorUsername || "U").split(" ").map((n: string) => n[0]).join("").toUpperCase()}
+                                      {(c.authorFullName || c.authorUsername || "U").split(" ").map((n: string) => n ? n[0] : "").join("").toUpperCase()}
                                     </AvatarFallback>
                                   </Avatar>
                                   <div className="flex-1 space-y-2 min-w-0 bg-card p-4 rounded-2xl border border-border/60 ml-2 group-hover:border-primary/20 transition-all shadow-xs group-hover:shadow-md">
@@ -2081,7 +2109,7 @@ export default function Tasks() {
                             selectedTask.assignees.map((assignee, idx) => (
                               <div key={idx} className="flex items-center gap-3 bg-background border border-border/60 rounded-xl px-4 py-3 shadow-xs hover:border-primary/30 transition-colors">
                                 <Avatar className="w-7 h-7 ring-2 ring-muted/10">
-                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-black uppercase">{assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}</AvatarFallback>
+                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-black uppercase">{assignee.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()}</AvatarFallback>
                                 </Avatar>
                                 <span className="text-[13px] font-bold text-foreground/80 tracking-tight">{resolveAssigneeName(assignee)}</span>
                               </div>
@@ -2197,7 +2225,7 @@ export default function Tasks() {
                                 <div key={c.id} className="flex gap-4 group relative">
                                   <Avatar className="w-10 h-10 border-2 border-background shadow-md flex-shrink-0 z-10 overflow-hidden ring-4 ring-muted/10">
                                     <AvatarFallback className="text-xs bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-black uppercase tracking-tighter">
-                                      {(c.authorFullName || c.authorUsername || "U").split(" ").map((n: string) => n[0]).join("").toUpperCase()}
+                                      {(c.authorFullName || c.authorUsername || "U").split(" ").map((n: string) => n ? n[0] : "").join("").toUpperCase()}
                                     </AvatarFallback>
                                   </Avatar>
                                   <div className="flex-1 space-y-2 min-w-0 bg-background/60 backdrop-blur-md p-4 rounded-2xl border border-border/40 ml-2 shadow-xs group-hover:shadow-md transition-all">
@@ -2276,7 +2304,7 @@ export default function Tasks() {
                              {selectedProject.assignees?.map((a, idx) => (
                                <div key={idx} className="flex items-center gap-3 bg-background border border-border/40 px-3 py-2 rounded-xl shadow-xs">
                                  <Avatar className="h-6 w-6">
-                                   <AvatarFallback className="text-[9px] font-black bg-primary/10 text-primary">{a[0].toUpperCase()}</AvatarFallback>
+                                   <AvatarFallback className="text-[9px] font-black bg-primary/10 text-primary">{a ? a[0].toUpperCase() : "U"}</AvatarFallback>
                                  </Avatar>
                                  <span className="text-[12px] font-bold text-foreground/70 truncate">{resolveAssigneeName(a)}</span>
                                </div>
@@ -2607,7 +2635,7 @@ export default function Tasks() {
                                   return (
                                     <Avatar key={idx} className="w-7 h-7 border-2 border-background">
                                       <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
-                                        {displayName.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                                        {displayName.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()}
                                       </AvatarFallback>
                                     </Avatar>
                                   );

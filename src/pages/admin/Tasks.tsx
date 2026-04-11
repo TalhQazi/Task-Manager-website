@@ -96,15 +96,19 @@ import jsPDF from "jspdf";
 import { useSocket } from "@/contexts/SocketContext";
 import { Pagination } from "@/components/Pagination";
 
-function ProjectLogoImg({ projectId, projectName }: { projectId: string; projectName: string }) {
-  const [src, setSrc] = useState<string | null | undefined>(undefined);
+function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
+  const [src, setSrc] = useState<string | null | undefined>(logoUrl !== undefined ? (logoUrl || null) : undefined);
   useEffect(() => {
+    if (logoUrl !== undefined) {
+      setSrc(logoUrl || null);
+      return;
+    }
     let cancelled = false;
     apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
       .then(d => { if (!cancelled) setSrc(d.logo?.url || null); })
       .catch(() => { if (!cancelled) setSrc(null); });
     return () => { cancelled = true; };
-  }, [projectId]);
+  }, [projectId, logoUrl]);
   if (src) return <img src={src} alt={`${projectName} logo`} className="w-10 h-10 rounded-md object-cover flex-shrink-0" />;
   return <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>;
 }
@@ -1776,7 +1780,7 @@ export default function Tasks() {
                         >
                           <div className="flex items-center gap-2 mb-2">
                             <span className="flex-shrink-0 text-xs font-bold text-primary w-fit text-right min-w-[20px]">{projectNumber}.</span>
-                            <ProjectLogoImg projectId={project.id} projectName={project.name} />
+                            <ProjectLogoImg projectId={project.id} projectName={project.name} logoUrl={project.logo?.url} />
                             <div className="min-w-0 flex-1">
                               <p className="font-medium truncate">{project.name}</p>
                               <p className="text-xs text-muted-foreground line-clamp-2">{project.description || "No description"}</p>
