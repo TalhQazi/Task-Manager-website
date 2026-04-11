@@ -87,6 +87,7 @@ import {
   MessageSquare,
   Archive,
   User,
+  PlusCircle,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch, downloadTaskAttachment } from "@/lib/manger/api";
