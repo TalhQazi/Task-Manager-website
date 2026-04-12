@@ -360,6 +360,32 @@
     will-change: opacity, transform;
   }
 
+  /* Premium Metallic Gold Utils */
+  @keyframes shine {
+    0% { transform: translateX(-100%) skewX(-15deg); }
+    100% { transform: translateX(300%) skewX(-15deg); }
+  }
+
+  .animate-shine {
+    animation: shine 6s infinite linear;
+  }
+
+  .bg-metallic-gold {
+    background: linear-gradient(
+      to right, 
+      #BF953F, 
+      #FCF6BA 25%, 
+      #B38728 50%, 
+      #FBF5B7 75%, 
+      #BF953F
+    );
+    background-size: 200% auto;
+  }
+
+  .text-gold-dark {
+    color: #5d4037;
+  }
+
   /* Performance: GPU Acceleration Hints */
   .gpu-accelerated {
     will-change: transform, opacity;
