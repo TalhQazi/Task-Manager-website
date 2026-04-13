@@ -167,7 +167,7 @@ interface Employee {
   name: string;
   initials: string;
   email: string;
-  status: "active" | "inactive" | "on-leave";
+  status: "active" | "inactive" | "on-leave"; 
 }
 
 type TaskComment = {
