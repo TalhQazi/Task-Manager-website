@@ -36,6 +36,7 @@ const NotFound = lazy(() => import("@/pages/admin/NotFound"));
 const ArchiveData = lazy(() => import("@/pages/admin/ArchiveData"));
 const FounderMessages = lazy(() => import("@/pages/admin/FounderMessages"));
 const SignaCore = lazy(() => import("@/pages/admin/SignaCore"));
+const UphMaintenance = lazy(() => import("@/pages/admin/UphMaintenance"));
 
 function PageLoader() {
   return (
@@ -59,6 +60,7 @@ export default function AdminRoutes() {
   const routes = useMemo(
     () => [
       { path: "contracts", element: <SignaCore /> },
+      { path: "uph-maintenance", element: <UphMaintenance /> },
       { index: true, element: <Dashboard /> },
       { path: "users", element: <Users /> },
       { path: "roles", element: <RolesPermissions /> },
