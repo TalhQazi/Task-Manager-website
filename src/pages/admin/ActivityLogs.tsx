@@ -21,6 +21,7 @@ import {
 import { Search, RefreshCw, FileText, User, Clock, Filter, X, Calendar } from "lucide-react";
 import { apiFetch, listResource } from "@/lib/admin/apiClient";
 import { cn } from "@/lib/utils";
+import { Pagination } from "@/components/Pagination";
 
 interface ActivityLog {
   id: string;
@@ -174,40 +175,33 @@ export default function ActivityLogs() {
   const [dateTo, setDateTo] = useState("");
   
   // Pagination
-  const [limit] = useState(50);
-  const [skip, setSkip] = useState(0);
-  const [hasMore, setHasMore] = useState(false);
+  const [limit] = useState(25);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
-  const fetchLogs = async (reset = false) => {
+  const fetchLogs = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const newSkip = reset ? 0 : skip;
-      
       const params = new URLSearchParams();
       params.append("limit", String(limit));
-      params.append("skip", String(newSkip));
+      params.append("page", String(currentPage));
       if (selectedUserId) params.append("userId", selectedUserId);
       if (actionFilter !== "all") params.append("action", actionFilter);
       if (resourceTypeFilter !== "all") params.append("resourceType", resourceTypeFilter);
       if (dateFrom) params.append("from", `${dateFrom}T00:00:00.000Z`);
       if (dateTo) params.append("to", `${dateTo}T23:59:59.999Z`);
-      if (searchQuery) params.append("username", searchQuery);
+      if (searchQuery) params.append("search", searchQuery);
       
-      const res = await apiFetch<{ items: ActivityLog[]; pagination: { hasMore: boolean; total: number } }>(
+      const res = await apiFetch<{ items: ActivityLog[]; pagination: { totalPages: number; totalItems: number; currentPage: number } }>(
         `/api/activity-logs?${params.toString()}`
       );
       
-      if (reset) {
-        setLogs(res.items);
-        setSkip(limit);
-      } else {
-        setLogs((prev) => [...prev, ...res.items]);
-        setSkip(newSkip + limit);
-      }
-      
-      setHasMore(res.pagination.hasMore);
+      setLogs(res.items);
+      setTotalPages(res.pagination.totalPages || 1);
+      setTotalItems(res.pagination.totalItems || 0);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load activity logs");
     } finally {
@@ -225,13 +219,14 @@ export default function ActivityLogs() {
   };
 
   useEffect(() => {
-    fetchLogs(true);
+    fetchLogs();
     fetchSummary();
-  }, [actionFilter, resourceTypeFilter, dateFrom, dateTo, selectedUserId]);
+  }, [currentPage, actionFilter, resourceTypeFilter, dateFrom, dateTo, selectedUserId]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchLogs(true);
+      setCurrentPage(1);
+      fetchLogs();
     }, 500);
     return () => clearTimeout(timer);
   }, [searchQuery]);
@@ -297,6 +292,7 @@ export default function ActivityLogs() {
     setDateFrom("");
     setDateTo("");
     setSelectedUserId("");
+    setCurrentPage(1);
   };
 
   const todayIso = useMemo(() => {
@@ -316,6 +312,7 @@ export default function ActivityLogs() {
     setSearchQuery("");
     setDateFrom("");
     setDateTo("");
+    setCurrentPage(1);
 
     window.setTimeout(() => {
       logsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -353,7 +350,8 @@ export default function ActivityLogs() {
           <Button
             variant="outline"
             onClick={() => {
-              fetchLogs(true);
+              setCurrentPage(1);
+              fetchLogs();
               fetchSummary();
             }}
             disabled={loading}
@@ -579,7 +577,8 @@ export default function ActivityLogs() {
                     onClick={() => {
                       setDateFrom(todayIso);
                       setDateTo(todayIso);
-                      fetchLogs(true);
+                      setCurrentPage(1);
+                      fetchLogs();
                     }}
                     disabled={!selectedUserId}
                     className="flex-1 sm:flex-none"
@@ -593,7 +592,8 @@ export default function ActivityLogs() {
                     onClick={() => {
                       setDateFrom("");
                       setDateTo("");
-                      fetchLogs(true);
+                      setCurrentPage(1);
+                      fetchLogs();
                     }}
                     disabled={!selectedUserId}
                     className="flex-1 sm:flex-none"
@@ -607,7 +607,8 @@ export default function ActivityLogs() {
                       setSelectedUserId("");
                       setDateFrom("");
                       setDateTo("");
-                      fetchLogs(true);
+                      setCurrentPage(1);
+                      fetchLogs();
                     }}
                     className="flex-1 sm:flex-none"
                   >
@@ -743,7 +744,7 @@ export default function ActivityLogs() {
         <Card>
           <CardHeader className="p-4 md:p-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <CardTitle className="text-base md:text-lg">Activity Log ({logs.length} shown)</CardTitle>
+              <CardTitle className="text-base md:text-lg">Activity Log ({totalItems.toLocaleString()} total)</CardTitle>
               {activeFilterCount > 0 && (
                 <Badge variant="secondary" className="w-fit">
                   {activeFilterCount} active filter{activeFilterCount !== 1 ? 's' : ''}
@@ -854,17 +855,13 @@ export default function ActivityLogs() {
               </div>
             )}
 
-            {/* Load More */}
-            {hasMore && (
-              <div className="p-4 border-t text-center">
-                <Button
-                  variant="outline"
-                  onClick={() => fetchLogs(false)}
-                  disabled={loading}
-                  className="w-full sm:w-auto"
-                >
-                  {loading ? "Loading..." : "Load More"}
-                </Button>
+            {totalPages > 1 && (
+              <div className="p-4 border-t">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
               </div>
             )}
           </CardContent>

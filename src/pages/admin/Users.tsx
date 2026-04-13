@@ -316,14 +316,14 @@ const Users = () => {
 
   // Super Admin: Reset Password handlers
   const handleResetPassword = (user: User) => {
-    if (!isSuperAdmin) return;
+    // Both Admin and Super Admin can reset user passwords
     setSelectedUser(user);
     setResetPasswordData({ newPassword: "", confirmPassword: "" });
     setResetPasswordOpen(true);
   };
 
   const confirmResetPassword = async () => {
-    if (!selectedUser || !isSuperAdmin) return;
+    if (!selectedUser) return;
     
     // Validate passwords match
     if (resetPasswordData.newPassword !== resetPasswordData.confirmPassword) {
@@ -467,8 +467,7 @@ const confirmArchiveUser = async () => {
         password: values.password,
         role: values.role as BackendUser["role"],
         status: values.status as NonNullable<BackendUser["status"]>,
-       // username:`${values.firstName.trim()}${values.lastName.trim()}`.trim(),
-       username: values.email.split("@")[0].trim()
+       // username:'testusername'
       });
       await refreshUsers();
       setOpen(false);
@@ -490,7 +489,7 @@ const confirmArchiveUser = async () => {
   return (
     <>
       <motion.div 
-        className="pl-6 space-y-4 sm:space-y-5 md:space-y-6"
+        className="space-y-4 sm:space-y-5 md:space-y-6"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -932,7 +931,7 @@ const confirmArchiveUser = async () => {
                               {user.role}
                             </Badge>
                             <Badge className={`${statusClasses[user.status]} text-xs`} variant="secondary">
-                              {user.status}ff
+                              {user.status}
                             </Badge>
                           </div>
 

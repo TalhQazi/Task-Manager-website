@@ -25,6 +25,7 @@ import {
 import { cn } from "@/lib/manger/utils";
 import { apiFetch } from "@/lib/manger/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSocket } from "@/contexts/SocketContext";
 
 interface Employee {
   id: string;
@@ -148,6 +149,7 @@ export default function Messages() {
     });
   };
 
+  const { socket } = useSocket();
   const currentUser = "Manager"; // Current logged in user
 
   // Handle navigation state - auto-open conversation from header dropdown
@@ -220,6 +222,29 @@ export default function Messages() {
       console.error("Failed to mark messages as read:", e);
     }
   };
+
+  // Real-time new message via socket
+  useEffect(() => {
+    if (!socket) return;
+    const handleNewMessage = (msg: MessageApi) => {
+      const normalized = normalizeMessage(msg);
+      // Refresh conversation list (unread counts, last message)
+      void queryClient.invalidateQueries({ queryKey: ["conversations", currentUser] });
+      // If we're currently in the conversation with this sender, append the message
+      if (
+        view === "conversation" &&
+        selectedEmployee &&
+        (normalized.sender === selectedEmployee.name || normalized.recipient === selectedEmployee.name)
+      ) {
+        setConversationMessages((prev) => {
+          if (prev.some((m) => m.id === normalized.id)) return prev;
+          return [...prev, normalized];
+        });
+      }
+    };
+    socket.on("new-message", handleNewMessage);
+    return () => { socket.off("new-message", handleNewMessage); };
+  }, [socket, view, selectedEmployee?.name]);
 
   // Scroll to bottom of messages
   useEffect(() => {

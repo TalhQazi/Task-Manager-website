@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Clock, MapPin, AlertCircle } from "lucide-react";
-import { apiFetch, listResource } from "@/lib/api";
+import { apiFetch } from "@/lib/api";
 
 interface Task {
   id: string;
@@ -40,9 +40,9 @@ export function RecentTasksList() {
       try {
         setLoading(true);
         setApiError(null);
-        const list = await listResource<Task>("tasks");
+        const res = await apiFetch<{ items: Task[] }>("/api/tasks?limit=6&page=1");
         if (!mounted) return;
-        setTasks(list);
+        setTasks(res.items ?? []);
       } catch (e) {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load tasks");
@@ -58,13 +58,11 @@ export function RecentTasksList() {
   }, []);
 
   const recentTasks = useMemo(() => {
-    return tasks
-      .slice(0, 6)
-      .map((t) => ({
-        ...t,
-        dueTime: t.dueTime || "—",
-        assigneeInitials: t.assigneeInitials || "—",
-      }));
+    return tasks.map((t) => ({
+      ...t,
+      dueTime: t.dueTime || "—",
+      assigneeInitials: t.assigneeInitials || "—",
+    }));
   }, [tasks]);
 
   return (

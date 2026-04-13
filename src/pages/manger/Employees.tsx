@@ -530,7 +530,7 @@ export default function Employees() {
       initial="hidden"
       animate="visible"
       variants={containerVariants}
-      className="pl-6 space-y-6"
+      className="px-2 sm:px-4 lg:px-6 space-y-6"
     >
       {/* Header */}
       <motion.div
@@ -697,7 +697,6 @@ export default function Employees() {
                 animate="visible"
                 exit="exit"
                 whileHover="hover"
-                layout
                 className="bg-card rounded-xl border border-border shadow-card p-4 sm:p-6"
               >
                 <div className="flex items-start justify-between mb-4">
@@ -778,30 +777,18 @@ export default function Employees() {
                   animate={{ opacity: 1 }}
                   transition={{ delay: index * 0.1 + 0.2 }}
                 >
-                  <motion.div
-                    className="flex items-center gap-2 text-sm text-muted-foreground"
-                    whileHover="hover"
-                    variants={iconVariants}
-                  >
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Mail className="w-4 h-4" />
                     <span className="truncate">{employee.email}</span>
-                  </motion.div>
-                  <motion.div
-                    className="flex items-center gap-2 text-sm text-muted-foreground"
-                    whileHover="hover"
-                    variants={iconVariants}
-                  >
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Phone className="w-4 h-4" />
                     <span className="truncate">{employee.phone}</span>
-                  </motion.div>
-                  <motion.div
-                    className="flex items-center gap-2 text-sm text-muted-foreground"
-                    whileHover="hover"
-                    variants={iconVariants}
-                  >
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <MapPin className="w-4 h-4" />
                     <span className="truncate">{employee.location}</span>
-                  </motion.div>
+                  </div>
                 </motion.div>
 
                 <motion.div

@@ -33,6 +33,8 @@ import { createResource, deleteResource, listResource, updateResource } from "@/
 interface BlacklistItem {
   id: string;
   name: string;
+  phone?: string;
+  email?: string;
   employeeId?: string;
   reason: string;
   incidentNotes: string;
@@ -45,6 +47,8 @@ type BackendDoNotHire = {
   _id?: string;
   fullName?: string;
   name?: string;
+  phone?: string | null;
+  email?: string | null;
   employeeId?: string;
   employeeName?: string;
   employee?: {
@@ -119,6 +123,8 @@ const normalizeDoNotHireItem = (item: BackendDoNotHire, employeesById: Map<strin
   return {
     id,
     name,
+    phone: String(item.phone || "").trim() || undefined,
+    email: String(item.email || "").trim() || undefined,
     employeeId,
     reason: String(item.reason || ""),
     incidentNotes: String(item.incidentNotes || item.notes || ""),
@@ -145,6 +151,8 @@ export default function DoNotHire() {
 
   const [formData, setFormData] = useState({
     name: "",
+    phone: "",
+    email: "",
     employeeId: "",
     reason: "",
     incidentNotes: "",
@@ -153,6 +161,8 @@ export default function DoNotHire() {
 
   const [editFormData, setEditFormData] = useState({
     name: "",
+    phone: "",
+    email: "",
     employeeId: "",
     reason: "",
     incidentNotes: "",
@@ -287,6 +297,8 @@ export default function DoNotHire() {
     const payload: BackendDoNotHire = {
       fullName: selectedName,
       name: selectedName,
+      phone: formData.phone || null,
+      email: formData.email || null,
       employeeId: selectedEmployee?.id || undefined,
       reason: formData.reason,
       incidentNotes: formData.incidentNotes,
@@ -301,7 +313,7 @@ export default function DoNotHire() {
       await createResource<BackendDoNotHire>("do-not-hire", payload);
       await refresh();
       setAddOpen(false);
-      setFormData({ name: "", employeeId: "", reason: "", incidentNotes: "", status: "active" });
+      setFormData({ name: "", phone: "", email: "", employeeId: "", reason: "", incidentNotes: "", status: "active" });
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "Failed to add record");
     }
@@ -316,6 +328,8 @@ export default function DoNotHire() {
     setSelected(i);
     setEditFormData({
       name: i.name,
+      phone: i.phone || "",
+      email: i.email || "",
       employeeId: i.employeeId || "",
       reason: i.reason,
       incidentNotes: i.incidentNotes,
@@ -338,6 +352,8 @@ export default function DoNotHire() {
       setApiError(null);
       await updateResource<BackendDoNotHire>("do-not-hire", selected.id, {
         name: selectedName,
+        phone: editFormData.phone || null,
+        email: editFormData.email || null,
         employeeId: selectedEmployee?.id || undefined,
         reason: editFormData.reason,
         incidentNotes: editFormData.incidentNotes,
@@ -398,7 +414,7 @@ export default function DoNotHire() {
             </DialogTrigger>
             
             {/* Add Dialog - Fully Responsive */}
-            <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6">
+            <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-hidden flex flex-col">
               <DialogHeader className="space-y-1.5 sm:space-y-2">
                 <DialogTitle className="text-lg sm:text-xl">Add Do Not Hire Record</DialogTitle>
                 <DialogDescription className="text-xs sm:text-sm">
@@ -406,83 +422,108 @@ export default function DoNotHire() {
                 </DialogDescription>
               </DialogHeader>
               
-              <form className="space-y-4 sm:space-y-5">
-                {/* Employee Selection OR Manual Name Entry */}
-                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                  <div className="flex-1 min-w-0">
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Select Employee (Optional)</label>
-                    <select
-                      value={formData.employeeId}
-                      onChange={(e) => {
-                        const empId = e.target.value;
-                        const emp = employees.find((e) => e.id === empId);
-                        setFormData({ ...formData, employeeId: empId, name: emp?.name || formData.name });
-                      }}
-                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
-                    >
-                      <option value="">Select employee or enter name below</option>
-                      {employees.map((emp) => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.name}
-                        </option>
-                      ))}
-                    </select>
-                    {employees.length === 0 && (
-                      <p className="text-xs text-warning mt-1">No employees found.</p>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Or Enter Name Manually *</label>
-                    <input
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
-                      placeholder="John Doe"
-                      required={!formData.employeeId}
-                    />
-                  </div>
-                </div>
+                <div className="flex-1 overflow-y-auto pr-2 py-2 min-h-0">
+                  <form className="space-y-4 sm:space-y-5">
+                    {/* Employee Selection OR Manual Name Entry */}
+                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                      <div className="flex-1 min-w-0">
+                        <label className="block text-xs sm:text-sm font-medium mb-1.5">Select Employee (Optional)</label>
+                        <select
+                          value={formData.employeeId}
+                          onChange={(e) => {
+                            const empId = e.target.value;
+                            const emp = employees.find((e) => e.id === empId);
+                            setFormData({ ...formData, employeeId: empId, name: emp?.name || formData.name });
+                          }}
+                          className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                        >
+                          <option value="">Select employee or enter name below</option>
+                          {employees.map((emp) => (
+                            <option key={emp.id} value={emp.id}>
+                              {emp.name}
+                            </option>
+                          ))}
+                        </select>
+                        {employees.length === 0 && (
+                          <p className="text-xs text-warning mt-1">No employees found.</p>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <label className="block text-xs sm:text-sm font-medium mb-1.5">Or Enter Name Manually *</label>
+                        <input
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                          placeholder="John Doe"
+                          required={!formData.employeeId}
+                        />
+                      </div>
+                    </div>
 
-                {/* Reason */}
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Reason *</label>
-                  <input
-                    value={formData.reason}
-                    onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
-                    placeholder="Policy violation"
-                    required
-                  />
-                </div>
+                    {/* Contact Info: Phone & Email */}
+                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                      <div className="flex-1 min-w-0">
+                        <label className="block text-xs sm:text-sm font-medium mb-1.5">Phone</label>
+                        <input
+                          value={formData.phone}
+                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                          className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                          placeholder="+1 (555) 123-4567"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <label className="block text-xs sm:text-sm font-medium mb-1.5">Email</label>
+                        <input
+                          type="email"
+                          value={formData.email}
+                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                          className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                          placeholder="john@example.com"
+                        />
+                      </div>
+                    </div>
 
-                {/* Incident Notes */}
-                <div>
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Incident Notes</label>
-                  <textarea
-                    value={formData.incidentNotes}
-                    onChange={(e) => setFormData({ ...formData, incidentNotes: e.target.value })}
-                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base min-h-[80px] sm:min-h-24 resize-none"
-                    placeholder="Detailed description of incident..."
-                  />
-                </div>
+                    {/* Reason */}
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Reason *</label>
+                      <input
+                        value={formData.reason}
+                        onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                        className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                        placeholder="Policy violation"
+                        required
+                      />
+                    </div>
 
-                {/* Status */}
-                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                  <div className="w-full sm:w-1/2">
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Status</label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) =>
-                        setFormData({ ...formData, status: e.target.value as BlacklistItem["status"] })
-                      }
-                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
-                    >
-                      <option value="active">Active</option>
-                     
-                    </select>
-                  </div>
+                    {/* Incident Notes */}
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Incident Notes</label>
+                      <textarea
+                        value={formData.incidentNotes}
+                        onChange={(e) => setFormData({ ...formData, incidentNotes: e.target.value })}
+                        className="w-full rounded-md border px-3 py-2 text-sm sm:text-base min-h-[80px] sm:min-h-24 resize-none"
+                        placeholder="Detailed description of incident..."
+                      />
+                    </div>
+
+                    {/* Status */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                      <div className="w-full sm:w-1/2">
+                        <label className="block text-xs sm:text-sm font-medium mb-1.5">Status</label>
+                        <select
+                          value={formData.status}
+                          onChange={(e) =>
+                            setFormData({ ...formData, status: e.target.value as BlacklistItem["status"] })
+                          }
+                          className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                        >
+                          <option value="active">Active</option>
+                          <option value="resolved">Resolved</option>
+                        </select>
+                      </div>
+                    </div>
+                  </form>
                 </div>
-              </form>
               
               <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
                 <Button 
@@ -725,41 +766,57 @@ export default function DoNotHire() {
 
   
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-        <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6">
+        <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 flex flex-col overflow-hidden">
           <DialogHeader className="space-y-1.5 sm:space-y-2">
             <DialogTitle className="text-lg sm:text-xl">Record Details</DialogTitle>
           </DialogHeader>
           {selected && (
-            <div className="space-y-4 sm:space-y-5">
-              <div className="border-b pb-3 sm:pb-4">
-                <p className="text-lg sm:text-xl font-semibold break-words">{selected.name}</p>
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
-                <div className="space-y-1.5">
-                  <label className="text-xs sm:text-sm font-medium">Reason</label>
-                  <p className="text-sm sm:text-base text-muted-foreground break-words">
-                    {selected.reason}
-                  </p>
+            <div className="flex-1 overflow-y-auto pr-2 py-2 min-h-0">
+              <div className="space-y-4 sm:space-y-5">
+                <div className="border-b pb-3 sm:pb-4">
+                  <p className="text-lg sm:text-xl font-semibold break-words">{selected.name}</p>
                 </div>
                 
-                <div className="space-y-1.5">
-                  <label className="text-xs sm:text-sm font-medium">Status</label>
-                  <div>
-                    <Badge 
-                      className={`${statusClasses[selected.status]} text-xs sm:text-sm`} 
-                      variant="secondary"
-                    >
-                      {selected.status}
-                    </Badge>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+                  <div className="space-y-1.5">
+                    <label className="text-xs sm:text-sm font-medium">Reason</label>
+                    <p className="text-sm sm:text-base text-muted-foreground break-words">
+                      {selected.reason}
+                    </p>
                   </div>
-                </div>
-                
-                <div className="sm:col-span-2 space-y-1.5">
-                  <label className="text-xs sm:text-sm font-medium">Date Added</label>
-                  <p className="text-sm sm:text-base text-muted-foreground">
-                    {toDateOnly(selected.addedAt)}
-                  </p>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs sm:text-sm font-medium">Phone</label>
+                    <p className="text-sm sm:text-base text-muted-foreground break-words">
+                      {selected.phone || "—"}
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs sm:text-sm font-medium">Email</label>
+                    <p className="text-sm sm:text-base text-muted-foreground break-words">
+                      {selected.email || "—"}
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-1.5">
+                    <label className="text-xs sm:text-sm font-medium">Status</label>
+                    <div>
+                      <Badge 
+                        className={`${statusClasses[selected.status]} text-xs sm:text-sm`} 
+                        variant="secondary"
+                      >
+                        {selected.status}
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  <div className="sm:col-span-2 space-y-1.5">
+                    <label className="text-xs sm:text-sm font-medium">Date Added</label>
+                    <p className="text-sm sm:text-base text-muted-foreground">
+                      {toDateOnly(selected.addedAt)}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -774,7 +831,7 @@ export default function DoNotHire() {
 
       {/* Edit Dialog - Responsive */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6">
+        <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 flex flex-col overflow-hidden">
           <DialogHeader className="space-y-1.5 sm:space-y-2">
             <DialogTitle className="text-lg sm:text-xl">Edit Record</DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">
@@ -782,88 +839,113 @@ export default function DoNotHire() {
             </DialogDescription>
           </DialogHeader>
           {selected && (
-            <form className="space-y-4 sm:space-y-5">
-              {/* Employee Selection OR Manual Name Entry */}
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                <div className="flex-1 min-w-0">
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Select Employee (Optional)</label>
-                  <select
-                    value={editFormData.employeeId}
-                    onChange={(e) => {
-                      const empId = e.target.value;
-                      const emp = employees.find((e) => e.id === empId);
-                      setEditFormData({ ...editFormData, employeeId: empId, name: emp?.name || editFormData.name });
-                    }}
-                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
-                  >
-                    <option value="">Select employee or enter name below</option>
-                    {employees.map((emp) => (
-                      <option key={emp.id} value={emp.id}>
-                        {emp.name}
-                      </option>
-                    ))}
-                  </select>
+            <div className="flex-1 overflow-y-auto pr-2 py-2 min-h-0">
+              <form className="space-y-4 sm:space-y-5">
+                {/* Employee Selection OR Manual Name Entry */}
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                  <div className="flex-1 min-w-0">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Select Employee (Optional)</label>
+                    <select
+                      value={editFormData.employeeId}
+                      onChange={(e) => {
+                        const empId = e.target.value;
+                        const emp = employees.find((e) => e.id === empId);
+                        setEditFormData({ ...editFormData, employeeId: empId, name: emp?.name || editFormData.name });
+                      }}
+                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                    >
+                      <option value="">Select employee or enter name below</option>
+                      {employees.map((emp) => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Or Enter Name Manually *</label>
+                    <input
+                      value={editFormData.name}
+                      onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                      placeholder="John Doe"
+                      required={!editFormData.employeeId}
+                    />
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Or Enter Name Manually *</label>
+
+                {/* Reason */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Reason *</label>
                   <input
-                    value={editFormData.name}
-                    onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                    value={editFormData.reason}
+                    onChange={(e) => setEditFormData({ ...editFormData, reason: e.target.value })}
                     className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
-                    placeholder="John Doe"
-                    required={!editFormData.employeeId}
+                    placeholder="Policy violation"
+                    required
                   />
                 </div>
-              </div>
 
-              {/* Reason */}
-              <div>
-                <label className="block text-xs sm:text-sm font-medium mb-1.5">Reason *</label>
-                <input
-                  value={editFormData.reason}
-                  onChange={(e) => setEditFormData({ ...editFormData, reason: e.target.value })}
-                  className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
-                  placeholder="Policy violation"
-                  required
-                />
-              </div>
-
-              {/* Incident Notes */}
-              <div>
-                <label className="block text-xs sm:text-sm font-medium mb-1.5">Incident Notes</label>
-                <textarea
-                  value={editFormData.incidentNotes}
-                  onChange={(e) => setEditFormData({ ...editFormData, incidentNotes: e.target.value })}
-                  className="w-full rounded-md border px-3 py-2 text-sm sm:text-base min-h-[80px] sm:min-h-24 resize-none"
-                />
-              </div>
-
-              {/* Status */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                <div className="w-full sm:w-1/2">
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Status</label>
-                  <select
-                    value={editFormData.status}
-                    onChange={(e) =>
-                      setEditFormData({ ...editFormData, status: e.target.value as BlacklistItem["status"] })
-                    }
-                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
-                  >
-                    <option value="active">Active</option>
-                    <option value="resolved">Resolved</option>
-                  </select>
-                </div>
-                <div className="w-full sm:w-1/2">
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Date Added</label>
-                  <Input
-                    type="date"
-                    value={toDateOnly(selected.addedAt)}
-                    disabled
-                    className="bg-muted/20"
+                {/* Incident Notes */}
+                <div>
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Incident Notes</label>
+                  <textarea
+                    value={editFormData.incidentNotes}
+                    onChange={(e) => setEditFormData({ ...editFormData, incidentNotes: e.target.value })}
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base min-h-[80px] sm:min-h-24 resize-none"
                   />
                 </div>
-              </div>
-            </form>
+
+                {/* Contact Info: Phone & Email */}
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                  <div className="flex-1 min-w-0">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Phone</label>
+                    <input
+                      value={editFormData.phone}
+                      onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                      placeholder="+1 (555) 123-4567"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Email</label>
+                    <input
+                      type="email"
+                      value={editFormData.email}
+                      onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                      placeholder="john@example.com"
+                    />
+                  </div>
+                </div>
+
+                {/* Status */}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                  <div className="w-full sm:w-1/2">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Status</label>
+                    <select
+                      value={editFormData.status}
+                      onChange={(e) =>
+                        setEditFormData({ ...editFormData, status: e.target.value as BlacklistItem["status"] })
+                      }
+                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                    >
+                      <option value="active">Active</option>
+                      <option value="resolved">Resolved</option>
+                    </select>
+                  </div>
+                  <div className="w-full sm:w-1/2">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Date Added</label>
+                    <Input
+                      type="date"
+                      value={toDateOnly(selected.addedAt)}
+                      disabled
+                      className="bg-muted/20"
+                    />
+                  </div>
+                </div>
+              </form>
+            </div>
           )}
           <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
             <Button  

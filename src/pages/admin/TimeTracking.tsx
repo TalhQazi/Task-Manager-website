@@ -26,6 +26,7 @@ import { apiFetch, createResource, deleteResource, getApiBaseUrl, listResource, 
 import { getAuthState } from "@/lib/auth";
 import jsPDF from "jspdf";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { Pagination } from "@/components/Pagination";
 
 interface TimeEntry {
   id: string;
@@ -50,6 +51,8 @@ type TimeEntryApi = {
   clockOut?: string | null;
   status?: string;
   initials?: string;
+  gpsLocation?: { lat: number; lng: number };
+  ipAddress?: string;
 };
 
 interface Employee {
@@ -189,6 +192,27 @@ function normalizeTimeEntry(e: TimeEntryApi): TimeEntry {
   };
 }
 
+const getGeoLocation = (): Promise<{ lat: number; lng: number } | null> => {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+    );
+  });
+};
+
+const getPublicIp = async (): Promise<string> => {
+  try {
+    const res = await fetch("https://api.ipify.org?format=json");
+    const json = await res.json();
+    return json.ip || "Unknown";
+  } catch {
+    return "Unknown";
+  }
+};
+
 const TimeTracking = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -214,6 +238,10 @@ const TimeTracking = () => {
     status: "clocked-in" as TimeEntry["status"],
   });
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const PAGE_SIZE = 25;
+
   useEffect(() => {
     let mounted = true;
     const load = async () => {
@@ -221,49 +249,50 @@ const TimeTracking = () => {
         setLoading(true);
         setApiError(null);
         
-        // Fetch time entries
-        const list = await listResource<TimeEntryApi>("time-entries");
+        // Fetch time entries with pagination
+        const res = await listResource<TimeEntryApi>("time-entries", { 
+          page: currentPage, 
+          limit: PAGE_SIZE 
+        });
+        
         if (!mounted) return;
-        setEntries(list.map(normalizeTimeEntry));
         
-        // Fetch employees from employees API
-        let allEmployees: Employee[] = [];
-        try {
-          const employeeList = await listResource<Employee>("employees");
-          if (mounted) {
-            allEmployees = employeeList.filter((e) => e.status === "active");
-          }
-        } catch (empErr) {
-          console.error("Failed to load employees:", empErr);
+        if (res && typeof res === 'object' && 'items' in res) {
+          setEntries(res.items.map(normalizeTimeEntry));
+          setTotalPages(res.pagination?.totalPages || 1);
+        } else {
+          setEntries(res.map(normalizeTimeEntry));
+          setTotalPages(1);
         }
         
-        // Fetch users with employee role from users API
-        try {
-          const userList = await listResource<User>("users");
-          if (mounted) {
-            const employeeUsers = userList
-              .filter((u) => u.role === "employee" && (u.status === "active" || u.status === "pending"))
-              .map((u) => ({
-                id: u.id,
-                name: u.name,
-                initials: getInitials(u.name),
-                email: u.email,
-                status: "active" as const,
-              }));
+        // Fetch employees and users (only on mount)
+        if (employees.length === 0) {
+          try {
+            const employeeList = await listResource<Employee>("employees");
+            const userList = await listResource<User>("users");
             
-            // Merge both lists (remove duplicates by email)
-            employeeUsers.forEach((eu) => {
-              if (!allEmployees.some((e) => e.email === eu.email)) {
-                allEmployees.push(eu);
-              }
-            });
+            if (mounted) {
+              let allEmployees = Array.isArray(employeeList) ? employeeList.filter((e) => e.status === "active") : [];
+              const employeeUsers = (Array.isArray(userList) ? userList : [])
+                .filter((u) => u.role === "employee" && (u.status === "active" || u.status === "pending"))
+                .map((u) => ({
+                  id: u.id,
+                  name: u.name,
+                  initials: getInitials(u.name),
+                  email: u.email,
+                  status: "active" as const,
+                }));
+              
+              employeeUsers.forEach((eu) => {
+                if (!allEmployees.some((e) => e.email === eu.email)) {
+                  allEmployees.push(eu);
+                }
+              });
+              setEmployees(allEmployees);
+            }
+          } catch (err) {
+            console.error("Failed to load dependency data:", err);
           }
-        } catch (userErr) {
-          console.error("Failed to load users:", userErr);
-        }
-        
-        if (mounted) {
-          setEmployees(allEmployees);
         }
       } catch (e) {
         if (!mounted) return;
@@ -277,7 +306,7 @@ const TimeTracking = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [currentPage]);
 
   useEffect(() => {
     const viewId = String(searchParams.get("view") || "").trim();
@@ -298,8 +327,13 @@ const TimeTracking = () => {
   }, [entries, searchParams, setSearchParams, navigate, addOpen]);
 
   const refresh = async () => {
-    const list = await listResource<TimeEntryApi>("time-entries");
-    setEntries(list.map(normalizeTimeEntry));
+    const res = await listResource<TimeEntryApi>("time-entries", { page: currentPage, limit: PAGE_SIZE });
+    if (res && typeof res === 'object' && 'items' in res) {
+      setEntries(res.items.map(normalizeTimeEntry));
+      setTotalPages(res.pagination?.totalPages || 1);
+    } else {
+      setEntries(res.map(normalizeTimeEntry));
+    }
   };
 
   const loadCompliance = async () => {
@@ -451,7 +485,16 @@ const TimeTracking = () => {
   const addEntry = async () => {
     if (!formData.employee || !formData.location || !formData.date || !formData.clockIn) return;
 
-    const entry: TimeEntry = {
+    let gps: { lat: number; lng: number } | null = null;
+    let ip = "Unknown";
+    
+    try {
+      [gps, ip] = await Promise.all([getGeoLocation(), getPublicIp()]);
+    } catch (e) {
+      console.error("Failed to capture metadata:", e);
+    }
+
+    const entry: TimeEntryApi = {
       id: `TIME-${Date.now().toString().slice(-6)}`,
       employee: formData.employee,
       initials: getInitials(formData.employee),
@@ -460,6 +503,8 @@ const TimeTracking = () => {
       clockIn: formData.clockIn,
       clockOut: formData.clockOut || null,
       status: formData.clockOut ? "clocked-out" : formData.status,
+      gpsLocation: gps || undefined,
+      ipAddress: ip,
     };
 
     try {
@@ -1025,6 +1070,13 @@ const TimeTracking = () => {
                     </div>
                   ))
                 )}
+                
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                  className="mt-4"
+                />
               </>
             )}
           </CardContent>

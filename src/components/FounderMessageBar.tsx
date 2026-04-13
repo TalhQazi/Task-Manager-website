@@ -155,7 +155,9 @@ export function FounderMessageBar({ onToggleSettings }: FounderMessageBarProps) 
   const currentMessage = messages[currentIndex];
 
   return (
-    <div className="w-full bg-gradient-to-r from-[#133767]/20 via-[#1a4585]/15 to-[#133767]/20 border-b-2 border-[#133767]/30 shadow-lg backdrop-blur-sm">
+    <div className="w-full bg-metallic-gold border-b border-[#fcf6ba]/30 shadow-lg relative overflow-hidden">
+      {/* Shine effect overlay */}
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shine pointer-events-none" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-center h-12 sm:h-14 relative">
           {/* Centered message */}
@@ -167,7 +169,7 @@ export function FounderMessageBar({ onToggleSettings }: FounderMessageBarProps) 
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={prefersReducedMotion ? {} : { opacity: 0, y: -8, scale: 0.98 }}
                 transition={{ duration: prefersReducedMotion ? 0 : FADE_DURATION, ease: "easeOut" }}
-                className="text-sm sm:text-base text-[#133767] font-semibold text-center truncate"
+                className="text-sm sm:text-base text-gold-dark font-black text-center truncate relative z-10"
               >
                 {currentMessage?.message}
               </motion.p>
@@ -183,8 +185,8 @@ export function FounderMessageBar({ onToggleSettings }: FounderMessageBarProps) 
                   key={idx}
                   className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
                     idx === currentIndex % 5
-                      ? "bg-[#133767] scale-110"
-                      : "bg-[#133767]/30"
+                      ? "bg-gold-dark scale-110"
+                      : "bg-gold-dark/30"
                   }`}
                 />
               ))}
@@ -193,19 +195,19 @@ export function FounderMessageBar({ onToggleSettings }: FounderMessageBarProps) 
             {/* Settings button */}
             <button
               onClick={onToggleSettings || handleToggle}
-              className="p-2 rounded-full hover:bg-[#133767]/10 transition-colors"
+              className="p-2 rounded-full hover:bg-white/20 transition-colors relative z-10"
               title="Toggle founder messages"
             >
-              <Settings className="h-4 w-4 text-[#133767]/70" />
+              <Settings className="h-4 w-4 text-gold-dark/70" />
             </button>
             
             {/* Dismiss button */}
             <button
               onClick={handleDismiss}
-              className="p-2 rounded-full hover:bg-[#133767]/10 transition-colors"
+              className="p-2 rounded-full hover:bg-white/20 transition-colors relative z-10"
               title="Dismiss for now"
             >
-              <X className="h-4 w-4 text-[#133767]/70" />
+              <X className="h-4 w-4 text-gold-dark/70" />
             </button>
           </div>
         </div>

@@ -1,4 +1,5 @@
-import { Bell, Menu, User } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Bell, Menu, Search, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,7 +13,6 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useNavigate } from "react-router-dom";
 import { getEmployeeAuth, clearEmployeeAuth } from "@/Employee/lib/auth";
-import { useEffect, useMemo, useState } from "react";
 import { getEmployeeProfile } from "@/Employee/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/manger/api";
@@ -61,7 +61,24 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
   });
 
   const headerSettings = headerSettingsQuery.data?.item;
-  const headerHeight = headerSettings?.height || 144;
+  const [headerHeight, setHeaderHeight] = useState(250);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setHeaderHeight(120);
+      } else if (window.innerWidth < 1024) {
+        setHeaderHeight(180);
+      } else {
+        setHeaderHeight(250);
+      }
+    };
+    
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const hasImageBackground = headerSettings?.backgroundType === 'image' && headerSettings.imageConfig?.dataUrl;
 
   const fullName = (profile?.name || auth?.name || auth?.username || "Employee").trim();
@@ -74,17 +91,46 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
       .join("")
       .toUpperCase() || "E";
 
-  const unreadCount = 0;
+  const notificationsQuery = useQuery({
+    queryKey: ["employee-notifications"],
+    queryFn: async () => {
+      const res = await apiFetch<{ items?: any[] } | any[]>("/api/notifications?type=broadcast");
+      const items = Array.isArray(res) ? res : Array.isArray((res as any)?.items) ? (res as any).items : [];
+      return items.map((m: any) => ({ ...m, id: String(m.id || m._id || "") })).filter((m: any) => Boolean(m.id));
+    },
+    refetchInterval: 5000,
+  });
+
+  const notifications = (notificationsQuery.data || [])
+    .slice()
+    .sort((a: any, b: any) => String(b.timestamp || "").localeCompare(String(a.timestamp || "")))
+    .slice(0, 4);
+
+  const unreadCount = (notificationsQuery.data || []).filter((n: any) => n.status !== "read").length;
+
+  const markAllRead = async () => {
+    try {
+      await apiFetch("/api/messages/mark-all-read", { method: "POST" });
+      await notificationsQuery.refetch();
+    } catch {
+      // ignore
+    }
+  };
+
+  const markRead = async (id: string) => {
+    try {
+      await apiFetch(`/api/notifications/${id}/mark-read`, { method: "POST" });
+      await notificationsQuery.refetch();
+    } catch {
+      // ignore
+    }
+  };
 
   const onLogout = () => {
     clearEmployeeAuth();
     localStorage.removeItem("token");
     navigate("/login/employee", { replace: true });
   };
-
-  const notifications = useMemo(() => {
-    return [] as Array<{ id: string; content?: string }>;
-  }, []);
 
   return (
     <header 
@@ -123,25 +169,23 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
 
         {/* Content - with left padding for sidebar on desktop */}
         <div 
-          className="relative flex items-center justify-between px-3 sm:px-6 lg:px-10 py-2 md:py-4 animate-fade-in h-full md:pl-24"
+          className="relative flex items-center justify-between px-3 sm:px-6 lg:px-10 py-2 md:py-4 animate-fade-in h-full md:pl-20 lg:pl-24"
         >
-          <div className="flex items-center z-10">
+          <div className="flex items-center z-10" style={{ height: '75%', minHeight: '32px' }}>
             <img
               src="/seven logo.png"
               alt="SE7EN Inc. logo"
-              className="h-14 sm:h-16 md:h-36 w-auto max-w-[180px] sm:max-w-[200px] md:max-w-[300px] object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)]"
-              style={{ height: `${headerHeight * 0.75}px`, maxHeight: '140px' }}
+              className="h-full w-auto max-w-[60px] sm:max-w-[200px] md:max-w-[300px] object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)]"
             />
           </div>
 
-          <div className="flex absolute left-1/2 -translate-x-1/2 items-center">
-            <div className="relative">
+          <div className="flex absolute left-1/2 -translate-x-1/2 items-center" style={{ height: '70%', minHeight: '32px' }}>
+            <div className="relative h-full flex items-center">
               <div className="absolute inset-0 -z-10 blur-2xl bg-blue-400/30 scale-110 rounded-full" />
               <img
                 src="/clock2.png"
                 alt="TaskManager by Reardon"
-                className="h-12 sm:h-16 md:h-32 lg:h-40 w-auto max-w-[140px] sm:max-w-[190px] md:max-w-[280px] lg:max-w-[380px] object-contain mix-blend-screen opacity-95 [mask-image:radial-gradient(closest-side,black_79%,transparent_100%)]"
-                style={{ height: `${headerHeight * 0.7}px`, maxHeight: '120px' }}
+                className="h-full w-auto max-w-[100px] sm:max-w-[190px] md:max-w-[280px] lg:max-w-[380px] object-contain mix-blend-screen opacity-95 [mask-image:radial-gradient(closest-side,black_79%,transparent_100%)]"
               />
             </div>
           </div>
@@ -158,8 +202,8 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                 >
                   <Bell className="h-4 w-4" />
                   {unreadCount > 0 && (
-                    <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[10px]">
-                      {Math.min(unreadCount, 9)}
+                    <Badge className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 p-0 flex items-center justify-center bg-red-500 text-[10px]">
+                      {unreadCount > 9 ? "9+" : unreadCount}
                     </Badge>
                   )}
                 </Button>
@@ -169,16 +213,26 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                 {notifications.length === 0 ? (
                   <DropdownMenuItem className="text-xs text-muted-foreground">No notifications</DropdownMenuItem>
                 ) : (
-                  notifications.map((n) => (
+                  notifications.map((n: any) => (
                     <DropdownMenuItem
                       key={n.id}
                       className="flex flex-col items-start gap-0.5 text-xs"
-                      onClick={() => navigate("/employee/notifications")}
+                      onClick={() => { void markRead(n.id); navigate("/employee/notifications"); }}
                     >
-                      <span className="font-medium line-clamp-2">{String(n.content || "")}</span>
+                      <span className={`font-medium line-clamp-2 ${n.status !== "read" ? "font-semibold" : "text-muted-foreground"}`}>{String(n.content || "")}</span>
                     </DropdownMenuItem>
                   ))
                 )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-xs text-center justify-center font-medium text-primary cursor-pointer"
+                  onClick={async () => {
+                    await markAllRead();
+                    navigate("/employee/notifications");
+                  }}
+                >
+                  View all notifications
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 

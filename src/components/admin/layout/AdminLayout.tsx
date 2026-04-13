@@ -39,7 +39,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   return (
     <HeaderHeightContext.Provider value={headerHeight}>
-      <div className="min-h-screen bg-[#e6f0ff]" style={{ paddingTop: `${headerHeight}px` }}>
+      <div className="min-h-screen bg-[#e6f0ff] overflow-x-hidden flex flex-col" style={{ paddingTop: `${headerHeight}px` }}>
         <Header onMenuClick={() => setMobileSidebarOpen(true)} />
         
         {/* Founder Message Bar - Full width above content, higher z-index than sidebar */}
@@ -47,13 +47,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           <FounderMessageBar />
         </div>
 
-        <div className="flex items-start">
+        <div className="flex flex-1 items-start relative w-full overflow-y-auto overflow-x-hidden">
           <div className="hidden md:block fixed left-0 z-40 w-56 border-r border-white/5 shadow-2xl transition-all duration-300" style={{ top: `${headerHeight}px`, height: `calc(100vh - ${headerHeight}px)`, '--header-height': `${headerHeight}px` } as React.CSSProperties}>
             <Sidebar />
           </div>
 
-          <main className={cn("flex-1 px-4 sm:px-6 lg:px-8 py-6 transition-all duration-300", "md:ml-56")}>
-            <div key={pageKey} className="w-full max-w-full animate-page-enter">
+          <main className={cn("flex-1 py-6 transition-all duration-300 min-w-0 w-full min-h-[calc(100vh-var(--header-height,250px))] flex flex-col", "md:ml-56 px-4 sm:px-6 lg:px-8")}>
+            <div key={pageKey} className="w-full max-w-[1600px] mx-auto animate-page-enter flex-1 flex flex-col">
               {children}
             </div>
           </main>

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/manger/ui/button";
 import { Badge } from "@/components/manger/ui/badge";
 import {
@@ -107,10 +107,24 @@ function timeToMinutes(time: string) {
   return h * 60 + (Number.isFinite(m) ? m : 0);
 }
 
+interface Employee {
+  id: string;
+  name: string;
+  status: string;
+}
+
 export default function Scheduling() {
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent & { day: ScheduleEventApi["day"] } | null>(null);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    apiFetch<{ items: Employee[] }>("/api/employees")
+      .then((res) => setEmployees((res.items ?? []).filter((e) => e.status === "active")))
+      .catch(() => setEmployees([]));
+  }, []);
 
   const eventsQuery = useQuery({
     queryKey: ["events"],
@@ -315,9 +329,23 @@ export default function Scheduling() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Assignee</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Sarah Williams" {...field} />
-                      </FormControl>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select employee" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {employees.length === 0 && (
+                            <SelectItem value="_none" disabled>No employees found</SelectItem>
+                          )}
+                          {employees.map((emp) => (
+                            <SelectItem key={emp.id} value={emp.name}>
+                              {emp.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -493,8 +521,9 @@ export default function Scheduling() {
                           return (
                             <div
                               key={event.id}
+                              onClick={() => setSelectedEvent(event as any)}
                               className={cn(
-                                "absolute left-1 right-1 p-2 rounded-lg border text-xs cursor-pointer transition-all hover:shadow-md",
+                                "absolute left-1 right-1 p-2 rounded-lg border text-xs cursor-pointer transition-all hover:shadow-md hover:scale-[1.02]",
                                 typeColors[event.type]
                               )}
                               style={{
@@ -539,6 +568,37 @@ export default function Scheduling() {
           </div>
         </div>
       </div>
+
+      {/* Event Detail Dialog */}
+      <Dialog open={!!selectedEvent} onOpenChange={(open) => { if (!open) setSelectedEvent(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{selectedEvent?.title}</DialogTitle>
+            <DialogDescription>
+              {selectedEvent?.day} · {selectedEvent?.type}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedEvent && (
+            <div className="space-y-3 text-sm">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4 text-muted-foreground" />
+                <span><span className="font-medium">Assignee:</span> {selectedEvent.assignee}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-muted-foreground" />
+                <span><span className="font-medium">Location:</span> {selectedEvent.location}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-muted-foreground" />
+                <span><span className="font-medium">Time:</span> {selectedEvent.startTime} – {selectedEvent.endTime}</span>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedEvent(null)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Legend */}
       <div className="flex items-center gap-6 text-sm">

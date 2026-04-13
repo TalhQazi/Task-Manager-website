@@ -1,4 +1,4 @@
-import { Bell, Bug, Camera, ChevronDown, ChevronUp, Loader2, Mail, Menu, Move, Save, User, X as XIcon } from "lucide-react";
+import { Bell, Bug, Camera, ChevronDown, ChevronUp, Loader2, Mail, Menu, Move, Save, Search, User, X as XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -392,12 +392,18 @@ export function Header({ onMenuClick }: HeaderProps) {
     }
   };
 
+  const markAllRead = async () => {
+    try {
+      await apiFetch("/api/messages/mark-all-read", { method: "POST" });
+      await notificationsQuery.refetch();
+    } catch {
+      // ignore errors
+    }
+  };
+
   const markRead = async (id: string) => {
     try {
-      await apiFetch(`/api/messages/${id}`, {
-        method: "PUT",
-        body: JSON.stringify({ status: "read" }),
-      });
+      await apiFetch(`/api/messages/${id}/mark-read`, { method: "POST" });
       await notificationsQuery.refetch();
     } catch {
       // ignore errors
@@ -427,13 +433,40 @@ export function Header({ onMenuClick }: HeaderProps) {
   const coverContainerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
+  const compressCoverImage = (dataUrl: string, maxWidth = 1920, quality = 0.85): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let w = img.naturalWidth;
+        let h = img.naturalHeight;
+        if (w > maxWidth) {
+          h = Math.round((h * maxWidth) / w);
+          w = maxWidth;
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        } else {
+          resolve(dataUrl);
+        }
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  };
+
   const handleCoverFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      setCoverPreviewUrl(dataUrl);
+    reader.onload = async () => {
+      const rawDataUrl = reader.result as string;
+      const compressed = await compressCoverImage(rawDataUrl);
+      setCoverPreviewUrl(compressed);
       setCoverEditMode(true);
       setCoverPositionY(50);
     };
@@ -509,7 +542,6 @@ export function Header({ onMenuClick }: HeaderProps) {
           backgroundType: "image",
           imageConfig: {
             dataUrl: coverPreviewUrl,
-            url: coverPreviewUrl,
             repeat: "no-repeat",
             size: "cover",
             position: `center ${coverPositionY}%`,
@@ -759,8 +791,8 @@ export function Header({ onMenuClick }: HeaderProps) {
                 >
                   <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4 group-hover:brightness-[108%] transition-all duration-100 linear" />
                   {unreadCount > 0 && (
-                    <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[10px]">
-                     {Math.min(unreadCount, 9)}
+                    <Badge className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 p-0 flex items-center justify-center bg-red-500 text-[10px]">
+                      {unreadCount > 9 ? "9+" : unreadCount}
                     </Badge>
                   )}
                 </Button>
@@ -783,6 +815,16 @@ export function Header({ onMenuClick }: HeaderProps) {
                     </DropdownMenuItem>
                   ))
                 )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  className="text-xs text-center justify-center font-medium text-primary cursor-pointer"
+                  onClick={async () => {
+                    await markAllRead();
+                    navigate("/admin/notifications");
+                  }}
+                >
+                  View all notifications
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
 

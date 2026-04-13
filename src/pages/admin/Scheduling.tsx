@@ -27,12 +27,14 @@ import {
   DialogTrigger,
 } from "@/components/admin/ui/dialog";
 import { 
+  ChevronLeft,
+  ChevronRight,
   Plus, 
   Search, 
   MoreHorizontal, 
   Edit, 
   Trash2, 
-  Calendar,
+  Calendar as CalendarIcon,
   MapPin,
   User,
   Clock,
@@ -140,6 +142,8 @@ export default function Scheduling() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selected, setSelected] = useState<ScheduleItem | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "daily" | "weekly">("list");
+  const [currentDate, setCurrentDate] = useState(new Date());
 
   const [schedules, setSchedules] = useState<ScheduleItem[]>(() => []);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -454,6 +458,33 @@ export default function Scheduling() {
             </p>
           </div>
 
+          <div className="flex items-center bg-muted p-1 rounded-lg self-start sm:self-center">
+            <Button
+              variant={viewMode === "list" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("list")}
+              className="h-8 text-xs px-3"
+            >
+              List
+            </Button>
+            <Button
+              variant={viewMode === "daily" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("daily")}
+              className="h-8 text-xs px-3"
+            >
+              Daily
+            </Button>
+            <Button
+              variant={viewMode === "weekly" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("weekly")}
+              className="h-8 text-xs px-3"
+            >
+              Weekly
+            </Button>
+          </div>
+
           {/* Add Schedule Dialog */}
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
             <DialogTrigger asChild>
@@ -665,7 +696,7 @@ export default function Scheduling() {
                   Loading schedules...
                 </div>
               </div>
-            ) : (
+            ) : viewMode === "list" ? (
               <>
                 {/* Mobile View - Cards */}
                 <div className="block sm:hidden space-y-3 p-4">
@@ -675,7 +706,7 @@ export default function Scheduling() {
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-2">
                           <div className="h-8 w-8 rounded-lg bg-info/10 flex items-center justify-center flex-shrink-0">
-                            <Calendar className="h-4 w-4 text-info" />
+                            <CalendarIcon className="h-4 w-4 text-info" />
                           </div>
                           <div>
                             <p className="text-xs font-medium">{getDisplayScheduleId(s.id)}</p>
@@ -732,7 +763,7 @@ export default function Scheduling() {
                     <div className="text-center py-8">
                       <div className="flex justify-center mb-3">
                         <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                          <Calendar className="h-6 w-6 text-muted-foreground" />
+                          <CalendarIcon className="h-6 w-6 text-muted-foreground" />
                         </div>
                       </div>
                       <p className="text-sm text-muted-foreground">No schedules found</p>
@@ -805,6 +836,24 @@ export default function Scheduling() {
                   </Table>
                 </div>
               </>
+            ) : viewMode === "daily" ? (
+              <DailyView 
+                date={currentDate} 
+                schedules={filtered} 
+                onEdit={onEdit} 
+                onDelete={onDelete}
+                onPrevDay={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() - 1))}
+                onNextDay={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 1))}
+              />
+            ) : (
+              <WeeklyView 
+                date={currentDate} 
+                schedules={filtered} 
+                onEdit={onEdit} 
+                onDelete={onDelete}
+                onPrevWeek={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() - 7))}
+                onNextWeek={() => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 7))}
+              />
             )}
           </CardContent>
         </Card>
@@ -1014,5 +1063,163 @@ export default function Scheduling() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// --- Sub-components for Calendar Views ---
+
+function DailyView({ 
+  date, 
+  schedules, 
+  onEdit, 
+  onDelete,
+  onPrevDay,
+  onNextDay
+}: { 
+  date: Date; 
+  schedules: ScheduleItem[]; 
+  onEdit: (s: ScheduleItem) => void;
+  onDelete: (s: ScheduleItem) => void;
+  onPrevDay: () => void;
+  onNextDay: () => void;
+}) {
+  const dateStr = date.toISOString().split("T")[0];
+  const daySchedules = schedules.filter(s => s.date === dateStr);
+  const hours = Array.from({ length: 14 }, (_, i) => i + 7); // 7 AM to 8 PM
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between px-4 pb-2 border-b">
+        <h3 className="font-semibold text-lg">
+          {date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" })}
+        </h3>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={onPrevDay}><ChevronLeft className="h-4 w-4" /></Button>
+          <Button variant="outline" size="sm" onClick={() => {}}>Today</Button>
+          <Button variant="outline" size="icon" onClick={onNextDay}><ChevronRight className="h-4 w-4" /></Button>
+        </div>
+      </div>
+
+      <div className="relative border rounded-lg overflow-hidden bg-background">
+        <div className="grid grid-cols-[100px_1fr] divide-x">
+          {/* Time column */}
+          <div className="bg-muted/30">
+            {hours.map(h => (
+              <div key={h} className="h-20 border-b p-2 text-xs text-muted-foreground font-medium">
+                {h > 12 ? `${h - 12} PM` : h === 12 ? "12 PM" : `${h} AM`}
+              </div>
+            ))}
+          </div>
+
+          {/* Grid column */}
+          <div className="relative">
+            {hours.map(h => (
+              <div key={h} className="h-20 border-b" />
+            ))}
+            
+            {/* Shifts */}
+            {daySchedules.map((s) => {
+              const startH = parseInt(s.startTime?.split(":")[0] || "0");
+              const startM = parseInt(s.startTime?.split(":")[1] || "0");
+              const endH = parseInt(s.endTime?.split(":")[0] || "1");
+              const endM = parseInt(s.endTime?.split(":")[1] || "0");
+              
+              if (isNaN(startH)) return null;
+
+              const top = (startH - 7) * 80 + (startM / 60) * 80;
+              const height = ((endH - startH) * 60 + (endM - startM)) * (80 / 60);
+
+              if (top < 0) return null;
+
+              return (
+                <div 
+                  key={s.id}
+                  className="absolute left-2 right-2 rounded-md bg-info/10 border-l-4 border-l-info p-2 shadow-sm cursor-pointer hover:bg-info/20 transition-colors group"
+                  style={{ top: `${top}px`, height: `${height > 40 ? height : 40}px` }}
+                  onClick={() => onEdit(s)}
+                >
+                  <div className="flex justify-between items-start overflow-hidden">
+                    <div>
+                      <p className="text-xs font-bold truncate">{s.location}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">{s.employee}</p>
+                    </div>
+                    <p className="text-[10px] font-mono whitespace-nowrap bg-info/20 px-1 rounded">{s.startTime}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WeeklyView({ 
+  date, 
+  schedules, 
+  onEdit, 
+  onDelete,
+  onPrevWeek,
+  onNextWeek
+}: { 
+  date: Date; 
+  schedules: ScheduleItem[]; 
+  onEdit: (s: ScheduleItem) => void;
+  onDelete: (s: ScheduleItem) => void;
+  onPrevWeek: () => void;
+  onNextWeek: () => void;
+}) {
+  const start = new Date(date);
+  start.setDate(date.getDate() - date.getDay()); // Sunday
+
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(start);
+    d.setDate(start.getDate() + i);
+    return d;
+  });
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between px-4 pb-2 border-b">
+        <h3 className="font-semibold text-lg">
+          {weekDays[0].toLocaleDateString(undefined, { month: "short", day: "numeric" })} - {weekDays[6].toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+        </h3>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={onPrevWeek}><ChevronLeft className="h-4 w-4" /></Button>
+          <Button variant="outline" size="icon" onClick={onNextWeek}><ChevronRight className="h-4 w-4" /></Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-7 border rounded-lg bg-background divide-x overflow-hidden">
+        {weekDays.map((d, i) => {
+          const dStr = d.toISOString().split("T")[0];
+          const dayShifts = schedules.filter(s => s.date === dStr);
+          const isToday = d.toDateString() === new Date().toDateString();
+
+          return (
+            <div key={i} className={`min-h-[400px] flex flex-col ${isToday ? "bg-accent/5" : ""}`}>
+              <div className={`p-2 text-center border-b ${isToday ? "bg-accent/10" : "bg-muted/20"}`}>
+                <p className="text-[10px] uppercase font-bold text-muted-foreground">{d.toLocaleDateString(undefined, { weekday: "short" })}</p>
+                <p className={`text-lg font-bold ${isToday ? "text-accent" : ""}`}>{d.getDate()}</p>
+              </div>
+              <div className="p-1 space-y-1">
+                {dayShifts.map(s => (
+                  <div 
+                    key={s.id} 
+                    className="p-1.5 rounded bg-info/10 border-l-2 border-l-info text-[10px] cursor-pointer hover:bg-info/20"
+                    onClick={() => onEdit(s)}
+                  >
+                    <p className="font-bold truncate" title={s.location}>{s.location}</p>
+                    <p className="truncate text-muted-foreground">{s.employee}</p>
+                    <p className="font-mono mt-1 opacity-70">{s.startTime}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 }

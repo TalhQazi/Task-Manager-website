@@ -457,8 +457,8 @@ export default function Vehicles() {
   const filteredVehicles = useMemo(() => {
     return vehicles.filter((vehicle) => {
       const matchesSearch =
-        vehicle.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        vehicle.licensePlate.toLowerCase().includes(searchQuery.toLowerCase());
+        (vehicle.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (vehicle.licensePlate || "").toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus =
         statusFilter === "all" || vehicle.status === statusFilter;
       return matchesSearch && matchesStatus;
@@ -574,7 +574,7 @@ export default function Vehicles() {
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="none">None</SelectItem>
-                          {employees.map((emp) => (
+                          {employees.filter((emp) => emp.id && emp.name).map((emp) => (
                             <SelectItem key={emp.id} value={emp.name}>
                               {emp.name}
                             </SelectItem>
@@ -905,7 +905,7 @@ export default function Vehicles() {
                         </FormControl>
                         <SelectContent>
                           <SelectItem value="none">None</SelectItem>
-                          {employees.map((emp) => (
+                          {employees.filter((emp) => emp.id && emp.name).map((emp) => (
                             <SelectItem key={emp.id} value={emp.name}>
                               {emp.name}
                             </SelectItem>

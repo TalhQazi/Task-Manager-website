@@ -4,34 +4,24 @@ import { StatCard } from "@/components/admin/dashboard/StatCard";
 import { RecentTasksList } from "@/components/admin/dashboard/RecentTasksList";
 import { ActiveEmployees } from "@/components/admin/dashboard/ActiveEmployees";
 import { TaskCharts } from "@/components/admin/dashboard/TaskCharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
-import { Badge } from "@/components/admin/ui/badge";
-import { Users, CheckSquare, AlertTriangle, Clock, Calendar, ArrowRight, Sparkles } from "lucide-react";
-import { listResource } from "@/lib/admin/apiClient";
+import { DayAheadCard } from "@/components/admin/dashboard/DayAheadCard";
+import { WeekAheadCard } from "@/components/admin/dashboard/WeekAheadCard";
+import { Users, CheckSquare, AlertTriangle, Clock, Car, FileSearch, Globe, FolderRoot } from "lucide-react";
+import { apiFetch } from "@/lib/admin/apiClient";
 import { useNavigate } from "react-router-dom";
 
-type Employee = {
-  id: string;
-};
-
-type Task = {
-  id: string;
-  status: "pending" | "in-progress" | "completed" | "overdue";
-};
-
-type TimeEntry = {
-  id: string;
-  status: "clocked-in" | "clocked-out" | "on-break";
-};
-
-type ScheduleItem = {
-  id: string;
-  location: string;
-  employee: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  status: "scheduled" | "completed" | "canceled";
+type DashboardSummary = {
+  activeTasks: number;
+  dueToday: number;
+  overdueTasks: number;
+  employeesWorking: number;
+  employeeTotal: number;
+  hoursLoggedToday: number;
+  avgHoursPerEmployee: number;
+  vehicleTotal: number;
+  patentTotal: number;
+  websiteTotal: number;
+  projectTotal: number;
 };
 
 // Animation variants
@@ -59,37 +49,11 @@ const itemVariants: Variants = {
   },
 };
 
-const cardVariants: Variants = {
-  hidden: { scale: 0.95, opacity: 0 },
-  visible: {
-    scale: 1,
-    opacity: 1,
-    transition: {
-      type: "spring" as const,
-      stiffness: 100,
-      damping: 15,
-    },
-  },
-  hover: {
-    scale: 1.02,
-    boxShadow: "0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
-    transition: {
-      type: "spring" as const,
-      stiffness: 400,
-      damping: 17,
-    },
-  },
-};
-
 const Dashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
-  const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
-  const [hoveredSchedule, setHoveredSchedule] = useState<string | null>(null);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -97,17 +61,9 @@ const Dashboard = () => {
       try {
         setLoading(true);
         setApiError(null);
-        const [emps, tks, entries, sch] = await Promise.all([
-          listResource<Employee>("employees"),
-          listResource<Task>("tasks"),
-          listResource<TimeEntry>("time-entries"),
-          listResource<ScheduleItem>("schedules"),
-        ]);
+        const data = await apiFetch<DashboardSummary>("/api/dashboard/summary");
         if (!mounted) return;
-        setEmployees(emps);
-        setTasks(tks);
-        setTimeEntries(entries);
-        setSchedules(sch);
+        setSummary(data);
       } catch (e) {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load dashboard");
@@ -124,50 +80,31 @@ const Dashboard = () => {
   }, []);
 
   const metrics = useMemo(() => {
-    const totalEmployees = employees.length;
-    const activeTasks = tasks.filter((t) => t.status === "pending" || t.status === "in-progress").length;
-    const overdueTasks = tasks.filter((t) => t.status === "overdue").length;
-    const clockedInEmployees = timeEntries.filter((e) => e.status === "clocked-in" || e.status === "on-break").length;
-
-    const upcomingSchedules = schedules
-      .filter((s) => s.status === "scheduled")
-      .slice()
-      .sort((a, b) => {
-        if (a.date !== b.date) return a.date < b.date ? -1 : 1;
-        const aStart = a.startTime || "00:00";
-        const bStart = b.startTime || "00:00";
-        if (aStart !== bStart) return aStart < bStart ? -1 : 1;
-        return a.id < b.id ? -1 : 1;
-      })
-      .slice(0, 5);
-
+    if (!summary) return null;
     return {
-      totalEmployees,
-      activeTasks,
-      overdueTasks,
-      clockedInEmployees,
-      upcomingSchedules,
+      totalEmployees: summary.employeeTotal,
+      activeTasks: summary.activeTasks,
+      overdueTasks: summary.overdueTasks,
+      clockedInEmployees: summary.employeesWorking,
+      totalVehicles: summary.vehicleTotal,
+      totalPatents: summary.patentTotal,
+      totalWebsites: summary.websiteTotal,
+      totalProjects: summary.projectTotal,
     };
-  }, [employees.length, schedules, tasks, timeEntries]);
+  }, [summary]);
 
-  // Get status color for schedule
-  const getStatusColor = (status: string) => {
-    switch(status) {
-      case 'scheduled':
-        return 'bg-gradient-to-r from-blue-500/20 to-blue-600/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800';
-      case 'completed':
-        return 'bg-gradient-to-r from-green-500/20 to-green-600/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800';
-      case 'canceled':
-        return 'bg-gradient-to-r from-red-500/20 to-red-600/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800';
-      default:
-        return 'bg-gradient-to-r from-gray-500/20 to-gray-600/20 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-800';
-    }
-  };
+  if (loading) {
+    return (
+      <div className="flex h-[80vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <>
       <motion.div 
-        className="pl-6 space-y-4 sm:space-y-5 md:space-y-6"
+        className="pl-2 pr-2 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -175,19 +112,23 @@ const Dashboard = () => {
 
         {/* Stats Grid with animated cards */}
         <motion.div 
-          className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-4 lg:gap-6"
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-4 lg:gap-6"
           variants={containerVariants}
         >
-          {[
+          {metrics && [
             { title: "Total Employees", value: metrics.totalEmployees, icon: Users, variant: "primary", changeType: "positive" as const, onClick: () => navigate("/admin/employees") },
             { title: "Active Tasks", value: metrics.activeTasks, icon: CheckSquare, variant: "success", changeType: "neutral" as const, onClick: () => navigate("/admin/tasks") },
+            { title: "Active Projects", value: metrics.totalProjects, icon: FolderRoot, variant: "primary", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
+            { title: "Total Vehicles", value: metrics.totalVehicles, icon: Car, variant: "warning", changeType: "positive" as const, onClick: () => navigate("/admin/vehicles") },
+            { title: "Patents", value: metrics.totalPatents, icon: FileSearch, variant: "success", changeType: "positive" as const, onClick: () => navigate("/admin/intellectual-property") },
+            { title: "Websites", value: metrics.totalWebsites, icon: Globe, variant: "primary", changeType: "positive" as const, onClick: () => navigate("/admin/websites") },
             { title: "Overdue Tasks", value: metrics.overdueTasks, icon: AlertTriangle, variant: "danger", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
             { title: "Clocked In", value: metrics.clockedInEmployees, icon: Clock, variant: "warning", changeType: "neutral" as const, onClick: () => navigate("/admin/time-tracking") },
-          ].map((stat, index) => (
+          ].map((stat) => (
             <motion.div
               key={stat.title}
               variants={itemVariants}
-              whileHover="hover"
+              whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
               <StatCard
@@ -241,6 +182,19 @@ const Dashboard = () => {
             <div className="rounded-xl border bg-card/50 backdrop-blur-sm p-4 shadow-lg hover:shadow-xl">
               <ActiveEmployees />
             </div>
+          </motion.div>
+        </motion.div>
+
+        {/* Day & Week Ahead Planning Views */}
+        <motion.div
+          className="grid grid-cols-1 gap-4 sm:gap-5 md:gap-6 lg:grid-cols-2"
+          variants={containerVariants}
+        >
+          <motion.div variants={itemVariants} whileHover={{ scale: 1.01 }} className="transition-all duration-300">
+            <DayAheadCard />
+          </motion.div>
+          <motion.div variants={itemVariants} whileHover={{ scale: 1.01 }} className="transition-all duration-300">
+            <WeekAheadCard />
           </motion.div>
         </motion.div>
 

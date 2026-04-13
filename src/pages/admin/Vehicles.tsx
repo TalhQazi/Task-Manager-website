@@ -70,6 +70,8 @@ interface Vehicle {
   lastInspection: string;
   nextInspection: string;
   assignedTo: string;
+  insuranceInfo?: string;
+  documents?: { fileName: string; dataUrl: string }[];
   tagPhotoFileName?: string;
   tagPhotoDataUrl?: string;
 }
@@ -146,6 +148,8 @@ function normalizeVehicle(v: BackendVehicle): Vehicle {
     lastInspection: toDateOnly(String(v.lastInspection || "").trim()),
     nextInspection: toDateOnly(String(v.nextInspection || "").trim()),
     assignedTo: String(v.assignedTo || "-").trim() || "-",
+    insuranceInfo: String(v.insuranceInfo || "").trim(),
+    documents: Array.isArray(v.documents) ? v.documents : [],
     tagPhotoFileName: String(v.tagPhotoFileName || "").trim() || undefined,
     tagPhotoDataUrl: String(v.tagPhotoDataUrl || "").trim() || undefined,
   };
@@ -276,6 +280,8 @@ const Vehicles = () => {
     lastInspection: "",
     nextInspection: "",
     assignedTo: "",
+    insuranceInfo: "",
+    documents: [] as { fileName: string; dataUrl: string }[],
     tagPhotoFileName: "",
     tagPhotoDataUrl: "",
   });
@@ -440,6 +446,8 @@ const Vehicles = () => {
         lastInspection: formData.lastInspection,
         nextInspection: formData.nextInspection,
         assignedTo: formData.assignedTo || "-",
+        insuranceInfo: formData.insuranceInfo,
+        documents: formData.documents,
         tagPhotoFileName: formData.tagPhotoFileName || "",
         tagPhotoDataUrl,
       };
@@ -458,6 +466,8 @@ const Vehicles = () => {
         lastInspection: "",
         nextInspection: "",
         assignedTo: "",
+        insuranceInfo: "",
+        documents: [],
         tagPhotoFileName: "",
         tagPhotoDataUrl: "",
       });
@@ -511,6 +521,8 @@ const Vehicles = () => {
       lastInspection: vehicle.lastInspection,
       nextInspection: vehicle.nextInspection,
       assignedTo: vehicle.assignedTo,
+      insuranceInfo: vehicle.insuranceInfo || "",
+      documents: vehicle.documents || [],
       tagPhotoFileName: vehicle.tagPhotoFileName || "",
       tagPhotoDataUrl: vehicle.tagPhotoDataUrl || "",
     });
@@ -528,6 +540,8 @@ const Vehicles = () => {
     lastInspection: "",
     nextInspection: "",
     assignedTo: "",
+    insuranceInfo: "",
+    documents: [] as { fileName: string; dataUrl: string }[],
     tagPhotoFileName: "",
     tagPhotoDataUrl: "",
   });
@@ -565,6 +579,8 @@ const Vehicles = () => {
         lastInspection: editFormData.lastInspection,
         nextInspection: editFormData.nextInspection,
         assignedTo: editFormData.assignedTo || "-",
+        insuranceInfo: editFormData.insuranceInfo,
+        documents: editFormData.documents,
         tagPhotoFileName: editFormData.tagPhotoFileName || "",
         tagPhotoDataUrl,
       });
@@ -690,7 +706,7 @@ const Vehicles = () => {
                 </motion.div>
               </DialogTrigger>
               
-              <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+              <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-hidden flex flex-col">
                 <DialogHeader className="space-y-1.5 sm:space-y-2">
                   <DialogTitle className="text-lg sm:text-xl bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
                     Add Vehicle
@@ -700,13 +716,14 @@ const Vehicles = () => {
                   </DialogDescription>
                 </DialogHeader>
 
-                <motion.form 
-                  className="space-y-4 sm:space-y-5" 
-                  onSubmit={(e) => { e.preventDefault(); handleAddVehicle(); }}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
-                >
+                <div className="flex-1 overflow-y-auto pr-2 py-2 min-h-0">
+                  <motion.form 
+                    className="space-y-4 sm:space-y-5" 
+                    onSubmit={(e) => { e.preventDefault(); handleAddVehicle(); }}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                  >
                   {/* Form Validation Error */}
                   <AnimatePresence>
                     {formError && (
@@ -855,6 +872,61 @@ const Vehicles = () => {
                     </div>
                   </div>
 
+                  {/* Insurance Info */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Insurance Information</label>
+                    <Input
+                      value={formData.insuranceInfo}
+                      onChange={(e) => setFormData({ ...formData, insuranceInfo: e.target.value })}
+                      placeholder="Policy #, Provider, Expiration"
+                      className="focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+
+                  {/* Document Upload */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Vehicle Documents</label>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {formData.documents.map((doc, idx) => (
+                        <Badge key={idx} variant="secondary" className="flex items-center gap-1 py-1">
+                          {doc.fileName}
+                          <button
+                            type="button"
+                            onClick={() => setFormData({ ...formData, documents: formData.documents.filter((_, i) => i !== idx) })}
+                            className="text-destructive hover:text-destructive/80"
+                          >
+                            ×
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="w-full border-dashed"
+                      onClick={() => document.getElementById("vehicle-doc-input")?.click()}
+                    >
+                      <Plus className="h-4 w-4 mr-2" /> Add Document
+                    </Button>
+                    <input
+                      id="vehicle-doc-input"
+                      type="file"
+                      className="hidden"
+                      multiple
+                      onChange={async (e) => {
+                        const files = Array.from(e.target.files || []);
+                        const newDocs = await Promise.all(
+                          files.map(async (f) => ({
+                            fileName: f.name,
+                            dataUrl: await readFileAsDataUrl(f),
+                          }))
+                        );
+                        setFormData({ ...formData, documents: [...formData.documents, ...newDocs] });
+                      }}
+                    />
+                  </div>
+
                   {/* Vehicle Photo Upload */}
                   <div className="flex flex-col gap-3">
                     <div className="flex-1 min-w-0">
@@ -910,8 +982,9 @@ const Vehicles = () => {
                         <img src={formData.tagPhotoDataUrl} alt="Vehicle preview" className="h-20 w-20 object-contain rounded-lg border" />
                       </div>
                     )}
-                  </div>
-                </motion.form>
+                    </div>
+                  </motion.form>
+                </div>
 
                 <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
                   <motion.div
@@ -1415,19 +1488,20 @@ const Vehicles = () => {
 
       {/* View Details Dialog - Animated */}
       <Dialog open={viewDetailsOpen} onOpenChange={setViewDetailsOpen}>
-        <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader className="space-y-1.5 sm:space-y-2">
             <DialogTitle className="text-lg sm:text-xl bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
               Vehicle Details
             </DialogTitle>
           </DialogHeader>
           {selectedVehicle && (
-            <motion.div 
-              className="space-y-4 sm:space-y-5"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
+            <div className="flex-1 overflow-y-auto pr-2 py-2 min-h-0">
+              <motion.div 
+                className="space-y-4 sm:space-y-5"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
               {/* Vehicle Photo Display */}
               {(() => {
                 const photoSrc = getVehicleTagPhotoSrc(selectedVehicle);
@@ -1517,47 +1591,39 @@ const Vehicles = () => {
                   className="space-y-1.5"
                   whileHover={{ x: 5 }}
                 >
-                  <label className="text-xs sm:text-sm font-medium">Last Inspection</label>
-                  <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                    <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-                    <span>{toDateOnly(selectedVehicle.lastInspection) || "—"}</span>
-                  </div>
+                  <label className="text-xs sm:text-sm font-medium">Insurance Information</label>
+                  <p className="text-xs sm:text-sm text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg">
+                    {selectedVehicle.insuranceInfo || "—"}
+                  </p>
                 </motion.div>
-                
+
                 <motion.div 
-                  className="space-y-1.5"
+                  className="space-y-1.5 sm:col-span-2"
                   whileHover={{ x: 5 }}
                 >
-                  <label className="text-xs sm:text-sm font-medium">Next Inspection</label>
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                      <Calendar className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-                      <span>{toDateOnly(selectedVehicle.nextInspection) || "—"}</span>
-                    </div>
-                    {(() => {
-                      const d = daysUntil(selectedVehicle.nextInspection);
-                      if (d === null) return null;
-                      if (d < 0) {
-                        return (
-                          <Badge variant="secondary" className="bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive text-xs w-fit">
-                            Overdue
-                          </Badge>
-                        );
-                      }
-                      if (d <= 30) {
-                        return (
-                          <Badge variant="secondary" className="bg-gradient-to-r from-warning/20 to-warning/10 text-warning text-xs w-fit">
-                            Due in {d} days
-                          </Badge>
-                        );
-                      }
-                      return null;
-                    })()}
+                  <label className="text-xs sm:text-sm font-medium">Documents</label>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedVehicle.documents && selectedVehicle.documents.length > 0 ? (
+                      selectedVehicle.documents.map((doc, idx) => (
+                        <a
+                          key={idx}
+                          href={doc.dataUrl}
+                          download={doc.fileName}
+                          className="flex items-center gap-2 text-xs sm:text-sm p-2 rounded-lg bg-primary/5 hover:bg-primary/10 text-primary transition-colors"
+                        >
+                          <Calendar className="h-3.5 w-3.5" />
+                          {doc.fileName}
+                        </a>
+                      ))
+                    ) : (
+                      <p className="text-xs sm:text-sm text-muted-foreground">No documents uploaded</p>
+                    )}
                   </div>
                 </motion.div>
               </div>
             </motion.div>
-          )}
+          </div>
+        )}
           <DialogFooter className="mt-4 sm:mt-6">
             <motion.div
               whileHover={{ scale: 1.05 }}
@@ -1573,7 +1639,7 @@ const Vehicles = () => {
 
       {/* Edit Vehicle Dialog - Animated */}
       <Dialog open={editVehicleOpen} onOpenChange={setEditVehicleOpen}>
-        <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader className="space-y-1.5 sm:space-y-2">
             <DialogTitle className="text-lg sm:text-xl bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
               Edit Vehicle
@@ -1583,12 +1649,13 @@ const Vehicles = () => {
             </DialogDescription>
           </DialogHeader>
           {selectedVehicle && (
-            <motion.form 
-              className="space-y-4 sm:space-y-5"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
+            <div className="flex-1 overflow-y-auto pr-2 py-2 min-h-0">
+              <motion.form 
+                className="space-y-4 sm:space-y-5"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+              >
               {/* Form Validation Error */}
               <AnimatePresence>
                 {editFormError && (
@@ -1794,6 +1861,7 @@ const Vehicles = () => {
                 </div>
               </div>
             </motion.form>
+            </div>
           )}
           <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
             <motion.div
@@ -1884,7 +1952,7 @@ const Vehicles = () => {
       </Dialog>
 
       {/* Add global styles for grid pattern */}
-      <style jsx global>{`
+      <style>{`
         .bg-grid-white {
           background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgb(255 255 255 / 0.05)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
         }

@@ -32,35 +32,39 @@ export function SocketProvider({ children }: SocketProviderProps) {
 
   
   useEffect(() => {
+    // Only connect if user is authenticated
+    const authRaw = localStorage.getItem("taskflow_auth");
+    const empRaw = localStorage.getItem("employee_auth");
+    if (!authRaw && !empRaw) return;
 
-  //const socket = io("http://192.168.31.13:5000", { 
-    const socket = io("https://task.se7eninc.com", { //
-  path: "/api/socket.io/",
-    withCredentials: true,
-    transports: ["websocket", "polling"],
-  });
 
-  socketRef.current = socket;
+    const socket = io("https://task.se7eninc.com", {
+      path: "/api/socket.io/",
+      withCredentials: true,
+      transports: ["websocket", "polling"],
+    });
 
-  socket.on("connect", () => {
-    console.log("✅ Socket connected:", socket.id);
-    setIsConnected(true);
-  });
 
-  socket.on("disconnect", () => {
-    console.log("❌ Socket disconnected");
-    setIsConnected(false);
-  });
+    socketRef.current = socket;
 
-  socket.on("connect_error", (error) => {
-    console.error("❌ Socket error:", error);
-  });
+    socket.on("connect", () => {
+      console.log("✅ Socket connected:", socket.id);
+      setIsConnected(true);
+    });
 
-  return () => {
-    socket.disconnect();
-    socketRef.current = null;
-  };
-}, []);
+    socket.on("disconnect", () => {
+      setIsConnected(false);
+    });
+
+    socket.on("connect_error", (error) => {
+      console.error("❌ Socket error:", error.message);
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, []);
 
   const joinTask = (taskId: string) => {
     if (socketRef.current && isConnected) {

@@ -1,35 +1,51 @@
-import { useMemo } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import { Navigate, useLocation, useRoutes } from "react-router-dom";
 import { MainLayout } from "@/components/manger/layout/MainLayout";
 import { getAuthState } from "@/lib/auth";
 
-import Dashboard from "@/pages/manger/Dashboard";
-import Tasks from "@/pages/manger/Tasks";
-import Employees from "@/pages/manger/Employees";
-import Scheduling from "@/pages/manger/Scheduling";
-import TimeTracking from "@/pages/manger/TimeTracking";
-import EmployeeTimeHistory from "@/pages/manger/EmployeeTimeHistory";
-import Vehicles from "@/pages/manger/Vehicles";
-import Appliances from "@/pages/manger/Appliances";
-import Locations from "@/pages/manger/Locations";
-import Vendors from "@/pages/manger/Vendors";
-import Messages from "@/pages/manger/Messages";
-import Notifications from "@/pages/manger/Notifications";
-import Settings from "@/pages/manger/Settings";
-import DoNotHire from "@/pages/manger/DoNotHire";
-import OnboardingMonitoring from "@/pages/manger/OnboardingMonitoring";
-import Reports from "@/pages/manger/Reports";
-import FounderMessages from "@/pages/manger/FounderMessages";
-import SignaCore from "@/pages/admin/SignaCore";
-import NotFound from "@/pages/manger/NotFound";
+// Lazy-loaded page components for code splitting
+const Dashboard = lazy(() => import("@/pages/manger/Dashboard"));
+const Tasks = lazy(() => import("@/pages/manger/Tasks"));
+const Employees = lazy(() => import("@/pages/manger/Employees"));
+const Scheduling = lazy(() => import("@/pages/manger/Scheduling"));
+const TimeTracking = lazy(() => import("@/pages/manger/TimeTracking"));
+const EmployeeTimeHistory = lazy(() => import("@/pages/manger/EmployeeTimeHistory"));
+const Vehicles = lazy(() => import("@/pages/manger/Vehicles"));
+const Appliances = lazy(() => import("@/pages/manger/Appliances"));
+const Locations = lazy(() => import("@/pages/manger/Locations"));
+const Vendors = lazy(() => import("@/pages/manger/Vendors"));
+const Messages = lazy(() => import("@/pages/manger/Messages"));
+const Notifications = lazy(() => import("@/pages/manger/Notifications"));
+const Settings = lazy(() => import("@/pages/manger/Settings"));
+const DoNotHire = lazy(() => import("@/pages/manger/DoNotHire"));
+const OnboardingMonitoring = lazy(() => import("@/pages/manger/OnboardingMonitoring"));
+const Reports = lazy(() => import("@/pages/manger/Reports"));
+const FounderMessages = lazy(() => import("@/pages/manger/FounderMessages"));
+const NotFound = lazy(() => import("@/pages/manger/NotFound"));
+const SignaCore = lazy(() => import("@/pages/admin/SignaCore"));
 
+function PageLoader() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh" }}>
+      <div style={{
+        width: 36, height: 36,
+        border: "3px solid rgba(255,255,255,0.1)",
+        borderTopColor: "#6366f1",
+        borderRadius: "50%",
+        animation: "spin 0.7s linear infinite",
+      }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
 
 export default function ManagerController() {
   const location = useLocation();
   const auth = getAuthState();
-
+// adding routes
   const routes = useMemo(
     () => [
+      { path: "contracts", element: <SignaCore /> },
       { index: true, element: <Dashboard /> },
       { path: "tasks", element: <Tasks /> },
       { path: "employees", element: <Employees /> },
@@ -44,9 +60,7 @@ export default function ManagerController() {
       { path: "onboarding", element: <OnboardingMonitoring /> },
       { path: "reports", element: <Reports /> },
       { path: "founder-messages", element: <FounderMessages /> },
-      { path: "contracts", element: <SignaCore /> },
       { path: "messages", element: <Messages /> },
-
       { path: "notifications", element: <Notifications /> },
       { path: "settings", element: <Settings /> },
       { path: "*", element: <NotFound /> },
@@ -60,5 +74,11 @@ export default function ManagerController() {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  return <MainLayout>{element}</MainLayout>;
+  return (
+    <MainLayout>
+      <Suspense fallback={<PageLoader />}>
+        {element}
+      </Suspense>
+    </MainLayout>
+  );
 }

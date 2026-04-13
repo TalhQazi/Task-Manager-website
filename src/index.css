@@ -105,6 +105,22 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Plus Jakarta Sans', 'DM Sans', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    height: auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    height: auto !important;
+  }
+
+  #root {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
   }
 }
 
@@ -342,6 +358,32 @@
   .animate-page-enter {
     animation: page-enter 250ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
     will-change: opacity, transform;
+  }
+
+  /* Premium Metallic Gold Utils */
+  @keyframes shine {
+    0% { transform: translateX(-100%) skewX(-15deg); }
+    100% { transform: translateX(300%) skewX(-15deg); }
+  }
+
+  .animate-shine {
+    animation: shine 6s infinite linear;
+  }
+
+  .bg-metallic-gold {
+    background: linear-gradient(
+      to right, 
+      #BF953F, 
+      #FCF6BA 25%, 
+      #B38728 50%, 
+      #FBF5B7 75%, 
+      #BF953F
+    );
+    background-size: 200% auto;
+  }
+
+  .text-gold-dark {
+    color: #5d4037;
   }
 
   /* Performance: GPU Acceleration Hints */

@@ -1,14 +1,32 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { EmployeeLayout } from "../components/layout/EmployeeLayout";
-import EmployeeDashboard from "../screens/Dashboard";
-import EmployeeTasks from "../screens/Tasks";
-import EmployeeTaskDetails from "../screens/TaskDetails";
-import EmployeeSchedule from "../screens/Schedule";
-import EmployeeClocked from "../screens/Clocked";
-import EmployeeMessages from "../screens/Messages";
-import EmployeeProfile from "../screens/Profile";
-import EmployeeNotifications from "../screens/Notifications";
 import { getEmployeeAuth } from "../lib/auth";
+
+// Lazy-loaded screens for code splitting
+const EmployeeDashboard = lazy(() => import("../screens/Dashboard"));
+const EmployeeTasks = lazy(() => import("../screens/Tasks"));
+const EmployeeTaskDetails = lazy(() => import("../screens/TaskDetails"));
+const EmployeeSchedule = lazy(() => import("../screens/Schedule"));
+const EmployeeClocked = lazy(() => import("../screens/Clocked"));
+const EmployeeMessages = lazy(() => import("../screens/Messages"));
+const EmployeeProfile = lazy(() => import("../screens/Profile"));
+const EmployeeNotifications = lazy(() => import("../screens/Notifications"));
+
+function PageLoader() {
+  return (
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh" }}>
+      <div style={{
+        width: 36, height: 36,
+        border: "3px solid rgba(255,255,255,0.1)",
+        borderTopColor: "#6366f1",
+        borderRadius: "50%",
+        animation: "spin 0.7s linear infinite",
+      }} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+}
 
 function EmployeeController() {
   const employeeAuth = getEmployeeAuth();
@@ -19,20 +37,22 @@ function EmployeeController() {
   }
 
   return (
-    <Routes>
-      <Route element={<EmployeeLayout />}>
-        <Route path="/" element={<EmployeeDashboard />} />
-        <Route path="/dashboard" element={<EmployeeDashboard />} />
-        <Route path="/tasks" element={<EmployeeTasks />} />
-        <Route path="/tasks/:taskId" element={<EmployeeTaskDetails />} />
-        <Route path="/schedule" element={<EmployeeSchedule />} />
-        <Route path="/clocked" element={<EmployeeClocked />} />
-        <Route path="/messages" element={<EmployeeMessages />} />
-        <Route path="/profile" element={<EmployeeProfile />} />
-        <Route path="/notifications" element={<EmployeeNotifications />} />
-      </Route>
-      <Route path="*" element={<Navigate to="/employee" replace />} />
-    </Routes>
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        <Route element={<EmployeeLayout />}>
+          <Route path="/" element={<EmployeeDashboard />} />
+          <Route path="/dashboard" element={<EmployeeDashboard />} />
+          <Route path="/tasks" element={<EmployeeTasks />} />
+          <Route path="/tasks/:taskId" element={<EmployeeTaskDetails />} />
+          <Route path="/schedule" element={<EmployeeSchedule />} />
+          <Route path="/clocked" element={<EmployeeClocked />} />
+          <Route path="/messages" element={<EmployeeMessages />} />
+          <Route path="/profile" element={<EmployeeProfile />} />
+          <Route path="/notifications" element={<EmployeeNotifications />} />
+        </Route>
+        <Route path="*" element={<Navigate to="/employee" replace />} />
+      </Routes>
+    </Suspense>
   );
 }
 
