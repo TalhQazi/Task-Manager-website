@@ -5,7 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { CheckCircle2, User } from "lucide-react";
 import { useSocket } from "@/contexts/SocketContext";
 import { getAuthState } from "@/lib/auth";
 import { useRef } from "react";
@@ -29,6 +28,8 @@ import {
   Flag,
   FileText,
   AlertCircle,
+  CheckCircle2,
+  User,
 } from "lucide-react";
 
 type TaskStatus = "pending" | "in-progress" | "completed" | "overdue";
@@ -525,7 +526,7 @@ export default function EmployeeTaskDetails() {
                               {!isSameAuthor ? (
                                 <Avatar className="w-8 h-8 border shadow-sm flex-shrink-0 mb-1">
                                   <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                                    {c.authorUsername.substring(0, 2).toUpperCase()}
+                                    {(c.authorUsername || "??").substring(0, 2).toUpperCase()}
                                   </AvatarFallback>
                                 </Avatar>
                               ) : null}
