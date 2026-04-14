@@ -89,6 +89,7 @@ import {
   User,
   PlusCircle,
   TrendingUp,
+  Maximize2,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch, downloadTaskAttachment } from "@/lib/manger/api";
@@ -300,7 +301,7 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
   );
 }
 
-function TaskAttachmentImg({ taskId }: { taskId: string }) {
+function TaskAttachmentImg({ taskId, onPreview }: { taskId: string; onPreview?: (url: string, fileName: string) => void }) {
   const [src, setSrc] = useState<string | null | undefined>(undefined);
   useEffect(() => {
     let cancelled = false;
@@ -309,12 +310,19 @@ function TaskAttachmentImg({ taskId }: { taskId: string }) {
       .catch(() => { if (!cancelled) setSrc(null); });
     return () => { cancelled = true; };
   }, [taskId]);
-  if (src) return <img src={src} alt="Task preview" className="w-full h-full object-cover" />;
+  if (src) return (
+    <div className="w-full h-full relative group/task-att cursor-zoom-in" onClick={() => onPreview?.(src, "Task Attachment")}>
+      <img src={src} alt="Task preview" className="w-full h-full object-cover" />
+      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/task-att:opacity-100 flex items-center justify-center transition-all duration-200">
+        <Maximize2 className="w-5 h-5 text-white" />
+      </div>
+    </div>
+  );
   if (src === undefined) return <div className="w-full h-full flex items-center justify-center"><Loader2 className="h-4 w-4 animate-spin opacity-20" /></div>;
   return null;
 }
 
-function CommentAttachmentImg({ taskId, projectId, commentId, index, mimeType, fileName, fallbackUrl }: { taskId?: string; projectId?: string; commentId: string; index: number; mimeType: string; fileName: string; fallbackUrl?: string }) {
+function CommentAttachmentImg({ taskId, projectId, commentId, index, mimeType, fileName, fallbackUrl, onPreview }: { taskId?: string; projectId?: string; commentId: string; index: number; mimeType: string; fileName: string; fallbackUrl?: string; onPreview?: (url: string, name: string) => void }) {
   const [src, setSrc] = useState<string | null | undefined>(fallbackUrl || undefined);
   useEffect(() => {
     if (fallbackUrl) return; 
@@ -330,11 +338,11 @@ function CommentAttachmentImg({ taskId, projectId, commentId, index, mimeType, f
   }, [taskId, projectId, commentId, index, fallbackUrl]);
   
   if (src && mimeType?.startsWith("image/")) return (
-    <div className="w-full h-full relative group/att">
+    <div className="w-full h-full relative group/att cursor-zoom-in" onClick={() => onPreview?.(src, fileName)}>
       <img src={src} alt={fileName} className="w-full h-full object-cover rounded-lg" />
-      <a href={src} download={fileName} aria-label="Download" onClick={(e) => e.stopPropagation()} className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-opacity text-white text-[11px] font-bold backdrop-blur-[1px]">
-        Save
-      </a>
+      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-all duration-200 rounded-lg">
+        <Maximize2 className="w-5 h-5 text-white" />
+      </div>
     </div>
   );
   if (src && !mimeType?.startsWith("image/")) return (
@@ -343,9 +351,25 @@ function CommentAttachmentImg({ taskId, projectId, commentId, index, mimeType, f
         <FileText className="w-6 h-6 text-white/60 mb-1" />
         <span className="text-[10px] text-white/40 truncate w-full px-2 font-medium">{fileName}</span>
       </div>
-      <a href={src} download={fileName} aria-label="Download" onClick={(e) => e.stopPropagation()} className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-opacity text-white text-[11px] font-bold backdrop-blur-[1px]">
-        Save
-      </a>
+      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center gap-3 transition-opacity backdrop-blur-[1px] cursor-default">
+        <button 
+          onClick={(e) => { e.stopPropagation(); onPreview?.(src, fileName); }}
+          className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+          title="Preview"
+        >
+          <Maximize2 className="w-4 h-4" />
+        </button>
+        <a 
+          href={src} 
+          download={fileName} 
+          aria-label="Download" 
+          onClick={(e) => e.stopPropagation()} 
+          className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+          title="Download"
+        >
+          <Download className="w-4 h-4" />
+        </a>
+      </div>
     </div>
   );
   if (src === undefined) return <div className="w-full h-20 flex items-center justify-center"><Loader2 className="h-4 w-4 animate-spin opacity-10" /></div>;
@@ -494,6 +518,10 @@ export default function Tasks() {
 
   const currentUsername = getAuthState().username || "";
   const { socket, joinTask, leaveTask } = useSocket();
+
+  // Lightbox / File Preview State
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewName, setPreviewName] = useState<string>("");
 
   // Fetch tasks with server-side pagination
   const tasksQuery = useQuery({
@@ -2267,6 +2295,7 @@ export default function Tasks() {
                                                       mimeType={att.mimeType} 
                                                       fileName={att.fileName} 
                                                       fallbackUrl={att.url} 
+                                                      onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
                                                     />
                                                   </div>
                                                 ))}
@@ -3085,6 +3114,44 @@ export default function Tasks() {
               </div>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* File Preview Lightbox */}
+      <Dialog open={!!previewUrl} onOpenChange={(open) => !open && setPreviewUrl(null)}>
+        <DialogContent className="max-w-[95vw] w-fit p-0 border-none bg-transparent shadow-none">
+          <div className="relative group/preview-modal">
+            <div className="absolute top-4 right-4 z-50 flex items-center gap-3 opacity-0 group-hover/preview-modal:opacity-100 transition-opacity">
+              <a 
+                href={previewUrl || ""} 
+                download={previewName}
+                className="p-2 bg-black/50 hover:bg-black/70 backdrop-blur-md rounded-full text-white shadow-lg transition-all"
+                title="Download"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Download className="w-5 h-5" />
+              </a>
+              <button
+                onClick={() => setPreviewUrl(null)}
+                className="p-2 bg-black/50 hover:bg-black/70 backdrop-blur-md rounded-full text-white shadow-lg transition-all"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {previewUrl && (
+              <div className="flex flex-col items-center">
+                <img 
+                  src={previewUrl} 
+                  alt={previewName} 
+                  className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl" 
+                />
+                <div className="mt-4 px-4 py-2 bg-black/50 backdrop-blur-md rounded-full text-white text-sm font-medium shadow-lg">
+                  {previewName}
+                </div>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
