@@ -857,8 +857,9 @@ export function Header({ onMenuClick }: HeaderProps) {
             >
               <Bug className="h-3.5 w-3.5 sm:h-4 sm:w-4 group-hover:brightness-[108%] transition-all duration-100 linear" />
             </Button>
+              </div>
+            </div>
           </div>
-        </div>
 
         {/* Founder Message Bar at the very bottom of the fixed header */}
         <div className="mt-auto pointer-events-auto w-full z-40 bg-metallic-gold/90 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">

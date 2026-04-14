@@ -528,8 +528,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                   <Sidebar mode="mobile" onNavigate={() => setMobileSidebarOpen(false)} />
                 </SheetContent>
               </Sheet>
-            </div>
-
+              </div>
             </div>
           </div>
 
