@@ -330,7 +330,18 @@ export function MainLayout({ children }: MainLayoutProps) {
             className="relative flex items-center justify-between px-3 sm:px-6 lg:px-10 py-2 md:py-4 animate-fade-in h-full md:pl-20 lg:pl-24"
           >
             {/* LEFT SIDE: icons/profile */}
-            <div className="flex items-center gap-2 sm:gap-3 text-white z-30 relative pointer-events-auto">
+            <div className="flex items-center gap-2 sm:gap-3 text-white z-30 relative pointer-events-auto mr-auto">
+              {/* Task Manager Logo Circle on Left */}
+              <div className="flex items-center h-9 w-9 sm:h-12 sm:w-12 z-20 pointer-events-auto mr-1 sm:mr-2">
+                <div className="aspect-square h-full rounded-full border-2 border-white/80 overflow-hidden bg-white shadow-xl transition-all duration-300 hover:scale-110">
+                  <img
+                    src="/task.png"
+                    alt="Task Manager logo"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </div>
+
               <Button
                 type="button"
                 variant="ghost"
@@ -518,16 +529,6 @@ export function MainLayout({ children }: MainLayoutProps) {
 
             {/* CENTER LOGO REMOVED PER REQUEST */}
 
-            {/* RIGHT SIDE: Task Manager Logo Circle */}
-            <div className="flex items-center sm:items-end sm:pb-2 z-20 pointer-events-auto" style={{ height: '60%', minHeight: '32px' }}>
-              <div className="aspect-square h-full rounded-full border-2 border-white/80 overflow-hidden bg-white shadow-2xl transition-all duration-300 hover:scale-110">
-                <img
-                  src="/logo.jpeg"
-                  alt="Task Manager logo"
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            </div>
           </div>
         </div>
       </header>
@@ -615,10 +616,10 @@ export function MainLayout({ children }: MainLayoutProps) {
           <Sidebar />
         </div>
         <main 
-          className="flex-1 min-h-screen md:ml-56 lg:ml-62"
+          className="flex-1 min-h-screen md:ml-56 lg:ml-64"
           style={{ paddingTop: `${headerHeight}px` }}
         >
-          <div className="sticky z-30" style={{ top: `${headerHeight}px` }}>
+          <div className="sticky z-30 mb-6" style={{ top: `${headerHeight}px` }}>
             <FounderMessageBar />
           </div>
           <div className="w-full px-4 py-4 sm:py-8 animate-fade-in">

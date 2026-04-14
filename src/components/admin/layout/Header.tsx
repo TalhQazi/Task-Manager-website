@@ -682,7 +682,18 @@ export function Header({ onMenuClick }: HeaderProps) {
           className="relative flex h-full items-start sm:items-center justify-between px-3 sm:px-6 lg:px-10 py-3 md:py-4 animate-fade-in pointer-events-none"
         >
           {/* LEFT SIDE: Profile Menu Swap */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-white z-30 relative pointer-events-auto max-w-[50%] sm:max-w-none">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-white z-30 relative pointer-events-auto max-w-[70%] sm:max-w-none mr-auto">
+            {/* Task Manager Logo Circle on Left */}
+            <div className="flex items-center h-9 w-9 sm:h-12 sm:w-12 z-20 pointer-events-auto mr-1 sm:mr-2">
+              <div className="aspect-square h-full rounded-full border-2 border-white/80 overflow-hidden bg-white shadow-xl transition-all duration-300 hover:scale-110">
+                <img
+                  src="/task.png"
+                  alt="Task Manager logo"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            </div>
+
             <button
               type="button"
               className="group inline-flex md:hidden h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/[0.14] hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear mr-2"
@@ -848,15 +859,6 @@ export function Header({ onMenuClick }: HeaderProps) {
 
           {/* CENTER LOGO REMOVED PER REQUEST */}
 
-          {/* RIGHT SIDE: Task Manager Logo Circle */}
-          <div className="flex items-center sm:items-end sm:pb-2 z-20 pointer-events-auto" style={{ height: `${headerHeight * 0.6}px`, minHeight: '40px', maxHeight: '120px' }}>
-            <div className="aspect-square h-full rounded-full border-2 border-white/80 overflow-hidden bg-white shadow-2xl transition-all duration-300 hover:scale-110">
-              <img
-                src="/logo.jpeg"
-                alt="Task Manager logo"
-                className="w-full h-full object-cover"
-              />
-            </div>
           </div>
         </div>
       </div>

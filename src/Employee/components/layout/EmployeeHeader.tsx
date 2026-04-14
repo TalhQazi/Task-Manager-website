@@ -174,7 +174,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
           <div className="flex items-center z-10" style={{ height: '75%', minHeight: '32px' }}>
             <div className="aspect-square h-full rounded-full border-2 border-white/80 overflow-hidden bg-white shadow-2xl transition-all duration-300 hover:scale-110">
               <img
-                src="/logo.jpeg"
+                src="/task.png"
                 alt="Task Manager logo"
                 className="w-full h-full object-cover"
               />
