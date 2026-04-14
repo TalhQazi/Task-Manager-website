@@ -859,7 +859,6 @@ export function Header({ onMenuClick }: HeaderProps) {
 
           {/* CENTER LOGO REMOVED PER REQUEST */}
 
-          </div>
         </div>
       </div>
 
