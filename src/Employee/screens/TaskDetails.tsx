@@ -107,22 +107,23 @@ function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fa
   }, [taskId, commentId, index, fallbackUrl]);
   
   if (src && mimeType?.startsWith("image/")) return (
-    <>
-      <img src={src} alt={fileName} className="w-full h-20 object-cover" />
+    <div className="w-full h-full relative group/att">
+      <img src={src} alt={fileName} className="w-full h-full object-cover rounded-lg" />
       <a href={src} download={fileName} aria-label="Download" onClick={(e) => e.stopPropagation()} className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-opacity text-white text-[11px] font-bold backdrop-blur-[1px]">
         Save
       </a>
-    </>
+    </div>
   );
   if (src && !mimeType?.startsWith("image/")) return (
-    <>
-      <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/20">
-        <FileText className="w-6 h-6 text-muted-foreground/60 mb-1" />
+    <div className="w-full h-full relative group/att">
+      <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-white/10">
+        <FileText className="w-6 h-6 text-white/60 mb-1" />
+        <span className="text-[10px] text-white/40 truncate w-full px-2 font-medium">{fileName}</span>
       </div>
       <a href={src} download={fileName} aria-label="Download" onClick={(e) => e.stopPropagation()} className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-opacity text-white text-[11px] font-bold backdrop-blur-[1px]">
         Save
       </a>
-    </>
+    </div>
   );
   if (src === undefined) return <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/20"><Loader2 className="h-4 w-4 animate-spin opacity-20" /></div>;
   return <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/20"><AlertCircle className="w-5 h-5 text-destructive/50" /></div>;
@@ -549,7 +550,7 @@ export default function EmployeeTaskDetails() {
                                   c.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"
                                 )}>
                                   {c.attachments.map((att, attIdx) => (
-                                    <div key={attIdx} className="relative rounded-xl overflow-hidden border border-white/20 bg-black/5 group/att min-w-[140px] max-w-[240px]">
+                                    <div key={attIdx} className="relative rounded-xl overflow-hidden border border-white/20 bg-black/10 min-w-[120px] max-w-full aspect-square sm:aspect-video">
                                       <CommentAttachmentImg 
                                         taskId={taskId || task?.id || ""} 
                                         commentId={c.id} 
