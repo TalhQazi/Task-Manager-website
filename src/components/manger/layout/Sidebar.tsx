@@ -16,6 +16,7 @@ import {
   Settings,
   LogOut,
   Building2,
+  FileText,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/manger/utils";
@@ -46,6 +47,7 @@ const navItems = [
       />
     )
   },
+
   {
     label: "Ultimate Property Holdings",
     path: "/manager/uph-maintenance",
@@ -57,6 +59,8 @@ const navItems = [
       />
     ),
   },
+
+  { icon: FileText, label: "Personal Notes", path: "/manager/personal-notes" },
   { icon: Settings, label: "Settings", path: "/manager/settings" },
 ];
 

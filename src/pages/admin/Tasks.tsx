@@ -171,22 +171,23 @@ function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fa
   }, [taskId, commentId, index, fallbackUrl]);
   
   if (src && mimeType?.startsWith("image/")) return (
-    <>
-      <img src={src} alt={fileName} className="w-full h-20 object-cover" />
+    <div className="w-full h-full relative group/att">
+      <img src={src} alt={fileName} className="w-full h-full object-cover rounded-lg" />
       <a href={src} download={fileName} aria-label="Download" onClick={(e) => e.stopPropagation()} className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-opacity text-white text-[11px] font-bold backdrop-blur-[1px]">
         Save
       </a>
-    </>
+    </div>
   );
   if (src && !mimeType?.startsWith("image/")) return (
-    <>
-      <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/20">
-        <FileText className="w-6 h-6 text-muted-foreground/60 mb-1" />
+    <div className="w-full h-full relative group/att">
+      <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-white/10">
+        <FileText className="w-6 h-6 text-white/60 mb-1" />
+        <span className="text-[10px] text-white/40 truncate w-full px-2 font-medium">{fileName}</span>
       </div>
       <a href={src} download={fileName} aria-label="Download" onClick={(e) => e.stopPropagation()} className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-opacity text-white text-[11px] font-bold backdrop-blur-[1px]">
         Save
       </a>
-    </>
+    </div>
   );
   if (src === undefined) return <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/20"><Loader2 className="h-4 w-4 animate-spin opacity-20" /></div>;
   return <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/20"><AlertCircle className="w-5 h-5 text-destructive/50" /></div>;
@@ -483,6 +484,9 @@ export default function Tasks() {
   const [commentAttachments, setCommentAttachments] = useState<File[]>([]);
   const [commentError, setCommentError] = useState<string | null>(null);
   const [isSendingComment, setIsSendingComment] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [othersTyping, setOthersTyping] = useState<string[]>([]);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
   const chatContainerRef = useRef<HTMLDivElement>(null);
@@ -1268,6 +1272,24 @@ export default function Tasks() {
     }
   };
 
+  const handleTypingIndicator = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setCommentDraft(e.target.value);
+    
+    if (!socket || !selectedTask) return;
+
+    if (!isTyping) {
+      setIsTyping(true);
+      socket.emit("typing", { taskId: selectedTask.id, typing: true });
+    }
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+      socket.emit("typing", { taskId: selectedTask.id, typing: false });
+    }, 3000);
+  };
+
   // Socket logic for live messages
   useEffect(() => {
     if (isViewOpen && selectedTask && socket) {
@@ -1289,8 +1311,19 @@ export default function Tasks() {
 
       socket.on("new-comment", handleNewComment);
 
+      const handleTyping = ({ username, typing }: { username: string; typing: boolean }) => {
+        if (username === currentUsername) return;
+        setOthersTyping(prev => {
+          if (typing) return prev.includes(username) ? prev : [...prev, username];
+          return prev.filter(u => u !== username);
+        });
+      };
+
+      socket.on("user-typing", handleTyping);
+
       return () => {
         socket.off("new-comment", handleNewComment);
+        socket.off("user-typing", handleTyping);
         leaveTask(selectedTask.id);
       };
     }
@@ -2230,60 +2263,139 @@ export default function Tasks() {
                     )}
 
                     {/* Feed Display */}
-                    <div className="space-y-6 lg:ml-2">
-                      {commentsLoading && comments.length === 0 ? (
-                        <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-                      ) : comments.length === 0 ? (
-                        <div className="text-center p-8 text-muted-foreground border-2 border-dashed border-border/50 rounded-2xl bg-muted/5">
-                          <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                          <p className="text-sm">No activity here yet. Start the conversation!</p>
-                        </div>
-                      ) : (
-                        <div ref={chatContainerRef} className="space-y-6 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
-                          {comments.map((c) => (
-                            <div key={c.id} className="flex gap-4 group">
-                              <Avatar className="w-9 h-9 border-2 border-background shadow-sm flex-shrink-0 z-10 overflow-hidden">
-                                {c.authorAvatar ? (
-                                  <img src={c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
-                                ) : (
-                                  <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
-                                    <User className="w-4 h-4 text-primary opacity-60" />
-                                  </div>
-                                )}
-                              </Avatar>
-                              <div className="flex-1 space-y-1.5 min-w-0 bg-muted/5 p-3 rounded-2xl border border-border/40 ml-1 group-hover:border-border/80 transition-colors">
-                                <div className="flex items-center justify-between gap-2 flex-wrap">
-                                  <div className="flex items-center gap-2">
-                                    <span className="font-bold text-[13px] text-foreground">{c.authorFullName || c.authorUsername}</span>
-                                    <span className="text-[11px] text-muted-foreground/80 font-medium" title={new Date(c.createdAt).toLocaleString()}>
-                                      {formatMessageTime(c.createdAt)}
-                                    </span>
-                                  </div>
-                                  {isAdminRole && (
-                                    <button type="button" onClick={() => void archiveComment(c.id)} disabled={archivingCommentId === c.id} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive flex items-center gap-1.5 text-[11px] font-medium bg-background px-2 py-1 rounded-md border border-border/50 shadow-sm" title="Archive comment">
-                                      {archivingCommentId === c.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3 text-destructive/70" />} Archive
-                                    </button>
+                    <div className="flex flex-col h-full max-h-[600px] bg-muted/5 rounded-2xl border border-border/40 overflow-hidden">
+                      <div 
+                        ref={chatContainerRef} 
+                        className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth custom-scrollbar"
+                      >
+                        {commentsLoading && comments.length === 0 ? (
+                          <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+                        ) : comments.length === 0 ? (
+                          <div className="text-center p-8 text-muted-foreground border-2 border-dashed border-border/50 rounded-2xl bg-muted/5">
+                            <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                            <p className="text-sm font-medium">No activity here yet. Start the conversation!</p>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col gap-1">
+                            {comments.map((c, idx) => {
+                              const isMe = c.authorUsername === currentUsername;
+                              const prevComment = idx > 0 ? comments[idx - 1] : null;
+                              const isSameAuthor = prevComment?.authorUsername === c.authorUsername;
+                              const showSenderName = !isMe && !isSameAuthor;
+                              
+                              return (
+                                <div 
+                                  key={c.id} 
+                                  className={cn(
+                                    "flex flex-col group",
+                                    isMe ? "items-end" : "items-start",
+                                    !isSameAuthor && idx !== 0 ? "mt-4" : "mt-0"
                                   )}
-                                </div>
-                                <div className="text-[14px] leading-relaxed text-foreground/90 whitespace-pre-wrap break-words">
-                                  {renderMessageWithMentions(c.message)}
-                                </div>
-                                {/* Comment Attachments inline feed */}
-                                {c.attachments && c.attachments.length > 0 && (
-                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 pt-2">
-                                    {c.attachments.map((att, attIdx) => (
-                                      <div key={attIdx} className="relative rounded-lg overflow-hidden border border-border/50 bg-background shadow-xs group/att">
-                                        <CommentAttachmentImg taskId={selectedTask.id} commentId={c.id} index={attIdx} mimeType={att.mimeType} fileName={att.fileName} fallbackUrl={att.url} />
-                                        <div className="p-1.5 text-[10px] text-center font-medium text-muted-foreground truncate border-t bg-muted/10">{att.fileName}</div>
+                                >
+                                  {showSenderName && (
+                                    <span className="chat-sender-name ml-10">
+                                      {c.authorFullName || c.authorUsername}
+                                    </span>
+                                  )}
+                                  
+                                  <div className={cn(
+                                    "flex items-end gap-2 max-w-[85%] w-fit",
+                                    isMe ? "flex-row-reverse" : "flex-row"
+                                  )}>
+                                    {!isMe && (
+                                      <div className="w-8 flex-shrink-0">
+                                        {!isSameAuthor ? (
+                                          <Avatar className="w-8 h-8 border shadow-sm flex-shrink-0 mb-1">
+                                            {c.authorAvatar ? (
+                                              <img src={c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
+                                            ) : (
+                                              <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                                                {(c.authorFullName || c.authorUsername).substring(0, 2).toUpperCase()}
+                                              </AvatarFallback>
+                                            )}
+                                          </Avatar>
+                                        ) : null}
                                       </div>
-                                    ))}
+                                    )}
+                                    
+                                    <div className={cn(
+                                      "flex flex-col group/bubble relative min-w-0",
+                                      isMe ? "items-end" : "items-start"
+                                    )}>
+                                      <div className={cn(
+                                        "chat-bubble",
+                                        isMe ? "chat-bubble-me" : "chat-bubble-others"
+                                      )}>
+                                        <div className="whitespace-pre-wrap break-words overflow-hidden leading-snug">
+                                          {renderMessageWithMentions(c.message)}
+                                        </div>
+                                        
+                                        {c.attachments && c.attachments.length > 0 && (
+                                          <div className={cn(
+                                            "grid gap-2 mt-2",
+                                            c.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"
+                                          )}>
+                                            {c.attachments.map((att, attIdx) => (
+                                              <div key={attIdx} className="relative rounded-xl overflow-hidden border border-white/20 bg-black/10 min-w-[120px] max-w-full aspect-square sm:aspect-video">
+                                                <CommentAttachmentImg 
+                                                  taskId={selectedTask.id} 
+                                                  commentId={c.id} 
+                                                  index={attIdx} 
+                                                  mimeType={att.mimeType} 
+                                                  fileName={att.fileName} 
+                                                  fallbackUrl={att.url} 
+                                                />
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                      
+                                      <div className={cn(
+                                        "chat-timestamp",
+                                        isMe ? "text-right mr-1" : "text-left ml-1"
+                                      )}>
+                                        {formatMessageTime(c.createdAt)}
+                                      </div>
+                                    </div>
+                                    
+                                    {isMe && (
+                                      <div className="flex flex-col justify-end pb-5 opacity-40">
+                                        <CheckCircle2 className="w-3 h-3 text-blue-500" />
+                                      </div>
+                                    )}
+
+                                    {isAdminRole && (
+                                      <button 
+                                        type="button" 
+                                        onClick={() => void archiveComment(c.id)} 
+                                        disabled={archivingCommentId === c.id} 
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-0 -right-8 p-1 text-muted-foreground hover:text-destructive"
+                                        title="Archive"
+                                      >
+                                        {archivingCommentId === c.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}
+                                      </button>
+                                    )}
                                   </div>
-                                )}
+                                </div>
+                              );
+                            })}
+                            
+                            {othersTyping.length > 0 && (
+                              <div className="flex items-center gap-2 max-w-[85%] self-start pt-2">
+                                <div className="typing-indicator">
+                                  <div className="typing-dot" />
+                                  <div className="typing-dot" />
+                                  <div className="typing-dot" />
+                                </div>
+                                <span className="text-[10px] text-muted-foreground/60 italic font-medium">
+                                  {othersTyping.join(", ")} {othersTyping.length === 1 ? "is" : "are"} typing...
+                                </span>
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
 
                     {/* Composer Box */}
@@ -2329,7 +2441,7 @@ export default function Tasks() {
                       )}
                       <textarea
                         value={commentDraft}
-                        onChange={(e) => setCommentDraft(e.target.value)}
+                        onChange={handleTypingIndicator}
                         placeholder="Write a comment... (Type @ to mention)"
                         className="w-full min-h-[90px] max-h-[300px] border-0 focus:ring-0 resize-y p-4 text-[14px] bg-transparent outline-none placeholder-muted-foreground/60 font-medium"
                         onKeyDown={(e) => {

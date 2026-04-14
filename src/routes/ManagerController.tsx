@@ -22,6 +22,7 @@ const OnboardingMonitoring = lazy(() => import("@/pages/manger/OnboardingMonitor
 const Reports = lazy(() => import("@/pages/manger/Reports"));
 const FounderMessages = lazy(() => import("@/pages/manger/FounderMessages"));
 const NotFound = lazy(() => import("@/pages/manger/NotFound"));
+const PersonalNotes = lazy(() => import("@/pages/manger/PersonalNotes"));
 const SignaCore = lazy(() => import("@/pages/admin/SignaCore"));
 const UphMaintenance = lazy(() => import("@/pages/admin/UphMaintenance"));
 
@@ -65,6 +66,7 @@ export default function ManagerController() {
       { path: "messages", element: <Messages /> },
       { path: "notifications", element: <Notifications /> },
       { path: "settings", element: <Settings /> },
+      { path: "personal-notes", element: <PersonalNotes /> },
       { path: "*", element: <NotFound /> },
     ],
     [],

@@ -15,7 +15,8 @@ export type CrudResource =
   | "time-entries"
   | "onboarding"
   | "do-not-hire"
-  | "companies";
+  | "companies"
+  | "notes";
 
 type ListResponse<T> = { items?: T[] } | T[];
 

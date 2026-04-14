@@ -516,24 +516,17 @@ export function MainLayout({ children }: MainLayoutProps) {
               </Sheet>
             </div>
 
-            {/* CENTER LOGO */}
-            <div className="flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center pointer-events-auto z-10" style={{ height: '70%', minHeight: '32px' }}>
-              <div className="relative h-full flex items-center">
+            {/* CENTER LOGO REMOVED PER REQUEST */}
+
+            {/* RIGHT SIDE: Task Manager Logo Circle */}
+            <div className="flex items-center sm:items-end sm:pb-2 z-20 pointer-events-auto" style={{ height: '60%', minHeight: '32px' }}>
+              <div className="aspect-square h-full rounded-full border-2 border-white/80 overflow-hidden bg-white shadow-2xl transition-all duration-300 hover:scale-110">
                 <img
                   src="/logo.jpeg"
-                  alt="TaskManager by Reardon"
-                  className="w-auto h-full max-w-[100px] sm:max-w-[190px] md:max-w-[280px] lg:max-w-[380px] object-contain transition-all duration-300 rounded-md shadow-md"
+                  alt="Task Manager logo"
+                  className="w-full h-full object-cover"
                 />
               </div>
-            </div>
-
-            {/* RIGHT SIDE: SE7EN Logo */}
-            <div className="flex items-center sm:items-end sm:pb-2 z-20 pointer-events-auto" style={{ height: '60%', minHeight: '32px' }}>
-              <img
-                src="/seven logo.png"
-                alt="SE7EN Inc. logo"
-                className="w-auto h-full max-w-[60px] sm:max-w-[180px] md:max-w-[250px] object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)] transition-all duration-300"
-              />
             </div>
           </div>
         </div>
@@ -616,11 +609,6 @@ export function MainLayout({ children }: MainLayoutProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Founder Message Bar - Full width above content, higher z-index than sidebar */}
-      <div className="fixed left-0 right-0 z-50 md:left-56 lg:left-62" style={{ top: `${headerHeight}px` }}>
-        <FounderMessageBar />
-      </div>
-
       {/* Body: left icon rail + content */}
       <div className="flex">
         <div className="hidden md:block">
@@ -628,8 +616,11 @@ export function MainLayout({ children }: MainLayoutProps) {
         </div>
         <main 
           className="flex-1 min-h-screen md:ml-56 lg:ml-62"
-          style={{ paddingTop: `${headerHeight + 20}px` }}
+          style={{ paddingTop: `${headerHeight}px` }}
         >
+          <div className="sticky z-30" style={{ top: `${headerHeight}px` }}>
+            <FounderMessageBar />
+          </div>
           <div className="w-full px-4 py-4 sm:py-8 animate-fade-in">
             {children}
           </div>

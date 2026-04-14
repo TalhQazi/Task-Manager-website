@@ -172,23 +172,16 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
           className="relative flex items-center justify-between px-3 sm:px-6 lg:px-10 py-2 md:py-4 animate-fade-in h-full md:pl-20 lg:pl-24"
         >
           <div className="flex items-center z-10" style={{ height: '75%', minHeight: '32px' }}>
-            <img
-              src="/seven logo.png"
-              alt="SE7EN Inc. logo"
-              className="h-full w-auto max-w-[60px] sm:max-w-[200px] md:max-w-[300px] object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)]"
-            />
-          </div>
-
-          <div className="flex absolute left-1/2 -translate-x-1/2 items-center" style={{ height: '70%', minHeight: '32px' }}>
-            <div className="relative h-full flex items-center">
-              <div className="absolute inset-0 -z-10 blur-2xl bg-blue-400/30 scale-110 rounded-full" />
+            <div className="aspect-square h-full rounded-full border-2 border-white/80 overflow-hidden bg-white shadow-2xl transition-all duration-300 hover:scale-110">
               <img
-                src="/clock2.png"
-                alt="TaskManager by Reardon"
-                className="h-full w-auto max-w-[100px] sm:max-w-[190px] md:max-w-[280px] lg:max-w-[380px] object-contain mix-blend-screen opacity-95 [mask-image:radial-gradient(closest-side,black_79%,transparent_100%)]"
+                src="/logo.jpeg"
+                alt="Task Manager logo"
+                className="w-full h-full object-cover"
               />
             </div>
           </div>
+
+          {/* CENTER BRANDING REMOVED FOR CLEANLINESS */}
 
           <div className="flex items-center gap-2 sm:gap-3 text-white z-10">
             <DropdownMenu>

@@ -29,6 +29,7 @@ import {
   Layers,
   ChevronDown,
   ChevronRight,
+  FileText,
 } from "lucide-react";
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -76,6 +77,7 @@ const navItemsBase: NavItem[] = [
   { icon: Database, label: "Imported Asana Data", path: "/admin/asana-data" },
   { icon: Archive, label: "Archive Data", path: "/admin/archive-data" },
   { icon: Quote, label: "Founder Messages", path: "/admin/founder-messages" },
+  { icon: FileText, label: "Personal Notes", path: "/admin/personal-notes" },
   {
     label: "SignaCore",
     path: "/admin/contracts",
