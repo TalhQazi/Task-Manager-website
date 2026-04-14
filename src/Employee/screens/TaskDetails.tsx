@@ -555,7 +555,6 @@ export default function EmployeeTaskDetails() {
                       </span>
                     </div>
                   )}
-                  )}
                 </div>
               )}
             </div>
