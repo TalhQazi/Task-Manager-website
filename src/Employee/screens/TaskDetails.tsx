@@ -52,7 +52,10 @@ interface TaskCommentItem {
   message: string;
   authorUsername: string;
   authorRole: string;
+  authorFullName?: string;
+  authorAvatar?: string;
   createdAt: string;
+  attachments?: Array<{ fileName: string; url: string; mimeType: string }>;
 }
 
 function formatMessageTime(dateString: string) {
@@ -512,7 +515,7 @@ export default function EmployeeTaskDetails() {
                                   {c.attachments.map((att, attIdx) => (
                                     <div key={attIdx} className="relative rounded-xl overflow-hidden border border-white/20 bg-black/5 group/att min-w-[140px] max-w-[240px]">
                                       <CommentAttachmentImg 
-                                        taskId={taskId!} 
+                                        taskId={taskId || task?.id || ""} 
                                         commentId={c.id} 
                                         index={attIdx} 
                                         mimeType={att.mimeType} 
