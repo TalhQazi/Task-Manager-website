@@ -2204,7 +2204,8 @@ export default function Tasks() {
                                 {comments.map((c, idx) => {
                                   const isMe = c.authorUsername === currentUsername;
                                   const prevComment = idx > 0 ? comments[idx - 1] : null;
-                                  const showSenderName = !isMe && prevComment?.authorUsername !== c.authorUsername;
+                                  const isSameAuthor = prevComment?.authorUsername === c.authorUsername;
+                                  const showSenderName = !isMe && !isSameAuthor;
                                   
                                   return (
                                     <div 
