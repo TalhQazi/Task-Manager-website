@@ -579,11 +579,11 @@ export default function Tasks() {
       });
     };
 
-    socket.on("user-typing", handleTyping);
+    socket.on("typing", handleTyping);
 
     return () => {
       socket.off("new-comment", handleNewComment);
-      socket.off("user-typing", handleTyping);
+      socket.off("typing", handleTyping);
       leaveTask(selectedTask.id);
     };
   }, [socket, selectedTask?.id]);

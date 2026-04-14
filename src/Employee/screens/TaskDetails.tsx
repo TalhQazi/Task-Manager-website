@@ -268,11 +268,11 @@ export default function EmployeeTaskDetails() {
     };
 
     socket.on("new-comment", handleNewComment);
-    socket.on("user-typing", handleTyping);
+    socket.on("typing", handleTyping);
 
     return () => {
       socket.off("new-comment", handleNewComment);
-      socket.off("user-typing", handleTyping);
+      socket.off("typing", handleTyping);
       leaveTask(taskId);
     };
   }, [socket, taskId, currentUsername]);
@@ -283,13 +283,13 @@ export default function EmployeeTaskDetails() {
 
     if (!isTyping) {
       setIsTyping(true);
-      socket.emit("typing", { taskId, typing: true });
+      socket.emit("typing", { taskId, username: currentUsername, typing: true });
     }
 
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     typingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false);
-      socket.emit("typing", { taskId, typing: false });
+      socket.emit("typing", { taskId, username: currentUsername, typing: false });
     }, 3000);
   };
 
@@ -319,7 +319,8 @@ export default function EmployeeTaskDetails() {
   const onSendComment = async () => {
     if (!taskId) return;
     const msg = commentDraft.trim();
-    if (!msg) return;
+    // Allow empty message if there's no trim or if we add attachments later
+    if (!msg && !commentDraft) return; 
 
     setCommentSending(true);
     try {

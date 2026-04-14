@@ -11,9 +11,16 @@ export async function employeeApiFetch<T>(
     ...((options.headers as Record<string, string>) || {}),
   };
 
-  const token = localStorage.getItem("token");
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
+  const authRaw = localStorage.getItem("employee_auth");
+  if (authRaw) {
+    try {
+      const auth = JSON.parse(authRaw);
+      if (auth.token) {
+        headers["Authorization"] = `Bearer ${auth.token}`;
+      }
+    } catch (e) {
+      console.error("Failed to parse employee_auth", e);
+    }
   }
 
   const response = await fetch(url, {
