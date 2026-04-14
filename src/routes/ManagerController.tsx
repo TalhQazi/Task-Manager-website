@@ -24,6 +24,7 @@ const FounderMessages = lazy(() => import("@/pages/manger/FounderMessages"));
 const NotFound = lazy(() => import("@/pages/manger/NotFound"));
 const PersonalNotes = lazy(() => import("@/pages/manger/PersonalNotes"));
 const SignaCore = lazy(() => import("@/pages/admin/SignaCore"));
+const UphMaintenance = lazy(() => import("@/pages/admin/UphMaintenance"));
 
 function PageLoader() {
   return (
@@ -47,6 +48,7 @@ export default function ManagerController() {
   const routes = useMemo(
     () => [
       { path: "contracts", element: <SignaCore /> },
+      { path: "uph-maintenance", element: <UphMaintenance /> },
       { index: true, element: <Dashboard /> },
       { path: "tasks", element: <Tasks /> },
       { path: "employees", element: <Employees /> },

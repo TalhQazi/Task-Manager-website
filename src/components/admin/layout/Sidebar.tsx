@@ -89,6 +89,17 @@ const navItemsBase: NavItem[] = [
       />
     ),
   },
+  {
+    label: "Ultimate Property Holdings",
+    path: "/admin/uph-maintenance",
+    customIcon: (
+      <img
+        src="/uph.jpeg"
+        alt="UPH"
+        className="h-6 w-6 flex-shrink-0 rounded-md object-cover opacity-85 group-hover:opacity-100 transition-opacity"
+      />
+    ),
+  },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
 ];
 
@@ -247,6 +258,12 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
               <span className="text-sm font-bold truncate">
                 <span className="text-[#38bdf8]">Signa</span>
                 <span className="text-[#f97316]">Core</span>
+              </span>
+            ) : item.label === "UPH" ? (
+              <span className="text-sm font-black truncate tracking-tight">
+                <span className="text-[#5898B8]">U</span>
+                <span className="text-[#68B0D0]">P</span>
+                <span className="text-[#80B8D8]">H</span>
               </span>
             ) : (
               <span className="font-medium truncate">{item.label}</span>
