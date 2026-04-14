@@ -324,25 +324,28 @@ export function MainLayout({ children }: MainLayoutProps) {
               )}
             </>
           )}
-          
-          {/* Content - with left padding for sidebar on desktop */}
-          <div
-            className="relative flex items-center justify-between px-3 sm:px-6 lg:px-10 py-2 md:py-4 animate-fade-in h-full md:pl-20 lg:pl-24"
-          >
-            {/* LEFT SIDE: icons/profile */}
-            <div className="flex items-center gap-2 sm:gap-3 text-white z-30 relative pointer-events-auto mr-auto">
-              {/* Task Manager Logo Circle on Left */}
-              <div className="flex items-center h-9 w-9 sm:h-12 sm:w-12 z-20 pointer-events-auto mr-1 sm:mr-2">
-                <div className="aspect-square h-full rounded-full border-2 border-white/80 overflow-hidden bg-white shadow-xl transition-all duration-300 hover:scale-110">
+            </>
+          )}
+
+          <div className="absolute inset-0 flex flex-col pointer-events-none">
+            {/* Header Content Area */}
+            <div 
+              className="flex-1 relative flex items-start justify-between px-3 sm:px-6 lg:px-10 pt-4 sm:pt-6 md:pt-10 animate-fade-in md:pl-20 lg:pl-24"
+            >
+              {/* LEFT SIDE: Branding and Profile Stacking */}
+              <div className="flex flex-col gap-4 text-white z-30 relative pointer-events-auto mr-auto">
+                {/* Task Manager Logo (Complete, not in circle) */}
+                <div className="flex items-center h-12 w-auto sm:h-20 z-20 transition-all duration-300 hover:scale-105">
                   <img
                     src="/task.png"
                     alt="Task Manager logo"
-                    className="w-full h-full object-cover"
+                    className="h-full w-auto object-contain rounded-lg shadow-2xl bg-white/5 p-1"
                   />
                 </div>
-              </div>
 
-              <Button
+                {/* Profile and Icons Row */}
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                  <Button
                 type="button"
                 variant="ghost"
                 size="icon"
@@ -527,8 +530,12 @@ export function MainLayout({ children }: MainLayoutProps) {
               </Sheet>
             </div>
 
-            {/* CENTER LOGO REMOVED PER REQUEST */}
+            </div>
+          </div>
 
+          {/* Founder Message Bar at the very bottom of the fixed header */}
+          <div className="mt-auto pointer-events-auto w-full z-40 bg-metallic-gold/90 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
+            <FounderMessageBar />
           </div>
         </div>
       </header>
@@ -619,9 +626,6 @@ export function MainLayout({ children }: MainLayoutProps) {
           className="flex-1 min-h-screen md:ml-56 lg:ml-64"
           style={{ paddingTop: `${headerHeight}px` }}
         >
-          <div className="sticky z-30 mb-6" style={{ top: `${headerHeight}px` }}>
-            <FounderMessageBar />
-          </div>
           <div className="w-full px-4 py-4 sm:py-8 animate-fade-in">
             {children}
           </div>

@@ -49,9 +49,6 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </div>
 
           <main className={cn("flex-1 px-4 sm:px-6 lg:px-8 py-6 transition-all duration-300 min-w-0 w-full min-h-[calc(100vh-var(--header-height,250px))] flex flex-col", "md:ml-56")}>
-            <div className="sticky z-30 mb-6" style={{ top: `${headerHeight}px` }}>
-              <FounderMessageBar />
-            </div>
             <div key={pageKey} className="w-full max-w-[1600px] mx-auto animate-page-enter flex-1 flex flex-col">
               {children}
             </div>

@@ -678,23 +678,25 @@ export function Header({ onMenuClick }: HeaderProps) {
             </button>
           </>
         )}
-        <div 
-          className="relative flex h-full items-start sm:items-center justify-between px-3 sm:px-6 lg:px-10 py-3 md:py-4 animate-fade-in pointer-events-none"
-        >
-          {/* LEFT SIDE: Profile Menu Swap */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-white z-30 relative pointer-events-auto max-w-[70%] sm:max-w-none mr-auto">
-            {/* Task Manager Logo Circle on Left */}
-            <div className="flex items-center h-9 w-9 sm:h-12 sm:w-12 z-20 pointer-events-auto mr-1 sm:mr-2">
-              <div className="aspect-square h-full rounded-full border-2 border-white/80 overflow-hidden bg-white shadow-xl transition-all duration-300 hover:scale-110">
+        <div className="absolute inset-0 flex flex-col pointer-events-none">
+          {/* Header Content Area */}
+          <div 
+            className="flex-1 relative flex items-start justify-between px-3 sm:px-6 lg:px-10 pt-4 sm:pt-6 md:pt-10 animate-fade-in"
+          >
+            {/* LEFT SIDE: Branding and Profile Stacking */}
+            <div className="flex flex-col gap-4 text-white z-30 relative pointer-events-auto">
+              {/* Task Manager Logo (Complete, not in circle) */}
+              <div className="flex items-center h-12 w-auto sm:h-20 z-20 transition-all duration-300 hover:scale-105">
                 <img
                   src="/task.png"
                   alt="Task Manager logo"
-                  className="w-full h-full object-cover"
+                  className="h-full w-auto object-contain rounded-lg shadow-2xl bg-white/5 p-1"
                 />
               </div>
-            </div>
 
-            <button
+              {/* Profile and Icons Row */}
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                <button
               type="button"
               className="group inline-flex md:hidden h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/[0.14] hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear mr-2"
               aria-label="Open navigation"
@@ -856,9 +858,11 @@ export function Header({ onMenuClick }: HeaderProps) {
               <Bug className="h-3.5 w-3.5 sm:h-4 sm:w-4 group-hover:brightness-[108%] transition-all duration-100 linear" />
             </Button>
           </div>
+        </div>
 
-          {/* CENTER LOGO REMOVED PER REQUEST */}
-
+        {/* Founder Message Bar at the very bottom of the fixed header */}
+        <div className="mt-auto pointer-events-auto w-full z-40 bg-metallic-gold/90 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
+          <FounderMessageBar />
         </div>
       </div>
 
