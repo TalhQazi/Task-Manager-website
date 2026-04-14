@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink } from "@/components/admin/NavLink";
-import { LayoutDashboard, ClipboardList, Calendar, UserCircle, Bell, LogOut, Clock, MessageCircle } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Calendar, UserCircle, Bell, LogOut, Clock, MessageCircle, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { clearEmployeeAuth } from "@/Employee/lib/auth";
@@ -14,6 +14,7 @@ const navItemsBase = [
   { icon: MessageCircle, label: "Messages", path: "/employee/messages" },
   { icon: UserCircle, label: "Profile", path: "/employee/profile" },
   { icon: Bell, label: "Notifications", path: "/employee/notifications" },
+  { icon: FileText, label: "My Notes", path: "/employee/personal-notes" },
 ];
 
 type SidebarMode = "desktop" | "mobile";

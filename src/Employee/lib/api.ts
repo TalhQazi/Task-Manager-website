@@ -220,3 +220,28 @@ export async function markMessagesAsRead(sender: string, recipient: string) {
     body: JSON.stringify({ sender, recipient }),
   });
 }
+
+// Personal Notes API
+export async function getPersonalNotes() {
+  return employeeApiFetch<{ items: Array<{ id: string; title: string; content: string; color: string; isPinned: boolean; updatedAt: string }> }>("/api/notes");
+}
+
+export async function createPersonalNote(payload: { title: string; content: string; color?: string; isPinned?: boolean }) {
+  return employeeApiFetch<{ item: any }>("/api/notes", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updatePersonalNote(id: string, payload: any) {
+  return employeeApiFetch<{ item: any }>(`/api/notes/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function deletePersonalNote(id: string) {
+  return employeeApiFetch<{ success: boolean }>(`/api/notes/${encodeURIComponent(id)}`, {
+    method: "DELETE"
+  });
+}
