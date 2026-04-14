@@ -81,7 +81,15 @@ import {
   Trash2,
   Loader2,
   X,
+  MessageSquare,
+  RefreshCw,
+  TrendingUp,
+  PlusCircle,
+  Paperclip,
+  Layers,
 } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { io, Socket } from "socket.io-client";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch, downloadTaskAttachment } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
@@ -161,8 +169,16 @@ type TaskComment = {
   taskId: string;
   message: string;
   authorUsername: string;
+  authorFullName?: string;
   authorRole?: string;
   createdAt: string;
+  attachments?: Array<{
+    fileName: string;
+    url: string;
+    mimeType: string;
+    size: number;
+    uploadedAt?: string;
+  }>;
 };
 
 type TaskApi = Omit<Task, "id"> & {
@@ -232,17 +248,98 @@ function normalizeTask(t: TaskApi): Task {
   };
 }
 
-function ProjectLogoImg({ projectId, projectName }: { projectId: string; projectName: string }) {
-  const [src, setSrc] = useState<string | null | undefined>(undefined);
+function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
+  const [src, setSrc] = useState<string | null | undefined>(logoUrl !== undefined ? (logoUrl || null) : undefined);
+  const [error, setError] = useState(false);
+
   useEffect(() => {
+    if (logoUrl) {
+      setSrc(logoUrl);
+      setError(false);
+      return;
+    }
     let cancelled = false;
     apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
-      .then(d => { if (!cancelled) setSrc(d.logo?.url || null); })
-      .catch(() => { if (!cancelled) setSrc(null); });
+      .then(d => { 
+        if (!cancelled) {
+          setSrc(d.logo?.url || null);
+          setError(false);
+        }
+      })
+      .catch(() => { 
+        if (!cancelled) {
+          setSrc(null);
+          setError(true);
+        }
+      });
     return () => { cancelled = true; };
-  }, [projectId]);
-  if (src) return <img src={src} alt={`${projectName} logo`} className="w-10 h-10 rounded-md object-cover flex-shrink-0" />;
-  return <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>;
+  }, [projectId, logoUrl]);
+
+  if (src && !error) {
+    return (
+      <img 
+        src={src} 
+        alt={`${projectName} logo`} 
+        className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-border" 
+        onError={() => setError(true)}
+      />
+    );
+  }
+
+  if (src === undefined && logoUrl === undefined) {
+    return <div className="w-10 h-10 rounded-md bg-muted/40 animate-pulse flex-shrink-0" />;
+  }
+
+  return (
+    <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary flex-shrink-0 border border-primary/20 uppercase">
+      {projectName.slice(0, 2).toUpperCase()}
+    </div>
+  );
+}
+
+function TaskAttachmentImg({ taskId, index, mimeType, fileName, fallbackUrl }: { taskId: string; index: number; mimeType?: string; fileName?: string; fallbackUrl?: string }) {
+  const [src, setSrc] = useState<string | null>(fallbackUrl || null);
+  useEffect(() => {
+    if (fallbackUrl) return;
+    apiFetch<{ url: string }>(`/api/tasks/${taskId}/attachments/${index}`)
+      .then(d => setSrc(d.url))
+      .catch(() => setSrc(null));
+  }, [taskId, index, fallbackUrl]);
+  if (mimeType?.startsWith("image/") && src) return <img src={src} alt={fileName} className="w-full h-24 object-cover" />;
+  return <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>;
+}
+
+function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fallbackUrl }: { taskId: string; commentId: string; index: number; mimeType?: string; fileName?: string; fallbackUrl?: string }) {
+  const [src, setSrc] = useState<string | null>(fallbackUrl || null);
+  useEffect(() => {
+    if (fallbackUrl) return;
+    apiFetch<{ url: string }>(`/api/tasks/${taskId}/comments/${commentId}/attachments/${index}`)
+      .then(d => setSrc(d.url))
+      .catch(() => setSrc(null));
+  }, [taskId, commentId, index, fallbackUrl]);
+  if (mimeType?.startsWith("image/") && src) return <img src={src} alt={fileName} className="w-full h-24 object-cover" />;
+  return <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>;
+}
+
+function formatMessageTime(date: string | Date) {
+  try {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return "Now";
+    return formatDistanceToNow(d, { addSuffix: true });
+  } catch {
+    return "Now";
+  }
+}
+
+function renderMessageWithMentions(message: string) {
+  if (!message) return null;
+  const parts = message.split(/(@[a-zA-Z0-9 ]+)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("@")) {
+      return <span key={i} className="text-primary font-bold bg-primary/10 px-1 rounded">{part}</span>;
+    }
+    return part;
+  });
 }
 
 async function filesToAttachments(files: File[]) {
@@ -337,6 +434,13 @@ export default function Tasks() {
   const queryClient = useQueryClient();
 
   const currentUsername = getAuthState().username || "";
+  const [projectComments, setProjectComments] = useState<any[]>([]);
+  const [projectCommentsLoading, setProjectCommentsLoading] = useState(false);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  const [commentAttachments, setCommentAttachments] = useState<File[]>([]);
+  const [isSendingComment, setIsSendingComment] = useState(false);
+  const [isViewProjectOpen, setIsViewProjectOpen] = useState(false);
+  const chatContainerRef = useMemo(() => ({ current: null as HTMLDivElement | null }), []);
 
   // Fetch tasks with server-side pagination
   const tasksQuery = useQuery({
@@ -379,7 +483,7 @@ export default function Tasks() {
   });
 
   // Reset pages when filters change
-  useEffect(() => { setTaskPage(1); }, [searchQuery, statusFilter, priorityFilter]);
+  useEffect(() => { setTaskPage(1); }, [searchQuery, statusFilter, priorityFilter, selectedProject?.id]);
   useEffect(() => { setProjectPage(1); }, [searchQuery]);
 
   useEffect(() => {
@@ -525,10 +629,10 @@ export default function Tasks() {
       });
       return res;
     },
-    onSuccess: async () => {
+    onSuccess: async (_, variables) => {
       await queryClient.invalidateQueries({ queryKey: ["projects"] });
-      if (selectedProject) {
-        setSelectedProject({ ...selectedProject, status: selectedProject.status });
+      if (selectedProject && selectedProject.id === variables.projectId) {
+        setSelectedProject({ ...selectedProject, status: variables.status });
       }
     },
   });
@@ -830,23 +934,114 @@ export default function Tasks() {
     }
   };
 
-  const sendComment = async () => {
-    if (!selectedTask) return;
-    const msg = commentDraft.trim();
-    if (!msg) return;
-
+  const loadProjectComments = async (projectId: string) => {
     try {
+      setProjectCommentsLoading(true);
       setCommentError(null);
-      const res = await apiFetch<{ item: TaskComment }>(`/api/tasks/${encodeURIComponent(selectedTask.id)}/comments`, {
-        method: "POST",
-        body: JSON.stringify({ message: msg }),
-      });
-      setComments((prev) => [...prev, res.item]);
-      setCommentDraft("");
-    } catch (e) {
-      setCommentError(e instanceof Error ? e.message : "Failed to send message");
+      const res = await apiFetch<{ items: any[] }>(`/api/projects/${encodeURIComponent(projectId)}/comments`);
+      setProjectComments(Array.isArray(res.items) ? res.items : []);
+      setIsViewProjectOpen(true);
+    } catch (err) {
+      setCommentError("Failed to load project activity");
+    } finally {
+      setProjectCommentsLoading(false);
     }
   };
+
+  const sendComment = async (isProject = false) => {
+    const id = isProject ? selectedProject?.id : selectedTask?.id;
+    if (!id) return;
+
+    const msg = commentDraft.trim();
+    if (!msg && commentAttachments.length === 0) return;
+
+    try {
+      setIsSendingComment(true);
+      setCommentError(null);
+
+      const endpoint = isProject
+        ? `/api/projects/${encodeURIComponent(id)}/comments`
+        : `/api/tasks/${encodeURIComponent(id)}/comments`;
+
+      const processedAttachments = await Promise.all(
+        commentAttachments.map(
+          (file) =>
+            new Promise<{ fileName: string; mimeType: string; size: number; url: string }>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => {
+                resolve({
+                  fileName: file.name,
+                  mimeType: file.type,
+                  size: file.size,
+                  url: reader.result as string,
+                });
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            })
+        )
+      );
+
+      const res = await apiFetch<any>(endpoint, {
+        method: "POST",
+        body: JSON.stringify({ message: msg, attachments: processedAttachments }),
+      });
+
+      if (isProject) {
+        setProjectComments((prev) => [...prev, res.item]);
+      } else {
+        setComments((prev) => [...prev, res.item]);
+      }
+
+      setCommentDraft("");
+      setCommentAttachments([]);
+      
+      // Smooth scroll to bottom
+      setTimeout(() => {
+        if (chatContainerRef.current) {
+          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+      }, 100);
+
+    } catch (e) {
+      setCommentError(e instanceof Error ? e.message : "Failed to send message");
+    } finally {
+      setIsSendingComment(false);
+    }
+  };
+
+  // Socket.io for Real-time
+  useEffect(() => {
+    const token = getAuthState().token;
+    if (!token) return;
+
+    const socket: Socket = io(import.meta.env.VITE_API_BASE_URL || "https://api.task.se7eninc.com", {
+      auth: { token },
+      transports: ["websocket"],
+    });
+
+    socket.on("connect", () => console.log("✅ Socket connected:", socket.id));
+    
+    socket.on("new-comment", (data: { taskId: string; comment: any }) => {
+      if (selectedTask && data.taskId === selectedTask.id) {
+        setComments(prev => {
+          if (prev.find(c => c.id === data.comment.id)) return prev;
+          return [...prev, data.comment];
+        });
+      }
+    });
+
+    socket.on("new-project-comment", (data: { projectId: string; comment: any }) => {
+      if (selectedProject && data.projectId === selectedProject.id) {
+        setProjectComments(prev => {
+          if (prev.find(c => c.id === data.comment.id)) return prev;
+          return [...prev, data.comment];
+        });
+      }
+    });
+
+    return () => { socket.disconnect(); };
+  }, [selectedTask?.id, selectedProject?.id]);
 
   const updateStatus = async (next: Task["status"]) => {
     if (!selectedTask) return;
@@ -1089,17 +1284,20 @@ export default function Tasks() {
     : (tasksQuery.data?.totalPages || 1);
 
   return (
-    <div className="pl-6 space-y-6">
+    <div className="px-2 sm:px-4 lg:px-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="page-header mb-0">
           <h1 className="page-title">Task Management</h1>
           <p className="page-subtitle">Create, assign, and track all tasks</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {selectedProject ? (
             <>
-              <Button variant="outline" onClick={() => setSelectedProject(null)}>
+              <Button variant="outline" onClick={() => {
+                setSelectedProject(null);
+                setTaskPage(1);
+              }}>
                 Back to Projects
               </Button>
               <Button className="gap-2" onClick={() => setIsCreateTaskOpen(true)}>
@@ -1179,27 +1377,39 @@ export default function Tasks() {
               <p className="text-xs text-muted-foreground mt-1">{selectedProject.assignees && selectedProject.assignees.length > 0 ? selectedProject.assignees.map(resolveAssigneeName).join(", ") : "No assignees"}</p>
             </div>
           </div>
-          <div className="flex items-center justify-between text-xs text-muted-foreground mt-3">
-            <span>{selectedProject.tasks.length} tasks</span>
-            <Select value={selectedProject.status || "No status"} onValueChange={(value) => {
-              updateProjectStatusMutation.mutate({ projectId: selectedProject.id, status: value }, {
-                onSuccess: () => {
-                  setSelectedProject({...selectedProject, status: value});
-                }
-              });
-            }}>
-              <SelectTrigger className="w-[120px] h-8">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="No tasks">No tasks</SelectItem>
-                <SelectItem value="Pending">Pending</SelectItem>
-                <SelectItem value="In Progress">In Progress</SelectItem>
-                <SelectItem value="Completed">Completed</SelectItem>
-                <SelectItem value="Overdue">Overdue</SelectItem>
-              </SelectContent>
-            </Select>
-            <span>{selectedProject.createdAt ? new Date(selectedProject.createdAt).toLocaleDateString() : ""}</span>
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground mt-3">
+            <div className="flex items-center gap-3">
+               <span className="flex items-center gap-1"><Layers className="w-3.5 h-3.5" /> {(tasksQuery.data?.items.length ?? 0) > 0 ? tasksQuery.data?.items.length : (selectedProject.tasks?.length || 0)} tasks</span>
+               <Button 
+                 variant="outline" 
+                 size="sm" 
+                 className="h-7 text-[10px] font-black uppercase tracking-wider gap-1.5 hover:bg-primary/5 hover:text-primary transition-all rounded-full border-primary/20" 
+                 onClick={() => void loadProjectComments(selectedProject.id)}
+               >
+                 <TrendingUp className="w-3 h-3" /> Project activity
+               </Button>
+            </div>
+            <div className="flex items-center gap-3">
+              <Select value={selectedProject.status || "No status"} onValueChange={(value) => {
+                updateProjectStatusMutation.mutate({ projectId: selectedProject.id, status: value }, {
+                  onSuccess: () => {
+                    setSelectedProject({...selectedProject, status: value});
+                  }
+                });
+              }}>
+                <SelectTrigger className="w-[120px] h-8 font-bold text-[10px] uppercase">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent className="font-bold">
+                  <SelectItem value="No tasks">No tasks</SelectItem>
+                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="In Progress">In Progress</SelectItem>
+                  <SelectItem value="Completed">Completed</SelectItem>
+                  <SelectItem value="Overdue">Overdue</SelectItem>
+                </SelectContent>
+              </Select>
+              <span>{selectedProject.createdAt ? new Date(selectedProject.createdAt).toLocaleDateString() : ""}</span>
+            </div>
           </div>
         </div>
       ) : (
@@ -1230,7 +1440,7 @@ export default function Tasks() {
                     >
                       <div className="flex items-center gap-2 mb-2">
                         <span className="flex-shrink-0 text-xs font-bold text-muted-foreground w-5 text-right">{projectNumber}.</span>
-                        <ProjectLogoImg projectId={project.id} projectName={project.name} />
+                        <ProjectLogoImg projectId={project.id} projectName={project.name} logoUrl={project.logo?.url} />
                         <div className="min-w-0">
                           <p className="font-medium truncate">{project.name}</p>
                           <p className="text-xs text-muted-foreground truncate">{project.description || "No description"}</p>
@@ -1242,11 +1452,21 @@ export default function Tasks() {
                         <span className="ml-2 flex-shrink-0">{taskNum} task{taskNum === 1 ? "" : "s"}</span>
                       </div>
 
-                      <div className="flex items-center justify-between text-xs">
-                        <Badge className="capitalize" variant="outline">
+                      <div className="flex items-center justify-between text-xs mt-auto pt-2 border-t border-dashed border-border/40">
+                        <Badge className="capitalize font-black text-[9px] px-1.5 h-4" variant="outline">
                           {project.status || "No tasks"}
                         </Badge>
-                        <span className="text-muted-foreground">
+                        <button 
+                          onClick={(e) => { 
+                            e.stopPropagation(); 
+                            setSelectedProject({ ...project, tasks: [] });
+                            void loadProjectComments(project.id); 
+                          }} 
+                          className="text-primary font-black text-[9px] uppercase tracking-widest hover:underline flex items-center gap-1 bg-primary/5 px-2 py-0.5 rounded-full"
+                        >
+                           <MessageSquare className="w-2.5 h-2.5" /> Activity
+                        </button>
+                        <span className="text-[10px] text-muted-foreground/60 font-bold">
                           {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}
                         </span>
                       </div>
@@ -1735,359 +1955,412 @@ export default function Tasks() {
         </Dialog>
 
         <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-          <DialogContent className="w-[95vw] sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Task Details</DialogTitle>
-              <DialogDescription>View task information.</DialogDescription>
-            </DialogHeader>
-
-          {selectedTask && (
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <p className="font-semibold text-foreground">{selectedTask.title}</p>
-                <p className="text-sm text-muted-foreground">{selectedTask.description}</p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div className="space-y-1 sm:col-span-2">
-                  <p className="text-muted-foreground">Assignees</p>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedTask.assignees && selectedTask.assignees.length > 0 ? (
-                      selectedTask.assignees.map((assignee, idx) => {
-                        const displayName = resolveAssigneeName(assignee);
-                        return (
-                          <div key={idx} className="flex items-center gap-2 bg-muted/50 rounded-full px-3 py-1">
-                            <Avatar className="w-6 h-6">
-                              <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                {displayName.split(" ").map((n) => n[0]).join("").toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="text-foreground text-sm">{displayName}</span>
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <span className="text-foreground">Unassigned</span>
-                    )}
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-muted-foreground">Location</p>
-                  <p className="text-foreground">{selectedTask.location}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-muted-foreground">Priority</p>
-                  <p className="text-foreground capitalize">{selectedTask.priority}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-muted-foreground">Status</p>
-                  <Select
-                    value={selectedTask.status}
-                    onValueChange={(v) => {
-                      void updateStatus(v as Task["status"]);
-                    }}
-                    disabled={statusSaving}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="in-progress">In Progress</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="overdue">Overdue</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-muted-foreground">Due Date</p>
-                  <p className="text-foreground">{new Date(selectedTask.dueDate).toLocaleDateString()}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-muted-foreground">Created</p>
-                  <p className="text-foreground">{new Date(selectedTask.createdAt).toLocaleDateString()}</p>
-                </div>
-              </div>
-
-              {/* Project Attachments Section */}
-              {selectedProject && selectedProject.attachments && selectedProject.attachments.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-muted-foreground text-sm">Project Attachments</p>
-                  <div className="border border-border rounded-md p-2 bg-muted/10 max-h-[200px] overflow-y-auto">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                      {selectedProject.attachments.map((attachment, index) => (
-                        <div key={index} className="relative group">
-                          <div className="w-full aspect-square bg-muted/20 rounded border border-border overflow-hidden flex items-center justify-center">
-                            {attachment.mimeType?.startsWith("image/") ? (
-                              <img
-                                src={attachment.url}
-                                alt={attachment.fileName || `Project Attachment ${index + 1}`}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <FileText className="h-8 w-8 text-muted-foreground" />
-                            )}
-                          </div>
-                          {/* Hover overlay with download button */}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded flex items-center justify-center gap-2">
-                            <a
-                              href={attachment.url}
-                              download={attachment.fileName}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90"
-                              title={attachment.fileName || "Download"}
-                            >
-                              <Download className="h-3 w-3" />
-                            </a>
-                          </div>
-                        </div>
-                      ))}
+          <DialogContent className="w-[98vw] sm:max-w-[95vw] lg:max-w-[1100px] h-[90vh] p-0 overflow-hidden flex flex-col gap-0 border-none shadow-2xl">
+            {selectedTask && (
+              <>
+                <DialogHeader className="p-4 sm:p-6 border-b bg-card flex-shrink-0">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="outline" className={cn("text-[10px] h-5 uppercase tracking-wider font-extrabold px-2 shadow-sm rounded-full", priorityClasses[selectedTask.priority])}>
+                          {selectedTask.priority} Priority
+                        </Badge>
+                        <span className="text-[10px] text-muted-foreground font-semibold tracking-tight">• {selectedTask.id.slice(-6).toUpperCase()}</span>
+                      </div>
+                      <DialogTitle className="text-xl sm:text-2xl font-black truncate leading-tight tracking-tight text-foreground">{selectedTask.title}</DialogTitle>
                     </div>
+                    <Button variant="ghost" size="icon" onClick={() => setIsViewOpen(false)} className="rounded-full h-9 w-9 hover:bg-muted/80 transition-colors">
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
-                </div>
-              )}
+                </DialogHeader>
 
-              <div className="space-y-2">
-                <p className="text-muted-foreground text-sm">Task Attachments</p>
-                <div className="border border-border rounded-md p-2 bg-muted/10 max-h-[200px] overflow-y-auto">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {/* Handle new attachments array */}
-                    {selectedTask.attachments && selectedTask.attachments.length > 0 ? (
-                      selectedTask.attachments.map((attachment, index) => (
-                        <div key={index} className="relative group">
-                          <div className="w-full aspect-square bg-muted/20 rounded border border-border overflow-hidden flex items-center justify-center">
-                            {attachment.mimeType?.startsWith("image/") && attachment.url ? (
-                              <img
-                                src={attachment.url}
-                                alt={attachment.fileName || `Attachment ${index + 1}`}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <FileText className="h-8 w-8 text-muted-foreground" />
-                            )}
+                <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-background">
+                  <div className="flex-1 overflow-y-auto custom-scrollbar bg-background">
+                    <div className="p-4 sm:p-8 space-y-10 max-w-4xl mx-auto">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-muted-foreground/80">
+                          <FileText className="w-4 h-4" />
+                          <h4 className="text-[12px] font-bold uppercase tracking-widest">Description</h4>
+                        </div>
+                        <div className="bg-muted/10 border border-border/40 rounded-2xl p-5 sm:p-6 shadow-sm">
+                          <p className="text-[15px] leading-relaxed text-foreground/90 whitespace-pre-wrap font-medium">
+                            {selectedTask.description || <span className="text-muted-foreground/50 italic">No description provided.</span>}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Attachments Deck */}
+                      {(selectedTask.attachments?.length || selectedTask.attachment?.url || selectedProject?.attachments?.length) ? (
+                        <div className="space-y-5">
+                          <div className="flex items-center gap-2 text-muted-foreground/80">
+                            <Paperclip className="w-4 h-4" />
+                            <h4 className="text-[12px] font-bold uppercase tracking-widest">Shared Assets</h4>
                           </div>
-                          {/* Hover overlay with download button */}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded flex items-center justify-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => void downloadTaskAttachment(selectedTask.id, index, attachment.fileName || "download")}
-                              className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90"
-                              title={attachment.fileName || "Download"}
-                            >
-                              <Download className="h-3 w-3" />
-                            </button>
+                          
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {/* Task Specific Attachments */}
+                            {selectedTask.attachments?.map((att, idx) => (
+                              <div key={`task-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-border/60 bg-background shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1">
+                                <TaskAttachmentImg taskId={selectedTask.id} index={idx} mimeType={att.mimeType} fileName={att.fileName} fallbackUrl={att.url} />
+                                <div className="p-2.5 border-t text-[11px] font-bold truncate bg-card/50 backdrop-blur-sm text-muted-foreground">{att.fileName}</div>
+                                <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
+                                  <button onClick={() => void downloadTaskAttachment(selectedTask.id, idx, att.fileName)} className="bg-primary text-primary-foreground p-2 rounded-full shadow-lg hover:scale-110 transition-transform"><Download className="h-4 w-4" /></button>
+                                </div>
+                              </div>
+                            ))}
+
+                            {/* Project Attachments */}
+                            {selectedProject?.attachments?.map((att, idx) => (
+                              <div key={`proj-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-primary/20 bg-primary/5 shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1">
+                                <div className="absolute top-2 left-2 z-10"><Badge className="text-[8px] h-4 bg-primary text-white font-black border-none px-1.5 uppercase">Project</Badge></div>
+                                {(att.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(att.fileName || "")) && att.url ? (
+                                  <img src={att.url} alt={att.fileName} className="w-full h-24 object-cover" />
+                                ) : (
+                                  <div className="w-full h-24 flex items-center justify-center bg-muted/20"><FileText className="h-8 w-8 text-muted-foreground/40" /></div>
+                                )}
+                                <div className="p-2.5 border-t text-[11px] font-bold truncate bg-white/40 backdrop-blur-sm text-primary/70">{att.fileName}</div>
+                                <a href={att.url} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]"><Eye className="h-5 w-5 text-primary" /></a>
+                              </div>
+                            ))}
+                          </div>
+                          {selectedTask.attachmentNote && <p className="text-[11px] font-medium text-muted-foreground bg-muted/20 p-3 rounded-lg border border-dashed border-border/60 flex items-start gap-2"><AlertCircle className="w-3.5 h-3.5 mt-0.5" /> {selectedTask.attachmentNote}</p>}
+                        </div>
+                      ) : null}
+
+                      {/* Activity Feed */}
+                      <div className="pt-6 border-t border-border/60">
+                        <div className="flex items-center justify-between mb-6">
+                          <h4 className="text-[13px] font-bold text-foreground/70 uppercase tracking-widest flex items-center gap-2">
+                            <TrendingUp className="w-4 h-4 text-primary" /> Activity Feed
+                          </h4>
+                          <div className="flex items-center gap-3">
+                            <label className="text-[10px] font-bold text-muted-foreground/60 uppercase flex items-center gap-1.5 cursor-pointer">
+                              <input type="checkbox" checked={autoRefreshEnabled} onChange={(e) => setAutoRefreshEnabled(e.target.checked)} className="rounded border-border/60 text-primary focus:ring-primary" /> Auto Update
+                            </label>
+                            <Button type="button" variant="ghost" size="sm" onClick={() => { if (selectedTask) void loadComments(selectedTask.id); }} disabled={commentsLoading} className="h-8 px-3 text-[11px] font-bold gap-1.5 hover:bg-muted/80 rounded-full transition-all">
+                              <RefreshCw className={cn("w-3 h-3", commentsLoading && "animate-spin")} /> Refresh
+                            </Button>
                           </div>
                         </div>
-                      ))
-                    ) : selectedTask.attachment?.fileName ? (
-                      /* Handle legacy single attachment */
-                      <div className="relative group">
-                        <div className="w-full aspect-square bg-muted/20 rounded border border-border overflow-hidden flex items-center justify-center">
-                          {selectedTask.attachment.mimeType?.startsWith("image/") && selectedTask.attachment.url ? (
-                            <img
-                              src={selectedTask.attachment.url}
-                              alt={selectedTask.attachment.fileName || "Attachment"}
-                              className="w-full h-full object-cover"
-                            />
+
+                        <div className="space-y-8 lg:ml-4" ref={chatContainerRef}>
+                          {commentsLoading && comments.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center p-12 space-y-3"><Loader2 className="h-8 w-8 animate-spin text-primary/40" /><p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Loading discussions...</p></div>
+                          ) : comments.length === 0 ? (
+                            <div className="text-center p-12 border-2 border-dashed border-border/40 rounded-3xl bg-muted/5 flex flex-col items-center">
+                              <div className="w-14 h-14 bg-background rounded-full flex items-center justify-center shadow-inner mb-4 border border-border/50"><MessageSquare className="h-6 w-6 text-muted-foreground/30" /></div>
+                              <p className="text-sm font-bold text-foreground/60">No activity yet</p>
+                              <p className="text-[11px] text-muted-foreground/60 font-medium mt-1">Be the first to leave a comment or update</p>
+                            </div>
                           ) : (
-                            <FileText className="h-8 w-8 text-muted-foreground" />
+                            <div className="space-y-8 relative">
+                              <div className="absolute left-4.5 top-0 bottom-0 w-0.5 bg-gradient-to-b from-primary/10 via-primary/5 to-transparent"></div>
+                              {comments.map((c) => (
+                                <div key={c.id} className="flex gap-4 group relative">
+                                  <Avatar className="w-10 h-10 border-2 border-background shadow-md flex-shrink-0 z-10 overflow-hidden ring-4 ring-muted/10">
+                                    <AvatarFallback className="text-xs bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-black uppercase tracking-tighter">
+                                      {(c.authorFullName || c.authorUsername || "U").split(" ").map((n: string) => n ? n[0] : "").join("").toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1 space-y-2 min-w-0 bg-card p-4 rounded-2xl border border-border/60 ml-2 group-hover:border-primary/20 transition-all shadow-xs group-hover:shadow-md">
+                                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-black text-[13px] text-foreground tracking-tight">{c.authorFullName || c.authorUsername}</span>
+                                        {c.authorRole && <Badge variant="secondary" className="text-[9px] h-4 font-black bg-muted/50 text-muted-foreground uppercase px-1 border-none">{c.authorRole}</Badge>}
+                                        <span className="text-[10px] text-muted-foreground/60 font-bold uppercase tracking-tight">{formatMessageTime(c.createdAt)}</span>
+                                      </div>
+                                    </div>
+                                    <div className="text-[14px] leading-relaxed text-foreground/90 font-medium whitespace-pre-wrap break-words">
+                                      {renderMessageWithMentions(c.message)}
+                                    </div>
+                                    
+                                    {/* Comment Attachments */}
+                                    {c.attachments && c.attachments.length > 0 && (
+                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-3 border-t border-dashed border-border/50">
+                                        {c.attachments.map((att, attIdx) => (
+                                          <div key={attIdx} className="relative rounded-xl overflow-hidden border border-border/50 bg-background shadow-xs group/att aspect-square flex flex-col items-center justify-center bg-muted/5 cursor-pointer">
+                                            <CommentAttachmentImg taskId={selectedTask.id} commentId={c.id} index={attIdx} mimeType={att.mimeType} fileName={att.fileName} fallbackUrl={att.url} />
+                                            <div className="p-1 px-2 text-[9px] w-full text-center font-bold text-muted-foreground/70 truncate border-t bg-muted/10">{att.fileName}</div>
+                                            <a href={att.url || "#"} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]"><Download className="h-5 w-5 text-white" /></a>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
                           )}
                         </div>
-                        {/* Hover overlay with download button */}
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded flex items-center justify-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => void downloadTaskAttachment(selectedTask.id, -1, selectedTask.attachment!.fileName || "download")}
-                            className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary text-primary-foreground rounded hover:bg-primary/90"
-                            title={selectedTask.attachment.fileName || "Download"}
-                          >
-                            <Download className="h-3 w-3" />
-                          </button>
-                        </div>
-                      </div>
-                    ) : selectedTask.attachmentFileName ? (
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground col-span-2 sm:col-span-3">
-                        <FileText className="h-4 w-4" />
-                        <span className="break-words">{selectedTask.attachmentFileName}</span>
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground col-span-2 sm:col-span-3">—</p>
-                    )}
-                  </div>
-                </div>
-                {selectedTask.attachmentNote && (
-                  <p className="text-xs text-muted-foreground border-t pt-2">
-                    <span className="font-medium">Note:</span> {selectedTask.attachmentNote}
-                  </p>
-                )}
-              </div>
 
-              <div className="space-y-3">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium flex items-center gap-2">
-                    <span className="w-1 h-4 bg-primary rounded-full"></span>
-                    Messages
-                  </label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      if (!selectedTask) return;
-                      void loadComments(selectedTask.id);
-                    }}
-                    disabled={commentsLoading}
-                    className="h-8 px-3 text-xs gap-1"
-                  >
-                    <span className={`${commentsLoading ? 'animate-spin' : ''}`}>⟳</span>
-                    Refresh
-                  </Button>
-                </div>
-
-                {commentError ? (
-                  <div className="text-xs text-destructive bg-destructive/10 p-3 rounded-lg flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4" />
-                    {commentError}
-                  </div>
-                ) : null}
-
-                {/* Messages Container - WhatsApp Style */}
-                <div className="rounded-xl bg-[#e5ded7] dark:bg-[#0b141a] p-4 space-y-3 min-h-[300px]">
-                  {commentsLoading ? (
-                    <div className="flex justify-center items-center h-32">
-                      <div className="animate-spin rounded-full h-6 w-6 border-2 border-primary border-t-transparent"></div>
-                    </div>
-                  ) : comments.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-32 text-center">
-                      <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-2">
-                        <span className="text-lg">💬</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">No messages yet</p>
-                      <p className="text-xs text-muted-foreground/70 mt-1">Start the conversation</p>
-                    </div>
-                  ) : (
-                    comments.map((c, index) => {
-                      const isMine = !!currentUsername && c.authorUsername === currentUsername;
-                      return (
-                        <motion.div
-                          key={c.id}
-                          initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                          animate={{ opacity: 1, y: 0, scale: 1 }}
-                          transition={{ delay: index * 0.05 }}
-                          className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}
-                        >
-                          <div
-                            className={`
-                              max-w-[85%] relative group
-                              ${isMine 
-                                ? 'bg-[#bfdbfe] dark:bg-[#2563eb] text-foreground dark:text-white' 
-                                : 'bg-white dark:bg-[#202c33] text-foreground dark:text-white'
-                              }
-                              rounded-lg px-3 py-2 shadow-sm
-                            `}
-                            style={{
-                              borderRadius: isMine 
-                                ? '18px 18px 4px 18px' 
-                                : '18px 18px 18px 4px'
-                            }}
-                          >
-                            {/* Author Name - Only show for others */}
-                            {!isMine && (
-                              <p className="text-xs font-semibold text-primary dark:text-primary/90 mb-1">
-                                {c.authorUsername}
-                                {c.authorRole && (
-                                  <span className="text-[10px] text-muted-foreground ml-1">
-                                    • {c.authorRole}
-                                  </span>
-                                )}
-                              </p>
+                        {/* Composer */}
+                        <div className="mt-10 ml-0 lg:ml-16 sticky bottom-0 z-20">
+                          <div className="relative rounded-3xl border-2 border-border/60 bg-background/80 backdrop-blur-xl overflow-visible focus-within:border-primary/40 focus-within:ring-8 focus-within:ring-primary/5 transition-all shadow-2xl">
+                            {commentAttachments.length > 0 && (
+                              <div className="p-3 border-b bg-muted/5 grid grid-cols-3 sm:grid-cols-6 gap-3 max-h-40 overflow-y-auto rounded-t-3xl border-dashed">
+                                {commentAttachments.map((f, i) => (
+                                  <div key={i} className="relative rounded-xl border border-border/50 bg-background flex flex-col items-center justify-center p-2 text-center aspect-square group shadow-xs">
+                                    {f.type.startsWith("image/") ? <img src={URL.createObjectURL(f)} className="w-full h-full object-cover rounded-md" /> : <FileText className="h-5 w-5 text-muted-foreground/60" />}
+                                    <span className="text-[9px] w-full mt-1.5 truncate font-bold text-muted-foreground/70 uppercase px-1">{f.name}</span>
+                                    <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-2 -right-2 bg-destructive text-white rounded-full w-5 h-5 flex items-center justify-center shadow-lg hover:scale-110 transition-transform text-[10px] font-black border-2 border-background">✕</button>
+                                  </div>
+                                ))}
+                              </div>
                             )}
-                            
-                            {/* Message Content */}
-                            <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">
-                              {c.message}
-                            </p>
-                            
-                            {/* Message Footer with Time */}
-                            <div className="flex items-center justify-end gap-1 mt-1">
-                              <span className="text-[10px] opacity-70">
-                                {new Date(c.createdAt).toLocaleTimeString([], { 
-                                  hour: '2-digit', 
-                                  minute: '2-digit' 
-                                })}
-                              </span>
-                              {isMine && (
-                                <span className="text-[10px] opacity-70">✓✓</span>
-                              )}
+                            <textarea
+                              value={commentDraft}
+                              onChange={(e) => setCommentDraft(e.target.value)}
+                              placeholder="Type a message or share an update... @mention someone"
+                              className="w-full min-h-[100px] max-h-[350px] border-0 focus:ring-0 resize-y p-5 text-[15px] bg-transparent outline-none placeholder-muted-foreground/50 font-semibold"
+                            />
+                            <div className="flex items-center justify-between p-3 pl-5 bg-muted/20 border-t border-border/40 rounded-b-[22px]">
+                              <button type="button" onClick={() => { const el = document.getElementById("task-comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground/70 hover:text-primary hover:bg-primary/10 rounded-xl transition-all flex items-center gap-2 group" title="Shared assets">
+                                <Paperclip className="w-4 h-4 group-hover:rotate-12 transition-transform" /> <span className="text-[12px] font-bold uppercase tracking-wider hidden sm:inline">Attach Files</span>
+                              </button>
+                              <input id="task-comment-attachment-input" type="file" multiple className="hidden" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value = ''; }} />
+                              <Button type="button" onClick={() => void sendComment()} disabled={(!commentDraft.trim() && commentAttachments.length === 0) || isSendingComment} className="h-10 px-6 rounded-xl font-black uppercase tracking-widest text-[11px] shadow-lg hover:shadow-primary/20 transition-all border-none">
+                                {isSendingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send Message"}
+                              </Button>
                             </div>
                           </div>
-                        </motion.div>
-                      );
-                    })
-                  )}
-                </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
-                {/* Message Input - WhatsApp Style */}
-                <div className="flex items-center gap-2 bg-background rounded-lg p-1 border">
-                  <Input
-                    value={commentDraft}
-                    onChange={(e) => setCommentDraft(e.target.value)}
-                    placeholder="Type a message..."
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        void sendComment();
-                      }
-                    }}
-                    className="flex-1 border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm"
-                  />
-                  <Button 
-                    type="button" 
-                    onClick={() => void sendComment()} 
-                    disabled={!commentDraft.trim()}
-                    size="sm"
-                    className="rounded-full w-9 h-9 p-0 bg-primary hover:bg-primary/90"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      className="w-4 h-4"
-                    >
-                      <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
-                    </svg>
-                  </Button>
-                </div>
-              </div>
+                  {/* Right Pane: Property Deck */}
+                  <div className="w-full md:w-[320px] lg:w-[360px] bg-muted/10 shrink-0 border-t md:border-t-0 md:border-l border-border/50 overflow-y-auto hidden md:block">
+                    <div className="p-8 space-y-10">
+                      <h3 className="text-[11px] font-black text-muted-foreground/60 uppercase tracking-[0.2em] flex items-center gap-2 pb-3 border-b border-border/60">Property Deck</h3>
 
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsViewOpen(false)}>
-                  Close
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    if (!selectedTask) return;
-                    void handlePrintTask(selectedTask);
-                  }}
-                >
-                  Print
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    if (!selectedTask) return;
-                    setIsViewOpen(false);
-                    openEdit(selectedTask);
-                  }}
-                >
-                  Edit
-                </Button>
-              </DialogFooter>
-            </div>
-          )}
+                      <div className="space-y-3">
+                        <label className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest flex items-center gap-2"><Users className="w-3.5 h-3.5" /> Assignees</label>
+                        <div className="flex flex-col gap-2.5">
+                          {selectedTask.assignees && selectedTask.assignees.length > 0 ? (
+                            selectedTask.assignees.map((assignee, idx) => (
+                              <div key={idx} className="flex items-center gap-3 bg-background border border-border/60 rounded-xl px-4 py-3 shadow-xs hover:border-primary/30 transition-colors">
+                                <Avatar className="w-7 h-7 ring-2 ring-muted/10">
+                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-black uppercase">{assignee.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                                <span className="text-[13px] font-bold text-foreground/80 tracking-tight">{resolveAssigneeName(assignee)}</span>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-[12px] text-muted-foreground/70 font-medium italic bg-muted/5 border border-dashed rounded-xl p-4 text-center">Unassigned</div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-8">
+                        <div className="space-y-3">
+                          <label className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest block">Priority Tier</label>
+                          <Badge className={cn("px-4 py-1.5 font-black text-[10px] uppercase tracking-[0.1em] rounded-full shadow-sm", priorityClasses[selectedTask.priority])}>
+                            {selectedTask.priority} Priority
+                          </Badge>
+                        </div>
+                        <div className="space-y-3">
+                          <label className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest block">Status Workflow</label>
+                          <Select value={selectedTask.status} onValueChange={(v) => void updateStatus(v as Task["status"])} disabled={statusSaving}>
+                            <SelectTrigger className={cn("h-11 font-black text-[11px] uppercase tracking-wider bg-background border-border/60 shadow-xs px-4 rounded-xl transition-all", statusClasses[selectedTask.status])}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="rounded-xl shadow-2xl border-border/40 overflow-hidden font-bold">
+                              <SelectItem value="pending" className="text-blue-600 focus:bg-blue-50 font-bold">Pending</SelectItem>
+                              <SelectItem value="in-progress" className="text-amber-600 focus:bg-amber-50 font-bold">In Progress</SelectItem>
+                              <SelectItem value="completed" className="text-green-600 focus:bg-green-50 font-bold">Completed</SelectItem>
+                              <SelectItem value="overdue" className="text-red-600 focus:bg-red-50 font-bold">Overdue</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-3">
+                          <label className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest flex items-center gap-2"><Calendar className="w-3.5 h-3.5 ml-0.5" /> Delivery Date</label>
+                          <div className="flex flex-col gap-1.5 bg-background border border-border/60 rounded-xl p-4 shadow-xs">
+                            <span className="text-[14px] font-black text-foreground tracking-tight">{new Date(selectedTask.dueDate).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                            {selectedTask.dueTime && <span className="text-[11px] text-primary/70 font-black uppercase tracking-widest">{selectedTask.dueTime}</span>}
+                          </div>
+                        </div>
+                        {selectedTask.location && (
+                          <div className="space-y-3">
+                            <label className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest flex items-center gap-2"><MapPin className="w-3.5 h-3.5" /> Workspace</label>
+                            <p className="text-[13px] font-bold text-foreground/80 bg-background border border-border/60 rounded-xl px-4 py-3 truncate shadow-xs" title={selectedTask.location}>{selectedTask.location}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="pt-8 space-y-3 border-t border-border/60 border-dashed">
+                        <Button variant="outline" className="w-full justify-start gap-3 h-11 text-[12px] font-black uppercase tracking-widest border-border hover:bg-primary/5 hover:text-primary hover:border-primary/30 transition-all rounded-xl" onClick={() => void handlePrintTask(selectedTask)}>
+                          <Printer className="h-4 w-4" /> Print PDF
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Project Discussion Dialog */}
+      <Dialog open={isViewProjectOpen} onOpenChange={setIsViewProjectOpen}>
+        <DialogContent className="w-[98vw] sm:max-w-[95vw] lg:max-w-[1000px] h-[85vh] p-0 overflow-hidden flex flex-col gap-0 border-none shadow-2xl">
+            {selectedProject && (
+              <>
+                <DialogHeader className="p-4 sm:p-6 border-b bg-card flex-shrink-0">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 min-w-0">
+                      <Avatar className="h-12 w-12 border-2 border-primary/20 shadow-sm rounded-xl">
+                        <AvatarFallback className="bg-primary/10 text-primary font-black text-xs uppercase">
+                          {selectedProject.name.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <Badge variant="outline" className="text-[10px] h-4.5 bg-primary/5 text-primary border-primary/20 font-black uppercase tracking-widest px-1.5">Project View</Badge>
+                          <span className="text-[10px] text-muted-foreground font-bold tracking-tight">• {selectedProject.id.slice(-6).toUpperCase()}</span>
+                        </div>
+                        <DialogTitle className="text-xl sm:text-2xl font-black truncate leading-tight tracking-tight text-foreground">{selectedProject.name}</DialogTitle>
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => setIsViewProjectOpen(false)} className="rounded-full h-9 w-9 hover:bg-muted/80 transition-colors">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </DialogHeader>
+
+                <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-background">
+                  {/* Left: Feed */}
+                  <div className="flex-1 overflow-y-auto custom-scrollbar bg-card/10">
+                    <div className="p-4 sm:p-8 space-y-10 max-w-3xl mx-auto min-h-full flex flex-col">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 text-primary">
+                          <TrendingUp className="w-4 h-4" />
+                          <h4 className="text-[12px] font-black uppercase tracking-[0.15em]">Project Activity Feed</h4>
+                        </div>
+                        
+                        <div className="flex-1 space-y-6">
+                          {projectCommentsLoading && projectComments.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center p-20 space-y-3">
+                              <Loader2 className="h-8 w-8 animate-spin text-primary/30" />
+                              <p className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-widest">Hydrating activity stream...</p>
+                            </div>
+                          ) : projectComments.length === 0 ? (
+                            <div className="text-center p-16 border-2 border-dashed border-border/40 rounded-[2.5rem] bg-muted/5 flex flex-col items-center">
+                              <div className="w-16 h-16 bg-background rounded-full flex items-center justify-center shadow-inner border border-border/50 mb-5 text-2xl">🌍</div>
+                              <p className="text-sm font-black text-foreground/80 uppercase tracking-wider">The project board is clean</p>
+                              <p className="text-[11px] text-muted-foreground font-medium mt-1">Status updates and team discussions will appear here.</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-8 relative pb-10">
+                              <div className="absolute left-4.5 top-2 bottom-0 w-0.5 bg-gradient-to-b from-primary/10 via-primary/5 to-transparent"></div>
+                              {projectComments.map((c) => (
+                                <div key={c.id} className="flex gap-4 group relative">
+                                  <Avatar className="w-10 h-10 border-2 border-background shadow-md flex-shrink-0 z-10 overflow-hidden ring-4 ring-muted/10">
+                                    <AvatarFallback className="text-xs bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-black uppercase tracking-tighter">
+                                      {(c.authorFullName || c.authorUsername || "U").split(" ").map((n: string) => n ? n[0] : "").join("").toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex-1 space-y-2 min-w-0 bg-background/60 backdrop-blur-md p-4 rounded-2xl border border-border/40 ml-2 shadow-xs group-hover:shadow-md transition-all">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-black text-[13px] text-foreground tracking-tight">{c.authorFullName || c.authorUsername}</span>
+                                      {c.authorRole && <Badge variant="secondary" className="text-[9px] h-4 font-black bg-primary/10 text-primary uppercase px-1.5 border-none">{c.authorRole}</Badge>}
+                                      <span className="text-[10px] text-muted-foreground/50 font-bold uppercase tracking-tight ml-auto">{formatMessageTime(c.createdAt)}</span>
+                                    </div>
+                                    <div className="text-[14px] leading-relaxed text-foreground/80 font-medium whitespace-pre-wrap break-words">
+                                      {renderMessageWithMentions(c.message)}
+                                    </div>
+                                    {c.attachments && c.attachments.length > 0 && (
+                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
+                                        {c.attachments.map((att: any, attIdx: number) => (
+                                          <div key={attIdx} className="relative rounded-lg overflow-hidden border border-border/40 bg-background shadow-xs group/att aspect-square flex flex-col items-center justify-center cursor-pointer">
+                                            {att.mimeType?.startsWith("image/") ? <img src={att.url} className="w-full h-full object-cover" /> : <FileText className="h-6 w-6 text-muted-foreground/30" />}
+                                            <a href={att.url || "#"} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]"><Download className="h-4 w-4 text-white" /></a>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Composer */}
+                        <div className="sticky bottom-4 z-20 mt-auto pt-6 px-4 pb-4">
+                           <div className="relative rounded-3xl border border-border/60 bg-white/60 dark:bg-black/40 backdrop-blur-2xl overflow-hidden focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/5 transition-all shadow-xl">
+                            {commentAttachments.length > 0 && (
+                              <div className="p-3 border-b bg-muted/5 grid grid-cols-6 gap-2">
+                                {commentAttachments.map((f, i) => (
+                                  <div key={i} className="relative rounded-lg border border-border/50 bg-background p-1 aspect-square group">
+                                    {f.type.startsWith("image/") ? <img src={URL.createObjectURL(f)} className="w-full h-full object-cover rounded" /> : <FileText className="h-4 w-4 mx-auto mt-1 text-muted-foreground" />}
+                                    <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1 -right-1 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center text-[7px] font-black border-2 border-background">✕</button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <textarea
+                              value={commentDraft}
+                              onChange={(e) => setCommentDraft(e.target.value)}
+                              placeholder="Post a status update or broad comment to project members..."
+                              className="w-full min-h-[80px] border-0 focus:ring-0 resize-none p-5 text-[14px] bg-transparent outline-none placeholder-muted-foreground/40 font-bold"
+                            />
+                            <div className="flex items-center justify-between p-3 bg-muted/20 border-t border-border/40">
+                              <button type="button" onClick={() => { const el = document.getElementById("proj-comment-attachment-input-emp") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground/70 hover:text-primary transition-colors flex items-center gap-2 group">
+                                <Paperclip className="w-4 h-4" /> <span className="text-[11px] font-black uppercase tracking-wider">Add files</span>
+                              </button>
+                              <input id="proj-comment-attachment-input-emp" type="file" multiple className="hidden" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value=''; }} />
+                              <Button type="button" onClick={() => void sendComment(true)} disabled={(!commentDraft.trim() && commentAttachments.length === 0) || isSendingComment} className="h-9 px-5 rounded-xl font-black uppercase tracking-[0.1em] text-[10px] shadow-lg">
+                                {isSendingComment ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : null}
+                                Post Update
+                              </Button>
+                            </div>
+                           </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right: Sidebar */}
+                  <div className="w-full md:w-[320px] bg-muted/5 border-t md:border-t-0 md:border-l border-border/40 overflow-y-auto hidden md:block">
+                    <div className="p-8 space-y-10">
+                      <div className="space-y-4">
+                        <label className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-[0.2em] block">Description</label>
+                        <p className="text-[13px] font-semibold text-foreground/70 leading-relaxed italic">{selectedProject.description || "Project parameters undefined."}</p>
+                      </div>
+
+                      <div className="space-y-6">
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-[0.2em] block">Project Staff</label>
+                          <div className="flex flex-col gap-2">
+                             {selectedProject.assignees?.map((a, idx) => (
+                               <div key={idx} className="flex items-center gap-3 bg-background border border-border/40 px-3 py-2 rounded-xl shadow-xs">
+                                 <Avatar className="h-6 w-6">
+                                   <AvatarFallback className="text-[9px] font-black bg-primary/10 text-primary">{a ? a[0].toUpperCase() : "U"}</AvatarFallback>
+                                 </Avatar>
+                                 <span className="text-[12px] font-bold text-foreground/70 truncate">{resolveAssigneeName(a)}</span>
+                               </div>
+                             ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-3">
+                          <label className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-[0.2em] block">Shared Resources</label>
+                          <div className="grid grid-cols-2 gap-2">
+                            {selectedProject.attachments?.map((att, idx) => (
+                              <a href={att.url} target="_blank" rel="noopener noreferrer" key={idx} className="bg-background border border-border/40 p-2 rounded-xl flex flex-col items-center justify-center gap-2 group hover:border-primary/20 transition-all">
+                                {att.mimeType?.startsWith("image/") ? <img src={att.url} className="w-full h-12 object-cover rounded-md" /> : <FileText className="w-6 h-6 text-muted-foreground/30" />}
+                                <span className="text-[8px] font-black text-muted-foreground/60 truncate w-full text-center">{att.fileName}</span>
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
         </DialogContent>
       </Dialog>
 
@@ -2394,7 +2667,7 @@ export default function Tasks() {
                                   return (
                                     <Avatar key={idx} className="w-7 h-7 border-2 border-background">
                                       <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
-                                        {displayName.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                                        {displayName.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()}
                                       </AvatarFallback>
                                     </Avatar>
                                   );

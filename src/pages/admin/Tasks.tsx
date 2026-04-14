@@ -96,17 +96,53 @@ import jsPDF from "jspdf";
 import { useSocket } from "@/contexts/SocketContext";
 import { Pagination } from "@/components/Pagination";
 
-function ProjectLogoImg({ projectId, projectName }: { projectId: string; projectName: string }) {
-  const [src, setSrc] = useState<string | null | undefined>(undefined);
+function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
+  const [src, setSrc] = useState<string | null | undefined>(logoUrl !== undefined ? (logoUrl || null) : undefined);
+  const [error, setError] = useState(false);
+
   useEffect(() => {
+    if (logoUrl) {
+      setSrc(logoUrl);
+      setError(false);
+      return;
+    }
     let cancelled = false;
     apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
-      .then(d => { if (!cancelled) setSrc(d.logo?.url || null); })
-      .catch(() => { if (!cancelled) setSrc(null); });
+      .then(d => { 
+        if (!cancelled) {
+          setSrc(d.logo?.url || null);
+          setError(false);
+        }
+      })
+      .catch(() => { 
+        if (!cancelled) {
+          setSrc(null);
+          setError(true);
+        }
+      });
     return () => { cancelled = true; };
-  }, [projectId]);
-  if (src) return <img src={src} alt={`${projectName} logo`} className="w-10 h-10 rounded-md object-cover flex-shrink-0" />;
-  return <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>;
+  }, [projectId, logoUrl]);
+
+  if (src && !error) {
+    return (
+      <img 
+        src={src} 
+        alt={`${projectName} logo`} 
+        className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-border" 
+        onError={() => setError(true)}
+      />
+    );
+  }
+
+  if (src === undefined && logoUrl === undefined) {
+    return <div className="w-10 h-10 rounded-md bg-muted/40 animate-pulse flex-shrink-0" />;
+  }
+
+  return (
+    <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary flex-shrink-0 border border-primary/20 uppercase">
+      {projectName.slice(0, 2).toUpperCase()}
+    </div>
+  );
 }
 
 function TaskAttachmentImg({ taskId }: { taskId: string }) {
@@ -1680,11 +1716,11 @@ export default function Tasks() {
         <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
           {/* ... project details remain same ... */}
           <div className="flex flex-col sm:flex-row sm:items-start gap-3">
-            {selectedProject.logo?.url ? (
-              <img src={selectedProject.logo.url} alt={`${selectedProject.name} logo`} className="w-12 h-12 rounded-md object-cover flex-shrink-0" />
-            ) : (
-              <div className="w-12 h-12 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground flex-shrink-0">Logo</div>
-            )}
+            <ProjectLogoImg 
+              projectId={selectedProject.id} 
+              projectName={selectedProject.name} 
+              logoUrl={selectedProject.logo?.url} 
+            />
             <div className="flex-1 min-w-0">
               <h2 className="font-semibold text-lg break-words">Project: {selectedProject.name}</h2>
               <p className="text-sm text-muted-foreground break-words">{selectedProject.description || "No description"}</p>
@@ -1776,7 +1812,7 @@ export default function Tasks() {
                         >
                           <div className="flex items-center gap-2 mb-2">
                             <span className="flex-shrink-0 text-xs font-bold text-primary w-fit text-right min-w-[20px]">{projectNumber}.</span>
-                            <ProjectLogoImg projectId={project.id} projectName={project.name} />
+                            <ProjectLogoImg projectId={project.id} projectName={project.name} logoUrl={project.logo?.url} />
                             <div className="min-w-0 flex-1">
                               <p className="font-medium truncate">{project.name}</p>
                               <p className="text-xs text-muted-foreground line-clamp-2">{project.description || "No description"}</p>
@@ -2145,7 +2181,7 @@ export default function Tasks() {
                         {selectedTask.attachments && selectedTask.attachments.length > 0
                           ? selectedTask.attachments.map((attachment, idx) => (
                             <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow">
-                              {attachment.mimeType?.startsWith("image/") && attachment.url ? (
+                              {(attachment.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(attachment.fileName || "")) && attachment.url ? (
                                 <img src={attachment.url} alt={attachment.fileName || `Attachment`} className="w-full h-24 object-cover" />
                               ) : (
                                 <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
@@ -2345,7 +2381,7 @@ export default function Tasks() {
                                     <img src={avatar} alt="avatar" className="w-full h-full object-cover rounded-full" />
                                   ) : (
                                     <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
-                                      {assignee.split(" ").map((n) => n[0]).join("").toUpperCase()}
+                                      {assignee.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()}
                                     </AvatarFallback>
                                   )}
                                 </Avatar>
@@ -2845,7 +2881,7 @@ export default function Tasks() {
                             (e.id && e.id.toLowerCase() === term)
                           );
                           const avatar = emp?.avatarDataUrl || emp?.avatarUrl;
-                          return (<Avatar key={idx} className="w-7 h-7 border-2 border-background">{avatar ? (<img src={avatar} alt="avatar" className="w-full h-full object-cover" />) : (<AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">{(emp?.initials || assignee.split(" ").map((n) => n[0]).join("").toUpperCase()).substring(0, 2)}</AvatarFallback>)}</Avatar>);
+                          return (<Avatar key={idx} className="w-7 h-7 border-2 border-background">{avatar ? (<img src={avatar} alt="avatar" className="w-full h-full object-cover" />) : (<AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">{(emp?.initials || assignee.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()).substring(0, 2)}</AvatarFallback>)}</Avatar>);
                         })}{task.assignees.length > 3 && (<div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">+{task.assignees.length - 3}</div>)}</div><span className="text-sm text-foreground break-words">{task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}</span></>) : (<span className="text-sm text-muted-foreground">Unassigned</span>)}</div></div>
                         <div className="flex gap-2 flex-wrap"><Badge variant="secondary" className={cn("text-xs", statusClasses[task.status])}>{task.status}</Badge><Badge variant="outline" className={cn("text-xs border", priorityClasses[task.priority])}>{task.priority}</Badge></div>
                       </div>

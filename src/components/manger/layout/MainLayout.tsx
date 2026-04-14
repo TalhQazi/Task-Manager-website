@@ -1,7 +1,7 @@
 import { Sidebar } from "./Sidebar";
 import { ReactNode, useState, useEffect } from "react";
 import { Bell, Bug, Mail, Menu, Search, User } from "lucide-react";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/manger/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "@/components/manger/ui/sheet";
 import { Button } from "@/components/manger/ui/button";
 import {
   DropdownMenu,
@@ -134,7 +134,24 @@ export function MainLayout({ children }: MainLayoutProps) {
   });
 
   const headerSettings = headerSettingsQuery.data?.item;
-  const headerHeight = 250;
+  const [headerHeight, setHeaderHeight] = useState(250);
+  
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setHeaderHeight(120);
+      } else if (window.innerWidth < 1024) {
+        setHeaderHeight(180);
+      } else {
+        setHeaderHeight(250);
+      }
+    };
+    
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const hasImageBackground = headerSettings?.backgroundType === 'image' && headerSettings.imageConfig?.dataUrl;
 
   // System notifications (broadcasts only)
@@ -310,7 +327,7 @@ export function MainLayout({ children }: MainLayoutProps) {
           
           {/* Content - with left padding for sidebar on desktop */}
           <div
-            className="relative flex items-center justify-between px-3 sm:px-6 lg:px-10 py-2 md:py-4 animate-fade-in h-full md:pl-24"
+            className="relative flex items-center justify-between px-3 sm:px-6 lg:px-10 py-2 md:py-4 animate-fade-in h-full md:pl-20 lg:pl-24"
           >
             {/* LEFT SIDE: icons/profile */}
             <div className="flex items-center gap-2 sm:gap-3 text-white z-30 relative pointer-events-auto">
@@ -490,28 +507,32 @@ export function MainLayout({ children }: MainLayoutProps) {
                   </button>
                 </SheetTrigger>
                 <SheetContent side="left" className="p-0 w-64">
+                  <SheetHeader className="sr-only">
+                    <SheetTitle>Navigation Menu</SheetTitle>
+                    <SheetDescription>Main navigation for managers</SheetDescription>
+                  </SheetHeader>
                   <Sidebar mode="mobile" onNavigate={() => setMobileSidebarOpen(false)} />
                 </SheetContent>
               </Sheet>
             </div>
 
             {/* CENTER LOGO */}
-            <div className="flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center pointer-events-auto z-10" style={{ height: `${headerHeight * 0.7}px`, minHeight: '48px', maxHeight: '160px' }}>
+            <div className="flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center pointer-events-auto z-10" style={{ height: '70%', minHeight: '32px' }}>
               <div className="relative h-full flex items-center">
                 <img
                   src="/logo.jpeg"
                   alt="TaskManager by Reardon"
-                  className="w-auto h-full max-w-[120px] sm:max-w-[190px] md:max-w-[280px] lg:max-w-[380px] object-contain transition-all duration-300 rounded-md shadow-md"
+                  className="w-auto h-full max-w-[100px] sm:max-w-[190px] md:max-w-[280px] lg:max-w-[380px] object-contain transition-all duration-300 rounded-md shadow-md"
                 />
               </div>
             </div>
 
             {/* RIGHT SIDE: SE7EN Logo */}
-            <div className="flex items-center sm:items-end sm:pb-2 z-20 pointer-events-auto" style={{ height: `${headerHeight * 0.6}px`, minHeight: '40px', maxHeight: '120px' }}>
+            <div className="flex items-center sm:items-end sm:pb-2 z-20 pointer-events-auto" style={{ height: '60%', minHeight: '32px' }}>
               <img
                 src="/seven logo.png"
                 alt="SE7EN Inc. logo"
-                className="w-auto h-full max-w-[90px] sm:max-w-[180px] md:max-w-[250px] object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)] transition-all duration-300"
+                className="w-auto h-full max-w-[60px] sm:max-w-[180px] md:max-w-[250px] object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)] transition-all duration-300"
               />
             </div>
           </div>
@@ -596,7 +617,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       </Dialog>
 
       {/* Founder Message Bar - Full width above content, higher z-index than sidebar */}
-      <div className="fixed left-0 right-0 z-50 md:left-56" style={{ top: `${headerHeight}px` }}>
+      <div className="fixed left-0 right-0 z-50 md:left-56 lg:left-62" style={{ top: `${headerHeight}px` }}>
         <FounderMessageBar />
       </div>
 
@@ -607,9 +628,9 @@ export function MainLayout({ children }: MainLayoutProps) {
         </div>
         <main 
           className="flex-1 min-h-screen md:ml-56 lg:ml-62"
-          style={{ paddingTop: `${headerHeight}px` }}
+          style={{ paddingTop: `${headerHeight + 20}px` }}
         >
-          <div className="w-full pl-4 pr-4 py-6 sm:py-8 animate-fade-in">
+          <div className="w-full px-4 py-4 sm:py-8 animate-fade-in">
             {children}
           </div>
         </main>
