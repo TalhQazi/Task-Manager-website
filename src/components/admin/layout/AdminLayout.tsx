@@ -2,7 +2,6 @@ import { ReactNode, useState, useEffect, createContext, useContext } from "react
 import { useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
-import { FounderMessageBar } from "@/components/FounderMessageBar";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 

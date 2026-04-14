@@ -25,7 +25,8 @@ import { apiFetch } from "@/lib/admin/apiClient";
 import { getAuthState, clearAuthState } from "@/lib/auth";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { AdminInfoManager } from "@/components/admin/AdminInfoManager";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { FounderMessageBar } from "@/components/FounderMessageBar";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface HeaderSettings {
   backgroundType: "color" | "image";

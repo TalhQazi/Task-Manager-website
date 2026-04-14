@@ -317,13 +317,11 @@ export function MainLayout({ children }: MainLayoutProps) {
               />
               {/* Overlay */}
               {headerSettings?.overlay?.enabled && (
-                <div 
+                <div
                   className="absolute inset-0"
                   style={{ backgroundColor: headerSettings.overlay.color || 'rgba(0,0,0,0.3)' }}
                 />
               )}
-            </>
-          )}
             </>
           )}
 
