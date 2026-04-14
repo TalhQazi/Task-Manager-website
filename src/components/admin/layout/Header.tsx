@@ -671,7 +671,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             />
             <button
               type="button"
-              className="absolute bottom-2 right-3 z-20 flex items-center gap-1.5 bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white rounded-full px-3 py-1.5 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+              className="absolute bottom-20 right-3 z-50 flex items-center gap-1.5 bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white rounded-full px-3 py-1.5 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-auto shadow-lg"
               onClick={() => coverFileRef.current?.click()}
             >
               <Camera className="h-3.5 w-3.5" />
@@ -687,11 +687,11 @@ export function Header({ onMenuClick }: HeaderProps) {
             {/* LEFT SIDE: Branding and Profile Stacking */}
             <div className="flex flex-col gap-4 text-white z-30 relative pointer-events-auto">
               {/* Task Manager Logo (Complete, not in circle) */}
-              <div className="flex items-center h-12 w-auto sm:h-20 z-20 transition-all duration-300 hover:scale-105">
+              <div className="flex items-center h-16 w-auto sm:h-24 z-20 transition-all duration-300 hover:scale-105">
                 <img
                   src="/task.png"
                   alt="Task Manager logo"
-                  className="h-full w-auto object-contain rounded-lg shadow-2xl bg-white/5 p-1"
+                  className="h-full w-auto object-contain rounded-lg shadow-2xl bg-white/10 p-1.5"
                 />
               </div>
 

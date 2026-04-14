@@ -333,11 +333,11 @@ export function MainLayout({ children }: MainLayoutProps) {
               {/* LEFT SIDE: Branding and Profile Stacking */}
               <div className="flex flex-col gap-4 text-white z-30 relative pointer-events-auto mr-auto">
                 {/* Task Manager Logo (Complete, not in circle) */}
-                <div className="flex items-center h-12 w-auto sm:h-20 z-20 transition-all duration-300 hover:scale-105">
+                <div className="flex items-center h-16 w-auto sm:h-24 z-20 transition-all duration-300 hover:scale-105">
                   <img
                     src="/task.png"
                     alt="Task Manager logo"
-                    className="h-full w-auto object-contain rounded-lg shadow-2xl bg-white/5 p-1"
+                    className="h-full w-auto object-contain rounded-lg shadow-2xl bg-white/10 p-1.5"
                   />
                 </div>
 
