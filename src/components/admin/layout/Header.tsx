@@ -1012,6 +1012,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </header>
   );
 }
