@@ -4,6 +4,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { CheckCircle2, User } from "lucide-react";
+import { useSocket } from "@/contexts/SocketContext";
+import { getAuthState } from "@/lib/auth";
+import { useRef } from "react";
+import { cn } from "@/lib/utils";
 import {
   addTaskComment,
   getTaskById,
@@ -49,15 +55,38 @@ interface TaskCommentItem {
   createdAt: string;
 }
 
-function formatDateTime(v?: string) {
-  if (!v) return "";
-  try {
-    const d = new Date(v);
-    if (Number.isNaN(d.getTime())) return v;
-    return d.toLocaleString();
-  } catch {
-    return v;
-  }
+function formatMessageTime(dateString: string) {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  return date.toLocaleDateString();
+}
+
+function renderMessageWithMentions(text: string) {
+  if (!text) return null;
+  const parts = text.split(/(@\S+)/g);
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith("@")) {
+          return (
+            <span key={i} className="text-primary font-medium bg-primary/10 px-1 py-0.5 rounded cursor-pointer hover:bg-primary/20 transition-colors">
+              {part}
+            </span>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </>
+  );
 }
 
 export default function EmployeeTaskDetails() {
@@ -75,6 +104,13 @@ export default function EmployeeTaskDetails() {
   const [commentsLoading, setCommentsLoading] = useState(true);
   const [commentDraft, setCommentDraft] = useState("");
   const [commentSending, setCommentSending] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [othersTyping, setOthersTyping] = useState<string[]>([]);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  const currentUsername = getAuthState().username || "";
+  const { socket, joinTask, leaveTask } = useSocket();
 
   const priorityColor = (p: string) => {
     switch (p) {
@@ -166,6 +202,55 @@ export default function EmployeeTaskDetails() {
     init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId]);
+
+  useEffect(() => {
+    if (!socket || !taskId) return;
+    joinTask(taskId);
+    
+    const handleNewComment = (comment: any) => {
+      setComments(prev => {
+        if (prev.some(c => c.id === comment.id)) return prev;
+        return [...prev, comment];
+      });
+      setTimeout(() => {
+        chatContainerRef.current?.scrollTo({ top: chatContainerRef.current.scrollHeight, behavior: 'smooth' });
+      }, 100);
+    };
+
+    const handleTyping = ({ username, typing, taskId: tId }: { username: string; typing: boolean; taskId?: string }) => {
+      if (username === currentUsername) return;
+      if (tId !== taskId) return;
+      setOthersTyping(prev => {
+        if (typing) return prev.includes(username) ? prev : [...prev, username];
+        return prev.filter(u => u !== username);
+      });
+    };
+
+    socket.on("new-comment", handleNewComment);
+    socket.on("user-typing", handleTyping);
+
+    return () => {
+      socket.off("new-comment", handleNewComment);
+      socket.off("user-typing", handleTyping);
+      leaveTask(taskId);
+    };
+  }, [socket, taskId, currentUsername]);
+
+  const handleTypingIndicator = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setCommentDraft(e.target.value);
+    if (!socket || !taskId) return;
+
+    if (!isTyping) {
+      setIsTyping(true);
+      socket.emit("typing", { taskId, typing: true });
+    }
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    typingTimeoutRef.current = setTimeout(() => {
+      setIsTyping(false);
+      socket.emit("typing", { taskId, typing: false });
+    }, 3000);
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -356,29 +441,102 @@ export default function EmployeeTaskDetails() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="space-y-3">
-            {commentsLoading ? (
-              <div className="text-sm text-muted-foreground">Loading comments...</div>
-            ) : comments.length === 0 ? (
-              <div className="text-sm text-muted-foreground">No comments yet.</div>
-            ) : (
-              comments.map((c) => (
-                <div key={c.id} className="border rounded-lg p-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="text-sm font-medium">{c.authorUsername || "User"}</div>
-                    <div className="text-xs text-muted-foreground">{formatDateTime(c.createdAt)}</div>
-                  </div>
-                  <div className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">{c.message}</div>
+          <div className="flex flex-col h-[500px] bg-muted/5 rounded-2xl border border-border/40 overflow-hidden">
+            <div 
+              ref={chatContainerRef} 
+              className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth custom-scrollbar"
+            >
+              {commentsLoading && comments.length === 0 ? (
+                <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+              ) : comments.length === 0 ? (
+                <div className="text-center p-8 text-muted-foreground border-2 border-dashed border-border/50 rounded-2xl bg-muted/5">
+                  <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                  <p className="text-sm font-medium">No activity here yet. Start the conversation!</p>
                 </div>
-              ))
-            )}
+              ) : (
+                <div className="space-y-4">
+                  {comments.map((c, idx) => {
+                    const isMe = c.authorUsername === currentUsername;
+                    const prevComment = idx > 0 ? comments[idx - 1] : null;
+                    const showSenderName = !isMe && prevComment?.authorUsername !== c.authorUsername;
+                    
+                    return (
+                      <div 
+                        key={c.id} 
+                        className={cn(
+                          "flex flex-col group",
+                          isMe ? "items-end" : "items-start"
+                        )}
+                      >
+                        {showSenderName && (
+                          <span className="chat-sender-name ml-10">
+                            {c.authorUsername}
+                          </span>
+                        )}
+                        
+                        <div className={cn(
+                          "flex items-end gap-2 max-w-[85%]",
+                          isMe ? "flex-row-reverse" : "flex-row"
+                        )}>
+                          {!isMe && (
+                            <Avatar className="w-8 h-8 border shadow-sm flex-shrink-0 mb-1">
+                              <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                                {c.authorUsername.substring(0, 2).toUpperCase()}
+                              </AvatarFallback>
+                            </Avatar>
+                          )}
+                          
+                          <div className="flex flex-col group/bubble relative text-left">
+                            <div className={cn(
+                              "chat-bubble",
+                              isMe ? "chat-bubble-me" : "chat-bubble-others"
+                            )}>
+                              <div className="whitespace-pre-wrap break-words">
+                                {renderMessageWithMentions(c.message)}
+                              </div>
+                            </div>
+                            
+                            <div className={cn(
+                              "chat-timestamp",
+                              isMe ? "text-right mr-1" : "text-left ml-1"
+                            )}>
+                              {formatMessageTime(c.createdAt)}
+                            </div>
+                          </div>
+                          
+                          {isMe && (
+                            <div className="flex flex-col justify-end pb-1 opacity-40">
+                              <CheckCircle2 className="w-3 h-3 text-blue-500" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  
+                  {othersTyping.length > 0 && (
+                    <div className="flex items-center gap-2 max-w-[85%] self-start pt-2">
+                      <div className="typing-indicator">
+                        <div className="typing-dot" />
+                        <div className="typing-dot" />
+                        <div className="typing-dot" />
+                      </div>
+                      <span className="text-[10px] text-muted-foreground/60 italic font-medium">
+                        {othersTyping.join(", ")} {othersTyping.length === 1 ? "is" : "are"} typing...
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="space-y-2">
             <Textarea
               placeholder="Write a comment..."
               value={commentDraft}
-              onChange={(e) => setCommentDraft(e.target.value)}
+              onChange={handleTypingIndicator}
+              className="rounded-xl border-2 border-border/50 focus-visible:ring-primary/20 transition-all min-h-[80px]"
             />
             <div className="flex justify-end">
               <Button

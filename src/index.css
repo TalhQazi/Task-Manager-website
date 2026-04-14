@@ -66,6 +66,12 @@
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
     --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
     --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+
+    /* iMessage Specific Tokens */
+    --imessage-blue: 211 100% 50%; /* #007AFF */
+    --imessage-gray: 240 5% 91%;  /* #E5E5EA */
+    --imessage-blue-foreground: 0 0% 100%;
+    --imessage-gray-foreground: 0 0% 0%;
   }
 
   .dark {
@@ -392,6 +398,46 @@
     transform: translateZ(0);
     backface-visibility: hidden;
   }
+
+  /* iMessage UI Components */
+  .chat-bubble {
+    @apply max-w-[75%] px-4 py-2 rounded-[20px] text-sm leading-relaxed shadow-sm relative transition-all duration-200;
+  }
+
+  .chat-bubble-me {
+    @apply bg-[#007AFF] text-white self-end rounded-tr-[4px] ml-auto;
+  }
+
+  .chat-bubble-others {
+    @apply bg-[#E5E5EA] text-black self-start rounded-tl-[4px] mr-auto;
+  }
+
+  .chat-sender-name {
+    @apply text-[11px] font-semibold text-muted-foreground/70 mb-1 px-1;
+  }
+
+  .chat-timestamp {
+    @apply text-[10px] text-muted-foreground/50 mt-1 px-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200;
+  }
+
+  .chat-container {
+    @apply flex flex-col gap-2 p-4 overflow-y-auto scroll-smooth;
+  }
+
+  .chat-message-group {
+    @apply flex flex-col max-w-full;
+  }
+
+  .typing-indicator {
+    @apply flex items-center gap-1 px-3 py-2 bg-[#E5E5EA] rounded-full w-fit;
+  }
+
+  .typing-dot {
+    @apply w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce;
+  }
+
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
 }
 
 /* Reduced Motion Support - Accessibility */
