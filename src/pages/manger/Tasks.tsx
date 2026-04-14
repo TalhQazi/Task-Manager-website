@@ -2220,34 +2220,44 @@ export default function Tasks() {
                                       )}
                                       
                                       <div className={cn(
-                                        "flex items-end gap-2 max-w-[85%]",
+                                        "flex items-end gap-2 max-w-[85%] w-fit",
                                         isMe ? "flex-row-reverse" : "flex-row"
                                       )}>
                                         {!isMe && (
-                                          <Avatar className="w-8 h-8 border shadow-sm flex-shrink-0 mb-1">
-                                            {c.authorAvatar ? (
-                                              <img src={c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
-                                            ) : (
-                                              <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                                                {(c.authorFullName || c.authorUsername).substring(0, 2).toUpperCase()}
-                                              </AvatarFallback>
-                                            )}
-                                          </Avatar>
+                                          <div className="w-8 flex-shrink-0">
+                                            {!isSameAuthor ? (
+                                              <Avatar className="w-8 h-8 border shadow-sm flex-shrink-0 mb-1">
+                                                {c.authorAvatar ? (
+                                                  <img src={c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
+                                                ) : (
+                                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                                                    {(c.authorFullName || c.authorUsername).substring(0, 2).toUpperCase()}
+                                                  </AvatarFallback>
+                                                )}
+                                              </Avatar>
+                                            ) : null}
+                                          </div>
                                         )}
                                         
-                                        <div className="flex flex-col group/bubble relative">
+                                        <div className={cn(
+                                          "flex flex-col group/bubble relative min-w-0",
+                                          isMe ? "items-end" : "items-start"
+                                        )}>
                                           <div className={cn(
                                             "chat-bubble",
                                             isMe ? "chat-bubble-me" : "chat-bubble-others"
                                           )}>
-                                            <div className="whitespace-pre-wrap break-words">
+                                            <div className="whitespace-pre-wrap break-words overflow-hidden leading-snug">
                                               {renderMessageWithMentions(c.message)}
                                             </div>
                                             
                                             {c.attachments && c.attachments.length > 0 && (
-                                              <div className="grid grid-cols-1 gap-2 mt-2">
+                                              <div className={cn(
+                                                "grid gap-2 mt-2",
+                                                c.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"
+                                              )}>
                                                 {c.attachments.map((att, attIdx) => (
-                                                  <div key={attIdx} className="relative rounded-lg overflow-hidden border border-border bg-background/10 group/att">
+                                                  <div key={attIdx} className="relative rounded-xl overflow-hidden border border-white/20 bg-black/5 group/att min-w-[140px] max-w-[240px]">
                                                     <CommentAttachmentImg 
                                                       taskId={selectedTask!.id} 
                                                       commentId={c.id} 
@@ -2271,7 +2281,7 @@ export default function Tasks() {
                                         </div>
                                         
                                         {isMe && (
-                                          <div className="flex flex-col justify-end pb-1 opacity-40">
+                                          <div className="flex flex-col justify-end pb-5 opacity-40">
                                             <CheckCircle2 className="w-3 h-3 text-blue-500" />
                                           </div>
                                         )}

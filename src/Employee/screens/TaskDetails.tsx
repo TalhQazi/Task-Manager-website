@@ -441,10 +441,10 @@ export default function EmployeeTaskDetails() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-col h-[500px] bg-muted/5 rounded-2xl border border-border/40 overflow-hidden">
+          <div className="flex flex-col flex-1 min-h-[500px] h-full bg-muted/5 rounded-2xl border border-border/40 overflow-hidden shadow-inner">
             <div 
               ref={chatContainerRef} 
-              className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth custom-scrollbar"
+              className="flex-1 overflow-y-auto p-4 space-y-1.5 scroll-smooth custom-scrollbar"
             >
               {commentsLoading && comments.length === 0 ? (
                 <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
@@ -454,18 +454,20 @@ export default function EmployeeTaskDetails() {
                   <p className="text-sm font-medium">No activity here yet. Start the conversation!</p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="flex flex-col gap-1">
                   {comments.map((c, idx) => {
                     const isMe = c.authorUsername === currentUsername;
                     const prevComment = idx > 0 ? comments[idx - 1] : null;
-                    const showSenderName = !isMe && prevComment?.authorUsername !== c.authorUsername;
+                    const isSameAuthor = prevComment?.authorUsername === c.authorUsername;
+                    const showSenderName = !isMe && !isSameAuthor;
                     
                     return (
                       <div 
                         key={c.id} 
                         className={cn(
                           "flex flex-col group",
-                          isMe ? "items-end" : "items-start"
+                          isMe ? "items-end" : "items-start",
+                          !isSameAuthor && idx !== 0 ? "mt-4" : "mt-0"
                         )}
                       >
                         {showSenderName && (
@@ -475,25 +477,52 @@ export default function EmployeeTaskDetails() {
                         )}
                         
                         <div className={cn(
-                          "flex items-end gap-2 max-w-[85%]",
+                          "flex items-end gap-2 max-w-[85%] w-fit",
                           isMe ? "flex-row-reverse" : "flex-row"
                         )}>
                           {!isMe && (
-                            <Avatar className="w-8 h-8 border shadow-sm flex-shrink-0 mb-1">
-                              <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                                {c.authorUsername.substring(0, 2).toUpperCase()}
-                              </AvatarFallback>
-                            </Avatar>
+                            <div className="w-8 flex-shrink-0">
+                              {!isSameAuthor ? (
+                                <Avatar className="w-8 h-8 border shadow-sm flex-shrink-0 mb-1">
+                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                                    {c.authorUsername.substring(0, 2).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                              ) : null}
+                            </div>
                           )}
                           
-                          <div className="flex flex-col group/bubble relative text-left">
+                          <div className={cn(
+                            "flex flex-col group/bubble relative min-w-0",
+                            isMe ? "items-end" : "items-start"
+                          )}>
                             <div className={cn(
                               "chat-bubble",
                               isMe ? "chat-bubble-me" : "chat-bubble-others"
                             )}>
-                              <div className="whitespace-pre-wrap break-words">
+                              <div className="whitespace-pre-wrap break-words overflow-hidden leading-snug">
                                 {renderMessageWithMentions(c.message)}
                               </div>
+                              
+                              {c.attachments && c.attachments.length > 0 && (
+                                <div className={cn(
+                                  "grid gap-2 mt-2",
+                                  c.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"
+                                )}>
+                                  {c.attachments.map((att, attIdx) => (
+                                    <div key={attIdx} className="relative rounded-xl overflow-hidden border border-white/20 bg-black/5 group/att min-w-[140px] max-w-[240px]">
+                                      <CommentAttachmentImg 
+                                        taskId={taskId!} 
+                                        commentId={c.id} 
+                                        index={attIdx} 
+                                        mimeType={att.mimeType} 
+                                        fileName={att.fileName} 
+                                        fallbackUrl={att.url} 
+                                      />
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                             
                             <div className={cn(
@@ -505,7 +534,7 @@ export default function EmployeeTaskDetails() {
                           </div>
                           
                           {isMe && (
-                            <div className="flex flex-col justify-end pb-1 opacity-40">
+                            <div className="flex flex-col justify-end pb-5 opacity-40">
                               <CheckCircle2 className="w-3 h-3 text-blue-500" />
                             </div>
                           )}
@@ -516,15 +545,16 @@ export default function EmployeeTaskDetails() {
                   
                   {othersTyping.length > 0 && (
                     <div className="flex items-center gap-2 max-w-[85%] self-start pt-2">
-                      <div className="typing-indicator">
+                      <div className="typing-indicator scale-75 origin-left">
                         <div className="typing-dot" />
                         <div className="typing-dot" />
                         <div className="typing-dot" />
                       </div>
-                      <span className="text-[10px] text-muted-foreground/60 italic font-medium">
-                        {othersTyping.join(", ")} {othersTyping.length === 1 ? "is" : "are"} typing...
+                      <span className="text-[10px] text-muted-foreground/40 italic font-medium">
+                        {othersTyping.join(", ")} typing...
                       </span>
                     </div>
+                  )}
                   )}
                 </div>
               )}
