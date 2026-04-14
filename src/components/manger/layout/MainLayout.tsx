@@ -616,11 +616,6 @@ export function MainLayout({ children }: MainLayoutProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Founder Message Bar - Full width above content, higher z-index than sidebar */}
-      <div className="fixed left-0 right-0 z-50 md:left-56 lg:left-62" style={{ top: `${headerHeight}px` }}>
-        <FounderMessageBar />
-      </div>
-
       {/* Body: left icon rail + content */}
       <div className="flex">
         <div className="hidden md:block">
@@ -628,8 +623,11 @@ export function MainLayout({ children }: MainLayoutProps) {
         </div>
         <main 
           className="flex-1 min-h-screen md:ml-56 lg:ml-62"
-          style={{ paddingTop: `${headerHeight + 20}px` }}
+          style={{ paddingTop: `${headerHeight}px` }}
         >
+          <div className="sticky z-30" style={{ top: `${headerHeight}px` }}>
+            <FounderMessageBar />
+          </div>
           <div className="w-full px-4 py-4 sm:py-8 animate-fade-in">
             {children}
           </div>
