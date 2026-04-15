@@ -2858,6 +2858,14 @@ export default function Tasks() {
                     payload.logo = logoPayload;
                   }
 
+                  console.log("[EditProject] Sending payload:", {
+                    id: editingProject.id,
+                    hasLogo: !!payload.logo,
+                    logoFileName: payload.logo?.fileName,
+                    logoUrlPrefix: payload.logo?.url?.substring(0, 40),
+                    logoUrlLength: payload.logo?.url?.length,
+                  });
+
                   await editProjectMutation.mutateAsync({ id: editingProject.id, payload });
 
                   setIsEditProjectOpen(false);
