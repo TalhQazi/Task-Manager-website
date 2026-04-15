@@ -104,21 +104,16 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (logoUrl) {
+    // If logoUrl is a real URL (S3 or data:), use it directly
+    if (logoUrl && logoUrl.length > 0) {
       setSrc(logoUrl);
       setError(false);
       return;
     }
     
-    // If logoUrl is explicitly null or empty string, we should also clear the src
-    if (logoUrl === null || logoUrl === "") {
-      setSrc(null);
-      setError(false);
-      return;
-    }
-
+    // logoUrl is undefined or empty string — fetch from dedicated endpoint
+    // Empty string means the list API stripped a base64 value stored in MongoDB
     let cancelled = false;
-    // Set to undefined to show loading state if we're fetching
     setSrc(undefined);
 
     apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
@@ -148,7 +143,7 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
     );
   }
 
-  if (src === undefined && logoUrl === undefined) {
+  if (src === undefined) {
     return <div className="w-10 h-10 rounded-md bg-muted/40 animate-pulse flex-shrink-0" />;
   }
 
@@ -163,17 +158,20 @@ function TaskAttachmentImg({ taskId, attachmentUrl, onPreview }: { taskId: strin
   const [src, setSrc] = useState<string | null | undefined>(attachmentUrl || undefined);
   
   useEffect(() => {
-    if (attachmentUrl) {
+    // If attachmentUrl is a real URL (S3 or data:), use it directly
+    if (attachmentUrl && attachmentUrl.length > 0) {
       setSrc(attachmentUrl);
       return;
     }
     
+    // attachmentUrl is undefined or empty string — fetch from dedicated endpoint
     let cancelled = false;
     apiFetch<{ attachment: { url: string } }>(`/api/tasks/${encodeURIComponent(taskId)}/attachment`)
       .then(d => { if (!cancelled) setSrc(d.attachment?.url || null); })
       .catch(() => { if (!cancelled) setSrc(null); });
     return () => { cancelled = true; };
   }, [taskId, attachmentUrl]);
+
   if (src) return (
     <div className="w-full h-full relative group/task-att cursor-zoom-in" onClick={() => onPreview?.(src, "Task Attachment")}>
       <img src={src} alt="Task preview" className="w-full h-full object-cover" />

@@ -251,21 +251,22 @@ function normalizeTask(t: TaskApi): Task {
 }
 
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
-  const [src, setSrc] = useState<string | null | undefined>(logoUrl !== undefined ? (logoUrl || null) : undefined);
+  const [src, setSrc] = useState<string | null | undefined>(undefined);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (logoUrl) {
+    // If logoUrl is a real URL (S3 or data:), use it directly
+    if (logoUrl && logoUrl.length > 0) {
       setSrc(logoUrl);
       setError(false);
       return;
     }
-    if (logoUrl === null || logoUrl === "") {
-      setSrc(null);
-      setError(false);
-      return;
-    }
+    
+    // logoUrl is undefined or empty string — fetch from dedicated endpoint
+    // Empty string means the list API stripped a base64 value stored in MongoDB
     let cancelled = false;
+    setSrc(undefined);
+
     apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
       .then(d => { 
         if (!cancelled) {
@@ -293,7 +294,7 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
     );
   }
 
-  if (src === undefined && logoUrl === undefined) {
+  if (src === undefined) {
     return <div className="w-10 h-10 rounded-md bg-muted/40 animate-pulse flex-shrink-0" />;
   }
 
@@ -308,14 +309,12 @@ function TaskAttachmentImg({ taskId, index, mimeType, fileName, fallbackUrl, onP
   const [src, setSrc] = useState<string | null>(fallbackUrl || null);
 
   useEffect(() => {
-    if (fallbackUrl) {
+    // If fallbackUrl is a real URL (S3 or data:), use it directly
+    if (fallbackUrl && fallbackUrl.length > 0) {
       setSrc(fallbackUrl);
       return;
     }
-    if (fallbackUrl === null || fallbackUrl === "") {
-      setSrc(null);
-      return;
-    }
+    // fallbackUrl is undefined or empty string — fetch from dedicated endpoint
     apiFetch<{ url: string }>(`/api/tasks/${taskId}/attachments/${index}`)
       .then(d => setSrc(d.url))
       .catch(() => setSrc(null));
