@@ -139,15 +139,16 @@ export default function EmployeeProfile() {
         const base64String = reader.result as string;
         
         // Save to settings/avatar
-        await employeeApiFetch("/api/settings", {
-          method: "POST",
+        const res = await employeeApiFetch<{ item?: { avatarUrl?: string; avatarDataUrl?: string } }>("/api/settings", {
+          method: "PUT",
           body: JSON.stringify({
             avatarDataUrl: base64String,
           }),
         });
 
-        setEditedProfile({ ...editedProfile!, avatarUrl: base64String });
-        setProfile({ ...profile, avatarUrl: base64String });
+        const nextUrl = String(res?.item?.avatarUrl || res?.item?.avatarDataUrl || base64String);
+        setEditedProfile({ ...editedProfile!, avatarUrl: nextUrl });
+        setProfile({ ...profile, avatarUrl: nextUrl });
         toast.success("Profile image updated");
         setUploadingImage(false);
       };
@@ -198,7 +199,7 @@ export default function EmployeeProfile() {
   const handleSaveNotifications = async () => {
     try {
       await employeeApiFetch("/api/settings", {
-        method: "POST",
+        method: "PUT",
         body: JSON.stringify({
           emailNotifications,
           pushNotifications,
