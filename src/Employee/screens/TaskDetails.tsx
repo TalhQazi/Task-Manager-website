@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useSocket } from "@/contexts/SocketContext";
+import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import { getAuthState } from "@/lib/auth";
 import { useRef } from "react";
 import { cn } from "@/lib/utils";
@@ -152,6 +153,7 @@ export default function EmployeeTaskDetails() {
 
   const currentUsername = getAuthState().username || "";
   const { socket, joinTask, leaveTask } = useSocket();
+  const { triggerBlaster, incrementCompletedCount } = useTaskBlasterContext();
 
   const priorityColor = (p: string) => {
     switch (p) {
@@ -306,9 +308,24 @@ export default function EmployeeTaskDetails() {
     if (!taskId) return;
     setStatusUpdating(true);
     try {
+      const previousStatus = task?.status;
       await updateTaskStatus(taskId, statusDraft);
       toast.success("Status updated");
       await loadTask();
+
+      // Trigger TaskBlaster when task is marked as completed
+      if (statusDraft === "completed" && previousStatus !== "completed" && task) {
+        const taskForBlaster = {
+          id: task.id,
+          title: task.title,
+          priority: task.priority as any,
+          status: "completed",
+        };
+        const triggered = triggerBlaster(taskForBlaster);
+        if (triggered) {
+          incrementCompletedCount();
+        }
+      }
     } catch (err: any) {
       toast.error(err?.message || "Failed to update status");
     } finally {

@@ -97,6 +97,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import jsPDF from "jspdf";
 import { useSocket } from "@/contexts/SocketContext";
 import { Pagination } from "@/components/Pagination";
+import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
   const [src, setSrc] = useState<string | null | undefined>(logoUrl !== undefined ? (logoUrl || null) : undefined);
@@ -1405,8 +1406,11 @@ export default function Tasks() {
     }
   };
 
+  const { triggerBlaster, incrementCompletedCount } = useTaskBlasterContext();
+
   const updateStatus = async (next: Task["status"]) => {
     if (!selectedTask) return;
+    const previousStatus = selectedTask.status;
     try {
       setStatusSaving(true);
       setCommentError(null);
@@ -1417,6 +1421,20 @@ export default function Tasks() {
       const normalized = normalizeTask(res.item);
       setSelectedTask(normalized);
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+
+      // Trigger TaskBlaster when task is marked as completed
+      if (next === "completed" && previousStatus !== "completed") {
+        const taskForBlaster = {
+          id: normalized.id,
+          title: normalized.title,
+          priority: normalized.priority as any,
+          status: "completed",
+        };
+        const triggered = triggerBlaster(taskForBlaster);
+        if (triggered) {
+          incrementCompletedCount();
+        }
+      }
     } catch (e) {
       setCommentError(e instanceof Error ? e.message : "Failed to update status");
     } finally {
@@ -1572,6 +1590,7 @@ export default function Tasks() {
 
   const onEditTask = (values: CreateTaskValues) => {
     if (!selectedTask) return;
+    const previousStatus = selectedTask.status;
 
     updateTaskMutation.mutate(
       { id: selectedTask.id, payload: { ...values, assignees: editSelectedAssignees } },
@@ -1583,6 +1602,20 @@ export default function Tasks() {
             title: "Task updated",
             description: "Task has been updated.",
           });
+
+          // Trigger TaskBlaster when task is marked as completed via edit
+          if (values.status === "completed" && previousStatus !== "completed") {
+            const taskForBlaster = {
+              id: selectedTask.id,
+              title: selectedTask.title,
+              priority: values.priority as any,
+              status: "completed",
+            };
+            const triggered = triggerBlaster(taskForBlaster);
+            if (triggered) {
+              incrementCompletedCount();
+            }
+          }
         },
         onError: (err) => {
           toast({

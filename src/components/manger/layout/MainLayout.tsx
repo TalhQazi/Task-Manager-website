@@ -1,6 +1,7 @@
 import { Sidebar } from "./Sidebar";
 import { ReactNode, useState, useEffect } from "react";
 import { Bell, Bug, Mail, Menu, Search, User } from "lucide-react";
+import { TaskBlaster } from "@/components/shared/TaskBlaster";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "@/components/manger/ui/sheet";
 import { Button } from "@/components/manger/ui/button";
 import {
@@ -629,6 +630,9 @@ export function MainLayout({ children }: MainLayoutProps) {
           </div>
         </main>
       </div>
+
+      {/* TaskBlaster overlay for celebrations */}
+      <TaskBlaster />
     </div>
   );
 }

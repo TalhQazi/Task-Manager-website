@@ -4,6 +4,7 @@ import { EmployeeSidebar } from "./EmployeeSidebar";
 import { EmployeeHeader } from "./EmployeeHeader";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { TaskBlaster } from "@/components/shared/TaskBlaster";
 
 export function EmployeeLayout() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
@@ -50,6 +51,9 @@ export function EmployeeLayout() {
           <EmployeeSidebar mode="mobile" onNavigate={() => setMobileSidebarOpen(false)} />
         </SheetContent>
       </Sheet>
+
+      {/* Task Blaster Animation Overlay */}
+      <TaskBlaster />
     </div>
   );
 }

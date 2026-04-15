@@ -4,6 +4,7 @@ import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { TaskBlaster } from "@/components/shared/TaskBlaster";
 
 // Context to share header height across components
 const HeaderHeightContext = createContext<number>(250);
@@ -59,6 +60,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             <Sidebar mode="mobile" onNavigate={() => setMobileSidebarOpen(false)} />
           </SheetContent>
         </Sheet>
+
+        {/* TaskBlaster overlay for celebrations */}
+        <TaskBlaster />
       </div>
     </HeaderHeightContext.Provider>
   );

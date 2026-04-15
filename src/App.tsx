@@ -9,6 +9,7 @@ import EmployeeLogin from "./Employee/screens/Login";
 import { getAuthState } from "./lib/auth";
 import { getEmployeeAuth } from "./Employee/lib/auth";
 import { SocketProvider } from "./contexts/SocketContext";
+import { TaskBlasterProvider } from "./contexts/TaskBlasterContext";
 
 // Lazy-load route controllers — each pulls in its own pages lazily
 const AdminRoutes = lazy(() => import("./routes/AdminRoutes"));
@@ -39,7 +40,8 @@ function IndexRedirect() {
 
 const App = () => (
   <SocketProvider>
-    <QueryClientProvider client={queryClient}>
+    <TaskBlasterProvider>
+      <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
@@ -62,6 +64,7 @@ const App = () => (
         </BrowserRouter>
       </TooltipProvider>
     </QueryClientProvider>
+    </TaskBlasterProvider>
   </SocketProvider>
 );
 
