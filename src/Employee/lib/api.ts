@@ -50,7 +50,15 @@ export function toProxiedUrl(url: string | undefined): string {
 
   if (match) {
     const key = match[3];
-    return `${API_BASE_URL}/api/s3-proxy/${key}`;
+    let token = "";
+    const authRaw = localStorage.getItem("employee_auth");
+    if (authRaw) {
+      try {
+        const parsed = JSON.parse(authRaw);
+        token = parsed.token || "";
+      } catch (e) {}
+    }
+    return `${API_BASE_URL}/api/s3-proxy/${key}${token ? `?token=${token}` : ""}`;
   }
 
   // Fallback for cases where it's already a relative path or other non-S3 URL

@@ -39,7 +39,8 @@ export function toProxiedUrl(url: string | undefined | null): string | undefined
   
   const s3Key = s3Match[1];
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
-  return `${baseUrl}/api/s3-proxy/${s3Key}`;
+  const token = getAuthState().token;
+  return `${baseUrl}/api/s3-proxy/${s3Key}${token ? `?token=${token}` : ""}`;
 }
 
 async function parseJsonSafe(res: Response) {
