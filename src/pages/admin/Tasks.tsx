@@ -2248,6 +2248,17 @@ export default function Tasks() {
                   <Button variant="ghost" size="sm" onClick={() => void handlePrintTask(selectedTask)} title="Print Task"><Printer className="w-4 h-4 mr-1.5 hidden sm:block" /> Print</Button>
                   <Button variant="ghost" size="sm" onClick={() => { setIsViewOpen(false); openEdit(selectedTask); }} title="Edit Task"><Edit className="w-4 h-4 mr-1.5 hidden sm:block" /> Edit</Button>
                 </div>
+
+                {/* Close button - top right */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-2 right-2 h-8 w-8 rounded-full p-0 hover:bg-muted"
+                  onClick={() => setIsViewOpen(false)}
+                  title="Close"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
 
               {/* 2-Pane Body */}
@@ -2258,6 +2269,34 @@ export default function Tasks() {
                   {/* Task Title */}
                   <div>
                     <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight break-words">{selectedTask.title}</h2>
+                  </div>
+
+                  {/* Mobile Status - Only visible on mobile */}
+                  <div className="md:hidden space-y-1.5">
+                    <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">Status</label>
+                    <Select value={selectedTask.status} onValueChange={async (v) => { await updateStatus(v as Task["status"]); }} disabled={statusSaving}>
+                      <SelectTrigger className={cn("h-9 font-medium text-xs bg-background border-border/60", statusClasses[selectedTask.status])}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {["pending","in-progress","completed","overdue"].map((s) => (
+                          <SelectItem key={s} value={s} className="text-xs">
+                            <span className="flex items-center gap-2">
+                              <span className={cn("inline-block w-2 h-2 rounded-full", {
+                                "bg-slate-400": s === "pending",
+                                "bg-amber-500": s === "in-progress",
+                                "bg-emerald-600": s === "completed",
+                                "bg-red-500": s === "overdue",
+                              })} />
+                              {s === "pending" && "Pending"}
+                              {s === "in-progress" && "In Progress"}
+                              {s === "completed" && "Completed"}
+                              {s === "overdue" && "Overdue"}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {/* Task Description */}
