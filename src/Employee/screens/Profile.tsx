@@ -27,7 +27,7 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import { getEmployeeProfile, employeeApiFetch } from "../lib/api";
+import { getEmployeeProfile, employeeApiFetch, toProxiedUrl } from "../lib/api";
 
 interface EmployeeProfileData {
   id: string;
@@ -147,8 +147,9 @@ export default function EmployeeProfile() {
         });
 
         const nextUrl = String(res?.item?.avatarUrl || res?.item?.avatarDataUrl || base64String);
-        setEditedProfile({ ...editedProfile!, avatarUrl: nextUrl });
-        setProfile({ ...profile, avatarUrl: nextUrl });
+        const proxiedUrl = toProxiedUrl(nextUrl) || nextUrl;
+        setEditedProfile({ ...editedProfile!, avatarUrl: proxiedUrl });
+        setProfile({ ...profile, avatarUrl: proxiedUrl });
         toast.success("Profile image updated");
         setUploadingImage(false);
       };
@@ -265,7 +266,7 @@ export default function EmployeeProfile() {
             {/* Avatar */}
             <div className="relative">
               <Avatar className="h-24 w-24 border-4 border-[#133767]/20">
-                <AvatarImage src={profile.avatarUrl} alt={profile.name} />
+                <AvatarImage src={toProxiedUrl(profile.avatarUrl)} alt={profile.name} crossOrigin="anonymous" />
                 <AvatarFallback className="bg-gradient-to-br from-[#133767] to-blue-500 text-white text-2xl font-bold">
                   {initials}
                 </AvatarFallback>

@@ -92,7 +92,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { io, Socket } from "socket.io-client";
 import { cn } from "@/lib/manger/utils";
-import { apiFetch, downloadTaskAttachment } from "@/lib/manger/api";
+import { apiFetch, downloadTaskAttachment, toProxiedUrl } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
 import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -257,7 +257,7 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
   useEffect(() => {
     // If logoUrl is a real URL (S3 or data:), use it directly
     if (logoUrl && logoUrl.length > 0) {
-      setSrc(logoUrl);
+      setSrc(toProxiedUrl(logoUrl) || logoUrl);
       setError(false);
       return;
     }
@@ -270,7 +270,7 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
     apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
       .then(d => { 
         if (!cancelled) {
-          setSrc(d.logo?.url || null);
+          setSrc(toProxiedUrl(d.logo?.url) || null);
           setError(false);
         }
       })
@@ -289,6 +289,7 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
         src={src} 
         alt={`${projectName} logo`} 
         className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-border" 
+        crossOrigin="anonymous"
         onError={() => setError(true)}
       />
     );
@@ -306,17 +307,17 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
 }
 
 function TaskAttachmentImg({ taskId, index, mimeType, fileName, fallbackUrl, onPreview }: { taskId: string; index: number; mimeType?: string; fileName?: string; fallbackUrl?: string; onPreview?: (url: string, name: string) => void }) {
-  const [src, setSrc] = useState<string | null>(fallbackUrl || null);
+  const [src, setSrc] = useState<string | null>(toProxiedUrl(fallbackUrl) as string || null);
 
   useEffect(() => {
     // If fallbackUrl is a real URL (S3 or data:), use it directly
     if (fallbackUrl && fallbackUrl.length > 0) {
-      setSrc(fallbackUrl);
+      setSrc(toProxiedUrl(fallbackUrl) || fallbackUrl);
       return;
     }
     // fallbackUrl is undefined or empty string — fetch from dedicated endpoint
     apiFetch<{ url: string }>(`/api/tasks/${taskId}/attachments/${index}`)
-      .then(d => setSrc(d.url))
+      .then(d => setSrc(toProxiedUrl(d.url) as string || null))
       .catch(() => setSrc(null));
   }, [taskId, index, fallbackUrl]);
 
@@ -359,11 +360,11 @@ function TaskAttachmentImg({ taskId, index, mimeType, fileName, fallbackUrl, onP
 }
 
 function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fallbackUrl, onPreview }: { taskId: string; commentId: string; index: number; mimeType?: string; fileName?: string; fallbackUrl?: string; onPreview?: (url: string, name: string) => void }) {
-  const [src, setSrc] = useState<string | null>(fallbackUrl || null);
+  const [src, setSrc] = useState<string | null>(toProxiedUrl(fallbackUrl) as string || null);
   useEffect(() => {
     if (fallbackUrl) return;
     apiFetch<{ url: string }>(`/api/tasks/${taskId}/comments/${commentId}/attachments/${index}`)
-      .then(d => setSrc(d.url))
+      .then(d => setSrc(toProxiedUrl(d.url) as string || null))
       .catch(() => setSrc(null));
   }, [taskId, commentId, index, fallbackUrl]);
 

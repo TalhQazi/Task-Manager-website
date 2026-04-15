@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
 import { User, Shield, Save, Camera } from "lucide-react";
-import { apiFetch } from "@/lib/manger/api";
+import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
 import { toast } from "@/components/manger/ui/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -105,7 +105,7 @@ export default function Settings() {
       const item = settingsQuery.data.item;
       setDraft({
         ...item,
-        avatarUrl: item.avatarDataUrl || item.avatarUrl || "",
+        avatarUrl: item.avatarDataUrl || (item.avatarUrl ? toProxiedUrl(item.avatarUrl) : "") || "",
       });
     }
   }, [settingsQuery.data, draft]);
@@ -277,7 +277,7 @@ export default function Settings() {
           setAvatarUploadMessage("Image uploaded successfully.");
           toast({ title: "Uploaded", description: "Profile picture updated successfully." });
           if (newAvatarUrl) {
-            setDraft((p: any) => ({ ...p, avatarUrl: newAvatarUrl }));
+            setDraft((p: any) => ({ ...p, avatarUrl: toProxiedUrl(newAvatarUrl) || newAvatarUrl }));
           }
           setIsCropOpen(false);
           setPendingImageSrc("");
@@ -445,7 +445,7 @@ export default function Settings() {
           <div className="relative">
             <Avatar className="h-20 w-20 border-2 border-border">
               {draft?.avatarUrl ? (
-                <AvatarImage src={draft.avatarUrl} alt={draft?.fullName || "User"} className="object-cover" />
+                <AvatarImage src={draft.avatarUrl} alt={draft?.fullName || "User"} className="object-cover" crossOrigin="anonymous" />
               ) : (
                 <AvatarFallback className="text-2xl bg-primary/10 text-primary">
                   {initials}

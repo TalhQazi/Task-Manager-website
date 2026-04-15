@@ -21,7 +21,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { apiFetch } from "@/lib/admin/apiClient";
+import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 import { getAuthState, clearAuthState } from "@/lib/auth";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { AdminInfoManager } from "@/components/admin/AdminInfoManager";
@@ -414,7 +414,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   const settings = settingsQuery.data?.item;
   const fullName = (settings?.fullName || auth.username || "Admin").trim();
   const email = (settings?.email || "").trim();
-  const avatarUrl = (settings as any)?.avatarDataUrl || (settings as any)?.avatarUrl as string | undefined;
+  const avatarUrl = toProxiedUrl((settings as any)?.avatarDataUrl || (settings as any)?.avatarUrl as string | undefined);
   const initials =
     fullName
       .split(" ")
@@ -716,7 +716,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                 >
                   <Avatar className="h-9 w-9 sm:h-12 sm:w-12 border border-white/70">
                     {avatarUrl ? (
-                      <AvatarImage src={avatarUrl} alt={fullName} className="object-cover" />
+                      <AvatarImage src={avatarUrl} alt={fullName} className="object-cover" crossOrigin="anonymous" />
                     ) : (
                       <AvatarFallback className="bg-white/20 text-sm font-semibold">{initials}</AvatarFallback>
                     )}

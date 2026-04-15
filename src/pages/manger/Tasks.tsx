@@ -92,7 +92,7 @@ import {
   Maximize2,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
-import { apiFetch, downloadTaskAttachment } from "@/lib/manger/api";
+import { apiFetch, downloadTaskAttachment, toProxiedUrl } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSocket } from "@/contexts/SocketContext";
@@ -260,7 +260,7 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
   useEffect(() => {
     // If logoUrl is a real URL (S3 or data:), use it directly
     if (logoUrl && logoUrl.length > 0) {
-      setSrc(logoUrl);
+      setSrc(toProxiedUrl(logoUrl) || logoUrl);
       setError(false);
       return;
     }
@@ -273,7 +273,7 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
     apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
       .then(d => { 
         if (!cancelled) {
-          setSrc(d.logo?.url || null);
+          setSrc(toProxiedUrl(d.logo?.url) || null);
           setError(false);
         }
       })
@@ -292,6 +292,7 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
         src={src} 
         alt={`${projectName} logo`} 
         className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-border" 
+        crossOrigin="anonymous"
         onError={() => setError(true)}
       />
     );
@@ -309,19 +310,19 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
 }
 
 function TaskAttachmentImg({ taskId, attachmentUrl, onPreview }: { taskId: string; attachmentUrl?: string; onPreview?: (url: string, fileName: string) => void }) {
-  const [src, setSrc] = useState<string | null | undefined>(attachmentUrl || undefined);
+  const [src, setSrc] = useState<string | null | undefined>(toProxiedUrl(attachmentUrl) || undefined);
   
   useEffect(() => {
     // If attachmentUrl is a real URL (S3 or data:), use it directly
     if (attachmentUrl && attachmentUrl.length > 0) {
-      setSrc(attachmentUrl);
+      setSrc(toProxiedUrl(attachmentUrl) || attachmentUrl);
       return;
     }
 
     // attachmentUrl is undefined or empty string — fetch from dedicated endpoint
     let cancelled = false;
     apiFetch<{ attachment: { url: string } }>(`/api/tasks/${encodeURIComponent(taskId)}/attachment`)
-      .then(d => { if (!cancelled) setSrc(d.attachment?.url || null); })
+      .then(d => { if (!cancelled) setSrc(toProxiedUrl(d.attachment?.url) || null); })
       .catch(() => { if (!cancelled) setSrc(null); });
     return () => { cancelled = true; };
   }, [taskId, attachmentUrl]);
@@ -339,7 +340,7 @@ function TaskAttachmentImg({ taskId, attachmentUrl, onPreview }: { taskId: strin
 }
 
 function CommentAttachmentImg({ taskId, projectId, commentId, index, mimeType, fileName, fallbackUrl, onPreview }: { taskId?: string; projectId?: string; commentId: string; index: number; mimeType: string; fileName: string; fallbackUrl?: string; onPreview?: (url: string, name: string) => void }) {
-  const [src, setSrc] = useState<string | null | undefined>(fallbackUrl || undefined);
+  const [src, setSrc] = useState<string | null | undefined>(toProxiedUrl(fallbackUrl) || undefined);
   useEffect(() => {
     if (fallbackUrl) return; 
     let cancelled = false;
@@ -348,7 +349,7 @@ function CommentAttachmentImg({ taskId, projectId, commentId, index, mimeType, f
       : `/api/projects/${encodeURIComponent(projectId!)}/comments/${encodeURIComponent(commentId)}/attachments/${index}`;
       
     apiFetch<{ attachment: { url: string } }>(url)
-      .then(d => { if (!cancelled) setSrc(d.attachment?.url || null); })
+      .then(d => { if (!cancelled) setSrc(toProxiedUrl(d.attachment?.url) || null); })
       .catch(() => { if (!cancelled) setSrc(null); });
     return () => { cancelled = true; };
   }, [taskId, projectId, commentId, index, fallbackUrl]);
