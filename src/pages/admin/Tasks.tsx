@@ -100,7 +100,7 @@ import { Pagination } from "@/components/Pagination";
 import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
-  const [src, setSrc] = useState<string | null | undefined>(logoUrl !== undefined ? (logoUrl || null) : undefined);
+  const [src, setSrc] = useState<string | null | undefined>(undefined);
   const [error, setError] = useState(false);
 
   useEffect(() => {
@@ -109,7 +109,18 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
       setError(false);
       return;
     }
+    
+    // If logoUrl is explicitly null or empty string, we should also clear the src
+    if (logoUrl === null || logoUrl === "") {
+      setSrc(null);
+      setError(false);
+      return;
+    }
+
     let cancelled = false;
+    // Set to undefined to show loading state if we're fetching
+    setSrc(undefined);
+
     apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
       .then(d => { 
         if (!cancelled) {
@@ -148,15 +159,21 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
   );
 }
 
-function TaskAttachmentImg({ taskId, onPreview }: { taskId: string; onPreview?: (url: string, fileName: string) => void }) {
-  const [src, setSrc] = useState<string | null | undefined>(undefined);
+function TaskAttachmentImg({ taskId, attachmentUrl, onPreview }: { taskId: string; attachmentUrl?: string; onPreview?: (url: string, fileName: string) => void }) {
+  const [src, setSrc] = useState<string | null | undefined>(attachmentUrl || undefined);
+  
   useEffect(() => {
+    if (attachmentUrl) {
+      setSrc(attachmentUrl);
+      return;
+    }
+    
     let cancelled = false;
     apiFetch<{ attachment: { url: string } }>(`/api/tasks/${encodeURIComponent(taskId)}/attachment`)
       .then(d => { if (!cancelled) setSrc(d.attachment?.url || null); })
       .catch(() => { if (!cancelled) setSrc(null); });
     return () => { cancelled = true; };
-  }, [taskId]);
+  }, [taskId, attachmentUrl]);
   if (src) return (
     <div className="w-full h-full relative group/task-att cursor-zoom-in" onClick={() => onPreview?.(src, "Task Attachment")}>
       <img src={src} alt="Task preview" className="w-full h-full object-cover" />
@@ -500,6 +517,8 @@ export default function Tasks() {
   const [isLoadingProject, setIsLoadingProject] = useState(false);
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
   const [editSelectedAssignees, setEditSelectedAssignees] = useState<string[]>([]);
+  const [editTaskFile, setEditTaskFile] = useState<File | null>(null);
+  const [editTaskFilePreview, setEditTaskFilePreview] = useState<string | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -732,7 +751,7 @@ export default function Tasks() {
   });
 
   const updateTaskMutation = useMutation({
-    mutationFn: async ({ id, payload }: { id: string; payload: CreateTaskValues }) => {
+    mutationFn: async ({ id, payload }: { id: string; payload: Partial<Task> }) => {
       const res = await apiFetch<{ item: TaskApi }>(`/api/tasks/${id}`, {
         method: "PUT",
         body: JSON.stringify(payload),
@@ -798,6 +817,9 @@ export default function Tasks() {
         void loadProject(selectedProject.id);
       }
     },
+    onError: (err) => {
+      console.error("Project update error details:", err);
+    }
   });
 
   const deleteProjectMutation = useMutation({
@@ -1455,6 +1477,8 @@ export default function Tasks() {
       location: task.location || "",
     });
     setIsEditOpen(true);
+    setEditTaskFile(null);
+    setEditTaskFilePreview(task.attachment?.url || null);
   };
 
   const openDelete = (task: Task) => {
@@ -1588,15 +1612,39 @@ export default function Tasks() {
     }
   };
 
-  const onEditTask = (values: CreateTaskValues) => {
+  const onEditTask = async (values: CreateTaskValues) => {
     if (!selectedTask) return;
     const previousStatus = selectedTask.status;
 
+    const payload: Partial<Task> = { ...values, assignees: editSelectedAssignees };
+
+    if (editTaskFile) {
+      try {
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(editTaskFile);
+        });
+        payload.attachment = {
+          fileName: editTaskFile.name,
+          url: base64,
+          mimeType: editTaskFile.type,
+          size: editTaskFile.size
+        };
+      } catch (err) {
+        console.error("Failed to process task attachment update:", err);
+      }
+    } else if (editTaskFilePreview === null) {
+      payload.attachment = { fileName: "", url: "", mimeType: "", size: 0 };
+    }
+
     updateTaskMutation.mutate(
-      { id: selectedTask.id, payload: { ...values, assignees: editSelectedAssignees } },
+      { id: selectedTask.id, payload },
       {
         onSuccess: () => {
           setIsEditOpen(false);
+          setEditTaskFile(null);
+          setEditTaskFilePreview(null);
           setEditSelectedAssignees([]);
           toast({
             title: "Task updated",
@@ -1618,6 +1666,7 @@ export default function Tasks() {
           }
         },
         onError: (err) => {
+          console.error("Task update error:", err);
           toast({
             title: "Failed to update task",
             description: err instanceof Error ? err.message : "Something went wrong",
@@ -2026,7 +2075,7 @@ export default function Tasks() {
                           </div>
                           {task.attachment?.fileName && (
                             <div className="mb-2 rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
-                              <TaskAttachmentImg taskId={task.id} />
+                              <TaskAttachmentImg taskId={task.id} attachmentUrl={task.attachment?.url} />
                             </div>
                           )}
                           <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
@@ -2706,6 +2755,55 @@ export default function Tasks() {
                 <FormField control={editForm.control} name="dueDate" render={({ field }) => (<FormItem><FormLabel>Due Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={editForm.control} name="dueTime" render={({ field }) => (<FormItem><FormLabel>Due Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
               </div>
+
+              {/* Task Attachment Update */}
+              <div className="space-y-3 pt-2">
+                <FormLabel>Task Attachment / Logo</FormLabel>
+                <div className="flex items-center gap-4 p-3 rounded-lg bg-muted/30 border border-dashed border-border">
+                  {editTaskFilePreview ? (
+                    <div className="relative group w-16 h-16 rounded-md overflow-hidden border border-border bg-white">
+                      {editTaskFilePreview.startsWith("data:image/") || 
+                       editTaskFilePreview.match(/\.(jpg|jpeg|png|gif|webp|svg)/i) ||
+                       (selectedTask?.attachment?.mimeType?.startsWith("image/")) ? (
+                        <img src={editTaskFilePreview} alt="Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-primary/5">
+                          <FileText className="w-8 h-8 text-primary/40" />
+                        </div>
+                      )}
+                      <button 
+                        type="button" 
+                        onClick={() => { setEditTaskFile(null); setEditTaskFilePreview(null); }}
+                        className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                      >
+                        <Trash2 className="w-4 h-4 text-white" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 rounded-md bg-muted/50 flex items-center justify-center text-muted-foreground/30 border border-border">
+                      <Paperclip className="w-6 h-6" />
+                    </div>
+                  )}
+                  
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground mb-2">Update task image or document (Max 16MB)</p>
+                    <Input 
+                      type="file" 
+                      className="h-8 text-xs cursor-pointer"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setEditTaskFile(file);
+                          const reader = new FileReader();
+                          reader.onloadend = () => setEditTaskFilePreview(reader.result as string);
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
               <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end"><Button type="button" variant="outline" onClick={() => { setIsEditOpen(false); setEditSelectedAssignees([]); }} disabled={updateTaskMutation.isPending} className="w-full sm:w-auto">Cancel</Button><Button type="submit" disabled={updateTaskMutation.isPending} className="w-full sm:w-auto gap-2">{updateTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Save</Button></DialogFooter>
             </form>
           </Form>

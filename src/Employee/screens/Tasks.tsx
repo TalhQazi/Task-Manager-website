@@ -260,6 +260,11 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
       setError(false);
       return;
     }
+    if (logoUrl === null || logoUrl === "") {
+      setSrc(null);
+      setError(false);
+      return;
+    }
     let cancelled = false;
     apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
       .then(d => { 
@@ -301,8 +306,16 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
 
 function TaskAttachmentImg({ taskId, index, mimeType, fileName, fallbackUrl, onPreview }: { taskId: string; index: number; mimeType?: string; fileName?: string; fallbackUrl?: string; onPreview?: (url: string, name: string) => void }) {
   const [src, setSrc] = useState<string | null>(fallbackUrl || null);
+
   useEffect(() => {
-    if (fallbackUrl) return;
+    if (fallbackUrl) {
+      setSrc(fallbackUrl);
+      return;
+    }
+    if (fallbackUrl === null || fallbackUrl === "") {
+      setSrc(null);
+      return;
+    }
     apiFetch<{ url: string }>(`/api/tasks/${taskId}/attachments/${index}`)
       .then(d => setSrc(d.url))
       .catch(() => setSrc(null));

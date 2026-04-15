@@ -263,6 +263,11 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
       setError(false);
       return;
     }
+    if (logoUrl === null || logoUrl === "") {
+      setSrc(null);
+      setError(false);
+      return;
+    }
     let cancelled = false;
     apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
       .then(d => { 
@@ -302,15 +307,26 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
   );
 }
 
-function TaskAttachmentImg({ taskId, onPreview }: { taskId: string; onPreview?: (url: string, fileName: string) => void }) {
-  const [src, setSrc] = useState<string | null | undefined>(undefined);
+function TaskAttachmentImg({ taskId, attachmentUrl, onPreview }: { taskId: string; attachmentUrl?: string; onPreview?: (url: string, fileName: string) => void }) {
+  const [src, setSrc] = useState<string | null | undefined>(attachmentUrl || undefined);
+  
   useEffect(() => {
+    if (attachmentUrl) {
+      setSrc(attachmentUrl);
+      return;
+    }
+    if (attachmentUrl === null || attachmentUrl === "") {
+      setSrc(null);
+      return;
+    }
+
     let cancelled = false;
     apiFetch<{ attachment: { url: string } }>(`/api/tasks/${encodeURIComponent(taskId)}/attachment`)
       .then(d => { if (!cancelled) setSrc(d.attachment?.url || null); })
       .catch(() => { if (!cancelled) setSrc(null); });
     return () => { cancelled = true; };
-  }, [taskId]);
+  }, [taskId, attachmentUrl]);
+
   if (src) return (
     <div className="w-full h-full relative group/task-att cursor-zoom-in" onClick={() => onPreview?.(src, "Task Attachment")}>
       <img src={src} alt="Task preview" className="w-full h-full object-cover" />
@@ -479,6 +495,8 @@ export default function Tasks() {
   const [attachmentFilePreviews, setAttachmentFilePreviews] = useState<string[]>([]);
   const [attachmentNoteDraft, setAttachmentNoteDraft] = useState<string>("");
   const [isCreating, setIsCreating] = useState(false);
+  const [editTaskFile, setEditTaskFile] = useState<File | null>(null);
+  const [editTaskFilePreview, setEditTaskFilePreview] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<{ projectName?: string; title?: string; description?: string }>({});
   const [assigneesOpen, setAssigneesOpen] = useState(false);
   const [editAssigneesOpen, setEditAssigneesOpen] = useState(false);
@@ -713,15 +731,20 @@ export default function Tasks() {
   });
 
   const updateTaskMutation = useMutation({
-    mutationFn: async ({ id, payload }: { id: string; payload: CreateTaskValues }) => {
+    mutationFn: async ({ id, payload }: { id: string; payload: Partial<Task> }) => {
       const res = await apiFetch<{ item: TaskApi }>(`/api/tasks/${id}`, {
         method: "PUT",
         body: JSON.stringify(payload),
       });
       return normalizeTask(res.item);
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    onSuccess: (updatedTask) => {
+      queryClient.setQueryData<Task[]>(["tasks"], (old) => {
+        if (!old) return old;
+        return old.map((t) => (t.id === updatedTask.id ? updatedTask : t));
+      });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 
@@ -1191,6 +1214,8 @@ export default function Tasks() {
   const openEdit = (task: Task) => {
     setSelectedTask(task);
     setEditSelectedAssignees(task.assignees || []);
+    setEditTaskFile(null);
+    setEditTaskFilePreview(task.attachment?.url || null);
     editForm.reset({
       title: task.title,
       description: task.description,
@@ -1334,43 +1359,75 @@ export default function Tasks() {
     }
   };
 
-  const onEditTask = (values: CreateTaskValues) => {
+  const onEditTask = async (values: CreateTaskValues) => {
     if (!selectedTask) return;
     const previousStatus = selectedTask.status;
+    try {
+      let attachment = undefined;
+      if (editTaskFile) {
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(editTaskFile);
+        });
+        attachment = {
+          fileName: editTaskFile.name,
+          url: base64,
+          mimeType: editTaskFile.type,
+          size: editTaskFile.size
+        };
+      } else if (editTaskFilePreview === null) {
+        attachment = { fileName: "", url: "", mimeType: "", size: 0 };
+      }
 
-    updateTaskMutation.mutate(
-      { id: selectedTask.id, payload: { ...values, assignees: editSelectedAssignees } },
-      {
-        onSuccess: () => {
-          setIsEditOpen(false);
-          setEditSelectedAssignees([]);
-          toast({
-            title: "Task updated",
-            description: "Task has been updated.",
-          });
+      const payload: Partial<Task> = { ...values, assignees: editSelectedAssignees };
+      if (attachment !== undefined) {
+        (payload as any).attachment = attachment;
+      }
 
-          // Trigger TaskBlaster when task is marked as completed via edit
-          if (values.status === "completed" && previousStatus !== "completed") {
-            const taskForBlaster = {
-              id: selectedTask.id,
-              title: selectedTask.title,
-              priority: values.priority as any,
-              status: "completed",
-            };
-            const triggered = triggerBlaster(taskForBlaster);
-            if (triggered) {
-              incrementCompletedCount();
+      updateTaskMutation.mutate(
+        { id: selectedTask.id, payload },
+        {
+          onSuccess: (updatedTask) => {
+            setIsEditOpen(false);
+            setEditSelectedAssignees([]);
+            setEditTaskFile(null);
+            setEditTaskFilePreview(null);
+            toast({
+              title: "Task updated",
+              description: "The task has been updated successfully.",
+            });
+
+            // Trigger TaskBlaster when task is marked as completed via edit
+            if (values.status === "completed" && previousStatus !== "completed") {
+              const taskForBlaster = {
+                id: selectedTask.id,
+                title: selectedTask.title,
+                priority: values.priority as any,
+                status: "completed",
+              };
+              const triggered = triggerBlaster(taskForBlaster);
+              if (triggered) {
+                incrementCompletedCount();
+              }
             }
-          }
-        },
-        onError: (err) => {
-          toast({
-            title: "Failed to update task",
-            description: err instanceof Error ? err.message : "Something went wrong",
-          });
-        },
-      },
-    );
+          },
+          onError: (err) => {
+            toast({
+              title: "Failed to update task",
+              description: err instanceof Error ? err.message : "Something went wrong",
+              variant: "destructive",
+            });
+          },
+        }
+      );
+    } catch (err) {
+      toast({
+        title: "Error preparing update",
+        description: "Failed to process attachment file",
+        variant: "destructive",
+      });
+    }
   };
 
   const confirmDelete = () => {
@@ -2712,6 +2769,46 @@ export default function Tasks() {
                     </FormItem>
                   )}
                 />
+
+                <div className="sm:col-span-2 space-y-2">
+                  <label className="text-sm font-medium">Task Attachment</label>
+                  <div className="flex flex-col gap-3 p-4 border border-dashed rounded-lg bg-muted/30">
+                    {editTaskFilePreview ? (
+                      <div className="relative w-full h-40 rounded-md overflow-hidden border">
+                        <img src={editTaskFilePreview} alt="Preview" className="w-full h-full object-cover" />
+                        <Button 
+                          type="button" 
+                          variant="destructive" 
+                          size="icon" 
+                          className="absolute top-2 right-2 h-7 w-7 rounded-full shadow-lg"
+                          onClick={() => { setEditTaskFile(null); setEditTaskFilePreview(null); }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-border/60 rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => document.getElementById('edit-task-attachment-input-manager')?.click()}>
+                        <Paperclip className="h-8 w-8 mb-2 opacity-50" />
+                        <span className="text-sm">Click to upload or drag image</span>
+                        <span className="text-[10px] opacity-70">PNG, JPG, PDF (Max 10MB)</span>
+                      </div>
+                    )}
+                    <input 
+                      id="edit-task-attachment-input-manager"
+                      type="file" 
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setEditTaskFile(file);
+                          const reader = new FileReader();
+                          reader.onloadend = () => setEditTaskFilePreview(reader.result as string);
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
 
               <DialogFooter className="flex-col sm:flex-row gap-2">
