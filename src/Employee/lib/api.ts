@@ -11,9 +11,16 @@ export async function employeeApiFetch<T>(
     ...((options.headers as Record<string, string>) || {}),
   };
 
-  const token = localStorage.getItem("token");
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
+  const authRaw = localStorage.getItem("employee_auth");
+  if (authRaw) {
+    try {
+      const auth = JSON.parse(authRaw);
+      if (auth.token) {
+        headers["Authorization"] = `Bearer ${auth.token}`;
+      }
+    } catch (e) {
+      console.error("Failed to parse employee_auth", e);
+    }
   }
 
   const response = await fetch(url, {
@@ -218,5 +225,30 @@ export async function markMessagesAsRead(sender: string, recipient: string) {
   return employeeApiFetch<{ success: boolean; message: string }>("/api/messages/mark-read", {
     method: "POST",
     body: JSON.stringify({ sender, recipient }),
+  });
+}
+
+// Personal Notes API
+export async function getPersonalNotes() {
+  return employeeApiFetch<{ items: Array<{ id: string; title: string; content: string; color: string; isPinned: boolean; updatedAt: string }> }>("/api/notes");
+}
+
+export async function createPersonalNote(payload: { title: string; content: string; color?: string; isPinned?: boolean }) {
+  return employeeApiFetch<{ item: any }>("/api/notes", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function updatePersonalNote(id: string, payload: any) {
+  return employeeApiFetch<{ item: any }>(`/api/notes/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload)
+  });
+}
+
+export async function deletePersonalNote(id: string) {
+  return employeeApiFetch<{ success: boolean }>(`/api/notes/${encodeURIComponent(id)}`, {
+    method: "DELETE"
   });
 }

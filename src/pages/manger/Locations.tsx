@@ -841,14 +841,6 @@ export default function Locations() {
                           <Phone className="w-4 h-4" />
                           <span>{location.phone}</span>
                         </motion.div>
-                        <motion.div 
-                          className="flex items-center gap-2 text-muted-foreground"
-                          whileHover="hover"
-                          variants={iconVariants}
-                        >
-                          <Clock className="w-4 h-4" />
-                          <span>{location.operatingHours}</span>
-                        </motion.div>
                       </motion.div>
 
                       <motion.div 
@@ -1210,6 +1202,101 @@ export default function Locations() {
                 </DialogFooter>
               </form>
             </Form>
+          </motion.div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Location Dialog */}
+      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+        <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          >
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-primary" />
+                Location Details
+              </DialogTitle>
+              <DialogDescription>View location information.</DialogDescription>
+            </DialogHeader>
+
+            {selectedLocation && (
+              <div className="space-y-6 mt-4">
+                {/* Photo */}
+                {selectedLocation.photoDataUrl && (
+                  <div className="w-full h-48 rounded-lg overflow-hidden border">
+                    <img
+                      src={selectedLocation.photoDataUrl}
+                      alt={selectedLocation.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+
+                {/* Basic Info */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Name</p>
+                    <p className="font-medium">{selectedLocation.name}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Type</p>
+                    <span className={cn(
+                      "inline-flex items-center px-2 py-1 rounded-full text-xs font-medium capitalize",
+                      typeStyles[selectedLocation.type]
+                    )}>
+                      {selectedLocation.type}
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Country</p>
+                    <p className="font-medium">{countryFlags[selectedLocation.country]} {selectedLocation.country}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">City</p>
+                    <p className="font-medium">{selectedLocation.city}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Phone</p>
+                    <p className="font-medium">{selectedLocation.phone || "—"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Manager</p>
+                    <p className="font-medium">{selectedLocation.manager || "—"}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Employees</p>
+                    <p className="font-medium">{selectedLocation.employeeCount}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-sm text-muted-foreground">Status</p>
+                    <span className={cn(
+                      "inline-flex items-center gap-1.5 text-sm font-medium capitalize",
+                      selectedLocation.status === "active" ? "text-success" : "text-muted-foreground"
+                    )}>
+                      <span className={cn(
+                        "w-2 h-2 rounded-full",
+                        selectedLocation.status === "active" ? "bg-success" : "bg-muted-foreground"
+                      )} />
+                      {selectedLocation.status}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <DialogFooter className="mt-6">
+              <Button variant="outline" onClick={() => setIsViewOpen(false)}>
+                Close
+              </Button>
+              {selectedLocation && (
+                <Button onClick={() => { setIsViewOpen(false); openEdit(selectedLocation); }}>
+                  Edit
+                </Button>
+              )}
+            </DialogFooter>
           </motion.div>
         </DialogContent>
       </Dialog>

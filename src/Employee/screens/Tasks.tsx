@@ -87,6 +87,7 @@ import {
   PlusCircle,
   Paperclip,
   Layers,
+  Maximize2,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { io, Socket } from "socket.io-client";
@@ -297,7 +298,7 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
   );
 }
 
-function TaskAttachmentImg({ taskId, index, mimeType, fileName, fallbackUrl }: { taskId: string; index: number; mimeType?: string; fileName?: string; fallbackUrl?: string }) {
+function TaskAttachmentImg({ taskId, index, mimeType, fileName, fallbackUrl, onPreview }: { taskId: string; index: number; mimeType?: string; fileName?: string; fallbackUrl?: string; onPreview?: (url: string, name: string) => void }) {
   const [src, setSrc] = useState<string | null>(fallbackUrl || null);
   useEffect(() => {
     if (fallbackUrl) return;
@@ -305,11 +306,46 @@ function TaskAttachmentImg({ taskId, index, mimeType, fileName, fallbackUrl }: {
       .then(d => setSrc(d.url))
       .catch(() => setSrc(null));
   }, [taskId, index, fallbackUrl]);
-  if (mimeType?.startsWith("image/") && src) return <img src={src} alt={fileName} className="w-full h-24 object-cover" />;
+
+  if (src && mimeType?.startsWith("image/")) return (
+    <div className="w-full h-full relative group/task-att cursor-zoom-in" onClick={() => onPreview?.(src, fileName || "Attachment")}>
+      <img src={src} alt={fileName} className="w-full h-24 object-cover" />
+      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/task-att:opacity-100 flex items-center justify-center transition-all duration-200">
+        <Maximize2 className="w-5 h-5 text-white" />
+      </div>
+    </div>
+  );
+  if (src && !mimeType?.startsWith("image/")) return (
+    <div className="w-full h-full relative group/att">
+      <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-white/10">
+        <FileText className="w-6 h-6 text-white/60 mb-1" />
+        <span className="text-[10px] text-white/40 truncate w-full px-2 font-medium">{fileName}</span>
+      </div>
+      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center gap-3 transition-opacity backdrop-blur-[1px] cursor-default">
+        <button 
+          onClick={(e) => { e.stopPropagation(); onPreview?.(src, fileName || "Attachment"); }}
+          className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+          title="Preview"
+        >
+          <Maximize2 className="w-4 h-4" />
+        </button>
+        <a 
+          href={src} 
+          download={fileName} 
+          aria-label="Download" 
+          onClick={(e) => e.stopPropagation()} 
+          className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+          title="Download"
+        >
+          <Download className="w-4 h-4" />
+        </a>
+      </div>
+    </div>
+  );
   return <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>;
 }
 
-function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fallbackUrl }: { taskId: string; commentId: string; index: number; mimeType?: string; fileName?: string; fallbackUrl?: string }) {
+function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fallbackUrl, onPreview }: { taskId: string; commentId: string; index: number; mimeType?: string; fileName?: string; fallbackUrl?: string; onPreview?: (url: string, name: string) => void }) {
   const [src, setSrc] = useState<string | null>(fallbackUrl || null);
   useEffect(() => {
     if (fallbackUrl) return;
@@ -317,7 +353,42 @@ function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fa
       .then(d => setSrc(d.url))
       .catch(() => setSrc(null));
   }, [taskId, commentId, index, fallbackUrl]);
-  if (mimeType?.startsWith("image/") && src) return <img src={src} alt={fileName} className="w-full h-24 object-cover" />;
+
+  if (src && mimeType?.startsWith("image/")) return (
+    <div className="w-full h-full relative group/att cursor-zoom-in" onClick={() => onPreview?.(src, fileName || "Attachment")}>
+      <img src={src} alt={fileName} className="w-full h-24 object-cover" />
+      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-all duration-200">
+        <Maximize2 className="w-5 h-5 text-white" />
+      </div>
+    </div>
+  );
+  if (src && !mimeType?.startsWith("image/")) return (
+    <div className="w-full h-full relative group/att">
+      <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-white/10">
+        <FileText className="w-6 h-6 text-white/60 mb-1" />
+        <span className="text-[10px] text-white/40 truncate w-full px-2 font-medium">{fileName}</span>
+      </div>
+      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center gap-3 transition-opacity backdrop-blur-[1px] cursor-default">
+        <button 
+          onClick={(e) => { e.stopPropagation(); onPreview?.(src, fileName || "Attachment"); }}
+          className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+          title="Preview"
+        >
+          <Maximize2 className="w-4 h-4" />
+        </button>
+        <a 
+          href={src} 
+          download={fileName} 
+          aria-label="Download" 
+          onClick={(e) => e.stopPropagation()} 
+          className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+          title="Download"
+        >
+          <Download className="w-4 h-4" />
+        </a>
+      </div>
+    </div>
+  );
   return <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>;
 }
 
@@ -437,6 +508,11 @@ export default function Tasks() {
   const [projectComments, setProjectComments] = useState<any[]>([]);
   const [projectCommentsLoading, setProjectCommentsLoading] = useState(false);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  
+  // Lightbox / File Preview State
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewName, setPreviewName] = useState<string>("");
+
   const [commentAttachments, setCommentAttachments] = useState<File[]>([]);
   const [isSendingComment, setIsSendingComment] = useState(false);
   const [isViewProjectOpen, setIsViewProjectOpen] = useState(false);
@@ -2001,18 +2077,31 @@ export default function Tasks() {
                           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                             {/* Task Specific Attachments */}
                             {selectedTask.attachments?.map((att, idx) => (
-                              <div key={`task-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-border/60 bg-background shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1">
-                                <TaskAttachmentImg taskId={selectedTask.id} index={idx} mimeType={att.mimeType} fileName={att.fileName} fallbackUrl={att.url} />
+                              <div key={`task-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-border/60 bg-background shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-zoom-in" onClick={() => att.url && setPreviewUrl(att.url) && setPreviewName(att.fileName || "Attachment")}>
+                                <TaskAttachmentImg taskId={selectedTask.id} index={idx} mimeType={att.mimeType} fileName={att.fileName} fallbackUrl={att.url} onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }} />
                                 <div className="p-2.5 border-t text-[11px] font-bold truncate bg-card/50 backdrop-blur-sm text-muted-foreground">{att.fileName}</div>
                                 <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
-                                  <button onClick={() => void downloadTaskAttachment(selectedTask.id, idx, att.fileName)} className="bg-primary text-primary-foreground p-2 rounded-full shadow-lg hover:scale-110 transition-transform"><Download className="h-4 w-4" /></button>
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); setPreviewUrl(att.url); setPreviewName(att.fileName || "Attachment"); }} 
+                                    className="bg-primary text-primary-foreground p-2 rounded-full shadow-lg hover:scale-110 transition-transform"
+                                    title="Preview"
+                                  >
+                                    <Maximize2 className="h-4 w-4" />
+                                  </button>
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); void downloadTaskAttachment(selectedTask.id, idx, att.fileName); }} 
+                                    className="bg-primary text-primary-foreground p-2 rounded-full shadow-lg hover:scale-110 transition-transform"
+                                    title="Download"
+                                  >
+                                    <Download className="h-4 w-4" />
+                                  </button>
                                 </div>
                               </div>
                             ))}
 
                             {/* Project Attachments */}
                             {selectedProject?.attachments?.map((att, idx) => (
-                              <div key={`proj-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-primary/20 bg-primary/5 shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1">
+                              <div key={`proj-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-primary/20 bg-primary/5 shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-zoom-in" onClick={() => att.url && setPreviewUrl(att.url) && setPreviewName(att.fileName || "Attachment")}>
                                 <div className="absolute top-2 left-2 z-10"><Badge className="text-[8px] h-4 bg-primary text-white font-black border-none px-1.5 uppercase">Project</Badge></div>
                                 {(att.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(att.fileName || "")) && att.url ? (
                                   <img src={att.url} alt={att.fileName} className="w-full h-24 object-cover" />
@@ -2020,7 +2109,24 @@ export default function Tasks() {
                                   <div className="w-full h-24 flex items-center justify-center bg-muted/20"><FileText className="h-8 w-8 text-muted-foreground/40" /></div>
                                 )}
                                 <div className="p-2.5 border-t text-[11px] font-bold truncate bg-white/40 backdrop-blur-sm text-primary/70">{att.fileName}</div>
-                                <a href={att.url} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]"><Eye className="h-5 w-5 text-primary" /></a>
+                                <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 backdrop-blur-[2px]">
+                                  <button 
+                                    onClick={(e) => { e.stopPropagation(); setPreviewUrl(att.url); setPreviewName(att.fileName || "Attachment"); }}
+                                    className="p-2 bg-primary text-primary-foreground rounded-full shadow-lg hover:scale-110 transition-transform"
+                                    title="Preview"
+                                  >
+                                    <Maximize2 className="h-4 w-4" />
+                                  </button>
+                                  <a 
+                                    href={att.url} 
+                                    download={att.fileName}
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="p-2 bg-primary text-primary-foreground rounded-full shadow-lg hover:scale-110 transition-transform"
+                                    title="Download"
+                                  >
+                                    <Download className="h-4 w-4" />
+                                  </a>
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -2080,7 +2186,15 @@ export default function Tasks() {
                                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-3 border-t border-dashed border-border/50">
                                         {c.attachments.map((att, attIdx) => (
                                           <div key={attIdx} className="relative rounded-xl overflow-hidden border border-border/50 bg-background shadow-xs group/att aspect-square flex flex-col items-center justify-center bg-muted/5 cursor-pointer">
-                                            <CommentAttachmentImg taskId={selectedTask.id} commentId={c.id} index={attIdx} mimeType={att.mimeType} fileName={att.fileName} fallbackUrl={att.url} />
+                                            <CommentAttachmentImg 
+                                              taskId={selectedTask.id} 
+                                              commentId={c.id} 
+                                              index={attIdx} 
+                                              mimeType={att.mimeType} 
+                                              fileName={att.fileName} 
+                                              fallbackUrl={att.url} 
+                                              onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
+                                            />
                                             <div className="p-1 px-2 text-[9px] w-full text-center font-bold text-muted-foreground/70 truncate border-t bg-muted/10">{att.fileName}</div>
                                             <a href={att.url || "#"} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]"><Download className="h-5 w-5 text-white" /></a>
                                           </div>
@@ -2736,6 +2850,44 @@ export default function Tasks() {
           )}
         </div>
       )}
+
+      {/* File Preview Lightbox */}
+      <Dialog open={!!previewUrl} onOpenChange={(open) => !open && setPreviewUrl(null)}>
+        <DialogContent className="max-w-[95vw] w-fit p-0 border-none bg-transparent shadow-none">
+          <div className="relative group/preview-modal">
+            <div className="absolute top-4 right-4 z-50 flex items-center gap-3 opacity-0 group-hover/preview-modal:opacity-100 transition-opacity">
+              <a 
+                href={previewUrl || ""} 
+                download={previewName}
+                className="p-2 bg-black/50 hover:bg-black/70 backdrop-blur-md rounded-full text-white shadow-lg transition-all"
+                title="Download"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Download className="w-5 h-5" />
+              </a>
+              <button
+                onClick={() => setPreviewUrl(null)}
+                className="p-2 bg-black/50 hover:bg-black/70 backdrop-blur-md rounded-full text-white shadow-lg transition-all"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            {previewUrl && (
+              <div className="flex flex-col items-center">
+                <img 
+                  src={previewUrl} 
+                  alt={previewName} 
+                  className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl" 
+                />
+                <div className="mt-4 px-4 py-2 bg-black/50 backdrop-blur-md rounded-full text-white text-sm font-medium shadow-lg">
+                  {previewName}
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

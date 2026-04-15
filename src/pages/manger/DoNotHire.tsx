@@ -444,11 +444,11 @@ export default function DoNotHire() {
                         >
                           <div className="flex items-center gap-1.5">
                             <Phone className="w-3 h-3" />
-                            <span>{e.phone ?? "—"}</span>
+                            <span>{e.phone?.trim() || "—"}</span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <Mail className="w-3 h-3" />
-                            <span>{e.email ?? "—"}</span>
+                            <span>{e.email?.trim() || "—"}</span>
                           </div>
                         </motion.div>
                       </td>

@@ -29,6 +29,7 @@ import {
   Layers,
   ChevronDown,
   ChevronRight,
+  FileText,
 } from "lucide-react";
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -76,6 +77,7 @@ const navItemsBase: NavItem[] = [
   { icon: Database, label: "Imported Asana Data", path: "/admin/asana-data" },
   { icon: Archive, label: "Archive Data", path: "/admin/archive-data" },
   { icon: Quote, label: "Founder Messages", path: "/admin/founder-messages" },
+  { icon: FileText, label: "Personal Notes", path: "/admin/personal-notes" },
   {
     label: "SignaCore",
     path: "/admin/contracts",
@@ -84,6 +86,17 @@ const navItemsBase: NavItem[] = [
         src="/signa-core.png"
         alt="SignaCore"
         className="h-6 w-6 flex-shrink-0 object-contain opacity-80 group-hover:opacity-100 transition-opacity"
+      />
+    ),
+  },
+  {
+    label: "Ultimate Property Holdings",
+    path: "/admin/uph-maintenance",
+    customIcon: (
+      <img
+        src="/uph.jpeg"
+        alt="UPH"
+        className="h-6 w-6 flex-shrink-0 rounded-md object-cover opacity-85 group-hover:opacity-100 transition-opacity"
       />
     ),
   },
@@ -245,6 +258,12 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
               <span className="text-sm font-bold truncate">
                 <span className="text-[#38bdf8]">Signa</span>
                 <span className="text-[#f97316]">Core</span>
+              </span>
+            ) : item.label === "UPH" ? (
+              <span className="text-sm font-black truncate tracking-tight">
+                <span className="text-[#5898B8]">U</span>
+                <span className="text-[#68B0D0]">P</span>
+                <span className="text-[#80B8D8]">H</span>
               </span>
             ) : (
               <span className="font-medium truncate">{item.label}</span>

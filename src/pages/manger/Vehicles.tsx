@@ -57,6 +57,7 @@ import {
   CheckCircle,
   MoreHorizontal,
   Camera,
+  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch } from "@/lib/manger/api";
@@ -266,7 +267,7 @@ export default function Vehicles() {
     const match = vehicles.find((v) => String(v.id) === viewId);
     if (!match) return;
 
-    openView(match);
+    void openView(match);
 
     const next = new URLSearchParams(searchParams);
     next.delete("view");
@@ -380,9 +381,16 @@ export default function Vehicles() {
     });
   };
 
-  const openView = (vehicle: Vehicle) => {
+  const openView = async (vehicle: Vehicle) => {
     setSelectedVehicle(vehicle);
     setIsViewOpen(true);
+
+    try {
+      const res = await apiFetch<{ item: VehicleApi }>(`/api/vehicles/${encodeURIComponent(vehicle.id)}`);
+      setSelectedVehicle(normalizeVehicle(res.item));
+    } catch (e) {
+      console.error("Failed to refresh vehicle data:", e);
+    }
   };
 
   const openEdit = (vehicle: Vehicle) => {
@@ -701,12 +709,21 @@ export default function Vehicles() {
               </div>
 
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsCreateOpen(false)}
+                  disabled={createVehicleMutation.isPending}
+                >
                   Cancel
                 </Button>
-                <Button type="submit" className="gap-2">
-                  <Plus className="w-4 h-4" />
-                  Add
+                <Button type="submit" className="gap-2" disabled={createVehicleMutation.isPending}>
+                  {createVehicleMutation.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Plus className="w-4 h-4" />
+                  )}
+                  {createVehicleMutation.isPending ? "Adding..." : "Add"}
                 </Button>
               </DialogFooter>
             </form>
@@ -1160,7 +1177,7 @@ export default function Vehicles() {
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => openView(vehicle)}>
+                  <DropdownMenuItem onClick={() => void openView(vehicle)}>
                     View Details
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => openEdit(vehicle)}>

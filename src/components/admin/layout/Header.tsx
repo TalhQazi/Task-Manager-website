@@ -25,7 +25,8 @@ import { apiFetch } from "@/lib/admin/apiClient";
 import { getAuthState, clearAuthState } from "@/lib/auth";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { AdminInfoManager } from "@/components/admin/AdminInfoManager";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { FounderMessageBar } from "@/components/FounderMessageBar";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface HeaderSettings {
   backgroundType: "color" | "image";
@@ -670,7 +671,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             />
             <button
               type="button"
-              className="absolute bottom-2 right-3 z-20 flex items-center gap-1.5 bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white rounded-full px-3 py-1.5 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+              className="absolute bottom-20 right-3 z-50 flex items-center gap-1.5 bg-black/50 hover:bg-black/70 backdrop-blur-sm text-white rounded-full px-3 py-1.5 text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-auto shadow-lg"
               onClick={() => coverFileRef.current?.click()}
             >
               <Camera className="h-3.5 w-3.5" />
@@ -678,12 +679,25 @@ export function Header({ onMenuClick }: HeaderProps) {
             </button>
           </>
         )}
-        <div 
-          className="relative flex h-full items-start sm:items-center justify-between px-3 sm:px-6 lg:px-10 py-3 md:py-4 animate-fade-in pointer-events-none"
-        >
-          {/* LEFT SIDE: Profile Menu Swap */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-white z-30 relative pointer-events-auto max-w-[50%] sm:max-w-none">
-            <button
+        <div className="absolute inset-0 flex flex-col pointer-events-none">
+          {/* Header Content Area */}
+          <div 
+            className="flex-1 relative flex items-start justify-between px-3 sm:px-6 lg:px-10 pt-4 sm:pt-6 md:pt-10 animate-fade-in"
+          >
+            {/* LEFT SIDE: Branding and Profile Stacking */}
+            <div className="flex flex-col gap-4 text-white z-30 relative pointer-events-auto">
+              {/* Task Manager Logo (Complete, not in circle) */}
+              <div className="flex items-center h-16 w-auto sm:h-24 z-20 transition-all duration-300 hover:scale-105">
+                <img
+                  src="/task.png"
+                  alt="Task Manager logo"
+                  className="h-full w-auto object-contain rounded-lg shadow-2xl bg-white/10 p-1.5"
+                />
+              </div>
+
+              {/* Profile and Icons Row */}
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                <button
               type="button"
               className="group inline-flex md:hidden h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/[0.14] hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear mr-2"
               aria-label="Open navigation"
@@ -844,27 +858,13 @@ export function Header({ onMenuClick }: HeaderProps) {
             >
               <Bug className="h-3.5 w-3.5 sm:h-4 sm:w-4 group-hover:brightness-[108%] transition-all duration-100 linear" />
             </Button>
-          </div>
-
-          {/* CENTER LOGO */}
-          <div className="flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center pointer-events-auto z-10" style={{ height: `${headerHeight * 0.7}px`, minHeight: '48px', maxHeight: '160px' }}>
-            <div className="relative h-full flex items-center">
-              <img
-                src="/logo.jpeg"
-                alt="TaskManager by Reardon"
-                className="w-auto h-full max-w-[120px] sm:max-w-[190px] md:max-w-[280px] lg:max-w-[380px] object-contain transition-all duration-300 rounded-md shadow-md"
-              />
+              </div>
             </div>
           </div>
 
-          {/* RIGHT SIDE: SE7EN Logo Swap */}
-          <div className="flex items-center sm:items-end sm:pb-2 z-20 pointer-events-auto" style={{ height: `${headerHeight * 0.6}px`, minHeight: '40px', maxHeight: '120px' }}>
-            <img
-              src="/seven logo.png"
-              alt="SE7EN Inc. logo"
-              className="w-auto h-full max-w-[90px] sm:max-w-[180px] md:max-w-[250px] object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)] transition-all duration-300"
-            />
-          </div>
+        {/* Founder Message Bar at the very bottom of the fixed header */}
+        <div className="mt-auto pointer-events-auto w-full z-40 bg-metallic-gold/90 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
+          <FounderMessageBar />
         </div>
       </div>
 
@@ -1013,6 +1013,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </header>
   );
 }

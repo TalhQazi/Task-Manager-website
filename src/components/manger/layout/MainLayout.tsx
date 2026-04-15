@@ -317,21 +317,33 @@ export function MainLayout({ children }: MainLayoutProps) {
               />
               {/* Overlay */}
               {headerSettings?.overlay?.enabled && (
-                <div 
+                <div
                   className="absolute inset-0"
                   style={{ backgroundColor: headerSettings.overlay.color || 'rgba(0,0,0,0.3)' }}
                 />
               )}
             </>
           )}
-          
-          {/* Content - with left padding for sidebar on desktop */}
-          <div
-            className="relative flex items-center justify-between px-3 sm:px-6 lg:px-10 py-2 md:py-4 animate-fade-in h-full md:pl-20 lg:pl-24"
-          >
-            {/* LEFT SIDE: icons/profile */}
-            <div className="flex items-center gap-2 sm:gap-3 text-white z-30 relative pointer-events-auto">
-              <Button
+
+          <div className="absolute inset-0 flex flex-col pointer-events-none">
+            {/* Header Content Area */}
+            <div 
+              className="flex-1 relative flex items-start justify-between px-3 sm:px-6 lg:px-10 pt-4 sm:pt-6 md:pt-10 animate-fade-in md:pl-20 lg:pl-24"
+            >
+              {/* LEFT SIDE: Branding and Profile Stacking */}
+              <div className="flex flex-col gap-4 text-white z-30 relative pointer-events-auto mr-auto">
+                {/* Task Manager Logo (Complete, not in circle) */}
+                <div className="flex items-center h-16 w-auto sm:h-24 z-20 transition-all duration-300 hover:scale-105">
+                  <img
+                    src="/task.png"
+                    alt="Task Manager logo"
+                    className="h-full w-auto object-contain rounded-lg shadow-2xl bg-white/10 p-1.5"
+                  />
+                </div>
+
+                {/* Profile and Icons Row */}
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                  <Button
                 type="button"
                 variant="ghost"
                 size="icon"
@@ -514,27 +526,14 @@ export function MainLayout({ children }: MainLayoutProps) {
                   <Sidebar mode="mobile" onNavigate={() => setMobileSidebarOpen(false)} />
                 </SheetContent>
               </Sheet>
-            </div>
-
-            {/* CENTER LOGO */}
-            <div className="flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center pointer-events-auto z-10" style={{ height: '70%', minHeight: '32px' }}>
-              <div className="relative h-full flex items-center">
-                <img
-                  src="/logo.jpeg"
-                  alt="TaskManager by Reardon"
-                  className="w-auto h-full max-w-[100px] sm:max-w-[190px] md:max-w-[280px] lg:max-w-[380px] object-contain transition-all duration-300 rounded-md shadow-md"
-                />
               </div>
             </div>
+          </div>
 
-            {/* RIGHT SIDE: SE7EN Logo */}
-            <div className="flex items-center sm:items-end sm:pb-2 z-20 pointer-events-auto" style={{ height: '60%', minHeight: '32px' }}>
-              <img
-                src="/seven logo.png"
-                alt="SE7EN Inc. logo"
-                className="w-auto h-full max-w-[60px] sm:max-w-[180px] md:max-w-[250px] object-contain drop-shadow-[0_4px_8px_rgba(0,0,0,0.4)] transition-all duration-300"
-              />
-            </div>
+          {/* Founder Message Bar at the very bottom of the fixed header */}
+          <div className="mt-auto pointer-events-auto w-full z-40 bg-metallic-gold/90 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
+            <FounderMessageBar />
+          </div>
           </div>
         </div>
       </header>
@@ -616,19 +615,14 @@ export function MainLayout({ children }: MainLayoutProps) {
         </DialogContent>
       </Dialog>
 
-      {/* Founder Message Bar - Full width above content, higher z-index than sidebar */}
-      <div className="fixed left-0 right-0 z-50 md:left-56 lg:left-62" style={{ top: `${headerHeight}px` }}>
-        <FounderMessageBar />
-      </div>
-
       {/* Body: left icon rail + content */}
       <div className="flex">
         <div className="hidden md:block">
           <Sidebar />
         </div>
         <main 
-          className="flex-1 min-h-screen md:ml-56 lg:ml-62"
-          style={{ paddingTop: `${headerHeight + 20}px` }}
+          className="flex-1 min-h-screen md:ml-56 lg:ml-64"
+          style={{ paddingTop: `${headerHeight}px` }}
         >
           <div className="w-full px-4 py-4 sm:py-8 animate-fade-in">
             {children}
