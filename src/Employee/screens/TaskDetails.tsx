@@ -109,8 +109,8 @@ function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fa
   }, [taskId, commentId, index, fallbackUrl]);
   
   if (src && mimeType?.startsWith("image/")) return (
-    <div className="w-full h-full relative group/att">
-      <img src={src} alt={fileName} className="w-full h-full object-cover rounded-lg" />
+    <div className="w-full h-auto flex justify-center relative group/att cursor-zoom-in" onClick={() => window.open(src, '_blank')}>
+      <img src={src} alt={fileName} className="w-full h-auto max-h-[180px] rounded-lg" />
       <a href={src} download={fileName} aria-label="Download" onClick={(e) => e.stopPropagation()} className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-opacity text-white text-[11px] font-bold backdrop-blur-[1px]">
         Save
       </a>
@@ -569,7 +569,7 @@ export default function EmployeeTaskDetails() {
                                   c.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"
                                 )}>
                                   {c.attachments.map((att, attIdx) => (
-                                    <div key={attIdx} className="relative rounded-xl overflow-hidden border border-white/20 bg-black/10 min-w-[120px] max-w-full aspect-square sm:aspect-video">
+                                    <div key={attIdx} className="relative rounded-lg overflow-hidden border border-white/20 bg-black/10 min-w-[120px] max-w-full h-auto">
                                       <CommentAttachmentImg 
                                         taskId={taskId || task?.id || ""} 
                                         commentId={c.id} 

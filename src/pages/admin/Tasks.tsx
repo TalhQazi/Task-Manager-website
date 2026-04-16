@@ -197,8 +197,8 @@ function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fa
   }, [taskId, commentId, index, fallbackUrl]);
   
   if (src && mimeType?.startsWith("image/")) return (
-    <div className="w-full h-full relative group/att cursor-zoom-in" onClick={() => onPreview?.(src, fileName)}>
-      <img src={src} alt={fileName} className="w-full h-full object-cover rounded-lg" />
+    <div className="w-full h-auto flex justify-center relative group/att cursor-zoom-in" onClick={() => onPreview?.(src, fileName)}>
+      <img src={src} alt={fileName} className="w-full h-auto max-h-[180px] object-contain rounded-lg" />
       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-all duration-200 rounded-lg">
         <Maximize2 className="w-5 h-5 text-white" />
       </div>
@@ -2521,7 +2521,7 @@ export default function Tasks() {
                                             c.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"
                                           )}>
                                             {c.attachments.map((att, attIdx) => (
-                                              <div key={attIdx} className="relative rounded-xl overflow-hidden border border-white/20 bg-black/10 min-w-[120px] max-w-full aspect-square sm:aspect-video">
+                                              <div key={attIdx} className="relative rounded-xl overflow-hidden border border-white/20 bg-black/10 min-w-[120px] max-w-full h-auto">
                                                 <CommentAttachmentImg 
                                                   taskId={selectedTask.id} 
                                                   commentId={c.id} 
