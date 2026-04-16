@@ -565,7 +565,7 @@ export default function EmployeeTaskDetails() {
                               
                               {c.attachments && c.attachments.length > 0 && (
                                 <div className={cn(
-                                  "grid gap-2 mt-2 max-w-[200px] sm:max-w-[260px]",
+                                  "grid gap-2 mt-2 max-w-[140px] sm:max-w-[180px]",
                                   c.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"
                                 )}>
                                   {c.attachments.map((att, attIdx) => (
