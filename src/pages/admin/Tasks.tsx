@@ -581,6 +581,7 @@ export default function Tasks() {
         search: searchQuery,
         status: statusFilter,
         priority: priorityFilter,
+        projectId: "none",
       });
       const res = await apiFetch<{ items: TaskApi[], totalPages: number, total: number }>(`/api/tasks?${params.toString()}`);
       return {
@@ -2052,7 +2053,7 @@ export default function Tasks() {
             ) : (
               <>
                 <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {tasks.map((task, idx) => {
+                  {filteredStandaloneTasks.map((task, idx) => {
                     const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0 ? task.assignees : [];
                     const taskLetter = String.fromCharCode(65 + (idx % 26));
                     const taskNumber = (taskPage - 1) * PAGE_SIZE + idx + 1;
