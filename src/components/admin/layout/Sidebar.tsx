@@ -285,12 +285,14 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
           : "w-full shadow-floating animate-slide-in"
       )}
     >
-      <div className="px-4 py-4 mb-2 flex flex-col items-center border-b border-white/5 bg-white/[0.02]">
-        <img
-          src="/task.png"
-          alt="Task Manager logo"
-          className="h-16 w-auto object-contain rounded-lg shadow-xl mb-4 transition-transform duration-300 hover:scale-110"
-        />
+      <div className="px-5 py-6 mb-3 flex flex-col items-center border-b border-white/5 bg-white/[0.03] backdrop-blur-md">
+        <div className="relative p-1.5 rounded-xl bg-white/10 shadow-2xl border border-white/10 group">
+          <img
+            src="/task.png"
+            alt="Task Manager logo"
+            className="h-24 w-auto object-contain rounded-lg transition-all duration-500 hover:scale-105 active:scale-95 px-2"
+          />
+        </div>
       </div>
       <nav className="flex-1 flex flex-col gap-1 px-2 py-2 overflow-y-auto overflow-x-hidden no-scrollbar">
         {navItems.map((item) => renderNavItem(item))}

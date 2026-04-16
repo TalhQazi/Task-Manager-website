@@ -682,7 +682,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         <div className="absolute inset-0 flex flex-col pointer-events-none">
           {/* Header Content Area */}
           <div 
-            className="flex-1 relative flex items-start justify-between px-3 sm:px-6 lg:px-10 pt-4 sm:pt-6 md:pt-10 animate-fade-in"
+            className="flex-1 relative flex items-start justify-between px-3 sm:px-6 lg:px-10 pt-6 sm:pt-8 md:pt-12 animate-fade-in"
           >
             {/* LEFT SIDE: Branding and Profile Stacking */}
               <div className="h-4 sm:h-8" /> 
@@ -851,14 +851,13 @@ export function Header({ onMenuClick }: HeaderProps) {
             >
               <Bug className="h-3.5 w-3.5 sm:h-4 sm:w-4 group-hover:brightness-[108%] transition-all duration-100 linear" />
             </Button>
-              </div>
-            </div>
           </div>
-
-        {/* Founder Message Bar at the very bottom of the fixed header */}
-        <div className="mt-auto pointer-events-auto w-full z-40 bg-metallic-gold/90 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
-          <FounderMessageBar />
         </div>
+      </div>
+
+      {/* Founder Message Bar - Fixed at the very bottom of the header banner */}
+      <div className="absolute bottom-0 left-0 right-0 z-[60] bg-metallic-gold/90 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.1)] pointer-events-auto">
+        <FounderMessageBar />
       </div>
 
       <Dialog
