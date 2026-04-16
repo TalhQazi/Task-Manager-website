@@ -233,11 +233,11 @@ export function TaskCharts() {
         </CardHeader>
         <CardContent className="px-2 sm:px-4 pb-4 sm:pb-6">
           {/* Chart Container - Responsive Height */}
-          <div className="h-[200px] sm:h-[220px] md:h-[250px] lg:h-[280px] w-full">
+          <div className="h-auto sm:h-[220px] md:h-[250px] lg:h-[280px] w-full">
             <div className="flex flex-col sm:flex-row items-center h-full">
               
               {/* Pie Chart Section */}
-              <div className="w-full sm:w-[60%] h-full">
+              <div className="w-full sm:w-[60%] h-[180px] sm:h-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart margin={{ top: 0, right: 0, bottom: 0, left: 0 }}>
                     <Pie
