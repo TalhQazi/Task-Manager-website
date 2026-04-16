@@ -286,11 +286,11 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
       )}
     >
       <div className="px-4 py-8 mb-4 flex flex-col items-center border-b border-white/5 bg-white/[0.03]">
-        <div className="relative rounded-2xl bg-white shadow-2xl border-4 border-white/20 group w-28 h-28 flex items-center justify-center overflow-hidden">
+        <div className="relative rounded-2xl bg-white shadow-2xl border-2 border-white/10 group w-28 h-28 flex items-center justify-center overflow-hidden">
           <img
             src="/task.png"
             alt="Task Manager logo"
-            className="h-full w-full object-cover transition-all duration-500 hover:scale-110 active:scale-95"
+            className="h-full w-full object-cover scale-[1.3] transition-all duration-500 hover:scale-[1.4] active:scale-110"
           />
         </div>
       </div>

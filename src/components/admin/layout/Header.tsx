@@ -682,7 +682,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         <div className="absolute inset-0 flex flex-col pointer-events-none">
           {/* Header Content Area */}
           <div 
-            className="flex-1 relative flex items-start justify-end px-3 sm:px-6 lg:px-10 pt-6 sm:pt-8 md:pt-12 animate-fade-in pointer-events-auto"
+            className="flex-1 relative flex items-start justify-start px-3 sm:px-6 lg:px-10 pt-6 sm:pt-8 md:pt-12 animate-fade-in pointer-events-auto"
           >
             {/* LEFT SIDE: Branding and Profile Stacking */}
               <div className="h-4 sm:h-8" /> 
