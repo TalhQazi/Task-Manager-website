@@ -15,6 +15,14 @@ import { Badge } from "@/components/admin/ui/badge";
 import { Plus, Edit2, Trash2, Rocket, Code } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useQuery } from "@tanstack/react-query";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/admin/ui/table";
 
 interface FutureWebsite {
   _id: string;
@@ -309,73 +317,61 @@ export function FutureWebsites() {
           </CardContent>
         </Card>
       ) : (
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          className="grid gap-4"
-        >
-          {websites.map((website) => (
-            <motion.div key={website._id} variants={itemVariants}>
-              <Card className="hover:shadow-md transition-shadow">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Code className="h-5 w-5 text-blue-600" />
-                        <h3 className="font-semibold text-lg">
-                          {website.projectName}
-                        </h3>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge className={stageColors[website.developmentStage]}>
-                          {website.developmentStage}
-                        </Badge>
-                        <Badge className={priorityColors[website.priority]}>
-                          {website.priority} Priority
-                        </Badge>
-                      </div>
-
-                      <p className="text-sm text-gray-600 font-mono">
-                        {website.domain}
-                      </p>
-
-                      {website.concept && (
-                        <p className="text-sm text-gray-600">
-                          <strong>Concept:</strong> {website.concept}
-                        </p>
-                      )}
-
-                      {website.notes && (
-                        <p className="text-sm text-gray-600">
-                          <strong>Notes:</strong> {website.notes}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex gap-2">
+        <div className="rounded-md border overflow-hidden mt-4">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50">
+                <TableHead className="font-bold">Project Name</TableHead>
+                <TableHead className="font-bold">Domain</TableHead>
+                <TableHead className="font-bold">Stage</TableHead>
+                <TableHead className="font-bold">Priority</TableHead>
+                <TableHead className="font-bold">Concept</TableHead>
+                <TableHead className="text-right font-bold">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {websites.map((website) => (
+                <TableRow key={website._id} className="hover:bg-muted/30 transition-colors text-sm">
+                  <TableCell className="font-medium">{website.projectName}</TableCell>
+                  <TableCell className="font-mono text-xs">{website.domain}</TableCell>
+                  <TableCell>
+                    <Badge className={`${stageColors[website.developmentStage]} border-0 shadow-none font-bold text-[10px] uppercase whitespace-nowrap`}>
+                      {website.developmentStage}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge className={`${priorityColors[website.priority]} border-0 shadow-none font-bold text-[10px] uppercase`}>
+                      {website.priority}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="max-w-xs truncate text-xs text-muted-foreground">
+                    {website.concept || "—"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
                       <Button
-                        variant="outline"
                         size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-blue-600"
                         onClick={() => handleEdit(website)}
                       >
                         <Edit2 className="h-4 w-4" />
                       </Button>
                       <Button
-                        variant="outline"
                         size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-destructive"
                         onClick={() => handleDelete(website)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </motion.div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
     </div>
   );
