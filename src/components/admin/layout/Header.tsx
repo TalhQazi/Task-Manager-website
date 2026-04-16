@@ -682,7 +682,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         <div className="absolute inset-0 flex flex-col pointer-events-none">
           {/* Header Content Area */}
           <div 
-            className="flex-1 relative flex items-start justify-between px-3 sm:px-6 lg:px-10 pt-6 sm:pt-8 md:pt-12 animate-fade-in"
+            className="flex-1 relative flex items-start justify-between px-3 sm:px-6 lg:px-10 pt-6 sm:pt-8 md:pt-12 animate-fade-in pointer-events-auto"
           >
             {/* LEFT SIDE: Branding and Profile Stacking */}
               <div className="h-4 sm:h-8" /> 
@@ -696,7 +696,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               aria-label="Open navigation"
               onClick={() => onMenuClick?.()}
             >
-              <Menu className="h-5 w-5 group-hover:brightness-[108%] transition-all duration-100 linear" />
+              <Menu className="h-5 w-5 text-white group-hover:brightness-[110%] transition-all duration-100 linear drop-shadow-sm" />
             </button>
 
             <DropdownMenu>
@@ -748,7 +748,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                   className="group inline-flex relative h-7 w-7 sm:h-9 sm:w-9 rounded-full bg-white/10 hover:bg-white/[0.14] hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear"
                   aria-label="Messages"
                 >
-                  <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4 group-hover:brightness-[108%] transition-all duration-100 linear" />
+                  <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white group-hover:brightness-[110%] transition-all duration-100 linear drop-shadow-sm" />
                   {unreadMessageCount > 0 && (
                     <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[10px]">
                       {Math.min(unreadMessageCount, 9)}
@@ -796,7 +796,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                   className="group inline-flex relative h-7 w-7 sm:h-9 sm:w-9 rounded-full bg-white/10 hover:bg-white/[0.14] hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear"
                   aria-label="Notifications"
                 >
-                  <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4 group-hover:brightness-[108%] transition-all duration-100 linear" />
+                  <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white group-hover:brightness-[110%] transition-all duration-100 linear drop-shadow-sm" />
                   {unreadCount > 0 && (
                     <Badge className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 p-0 flex items-center justify-center bg-red-500 text-[10px]">
                       {unreadCount > 9 ? "9+" : unreadCount}
@@ -849,7 +849,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                 setReportOpen(true);
               }}
             >
-              <Bug className="h-3.5 w-3.5 sm:h-4 sm:w-4 group-hover:brightness-[108%] transition-all duration-100 linear" />
+              <Bug className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white group-hover:brightness-[110%] transition-all duration-100 linear drop-shadow-sm" />
             </Button>
           </div>
         </div>
