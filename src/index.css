@@ -133,11 +133,11 @@
 /* Components Layer */
 @layer components {
   .stat-card {
-    @apply bg-card rounded-xl p-6 border border-border shadow-[var(--shadow-card)] transition-all duration-200 hover:shadow-[var(--shadow-md)];
+    @apply bg-card rounded-xl p-3 border border-border shadow-[var(--shadow-card)] transition-all duration-200 hover:shadow-[var(--shadow-md)];
   }
 
   .stat-card-gradient {
-    @apply rounded-xl p-6 text-white shadow-[var(--shadow-md)] transition-all duration-200 hover:shadow-[var(--shadow-lg)] hover:-translate-y-0.5;
+    @apply rounded-xl p-3 text-white shadow-[var(--shadow-md)] transition-all duration-200 hover:shadow-[var(--shadow-lg)] hover:-translate-y-0.5;
   }
 
   .nav-item {
