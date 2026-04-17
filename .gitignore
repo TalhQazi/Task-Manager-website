@@ -1,0 +1,12 @@
+node_modules
+.env.local
+.sixth
+.vscode
+dist
+dist-ssr
+*.local
+.env
+.env.*
+.sixth
+.vscode
+.DS_Store

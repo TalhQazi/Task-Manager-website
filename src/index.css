@@ -1,0 +1,462 @@
+/* 1️⃣ Import fonts first */
+
+/* 2️⃣ Tailwind directives next */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 3️⃣ Custom base layer */
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --success: 142 76% 36%;
+    --success-foreground: 210 40% 98%;
+
+    --warning: 38 92% 50%;
+    --warning-foreground: 222 47% 11%;
+
+    --info: 199 89% 48%;
+    --info-foreground: 210 40% 98%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 221 83% 53%;
+    --sidebar-primary-foreground: 210 40% 98%;
+    --sidebar-accent: 217 33% 17%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 33% 17%;
+    --sidebar-ring: 221 83% 53%;
+    --sidebar-muted: 215 16% 47%;
+
+    --gradient-primary: linear-gradient(135deg, hsl(221 83% 53%), hsl(250 83% 60%));
+    --gradient-success: linear-gradient(135deg, hsl(142 76% 36%), hsl(160 84% 39%));
+    --gradient-warning: linear-gradient(135deg, hsl(38 92% 50%), hsl(25 95% 53%));
+    --gradient-danger: linear-gradient(135deg, hsl(0 84% 60%), hsl(340 82% 52%));
+
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+
+    /* iMessage Specific Tokens */
+    --imessage-blue: 211 100% 50%; /* #007AFF */
+    --imessage-gray: 240 5% 91%;  /* #E5E5EA */
+    --imessage-blue-foreground: 0 0% 100%;
+    --imessage-gray-foreground: 0 0% 0%;
+  }
+
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 221 83% 53%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Plus Jakarta Sans', 'DM Sans', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    height: auto !important;
+    overflow-y: auto !important;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    height: auto !important;
+  }
+
+  #root {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+/* Components Layer */
+@layer components {
+  .stat-card {
+    @apply bg-card rounded-xl p-6 border border-border shadow-[var(--shadow-card)] transition-all duration-200 hover:shadow-[var(--shadow-md)];
+  }
+
+  .stat-card-gradient {
+    @apply rounded-xl p-6 text-white shadow-[var(--shadow-md)] transition-all duration-200 hover:shadow-[var(--shadow-lg)] hover:-translate-y-0.5;
+  }
+
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200;
+  }
+
+  .nav-item-active {
+    @apply bg-sidebar-accent text-sidebar-foreground;
+  }
+
+  .nav-item-inactive {
+    @apply text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent/50;
+  }
+
+  .sidebar-item {
+    @apply flex items-center gap-3 rounded-lg text-sm font-medium transition-all duration-200;
+    @apply text-sidebar-muted hover:text-sidebar-foreground hover:bg-sidebar-accent/50;
+  }
+
+  .sidebar-item-active {
+    @apply bg-sidebar-accent text-sidebar-foreground;
+  }
+
+  .priority-high {
+    @apply bg-destructive/10 text-destructive border-destructive/20;
+  }
+
+  .priority-medium {
+    @apply bg-warning/10 text-warning border-warning/20;
+  }
+
+  .priority-low {
+    @apply bg-success/10 text-success border-success/20;
+  }
+
+  .status-active {
+    @apply bg-success/10 text-success;
+  }
+
+  .status-pending {
+    @apply bg-warning/10 text-warning;
+  }
+
+  .status-completed {
+    @apply bg-primary/10 text-primary;
+  }
+
+  .page-header {
+    @apply mb-8;
+  }
+
+  .page-title {
+    @apply text-2xl font-semibold text-foreground;
+  }
+
+  .page-subtitle {
+    @apply text-sm text-muted-foreground mt-1;
+  }
+
+  .data-table {
+    @apply w-full border-collapse;
+  }
+
+  .data-table th {
+    @apply text-left text-xs font-medium text-muted-foreground uppercase tracking-wider px-4 py-3 bg-muted/50;
+  }
+
+  .data-table td {
+    @apply px-4 py-4 text-sm border-t border-border;
+  }
+
+  .data-table tr:hover td {
+    @apply bg-muted/30;
+  }
+}
+
+/* Utilities Layer */
+@layer utilities {
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .gradient-primary {
+    background: var(--gradient-primary);
+  }
+
+  .gradient-success {
+    background: var(--gradient-success);
+  }
+
+  .gradient-warning {
+    background: var(--gradient-warning);
+  }
+
+  .gradient-danger {
+    background: var(--gradient-danger);
+  }
+
+  /* Task Completion Pulse Animations */
+  @keyframes pulse-ring {
+    0% {
+      transform: scale(1);
+      opacity: 0.8;
+      background: radial-gradient(circle, rgba(0, 198, 255, 0.4) 0%, transparent 70%);
+    }
+    50% {
+      transform: scale(1.15);
+      opacity: 0.4;
+      background: radial-gradient(circle, rgba(0, 114, 255, 0.6) 0%, transparent 70%);
+    }
+    100% {
+      transform: scale(1);
+      opacity: 0.8;
+      background: radial-gradient(circle, rgba(0, 198, 255, 0.4) 0%, transparent 70%);
+    }
+  }
+
+  @keyframes electric-streak {
+    0% {
+      background: linear-gradient(90deg, transparent 0%, transparent 100%);
+      opacity: 0;
+    }
+    20% {
+      background: linear-gradient(90deg, transparent 0%, rgba(0, 198, 255, 0.8) 50%, transparent 100%);
+      opacity: 1;
+    }
+    40% {
+      background: linear-gradient(90deg, transparent 0%, rgba(0, 114, 255, 0.6) 50%, transparent 100%);
+      opacity: 0.8;
+    }
+    60% {
+      background: linear-gradient(90deg, transparent 0%, rgba(0, 198, 255, 0.4) 50%, transparent 100%);
+      opacity: 0.6;
+    }
+    100% {
+      background: linear-gradient(90deg, transparent 0%, transparent 100%);
+      opacity: 0;
+    }
+  }
+
+  @keyframes particle-shimmer {
+    0% {
+      background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.3) 0%, transparent 20%),
+                  radial-gradient(circle at 70% 70%, rgba(0, 198, 255, 0.2) 0%, transparent 15%);
+      opacity: 0;
+    }
+    10% {
+      opacity: 1;
+    }
+    30% {
+      background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.4) 0%, transparent 25%),
+                  radial-gradient(circle at 20% 80%, rgba(0, 114, 255, 0.3) 0%, transparent 20%);
+    }
+    50% {
+      background: radial-gradient(circle at 70% 30%, rgba(255, 255, 255, 0.3) 0%, transparent 20%),
+                  radial-gradient(circle at 40% 60%, rgba(0, 198, 255, 0.25) 0%, transparent 18%);
+    }
+    70% {
+      background: radial-gradient(circle at 60% 70%, rgba(255, 255, 255, 0.2) 0%, transparent 15%),
+                  radial-gradient(circle at 30% 40%, rgba(0, 114, 255, 0.2) 0%, transparent 12%);
+    }
+    90% {
+      opacity: 0.5;
+    }
+    100% {
+      background: radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0) 0%, transparent 20%);
+      opacity: 0;
+    }
+  }
+
+  .animate-pulse-ring {
+    animation: pulse-ring 600ms ease-out forwards;
+  }
+
+  .animate-electric-streak {
+    animation: electric-streak 300ms ease-in-out forwards;
+  }
+
+  .animate-particle-shimmer {
+    animation: particle-shimmer 900ms ease-out forwards;
+    will-change: opacity, transform;
+  }
+
+  /* Dashboard System Pulse Indicator */
+  @keyframes dashboard-pulse {
+    0% {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+    50% {
+      opacity: 0.06; /* 6% maximum opacity */
+      transform: scale(1.2);
+    }
+    100% {
+      opacity: 0;
+      transform: scale(0.8);
+    }
+  }
+
+  .animate-dashboard-pulse {
+    animation: dashboard-pulse 900ms ease-in-out;
+    animation-iteration-count: infinite;
+    animation-delay: 6s;
+    will-change: opacity, transform;
+  }
+
+  /* Page Navigation Transition */
+  @keyframes page-enter {
+    0% {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-page-enter {
+    animation: page-enter 250ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    will-change: opacity, transform;
+  }
+
+  /* Premium Metallic Gold Utils */
+  @keyframes shine {
+    0% { transform: translateX(-100%) skewX(-15deg); }
+    100% { transform: translateX(300%) skewX(-15deg); }
+  }
+
+  .animate-shine {
+    animation: shine 6s infinite linear;
+  }
+
+  .bg-metallic-gold {
+    background: linear-gradient(
+      to right, 
+      #BF953F, 
+      #FCF6BA 25%, 
+      #B38728 50%, 
+      #FBF5B7 75%, 
+      #BF953F
+    );
+    background-size: 200% auto;
+  }
+
+  .text-gold-dark {
+    color: #5d4037;
+  }
+
+  /* Performance: GPU Acceleration Hints */
+  .gpu-accelerated {
+    will-change: transform, opacity;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+
+  /* iMessage UI Components */
+  .chat-bubble {
+    @apply w-fit px-4 py-2 rounded-[22px] text-sm leading-relaxed shadow-sm relative transition-all duration-150 min-w-[60px] overflow-hidden;
+    max-width: 85%;
+  }
+
+  .chat-bubble-me {
+    @apply bg-[#007AFF] text-white self-end rounded-tr-[4px] ml-auto;
+  }
+
+  .chat-bubble-others {
+    @apply bg-[#E5E5EA] text-black self-start rounded-tl-[4px] mr-auto;
+  }
+
+  .chat-sender-name {
+    @apply text-[11px] font-semibold text-muted-foreground/70 mb-1 px-1;
+  }
+
+  .chat-timestamp {
+    @apply text-[9px] text-muted-foreground/40 mt-0.5 px-2 transition-opacity duration-200;
+  }
+
+  .chat-container {
+    @apply flex flex-col gap-2 p-4 overflow-y-auto scroll-smooth;
+  }
+
+  .chat-message-group {
+    @apply flex flex-col max-w-full;
+  }
+
+  .typing-indicator {
+    @apply flex items-center gap-1 px-3 py-2 bg-[#E5E5EA] rounded-full w-fit;
+  }
+
+  .typing-dot {
+    @apply w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce;
+  }
+
+  .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+}
+
+/* Reduced Motion Support - Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-pulse-ring,
+  .animate-electric-streak,
+  .animate-particle-shimmer,
+  .animate-dashboard-pulse,
+  .animate-page-enter {
+    animation: none !important;
+  }
+}

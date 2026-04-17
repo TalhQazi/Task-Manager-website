@@ -1,0 +1,378 @@
+import { useState } from "react";
+import { motion, AnimatePresence, Variants } from "framer-motion";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/admin/ui/dialog";
+import { Button } from "@/components/admin/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
+import { Badge } from "@/components/admin/ui/badge";
+import { Plus, Edit2, Trash2, ExternalLink, Lock } from "lucide-react";
+import { apiFetch } from "@/lib/admin/apiClient";
+import { useQuery } from "@tanstack/react-query";
+
+interface Website {
+  _id: string;
+  siteName: string;
+  url: string;
+  platform: string;
+  hostingProvider: string;
+  status: "Live" | "Maintenance" | "Development" | "Offline";
+  owner: string;
+  notes: string;
+  createdAt: string;
+}
+
+const statusColors = {
+  Live: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+  Maintenance: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+  Development: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+  Offline: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+};
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.1, delayChildren: 0.2 },
+  },
+} as const;
+
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: { type: "spring" as const, stiffness: 100, damping: 12 },
+  },
+} as const;
+
+export function ActiveWebsites() {
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [formData, setFormData] = useState<Partial<Website>>({
+    siteName: "",
+    url: "",
+    platform: "",
+    hostingProvider: "",
+    status: "Live",
+    owner: "",
+    notes: "",
+  });
+  const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showCredentials, setShowCredentials] = useState<string | null>(null);
+
+  const websitesQuery = useQuery<Website[]>({
+    queryKey: ["active-websites"],
+    queryFn: async () => {
+      const res = await apiFetch<{ items: Website[] }>("/api/websites/active");
+      return res.items || [];
+    },
+  });
+
+  const websites = websitesQuery.data || [];
+
+  const resetForm = () => {
+    setFormData({
+      siteName: "",
+      url: "",
+      platform: "",
+      hostingProvider: "",
+      status: "Live",
+      owner: "",
+      notes: "",
+    });
+    setSelectedWebsite(null);
+  };
+
+  const handleSave = async () => {
+    if (!formData.siteName || !formData.url) {
+      setApiError("Site Name and URL are required");
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setApiError(null);
+
+      if (selectedWebsite) {
+        await apiFetch(`/api/websites/${selectedWebsite._id}`, {
+          method: "PUT",
+          body: JSON.stringify(formData),
+        });
+      } else {
+        await apiFetch("/api/websites", {
+          method: "POST",
+          body: JSON.stringify({
+            ...formData,
+            websiteType: "active",
+          }),
+        });
+      }
+
+      await websitesQuery.refetch();
+      setIsEditDialogOpen(false);
+      resetForm();
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (website: Website) => {
+    if (!confirm("Are you sure you want to delete this website?")) return;
+
+    try {
+      await apiFetch(`/api/websites/${website._id}`, {
+        method: "DELETE",
+      });
+      await websitesQuery.refetch();
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : "Failed to delete");
+    }
+  };
+
+  const handleEdit = (website: Website) => {
+    setSelectedWebsite(website);
+    setFormData(website);
+    setIsEditDialogOpen(true);
+  };
+
+  return (
+    <div className="space-y-4">
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogTrigger asChild>
+              <Button
+                onClick={() => {
+                  resetForm();
+                  setIsEditDialogOpen(true);
+                }}
+                className="w-full sm:w-auto bg-gradient-to-r from-primary to-primary/80"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Website
+              </Button>
+            </DialogTrigger>
+
+            <DialogContent className="w-[95vw] max-w-md">
+              <DialogHeader>
+                <DialogTitle>
+                  {selectedWebsite ? "Edit Website" : "Add New Website"}
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium">Site Name</label>
+                  <input
+                    type="text"
+                    value={formData.siteName || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, siteName: e.target.value })
+                    }
+                    className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
+                    placeholder="e.g., Company Main Site"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">URL</label>
+                  <input
+                    type="url"
+                    value={formData.url || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, url: e.target.value })
+                    }
+                    className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
+                    placeholder="https://example.com"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Platform</label>
+                  <input
+                    type="text"
+                    value={formData.platform || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, platform: e.target.value })
+                    }
+                    className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
+                    placeholder="e.g., WordPress, React, etc."
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Hosting Provider</label>
+                  <input
+                    type="text"
+                    value={formData.hostingProvider || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, hostingProvider: e.target.value })
+                    }
+                    className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
+                    placeholder="e.g., AWS, DigitalOcean"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Status</label>
+                  <select
+                    value={formData.status || "Live"}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        status: e.target.value as Website["status"],
+                      })
+                    }
+                    className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
+                  >
+                    <option value="Live">Live</option>
+                    <option value="Maintenance">Maintenance</option>
+                    <option value="Development">Development</option>
+                    <option value="Offline">Offline</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Owner</label>
+                  <input
+                    type="text"
+                    value={formData.owner || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, owner: e.target.value })
+                    }
+                    className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
+                    placeholder="Owner name"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Notes</label>
+                  <textarea
+                    value={formData.notes || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, notes: e.target.value })
+                    }
+                    className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
+                    rows={3}
+                    placeholder="Additional notes..."
+                  />
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditDialogOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSave}
+                  disabled={isSubmitting}
+                  className="bg-primary"
+                >
+                  {isSubmitting ? "Saving..." : "Save"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {websitesQuery.isLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+            </div>
+          ) : websites.length === 0 ? (
+            <Card>
+              <CardContent className="p-6 text-center">
+                <p className="text-sm text-muted-foreground">
+                  No websites yet. Click "Add Website" to get started.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <motion.div
+              className="space-y-3"
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+            >
+              {websites.map((website) => (
+                <motion.div
+                  key={website._id}
+                  variants={itemVariants}
+                  className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-sm">{website.siteName}</h3>
+                      <a
+                        href={website.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                      >
+                        {website.url}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                    <Badge className={statusColors[website.status]}>
+                      {website.status}
+                    </Badge>
+                  </div>
+
+                  <div className="text-xs text-muted-foreground space-y-1 mb-3">
+                    <p>{website.platform} • {website.hostingProvider}</p>
+                    <p>Owner: {website.owner}</p>
+                    {website.notes && <p>{website.notes}</p>}
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleEdit(website)}
+                    >
+                      <Edit2 className="h-3 w-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowCredentials(showCredentials === website._id ? null : website._id)}
+                    >
+                      <Lock className="h-3 w-3" />
+                      Login
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleDelete(website)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+
+                  {showCredentials === website._id && (
+                    <Card className="mt-3 bg-muted/30">
+                      <CardContent className="p-3 text-xs">
+                        <p className="font-medium mb-2">Credentials Vault</p>
+                        <p className="text-muted-foreground">
+                          Credential management available through Credential Vault
+                        </p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
+    </div>
+  );
+}
