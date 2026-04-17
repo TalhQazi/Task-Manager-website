@@ -671,6 +671,11 @@ export default function AsanaImport() {
                     <BarChart3 className="h-4 w-4 text-muted-foreground" />
                     Data Import Visualization
                   </h3>
+
+                  <h4 className="font-semibold text-sm flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                    Data Import Visualization
+                  </h4>
                   <div className="h-48 sm:h-56 w-full bg-muted/30 rounded-lg p-3">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart

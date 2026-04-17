@@ -10,7 +10,6 @@ import { getAuthState } from "./lib/auth";
 import { getEmployeeAuth } from "./Employee/lib/auth";
 import { SocketProvider } from "./contexts/SocketContext";
 import { TaskBlasterProvider } from "./contexts/TaskBlasterContext";
-import { RewardSystemProvider } from "./contexts/RewardSystemContext";
 
 // Lazy-load route controllers — each pulls in its own pages lazily
 const AdminRoutes = lazy(() => import("./routes/AdminRoutes"));
@@ -40,35 +39,33 @@ function IndexRedirect() {
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <SocketProvider>
-      <RewardSystemProvider>
-        <TaskBlasterProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
-              <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0a0a0f" }}>
-                <div style={{ width: 40, height: 40, border: "3px solid rgba(255,255,255,0.1)", borderTopColor: "#6366f1", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
-                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-              </div>}>
-                <Routes>
-                  <Route path="/" element={<IndexRedirect />} />
-                  <Route path="/login" element={<Login />} />
-                  <Route path="/login/employee" element={<EmployeeLogin />} />
-                  <Route path="/admin/*" element={<AdminRoutes />} />
-                  <Route path="/manager/*" element={<ManagerController />} />
-                  <Route path="/developer/*" element={<DeveloperController />} />
-                  <Route path="/employee/*" element={<EmployeeController />} />
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-              </Suspense>
-            </BrowserRouter>
-          </TooltipProvider>
-        </TaskBlasterProvider>
-      </RewardSystemProvider>
-    </SocketProvider>
-  </QueryClientProvider>
+  <SocketProvider>
+    <TaskBlasterProvider>
+      <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0a0a0f" }}>
+            <div style={{ width: 40, height: 40, border: "3px solid rgba(255,255,255,0.1)", borderTopColor: "#6366f1", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          </div>}>
+            <Routes>
+              <Route path="/" element={<IndexRedirect />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/login/employee" element={<EmployeeLogin />} />
+              <Route path="/admin/*" element={<AdminRoutes />} />
+              <Route path="/manager/*" element={<ManagerController />} />
+              <Route path="/developer/*" element={<DeveloperController />} />
+              <Route path="/employee/*" element={<EmployeeController />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+    </TaskBlasterProvider>
+  </SocketProvider>
 );
 
 export default App;
