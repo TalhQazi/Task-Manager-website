@@ -37,6 +37,7 @@ const NotFound = lazy(() => import("@/pages/admin/NotFound"));
 const ArchiveData = lazy(() => import("@/pages/admin/ArchiveData"));
 const FounderMessages = lazy(() => import("@/pages/admin/FounderMessages"));
 const ScrumRecords = lazy(() => import("@/pages/admin/ScrumRecords"));
+const EmployeeScrumHistory = lazy(() => import("@/pages/admin/EmployeeScrumHistory"));
 const SignaCore = lazy(() => import("@/pages/admin/SignaCore"));
 const UphMaintenance = lazy(() => import("@/pages/admin/UphMaintenance"));
 
@@ -95,6 +96,7 @@ export default function AdminRoutes() {
       { path: "archive-data", element: <ArchiveData /> },
       { path: "founder-messages", element: <FounderMessages /> },
       { path: "scrum-records", element: <ScrumRecords /> },
+      { path: "scrum-records/:employeeName", element: <EmployeeScrumHistory /> },
       { path: "*", element: <NotFound /> },
     ],
     [],

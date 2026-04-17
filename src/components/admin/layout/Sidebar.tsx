@@ -53,6 +53,7 @@ const navItemsBase: NavItem[] = [
   { icon: CheckSquare, label: "Task Management", path: "/admin/tasks" },
   { icon: UserCircle, label: "Employee Directory", path: "/admin/employees" },
   { icon: Wallet, label: "Payroll", path: "/admin/payroll" },
+   { icon: ClipboardList, label: "Scrum Records", path: "/admin/scrum-records" },
   { icon: History, label: "Task History", path: "/admin/task-history" },
   {
     icon: Layers,
@@ -65,7 +66,7 @@ const navItemsBase: NavItem[] = [
       { icon: Calendar, label: "Scheduling", path: "/admin/scheduling" },
       { icon: Bell, label: "Notifications", path: "/admin/notifications" },
       { icon: Clock, label: "Time Tracking", path: "/admin/time-tracking" },
-      { icon: ClipboardList, label: "Scrum Records", path: "/admin/scrum-records" },
+    
     ],
   },
   { icon: Landmark, label: "Companies", path: "/admin/companies" },

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,15 +13,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { ClipboardList, Search, Calendar, Clock, ChevronLeft, Building, MapPin, Mail } from "lucide-react";
-import { getAdminScrumRecords, getAdminEmployeeScrumRecords } from "@/lib/admin/apiClient";
+import { ClipboardList, Search, Calendar, Building, Phone, Mail } from "lucide-react";
+import { getAdminScrumRecords } from "@/lib/admin/apiClient";
 import { toast } from "sonner";
 
 interface EmployeeScrumData {
@@ -28,7 +22,7 @@ interface EmployeeScrumData {
   employeeId: string | null;
   email: string;
   company: string;
-  location: string;
+  phone: string;
   status: string;
   totalScrumRecords: number;
   latestRecord: string;
@@ -46,13 +40,10 @@ interface ScrumRecord {
 }
 
 export default function AdminScrumRecords() {
+  const navigate = useNavigate();
   const [employees, setEmployees] = useState<EmployeeScrumData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeScrumData | null>(null);
-  const [employeeRecords, setEmployeeRecords] = useState<ScrumRecord[]>([]);
-  const [recordsLoading, setRecordsLoading] = useState(false);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   useEffect(() => {
     loadScrumRecords();
@@ -71,25 +62,15 @@ export default function AdminScrumRecords() {
     }
   };
 
-  const handleViewEmployee = async (employee: EmployeeScrumData) => {
-    setSelectedEmployee(employee);
-    setIsDialogOpen(true);
-    setRecordsLoading(true);
-    try {
-      const res = await getAdminEmployeeScrumRecords(employee.employeeName);
-      setEmployeeRecords(res.items || []);
-    } catch (err) {
-      console.error("Failed to load employee scrum records:", err);
-      toast.error("Failed to load employee scrum records");
-    } finally {
-      setRecordsLoading(false);
-    }
+  const handleViewEmployee = (employee: EmployeeScrumData) => {
+    navigate(`/admin/scrum-records/${encodeURIComponent(employee.employeeName)}`);
   };
 
   const filteredEmployees = employees.filter((emp) =>
     emp.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     emp.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.company.toLowerCase().includes(searchTerm.toLowerCase())
+    emp.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    emp.phone.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const formatDate = (dateStr: string) => {
@@ -171,7 +152,7 @@ export default function AdminScrumRecords() {
                   <TableRow>
                     <TableHead>Employee</TableHead>
                     <TableHead>Company</TableHead>
-                    <TableHead>Location</TableHead>
+                    <TableHead>Mobile Number</TableHead>
                     <TableHead>Total Records</TableHead>
                     <TableHead>Latest Record</TableHead>
                     <TableHead>Status</TableHead>
@@ -205,8 +186,8 @@ export default function AdminScrumRecords() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
-                          <MapPin className="h-4 w-4 text-gray-400" />
-                          {emp.location || "--"}
+                          <Phone className="h-4 w-4 text-gray-400" />
+                          {emp.phone || "--"}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -253,104 +234,6 @@ export default function AdminScrumRecords() {
           )}
         </CardContent>
       </Card>
-
-      {/* Employee Scrum Records Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setIsDialogOpen(false)}
-                className="h-8 w-8"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </Button>
-              <DialogTitle>
-                {selectedEmployee?.employeeName} - Scrum History
-              </DialogTitle>
-            </div>
-            <DialogDescription>
-              {selectedEmployee && (
-                <div className="flex items-center gap-4 mt-2 text-sm">
-                  <span className="flex items-center gap-1">
-                    <Building className="h-4 w-4" />
-                    {selectedEmployee.company || "No company"}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <MapPin className="h-4 w-4" />
-                    {selectedEmployee.location || "No location"}
-                  </span>
-                  <Badge variant="outline">
-                    {selectedEmployee.totalScrumRecords} records
-                  </Badge>
-                </div>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-
-          {recordsLoading ? (
-            <div className="text-center py-8">
-              <ClipboardList className="h-8 w-8 mx-auto mb-2 text-gray-300 animate-pulse" />
-              <p className="text-muted-foreground">Loading records...</p>
-            </div>
-          ) : employeeRecords.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <ClipboardList className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p>No scrum records for this employee</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Clock In</TableHead>
-                    <TableHead>Clock Out</TableHead>
-                    <TableHead>Hours</TableHead>
-                    <TableHead className="w-1/2">Scrum Details</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {employeeRecords.map((record) => (
-                    <TableRow key={record.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-gray-400" />
-                          {formatDate(record.date)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3 text-green-500" />
-                          {record.clockIn || "--:--"}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3 text-blue-500" />
-                          {record.clockOut || "--:--"}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="font-mono">
-                          {record.totalHours?.toFixed(2) || "--"}h
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                          {record.scrum}
-                        </p>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

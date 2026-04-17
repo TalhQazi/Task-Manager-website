@@ -224,7 +224,7 @@ export async function getAdminScrumRecords(params?: { from?: string; to?: string
   if (params?.page) query.append("page", String(params.page));
   if (params?.limit) query.append("limit", String(params.limit));
 
-  return apiFetch<{ items: Array<{ employeeName: string; employeeId: string | null; email: string; company: string; location: string; status: string; totalScrumRecords: number; latestRecord: string; records: Array<{ id: string; date: string; clockIn: string; clockOut: string; totalHours: number; scrum: string; createdAt: string }> }>; total: number }>(`/api/time-entries/scrum-records?${query.toString()}`);
+  return apiFetch<{ items: Array<{ employeeName: string; employeeId: string | null; email: string; company: string; phone: string; status: string; totalScrumRecords: number; latestRecord: string; records: Array<{ id: string; date: string; clockIn: string; clockOut: string; totalHours: number; scrum: string; createdAt: string }> }>; total: number }>(`/api/time-entries/scrum-records?${query.toString()}`);
 }
 
 export async function getAdminEmployeeScrumRecords(employeeName: string, params?: { from?: string; to?: string; page?: number; limit?: number }) {
