@@ -109,6 +109,56 @@ export async function getEmployeeTasks() {
   }>("/api/employees/me/tasks");
 }
 
+// Get time entry history for employee
+export async function getEmployeeTimeEntryHistory() {
+  return employeeApiFetch<{
+    items: Array<{
+      id: string;
+      date: string;
+      clockIn: string;
+      clockOut: string;
+      clockInAt: string | null;
+      clockOutAt: string | null;
+      totalHours: number;
+      status: string;
+      scrum?: string | null;
+    }>;
+  }>("/api/employees/me/time-entry/history");
+}
+
+// Submit scrum and clock out
+export async function submitScrumAndClockOut(scrum: string) {
+  return employeeApiFetch<{
+    item: { 
+      id: string; 
+      date: string; 
+      clockIn: string; 
+      clockOut: string; 
+      status: string; 
+      totalHours: number;
+      scrum: string;
+    };
+  }>("/api/employees/me/clock-out-with-scrum", {
+    method: "POST",
+    body: JSON.stringify({ scrum }),
+  });
+}
+
+// Get scrum records for employee
+export async function getEmployeeScrumRecords() {
+  return employeeApiFetch<{
+    items: Array<{
+      id: string;
+      date: string;
+      clockIn: string;
+      clockOut: string;
+      totalHours: number;
+      scrum: string;
+      createdAt: string;
+    }>;
+  }>("/api/employees/me/scrum-records");
+}
+
 export async function getTaskById(taskId: string) {
   return employeeApiFetch<{
     item: {
