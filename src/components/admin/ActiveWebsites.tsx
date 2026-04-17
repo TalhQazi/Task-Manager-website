@@ -15,6 +15,14 @@ import { Badge } from "@/components/admin/ui/badge";
 import { Plus, Edit2, Trash2, ExternalLink, Lock } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useQuery } from "@tanstack/react-query";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/admin/ui/table";
 
 interface Website {
   _id: string;
@@ -298,80 +306,75 @@ export function ActiveWebsites() {
               </CardContent>
             </Card>
           ) : (
-            <motion.div
-              className="space-y-3"
-              variants={containerVariants}
-              initial="hidden"
-              animate="visible"
-            >
-              {websites.map((website) => (
-                <motion.div
-                  key={website._id}
-                  variants={itemVariants}
-                  className="border rounded-lg p-4 hover:shadow-md transition-shadow"
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-sm">{website.siteName}</h3>
-                      <a
-                        href={website.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-xs text-blue-600 hover:underline flex items-center gap-1"
-                      >
-                        {website.url}
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </div>
-                    <Badge className={statusColors[website.status]}>
-                      {website.status}
-                    </Badge>
-                  </div>
-
-                  <div className="text-xs text-muted-foreground space-y-1 mb-3">
-                    <p>{website.platform} • {website.hostingProvider}</p>
-                    <p>Owner: {website.owner}</p>
-                    {website.notes && <p>{website.notes}</p>}
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleEdit(website)}
-                    >
-                      <Edit2 className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setShowCredentials(showCredentials === website._id ? null : website._id)}
-                    >
-                      <Lock className="h-3 w-3" />
-                      Login
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleDelete(website)}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
-
-                  {showCredentials === website._id && (
-                    <Card className="mt-3 bg-muted/30">
-                      <CardContent className="p-3 text-xs">
-                        <p className="font-medium mb-2">Credentials Vault</p>
-                        <p className="text-muted-foreground">
-                          Credential management available through Credential Vault
-                        </p>
-                      </CardContent>
-                    </Card>
-                  )}
-                </motion.div>
-              ))}
-            </motion.div>
+            <div className="rounded-md border overflow-hidden mt-4">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-muted/50">
+                    <TableHead className="font-bold">Site Name</TableHead>
+                    <TableHead className="font-bold">URL</TableHead>
+                    <TableHead className="font-bold">Platform</TableHead>
+                    <TableHead className="font-bold">Hosting</TableHead>
+                    <TableHead className="font-bold">Status</TableHead>
+                    <TableHead className="font-bold">Owner</TableHead>
+                    <TableHead className="text-right font-bold">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {websites.map((website) => (
+                    <TableRow key={website._id} className="hover:bg-muted/30 transition-colors">
+                      <TableCell className="font-medium text-sm">{website.siteName}</TableCell>
+                      <TableCell>
+                        <a
+                          href={website.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                        >
+                          {website.url.length > 30 ? website.url.slice(0, 30) + "..." : website.url}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </TableCell>
+                      <TableCell className="text-xs">{website.platform}</TableCell>
+                      <TableCell className="text-xs">{website.hostingProvider}</TableCell>
+                      <TableCell>
+                        <Badge className={`${statusColors[website.status]} border-0 shadow-none font-bold text-[10px] uppercase`}>
+                          {website.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs">{website.owner}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-blue-600"
+                            onClick={() => handleEdit(website)}
+                          >
+                            <Edit2 className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-amber-600"
+                            onClick={() => setShowCredentials(showCredentials === website._id ? null : website._id)}
+                          >
+                            <Lock className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => handleDelete(website)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
     </div>
   );

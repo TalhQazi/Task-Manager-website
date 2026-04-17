@@ -4,9 +4,10 @@ import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { TaskBlaster } from "@/components/shared/TaskBlaster";
 
 // Context to share header height across components
-const HeaderHeightContext = createContext<number>(250);
+const HeaderHeightContext = createContext<number>(300);
 
 export function useHeaderHeight() {
   return useContext(HeaderHeightContext);
@@ -19,7 +20,7 @@ interface AdminLayoutProps {
 export function AdminLayout({ children }: AdminLayoutProps) {
   const location = useLocation();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [headerHeight, setHeaderHeight] = useState(250);
+  const [headerHeight, setHeaderHeight] = useState(300);
   const [pageKey, setPageKey] = useState(0);
 
   // Trigger page transition animation on route change
@@ -30,7 +31,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   // Listen for header height updates
   useEffect(() => {
     const handleHeightUpdate = (e: CustomEvent) => {
-      setHeaderHeight(e.detail?.height || 250);
+      setHeaderHeight(e.detail?.height || 300);
     };
     window.addEventListener("header-height-changed", handleHeightUpdate as EventListener);
     return () => window.removeEventListener("header-height-changed", handleHeightUpdate as EventListener);
@@ -59,6 +60,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             <Sidebar mode="mobile" onNavigate={() => setMobileSidebarOpen(false)} />
           </SheetContent>
         </Sheet>
+
+        {/* TaskBlaster overlay for celebrations */}
+        <TaskBlaster />
       </div>
     </HeaderHeightContext.Provider>
   );

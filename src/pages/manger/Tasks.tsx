@@ -92,10 +92,11 @@ import {
   Maximize2,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
-import { apiFetch, downloadTaskAttachment } from "@/lib/manger/api";
+import { apiFetch, downloadTaskAttachment, toProxiedUrl } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSocket } from "@/contexts/SocketContext";
+import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import jsPDF from "jspdf";
 import { Pagination } from "@/components/Pagination";
 
@@ -253,20 +254,26 @@ function normalizeTask(t: TaskApi): Task {
 }
 
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
-  const [src, setSrc] = useState<string | null | undefined>(logoUrl !== undefined ? (logoUrl || null) : undefined);
+  const [src, setSrc] = useState<string | null | undefined>(undefined);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (logoUrl) {
-      setSrc(logoUrl);
+    // If logoUrl is a real URL (S3 or data:), use it directly
+    if (logoUrl && logoUrl.length > 0) {
+      setSrc(toProxiedUrl(logoUrl) || logoUrl);
       setError(false);
       return;
     }
+    
+    // logoUrl is undefined or empty string — fetch from dedicated endpoint
+    // Empty string means the list API stripped a base64 value stored in MongoDB
     let cancelled = false;
+    setSrc(undefined);
+
     apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
       .then(d => { 
         if (!cancelled) {
-          setSrc(d.logo?.url || null);
+          setSrc(toProxiedUrl(d.logo?.url) || null);
           setError(false);
         }
       })
@@ -285,12 +292,13 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
         src={src} 
         alt={`${projectName} logo`} 
         className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-border" 
+        crossOrigin="anonymous"
         onError={() => setError(true)}
       />
     );
   }
 
-  if (src === undefined && logoUrl === undefined) {
+  if (src === undefined) {
     return <div className="w-10 h-10 rounded-md bg-muted/40 animate-pulse flex-shrink-0" />;
   }
 
@@ -301,15 +309,24 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
   );
 }
 
-function TaskAttachmentImg({ taskId, onPreview }: { taskId: string; onPreview?: (url: string, fileName: string) => void }) {
-  const [src, setSrc] = useState<string | null | undefined>(undefined);
+function TaskAttachmentImg({ taskId, attachmentUrl, onPreview }: { taskId: string; attachmentUrl?: string; onPreview?: (url: string, fileName: string) => void }) {
+  const [src, setSrc] = useState<string | null | undefined>(toProxiedUrl(attachmentUrl) || undefined);
+  
   useEffect(() => {
+    // If attachmentUrl is a real URL (S3 or data:), use it directly
+    if (attachmentUrl && attachmentUrl.length > 0) {
+      setSrc(toProxiedUrl(attachmentUrl) || attachmentUrl);
+      return;
+    }
+
+    // attachmentUrl is undefined or empty string — fetch from dedicated endpoint
     let cancelled = false;
     apiFetch<{ attachment: { url: string } }>(`/api/tasks/${encodeURIComponent(taskId)}/attachment`)
-      .then(d => { if (!cancelled) setSrc(d.attachment?.url || null); })
+      .then(d => { if (!cancelled) setSrc(toProxiedUrl(d.attachment?.url) || null); })
       .catch(() => { if (!cancelled) setSrc(null); });
     return () => { cancelled = true; };
-  }, [taskId]);
+  }, [taskId, attachmentUrl]);
+
   if (src) return (
     <div className="w-full h-full relative group/task-att cursor-zoom-in" onClick={() => onPreview?.(src, "Task Attachment")}>
       <img src={src} alt="Task preview" className="w-full h-full object-cover" />
@@ -323,7 +340,7 @@ function TaskAttachmentImg({ taskId, onPreview }: { taskId: string; onPreview?: 
 }
 
 function CommentAttachmentImg({ taskId, projectId, commentId, index, mimeType, fileName, fallbackUrl, onPreview }: { taskId?: string; projectId?: string; commentId: string; index: number; mimeType: string; fileName: string; fallbackUrl?: string; onPreview?: (url: string, name: string) => void }) {
-  const [src, setSrc] = useState<string | null | undefined>(fallbackUrl || undefined);
+  const [src, setSrc] = useState<string | null | undefined>(toProxiedUrl(fallbackUrl) || undefined);
   useEffect(() => {
     if (fallbackUrl) return; 
     let cancelled = false;
@@ -332,14 +349,14 @@ function CommentAttachmentImg({ taskId, projectId, commentId, index, mimeType, f
       : `/api/projects/${encodeURIComponent(projectId!)}/comments/${encodeURIComponent(commentId)}/attachments/${index}`;
       
     apiFetch<{ attachment: { url: string } }>(url)
-      .then(d => { if (!cancelled) setSrc(d.attachment?.url || null); })
+      .then(d => { if (!cancelled) setSrc(toProxiedUrl(d.attachment?.url) || null); })
       .catch(() => { if (!cancelled) setSrc(null); });
     return () => { cancelled = true; };
   }, [taskId, projectId, commentId, index, fallbackUrl]);
   
   if (src && mimeType?.startsWith("image/")) return (
-    <div className="w-full h-full relative group/att cursor-zoom-in" onClick={() => onPreview?.(src, fileName)}>
-      <img src={src} alt={fileName} className="w-full h-full object-cover rounded-lg" />
+    <div className="w-full h-auto flex justify-center relative group/att cursor-zoom-in" onClick={() => onPreview?.(src, fileName)}>
+      <img src={src} alt={fileName} className="w-full h-auto max-h-[180px] object-contain rounded-lg" />
       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-all duration-200 rounded-lg">
         <Maximize2 className="w-5 h-5 text-white" />
       </div>
@@ -478,6 +495,8 @@ export default function Tasks() {
   const [attachmentFilePreviews, setAttachmentFilePreviews] = useState<string[]>([]);
   const [attachmentNoteDraft, setAttachmentNoteDraft] = useState<string>("");
   const [isCreating, setIsCreating] = useState(false);
+  const [editTaskFile, setEditTaskFile] = useState<File | null>(null);
+  const [editTaskFilePreview, setEditTaskFilePreview] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<{ projectName?: string; title?: string; description?: string }>({});
   const [assigneesOpen, setAssigneesOpen] = useState(false);
   const [editAssigneesOpen, setEditAssigneesOpen] = useState(false);
@@ -712,15 +731,20 @@ export default function Tasks() {
   });
 
   const updateTaskMutation = useMutation({
-    mutationFn: async ({ id, payload }: { id: string; payload: CreateTaskValues }) => {
+    mutationFn: async ({ id, payload }: { id: string; payload: Partial<Task> }) => {
       const res = await apiFetch<{ item: TaskApi }>(`/api/tasks/${id}`, {
         method: "PUT",
         body: JSON.stringify(payload),
       });
       return normalizeTask(res.item);
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    onSuccess: (updatedTask) => {
+      queryClient.setQueryData<Task[]>(["tasks"], (old) => {
+        if (!old) return old;
+        return old.map((t) => (t.id === updatedTask.id ? updatedTask : t));
+      });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 
@@ -1151,8 +1175,11 @@ export default function Tasks() {
     void loadProjectComments(project.id);
   };
 
+  const { triggerBlaster, incrementCompletedCount } = useTaskBlasterContext();
+
   const updateStatus = async (next: Task["status"]) => {
     if (!selectedTask) return;
+    const previousStatus = selectedTask.status;
     try {
       setStatusSaving(true);
       setCommentError(null);
@@ -1163,6 +1190,20 @@ export default function Tasks() {
       const normalized = normalizeTask(res.item);
       setSelectedTask(normalized);
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+
+      // Trigger TaskBlaster when task is marked as completed
+      if (next === "completed" && previousStatus !== "completed") {
+        const taskForBlaster = {
+          id: normalized.id,
+          title: normalized.title,
+          priority: normalized.priority as any,
+          status: "completed",
+        };
+        const triggered = triggerBlaster(taskForBlaster);
+        if (triggered) {
+          incrementCompletedCount();
+        }
+      }
     } catch (e) {
       setCommentError(e instanceof Error ? e.message : "Failed to update status");
     } finally {
@@ -1173,6 +1214,8 @@ export default function Tasks() {
   const openEdit = (task: Task) => {
     setSelectedTask(task);
     setEditSelectedAssignees(task.assignees || []);
+    setEditTaskFile(null);
+    setEditTaskFilePreview(task.attachment?.url || null);
     editForm.reset({
       title: task.title,
       description: task.description,
@@ -1316,28 +1359,75 @@ export default function Tasks() {
     }
   };
 
-  const onEditTask = (values: CreateTaskValues) => {
+  const onEditTask = async (values: CreateTaskValues) => {
     if (!selectedTask) return;
+    const previousStatus = selectedTask.status;
+    try {
+      let attachment = undefined;
+      if (editTaskFile) {
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(editTaskFile);
+        });
+        attachment = {
+          fileName: editTaskFile.name,
+          url: base64,
+          mimeType: editTaskFile.type,
+          size: editTaskFile.size
+        };
+      } else if (editTaskFilePreview === null) {
+        attachment = { fileName: "", url: "", mimeType: "", size: 0 };
+      }
 
-    updateTaskMutation.mutate(
-      { id: selectedTask.id, payload: { ...values, assignees: editSelectedAssignees } },
-      {
-        onSuccess: () => {
-          setIsEditOpen(false);
-          setEditSelectedAssignees([]);
-          toast({
-            title: "Task updated",
-            description: "Task has been updated.",
-          });
-        },
-        onError: (err) => {
-          toast({
-            title: "Failed to update task",
-            description: err instanceof Error ? err.message : "Something went wrong",
-          });
-        },
-      },
-    );
+      const payload: Partial<Task> = { ...values, assignees: editSelectedAssignees };
+      if (attachment !== undefined) {
+        (payload as any).attachment = attachment;
+      }
+
+      updateTaskMutation.mutate(
+        { id: selectedTask.id, payload },
+        {
+          onSuccess: (updatedTask) => {
+            setIsEditOpen(false);
+            setEditSelectedAssignees([]);
+            setEditTaskFile(null);
+            setEditTaskFilePreview(null);
+            toast({
+              title: "Task updated",
+              description: "The task has been updated successfully.",
+            });
+
+            // Trigger TaskBlaster when task is marked as completed via edit
+            if (values.status === "completed" && previousStatus !== "completed") {
+              const taskForBlaster = {
+                id: selectedTask.id,
+                title: selectedTask.title,
+                priority: values.priority as any,
+                status: "completed",
+              };
+              const triggered = triggerBlaster(taskForBlaster);
+              if (triggered) {
+                incrementCompletedCount();
+              }
+            }
+          },
+          onError: (err) => {
+            toast({
+              title: "Failed to update task",
+              description: err instanceof Error ? err.message : "Something went wrong",
+              variant: "destructive",
+            });
+          },
+        }
+      );
+    } catch (err) {
+      toast({
+        title: "Error preparing update",
+        description: "Failed to process attachment file",
+        variant: "destructive",
+      });
+    }
   };
 
   const confirmDelete = () => {
@@ -2283,11 +2373,11 @@ export default function Tasks() {
                                             
                                             {c.attachments && c.attachments.length > 0 && (
                                               <div className={cn(
-                                                "grid gap-2 mt-2",
+                                                "grid gap-2 mt-2 max-w-[140px] sm:max-w-[180px]",
                                                 c.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"
                                               )}>
                                                 {c.attachments.map((att, attIdx) => (
-                                                  <div key={attIdx} className="relative rounded-xl overflow-hidden border border-white/20 bg-black/10 min-w-[120px] max-w-full aspect-square sm:aspect-video">
+                                                  <div key={attIdx} className="relative rounded-lg overflow-hidden border border-white/20 bg-black/10 min-w-[120px] max-w-full h-auto">
                                                     <CommentAttachmentImg 
                                                       taskId={selectedTask!.id} 
                                                       commentId={c.id} 
@@ -2679,6 +2769,46 @@ export default function Tasks() {
                     </FormItem>
                   )}
                 />
+
+                <div className="sm:col-span-2 space-y-2">
+                  <label className="text-sm font-medium">Task Attachment</label>
+                  <div className="flex flex-col gap-3 p-4 border border-dashed rounded-lg bg-muted/30">
+                    {editTaskFilePreview ? (
+                      <div className="relative w-full h-40 rounded-md overflow-hidden border">
+                        <img src={editTaskFilePreview} alt="Preview" className="w-full h-full object-cover" />
+                        <Button 
+                          type="button" 
+                          variant="destructive" 
+                          size="icon" 
+                          className="absolute top-2 right-2 h-7 w-7 rounded-full shadow-lg"
+                          onClick={() => { setEditTaskFile(null); setEditTaskFilePreview(null); }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-border/60 rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => document.getElementById('edit-task-attachment-input-manager')?.click()}>
+                        <Paperclip className="h-8 w-8 mb-2 opacity-50" />
+                        <span className="text-sm">Click to upload or drag image</span>
+                        <span className="text-[10px] opacity-70">PNG, JPG, PDF (Max 10MB)</span>
+                      </div>
+                    )}
+                    <input 
+                      id="edit-task-attachment-input-manager"
+                      type="file" 
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setEditTaskFile(file);
+                          const reader = new FileReader();
+                          reader.onloadend = () => setEditTaskFilePreview(reader.result as string);
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
               </div>
 
               <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -2991,9 +3121,9 @@ export default function Tasks() {
                                               </div>
                                               
                                               {c.attachments && c.attachments.length > 0 && (
-                                                <div className="grid grid-cols-1 gap-2 mt-2">
+                                                <div className="grid grid-cols-1 gap-2 mt-2 max-w-[140px] sm:max-w-[180px]">
                                                   {c.attachments.map((att, attIdx) => (
-                                                    <div key={attIdx} className="relative rounded-lg overflow-hidden border border-border bg-background/10 group/att">
+                                                    <div key={attIdx} className="relative rounded-lg overflow-hidden border border-border bg-background/10 group/att h-auto">
                                                       <CommentAttachmentImg 
                                                         projectId={selectedProject.id} 
                                                         commentId={c.id} 

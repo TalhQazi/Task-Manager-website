@@ -36,6 +36,35 @@ export async function employeeApiFetch<T>(
   return response.json() as Promise<T>;
 }
 
+/**
+ * Transforms a direct S3 URL into a backend-proxied URL to avoid CORS/OpaqueResponseBlocking issues.
+ * If the URL is already a data URL or doesn't match the S3 pattern, it's returned as-is.
+ */
+export function toProxiedUrl(url: string | undefined): string {
+  if (!url) return "";
+  if (url.startsWith("data:")) return url;
+
+  // Pattern for S3 URLs: https://<bucket>.s3.<region>.amazonaws.com/<key>
+  const s3Pattern = /^https:\/\/([\w.-]+)\.s3\.([\w.-]+)\.amazonaws\.com\/(.+)$/;
+  const match = url.match(s3Pattern);
+
+  if (match) {
+    const key = match[3];
+    let token = "";
+    const authRaw = localStorage.getItem("employee_auth");
+    if (authRaw) {
+      try {
+        const parsed = JSON.parse(authRaw);
+        token = parsed.token || "";
+      } catch (e) {}
+    }
+    return `${API_BASE_URL}/api/s3-proxy/${key}${token ? `?token=${token}` : ""}`;
+  }
+
+  // Fallback for cases where it's already a relative path or other non-S3 URL
+  return url;
+}
+
 // Employee specific API functions
 export async function employeeLogin(username: string, password: string) {
   const res = await employeeApiFetch<{ token: string; user: { username: string; role: string } }>(

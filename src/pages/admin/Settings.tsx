@@ -4,7 +4,7 @@ import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
 import { Camera, User, Loader2, CheckCircle, XCircle, AlertCircle, Upload, FileImage, Image, Quote, ToggleLeft, ToggleRight } from "lucide-react";
-import { apiFetch } from "@/lib/admin/apiClient";
+import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Cropper from "react-easy-crop";
@@ -188,7 +188,7 @@ export default function Settings() {
       );
 
       if (data.avatarDataUrl || data.avatarUrl) {
-        const newAvatarUrl = data.avatarDataUrl || data.avatarUrl;
+        const newAvatarUrl = data.avatarDataUrl || (data.avatarUrl ? toProxiedUrl(data.avatarUrl) : "");
         setSettings((prev) => ({ ...prev, avatarUrl: newAvatarUrl || "" }));
         localStorage.setItem(
           SETTINGS_STORAGE_KEY,
@@ -320,7 +320,7 @@ export default function Settings() {
       avatarUrl: typeof item.avatarDataUrl === "string" && item.avatarDataUrl
         ? item.avatarDataUrl
         : typeof item.avatarUrl === "string"
-          ? item.avatarUrl
+          ? toProxiedUrl(item.avatarUrl) || item.avatarUrl
           : prev.avatarUrl,
     }));
   }, [backendSettingsQuery.data]);
@@ -761,7 +761,7 @@ export default function Settings() {
                   <div className="relative">
                     <Avatar className="h-20 w-20 border-2 border-border">
                       {settings.avatarUrl && avatarUpload.status !== "uploading" ? (
-                        <AvatarImage src={settings.avatarUrl} alt={settings.fullName || "Admin"} className="object-cover" />
+                        <AvatarImage src={settings.avatarUrl} alt={settings.fullName || "Admin"} className="object-cover" crossOrigin="anonymous" />
                       ) : (
                         <AvatarFallback className="text-2xl bg-primary/10 text-primary">
                           {avatarUpload.status === "uploading" ? (

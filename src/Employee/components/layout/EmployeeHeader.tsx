@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useNavigate } from "react-router-dom";
 import { getEmployeeAuth, clearEmployeeAuth } from "@/Employee/lib/auth";
-import { getEmployeeProfile } from "@/Employee/lib/api";
+import { getEmployeeProfile, toProxiedUrl } from "@/Employee/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/manger/api";
 
@@ -238,7 +238,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                   aria-label="Account menu"
                 >
                   <Avatar className="h-12 w-12 border-2 border-white/70">
-                    <AvatarImage src={profile?.avatarUrl} alt={fullName} />
+                    <AvatarImage src={toProxiedUrl(profile?.avatarUrl)} alt={fullName} crossOrigin="anonymous" />
                     <AvatarFallback className="bg-white/20 text-sm font-semibold text-white">{initials}</AvatarFallback>
                   </Avatar>
                 </Button>

@@ -75,6 +75,25 @@ function getApiBaseUrl(): string {
   //return "http://localhost:5000";
 }
 
+/**
+ * Convert an S3 URL to a backend-proxied URL to avoid CORS/OpaqueResponseBlocking issues.
+ * If the URL is not an S3 URL (e.g. data: or already proxied), returns it unchanged.
+ */
+export function toProxiedUrl(url: string | undefined | null): string | undefined {
+  if (!url) return undefined;
+  // Don't proxy data: URLs, already-proxied URLs, or non-S3 URLs
+  if (url.startsWith("data:") || url.includes("/api/s3-proxy/")) return url;
+  
+  // Match S3 URLs pattern: https://<bucket>.s3.<region>.amazonaws.com/<key>
+  const s3Match = url.match(/https:\/\/[^/]+\.s3\.[^/]+\.amazonaws\.com\/(.+)/);
+  if (!s3Match) return url;
+  
+  const s3Key = s3Match[1];
+  const baseUrl = getApiBaseUrl().replace(/\/$/, "");
+  const token = getStoredToken();
+  return `${baseUrl}/api/s3-proxy/${s3Key}${token ? `?token=${token}` : ""}`;
+}
+
 function getStoredToken(): string | null {
   try {
     // Admin/manager token is stored under "taskflow_auth"

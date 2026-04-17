@@ -6,7 +6,7 @@ import { ActiveEmployees } from "@/components/admin/dashboard/ActiveEmployees";
 import { TaskCharts } from "@/components/admin/dashboard/TaskCharts";
 import { DayAheadCard } from "@/components/admin/dashboard/DayAheadCard";
 import { WeekAheadCard } from "@/components/admin/dashboard/WeekAheadCard";
-import { Users, CheckSquare, AlertTriangle, Clock, Car, FileSearch, Globe, FolderRoot } from "lucide-react";
+import { Users, CheckSquare, AlertTriangle, Clock, Car, FileSearch, Globe, FolderRoot, Bug } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useNavigate } from "react-router-dom";
 
@@ -22,6 +22,7 @@ type DashboardSummary = {
   patentTotal: number;
   websiteTotal: number;
   projectTotal: number;
+  pendingBugs: number;
 };
 
 // Animation variants
@@ -90,6 +91,7 @@ const Dashboard = () => {
       totalPatents: summary.patentTotal,
       totalWebsites: summary.websiteTotal,
       totalProjects: summary.projectTotal,
+      pendingBugs: summary.pendingBugs,
     };
   }, [summary]);
 
@@ -124,6 +126,7 @@ const Dashboard = () => {
             { title: "Websites", value: metrics.totalWebsites, icon: Globe, variant: "primary", changeType: "positive" as const, onClick: () => navigate("/admin/websites") },
             { title: "Overdue Tasks", value: metrics.overdueTasks, icon: AlertTriangle, variant: "danger", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
             { title: "Clocked In", value: metrics.clockedInEmployees, icon: Clock, variant: "warning", changeType: "neutral" as const, onClick: () => navigate("/admin/time-tracking") },
+            { title: "Pending Bugs", value: metrics.pendingBugs, icon: Bug, variant: "danger", changeType: "neutral" as const, onClick: () => navigate("/admin/tasks?category=bug") },
           ].map((stat) => (
             <motion.div
               key={stat.title}

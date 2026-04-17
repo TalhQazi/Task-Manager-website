@@ -21,7 +21,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { apiFetch } from "@/lib/admin/apiClient";
+import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 import { getAuthState, clearAuthState } from "@/lib/auth";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { AdminInfoManager } from "@/components/admin/AdminInfoManager";
@@ -194,8 +194,8 @@ export function Header({ onMenuClick }: HeaderProps) {
     return () => window.removeEventListener('resize', calcHeight);
   }, [hasImageBackground, calcHeight]);
 
-  // Fixed header height of 250px
-  const headerHeight = 250;
+  // Fixed header height of 300px
+  const headerHeight = 300;
 
   const getBackgroundStyle = () => {
     if (hasImageBackground) {
@@ -414,7 +414,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   const settings = settingsQuery.data?.item;
   const fullName = (settings?.fullName || auth.username || "Admin").trim();
   const email = (settings?.email || "").trim();
-  const avatarUrl = (settings as any)?.avatarDataUrl || (settings as any)?.avatarUrl as string | undefined;
+  const avatarUrl = toProxiedUrl((settings as any)?.avatarDataUrl || (settings as any)?.avatarUrl as string | undefined);
   const initials =
     fullName
       .split(" ")
@@ -682,18 +682,11 @@ export function Header({ onMenuClick }: HeaderProps) {
         <div className="absolute inset-0 flex flex-col pointer-events-none">
           {/* Header Content Area */}
           <div 
-            className="flex-1 relative flex items-start justify-between px-3 sm:px-6 lg:px-10 pt-4 sm:pt-6 md:pt-10 animate-fade-in"
+            className="flex-1 relative flex items-start justify-start px-3 sm:px-6 lg:px-8 md:pl-64 pt-6 sm:pt-8 md:pt-12 animate-fade-in pointer-events-auto"
           >
             {/* LEFT SIDE: Branding and Profile Stacking */}
-            <div className="flex flex-col gap-4 text-white z-30 relative pointer-events-auto">
-              {/* Task Manager Logo (Complete, not in circle) */}
-              <div className="flex items-center h-16 w-auto sm:h-24 z-20 transition-all duration-300 hover:scale-105">
-                <img
-                  src="/task.png"
-                  alt="Task Manager logo"
-                  className="h-full w-auto object-contain rounded-lg shadow-2xl bg-white/10 p-1.5"
-                />
-              </div>
+              <div className="h-4 sm:h-8" /> 
+
 
               {/* Profile and Icons Row */}
               <div className="flex flex-wrap items-center gap-2 sm:gap-4">
@@ -703,7 +696,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               aria-label="Open navigation"
               onClick={() => onMenuClick?.()}
             >
-              <Menu className="h-5 w-5 group-hover:brightness-[108%] transition-all duration-100 linear" />
+              <Menu className="h-5 w-5 text-white group-hover:brightness-[110%] transition-all duration-100 linear drop-shadow-sm" />
             </button>
 
             <DropdownMenu>
@@ -716,7 +709,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                 >
                   <Avatar className="h-9 w-9 sm:h-12 sm:w-12 border border-white/70">
                     {avatarUrl ? (
-                      <AvatarImage src={avatarUrl} alt={fullName} className="object-cover" />
+                      <AvatarImage src={avatarUrl} alt={fullName} className="object-cover" crossOrigin="anonymous" />
                     ) : (
                       <AvatarFallback className="bg-white/20 text-sm font-semibold">{initials}</AvatarFallback>
                     )}
@@ -755,7 +748,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                   className="group inline-flex relative h-7 w-7 sm:h-9 sm:w-9 rounded-full bg-white/10 hover:bg-white/[0.14] hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear"
                   aria-label="Messages"
                 >
-                  <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4 group-hover:brightness-[108%] transition-all duration-100 linear" />
+                  <Mail className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white group-hover:brightness-[110%] transition-all duration-100 linear drop-shadow-sm" />
                   {unreadMessageCount > 0 && (
                     <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[10px]">
                       {Math.min(unreadMessageCount, 9)}
@@ -803,7 +796,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                   className="group inline-flex relative h-7 w-7 sm:h-9 sm:w-9 rounded-full bg-white/10 hover:bg-white/[0.14] hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear"
                   aria-label="Notifications"
                 >
-                  <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4 group-hover:brightness-[108%] transition-all duration-100 linear" />
+                  <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white group-hover:brightness-[110%] transition-all duration-100 linear drop-shadow-sm" />
                   {unreadCount > 0 && (
                     <Badge className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 p-0 flex items-center justify-center bg-red-500 text-[10px]">
                       {unreadCount > 9 ? "9+" : unreadCount}
@@ -856,16 +849,15 @@ export function Header({ onMenuClick }: HeaderProps) {
                 setReportOpen(true);
               }}
             >
-              <Bug className="h-3.5 w-3.5 sm:h-4 sm:w-4 group-hover:brightness-[108%] transition-all duration-100 linear" />
+              <Bug className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-white group-hover:brightness-[110%] transition-all duration-100 linear drop-shadow-sm" />
             </Button>
-              </div>
-            </div>
           </div>
-
-        {/* Founder Message Bar at the very bottom of the fixed header */}
-        <div className="mt-auto pointer-events-auto w-full z-40 bg-metallic-gold/90 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
-          <FounderMessageBar />
         </div>
+      </div>
+
+      {/* Founder Message Bar - Fixed at the very bottom of the header banner */}
+      <div className="absolute bottom-0 left-0 right-0 z-[60] bg-metallic-gold/90 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.1)] pointer-events-auto">
+        <FounderMessageBar />
       </div>
 
       <Dialog

@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getEmployeeDashboard, getEmployeeProfile } from "../lib/api";
 import { CheckCircle, Clock, AlertCircle, MessageSquare, Calendar, Timer, ListTodo } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 
 interface DashboardData {
   tasks: {
@@ -90,27 +91,33 @@ function CircularProgress({
 }
 
 export default function EmployeeDashboard() {
-  const [data, setData] = useState<DashboardData | null>(null);
-  const [employeeName, setEmployeeName] = useState<string>("");
-  const [loading, setLoading] = useState(true);
+  const dashboardQuery = useQuery({
+    queryKey: ["employee-dashboard"],
+    queryFn: async () => {
+      const res = await getEmployeeDashboard();
+      return res.item;
+    },
+    refetchInterval: 5000,
+    refetchOnWindowFocus: true,
+  });
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [dashboardRes, profileRes] = await Promise.all([
-          getEmployeeDashboard(),
-          getEmployeeProfile(),
-        ]);
-        setData(dashboardRes.item);
-        setEmployeeName(profileRes.item.name);
-      } catch (err) {
-        console.error("Failed to load dashboard:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, []);
+  const profileQuery = useQuery({
+    queryKey: ["employee-profile"],
+    queryFn: async () => {
+      const res = await getEmployeeProfile();
+      return res.item;
+    },
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
+  const data = dashboardQuery.data || null;
+  const employeeName = useMemo(() => {
+    const n = String(profileQuery.data?.name || "").trim();
+    return n;
+  }, [profileQuery.data?.name]);
+
+  const loading = dashboardQuery.isLoading || profileQuery.isLoading;
 
   if (loading) {
     return (

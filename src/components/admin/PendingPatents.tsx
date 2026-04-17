@@ -13,6 +13,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/admin/ui/table";
+import {
   AlertCircle,
   FileText,
   Plus,
@@ -296,73 +304,57 @@ export function PendingPatents() {
           </CardContent>
         </Card>
       ) : (
-        <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          className="grid gap-4"
-        >
-          {patents.map((patent) => (
-            <motion.div key={patent._id} variants={itemVariants}>
-              <Card className="hover:shadow-md transition-shadow">
-                <CardContent className="pt-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-5 w-5 text-blue-600" />
-                        <h3 className="font-semibold text-lg">
-                          {patent.patentName}
-                        </h3>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline">{patent.category}</Badge>
-                        <Badge className={stageColors[patent.stage]}>
-                          {patent.stage}
-                        </Badge>
-                      </div>
-                      <div className="grid grid-cols-2 gap-2 text-sm text-gray-600">
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-4 w-4" />
-                          <span>Started: {patent.startDate}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <AlertCircle className="h-4 w-4" />
-                          <span>Filing: {patent.estimatedFilingDate}</span>
-                        </div>
-                      </div>
-                      {patent.inventors.length > 0 && (
-                        <p className="text-sm text-gray-600">
-                          <strong>Inventors:</strong> {patent.inventors.join(", ")}
-                        </p>
-                      )}
-                      {patent.notes && (
-                        <p className="text-sm text-gray-600">
-                          <strong>Notes:</strong> {patent.notes}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
+        <div className="rounded-md border overflow-hidden mt-4">
+          <Table>
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                <TableHead className="font-bold">Patent Name</TableHead>
+                <TableHead className="font-bold">Stage</TableHead>
+                <TableHead className="font-bold">Category</TableHead>
+                <TableHead className="font-bold">Inventors</TableHead>
+                <TableHead className="font-bold">Started</TableHead>
+                <TableHead className="font-bold">Est. Filing</TableHead>
+                <TableHead className="text-right font-bold">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {patents.map((patent) => (
+                <TableRow key={patent._id} className="hover:bg-muted/30 transition-colors text-sm">
+                  <TableCell className="font-medium">{patent.patentName}</TableCell>
+                  <TableCell>
+                    <Badge className={`${stageColors[patent.stage]} border-0 shadow-none font-bold text-[10px] uppercase whitespace-nowrap`}>
+                      {patent.stage}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-xs">{patent.category}</TableCell>
+                  <TableCell className="text-xs max-w-[150px] truncate">{patent.inventors.join(", ") || "—"}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{patent.startDate}</TableCell>
+                  <TableCell className="text-xs font-medium text-blue-600">{patent.estimatedFilingDate}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
                       <Button
-                        variant="outline"
                         size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-blue-600"
                         onClick={() => handleOpenDialog(patent)}
                       >
                         <Edit2 className="h-4 w-4" />
                       </Button>
                       <Button
-                        variant="outline"
                         size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-destructive"
                         onClick={() => handleDelete(patent._id!)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </motion.div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
     </div>
   );

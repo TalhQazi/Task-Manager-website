@@ -92,8 +92,9 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { io, Socket } from "socket.io-client";
 import { cn } from "@/lib/manger/utils";
-import { apiFetch, downloadTaskAttachment } from "@/lib/manger/api";
+import { apiFetch, downloadTaskAttachment, toProxiedUrl } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
+import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import jsPDF from "jspdf";
 import { Pagination } from "@/components/Pagination";
@@ -250,20 +251,26 @@ function normalizeTask(t: TaskApi): Task {
 }
 
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
-  const [src, setSrc] = useState<string | null | undefined>(logoUrl !== undefined ? (logoUrl || null) : undefined);
+  const [src, setSrc] = useState<string | null | undefined>(undefined);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (logoUrl) {
-      setSrc(logoUrl);
+    // If logoUrl is a real URL (S3 or data:), use it directly
+    if (logoUrl && logoUrl.length > 0) {
+      setSrc(toProxiedUrl(logoUrl) || logoUrl);
       setError(false);
       return;
     }
+    
+    // logoUrl is undefined or empty string — fetch from dedicated endpoint
+    // Empty string means the list API stripped a base64 value stored in MongoDB
     let cancelled = false;
+    setSrc(undefined);
+
     apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
       .then(d => { 
         if (!cancelled) {
-          setSrc(d.logo?.url || null);
+          setSrc(toProxiedUrl(d.logo?.url) || null);
           setError(false);
         }
       })
@@ -282,12 +289,13 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
         src={src} 
         alt={`${projectName} logo`} 
         className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-border" 
+        crossOrigin="anonymous"
         onError={() => setError(true)}
       />
     );
   }
 
-  if (src === undefined && logoUrl === undefined) {
+  if (src === undefined) {
     return <div className="w-10 h-10 rounded-md bg-muted/40 animate-pulse flex-shrink-0" />;
   }
 
@@ -299,11 +307,17 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
 }
 
 function TaskAttachmentImg({ taskId, index, mimeType, fileName, fallbackUrl, onPreview }: { taskId: string; index: number; mimeType?: string; fileName?: string; fallbackUrl?: string; onPreview?: (url: string, name: string) => void }) {
-  const [src, setSrc] = useState<string | null>(fallbackUrl || null);
+  const [src, setSrc] = useState<string | null>(toProxiedUrl(fallbackUrl) as string || null);
+
   useEffect(() => {
-    if (fallbackUrl) return;
+    // If fallbackUrl is a real URL (S3 or data:), use it directly
+    if (fallbackUrl && fallbackUrl.length > 0) {
+      setSrc(toProxiedUrl(fallbackUrl) || fallbackUrl);
+      return;
+    }
+    // fallbackUrl is undefined or empty string — fetch from dedicated endpoint
     apiFetch<{ url: string }>(`/api/tasks/${taskId}/attachments/${index}`)
-      .then(d => setSrc(d.url))
+      .then(d => setSrc(toProxiedUrl(d.url) as string || null))
       .catch(() => setSrc(null));
   }, [taskId, index, fallbackUrl]);
 
@@ -346,11 +360,11 @@ function TaskAttachmentImg({ taskId, index, mimeType, fileName, fallbackUrl, onP
 }
 
 function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fallbackUrl, onPreview }: { taskId: string; commentId: string; index: number; mimeType?: string; fileName?: string; fallbackUrl?: string; onPreview?: (url: string, name: string) => void }) {
-  const [src, setSrc] = useState<string | null>(fallbackUrl || null);
+  const [src, setSrc] = useState<string | null>(toProxiedUrl(fallbackUrl) as string || null);
   useEffect(() => {
     if (fallbackUrl) return;
     apiFetch<{ url: string }>(`/api/tasks/${taskId}/comments/${commentId}/attachments/${index}`)
-      .then(d => setSrc(d.url))
+      .then(d => setSrc(toProxiedUrl(d.url) as string || null))
       .catch(() => setSrc(null));
   }, [taskId, commentId, index, fallbackUrl]);
 
@@ -503,6 +517,7 @@ export default function Tasks() {
   const [commentError, setCommentError] = useState<string | null>(null);
   const [statusSaving, setStatusSaving] = useState(false);
   const queryClient = useQueryClient();
+  const { triggerBlaster, incrementCompletedCount, isEligible } = useTaskBlasterContext();
 
   const currentUsername = getAuthState().username || "";
   const [projectComments, setProjectComments] = useState<any[]>([]);
@@ -1121,6 +1136,7 @@ export default function Tasks() {
 
   const updateStatus = async (next: Task["status"]) => {
     if (!selectedTask) return;
+    const previousStatus = selectedTask.status;
     try {
       setStatusSaving(true);
       setCommentError(null);
@@ -1131,6 +1147,20 @@ export default function Tasks() {
       const normalized = normalizeTask(res.item);
       setSelectedTask(normalized);
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+
+      // Trigger TaskBlaster when task is marked as completed
+      if (next === "completed" && previousStatus !== "completed") {
+        const taskForBlaster = {
+          id: normalized.id,
+          title: normalized.title,
+          priority: normalized.priority as any,
+          status: "completed",
+        };
+        const triggered = triggerBlaster(taskForBlaster);
+        if (triggered) {
+          incrementCompletedCount();
+        }
+      }
     } catch (e) {
       setCommentError(e instanceof Error ? e.message : "Failed to update status");
     } finally {
@@ -1286,6 +1316,7 @@ export default function Tasks() {
 
   const onEditTask = (values: CreateTaskValues) => {
     if (!selectedTask) return;
+    const previousStatus = selectedTask.status;
 
     updateTaskMutation.mutate(
       { id: selectedTask.id, payload: { ...values, assignees: editSelectedAssignees } },
@@ -1297,6 +1328,20 @@ export default function Tasks() {
             title: "Task updated",
             description: "Task has been updated.",
           });
+
+          // Trigger TaskBlaster when task is marked as completed via edit
+          if (values.status === "completed" && previousStatus !== "completed") {
+            const taskForBlaster = {
+              id: selectedTask.id,
+              title: selectedTask.title,
+              priority: values.priority as any,
+              status: "completed",
+            };
+            const triggered = triggerBlaster(taskForBlaster);
+            if (triggered) {
+              incrementCompletedCount();
+            }
+          }
         },
         onError: (err) => {
           toast({

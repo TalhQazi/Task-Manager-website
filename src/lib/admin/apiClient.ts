@@ -24,6 +24,25 @@ export function getApiBaseUrl() {
   return apiBase;
 }
 
+/**
+ * Convert an S3 URL to a backend-proxied URL to avoid CORS/OpaqueResponseBlocking issues.
+ * If the URL is not an S3 URL (e.g. data: or already proxied), returns it unchanged.
+ */
+export function toProxiedUrl(url: string | undefined | null): string | undefined {
+  if (!url) return undefined;
+  // Don't proxy data: URLs, already-proxied URLs, or non-S3 URLs
+  if (url.startsWith("data:") || url.includes("/api/s3-proxy/")) return url;
+  
+  // Match S3 URLs pattern: https://<bucket>.s3.<region>.amazonaws.com/<key>
+  const s3Match = url.match(/https:\/\/[^/]+\.s3\.[^/]+\.amazonaws\.com\/(.+)/);
+  if (!s3Match) return url;
+  
+  const s3Key = s3Match[1];
+  const baseUrl = getApiBaseUrl().replace(/\/$/, "");
+  const token = getAuthState().token;
+  return `${baseUrl}/api/s3-proxy/${s3Key}${token ? `?token=${token}` : ""}`;
+}
+
 async function parseJsonSafe(res: Response) {
   const text = await res.text();
   if (!text) return null;

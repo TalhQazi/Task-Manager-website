@@ -94,8 +94,16 @@ function normalizeLocation(l: LocationApi): Location {
     type: l.type,
     country: l.country,
     city: l.city,
-    phone: l.phone,
-    manager: l.manager,
+    phone:
+      l.phone ||
+      (l as unknown as { contactPhone?: string; contact_number?: string }).contactPhone ||
+      (l as unknown as { contactPhone?: string; contact_number?: string }).contact_number ||
+      "",
+    manager:
+      l.manager ||
+      (l as unknown as { contactName?: string; managerName?: string }).contactName ||
+      (l as unknown as { contactName?: string; managerName?: string }).managerName ||
+      "",
     employeeCount: l.employeeCount,
     status: l.status,
     operatingHours: l.operatingHours,
@@ -352,10 +360,14 @@ export default function Locations() {
   }, [locations, searchParams, setSearchParams, isViewOpen, isEditOpen, isDeleteOpen, isCreateOpen]);
 
   const createLocationMutation = useMutation({
-    mutationFn: async (payload: Omit<Location, "id">) => {
+    mutationFn: async (payload: CreateLocationValues) => {
       const res = await apiFetch<{ item: LocationApi }>("/api/locations", {
         method: "POST",
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...payload,
+          manager: payload.contactName,
+          phone: payload.contactPhone,
+        }),
       });
       return normalizeLocation(res.item);
     },
@@ -368,7 +380,11 @@ export default function Locations() {
     mutationFn: async ({ id, payload }: { id: string; payload: CreateLocationValues }) => {
       const res = await apiFetch<{ item: LocationApi }>(`/api/locations/${id}`, {
         method: "PUT",
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          ...payload,
+          manager: payload.contactName,
+          phone: payload.contactPhone,
+        }),
       });
       return normalizeLocation(res.item);
     },
@@ -419,21 +435,7 @@ export default function Locations() {
   });
 
   const onCreateLocation = (values: CreateLocationValues) => {
-    const payload: Omit<Location, "id"> = {
-      name: values.name,
-      type: values.type,
-      country: values.country,
-      city: values.city,
-      phone: values.contactPhone || "",
-      manager: values.contactName || "",
-      employeeCount: Number.isFinite(values.tasksCount) ? values.tasksCount : 0,
-      status: values.status,
-      operatingHours: "",
-      photoDataUrl: values.photoDataUrl || undefined,
-      photoFileName: values.photoFileName || undefined,
-    };
-
-    createLocationMutation.mutate(payload, {
+    createLocationMutation.mutate(values, {
       onSuccess: () => {
         setIsCreateOpen(false);
         form.reset();

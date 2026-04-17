@@ -91,28 +91,35 @@ import {
   Maximize2,
 } from "lucide-react";
 import { cn } from "@/lib/admin/utils";
-import { apiFetch, downloadTaskAttachment } from "@/lib/admin/apiClient";
+import { apiFetch, downloadTaskAttachment, toProxiedUrl } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import jsPDF from "jspdf";
 import { useSocket } from "@/contexts/SocketContext";
 import { Pagination } from "@/components/Pagination";
+import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
-  const [src, setSrc] = useState<string | null | undefined>(logoUrl !== undefined ? (logoUrl || null) : undefined);
+  const [src, setSrc] = useState<string | null | undefined>(undefined);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    if (logoUrl) {
-      setSrc(logoUrl);
+    // If logoUrl is a real URL (S3 or data:), use it directly
+    if (logoUrl && logoUrl.length > 0) {
+      setSrc(toProxiedUrl(logoUrl) || logoUrl);
       setError(false);
       return;
     }
+    
+    // logoUrl is undefined or empty string — fetch from dedicated endpoint
+    // Empty string means the list API stripped a base64 value stored in MongoDB
     let cancelled = false;
+    setSrc(undefined);
+
     apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
       .then(d => { 
         if (!cancelled) {
-          setSrc(d.logo?.url || null);
+          setSrc(toProxiedUrl(d.logo?.url) || null);
           setError(false);
         }
       })
@@ -131,12 +138,13 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
         src={src} 
         alt={`${projectName} logo`} 
         className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-border" 
+        crossOrigin="anonymous"
         onError={() => setError(true)}
       />
     );
   }
 
-  if (src === undefined && logoUrl === undefined) {
+  if (src === undefined) {
     return <div className="w-10 h-10 rounded-md bg-muted/40 animate-pulse flex-shrink-0" />;
   }
 
@@ -147,15 +155,24 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
   );
 }
 
-function TaskAttachmentImg({ taskId, onPreview }: { taskId: string; onPreview?: (url: string, fileName: string) => void }) {
-  const [src, setSrc] = useState<string | null | undefined>(undefined);
+function TaskAttachmentImg({ taskId, attachmentUrl, onPreview }: { taskId: string; attachmentUrl?: string; onPreview?: (url: string, fileName: string) => void }) {
+  const [src, setSrc] = useState<string | null | undefined>(toProxiedUrl(attachmentUrl) || undefined);
+  
   useEffect(() => {
+    // If attachmentUrl is a real URL (S3 or data:), use it directly
+    if (attachmentUrl && attachmentUrl.length > 0) {
+      setSrc(toProxiedUrl(attachmentUrl) || attachmentUrl);
+      return;
+    }
+    
+    // attachmentUrl is undefined or empty string — fetch from dedicated endpoint
     let cancelled = false;
     apiFetch<{ attachment: { url: string } }>(`/api/tasks/${encodeURIComponent(taskId)}/attachment`)
-      .then(d => { if (!cancelled) setSrc(d.attachment?.url || null); })
+      .then(d => { if (!cancelled) setSrc(toProxiedUrl(d.attachment?.url) || null); })
       .catch(() => { if (!cancelled) setSrc(null); });
     return () => { cancelled = true; };
-  }, [taskId]);
+  }, [taskId, attachmentUrl]);
+
   if (src) return (
     <div className="w-full h-full relative group/task-att cursor-zoom-in" onClick={() => onPreview?.(src, "Task Attachment")}>
       <img src={src} alt="Task preview" className="w-full h-full object-cover" />
@@ -169,19 +186,19 @@ function TaskAttachmentImg({ taskId, onPreview }: { taskId: string; onPreview?: 
 }
 
 function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fallbackUrl, onPreview }: { taskId: string; commentId: string; index: number; mimeType: string; fileName: string; fallbackUrl?: string; onPreview?: (url: string, name: string) => void }) {
-  const [src, setSrc] = useState<string | null | undefined>(fallbackUrl || undefined);
+  const [src, setSrc] = useState<string | null | undefined>(toProxiedUrl(fallbackUrl) || undefined);
   useEffect(() => {
     if (fallbackUrl) return; 
     let cancelled = false;
     apiFetch<{ attachment: { url: string } }>(`/api/tasks/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}/attachments/${index}`)
-      .then(d => { if (!cancelled) setSrc(d.attachment?.url || null); })
+      .then(d => { if (!cancelled) setSrc(toProxiedUrl(d.attachment?.url) || null); })
       .catch(() => { if (!cancelled) setSrc(null); });
     return () => { cancelled = true; };
   }, [taskId, commentId, index, fallbackUrl]);
   
   if (src && mimeType?.startsWith("image/")) return (
-    <div className="w-full h-full relative group/att cursor-zoom-in" onClick={() => onPreview?.(src, fileName)}>
-      <img src={src} alt={fileName} className="w-full h-full object-cover rounded-lg" />
+    <div className="w-full h-auto flex justify-center relative group/att cursor-zoom-in" onClick={() => onPreview?.(src, fileName)}>
+      <img src={src} alt={fileName} className="w-full h-auto max-h-[180px] object-contain rounded-lg" />
       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-all duration-200 rounded-lg">
         <Maximize2 className="w-5 h-5 text-white" />
       </div>
@@ -497,6 +514,8 @@ export default function Tasks() {
   const [isLoadingProject, setIsLoadingProject] = useState(false);
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
   const [editSelectedAssignees, setEditSelectedAssignees] = useState<string[]>([]);
+  const [editTaskFile, setEditTaskFile] = useState<File | null>(null);
+  const [editTaskFilePreview, setEditTaskFilePreview] = useState<string | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -560,6 +579,7 @@ export default function Tasks() {
         search: searchQuery,
         status: statusFilter,
         priority: priorityFilter,
+        projectId: "none",
       });
       const res = await apiFetch<{ items: TaskApi[], totalPages: number, total: number }>(`/api/tasks?${params.toString()}`);
       return {
@@ -729,7 +749,7 @@ export default function Tasks() {
   });
 
   const updateTaskMutation = useMutation({
-    mutationFn: async ({ id, payload }: { id: string; payload: CreateTaskValues }) => {
+    mutationFn: async ({ id, payload }: { id: string; payload: Partial<Task> }) => {
       const res = await apiFetch<{ item: TaskApi }>(`/api/tasks/${id}`, {
         method: "PUT",
         body: JSON.stringify(payload),
@@ -795,6 +815,9 @@ export default function Tasks() {
         void loadProject(selectedProject.id);
       }
     },
+    onError: (err) => {
+      console.error("Project update error details:", err);
+    }
   });
 
   const deleteProjectMutation = useMutation({
@@ -1403,8 +1426,11 @@ export default function Tasks() {
     }
   };
 
+  const { triggerBlaster, incrementCompletedCount } = useTaskBlasterContext();
+
   const updateStatus = async (next: Task["status"]) => {
     if (!selectedTask) return;
+    const previousStatus = selectedTask.status;
     try {
       setStatusSaving(true);
       setCommentError(null);
@@ -1415,6 +1441,20 @@ export default function Tasks() {
       const normalized = normalizeTask(res.item);
       setSelectedTask(normalized);
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+
+      // Trigger TaskBlaster when task is marked as completed
+      if (next === "completed" && previousStatus !== "completed") {
+        const taskForBlaster = {
+          id: normalized.id,
+          title: normalized.title,
+          priority: normalized.priority as any,
+          status: "completed",
+        };
+        const triggered = triggerBlaster(taskForBlaster);
+        if (triggered) {
+          incrementCompletedCount();
+        }
+      }
     } catch (e) {
       setCommentError(e instanceof Error ? e.message : "Failed to update status");
     } finally {
@@ -1435,6 +1475,8 @@ export default function Tasks() {
       location: task.location || "",
     });
     setIsEditOpen(true);
+    setEditTaskFile(null);
+    setEditTaskFilePreview(task.attachment?.url || null);
   };
 
   const openDelete = (task: Task) => {
@@ -1568,21 +1610,61 @@ export default function Tasks() {
     }
   };
 
-  const onEditTask = (values: CreateTaskValues) => {
+  const onEditTask = async (values: CreateTaskValues) => {
     if (!selectedTask) return;
+    const previousStatus = selectedTask.status;
+
+    const payload: Partial<Task> = { ...values, assignees: editSelectedAssignees };
+
+    if (editTaskFile) {
+      try {
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(editTaskFile);
+        });
+        payload.attachment = {
+          fileName: editTaskFile.name,
+          url: base64,
+          mimeType: editTaskFile.type,
+          size: editTaskFile.size
+        };
+      } catch (err) {
+        console.error("Failed to process task attachment update:", err);
+      }
+    } else if (editTaskFilePreview === null) {
+      payload.attachment = { fileName: "", url: "", mimeType: "", size: 0 };
+    }
 
     updateTaskMutation.mutate(
-      { id: selectedTask.id, payload: { ...values, assignees: editSelectedAssignees } },
+      { id: selectedTask.id, payload },
       {
         onSuccess: () => {
           setIsEditOpen(false);
+          setEditTaskFile(null);
+          setEditTaskFilePreview(null);
           setEditSelectedAssignees([]);
           toast({
             title: "Task updated",
             description: "Task has been updated.",
           });
+
+          // Trigger TaskBlaster when task is marked as completed via edit
+          if (values.status === "completed" && previousStatus !== "completed") {
+            const taskForBlaster = {
+              id: selectedTask.id,
+              title: selectedTask.title,
+              priority: values.priority as any,
+              status: "completed",
+            };
+            const triggered = triggerBlaster(taskForBlaster);
+            if (triggered) {
+              incrementCompletedCount();
+            }
+          }
         },
         onError: (err) => {
+          console.error("Task update error:", err);
           toast({
             title: "Failed to update task",
             description: err instanceof Error ? err.message : "Something went wrong",
@@ -1969,7 +2051,7 @@ export default function Tasks() {
             ) : (
               <>
                 <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {tasks.map((task, idx) => {
+                  {filteredStandaloneTasks.map((task, idx) => {
                     const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0 ? task.assignees : [];
                     const taskLetter = String.fromCharCode(65 + (idx % 26));
                     const taskNumber = (taskPage - 1) * PAGE_SIZE + idx + 1;
@@ -1991,7 +2073,7 @@ export default function Tasks() {
                           </div>
                           {task.attachment?.fileName && (
                             <div className="mb-2 rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
-                              <TaskAttachmentImg taskId={task.id} />
+                              <TaskAttachmentImg taskId={task.id} attachmentUrl={task.attachment?.url} />
                             </div>
                           )}
                           <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
@@ -2213,6 +2295,17 @@ export default function Tasks() {
                   <Button variant="ghost" size="sm" onClick={() => void handlePrintTask(selectedTask)} title="Print Task"><Printer className="w-4 h-4 mr-1.5 hidden sm:block" /> Print</Button>
                   <Button variant="ghost" size="sm" onClick={() => { setIsViewOpen(false); openEdit(selectedTask); }} title="Edit Task"><Edit className="w-4 h-4 mr-1.5 hidden sm:block" /> Edit</Button>
                 </div>
+
+                {/* Close button - top right */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-2 right-2 h-8 w-8 rounded-full p-0 hover:bg-muted"
+                  onClick={() => setIsViewOpen(false)}
+                  title="Close"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
 
               {/* 2-Pane Body */}
@@ -2223,6 +2316,34 @@ export default function Tasks() {
                   {/* Task Title */}
                   <div>
                     <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight break-words">{selectedTask.title}</h2>
+                  </div>
+
+                  {/* Mobile Status - Only visible on mobile */}
+                  <div className="md:hidden space-y-1.5">
+                    <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">Status</label>
+                    <Select value={selectedTask.status} onValueChange={async (v) => { await updateStatus(v as Task["status"]); }} disabled={statusSaving}>
+                      <SelectTrigger className={cn("h-9 font-medium text-xs bg-background border-border/60", statusClasses[selectedTask.status])}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {["pending","in-progress","completed","overdue"].map((s) => (
+                          <SelectItem key={s} value={s} className="text-xs">
+                            <span className="flex items-center gap-2">
+                              <span className={cn("inline-block w-2 h-2 rounded-full", {
+                                "bg-slate-400": s === "pending",
+                                "bg-amber-500": s === "in-progress",
+                                "bg-emerald-600": s === "completed",
+                                "bg-red-500": s === "overdue",
+                              })} />
+                              {s === "pending" && "Pending"}
+                              {s === "in-progress" && "In Progress"}
+                              {s === "completed" && "Completed"}
+                              {s === "overdue" && "Overdue"}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {/* Task Description */}
@@ -2394,11 +2515,11 @@ export default function Tasks() {
                                         
                                         {c.attachments && c.attachments.length > 0 && (
                                           <div className={cn(
-                                            "grid gap-2 mt-2",
+                                            "grid gap-2 mt-2 max-w-[140px] sm:max-w-[180px]",
                                             c.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"
                                           )}>
                                             {c.attachments.map((att, attIdx) => (
-                                              <div key={attIdx} className="relative rounded-xl overflow-hidden border border-white/20 bg-black/10 min-w-[120px] max-w-full aspect-square sm:aspect-video">
+                                              <div key={attIdx} className="relative rounded-xl overflow-hidden border border-white/20 bg-black/10 min-w-[120px] max-w-full h-auto">
                                                 <CommentAttachmentImg 
                                                   taskId={selectedTask.id} 
                                                   commentId={c.id} 
@@ -2632,6 +2753,55 @@ export default function Tasks() {
                 <FormField control={editForm.control} name="dueDate" render={({ field }) => (<FormItem><FormLabel>Due Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={editForm.control} name="dueTime" render={({ field }) => (<FormItem><FormLabel>Due Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
               </div>
+
+              {/* Task Attachment Update */}
+              <div className="space-y-3 pt-2">
+                <FormLabel>Task Attachment / Logo</FormLabel>
+                <div className="flex items-center gap-4 p-3 rounded-lg bg-muted/30 border border-dashed border-border">
+                  {editTaskFilePreview ? (
+                    <div className="relative group w-16 h-16 rounded-md overflow-hidden border border-border bg-white">
+                      {editTaskFilePreview.startsWith("data:image/") || 
+                       editTaskFilePreview.match(/\.(jpg|jpeg|png|gif|webp|svg)/i) ||
+                       (selectedTask?.attachment?.mimeType?.startsWith("image/")) ? (
+                        <img src={editTaskFilePreview} alt="Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-primary/5">
+                          <FileText className="w-8 h-8 text-primary/40" />
+                        </div>
+                      )}
+                      <button 
+                        type="button" 
+                        onClick={() => { setEditTaskFile(null); setEditTaskFilePreview(null); }}
+                        className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                      >
+                        <Trash2 className="w-4 h-4 text-white" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-16 h-16 rounded-md bg-muted/50 flex items-center justify-center text-muted-foreground/30 border border-border">
+                      <Paperclip className="w-6 h-6" />
+                    </div>
+                  )}
+                  
+                  <div className="flex-1">
+                    <p className="text-xs text-muted-foreground mb-2">Update task image or document (Max 16MB)</p>
+                    <Input 
+                      type="file" 
+                      className="h-8 text-xs cursor-pointer"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          setEditTaskFile(file);
+                          const reader = new FileReader();
+                          reader.onloadend = () => setEditTaskFilePreview(reader.result as string);
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
               <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end"><Button type="button" variant="outline" onClick={() => { setIsEditOpen(false); setEditSelectedAssignees([]); }} disabled={updateTaskMutation.isPending} className="w-full sm:w-auto">Cancel</Button><Button type="submit" disabled={updateTaskMutation.isPending} className="w-full sm:w-auto gap-2">{updateTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Save</Button></DialogFooter>
             </form>
           </Form>
@@ -2687,6 +2857,14 @@ export default function Tasks() {
                   if (logoPayload) {
                     payload.logo = logoPayload;
                   }
+
+                  console.log("[EditProject] Sending payload:", {
+                    id: editingProject.id,
+                    hasLogo: !!payload.logo,
+                    logoFileName: payload.logo?.fileName,
+                    logoUrlPrefix: payload.logo?.url?.substring(0, 40),
+                    logoUrlLength: payload.logo?.url?.length,
+                  });
 
                   await editProjectMutation.mutateAsync({ id: editingProject.id, payload });
 
