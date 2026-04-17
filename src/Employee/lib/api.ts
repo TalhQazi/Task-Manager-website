@@ -5,11 +5,19 @@ export async function employeeApiFetch<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
-  
+
+  const isFormData =
+    typeof FormData !== "undefined" &&
+    !!options.body &&
+    options.body instanceof FormData;
+
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
     ...((options.headers as Record<string, string>) || {}),
   };
+
+  if (!isFormData) {
+    headers["Content-Type"] = headers["Content-Type"] || "application/json";
+  }
 
   const authRaw = localStorage.getItem("employee_auth");
   if (authRaw) {
@@ -56,7 +64,9 @@ export function toProxiedUrl(url: string | undefined): string {
       try {
         const parsed = JSON.parse(authRaw);
         token = parsed.token || "";
-      } catch (e) {}
+      } catch (e) {
+        void e;
+      }
     }
     return `${API_BASE_URL}/api/s3-proxy/${key}${token ? `?token=${token}` : ""}`;
   }
@@ -119,7 +129,7 @@ export async function getTaskById(taskId: string) {
 }
 
 export async function updateTaskStatus(taskId: string, status: string) {
-  return employeeApiFetch<{ item: any }>(`/api/tasks/${encodeURIComponent(taskId)}/status`, {
+  return employeeApiFetch<{ item: unknown }>(`/api/tasks/${encodeURIComponent(taskId)}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
   });
@@ -230,6 +240,7 @@ export async function getConversation(user1: string, user2: string) {
       timestamp: string;
       type: string;
       status: string;
+      attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number };
     }>;
   }>(`/api/messages/conversation/${encodeURIComponent(user1)}/${encodeURIComponent(user2)}`);
 }
@@ -241,12 +252,24 @@ export async function sendMessage(data: {
   timestamp: string;
   type: "direct";
   status?: string;
+  attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number };
 }) {
   return employeeApiFetch<{
-    item: { id: string; sender: string; recipient: string; content: string; timestamp: string; type: string; status: string };
+    item: { id: string; sender: string; recipient: string; content: string; timestamp: string; type: string; status: string; attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number } };
   }>("/api/messages", {
     method: "POST",
     body: JSON.stringify(data),
+  });
+}
+
+export async function uploadMessageAttachment(file: File) {
+  const fd = new FormData();
+  fd.append("file", file);
+  return employeeApiFetch<{
+    attachment: { fileName: string; url: string; mimeType: string; size: number };
+  }>("/api/messages/upload", {
+    method: "POST",
+    body: fd,
   });
 }
 
@@ -263,14 +286,14 @@ export async function getPersonalNotes() {
 }
 
 export async function createPersonalNote(payload: { title: string; content: string; color?: string; isPinned?: boolean }) {
-  return employeeApiFetch<{ item: any }>("/api/notes", {
+  return employeeApiFetch<{ item: unknown }>("/api/notes", {
     method: "POST",
     body: JSON.stringify(payload)
   });
 }
 
-export async function updatePersonalNote(id: string, payload: any) {
-  return employeeApiFetch<{ item: any }>(`/api/notes/${encodeURIComponent(id)}`, {
+export async function updatePersonalNote(id: string, payload: unknown) {
+  return employeeApiFetch<{ item: unknown }>(`/api/notes/${encodeURIComponent(id)}`, {
     method: "PATCH",
     body: JSON.stringify(payload)
   });
