@@ -83,6 +83,7 @@ export default function EmployeeMessages() {
   const [preview, setPreview] = useState<{ url: string; fileName: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const messageInputRef = useRef<HTMLTextAreaElement>(null);
   
   const socketRef = useRef<any>(null);
 
@@ -288,6 +289,14 @@ export default function EmployeeMessages() {
     }
   };
 
+  useEffect(() => {
+    const el = messageInputRef.current;
+    if (!el) return;
+    el.style.height = "0px";
+    const next = Math.min(el.scrollHeight, 160);
+    el.style.height = `${Math.max(next, 40)}px`;
+  }, [messageInput]);
+
   const filteredConversations = conversations.filter((c) =>
     c.employee.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -415,7 +424,7 @@ export default function EmployeeMessages() {
                     >
                       <div
                         className={cn(
-                          "max-w-[70%] rounded-lg p-3",
+                          "max-w-[70%] min-w-0 rounded-lg p-3",
                           isSentByMe
                             ? "bg-[#133767] text-white"
                             : "bg-gray-100 text-gray-900"
@@ -438,7 +447,7 @@ export default function EmployeeMessages() {
                             <button
                               type="button"
                               className={cn(
-                                "text-sm underline",
+                                "text-sm underline break-all",
                                 isSentByMe ? "text-white" : "text-gray-900",
                               )}
                               onClick={() => downloadAttachment(attachmentUrl, attachmentName)}
@@ -448,7 +457,9 @@ export default function EmployeeMessages() {
                           )
                         ) : null}
 
-                        {msg.content?.trim() ? <p className="text-sm">{msg.content}</p> : null}
+                        {msg.content?.trim() ? (
+                          <p className="text-sm whitespace-pre-wrap break-all">{msg.content}</p>
+                        ) : null}
                         <div
                           className={cn(
                             "flex items-center gap-1 mt-1 text-xs",
@@ -491,17 +502,25 @@ export default function EmployeeMessages() {
                 type="button"
                 variant="outline"
                 size="icon"
-                disabled={!selectedConversation || uploading}
+                disabled={uploading}
                 onClick={() => fileInputRef.current?.click()}
               >
                 <Paperclip className="h-4 w-4" />
               </Button>
-              <Input
+              <textarea
+                ref={messageInputRef}
                 placeholder="Type a message..."
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="flex-1"
+                rows={1}
+                className={cn(
+                  "flex-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm",
+                  "ring-offset-background placeholder:text-muted-foreground",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                  "disabled:cursor-not-allowed disabled:opacity-50",
+                  "resize-none overflow-y-auto leading-5"
+                )}
               />
               <Button
                 onClick={handleSendMessage}
