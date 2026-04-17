@@ -214,3 +214,25 @@ export async function downloadTaskAttachment(
   
   URL.revokeObjectURL(objectUrl);
 }
+
+// Admin Scrum Records API
+export async function getAdminScrumRecords(params?: { from?: string; to?: string; employee?: string; page?: number; limit?: number }) {
+  const query = new URLSearchParams();
+  if (params?.from) query.append("from", params.from);
+  if (params?.to) query.append("to", params.to);
+  if (params?.employee) query.append("employee", params.employee);
+  if (params?.page) query.append("page", String(params.page));
+  if (params?.limit) query.append("limit", String(params.limit));
+
+  return apiFetch<{ items: Array<{ employeeName: string; employeeId: string | null; email: string; company: string; location: string; status: string; totalScrumRecords: number; latestRecord: string; records: Array<{ id: string; date: string; clockIn: string; clockOut: string; totalHours: number; scrum: string; createdAt: string }> }>; total: number }>(`/api/time-entries/scrum-records?${query.toString()}`);
+}
+
+export async function getAdminEmployeeScrumRecords(employeeName: string, params?: { from?: string; to?: string; page?: number; limit?: number }) {
+  const query = new URLSearchParams();
+  if (params?.from) query.append("from", params.from);
+  if (params?.to) query.append("to", params.to);
+  if (params?.page) query.append("page", String(params.page));
+  if (params?.limit) query.append("limit", String(params.limit));
+
+  return apiFetch<{ items: Array<{ id: string; date: string; clockIn: string; clockOut: string; totalHours: number; scrum: string; createdAt: string }>; total: number; page: number; limit: number }>(`/api/time-entries/scrum-records/${encodeURIComponent(employeeName)}?${query.toString()}`);
+}

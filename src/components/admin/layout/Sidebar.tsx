@@ -65,6 +65,7 @@ const navItemsBase: NavItem[] = [
       { icon: Calendar, label: "Scheduling", path: "/admin/scheduling" },
       { icon: Bell, label: "Notifications", path: "/admin/notifications" },
       { icon: Clock, label: "Time Tracking", path: "/admin/time-tracking" },
+      { icon: ClipboardList, label: "Scrum Records", path: "/admin/scrum-records" },
     ],
   },
   { icon: Landmark, label: "Companies", path: "/admin/companies" },

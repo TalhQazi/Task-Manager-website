@@ -13,6 +13,7 @@ const EmployeeMessages = lazy(() => import("../screens/Messages"));
 const EmployeeProfile = lazy(() => import("../screens/Profile"));
 const EmployeeNotifications = lazy(() => import("../screens/Notifications"));
 const EmployeePersonalNotes = lazy(() => import("../screens/PersonalNotes"));
+const EmployeeScrumRecords = lazy(() => import("../screens/ScrumRecords"));
 
 function PageLoader() {
   return (
@@ -51,6 +52,7 @@ function EmployeeController() {
           <Route path="/profile" element={<EmployeeProfile />} />
           <Route path="/notifications" element={<EmployeeNotifications />} />
           <Route path="/personal-notes" element={<EmployeePersonalNotes />} />
+          <Route path="/scrum-records" element={<EmployeeScrumRecords />} />
         </Route>
         <Route path="*" element={<Navigate to="/employee" replace />} />
       </Routes>
