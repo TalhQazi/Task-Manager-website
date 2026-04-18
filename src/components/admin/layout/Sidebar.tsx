@@ -1,3 +1,4 @@
+import { SidebarProfile } from "./SidebarProfile";
 import { NavLink } from "@/components/admin/NavLink";
 import {
   LayoutDashboard,
@@ -290,7 +291,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
       <div className="px-5 py-6 mb-3 flex flex-col items-center border-b border-white/5 bg-white/[0.03] backdrop-blur-md">
         <div className="relative w-full rounded-xl bg-white shadow-2xl border-4 border-white/20 group flex items-center justify-center overflow-hidden">
           <img
-            src="/task.png"
+            src="/clock2.png"
             alt="Task Manager logo"
             className="w-full h-auto object-contain transition-all duration-500 hover:scale-105 active:scale-95"
           />
@@ -300,16 +301,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
         {navItems.map((item) => renderNavItem(item))}
       </nav>
 
-      <div className="border-t border-white/10 px-2 pb-4 pt-3">
-        <button
-          type="button"
-          onClick={onLogout}
-          className="flex w-full items-center gap-3 h-10 rounded-lg px-3 text-white/60 hover:bg-red-500/10 hover:text-red-200 transition-all duration-[120ms] ease-in-out"
-        >
-          <LogOut className="h-5 w-5 flex-shrink-0" />
-          <span className="text-sm font-medium">Logout</span>
-        </button>
-      </div>
+      <SidebarProfile />
     </aside>
   );
 }

@@ -275,16 +275,13 @@ export function AdminInfoManager({ onClose }: AdminInfoManagerProps) {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button
+        <button
           type="button"
-          variant="ghost"
-          size="sm"
-          className="hidden sm:inline-flex h-9 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-medium"
+          className="relative group p-2 rounded-lg hover:bg-white/10 transition-colors text-white/70 hover:text-white"
           title="Admin Information Manager"
         >
-          <FileText className="h-4 w-4 mr-2" />
-          Admin Info
-        </Button>
+          <FileText className="h-5 w-5" />
+        </button>
       </DialogTrigger>
 
       <DialogContent className="w-[95vw] max-w-4xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
