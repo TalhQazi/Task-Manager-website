@@ -1,4 +1,4 @@
-import { Bell, Bug, Camera, ChevronDown, ChevronUp, Loader2, Mail, Menu, Move, Save, Search, User, X as XIcon } from "lucide-react";
+import { Bell, Bug, Camera, ChevronDown, ChevronUp, Loader2, Mail, Menu, Move, Save, Search, User, Settings, X as XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
