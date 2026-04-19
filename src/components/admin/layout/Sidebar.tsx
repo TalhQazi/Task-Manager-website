@@ -303,7 +303,6 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
         {navItems.map((item) => renderNavItem(item))}
       </nav>
 
-      <SidebarProfile />
-    </aside>
+      </nav>
   );
 }
