@@ -31,6 +31,7 @@ import {
   ChevronDown,
   ChevronRight,
   FileText,
+  Bug,
 } from "lucide-react";
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -104,6 +105,7 @@ const navItemsBase: NavItem[] = [
     ),
   },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
+  { icon: Bug, label: "Bug Reports", path: "/admin/bug-reports" },
 ];
 
 // Activity Logs only for super-admin

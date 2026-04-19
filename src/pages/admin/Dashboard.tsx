@@ -126,7 +126,7 @@ const Dashboard = () => {
             { title: "Websites", value: metrics.totalWebsites, icon: Globe, variant: "primary", changeType: "positive" as const, onClick: () => navigate("/admin/websites") },
             { title: "Overdue Tasks", value: metrics.overdueTasks, icon: AlertTriangle, variant: "danger", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
             { title: "Clocked In", value: metrics.clockedInEmployees, icon: Clock, variant: "warning", changeType: "neutral" as const, onClick: () => navigate("/admin/time-tracking") },
-            { title: "Pending Bugs", value: metrics.pendingBugs, icon: Bug, variant: "danger", changeType: "neutral" as const, onClick: () => navigate("/admin/tasks?category=bug") },
+            { title: "Pending Bugs", value: metrics.pendingBugs, icon: Bug, variant: "danger", changeType: "neutral" as const, onClick: () => navigate("/admin/bug-reports") },
           ].map((stat) => (
             <motion.div
               key={stat.title}
