@@ -116,9 +116,10 @@ export default function Bugs() {
   }, [items, searchParams, setSearchParams]);
 
   const filtered = useMemo(() => {
+    const openOnly = items.filter(b => b.status === "open");
     const query = q.trim().toLowerCase();
-    if (!query) return items;
-    return items.filter((b) => {
+    if (!query) return openOnly;
+    return openOnly.filter((b) => {
       const where = `${b.title} ${b.description} ${b.taskTitle || ""} ${b.createdByUsername || ""} ${b.source?.path || ""}`.toLowerCase();
       return where.includes(query);
     });
