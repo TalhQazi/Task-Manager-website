@@ -302,7 +302,6 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
       <nav className="flex-1 flex flex-col gap-1 px-2 py-2 overflow-y-auto overflow-x-hidden no-scrollbar">
         {navItems.map((item) => renderNavItem(item))}
       </nav>
-
-      </nav>
+    </aside>
   );
 }
