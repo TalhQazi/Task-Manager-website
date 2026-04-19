@@ -1,4 +1,4 @@
-import { Bell, Bug, Camera, ChevronDown, ChevronUp, Loader2, Mail, Menu, Move, Save, Search, User, Settings, X as XIcon } from "lucide-react";
+import { Bell, Bug, Camera, ChevronDown, ChevronUp, Loader2, LogOut, Mail, Menu, Move, Save, Search, User, Settings, X as XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -640,7 +640,39 @@ export function Header({ onMenuClick }: HeaderProps) {
           >
             {/* LEFT SIDE: Branding and Profile Stacking */}
             <div className="flex flex-col gap-4">
-              {/* Quick Actions Bar */}
+              {/* Profile Card (Top) */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <div className="flex items-center gap-3 p-2 rounded-xl bg-black/20 backdrop-blur-md border border-white/10 hover:bg-black/30 transition-all cursor-pointer group w-fit">
+                    <div className="relative">
+                      <Avatar className="h-10 w-10 border border-white/20 shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20 transition-all">
+                        {avatarUrl ? (
+                          <AvatarImage src={avatarUrl} alt={fullName} className="object-cover" />
+                        ) : (
+                          <AvatarFallback className="bg-gradient-to-br from-[#00C6FF] to-[#0072FF] text-white text-xs font-bold">{initials}</AvatarFallback>
+                        )}
+                      </Avatar>
+                      <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-black rounded-full" />
+                    </div>
+                    <div className="flex flex-col min-w-0 pr-4">
+                      <span className="text-base font-bold text-white truncate leading-tight drop-shadow-md">{fullName}</span>
+                      <span className="text-[11px] text-white/60 truncate tracking-wide uppercase font-semibold">{auth.role || "Admin"}</span>
+                    </div>
+                  </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" side="bottom" className="w-56 mt-2">
+                  <DropdownMenuLabel className="text-xs">Account Settings</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/admin/settings")}>
+                    <User className="mr-2 h-4 w-4" /> Profile Details
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/admin/settings")}>
+                    <Settings className="mr-2 h-4 w-4" /> System Preferences
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Quick Actions Bar (Bottom) */}
               <div className="flex items-center justify-start gap-4">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -700,53 +732,23 @@ export function Header({ onMenuClick }: HeaderProps) {
                 <button 
                   onClick={() => { resetReport(); setReportOpen(true); }}
                   className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white"
+                  title="Submit Bug Report"
                 >
                   <Bug className="h-4.5 w-4.5" />
+                </button>
+
+                <button 
+                  onClick={() => { clearAuthState(); navigate("/login"); }}
+                  className="p-2 rounded-lg bg-black/20 hover:bg-red-500/20 backdrop-blur-sm transition-colors text-red-400/70 hover:text-red-400"
+                  title="Logout"
+                >
+                  <LogOut className="h-4.5 w-4.5" />
                 </button>
 
                 <div className="md:hidden">
                   <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/[0.14] transition-all" aria-label="Open navigation" onClick={() => onMenuClick?.()}><Menu className="h-5 w-5 text-white" /></button>
                 </div>
               </div>
-
-              {/* Profile Card */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <div className="flex items-center gap-3 p-2 rounded-xl bg-black/20 backdrop-blur-md border border-white/10 hover:bg-black/30 transition-all cursor-pointer group w-fit">
-                    <div className="relative">
-                      <Avatar className="h-10 w-10 border border-white/20 shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20 transition-all">
-                        {avatarUrl ? (
-                          <AvatarImage src={avatarUrl} alt={fullName} className="object-cover" />
-                        ) : (
-                          <AvatarFallback className="bg-gradient-to-br from-[#00C6FF] to-[#0072FF] text-white text-xs font-bold">{initials}</AvatarFallback>
-                        )}
-                      </Avatar>
-                      <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-black rounded-full" />
-                    </div>
-                    <div className="flex flex-col min-w-0 pr-4">
-                      <span className="text-base font-bold text-white truncate leading-tight drop-shadow-md">{fullName}</span>
-                      <span className="text-[11px] text-white/60 truncate tracking-wide uppercase font-semibold">{auth.role || "Admin"}</span>
-                    </div>
-                  </div>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" side="bottom" className="w-56 mt-2">
-                  <DropdownMenuLabel className="text-xs">Account Settings</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate("/admin/settings")}>
-                    <User className="mr-2 h-4 w-4" /> Profile Details
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/admin/settings")}>
-                    <Settings className="mr-2 h-4 w-4" /> System Preferences
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem 
-                    onClick={() => { clearAuthState(); navigate("/login"); }}
-                    className="text-red-500 focus:text-red-500"
-                  >
-                    <Mail className="mr-2 h-4 w-4" /> Logout
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
             </div>
           </div>
         </div>
