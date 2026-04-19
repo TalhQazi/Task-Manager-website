@@ -141,7 +141,7 @@ export function SidebarProfile() {
   return (
     <div className="mt-auto border-t border-white/10 bg-black/20 backdrop-blur-md p-4 space-y-4">
       {/* Quick Actions Bar */}
-      <div className="flex items-center justify-between gap-1">
+      <div className="flex items-center justify-start gap-4">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="relative group p-2 rounded-lg hover:bg-white/10 transition-colors text-white/70 hover:text-white">
@@ -227,7 +227,7 @@ export function SidebarProfile() {
               </Avatar>
               <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 bg-green-500 border-2 border-[#0B1323] rounded-full" />
             </div>
-            <div className="flex flex-col min-w-0 flex-1">
+            <div className="flex flex-col min-w-0">
               <span className="text-sm font-bold text-white truncate leading-tight">{fullName}</span>
               <span className="text-[10px] text-white/40 truncate tracking-wide uppercase font-medium">{auth.role || "Admin"}</span>
             </div>
