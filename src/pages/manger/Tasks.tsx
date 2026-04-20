@@ -92,7 +92,7 @@ import {
   Maximize2,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
-import { apiFetch, downloadTaskAttachment, toProxiedUrl, getTopContributors } from "@/lib/manger/api";
+import { apiFetch, downloadTaskAttachment, toProxiedUrl, getTopContributors, downloadViaUrl } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSocket } from "@/contexts/SocketContext";
@@ -376,16 +376,14 @@ function CommentAttachmentImg({ taskId, projectId, commentId, index, mimeType, f
         >
           <Maximize2 className="w-4 h-4" />
         </button>
-        <a 
-          href={src} 
-          download={fileName} 
+        <button 
+          onClick={(e) => { e.stopPropagation(); void downloadViaUrl(src, fileName); }} 
           aria-label="Download" 
-          onClick={(e) => e.stopPropagation()} 
           className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
           title="Download"
         >
           <Download className="w-4 h-4" />
-        </a>
+        </button>
       </div>
     </div>
   );
@@ -2435,7 +2433,7 @@ export default function Tasks() {
                               ? selectedTask.attachments.map((attachment, idx) => (
                                 <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow">
                                   {(attachment.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(attachment.fileName || "")) && attachment.url ? (
-                                    <img src={attachment.url} alt={attachment.fileName || "Attachment"} className="w-full h-24 object-cover" />
+                                    <img src={toProxiedUrl(attachment.url) || attachment.url} alt={attachment.fileName || "Attachment"} className="w-full h-24 object-cover" />
                                   ) : (
                                     <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
                                   )}
@@ -2446,7 +2444,7 @@ export default function Tasks() {
                               : selectedTask.attachment?.fileName ? (
                                 <div className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow">
                                   {(selectedTask.attachment.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(selectedTask.attachment.fileName || "")) && selectedTask.attachment.url ? (
-                                    <img src={selectedTask.attachment.url} alt={selectedTask.attachment.fileName || "Attachment"} className="w-full h-24 object-cover" />
+                                    <img src={toProxiedUrl(selectedTask.attachment.url) || selectedTask.attachment.url} alt={selectedTask.attachment.fileName || "Attachment"} className="w-full h-24 object-cover" />
                                   ) : (
                                     <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
                                   )}
@@ -3436,15 +3434,13 @@ export default function Tasks() {
         <DialogContent className="max-w-[95vw] w-fit p-0 border-none bg-transparent shadow-none">
           <div className="relative group/preview-modal">
             <div className="absolute top-4 right-4 z-50 flex items-center gap-3 opacity-0 group-hover/preview-modal:opacity-100 transition-opacity">
-              <a 
-                href={previewUrl || ""} 
-                download={previewName}
+              <button 
+                onClick={(e) => { e.stopPropagation(); if (previewUrl) void downloadViaUrl(previewUrl, previewName); }}
                 className="p-2 bg-black/50 hover:bg-black/70 backdrop-blur-md rounded-full text-white shadow-lg transition-all"
                 title="Download"
-                onClick={(e) => e.stopPropagation()}
               >
                 <Download className="w-5 h-5" />
-              </a>
+              </button>
               <button
                 onClick={() => setPreviewUrl(null)}
                 className="p-2 bg-black/50 hover:bg-black/70 backdrop-blur-md rounded-full text-white shadow-lg transition-all"

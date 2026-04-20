@@ -231,3 +231,29 @@ export async function downloadTaskAttachment(
   
   URL.revokeObjectURL(objectUrl);
 }
+
+// Download any URL with authentication for Manager/Admin
+export async function downloadViaUrl(url: string, fileName: string): Promise<void> {
+  const token = getStoredToken();
+  
+  // Use fetch to get the blob with headers
+  const res = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  
+  if (!res.ok) {
+    throw new Error(`Download failed (${res.status})`);
+  }
+  
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  
+  URL.revokeObjectURL(objectUrl);
+}

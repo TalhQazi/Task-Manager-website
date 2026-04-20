@@ -2359,26 +2359,26 @@ export default function Tasks() {
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 bg-muted/20 p-3 rounded-xl border border-border/50">
                         {selectedTask.attachments && selectedTask.attachments.length > 0
                           ? selectedTask.attachments.map((attachment, idx) => (
-                            <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => { if (attachment.url) { setPreviewUrl(attachment.url); setPreviewName(attachment.fileName || "Attachment"); } }}>
+                            <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => { if (attachment.url) { setPreviewUrl(toProxiedUrl(attachment.url) || attachment.url); setPreviewName(attachment.fileName || "Attachment"); } }}>
                               {(attachment.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(attachment.fileName || "")) && attachment.url ? (
-                                <img src={attachment.url} alt={attachment.fileName || `Attachment`} className="w-full h-24 object-cover" />
+                                <img src={toProxiedUrl(attachment.url) || attachment.url} alt={attachment.fileName || `Attachment`} className="w-full h-24 object-cover" />
                               ) : (
                                 <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
                               )}
                               <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
-                              
+
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[1px]">
                                 <button
                                   type="button"
-                                  onClick={(e) => { e.stopPropagation(); setPreviewUrl(attachment.url); setPreviewName(attachment.fileName || "Attachment"); }}
+                                  onClick={(e) => { e.stopPropagation(); setPreviewUrl(toProxiedUrl(attachment.url) || attachment.url); setPreviewName(attachment.fileName || "Attachment"); }}
                                   className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white"
                                   title="Preview"
                                 >
                                   <Maximize2 className="w-4 h-4" />
                                 </button>
-                                <button 
-                                  type="button" 
-                                  onClick={(e) => { e.stopPropagation(); if (attachment.url) void downloadViaUrl(attachment.url, attachment.fileName || "download"); }} 
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); if (attachment.url) void downloadViaUrl(toProxiedUrl(attachment.url) || attachment.url, attachment.fileName || "download"); }}
                                   className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white"
                                   title="Download"
                                 >
@@ -2389,9 +2389,9 @@ export default function Tasks() {
                             </div>
                           ))
                           : selectedTask.attachment?.fileName ? (
-                            <div className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => { if (selectedTask.attachment?.url) { setPreviewUrl(selectedTask.attachment.url); setPreviewName(selectedTask.attachment.fileName || "Attachment"); } }}>
+                            <div className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => { if (selectedTask.attachment?.url) { setPreviewUrl(toProxiedUrl(selectedTask.attachment.url) || selectedTask.attachment.url); setPreviewName(selectedTask.attachment.fileName || "Attachment"); } }}>
                               {selectedTask.attachment.mimeType?.startsWith("image/") && selectedTask.attachment.url ? (
-                                <img src={selectedTask.attachment.url} alt={selectedTask.attachment.fileName || "Attachment"} className="w-full h-24 object-cover" />
+                                <img src={toProxiedUrl(selectedTask.attachment.url) || selectedTask.attachment.url} alt={selectedTask.attachment.fileName || "Attachment"} className="w-full h-24 object-cover" />
                               ) : (
                                 <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
                               )}
@@ -2399,15 +2399,15 @@ export default function Tasks() {
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[1px]">
                                 <button
                                   type="button"
-                                  onClick={(e) => { e.stopPropagation(); setPreviewUrl(selectedTask.attachment!.url); setPreviewName(selectedTask.attachment!.fileName || "Attachment"); }}
+                                  onClick={(e) => { e.stopPropagation(); setPreviewUrl(toProxiedUrl(selectedTask.attachment!.url) || selectedTask.attachment!.url); setPreviewName(selectedTask.attachment!.fileName || "Attachment"); }}
                                   className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white"
                                   title="Preview"
                                 >
                                   <Maximize2 className="w-4 h-4" />
                                 </button>
-                                <button 
-                                  type="button" 
-                                  onClick={(e) => { e.stopPropagation(); if (selectedTask.attachment?.url) void downloadViaUrl(selectedTask.attachment.url, selectedTask.attachment.fileName || "download"); }} 
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); if (selectedTask.attachment?.url) void downloadViaUrl(toProxiedUrl(selectedTask.attachment.url) || selectedTask.attachment.url, selectedTask.attachment.fileName || "download"); }}
                                   className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white"
                                   title="Download"
                                 >
