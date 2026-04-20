@@ -480,7 +480,6 @@ export default function Tasks() {
   const { socket, joinTask, leaveTask } = useSocket();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
-  const [projectSearchQuery, setProjectSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [projectPage, setProjectPage] = useState(1);
@@ -596,12 +595,12 @@ export default function Tasks() {
 
   // Fetch projects with server-side pagination
   const projectsQuery = useQuery({
-    queryKey: ["projects", projectPage, projectSearchQuery],
+    queryKey: ["projects", projectPage, searchQuery],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: projectPage.toString(),
         limit: PAGE_SIZE.toString(),
-        search: projectSearchQuery,
+        search: searchQuery,
       });
       const res = await apiFetch<{ items: Project[], totalPages: number, total: number }>(`/api/projects?${params.toString()}`);
       return {
@@ -1716,7 +1715,6 @@ export default function Tasks() {
   }, [sourceTasks, searchQuery, statusFilter, priorityFilter]);
 
   const filteredProjects = useMemo(() => {
-    const qProject = projectSearchQuery.trim().toLowerCase();
     const qMain = searchQuery.trim().toLowerCase();
     const sFilter = statusFilter.toLowerCase();
 
@@ -1731,11 +1729,6 @@ export default function Tasks() {
         return false;
       }
 
-      // If projectSearchQuery is present, it takes priority or acts as an additional filter
-      if (qProject && !name.includes(qProject) && !desc.includes(qProject) && !assignees.includes(qProject)) {
-        return false;
-      }
-
       // If the main search bar has text, it must match either name, desc, or assignees
       if (qMain && !name.includes(qMain) && !desc.includes(qMain) && !assignees.includes(qMain)) {
         return false;
@@ -1743,7 +1736,7 @@ export default function Tasks() {
 
       return true;
     });
-  }, [projects, projectSearchQuery, searchQuery, statusFilter]);
+  }, [projects, searchQuery, statusFilter]);
 
   const filteredStandaloneTasks = useMemo(() => {
     const standalone = tasks.filter((t) => !t.projectId);
@@ -1821,10 +1814,10 @@ export default function Tasks() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search tasks or assignee..."
+            placeholder="Search projects, tasks, or assignee..."
             className="pl-10 h-10 w-full"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => { setSearchQuery(e.target.value); setProjectPage(1); setTaskPage(1); }}
           />
         </div>
         <div className="flex flex-wrap gap-2">
@@ -1922,13 +1915,13 @@ export default function Tasks() {
               <h2 className="font-semibold text-lg">
                 Projects ({Math.min(projectPage * PAGE_SIZE, projectsQuery.data?.totalItems || 0)} - {projectsQuery.data?.totalItems || 0})
               </h2>
-              <div className="relative w-full sm:w-64">
+              <div className="relative w-full sm:w-64 hidden">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   placeholder="Search projects..."
                   className="pl-10 h-9 w-full"
-                  value={projectSearchQuery}
-                  onChange={(e) => { setProjectSearchQuery(e.target.value); setProjectPage(1); }}
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); setProjectPage(1); }}
                 />
               </div>
             </div>
@@ -1937,7 +1930,7 @@ export default function Tasks() {
             ) : projectsQuery.isError ? (
               <p className="text-destructive">{(() => { const msg = projectsQuery.error instanceof Error ? projectsQuery.error.message : "Failed to load projects"; return msg.startsWith("<") ? "Server error: failed to load projects. The server may be temporarily unavailable (504 Gateway Timeout). Please try again later." : msg; })()}</p>
             ) : projectsQuery.data?.items.length === 0 ? (
-              <p className="text-muted-foreground">{projectSearchQuery ? "No projects match your search." : "No projects found. Create one to begin."}</p>
+              <p className="text-muted-foreground">{searchQuery ? "No projects match your search." : "No projects found. Create one to begin."}</p>
             ) : (
               <>
                 <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -2076,7 +2069,11 @@ export default function Tasks() {
                           </div>
                           {task.attachment?.fileName && (
                             <div className="mb-2 rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
-                              <TaskAttachmentImg taskId={task.id} attachmentUrl={task.attachment?.url} />
+                              <TaskAttachmentImg 
+                                taskId={task.id} 
+                                attachmentUrl={task.attachment?.url} 
+                                onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
+                              />
                             </div>
                           )}
                           <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
@@ -2364,7 +2361,7 @@ export default function Tasks() {
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 bg-muted/20 p-3 rounded-xl border border-border/50">
                         {selectedTask.attachments && selectedTask.attachments.length > 0
                           ? selectedTask.attachments.map((attachment, idx) => (
-                            <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => attachment.url && setPreviewUrl(attachment.url) && setPreviewName(attachment.fileName || "Attachment")}>
+                            <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => { if (attachment.url) { setPreviewUrl(attachment.url); setPreviewName(attachment.fileName || "Attachment"); } }}>
                               {(attachment.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(attachment.fileName || "")) && attachment.url ? (
                                 <img src={attachment.url} alt={attachment.fileName || `Attachment`} className="w-full h-24 object-cover" />
                               ) : (
@@ -2394,7 +2391,7 @@ export default function Tasks() {
                             </div>
                           ))
                           : selectedTask.attachment?.fileName ? (
-                            <div className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => selectedTask.attachment?.url && setPreviewUrl(selectedTask.attachment.url) && setPreviewName(selectedTask.attachment.fileName || "Attachment")}>
+                            <div className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => { if (selectedTask.attachment?.url) { setPreviewUrl(selectedTask.attachment.url); setPreviewName(selectedTask.attachment.fileName || "Attachment"); } }}>
                               {selectedTask.attachment.mimeType?.startsWith("image/") && selectedTask.attachment.url ? (
                                 <img src={selectedTask.attachment.url} alt={selectedTask.attachment.fileName || "Attachment"} className="w-full h-24 object-cover" />
                               ) : (
@@ -3229,7 +3226,11 @@ export default function Tasks() {
                         <p className="text-sm text-muted-foreground line-clamp-2 break-words">{task.description}</p>
                         {task.attachment?.fileName && (
                           <div className="rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
-                            <TaskAttachmentImg taskId={task.id} />
+                            <TaskAttachmentImg 
+                              taskId={task.id} 
+                              attachmentUrl={task.attachment?.url}
+                              onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
+                            />
                           </div>
                         )}
                         <div><p className="text-xs text-muted-foreground mb-2">Assigned to</p><div className="flex flex-wrap items-center gap-2">{task.assignees && task.assignees.length > 0 ? (<><div className="flex -space-x-2">{task.assignees.slice(0, 3).map((assignee, idx) => {
@@ -3297,13 +3298,30 @@ export default function Tasks() {
               </button>
             </div>
             {previewUrl && (
-              <div className="flex flex-col items-center">
-                <img 
-                  src={previewUrl} 
-                  alt={previewName} 
-                  className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl" 
-                />
-                <div className="mt-4 px-4 py-2 bg-black/50 backdrop-blur-md rounded-full text-white text-sm font-medium shadow-lg">
+              <div className="flex flex-col items-center bg-black/40 backdrop-blur-md p-8 rounded-2xl border border-white/10">
+                {(previewUrl.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)/i) || previewUrl.startsWith("data:image/")) ? (
+                  <img 
+                    src={previewUrl} 
+                    alt={previewName} 
+                    className="max-h-[75vh] max-w-full object-contain rounded-lg shadow-2xl transition-transform duration-300 hover:scale-[1.02]" 
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-12 bg-white/5 rounded-2xl border border-white/10 min-w-[300px]">
+                    <FileText className="w-20 h-20 text-white/40 mb-4" />
+                    <p className="text-white font-semibold mb-2">{previewName}</p>
+                    <p className="text-white/40 text-xs mb-6">Preview not available for this file type</p>
+                    <a 
+                      href={previewUrl} 
+                      download={previewName}
+                      className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-full font-bold hover:opacity-90 transition-all shadow-lg"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Download className="w-4 h-4" />
+                      Download File
+                    </a>
+                  </div>
+                )}
+                <div className="mt-6 px-6 py-2 bg-white/10 backdrop-blur-md rounded-full text-white text-sm font-bold shadow-lg border border-white/10 uppercase tracking-widest">
                   {previewName}
                 </div>
               </div>
