@@ -177,16 +177,13 @@ export function TaskBlaster() {
   }, [dismissBlaster]);
 
   const getIcon = () => {
-    const iconSize = isMobile ? "w-8 h-8" : isTablet ? "w-10 h-10" : "w-12 h-12";
-    switch (task?.priority) {
-      case "top":
-      case "red":
-        return <Crown className={iconSize} />;
-      case "high":
-        return <Zap className={iconSize} />;
-      default:
-        return <Award className={iconSize} />;
-    }
+    return (
+      <img
+        src="/taskmanager-by-reardon.svg"
+        alt="Task Manager"
+        className={isMobile ? "w-20 h-auto" : isTablet ? "w-28 h-auto" : "w-36 h-auto"}
+      />
+    );
   };
 
   const getGradient = () => {
@@ -380,29 +377,18 @@ export function TaskBlaster() {
               }}
               className={`relative ${circleSize} rounded-full bg-gradient-to-br ${getGradient()} flex items-center justify-center text-white shadow-2xl border-2 sm:border-4 border-white/50`}
             >
-              {isPopped ? (
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1, rotate: 360 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <Gem className={isMobile ? "w-10 h-10" : isTablet ? "w-12 h-12" : "w-16 h-16"} />
-                </motion.div>
-              ) : (
                 <motion.div
                   animate={{ 
-                    rotate: [0, -10, 10, 0],
-                    scale: [1, 1.1, 1],
+                    scale: [1, 1.05, 1],
                   }}
                   transition={{
-                    duration: 0.5,
+                    duration: 1.5,
                     repeat: Infinity,
                     repeatType: "reverse",
                   }}
                 >
                   {getIcon()}
                 </motion.div>
-              )}
             </motion.div>
 
             {/* Pulse rings */}
@@ -433,9 +419,9 @@ export function TaskBlaster() {
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.4, type: "spring", stiffness: 200 }}
-                className={`${isMobile ? 'w-12 h-12' : 'w-16 h-16'} rounded-full bg-gradient-to-r ${getGradient()} flex items-center justify-center text-white shadow-lg`}
+                className={`${isMobile ? 'w-12 h-12' : 'w-16 h-16'} rounded-full bg-white flex items-center justify-center shadow-lg p-1`}
               >
-                <CheckCircle2 className={isMobile ? "w-6 h-6" : "w-8 h-8"} />
+                <img src="/taskmanager-by-reardon.svg" alt="logo" className="w-[80%] h-auto" />
               </motion.div>
               <div className="text-center">
                 <motion.p 

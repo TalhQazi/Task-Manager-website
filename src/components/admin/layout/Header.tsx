@@ -674,6 +674,10 @@ export function Header({ onMenuClick }: HeaderProps) {
 
               {/* Quick Actions Bar (Bottom) */}
               <div className="flex items-center justify-start gap-4">
+                <div className="md:hidden">
+                  <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/[0.14] transition-all" aria-label="Open navigation" onClick={() => onMenuClick?.()}><Menu className="h-5 w-5 text-white" /></button>
+                </div>
+
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
@@ -744,10 +748,6 @@ export function Header({ onMenuClick }: HeaderProps) {
                 >
                   <LogOut className="h-4.5 w-4.5" />
                 </button>
-
-                <div className="md:hidden">
-                  <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/[0.14] transition-all" aria-label="Open navigation" onClick={() => onMenuClick?.()}><Menu className="h-5 w-5 text-white" /></button>
-                </div>
               </div>
             </div>
           </div>
