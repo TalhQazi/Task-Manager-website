@@ -165,6 +165,41 @@ export async function apiFetch<T>(
   return (await parseJsonSafe(res)) as T;
 }
 
+// Contributor API functions
+export async function getTopContributors(limit = 5) {
+  return apiFetch<{ contributors: Array<{
+    userId: string;
+    name: string;
+    email: string;
+    role: string;
+    avatar?: string;
+    stats: {
+      totalTasksCreated: number;
+      totalTasksUpdated: number;
+      totalTasksCompleted: number;
+    };
+    projects: Array<{
+      projectId: string;
+      projectName: string;
+      contributionCount: number;
+    }>;
+  }> }>(`/api/contributors/top?limit=${limit}`);
+}
+
+export async function getTaskContributors(taskId: string) {
+  return apiFetch<{ items: Array<{
+    userId: string;
+    name: string;
+    email: string;
+    role: string;
+    contributionType: string;
+    actions: string[];
+    addedAt: string;
+    avatar?: string;
+    stats?: any;
+  }> }>(`/api/contributors/task/${encodeURIComponent(taskId)}/contributors`);
+}
+
 // Download task attachment with authentication
 export async function downloadTaskAttachment(
   taskId: string,

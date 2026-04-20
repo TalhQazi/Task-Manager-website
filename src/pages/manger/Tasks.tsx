@@ -92,7 +92,7 @@ import {
   Maximize2,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
-import { apiFetch, downloadTaskAttachment, toProxiedUrl } from "@/lib/manger/api";
+import { apiFetch, downloadTaskAttachment, toProxiedUrl, getTopContributors } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSocket } from "@/contexts/SocketContext";
@@ -469,6 +469,78 @@ const createTaskSchema = z.object({
 
 type CreateTaskValues = z.infer<typeof createTaskSchema>;
 
+// Task Contributors Component
+function TaskContributorsList({ taskId }: { taskId: string }) {
+  const [contributors, setContributors] = useState<Array<{
+    userId: string;
+    name: string;
+    email: string;
+    role: string;
+    contributionType: string;
+    actions: string[];
+    addedAt: string;
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadContributors = async () => {
+      setLoading(true);
+      try {
+        const res = await apiFetch<{ items: Array<{
+          userId: string;
+          name: string;
+          email: string;
+          role: string;
+          contributionType?: string;
+          actions?: string[];
+          addedAt?: string;
+          avatar?: string;
+          stats?: any;
+        }> }>(`/api/contributors/task/${encodeURIComponent(taskId)}/contributors`);
+        setContributors(res.items || []);
+      } catch (err) {
+        console.error("Failed to load task contributors:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadContributors();
+  }, [taskId]);
+
+  if (loading) {
+    return <div className="text-sm text-muted-foreground italic">Loading contributors...</div>;
+  }
+
+  if (contributors.length === 0) {
+    return <div className="text-sm text-muted-foreground italic bg-muted/20 border border-dashed rounded-lg p-3 text-center">No contributors yet</div>;
+  }
+
+  return (
+    <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto">
+      {contributors.map((contributor, idx) => (
+        <div key={idx} className="flex items-center gap-2.5 bg-background border border-border/60 rounded-lg px-3 py-2 shadow-sm">
+          <Avatar className="w-6 h-6">
+            <AvatarFallback className="text-[10px] bg-amber-100 text-amber-700 font-bold">
+              {contributor.name?.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase() || "?"}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <span className="text-sm font-medium text-foreground/80 truncate">{contributor.name || "Unknown"}</span>
+            <div className="flex items-center gap-1 mt-0.5">
+              <Badge variant="outline" className="text-[9px] h-4 px-1">
+                {contributor.contributionType}
+              </Badge>
+              <span className="text-[10px] text-muted-foreground">
+                {contributor.actions?.length || 0} actions
+              </span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Tasks() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
@@ -530,6 +602,26 @@ export default function Tasks() {
   const [isViewProjectOpen, setIsViewProjectOpen] = useState(false);
   const [projectComments, setProjectComments] = useState<TaskComment[]>([]);
   const [projectCommentsLoading, setProjectCommentsLoading] = useState(false);
+  
+  // Top contributors state
+  const [topContributors, setTopContributors] = useState<Array<{
+    userId: string;
+    name: string;
+    email: string;
+    role: string;
+    avatar?: string;
+    stats: {
+      totalTasksCreated: number;
+      totalTasksUpdated: number;
+      totalTasksCompleted: number;
+    };
+    projects: Array<{
+      projectId: string;
+      projectName: string;
+      contributionCount: number;
+    }>;
+  }>>([]);
+  const [topContributorsLoading, setTopContributorsLoading] = useState(false);
   
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const projectChatContainerRef = useRef<HTMLDivElement>(null);
@@ -603,6 +695,22 @@ export default function Tasks() {
       setProjects(projectsQuery.data.items);
     }
   }, [projectsQuery.data]);
+
+  // Load top contributors
+  useEffect(() => {
+    const loadTopContributors = async () => {
+      setTopContributorsLoading(true);
+      try {
+        const res = await getTopContributors(5);
+        setTopContributors(res.contributors || []);
+      } catch (err) {
+        console.error("Failed to load top contributors:", err);
+      } finally {
+        setTopContributorsLoading(false);
+      }
+    };
+    loadTopContributors();
+  }, []);
 
   // Real-time task comments via socket
   useEffect(() => {
@@ -1563,6 +1671,74 @@ export default function Tasks() {
         </div>
       </div>
 
+      {/* Top Contributors Section */}
+      <div className="bg-gradient-to-r from-amber-50/50 to-orange-50/50 dark:from-amber-950/20 dark:to-orange-950/20 rounded-xl border border-amber-200/60 dark:border-amber-800/30 p-4 mb-4">
+        <div className="flex items-center gap-2 mb-3">
+          <TrendingUp className="h-5 w-5 text-amber-600" />
+          <h3 className="font-semibold text-amber-900 dark:text-amber-100">Top Contributors</h3>
+        </div>
+        {topContributorsLoading ? (
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="flex-shrink-0 w-48 h-20 bg-muted rounded-lg animate-pulse" />
+            ))}
+          </div>
+        ) : topContributors.length === 0 ? (
+          <p className="text-sm text-muted-foreground italic">No contributors yet.</p>
+        ) : (
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            {topContributors.map((contributor, index) => (
+              <div
+                key={contributor.userId}
+                className="flex-shrink-0 bg-white dark:bg-background rounded-lg border border-amber-200/60 dark:border-amber-800/30 p-3 min-w-[200px] shadow-sm"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="relative">
+                    <Avatar className="h-10 w-10">
+                      <AvatarFallback className="bg-amber-100 text-amber-700 text-sm font-bold">
+                        {contributor.name?.split(" ").map(n => n[0]).join("").toUpperCase() || "?"}
+                      </AvatarFallback>
+                    </Avatar>
+                    {index < 3 && (
+                      <div className={`absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                        index === 0 ? "bg-yellow-400 text-yellow-900" :
+                        index === 1 ? "bg-gray-300 text-gray-700" :
+                        "bg-amber-600 text-white"
+                      }`}>
+                        {index + 1}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">{contributor.name || "Unknown"}</p>
+                    <p className="text-xs text-muted-foreground truncate">{contributor.email}</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant="outline" className="text-[10px] h-4 px-1.5">
+                        {contributor.role}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 mt-3 pt-2 border-t border-amber-100 dark:border-amber-800/30">
+                  <div className="text-center">
+                    <div className="text-xs font-semibold text-amber-700">{contributor.stats?.totalTasksCreated || 0}</div>
+                    <div className="text-[10px] text-muted-foreground">Created</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xs font-semibold text-amber-700">{contributor.stats?.totalTasksUpdated || 0}</div>
+                    <div className="text-[10px] text-muted-foreground">Updated</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-xs font-semibold text-amber-700">{contributor.stats?.totalTasksCompleted || 0}</div>
+                    <div className="text-[10px] text-muted-foreground">Completed</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {selectedProject ? (
         <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -2520,6 +2696,14 @@ export default function Tasks() {
                             <div className="text-sm text-muted-foreground italic bg-muted/20 border border-dashed rounded-lg p-3 text-center">Unassigned</div>
                           )}
                         </div>
+                      </div>
+
+                      {/* Task Contributors */}
+                      <div className="space-y-2">
+                        <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                          <TrendingUp className="w-3.5 h-3.5" /> Task Contributors
+                        </label>
+                        <TaskContributorsList taskId={selectedTask.id} />
                       </div>
 
                       {/* Info Grid */}
