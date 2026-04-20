@@ -321,12 +321,24 @@ const Locations = () => {
     }
   };
 
-  const handleViewDetails = (location: Location) => {
+  const handleViewDetails = async (location: Location) => {
     setSelectedLocation(location);
     setViewDetailsOpen(true);
+    
+    // Lazy load photo if needed
+    if (!location.photoDataUrl) {
+      try {
+        const res = await apiFetch<{ photoDataUrl: string; photoFileName: string }>(`/api/locations/${location.id}/photo`);
+        if (res.photoDataUrl) {
+          setSelectedLocation(prev => prev && prev.id === location.id ? { ...prev, photoDataUrl: res.photoDataUrl, photoFileName: res.photoFileName } : prev);
+        }
+      } catch (err) {
+        console.error("Failed to load location photo:", err);
+      }
+    }
   };
 
-  const handleEditLocation = (location: Location) => {
+  const handleEditLocation = async (location: Location) => {
     setSelectedLocation(location);
     setEditFormData({
       name: location.name,
@@ -343,6 +355,19 @@ const Locations = () => {
       photoFileName: location.photoFileName || "",
     });
     setEditLocationOpen(true);
+
+    // Lazy load photo for editing if not present
+    if (!location.photoDataUrl) {
+      try {
+        const res = await apiFetch<{ photoDataUrl: string; photoFileName: string }>(`/api/locations/${location.id}/photo`);
+        if (res.photoDataUrl) {
+           setEditFormData(prev => ({ ...prev, photoDataUrl: res.photoDataUrl, photoFileName: res.photoFileName }));
+           setSelectedLocation(prev => prev && prev.id === location.id ? { ...prev, photoDataUrl: res.photoDataUrl, photoFileName: res.photoFileName } : prev);
+        }
+      } catch (err) {
+        console.error("Failed to load location photo for edit:", err);
+      }
+    }
   };
 
   const saveEditLocation = async () => {

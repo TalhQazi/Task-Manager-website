@@ -724,7 +724,8 @@ export default function Tasks() {
   const activeEmployees = useMemo(() => {
     return employees.filter((e) => {
       const s = String(e.status || "").toLowerCase();
-      return s === "active" || s === "on-leave" || !e.status;
+      // Only show employees who are strictly 'active'
+      return s === "active";
     });
   }, [employees]);
 
