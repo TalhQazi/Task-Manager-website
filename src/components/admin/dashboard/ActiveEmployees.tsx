@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Users, ArrowRight, Briefcase } from "lucide-react";
-import { apiFetch, listResource } from "@/lib/api";
+import { apiFetch, listResource, toProxiedUrl } from "@/lib/admin/apiClient";
 
 type Employee = {
   id: string;
