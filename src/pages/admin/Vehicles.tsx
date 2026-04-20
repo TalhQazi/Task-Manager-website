@@ -629,9 +629,11 @@ const Vehicles = () => {
   }, [searchQuery, vehiclesList]);
 
   const vehiclesStatusData = useMemo(() => {
-    const map: Record<string, number> = { active: 0, maintenance: 0, inactive: 0 };
+    const map: Record<string, number> = { active: 0, maintenance: 0, inactive: 0, available: 0 };
     for (const v of vehiclesList) map[v.status] = (map[v.status] ?? 0) + 1;
-    return Object.entries(map).map(([name, value]) => ({ name, value }));
+    return Object.entries(map)
+      .map(([name, value]) => ({ name, value }))
+      .filter(item => item.value > 0);
   }, [vehiclesList]);
 
   const inspectionsDueCount = useMemo(() => {
@@ -1068,7 +1070,7 @@ const Vehicles = () => {
                     innerRadius={35}
                     outerRadius={80}
                     paddingAngle={3}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    label={({ name, percent, value }) => value > 0 ? `${name}: ${(percent * 100).toFixed(0)}%` : ""}
                     labelLine={false}
                   >
                     {vehiclesStatusData.map((_, index) => (
