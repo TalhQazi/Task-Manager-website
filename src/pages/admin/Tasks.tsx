@@ -2384,7 +2384,7 @@ export default function Tasks() {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={(e) => { e.stopPropagation(); if (attachment.url) void downloadViaUrl(toProxiedUrl(attachment.url) || attachment.url, attachment.fileName || "download"); }}
+                                  onClick={(e) => { e.stopPropagation(); void downloadTaskAttachment(selectedTask.id, idx, attachment.fileName || "download"); }}
                                   className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white"
                                   title="Download"
                                 >
@@ -2413,7 +2413,7 @@ export default function Tasks() {
                                 </button>
                                 <button
                                   type="button"
-                                  onClick={(e) => { e.stopPropagation(); if (selectedTask.attachment?.url) void downloadViaUrl(toProxiedUrl(selectedTask.attachment.url) || selectedTask.attachment.url, selectedTask.attachment.fileName || "download"); }}
+                                  onClick={(e) => { e.stopPropagation(); void downloadTaskAttachment(selectedTask.id, -1, selectedTask.attachment?.fileName || "download"); }}
                                   className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white"
                                   title="Download"
                                 >
