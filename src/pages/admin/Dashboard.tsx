@@ -127,7 +127,14 @@ const Dashboard = () => {
             { title: "Overdue Tasks", value: metrics.overdueTasks, icon: AlertTriangle, variant: "danger", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
             { title: "Clocked In", value: metrics.clockedInEmployees, icon: Clock, variant: "amber", changeType: "neutral" as const, onClick: () => navigate("/admin/time-tracking") },
             { title: "Pending Bugs", value: metrics.pendingBugs, icon: Bug, variant: "indigo", changeType: "neutral" as const, onClick: () => navigate("/admin/bug-reports") },
-          ].map((stat) => (
+            { title: "Total Users", value: summary?.employeeTotal || 0, icon: Users, variant: "pink", changeType: "positive" as const, onClick: () => navigate("/admin/employees") },
+            { title: "Network", value: metrics.totalWebsites, icon: Globe, variant: "cyan", changeType: "positive" as const, onClick: () => navigate("/admin/websites") },
+            { title: "Assets", value: metrics.totalPatents, icon: FileSearch, variant: "majesty", changeType: "positive" as const, onClick: () => navigate("/admin/intellectual-property") },
+            { title: "System Health", value: "Optimal", icon: Bug, variant: "lime", changeType: "neutral" as const, onClick: () => navigate("/admin/bug-reports") },
+          ].slice(0, 9).map((stat, idx) => {
+            // Further ensure unique colors by rotating if more stats are added
+            const variants: any[] = ["primary", "success", "purple", "orange", "rose", "teal", "danger", "amber", "indigo", "pink", "cyan", "majesty", "lime"];
+            return (
             <motion.div
               key={stat.title}
               variants={itemVariants}
@@ -139,11 +146,11 @@ const Dashboard = () => {
                 value={stat.value}
                 changeType={stat.changeType}
                 icon={stat.icon}
-                variant={stat.variant as any}
+                variant={variants[idx % variants.length]}
                 onClick={stat.onClick}
               />
             </motion.div>
-          ))}
+          )})}
         </motion.div>
 
         {/* Charts Section with fade-in animation */}

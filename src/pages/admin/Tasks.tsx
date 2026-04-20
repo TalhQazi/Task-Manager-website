@@ -91,7 +91,7 @@ import {
   Maximize2,
 } from "lucide-react";
 import { cn } from "@/lib/admin/utils";
-import { apiFetch, downloadTaskAttachment, toProxiedUrl } from "@/lib/admin/apiClient";
+import { apiFetch, downloadTaskAttachment, toProxiedUrl, downloadViaUrl } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import jsPDF from "jspdf";
@@ -219,16 +219,14 @@ function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fa
         >
           <Maximize2 className="w-4 h-4" />
         </button>
-        <a 
-          href={src} 
-          download={fileName} 
+        <button 
+          onClick={(e) => { e.stopPropagation(); void downloadViaUrl(src, fileName); }} 
           aria-label="Download" 
-          onClick={(e) => e.stopPropagation()} 
           className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
           title="Download"
         >
           <Download className="w-4 h-4" />
-        </a>
+        </button>
       </div>
     </div>
   );
@@ -2380,7 +2378,7 @@ export default function Tasks() {
                                 </button>
                                 <button 
                                   type="button" 
-                                  onClick={(e) => { e.stopPropagation(); void downloadTaskAttachment(selectedTask.id, idx, attachment.fileName || "download"); }} 
+                                  onClick={(e) => { e.stopPropagation(); if (attachment.url) void downloadViaUrl(attachment.url, attachment.fileName || "download"); }} 
                                   className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white"
                                   title="Download"
                                 >
@@ -2409,7 +2407,7 @@ export default function Tasks() {
                                 </button>
                                 <button 
                                   type="button" 
-                                  onClick={(e) => { e.stopPropagation(); void downloadTaskAttachment(selectedTask.id, -1, selectedTask.attachment!.fileName || "download"); }} 
+                                  onClick={(e) => { e.stopPropagation(); if (selectedTask.attachment?.url) void downloadViaUrl(selectedTask.attachment.url, selectedTask.attachment.fileName || "download"); }} 
                                   className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white"
                                   title="Download"
                                 >
@@ -3280,15 +3278,13 @@ export default function Tasks() {
         <DialogContent className="max-w-[95vw] w-fit p-0 border-none bg-transparent shadow-none">
           <div className="relative group/preview-modal">
             <div className="absolute top-4 right-4 z-50 flex items-center gap-3 opacity-0 group-hover/preview-modal:opacity-100 transition-opacity">
-              <a 
-                href={previewUrl || ""} 
-                download={previewName}
+              <button 
+                onClick={(e) => { e.stopPropagation(); if (previewUrl) void downloadViaUrl(previewUrl, previewName); }}
                 className="p-2 bg-black/50 hover:bg-black/70 backdrop-blur-md rounded-full text-white shadow-lg transition-all"
                 title="Download"
-                onClick={(e) => e.stopPropagation()}
               >
                 <Download className="w-5 h-5" />
-              </a>
+              </button>
               <button
                 onClick={() => setPreviewUrl(null)}
                 className="p-2 bg-black/50 hover:bg-black/70 backdrop-blur-md rounded-full text-white shadow-lg transition-all"
@@ -3310,15 +3306,13 @@ export default function Tasks() {
                     <FileText className="w-20 h-20 text-white/40 mb-4" />
                     <p className="text-white font-semibold mb-2">{previewName}</p>
                     <p className="text-white/40 text-xs mb-6">Preview not available for this file type</p>
-                    <a 
-                      href={previewUrl} 
-                      download={previewName}
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); if (previewUrl) void downloadViaUrl(previewUrl, previewName); }}
                       className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-full font-bold hover:opacity-90 transition-all shadow-lg"
-                      onClick={(e) => e.stopPropagation()}
                     >
                       <Download className="w-4 h-4" />
                       Download File
-                    </a>
+                    </button>
                   </div>
                 )}
                 <div className="mt-6 px-6 py-2 bg-white/10 backdrop-blur-md rounded-full text-white text-sm font-bold shadow-lg border border-white/10 uppercase tracking-widest">

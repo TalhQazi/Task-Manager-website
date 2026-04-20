@@ -215,6 +215,32 @@ export async function downloadTaskAttachment(
   URL.revokeObjectURL(objectUrl);
 }
 
+// Download any URL with authentication
+export async function downloadViaUrl(url: string, fileName: string): Promise<void> {
+  const auth = getAuthState();
+  
+  // Use fetch to get the blob with headers
+  const res = await fetch(url, {
+    headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
+  });
+  
+  if (!res.ok) {
+    throw new Error(`Download failed (${res.status})`);
+  }
+  
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  
+  URL.revokeObjectURL(objectUrl);
+}
+
 // Admin Scrum Records API
 export async function getAdminScrumRecords(params?: { from?: string; to?: string; employee?: string; page?: number; limit?: number }) {
   const query = new URLSearchParams();
