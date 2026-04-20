@@ -50,7 +50,7 @@ export function StatCard({
           )}>
             {title}
           </p>
-          
+
           <p className={cn(
             "text-xl font-bold animate-count-up",
             "leading-tight",
@@ -58,7 +58,7 @@ export function StatCard({
           )}>
             {value}
           </p>
-          
+
           {change && (
             <p
               className={cn(

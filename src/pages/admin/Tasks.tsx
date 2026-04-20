@@ -480,7 +480,6 @@ export default function Tasks() {
   const { socket, joinTask, leaveTask } = useSocket();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
-  const [projectSearchQuery, setProjectSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [projectPage, setProjectPage] = useState(1);
@@ -596,12 +595,12 @@ export default function Tasks() {
 
   // Fetch projects with server-side pagination
   const projectsQuery = useQuery({
-    queryKey: ["projects", projectPage, projectSearchQuery],
+    queryKey: ["projects", projectPage, searchQuery],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: projectPage.toString(),
         limit: PAGE_SIZE.toString(),
-        search: projectSearchQuery,
+        search: searchQuery,
       });
       const res = await apiFetch<{ items: Project[], totalPages: number, total: number }>(`/api/projects?${params.toString()}`);
       return {
@@ -1716,7 +1715,6 @@ export default function Tasks() {
   }, [sourceTasks, searchQuery, statusFilter, priorityFilter]);
 
   const filteredProjects = useMemo(() => {
-    const qProject = projectSearchQuery.trim().toLowerCase();
     const qMain = searchQuery.trim().toLowerCase();
     const sFilter = statusFilter.toLowerCase();
 
@@ -1731,11 +1729,6 @@ export default function Tasks() {
         return false;
       }
 
-      // If projectSearchQuery is present, it takes priority or acts as an additional filter
-      if (qProject && !name.includes(qProject) && !desc.includes(qProject) && !assignees.includes(qProject)) {
-        return false;
-      }
-
       // If the main search bar has text, it must match either name, desc, or assignees
       if (qMain && !name.includes(qMain) && !desc.includes(qMain) && !assignees.includes(qMain)) {
         return false;
@@ -1743,7 +1736,7 @@ export default function Tasks() {
 
       return true;
     });
-  }, [projects, projectSearchQuery, searchQuery, statusFilter]);
+  }, [projects, searchQuery, statusFilter]);
 
   const filteredStandaloneTasks = useMemo(() => {
     const standalone = tasks.filter((t) => !t.projectId);
@@ -1821,10 +1814,10 @@ export default function Tasks() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search tasks or assignee..."
+            placeholder="Search projects, tasks, or assignee..."
             className="pl-10 h-10 w-full"
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => { setSearchQuery(e.target.value); setProjectPage(1); setTaskPage(1); }}
           />
         </div>
         <div className="flex flex-wrap gap-2">
@@ -1922,13 +1915,13 @@ export default function Tasks() {
               <h2 className="font-semibold text-lg">
                 Projects ({Math.min(projectPage * PAGE_SIZE, projectsQuery.data?.totalItems || 0)} - {projectsQuery.data?.totalItems || 0})
               </h2>
-              <div className="relative w-full sm:w-64">
+              <div className="relative w-full sm:w-64 hidden">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                   placeholder="Search projects..."
                   className="pl-10 h-9 w-full"
-                  value={projectSearchQuery}
-                  onChange={(e) => { setProjectSearchQuery(e.target.value); setProjectPage(1); }}
+                  value={searchQuery}
+                  onChange={(e) => { setSearchQuery(e.target.value); setProjectPage(1); }}
                 />
               </div>
             </div>
@@ -1937,7 +1930,7 @@ export default function Tasks() {
             ) : projectsQuery.isError ? (
               <p className="text-destructive">{(() => { const msg = projectsQuery.error instanceof Error ? projectsQuery.error.message : "Failed to load projects"; return msg.startsWith("<") ? "Server error: failed to load projects. The server may be temporarily unavailable (504 Gateway Timeout). Please try again later." : msg; })()}</p>
             ) : projectsQuery.data?.items.length === 0 ? (
-              <p className="text-muted-foreground">{projectSearchQuery ? "No projects match your search." : "No projects found. Create one to begin."}</p>
+              <p className="text-muted-foreground">{searchQuery ? "No projects match your search." : "No projects found. Create one to begin."}</p>
             ) : (
               <>
                 <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
