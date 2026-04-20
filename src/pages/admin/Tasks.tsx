@@ -2069,7 +2069,11 @@ export default function Tasks() {
                           </div>
                           {task.attachment?.fileName && (
                             <div className="mb-2 rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
-                              <TaskAttachmentImg taskId={task.id} attachmentUrl={task.attachment?.url} />
+                              <TaskAttachmentImg 
+                                taskId={task.id} 
+                                attachmentUrl={task.attachment?.url} 
+                                onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
+                              />
                             </div>
                           )}
                           <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
@@ -2357,7 +2361,7 @@ export default function Tasks() {
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 bg-muted/20 p-3 rounded-xl border border-border/50">
                         {selectedTask.attachments && selectedTask.attachments.length > 0
                           ? selectedTask.attachments.map((attachment, idx) => (
-                            <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => attachment.url && setPreviewUrl(attachment.url) && setPreviewName(attachment.fileName || "Attachment")}>
+                            <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => { if (attachment.url) { setPreviewUrl(attachment.url); setPreviewName(attachment.fileName || "Attachment"); } }}>
                               {(attachment.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(attachment.fileName || "")) && attachment.url ? (
                                 <img src={attachment.url} alt={attachment.fileName || `Attachment`} className="w-full h-24 object-cover" />
                               ) : (
@@ -2387,7 +2391,7 @@ export default function Tasks() {
                             </div>
                           ))
                           : selectedTask.attachment?.fileName ? (
-                            <div className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => selectedTask.attachment?.url && setPreviewUrl(selectedTask.attachment.url) && setPreviewName(selectedTask.attachment.fileName || "Attachment")}>
+                            <div className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => { if (selectedTask.attachment?.url) { setPreviewUrl(selectedTask.attachment.url); setPreviewName(selectedTask.attachment.fileName || "Attachment"); } }}>
                               {selectedTask.attachment.mimeType?.startsWith("image/") && selectedTask.attachment.url ? (
                                 <img src={selectedTask.attachment.url} alt={selectedTask.attachment.fileName || "Attachment"} className="w-full h-24 object-cover" />
                               ) : (
@@ -3222,7 +3226,11 @@ export default function Tasks() {
                         <p className="text-sm text-muted-foreground line-clamp-2 break-words">{task.description}</p>
                         {task.attachment?.fileName && (
                           <div className="rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
-                            <TaskAttachmentImg taskId={task.id} />
+                            <TaskAttachmentImg 
+                              taskId={task.id} 
+                              attachmentUrl={task.attachment?.url}
+                              onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
+                            />
                           </div>
                         )}
                         <div><p className="text-xs text-muted-foreground mb-2">Assigned to</p><div className="flex flex-wrap items-center gap-2">{task.assignees && task.assignees.length > 0 ? (<><div className="flex -space-x-2">{task.assignees.slice(0, 3).map((assignee, idx) => {
@@ -3290,13 +3298,30 @@ export default function Tasks() {
               </button>
             </div>
             {previewUrl && (
-              <div className="flex flex-col items-center">
-                <img 
-                  src={previewUrl} 
-                  alt={previewName} 
-                  className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl" 
-                />
-                <div className="mt-4 px-4 py-2 bg-black/50 backdrop-blur-md rounded-full text-white text-sm font-medium shadow-lg">
+              <div className="flex flex-col items-center bg-black/40 backdrop-blur-md p-8 rounded-2xl border border-white/10">
+                {(previewUrl.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)/i) || previewUrl.startsWith("data:image/")) ? (
+                  <img 
+                    src={previewUrl} 
+                    alt={previewName} 
+                    className="max-h-[75vh] max-w-full object-contain rounded-lg shadow-2xl transition-transform duration-300 hover:scale-[1.02]" 
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-12 bg-white/5 rounded-2xl border border-white/10 min-w-[300px]">
+                    <FileText className="w-20 h-20 text-white/40 mb-4" />
+                    <p className="text-white font-semibold mb-2">{previewName}</p>
+                    <p className="text-white/40 text-xs mb-6">Preview not available for this file type</p>
+                    <a 
+                      href={previewUrl} 
+                      download={previewName}
+                      className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-full font-bold hover:opacity-90 transition-all shadow-lg"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Download className="w-4 h-4" />
+                      Download File
+                    </a>
+                  </div>
+                )}
+                <div className="mt-6 px-6 py-2 bg-white/10 backdrop-blur-md rounded-full text-white text-sm font-bold shadow-lg border border-white/10 uppercase tracking-widest">
                   {previewName}
                 </div>
               </div>

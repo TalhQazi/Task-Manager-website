@@ -7,7 +7,7 @@ interface StatCardProps {
   change?: string;
   changeType?: "positive" | "negative" | "neutral";
   icon: LucideIcon;
-  variant?: "primary" | "success" | "warning" | "danger" | "info" | "purple" | "orange" | "indigo" | "teal";
+  variant?: "primary" | "success" | "warning" | "danger" | "info" | "purple" | "orange" | "indigo" | "teal" | "rose" | "amber";
   onClick?: () => void;
 }
 
@@ -30,6 +30,8 @@ export function StatCard({
     orange: "stat-card-gradient gradient-orange",
     indigo: "stat-card-gradient gradient-indigo",
     teal: "stat-card-gradient gradient-teal",
+    rose: "stat-card-gradient gradient-rose",
+    amber: "stat-card-gradient gradient-amber",
   };
 
   return (
