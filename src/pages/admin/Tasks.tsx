@@ -2270,6 +2270,7 @@ export default function Tasks() {
 
       {/* View Task Dialog with Asana-style 2-pane UI */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+        <DialogContent className="w-[98vw] max-w-[1100px] h-[90vh] flex flex-col overflow-hidden rounded-xl p-0 gap-0 border-0 shadow-2xl">
           {selectedTask && (
             <>
               {/* Visually hidden for accessibility */}
