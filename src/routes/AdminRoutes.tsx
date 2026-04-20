@@ -41,6 +41,7 @@ const EmployeeScrumHistory = lazy(() => import("@/pages/admin/EmployeeScrumHisto
 const SignaCore = lazy(() => import("@/pages/admin/SignaCore"));
 const UphMaintenance = lazy(() => import("@/pages/admin/UphMaintenance"));
 const BugReport = lazy(() => import("@/pages/admin/BugReport"));
+const Contributors = lazy(() => import("@/pages/admin/Contributors"));
 
 function PageLoader() {
   return (
@@ -98,6 +99,7 @@ export default function AdminRoutes() {
       { path: "founder-messages", element: <FounderMessages /> },
       { path: "scrum-records", element: <ScrumRecords /> },
       { path: "scrum-records/:employeeName", element: <EmployeeScrumHistory /> },
+      { path: "contributors", element: <Contributors /> },
       { path: "bug-reports", element: <BugReport /> },
       { path: "*", element: <NotFound /> },
     ],

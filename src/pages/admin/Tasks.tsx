@@ -98,6 +98,7 @@ import jsPDF from "jspdf";
 import { useSocket } from "@/contexts/SocketContext";
 import { Pagination } from "@/components/Pagination";
 import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
+import { TaskContributors } from "@/components/admin/tasks/TaskContributors";
 
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
   const [src, setSrc] = useState<string | null | undefined>(undefined);
@@ -2729,6 +2730,9 @@ export default function Tasks() {
                       <span>Created</span>
                       <span className="text-foreground/80">{new Date(selectedTask.createdAt).toLocaleDateString()}</span>
                     </div>
+
+                    {/* Task Contributors */}
+                    {selectedTask && <TaskContributors taskId={selectedTask.id} />}
 
                   </div>
                 </div>

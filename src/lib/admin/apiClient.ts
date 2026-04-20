@@ -236,3 +236,106 @@ export async function getAdminEmployeeScrumRecords(employeeName: string, params?
 
   return apiFetch<{ items: Array<{ id: string; date: string; clockIn: string; clockOut: string; totalHours: number; scrum: string; createdAt: string }>; total: number; page: number; limit: number }>(`/api/time-entries/scrum-records/${encodeURIComponent(employeeName)}?${query.toString()}`);
 }
+
+// Contributor API
+export interface Contributor {
+  _id: string;
+  userId: string;
+  name: string;
+  email: string;
+  role: string;
+  avatar?: string;
+  department?: string;
+  stats: {
+    totalTasksCreated: number;
+    totalTasksUpdated: number;
+    totalTasksCompleted: number;
+    totalProjectsContributed: number;
+    totalTimeSpent: number;
+    lastContributionAt?: string;
+  };
+  projects: Array<{
+    projectId: string;
+    projectName: string;
+    firstContributionAt: string;
+    lastContributionAt: string;
+    contributionCount: number;
+  }>;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Contribution {
+  _id: string;
+  contributorId: string;
+  contributorName: string;
+  contributorEmail: string;
+  contributorRole: string;
+  action: string;
+  resourceType: string;
+  resourceId: string;
+  resourceName: string;
+  projectId?: string;
+  projectName?: string;
+  description: string;
+  changes?: Array<{ field: string; oldValue: any; newValue: any }>;
+  timeSpent?: number;
+  impact: string;
+  createdAt: string;
+}
+
+export async function getContributors(params?: { search?: string; role?: string; projectId?: string; page?: number; limit?: number }) {
+  const query = new URLSearchParams();
+  if (params?.search) query.append("search", params.search);
+  if (params?.role) query.append("role", params.role);
+  if (params?.projectId) query.append("projectId", params.projectId);
+  if (params?.page) query.append("page", String(params.page));
+  if (params?.limit) query.append("limit", String(params.limit));
+  return apiFetch<{ items: Contributor[]; total: number; page: number; limit: number; totalPages: number }>(`/api/contributors?${query.toString()}`);
+}
+
+export async function getTopContributors(params?: { limit?: number; projectId?: string; role?: string }) {
+  const query = new URLSearchParams();
+  if (params?.limit) query.append("limit", String(params.limit));
+  if (params?.projectId) query.append("projectId", params.projectId);
+  if (params?.role) query.append("role", params.role);
+  return apiFetch<{ items: Contributor[]; total: number }>(`/api/contributors/top?${query.toString()}`);
+}
+
+export async function getContributor(userId: string) {
+  return apiFetch<{ contributor: Contributor; recentContributions: Contribution[]; tasksWorkedOn: any[] }>(`/api/contributors/${userId}`);
+}
+
+export async function getContributorContributions(userId: string, params?: { resourceType?: string; action?: string; from?: string; to?: string; page?: number; limit?: number }) {
+  const query = new URLSearchParams();
+  if (params?.resourceType) query.append("resourceType", params.resourceType);
+  if (params?.action) query.append("action", params.action);
+  if (params?.from) query.append("from", params.from);
+  if (params?.to) query.append("to", params.to);
+  if (params?.page) query.append("page", String(params.page));
+  if (params?.limit) query.append("limit", String(params.limit));
+  return apiFetch<{ items: Contribution[]; total: number; page: number; limit: number; totalPages: number }>(`/api/contributors/${userId}/contributions?${query.toString()}`);
+}
+
+export async function getTaskContributors(taskId: string) {
+  return apiFetch<{ items: Array<{ userId: string; name: string; email: string; role: string; addedAt: string; contributionType: string; actions: string[]; avatar?: string; department?: string; stats?: any }>; total: number }>(`/api/contributors/task/${taskId}/contributors`);
+}
+
+export async function getTaskContributionHistory(taskId: string, limit?: number) {
+  const query = new URLSearchParams();
+  if (limit) query.append("limit", String(limit));
+  return apiFetch<{ items: Contribution[]; total: number }>(`/api/contributors/task/${taskId}?${query.toString()}`);
+}
+
+export async function getProjectContributors(projectId: string) {
+  return apiFetch<{ items: Array<{ userId: string; name: string; email: string; role: string; contributions: Contribution[]; stats: { tasksCreated: number; tasksUpdated: number; tasksCompleted: number; totalContributions: number } }>; total: number }>(`/api/contributors/project/${projectId}`);
+}
+
+export async function searchContributors(term: string, params?: { role?: string; projectId?: string; limit?: number }) {
+  const query = new URLSearchParams();
+  if (params?.role) query.append("role", params.role);
+  if (params?.projectId) query.append("projectId", params.projectId);
+  if (params?.limit) query.append("limit", String(params.limit));
+  return apiFetch<{ items: Contributor[]; total: number }>(`/api/contributors/search/${encodeURIComponent(term)}?${query.toString()}`);
+}
