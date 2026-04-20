@@ -118,7 +118,7 @@ const Dashboard = () => {
           variants={containerVariants}
         >
           {metrics && [
-            { title: "Active Employee", value: metrics.totalEmployees, icon: Users, variant: "primary", changeType: "positive" as const, onClick: () => navigate("/admin/employees") },
+            { title: "Active Employee", value: metrics.clockedInEmployees, icon: Users, variant: "primary", changeType: "positive" as const, onClick: () => navigate("/admin/employees") },
             { title: "Active Tasks", value: metrics.activeTasks, icon: CheckSquare, variant: "success", changeType: "neutral" as const, onClick: () => navigate("/admin/tasks") },
             { title: "Active Projects", value: metrics.totalProjects, icon: FolderRoot, variant: "purple", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
             { title: "Total Vehicles", value: metrics.totalVehicles, icon: Car, variant: "orange", changeType: "positive" as const, onClick: () => navigate("/admin/vehicles") },

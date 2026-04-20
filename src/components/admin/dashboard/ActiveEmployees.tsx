@@ -12,6 +12,7 @@ type Employee = {
   email: string;
   role?: string;
   status: "active" | "inactive" | "on-leave";
+  avatarUrl?: string;
 };
 
 const statusClasses = {
@@ -31,10 +32,27 @@ export function ActiveEmployees() {
       try {
         setLoading(true);
         setApiError(null);
-        const emps = await listResource<Employee>("employees");
+        interface RawEmployee {
+          id: string;
+          name: string;
+          initials: string;
+          email: string;
+          role?: string;
+          status: "active" | "inactive" | "on-leave";
+          avatarUrl?: string;
+        }
+        const emps = await listResource<RawEmployee>("employees");
         if (!mounted) return;
         // Show only active employees, max 3
-        setEmployees(emps.filter(e => e.status === 'active').slice(0, 3));
+        setEmployees(
+          emps
+            .filter((e) => e.status === "active")
+            .slice(0, 3)
+            .map((e) => ({
+              ...e,
+              avatarUrl: toProxiedUrl(e.avatarUrl) || e.avatarUrl,
+            }))
+        );
       } catch (e) {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load employees");

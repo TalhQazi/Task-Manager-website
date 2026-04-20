@@ -688,8 +688,8 @@ export default function Tasks() {
           id: u.id,
           name: u.name,
           email: u.email,
-          avatarUrl: u.avatarUrl,
-          avatarDataUrl: u.avatarUrl,
+          avatarUrl: toProxiedUrl(u.avatarUrl) || u.avatarUrl,
+          avatarDataUrl: toProxiedUrl(u.avatarUrl) || u.avatarUrl,
           status: (u.status || "active") as Employee["status"],
           initials: (u.name || u.username || "??")
             .split(" ")
@@ -1867,18 +1867,19 @@ export default function Tasks() {
             <div className="mt-3">
               <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({selectedProject.attachments.length})</p>
               <div className="flex flex-wrap gap-2">
-                {selectedProject.attachments.map((att, idx) => (
-                  att.mimeType?.startsWith("image/") ? (
-                    <a key={idx} href={att.url} target="_blank" rel="noreferrer">
-                      <img src={att.url} alt={att.fileName} className="h-16 w-16 object-cover rounded-md border border-border" />
-                    </a>
+                {selectedProject.attachments.map((att, idx) => {
+                  const proxied = toProxiedUrl(att.url) || att.url;
+                  return att.mimeType?.startsWith("image/") ? (
+                    <button key={idx} onClick={() => { setPreviewUrl(proxied); setPreviewName(att.fileName); }}>
+                      <img src={proxied} alt={att.fileName} className="h-16 w-16 object-cover rounded-md border border-border" />
+                    </button>
                   ) : (
-                    <a key={idx} href={att.url} target="_blank" rel="noreferrer" download={att.fileName}
+                    <button key={idx} onClick={() => void downloadViaUrl(proxied, att.fileName)}
                       className="flex items-center gap-1 px-2 py-1 rounded-md border border-border text-xs hover:bg-muted truncate max-w-[160px]">
                       📄 {att.fileName}
-                    </a>
-                  )
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -2269,9 +2270,13 @@ export default function Tasks() {
 
       {/* View Task Dialog with Asana-style 2-pane UI */}
       <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-        <DialogContent className="w-[98vw] max-w-[1100px] h-[90vh] flex flex-col overflow-hidden rounded-xl p-0 gap-0 border-0 shadow-2xl">
           {selectedTask && (
             <>
+              {/* Visually hidden for accessibility */}
+              <DialogHeader className="sr-only">
+                <DialogTitle>{selectedTask.title}</DialogTitle>
+                <DialogDescription>{selectedTask.description || "Task details and activity"}</DialogDescription>
+              </DialogHeader>
               {/* Asana-style Header: Status Badge and Actions */}
               <div className="flex items-center justify-between p-3 border-b bg-background z-10 shrink-0">
                 <div className="flex items-center gap-3 ml-2">
@@ -2488,7 +2493,7 @@ export default function Tasks() {
                                         {!isSameAuthor ? (
                                           <Avatar className="w-8 h-8 border shadow-sm flex-shrink-0 mb-1">
                                             {c.authorAvatar ? (
-                                              <img src={c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
+                                              <img src={toProxiedUrl(c.authorAvatar) || c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
                                             ) : (
                                               <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
                                                 {(c.authorFullName || c.authorUsername).substring(0, 2).toUpperCase()}
@@ -2667,7 +2672,7 @@ export default function Tasks() {
                               e.email.toLowerCase().trim() === term ||
                               (e.id && e.id.toLowerCase() === term)
                             );
-                            const avatar = emp?.avatarDataUrl || emp?.avatarUrl;
+                            const avatar = toProxiedUrl(emp?.avatarDataUrl || emp?.avatarUrl) || emp?.avatarDataUrl || emp?.avatarUrl;
                             return (
                               <div key={idx} className="flex items-center gap-2.5 bg-background border border-border/60 rounded-lg px-3 py-2 shadow-sm transition-colors hover:border-border">
                                 <Avatar className="w-6 h-6">
@@ -3238,7 +3243,7 @@ export default function Tasks() {
                             e.email.toLowerCase().trim() === term ||
                             (e.id && e.id.toLowerCase() === term)
                           );
-                          const avatar = emp?.avatarDataUrl || emp?.avatarUrl;
+                          const avatar = toProxiedUrl(emp?.avatarDataUrl || emp?.avatarUrl) || emp?.avatarDataUrl || emp?.avatarUrl;
                           return (<Avatar key={idx} className="w-7 h-7 border-2 border-background">{avatar ? (<img src={avatar} alt="avatar" className="w-full h-full object-cover" />) : (<AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">{(emp?.initials || assignee.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()).substring(0, 2)}</AvatarFallback>)}</Avatar>);
                         })}{task.assignees.length > 3 && (<div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">+{task.assignees.length - 3}</div>)}</div><span className="text-sm text-foreground break-words">{task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}</span></>) : (<span className="text-sm text-muted-foreground">Unassigned</span>)}</div></div>
                         <div className="flex gap-2 flex-wrap"><Badge variant="secondary" className={cn("text-xs", statusClasses[task.status])}>{task.status}</Badge><Badge variant="outline" className={cn("text-xs border", priorityClasses[task.priority])}>{task.priority}</Badge></div>
@@ -3276,6 +3281,10 @@ export default function Tasks() {
       {/* File Preview Lightbox */}
       <Dialog open={!!previewUrl} onOpenChange={(open) => !open && setPreviewUrl(null)}>
         <DialogContent className="max-w-[95vw] w-fit p-0 border-none bg-transparent shadow-none">
+          <DialogHeader className="sr-only">
+            <DialogTitle>File Preview: {previewName}</DialogTitle>
+            <DialogDescription>Previewing attachment file</DialogDescription>
+          </DialogHeader>
           <div className="relative group/preview-modal">
             <div className="absolute top-4 right-4 z-50 flex items-center gap-3 opacity-0 group-hover/preview-modal:opacity-100 transition-opacity">
               <button 

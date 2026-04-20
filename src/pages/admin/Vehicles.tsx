@@ -53,7 +53,7 @@ import {
   Clock,
   Camera,
 } from "lucide-react";
-import { createResource, deleteResource, listResource, updateResource } from "@/lib/admin/apiClient";
+import { createResource, deleteResource, listResource, updateResource, toProxiedUrl } from "@/lib/admin/apiClient";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
@@ -301,11 +301,11 @@ const Vehicles = () => {
   const getVehicleTagPhotoSrc = (v?: Partial<Vehicle> | null) => {
     if (!v) return null;
     const dataUrl = String(v.tagPhotoDataUrl || "").trim();
-    if (dataUrl) return dataUrl;
+    if (dataUrl) return toProxiedUrl(dataUrl) || dataUrl;
     const fileName = String(v.tagPhotoFileName || "").trim();
     if (!fileName) return null;
     if (fileName.startsWith("data:")) return fileName;
-    if (fileName.startsWith("http://") || fileName.startsWith("https://")) return fileName;
+    if (fileName.startsWith("http://") || fileName.startsWith("https://")) return toProxiedUrl(fileName) || fileName;
     if (fileName.startsWith("/")) return fileName;
     return null;
   };

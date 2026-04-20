@@ -262,7 +262,7 @@ export default function Bugs() {
                   <p className="text-xs sm:text-sm font-medium">Attachment</p>
                   <div className="w-full overflow-hidden rounded-lg border bg-white">
                     <img
-                      src={String(selected.attachment.url)}
+                      src={toProxiedUrl(String(selected.attachment.url))}
                       alt={String(selected.attachment.fileName || "Bug attachment")}
                       className="w-full h-auto max-h-[65vh] object-contain"
                     />
