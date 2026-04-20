@@ -7,7 +7,7 @@ interface StatCardProps {
   change?: string;
   changeType?: "positive" | "negative" | "neutral";
   icon: LucideIcon;
-  variant?: "primary" | "success" | "warning" | "danger";
+  variant?: "primary" | "success" | "warning" | "danger" | "info" | "purple" | "orange" | "indigo" | "teal";
   onClick?: () => void;
 }
 
@@ -25,6 +25,11 @@ export function StatCard({
     success: "stat-card-gradient gradient-success",
     warning: "stat-card-gradient gradient-warning",
     danger: "stat-card-gradient gradient-danger",
+    info: "stat-card-gradient gradient-info",
+    purple: "stat-card-gradient gradient-purple",
+    orange: "stat-card-gradient gradient-orange",
+    indigo: "stat-card-gradient gradient-indigo",
+    teal: "stat-card-gradient gradient-teal",
   };
 
   return (
@@ -33,7 +38,7 @@ export function StatCard({
       className={cn(
         "rounded-xl p-3 text-white shadow-soft animate-fade-in relative",
         "transition-all duration-300 hover:scale-[1.02] hover:shadow-lg cursor-pointer",
-        variantClasses[variant]
+        variantClasses[variant as keyof typeof variantClasses] || variantClasses.primary
       )}
     >
       <div className="flex items-start justify-between gap-3 sm:gap-4">

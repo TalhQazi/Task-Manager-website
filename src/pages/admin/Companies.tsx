@@ -414,15 +414,19 @@ const Companies = () => {
     }
   };
 
-  const filteredCompanies = companiesList.filter((company) => {
-    const matchesSearch =
-      company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      company.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      company.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      company.contact?.email?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || company.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredCompanies = useMemo(() => {
+    return companiesList
+      .filter((company) => {
+        const matchesSearch =
+          company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          company.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          company.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          company.contact?.email?.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesStatus = statusFilter === "all" || company.status === statusFilter;
+        return matchesSearch && matchesStatus;
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [companiesList, searchQuery, statusFilter]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {

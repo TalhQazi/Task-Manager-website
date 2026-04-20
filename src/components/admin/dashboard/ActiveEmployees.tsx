@@ -33,8 +33,8 @@ export function ActiveEmployees() {
         setApiError(null);
         const emps = await listResource<Employee>("employees");
         if (!mounted) return;
-        // Show all employees, max 3
-        setEmployees(emps.slice(0, 3));
+        // Show only active employees, max 3
+        setEmployees(emps.filter(e => e.status === 'active').slice(0, 3));
       } catch (e) {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load employees");
@@ -55,7 +55,7 @@ export function ActiveEmployees() {
       <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 sm:px-6 py-4 sm:py-5">
         <CardTitle className="text-base sm:text-lg md:text-xl font-semibold flex items-center gap-2">
           <Users className="h-5 w-5 text-primary" />
-          Employees
+          Active Employee
         </CardTitle>
         <a 
           href="/employees" 

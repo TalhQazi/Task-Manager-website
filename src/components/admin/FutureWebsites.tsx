@@ -90,7 +90,10 @@ export function FutureWebsites() {
     },
   });
 
-  const websites = websitesQuery.data || [];
+  const websites = useMemo(() => 
+    (websitesQuery.data || []).slice().sort((a, b) => a.projectName.localeCompare(b.projectName)),
+    [websitesQuery.data]
+  );
 
   const resetForm = () => {
     setFormData({
