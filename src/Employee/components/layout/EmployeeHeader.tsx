@@ -266,8 +266,6 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-
-            </DropdownMenu>
           </div>
         </div>
       </div>
