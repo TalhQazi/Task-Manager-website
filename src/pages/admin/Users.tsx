@@ -55,7 +55,7 @@ import {
   DialogTrigger 
 } from "@/components/admin/ui/dialog";
 import { useForm } from "react-hook-form";
-import { createResource, deleteResource, listResource, updateResource, apiFetch } from "@/lib/admin/apiClient";
+import { createResource, deleteResource, listResource, updateResource, apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
 
 interface User {
