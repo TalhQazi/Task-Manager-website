@@ -1256,6 +1256,7 @@ export default function Tasks() {
   };
 
   const openView = (task: Task) => {
+    setSearchQuery(""); // Clear search bar when viewing a task
     setSelectedTask(task);
     setIsViewOpen(true);
     void loadComments(task.id);
@@ -1495,6 +1496,7 @@ export default function Tasks() {
   };
 
   const openEdit = (task: Task) => {
+    setSearchQuery(""); // Clear search bar when editing a task
     setSelectedTask(task);
     setEditSelectedAssignees(task.assignees || []);
     editForm.reset({
@@ -1512,6 +1514,7 @@ export default function Tasks() {
   };
 
   const openDelete = (task: Task) => {
+    setSearchQuery(""); // Clear search bar when deleting a task
     setSelectedTask(task);
     setIsDeleteOpen(true);
   };

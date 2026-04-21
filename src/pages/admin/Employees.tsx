@@ -384,7 +384,7 @@ const Employees = () => {
   useEffect(() => {
     const viewId = String(searchParams.get("view") || "").trim();
     if (!viewId) return;
-    if (viewProfileOpen || editEmployeeOpen || deactivateConfirmOpen || deleteConfirmOpen || shiftOpen || addEmployeeOpen || resetPasswordOpen) return;
+    if (viewProfileOpen || editEmployeeOpen || deactivateConfirmOpen || shiftOpen || addEmployeeOpen || resetPasswordOpen) return;
 
     const match = employeesList.find((e) => String(e.id) === viewId);
     if (!match) return;
@@ -401,7 +401,6 @@ const Employees = () => {
     viewProfileOpen,
     editEmployeeOpen,
     deactivateConfirmOpen,
-    deleteConfirmOpen,
     shiftOpen,
     addEmployeeOpen,
     resetPasswordOpen,
