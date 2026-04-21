@@ -467,7 +467,6 @@ export const uploadDocument = (formData: FormData) =>
 export const getDocuments = () =>
   employeeApiFetch("/api/employees/me/documents");
 
-=======
 // Comment edit and delete APIs
 export async function updateComment(
   taskId: string,
