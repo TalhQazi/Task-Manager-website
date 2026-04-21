@@ -80,22 +80,43 @@ function formatDate(d?: string) {
 
 function linkify(text: string) {
   if (!text) return "—";
+  
+  // URL matching
   const urlRegex = /(https?:\/\/[^\s]+)/g;
-  return text.split(urlRegex).map((part, i) => {
+  // Email matching
+  const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/g;
+
+  // Split by URL first, then process leftovers for emails
+  return text.split(urlRegex).flatMap((part, i) => {
     if (part.match(urlRegex)) {
-      return (
+      return [
         <a 
-          key={i} 
+          key={`url-${i}`} 
           href={part} 
           target="_blank" 
           rel="noopener noreferrer" 
-          className="text-blue-600 hover:underline inline-flex items-center gap-0.5"
+          className="text-indigo-600 hover:underline inline-flex items-center gap-0.5 font-medium"
         >
           {part} <ExternalLink className="h-3 w-3" />
         </a>
-      );
+      ];
     }
-    return part;
+    
+    // Split the remaining text by email regex
+    return part.split(emailRegex).map((subpart, j) => {
+      if (subpart.match(emailRegex)) {
+        return (
+          <a 
+            key={`email-${i}-${j}`} 
+            href={`mailto:${subpart}`} 
+            className="text-indigo-600 hover:underline font-medium"
+          >
+            {subpart}
+          </a>
+        );
+      }
+      return subpart;
+    });
   });
 }
 
@@ -103,7 +124,8 @@ function getFullUrl(path?: string) {
   if (!path) return "";
   if (path.startsWith("http")) return path;
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
-  return `${baseUrl}${path.startsWith("/") ? "" : "/"}${path}`;
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  return `${baseUrl}${cleanPath}`;
 }
 
 export default function AsanaData() {
@@ -598,14 +620,18 @@ export default function AsanaData() {
                             <div className="flex items-start gap-2 min-w-0 flex-1">
                               {/* Icon based on type */}
                               <div className={`rounded-full p-1.5 flex-shrink-0 ${
-                                isImage ? "bg-green-100" : isLink ? "bg-blue-100" : "bg-gray-100"
+                                isImage ? "bg-green-100" : isLink ? "bg-blue-100" : "bg-indigo-100"
                               }`}>
                                 {isImage ? (
                                   <Image className="h-3.5 w-3.5 text-green-600" />
                                 ) : isLink ? (
                                   <LinkIcon className="h-3.5 w-3.5 text-blue-600" />
+                                ) : a.mimeType?.includes("pdf") ? (
+                                  <FileText className="h-3.5 w-3.5 text-red-600" />
+                                ) : a.mimeType?.startsWith("video/") ? (
+                                  <ExternalLink className="h-3.5 w-3.5 text-orange-600" />
                                 ) : (
-                                  <FileText className="h-3.5 w-3.5 text-gray-600" />
+                                  <FileText className="h-3.5 w-3.5 text-indigo-600" />
                                 )}
                               </div>
                               <div className="min-w-0">
@@ -640,7 +666,7 @@ export default function AsanaData() {
                                   href={getFullUrl(a.filePath)}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="inline-flex items-center gap-1 text-xs text-accent hover:underline font-medium"
+                                  className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-bold hover:underline"
                                 >
                                   <Paperclip className="h-3 w-3" /> Download
                                 </a>
