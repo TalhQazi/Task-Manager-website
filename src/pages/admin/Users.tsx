@@ -148,7 +148,6 @@ const Users = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
-  const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
   const [users, setUsers] = useState<User[]>(() => []);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -479,11 +478,6 @@ const confirmArchiveUser = async () => {
   };
 
   const filteredUsers = users.filter((user) => {
-    const isArchived = user.status === "inactive";
-    const matchesTab = activeTab === "archived" ? isArchived : !isArchived;
-    
-    if (!matchesTab) return false;
-
     const matchesSearch =
       String(user.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       String(user.email || "").toLowerCase().includes(searchQuery.toLowerCase());
@@ -737,31 +731,7 @@ const confirmArchiveUser = async () => {
             )}
           </AnimatePresence>
 
-          {/* User Status Tabs */}
-          <motion.div variants={itemVariants} className="flex gap-2">
-            <Button
-              variant={activeTab === "active" ? "default" : "ghost"}
-              onClick={() => setActiveTab("active")}
-              className={`h-9 px-4 rounded-full transition-all duration-300 ${
-                activeTab === "active" 
-                  ? "bg-gradient-to-r from-primary to-primary/80 text-white shadow-md" 
-                  : "text-muted-foreground hover:bg-primary/10"
-              }`}
-            >
-              Active Users
-            </Button>
-            <Button
-              variant={activeTab === "archived" ? "default" : "ghost"}
-              onClick={() => setActiveTab("archived")}
-              className={`h-9 px-4 rounded-full transition-all duration-300 ${
-                activeTab === "archived" 
-                  ? "bg-gradient-to-r from-muted-foreground to-muted-foreground/80 text-white shadow-md" 
-                  : "text-muted-foreground hover:bg-muted"
-              }`}
-            >
-              Archive
-            </Button>
-          </motion.div>
+          {/* User Status Tabs - Removed as per instruction */}
 
         {/* Role Summary Cards - Animated Grid */}
         <motion.div 
@@ -792,7 +762,7 @@ const confirmArchiveUser = async () => {
                     <div className="min-w-0">
                       <p className="text-xs sm:text-sm text-muted-foreground truncate">{item.label}</p>
                       <p className="text-xl sm:text-2xl font-bold">
-                        {users.filter((u) => u.role === item.role && (activeTab === 'active' ? u.status !== 'inactive' : u.status === 'inactive')).length}
+                        {users.filter((u) => u.role === item.role).length}
                       </p>
                     </div>
                   </div>
