@@ -9,7 +9,6 @@ import { WeekAheadCard } from "@/components/admin/dashboard/WeekAheadCard";
 import { Users, CheckSquare, AlertTriangle, Clock, Car, FileSearch, Globe, FolderRoot, Bug } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useNavigate } from "react-router-dom";
-import { ReleaseNotes } from "@/components/admin/ReleaseNotes";
 
 type DashboardSummary = {
   activeTasks: number;
@@ -112,7 +111,6 @@ const Dashboard = () => {
         initial="hidden"
         animate="visible"
       >
-        <ReleaseNotes />
 
         {/* Stats Grid with animated cards */}
         <motion.div 
