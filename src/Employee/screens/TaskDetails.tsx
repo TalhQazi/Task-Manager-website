@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useSocket } from "@/contexts/SocketContext";
 import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import { getAuthState } from "@/lib/auth";
@@ -18,6 +18,7 @@ import {
   employeeApiFetch,
   toProxiedUrl,
   downloadViaUrl,
+  getEmployeeProfile,
 } from "../lib/api";
 import { toast } from "sonner";
 import {
@@ -141,6 +142,34 @@ function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fa
   return <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/20"><AlertCircle className="w-5 h-5 text-destructive/50" /></div>;
 }
 
+function AttachmentItem({ att, idx, onDownload }: { att: { fileName: string; url: string; mimeType?: string }; idx: number; onDownload: (url: string, fileName: string) => void }) {
+  const [imgError, setImgError] = useState(false);
+  const isImage = att.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(att.fileName || "");
+  const imageUrl = toProxiedUrl(att.url) || att.url;
+  
+  if (isImage && !imgError) {
+    return (
+      <button onClick={() => onDownload(imageUrl, att.fileName)} className="block w-full text-left">
+        <img 
+          src={imageUrl} 
+          alt={att.fileName} 
+          className="w-full h-20 object-cover rounded-md border"
+          onError={() => setImgError(true)}
+        />
+        <span className="text-xs text-muted-foreground truncate block mt-1">{att.fileName}</span>
+      </button>
+    );
+  }
+  
+  return (
+    <button onClick={() => onDownload(imageUrl, att.fileName)}
+      className="w-full flex flex-col items-center justify-center h-20 border rounded-md bg-muted/30 hover:bg-muted text-xs text-center p-2 gap-1">
+      <Download className="h-5 w-5 text-muted-foreground" />
+      <span className="truncate w-full">{att.fileName}</span>
+    </button>
+  );
+}
+
 export default function EmployeeTaskDetails() {
   const { taskId } = useParams();
   const navigate = useNavigate();
@@ -148,6 +177,7 @@ export default function EmployeeTaskDetails() {
   const [task, setTask] = useState<TaskItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [profile, setProfile] = useState<{ avatarUrl?: string } | null>(null);
 
   const [statusUpdating, setStatusUpdating] = useState(false);
   const [statusDraft, setStatusDraft] = useState<TaskStatus>("pending");
@@ -204,7 +234,7 @@ export default function EmployeeTaskDetails() {
     if (!taskId) return;
     try {
       const res = await getTaskById(taskId);
-      const item = res.item as any;
+      const item = res.item as { id: string; title: string; description: string; status: string; priority: string; dueDate?: string; dueTime?: string; createdAt?: string; attachmentFileName?: string; attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number } | null; attachments?: Array<{ fileName: string; url: string; mimeType: string; size: number }> };
       const mapped: TaskItem = {
         id: String(item.id),
         title: String(item.title || ""),
@@ -221,9 +251,9 @@ export default function EmployeeTaskDetails() {
 
       setTask(mapped);
       setStatusDraft(mapped.status);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Failed to load task:", err);
-      toast.error(err?.message || "Failed to load task");
+      toast.error(err instanceof Error ? err.message : "Failed to load task");
     }
   };
 
@@ -232,19 +262,28 @@ export default function EmployeeTaskDetails() {
     setCommentsLoading(true);
     try {
       const res = await getTaskComments(taskId);
-      setComments(res.items as any);
-    } catch (err: any) {
+      setComments(res.items as TaskCommentItem[]);
+    } catch (err: unknown) {
       console.error("Failed to load comments:", err);
-      toast.error(err?.message || "Failed to load comments");
+      toast.error(err instanceof Error ? err.message : "Failed to load comments");
     } finally {
       setCommentsLoading(false);
+    }
+  };
+
+  const loadProfile = async () => {
+    try {
+      const res = await getEmployeeProfile();
+      setProfile(res.item);
+    } catch (err: unknown) {
+      console.error("Failed to load profile:", err);
     }
   };
 
   useEffect(() => {
     const init = async () => {
       setLoading(true);
-      await Promise.all([loadTask(), loadComments()]);
+      await Promise.all([loadTask(), loadComments(), loadProfile()]);
       setLoading(false);
     };
     init();
@@ -255,7 +294,7 @@ export default function EmployeeTaskDetails() {
     if (!socket || !taskId) return;
     joinTask(taskId);
     
-    const handleNewComment = (comment: any) => {
+    const handleNewComment = (comment: TaskCommentItem) => {
       setComments(prev => {
         if (prev.some(c => c.id === comment.id)) return prev;
         return [...prev, comment];
@@ -282,7 +321,7 @@ export default function EmployeeTaskDetails() {
       socket.off("typing", handleTyping);
       leaveTask(taskId);
     };
-  }, [socket, taskId, currentUsername]);
+  }, [socket, taskId, currentUsername, joinTask, leaveTask]);
 
   const handleTypingIndicator = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setCommentDraft(e.target.value);
@@ -323,7 +362,7 @@ export default function EmployeeTaskDetails() {
         const taskForBlaster = {
           id: task.id,
           title: task.title,
-          priority: task.priority as any,
+          priority: task.priority,
           status: "completed",
         };
         const triggered = triggerBlaster(taskForBlaster);
@@ -331,8 +370,8 @@ export default function EmployeeTaskDetails() {
           incrementCompletedCount();
         }
       }
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to update status");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to update status");
     } finally {
       setStatusUpdating(false);
     }
@@ -350,8 +389,8 @@ export default function EmployeeTaskDetails() {
       setCommentDraft("");
       toast.success("Comment sent");
       await loadComments();
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to send comment");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to send comment");
     } finally {
       setCommentSending(false);
     }
@@ -440,6 +479,7 @@ export default function EmployeeTaskDetails() {
                 value={statusDraft}
                 onChange={(e) => setStatusDraft(e.target.value as TaskStatus)}
                 className="border rounded-md px-3 py-2 text-sm bg-white"
+                aria-label="Select status"
               >
                 <option value="pending">Pending</option>
                 <option value="in-progress">In Progress</option>
@@ -476,18 +516,7 @@ export default function EmployeeTaskDetails() {
               <div className="text-xs font-medium text-muted-foreground">Attachments ({task.attachments.length})</div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {task.attachments.map((att, idx) => (
-                  att.mimeType?.startsWith("image/") ? (
-                    <button key={idx} onClick={() => void downloadViaUrl(toProxiedUrl(att.url) || att.url, att.fileName)} className="block w-full text-left">
-                      <img src={toProxiedUrl(att.url) || att.url} alt={att.fileName} className="w-full h-20 object-cover rounded-md border" />
-                      <span className="text-xs text-muted-foreground truncate block mt-1">{att.fileName}</span>
-                    </button>
-                  ) : (
-                    <button key={idx} onClick={() => void downloadViaUrl(toProxiedUrl(att.url) || att.url, att.fileName)}
-                      className="w-full flex flex-col items-center justify-center h-20 border rounded-md bg-muted/30 hover:bg-muted text-xs text-center p-2 gap-1">
-                      <Download className="h-5 w-5 text-muted-foreground" />
-                      <span className="truncate w-full">{att.fileName}</span>
-                    </button>
-                  )
+                  <AttachmentItem key={idx} att={att} idx={idx} onDownload={(url, fileName) => void downloadViaUrl(url, fileName)} />
                 ))}
               </div>
             </div>
@@ -548,6 +577,7 @@ export default function EmployeeTaskDetails() {
                             <div className="w-8 flex-shrink-0">
                               {!isSameAuthor ? (
                                 <Avatar className="w-8 h-8 border shadow-sm flex-shrink-0 mb-1">
+                                  <AvatarImage src={toProxiedUrl(c.authorAvatar)} alt={c.authorUsername} crossOrigin="anonymous" />
                                   <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
                                     {(c.authorUsername || "??").substring(0, 2).toUpperCase()}
                                   </AvatarFallback>
@@ -598,8 +628,15 @@ export default function EmployeeTaskDetails() {
                           </div>
                           
                           {isMe && (
-                            <div className="flex flex-col justify-end pb-5 opacity-40">
-                              <CheckCircle2 className="w-3 h-3 text-blue-500" />
+                            <div className="w-8 flex-shrink-0">
+                              {!isSameAuthor ? (
+                                <Avatar className="w-8 h-8 border shadow-sm flex-shrink-0 mb-1">
+                                  <AvatarImage src={toProxiedUrl(profile?.avatarUrl)} alt={currentUsername} crossOrigin="anonymous" />
+                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                                    {(currentUsername || "??").substring(0, 2).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                              ) : null}
                             </div>
                           )}
                         </div>

@@ -257,3 +257,24 @@ export async function downloadViaUrl(url: string, fileName: string): Promise<voi
   
   URL.revokeObjectURL(objectUrl);
 }
+
+// Comment edit and delete APIs
+export async function updateComment(
+  taskId: string,
+  commentId: string,
+  payload: { message: string }
+): Promise<{ item: { id: string; message: string; updatedAt: string } }> {
+  return apiFetch<{ item: { id: string; message: string; updatedAt: string } }>(`/api/tasks/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteComment(
+  taskId: string,
+  commentId: string
+): Promise<{ ok: true }> {
+  return apiFetch<{ ok: true }>(`/api/tasks/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}`, {
+    method: "DELETE",
+  });
+}

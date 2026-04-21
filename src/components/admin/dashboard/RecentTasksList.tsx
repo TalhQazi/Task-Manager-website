@@ -2,18 +2,21 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Clock, MapPin, AlertCircle } from "lucide-react";
-import { apiFetch } from "@/lib/api";
+import { Clock, MapPin, AlertCircle, User } from "lucide-react";
+import { apiFetch } from "@/lib/manger/api";
 
 interface Task {
   id: string;
   title: string;
-  location: string;
-  assignee: string;
-  assigneeInitials: string;
-  priority: "high" | "medium" | "low";
-  dueTime: string;
+  description: string;
+  assignees: string[];
+  assignee?: string;
+  priority: "low" | "medium" | "high";
   status: "pending" | "in-progress" | "completed" | "overdue";
+  dueDate: string;
+  dueTime?: string;
+  location?: string;
+  createdAt: string;
 }
 
 const priorityClasses = {
@@ -60,8 +63,11 @@ export function RecentTasksList() {
   const recentTasks = useMemo(() => {
     return tasks.map((t) => ({
       ...t,
-      dueTime: t.dueTime || "—",
-      assigneeInitials: t.assigneeInitials || "—",
+      displayDate: t.dueDate ? new Date(t.dueDate).toISOString().split('T')[0] : "—",
+      assigneeDisplay: t.assignees && t.assignees.length > 0 ? `${t.assignees.length} assigned` : "Unassigned",
+      assigneeInitials: t.assignees && t.assignees.length > 0 
+        ? t.assignees[0].split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
+        : "—",
     }));
   }, [tasks]);
 
@@ -149,16 +155,16 @@ export function RecentTasksList() {
                       </Badge>
                     </div>
 
-                    {/* Location and Due Time - Stack on mobile, row on tablet+ */}
+                    {/* Assignee and Due Date - Stack on mobile, row on tablet+ */}
                     <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1 truncate max-w-[200px] sm:max-w-none">
-                        <MapPin className="h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0" />
-                        <span className="truncate">{task.location}</span>
+                        <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0" />
+                        <span className="whitespace-nowrap">{task.displayDate}</span>
                       </span>
                       <span className="hidden sm:block text-muted-foreground/50">•</span>
-                      <span className="flex items-center gap-1">
-                        <Clock className="h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0" />
-                        <span className="whitespace-nowrap">{task.dueTime}</span>
+                      <span className="flex items-center gap-1 truncate max-w-[200px] sm:max-w-none">
+                        <User className="h-3 w-3 sm:h-3.5 sm:w-3.5 flex-shrink-0" />
+                        <span className="font-medium">{task.assigneeDisplay}</span>
                       </span>
                     </div>
                   </div>
