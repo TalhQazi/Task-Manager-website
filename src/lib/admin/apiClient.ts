@@ -365,3 +365,23 @@ export async function searchContributors(term: string, params?: { role?: string;
   if (params?.limit) query.append("limit", String(params.limit));
   return apiFetch<{ items: Contributor[]; total: number }>(`/api/contributors/search/${encodeURIComponent(term)}?${query.toString()}`);
 }
+
+// Comment edit and delete APIs
+export async function updateComment(taskId: string, commentId: string, payload: { message?: string; attachments?: any[] }) {
+  return apiFetch<{ item: { id: string; taskId: string; message: string; authorUserId: string; authorUsername: string; authorRole: string; attachments: any[]; createdAt: string; updatedAt: string } }>(
+    `/api/tasks/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function deleteComment(taskId: string, commentId: string) {
+  return apiFetch<{ ok: boolean; message: string }>(
+    `/api/tasks/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}`,
+    {
+      method: "DELETE",
+    }
+  );
+}

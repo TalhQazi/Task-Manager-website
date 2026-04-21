@@ -92,7 +92,7 @@ import {
   Maximize2,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
-import { apiFetch, downloadTaskAttachment, toProxiedUrl, getTopContributors, downloadViaUrl } from "@/lib/manger/api";
+import { apiFetch, downloadTaskAttachment, toProxiedUrl, getTopContributors, downloadViaUrl, updateComment, deleteComment } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSocket } from "@/contexts/SocketContext";
@@ -593,6 +593,9 @@ export default function Tasks() {
   const [othersTyping, setOthersTyping] = useState<string[]>([]);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [archivingCommentId, setArchivingCommentId] = useState<string | null>(null);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editCommentDraft, setEditCommentDraft] = useState("");
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
   const [archivingAttachment, setArchivingAttachment] = useState<number | null>(null);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(false);
   const [commentError, setCommentError] = useState<string | null>(null);
@@ -1224,6 +1227,48 @@ export default function Tasks() {
       setCommentError(e instanceof Error ? e.message : "Failed to send message");
     } finally {
       setIsSendingComment(false);
+    }
+  };
+
+  const startEditComment = (comment: TaskComment) => {
+    setEditingCommentId(comment.id);
+    setEditCommentDraft(comment.message);
+  };
+
+  const cancelEditComment = () => {
+    setEditingCommentId(null);
+    setEditCommentDraft("");
+  };
+
+  const saveEditComment = async () => {
+    if (!selectedTask || !editingCommentId) return;
+    const msg = editCommentDraft.trim();
+    if (!msg) return;
+
+    try {
+      setCommentError(null);
+      const res = await updateComment(selectedTask.id, editingCommentId, { message: msg });
+      setComments((prev) => prev.map((c) => (c.id === editingCommentId ? { ...c, message: res.item.message, updatedAt: res.item.updatedAt } : c)));
+      setEditingCommentId(null);
+      setEditCommentDraft("");
+    } catch (e) {
+      setCommentError(e instanceof Error ? e.message : "Failed to update comment");
+    }
+  };
+
+  const confirmDeleteComment = (commentId: string) => {
+    setDeletingCommentId(commentId);
+  };
+
+  const handleDeleteComment = async () => {
+    if (!selectedTask || !deletingCommentId) return;
+    try {
+      setCommentError(null);
+      await deleteComment(selectedTask.id, deletingCommentId);
+      setComments((prev) => prev.filter((c) => c.id !== deletingCommentId));
+      setDeletingCommentId(null);
+    } catch (e) {
+      setCommentError(e instanceof Error ? e.message : "Failed to delete comment");
     }
   };
 
@@ -2398,9 +2443,6 @@ export default function Tasks() {
                       </div>
                       <DialogTitle className="text-lg sm:text-2xl font-bold truncate leading-tight">{selectedTask.title}</DialogTitle>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => setIsViewOpen(false)} className="rounded-full h-8 w-8 hover:bg-muted/80">
-                      <X className="h-4 w-4" />
-                    </Button>
                   </div>
                 </DialogHeader>
 
@@ -2421,40 +2463,72 @@ export default function Tasks() {
                         </div>
                       </div>
 
-                      {/* Attachments Section */}
-                      {(selectedTask.attachments && selectedTask.attachments.length > 0) || (selectedTask.attachment && selectedTask.attachment.fileName) ? (
-                        <div className="space-y-4">
-                          <div className="flex items-center gap-2 text-muted-foreground">
-                            <Paperclip className="w-4 h-4" />
-                            <h4 className="text-[13px] font-bold uppercase tracking-wider">Shared Files</h4>
-                          </div>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {/* Task Attachments Grid - Same as Admin Panel */}
+                      {((selectedTask.attachments && selectedTask.attachments.length > 0) || selectedTask.attachment?.fileName) && (
+                        <div className="space-y-3 pt-2">
+                          <h4 className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><Paperclip className="w-4 h-4" /> Attached Files</h4>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 bg-muted/20 p-3 rounded-xl border border-border/50">
                             {selectedTask.attachments && selectedTask.attachments.length > 0
                               ? selectedTask.attachments.map((attachment, idx) => (
-                                <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow">
+                                <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => { if (attachment.url) { setPreviewUrl(toProxiedUrl(attachment.url) || attachment.url); setPreviewName(attachment.fileName || "Attachment"); } }}>
                                   {(attachment.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(attachment.fileName || "")) && attachment.url ? (
-                                    <img src={toProxiedUrl(attachment.url) || attachment.url} alt={attachment.fileName || "Attachment"} className="w-full h-24 object-cover" />
+                                    <img src={toProxiedUrl(attachment.url) || attachment.url} alt={attachment.fileName || `Attachment`} className="w-full h-24 object-cover" />
                                   ) : (
                                     <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
                                   )}
                                   <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
-                                  <button type="button" onClick={() => void downloadTaskAttachment(selectedTask.id, idx, attachment.fileName || "download")} className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]" title={attachment.fileName}><span className="text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/50 bg-black/40">Download</span></button>
+
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[1px]">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); setPreviewUrl(toProxiedUrl(attachment.url) || attachment.url); setPreviewName(attachment.fileName || "Attachment"); }}
+                                      className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white"
+                                      title="Preview"
+                                    >
+                                      <Maximize2 className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); void downloadTaskAttachment(selectedTask.id, idx, attachment.fileName || "download"); }}
+                                      className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white"
+                                      title="Download"
+                                    >
+                                      <Download className="w-4 h-4" />
+                                    </button>
+                                  </div>
                                 </div>
                               ))
                               : selectedTask.attachment?.fileName ? (
-                                <div className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow">
-                                  {(selectedTask.attachment.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(selectedTask.attachment.fileName || "")) && selectedTask.attachment.url ? (
+                                <div className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => { if (selectedTask.attachment?.url) { setPreviewUrl(toProxiedUrl(selectedTask.attachment.url) || selectedTask.attachment.url); setPreviewName(selectedTask.attachment.fileName || "Attachment"); } }}>
+                                  {selectedTask.attachment.mimeType?.startsWith("image/") && selectedTask.attachment.url ? (
                                     <img src={toProxiedUrl(selectedTask.attachment.url) || selectedTask.attachment.url} alt={selectedTask.attachment.fileName || "Attachment"} className="w-full h-24 object-cover" />
                                   ) : (
                                     <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
                                   )}
                                   <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{selectedTask.attachment.fileName}</div>
-                                  <button type="button" onClick={() => void downloadTaskAttachment(selectedTask.id, -1, selectedTask.attachment!.fileName || "download")} className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]" title={selectedTask.attachment.fileName}><span className="text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/50 bg-black/40">Download</span></button>
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[1px]">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); setPreviewUrl(toProxiedUrl(selectedTask.attachment!.url) || selectedTask.attachment!.url); setPreviewName(selectedTask.attachment!.fileName || "Attachment"); }}
+                                      className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white"
+                                      title="Preview"
+                                    >
+                                      <Maximize2 className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); void downloadTaskAttachment(selectedTask.id, -1, selectedTask.attachment?.fileName || "download"); }}
+                                      className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white"
+                                      title="Download"
+                                    >
+                                      <Download className="w-4 h-4" />
+                                    </button>
+                                  </div>
                                 </div>
                               ) : null}
                           </div>
                         </div>
-                      ) : null}
+                      )}
 
                       {/* Activity Thread */}
                       <div className="pt-4 border-t border-border/60">
@@ -2541,11 +2615,30 @@ export default function Tasks() {
                                             "chat-bubble",
                                             isMe ? "chat-bubble-me" : "chat-bubble-others"
                                           )}>
-                                            <div className="whitespace-pre-wrap break-words overflow-hidden leading-snug">
-                                              {renderMessageWithMentions(c.message)}
-                                            </div>
+                                            {editingCommentId === c.id ? (
+                                              <div className="space-y-2">
+                                                <textarea
+                                                  value={editCommentDraft}
+                                                  onChange={(e) => setEditCommentDraft(e.target.value)}
+                                                  className="w-full min-h-[60px] bg-transparent border-0 focus:ring-0 resize-y p-0 text-sm"
+                                                  autoFocus
+                                                />
+                                                <div className="flex items-center gap-2 justify-end">
+                                                  <Button type="button" size="sm" variant="ghost" onClick={cancelEditComment} className="h-7 text-xs">
+                                                    Cancel
+                                                  </Button>
+                                                  <Button type="button" size="sm" onClick={() => void saveEditComment()} disabled={!editCommentDraft.trim()} className="h-7 text-xs">
+                                                    Save
+                                                  </Button>
+                                                </div>
+                                              </div>
+                                            ) : (
+                                              <div className="whitespace-pre-wrap break-words overflow-hidden leading-snug">
+                                                {renderMessageWithMentions(c.message)}
+                                              </div>
+                                            )}
                                             
-                                            {c.attachments && c.attachments.length > 0 && (
+                                            {c.attachments && c.attachments.length > 0 && editingCommentId !== c.id && (
                                               <div className={cn(
                                                 "grid gap-2 mt-2 max-w-[140px] sm:max-w-[180px]",
                                                 c.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"
@@ -2578,6 +2671,37 @@ export default function Tasks() {
                                         {isMe && (
                                           <div className="flex flex-col justify-end pb-5 opacity-40">
                                             <CheckCircle2 className="w-3 h-3 text-blue-500" />
+                                          </div>
+                                        )}
+
+                                        {/* Three dots menu for Edit/Delete */}
+                                        {isMe && editingCommentId !== c.id && (
+                                          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <DropdownMenu>
+                                              <DropdownMenuTrigger asChild>
+                                                <button 
+                                                  type="button" 
+                                                  className="p-1 text-muted-foreground hover:text-foreground rounded-full hover:bg-muted"
+                                                  title="Actions"
+                                                >
+                                                  <MoreHorizontal className="h-3.5 w-3.5" />
+                                                </button>
+                                              </DropdownMenuTrigger>
+                                              <DropdownMenuContent align="end" className="w-36">
+                                                <DropdownMenuItem onClick={() => startEditComment(c)} className="text-xs">
+                                                  <Edit className="h-3.5 w-3.5 mr-2" />
+                                                  Edit
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem 
+                                                  onClick={() => confirmDeleteComment(c.id)} 
+                                                  className="text-xs text-destructive focus:text-destructive"
+                                                >
+                                                  <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                                  Delete
+                                                </DropdownMenuItem>
+                                              </DropdownMenuContent>
+                                            </DropdownMenu>
                                           </div>
                                         )}
                                       </div>
@@ -3464,6 +3588,33 @@ export default function Tasks() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Comment Confirmation Dialog */}
+      <AlertDialog open={!!deletingCommentId} onOpenChange={(open) => !open && setDeletingCommentId(null)}>
+        <AlertDialogContent className="w-[95vw] max-w-[95vw] sm:max-w-md rounded-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete comment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete this comment. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel
+              onClick={() => setDeletingCommentId(null)}
+              className="w-full sm:w-auto"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void handleDeleteComment()}
+              className="gap-2 bg-destructive hover:bg-destructive/90 w-full sm:w-auto"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

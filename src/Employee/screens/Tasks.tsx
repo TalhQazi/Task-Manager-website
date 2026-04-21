@@ -92,7 +92,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { io, Socket } from "socket.io-client";
 import { cn } from "@/lib/manger/utils";
-import { apiFetch, downloadTaskAttachment, toProxiedUrl } from "@/lib/manger/api";
+import { apiFetch, downloadTaskAttachment, toProxiedUrl, updateComment, deleteComment } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
 import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -595,6 +595,9 @@ export default function Tasks() {
   const [commentAttachments, setCommentAttachments] = useState<File[]>([]);
   const [isSendingComment, setIsSendingComment] = useState(false);
   const [isViewProjectOpen, setIsViewProjectOpen] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editCommentDraft, setEditCommentDraft] = useState("");
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
   const chatContainerRef = useMemo(() => ({ current: null as HTMLDivElement | null }), []);
 
   // Fetch tasks with server-side pagination
