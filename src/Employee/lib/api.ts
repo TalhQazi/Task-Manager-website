@@ -407,3 +407,22 @@ export async function deleteComment(
     method: "DELETE",
   });
 }
+
+// Notification API functions
+export async function markNotificationAsRead(notificationId: string): Promise<{ success: boolean }> {
+  return employeeApiFetch<{ success: boolean }>(`/api/messages/${encodeURIComponent(notificationId)}/mark-read`, {
+    method: "POST"
+  });
+}
+
+export async function markAllNotificationsAsRead(): Promise<{ success: boolean }> {
+  return employeeApiFetch<{ success: boolean }>("/api/messages/mark-all-read", {
+    method: "POST"
+  });
+}
+
+export async function deleteNotification(notificationId: string): Promise<void> {
+  return employeeApiFetch<void>(`/api/messages/${encodeURIComponent(notificationId)}`, {
+    method: "DELETE"
+  });
+}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { listResource } from "@/lib/manger/api";
+import { markNotificationAsRead, markAllNotificationsAsRead, deleteNotification as deleteNotificationApi } from "../lib/api";
 
 
 
@@ -78,6 +79,8 @@ const [notifications, setNotifications] = useState<Notification[]>([]);
 
 const user = JSON.parse(localStorage.getItem("employee") || "{}");
 const role = user?.role || "employees";
+const userEmail = user?.email || "";
+const userName = user?.name || user?.username || userEmail;
 
 
 useEffect(() => {
@@ -86,9 +89,10 @@ useEffect(() => {
   const handleNotification = (data: any) => {
     console.log("FROM BACKEND:", data);
 
-    if (data.audience !== "all" && data.audience !== role) {
-    return;
-  }
+    // Check if notification is for this user
+    const recipient = data.recipient || "";
+    const isForMe = recipient.includes(userEmail) || recipient.includes(userName) || data.audience === "all";
+    if (!isForMe) return;
 
     const formatted: Notification = {
       id: data.id || data._id || Date.now().toString(),
@@ -112,17 +116,19 @@ useEffect(() => {
   return () => {
     socket.off("new-notification", handleNotification);
   };
-}, [socket]);
+}, [socket, userEmail, userName]);
 
 
-useEffect(() => {
-  const loadNotifications = async () => {
-    try {
-      const data = await listResource<Notification>("notifications");;
-     //console.log("API DATA:", data);
-     const filteredData = (data || []).filter((n: any) => {
-     return n.audience === "all" || n.audience === role;
-    });
+const loadNotifications = useCallback(async () => {
+  try {
+    const data = await listResource<Notification>("notifications");;
+   console.log("API DATA:", data);
+   const filteredData = (data || []).filter((n: any) => {
+    // Check if notification is for this user via recipient field or audience
+    const recipient = n.recipient || "";
+    const isForMe = recipient.includes(userEmail) || recipient.includes(userName) || n.audience === "all";
+    return isForMe;
+  });
 
 const formatted: Notification[] = filteredData.map((n: any) => {
       const safeType: Notification["type"] =
@@ -132,17 +138,20 @@ const formatted: Notification[] = filteredData.map((n: any) => {
           ? n.type
           : "info";
 
+          const readByList = Array.isArray(n.readBy) ? n.readBy : [];
+          const isRead = readByList.includes(userName) || readByList.includes(userEmail);
+
           return {
             id: n.id || n._id,
             title: n.title || "Notification",
             message: n.content || n.message,
-            type: safeType, 
+            type: safeType,
             timestamp: n.timestamp,
-            read: false,
+            read: isRead,
           };
         });
 
-      
+
       formatted.sort(
         (a, b) =>
           new Date(b.timestamp).getTime() -
@@ -158,28 +167,56 @@ const formatted: Notification[] = filteredData.map((n: any) => {
 
     return unique;
 }   );
-    } catch (err) {
-      console.error("Failed to load notifications", err);
-    }
-  };
+  } catch (err) {
+    console.error("Failed to load notifications", err);
+  }
+}, [userEmail, userName]);
 
+useEffect(() => {
   loadNotifications();
-}, []);
+}, [loadNotifications]);
 
 
 
-  const markAsRead = (id: string) => {
+  const markAsRead = async (id: string) => {
+    // Optimistic update - update UI immediately
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, read: true } : n))
     );
+
+    try {
+      await markNotificationAsRead(id);
+    } catch (err) {
+      console.error("Failed to mark notification as read:", err);
+      // Reload notifications to get correct state
+      loadNotifications();
+    }
   };
 
-  const markAllAsRead = () => {
+  const markAllAsRead = async () => {
+    // Optimistic update - update UI immediately
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+
+    try {
+      await markAllNotificationsAsRead();
+    } catch (err) {
+      console.error("Failed to mark all notifications as read:", err);
+      // Reload notifications on error to get correct state
+      loadNotifications();
+    }
   };
 
-  const deleteNotification = (id: string) => {
+  const deleteNotification = async (id: string) => {
+    // Optimistic update - update UI immediately
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+
+    try {
+      await deleteNotificationApi(id);
+    } catch (err) {
+      console.error("Failed to delete notification:", err);
+      // Reload notifications to get correct state
+      loadNotifications();
+    }
   };
 
   const getTypeIcon = (type: string) => {

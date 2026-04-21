@@ -234,6 +234,31 @@ function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fa
   return <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/20"><AlertCircle className="w-5 h-5 text-destructive/50" /></div>;
 }
 
+function TaskAttachmentItem({ attachment, onPreview }: { attachment: { fileName: string; url: string; mimeType?: string }; onPreview: (url: string, fileName: string) => void }) {
+  const [imgError, setImgError] = useState(false);
+  const isImage = attachment.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(attachment.fileName || "");
+  const imageUrl = toProxiedUrl(attachment.url) || attachment.url;
+  
+  if (isImage && !imgError && attachment.url) {
+    return (
+      <div className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => onPreview(imageUrl, attachment.fileName || "Attachment")}>
+        <img 
+          src={imageUrl} 
+          alt={attachment.fileName || "Attachment"} 
+          className="w-full h-24 object-cover"
+          onError={() => setImgError(true)}
+        />
+      </div>
+    );
+  }
+  
+  return (
+    <div className="w-full h-24 flex items-center justify-center bg-muted/40 rounded-lg border border-border/60">
+      <FileText className="h-8 w-8 text-muted-foreground/60" />
+    </div>
+  );
+}
+
 // ... (all your interfaces and types remain exactly the same)
 interface Task {
   id: string;
@@ -2366,12 +2391,8 @@ export default function Tasks() {
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 bg-muted/20 p-3 rounded-xl border border-border/50">
                         {selectedTask.attachments && selectedTask.attachments.length > 0
                           ? selectedTask.attachments.map((attachment, idx) => (
-                            <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => { if (attachment.url) { setPreviewUrl(toProxiedUrl(attachment.url) || attachment.url); setPreviewName(attachment.fileName || "Attachment"); } }}>
-                              {(attachment.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(attachment.fileName || "")) && attachment.url ? (
-                                <img src={toProxiedUrl(attachment.url) || attachment.url} alt={attachment.fileName || `Attachment`} className="w-full h-24 object-cover" />
-                              ) : (
-                                <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
-                              )}
+                            <div key={idx} className="relative group">
+                              <TaskAttachmentItem attachment={attachment} onPreview={(url, fileName) => { setPreviewUrl(url); setPreviewName(fileName); }} />
                               <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
 
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[1px]">

@@ -85,7 +85,7 @@ export default function EmployeeMessages() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   
-  const socketRef = useRef<any>(null);
+  const socketRef = useRef<ReturnType<typeof io> | null>(null);
 
   // Load conversations on mount
   useEffect(() => {
@@ -119,7 +119,7 @@ export default function EmployeeMessages() {
     console.log("✅ Employee connected");
   });
 
-  socketRef.current.on("new-message", (data: any) => {
+  socketRef.current.on("new-message", (data: { id?: string; _id?: string; sender: string; recipient: string; content: string; timestamp: string; type: string; status: string; attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number } }) => {
     console.log("📩 Incoming:", data);
 
     if (
@@ -367,7 +367,6 @@ export default function EmployeeMessages() {
               <Button
                 variant="ghost"
                 size="icon"
-                className="lg:hidden"
                 onClick={() => setSelectedConversation(null)}
               >
                 <ChevronLeft className="h-5 w-5" />
@@ -496,6 +495,7 @@ export default function EmployeeMessages() {
                 ref={fileInputRef}
                 type="file"
                 className="hidden"
+                aria-label="Attach file"
                 onChange={(e) => handleFileSelected(e.target.files?.[0] || null)}
               />
               <Button
