@@ -379,12 +379,14 @@ const Users = () => {
   const confirmDeactivate = async () => {
     if (!selectedUser) return;
     try {
-      await updateResource<User>("users", selectedUser.id, { ...selectedUser, status: "inactive" });
+      await apiFetch(`/api/users/${selectedUser.id}/archive`, { 
+        method: "POST",
+      });
       await refreshUsers();
       setDeactivateOpen(false);
       setSelectedUser(null);
     } catch (e) {
-      setApiError(e instanceof Error ? e.message : "Failed to update user");
+      setApiError(e instanceof Error ? e.message : "Failed to archive user");
     }
   };
 
@@ -906,13 +908,8 @@ const confirmArchiveUser = async () => {
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleDeactivate(user)} className="text-destructive">
                                   <Trash2 className="mr-2 h-4 w-4" />
-                                  {user.status === "inactive" ? "Activate" : "Deactivate"}
+                                  Deactivate & Archive
                                 </DropdownMenuItem>
-
-                                <DropdownMenuItem onClick={() => handleArchiveUser(user)} className="text-destructive">
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Archive User
-                                  </DropdownMenuItem>
 
                                 {/* <DropdownMenuItem onClick={() => handleDeleteUser(user)} className="text-destructive">
                                     <Trash2 className="mr-2 h-4 w-4" />
@@ -1100,13 +1097,8 @@ const confirmArchiveUser = async () => {
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => handleDeactivate(user)} className="text-destructive">
                                       <Trash2 className="mr-2 h-4 w-4" />
-                                      {user.status === "inactive" ? "Activate" : "Deactivate"}
+                                      Deactivate & Archive
                                     </DropdownMenuItem>
-
-                                    <DropdownMenuItem onClick={() => handleArchiveUser(user)} className="text-destructive">
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Archive User
-                                  </DropdownMenuItem>
 
                                    {/* <DropdownMenuItem onClick={() => handleDeleteUser(user)} className="text-destructive">
                                       <Trash2 className="mr-2 h-4 w-4" />
@@ -1149,7 +1141,7 @@ const confirmArchiveUser = async () => {
                 >
                   <Avatar className="h-12 w-12 sm:h-14 sm:w-14 flex-shrink-0 ring-2 ring-primary/20">
                     {selectedUser.avatarUrl ? (
-                      <AvatarImage src={selectedUser.avatarUrl} alt={selectedUser.name} className="object-cover" />
+                      <AvatarImage src={toProxiedUrl(selectedUser.avatarUrl)} alt={selectedUser.name} className="object-cover" />
                     ) : (
                       <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-sm sm:text-base">
                         {selectedUser.initials}
