@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/
 import { Button } from "@/components/admin/ui/button";
 import { Badge } from "@/components/admin/ui/badge";
 import { AlertCircle, Loader2, User, Calendar, Paperclip, Image, Link as LinkIcon, FileText, ExternalLink, Database, CheckSquare } from "lucide-react";
-import { apiFetch } from "@/lib/admin/apiClient";
+import { apiFetch, getApiBaseUrl } from "@/lib/admin/apiClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/admin/ui/select";
 
 type AsanaWorkspace = {
@@ -97,6 +97,13 @@ function linkify(text: string) {
     }
     return part;
   });
+}
+
+function getFullUrl(path?: string) {
+  if (!path) return "";
+  if (path.startsWith("http")) return path;
+  const baseUrl = getApiBaseUrl().replace(/\/$/, "");
+  return `${baseUrl}${path.startsWith("/") ? "" : "/"}${path}`;
 }
 
 export default function AsanaData() {
@@ -577,9 +584,9 @@ export default function AsanaData() {
                           {/* Image preview */}
                           {isImage && hasDownload && (
                             <div className="bg-gray-50 border-b p-2 flex justify-center">
-                              <a href={a.filePath} target="_blank" rel="noreferrer">
+                              <a href={getFullUrl(a.filePath)} target="_blank" rel="noreferrer">
                                 <img
-                                  src={a.filePath}
+                                  src={getFullUrl(a.filePath)}
                                   alt={a.fileName || "attachment"}
                                   className="max-h-48 max-w-full rounded object-contain cursor-pointer hover:opacity-90 transition-opacity"
                                 />
@@ -620,7 +627,7 @@ export default function AsanaData() {
                             <div className="flex items-center gap-1.5 flex-shrink-0">
                               {isLink && (
                                 <a
-                                  href={a.filePath}
+                                  href={getFullUrl(a.filePath)}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
@@ -630,7 +637,7 @@ export default function AsanaData() {
                               )}
                               {hasDownload && !isLink && (
                                 <a
-                                  href={a.filePath}
+                                  href={getFullUrl(a.filePath)}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="inline-flex items-center gap-1 text-xs text-accent hover:underline font-medium"
