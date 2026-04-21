@@ -2,6 +2,10 @@ import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { EmployeeLayout } from "../components/layout/EmployeeLayout";
 import { getEmployeeAuth } from "../lib/auth";
+import EmployeePayroll from "../screens/payroll";
+import TaxDocs from "../screens/TaxDocs";
+import TimeLogs from "../screens/TimeLogs";
+import Documents from "../screens/Documents";
 
 // Lazy-loaded screens for code splitting
 const EmployeeDashboard = lazy(() => import("../screens/Dashboard"));
@@ -52,7 +56,14 @@ function EmployeeController() {
           <Route path="/profile" element={<EmployeeProfile />} />
           <Route path="/notifications" element={<EmployeeNotifications />} />
           <Route path="/personal-notes" element={<EmployeePersonalNotes />} />
+
           <Route path="/scrum-records" element={<EmployeeScrumRecords />} />
+
+          <Route path="/payroll" element={<EmployeePayroll />} />
+          <Route path="/taxDocs" element={<TaxDocs />} />
+          <Route path="/timeLogs" element={<TimeLogs />} />
+          <Route path="/documents" element={<Documents />} />
+
         </Route>
         <Route path="*" element={<Navigate to="/employee" replace />} />
       </Routes>

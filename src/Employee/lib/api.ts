@@ -6,18 +6,14 @@ export async function employeeApiFetch<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
 
-  const isFormData =
-    typeof FormData !== "undefined" &&
-    !!options.body &&
-    options.body instanceof FormData;
+   const isFormData = options.body instanceof FormData;
 
   const headers: Record<string, string> = {
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...((options.headers as Record<string, string>) || {}),
   };
 
-  if (!isFormData) {
-    headers["Content-Type"] = headers["Content-Type"] || "application/json";
-  }
+  
 
   const authRaw = localStorage.getItem("employee_auth");
   if (authRaw) {
@@ -355,6 +351,7 @@ export async function deletePersonalNote(id: string) {
   });
 }
 
+
 // Download any URL with authentication for Employee
 export async function downloadViaUrl(url: string, fileName: string): Promise<void> {
   const authRaw = localStorage.getItem("employee_auth");
@@ -386,3 +383,86 @@ export async function downloadViaUrl(url: string, fileName: string): Promise<voi
   
   URL.revokeObjectURL(objectUrl);
 }
+
+
+// Payroll
+export async function getEmployeePayroll() {
+  return employeeApiFetch<{
+    items: Array<{
+      id: string;
+      payPeriod: string;
+      gross: number;
+      net: number;
+      taxes: number;
+      deductions: number;
+      pdfUrl: string;
+    }>;
+  }>("/api/employees/me/payroll");
+}
+
+// Tax Docs
+export async function getEmployeeTaxDocs(year?: number) {
+  return employeeApiFetch<{
+    items: Array<{
+      id: string;
+      year: number;
+      type: string;
+      fileUrl: string;
+    }>;
+  }>(`/api/employees/me/tax-docs${year ? `?year=${year}` : ""}`);
+}
+
+// Time Logs
+export async function getEmployeeTimeLogs() {
+  return employeeApiFetch<{
+    items: Array<{
+      id: string;
+      date: string;
+      clockIn: string;
+      clockOut: string;
+      totalHours: number;
+    }>;
+  }>("/api/employees/me/time-logs");
+}
+
+// Documents
+export async function getEmployeeDocuments() {
+  return employeeApiFetch<{
+    items: Array<{
+      id: string;
+      docType: string;
+      status: string;
+      fileUrl: string;
+    }>;
+  }>("/api/employees/me/documents");
+}
+
+// Profile update
+export async function updateEmployeeProfile(data: any) {
+  return employeeApiFetch<{ item: any }>("/api/employees/me/profile", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export const updateBankInfo = (data: any) =>
+  employeeApiFetch("/api/employees/me/profile/bank", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+
+export const updateTaxInfo = (data: any) =>
+  employeeApiFetch("/api/employees/me/profile/tax", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+
+export const uploadDocument = (formData: FormData) =>
+  employeeApiFetch("/api/employees/me/documents", {
+    method: "POST",
+    body: formData,
+  });
+
+export const getDocuments = () =>
+  employeeApiFetch("/api/employees/me/documents");
+
