@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Badge } from "@/components/admin/ui/badge";
-import { AlertCircle, Loader2, User, Calendar, Paperclip, Image, Link as LinkIcon, FileText, ExternalLink } from "lucide-react";
-import { apiFetch } from "@/lib/admin/apiClient";
+import { AlertCircle, Loader2, User, Calendar, Paperclip, Image, Link as LinkIcon, FileText, ExternalLink, Database, CheckSquare } from "lucide-react";
+import { apiFetch, getApiBaseUrl } from "@/lib/admin/apiClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/admin/ui/select";
 
 type AsanaWorkspace = {
@@ -78,6 +78,56 @@ function formatDate(d?: string) {
   }
 }
 
+function linkify(text: string) {
+  if (!text) return "—";
+  
+  // URL matching
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  // Email matching
+  const emailRegex = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9._-]+)/g;
+
+  // Split by URL first, then process leftovers for emails
+  return text.split(urlRegex).flatMap((part, i) => {
+    if (part.match(urlRegex)) {
+      return [
+        <a 
+          key={`url-${i}`} 
+          href={part} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="text-indigo-600 hover:underline inline-flex items-center gap-0.5 font-medium"
+        >
+          {part} <ExternalLink className="h-3 w-3" />
+        </a>
+      ];
+    }
+    
+    // Split the remaining text by email regex
+    return part.split(emailRegex).map((subpart, j) => {
+      if (subpart.match(emailRegex)) {
+        return (
+          <a 
+            key={`email-${i}-${j}`} 
+            href={`mailto:${subpart}`} 
+            className="text-indigo-600 hover:underline font-medium"
+          >
+            {subpart}
+          </a>
+        );
+      }
+      return subpart;
+    });
+  });
+}
+
+function getFullUrl(path?: string) {
+  if (!path) return "";
+  if (path.startsWith("http")) return path;
+  const baseUrl = getApiBaseUrl().replace(/\/$/, "");
+  const cleanPath = path.startsWith("/") ? path : `/${path}`;
+  return `${baseUrl}${cleanPath}`;
+}
+
 export default function AsanaData() {
   const [workspaces, setWorkspaces] = useState<AsanaWorkspace[]>([]);
   const [workspaceAsanaId, setWorkspaceAsanaId] = useState<string>("");
@@ -94,7 +144,9 @@ export default function AsanaData() {
   const [users, setUsers] = useState<AsanaUser[]>([]);
 
   const [loading, setLoading] = useState(false);
+  const [transferring, setTransferring] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [transferSuccess, setTransferSuccess] = useState<string | null>(null);
 
   const selectedWorkspace = useMemo(
     () => workspaces.find((w) => w.asanaId === workspaceAsanaId) || null,
@@ -267,6 +319,23 @@ export default function AsanaData() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTaskAsanaId]);
+  const handleTransfer = async () => {
+    if (!projectAsanaId) return;
+    setError(null);
+    setTransferSuccess(null);
+    setTransferring(true);
+    try {
+      const res = await apiFetch<{ ok: true; message: string; stats: { tasks: number; comments: number } }>("/api/asana-import/transfer-project", {
+        method: "POST",
+        body: JSON.stringify({ projectAsanaId }),
+      });
+      setTransferSuccess(`${res.message} (${res.stats.tasks} tasks, ${res.stats.comments} comments)`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Transfer failed");
+    } finally {
+      setTransferring(false);
+    }
+  };
 
   return (
     <>
@@ -282,6 +351,13 @@ export default function AsanaData() {
           <div className="rounded-md bg-destructive/10 p-3 flex items-start gap-2">
             <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
             <p className="text-xs sm:text-sm text-destructive break-words">{error}</p>
+          </div>
+        )}
+
+        {transferSuccess && (
+          <div className="rounded-md bg-green-100 p-3 flex items-start gap-2 border border-green-200">
+            <CheckSquare className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
+            <p className="text-xs sm:text-sm text-green-800 break-words">{transferSuccess}</p>
           </div>
         )}
 
@@ -378,10 +454,29 @@ export default function AsanaData() {
                 variant="outline"
                 onClick={() => {
                   if (workspaces[0]?.asanaId) setWorkspaceAsanaId(workspaces[0].asanaId);
+                  setTransferSuccess(null);
                 }}
-                disabled={loading || workspaces.length === 0}
+                disabled={loading || workspaces.length === 0 || transferring}
               >
                 Reset
+              </Button>
+
+              <Button
+                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
+                onClick={handleTransfer}
+                disabled={loading || !projectAsanaId || transferring}
+              >
+                {transferring ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Inserting...
+                  </>
+                ) : (
+                  <>
+                    <Database className="h-4 w-4" />
+                    Insert to Task Manager
+                  </>
+                )}
               </Button>
 
               {loading && (
@@ -416,7 +511,7 @@ export default function AsanaData() {
                   <div className="space-y-1">
                     <p className="text-xs font-medium">Description</p>
                     <p className="text-xs sm:text-sm text-muted-foreground whitespace-pre-wrap break-words">
-                      {taskDetails.task.description || "—"}
+                      {linkify(taskDetails.task.description)}
                     </p>
                   </div>
 
@@ -480,7 +575,7 @@ export default function AsanaData() {
                             )}
                           </div>
                           {/* Message */}
-                          <p className="text-xs sm:text-sm break-words whitespace-pre-wrap">{c.message}</p>
+                          <p className="text-xs sm:text-sm break-words whitespace-pre-wrap">{linkify(c.message)}</p>
                         </div>
                       );
                     })}
@@ -511,9 +606,9 @@ export default function AsanaData() {
                           {/* Image preview */}
                           {isImage && hasDownload && (
                             <div className="bg-gray-50 border-b p-2 flex justify-center">
-                              <a href={a.filePath} target="_blank" rel="noreferrer">
+                              <a href={getFullUrl(a.filePath)} target="_blank" rel="noreferrer">
                                 <img
-                                  src={a.filePath}
+                                  src={getFullUrl(a.filePath)}
                                   alt={a.fileName || "attachment"}
                                   className="max-h-48 max-w-full rounded object-contain cursor-pointer hover:opacity-90 transition-opacity"
                                 />
@@ -525,14 +620,18 @@ export default function AsanaData() {
                             <div className="flex items-start gap-2 min-w-0 flex-1">
                               {/* Icon based on type */}
                               <div className={`rounded-full p-1.5 flex-shrink-0 ${
-                                isImage ? "bg-green-100" : isLink ? "bg-blue-100" : "bg-gray-100"
+                                isImage ? "bg-green-100" : isLink ? "bg-blue-100" : "bg-indigo-100"
                               }`}>
                                 {isImage ? (
                                   <Image className="h-3.5 w-3.5 text-green-600" />
                                 ) : isLink ? (
                                   <LinkIcon className="h-3.5 w-3.5 text-blue-600" />
+                                ) : a.mimeType?.includes("pdf") ? (
+                                  <FileText className="h-3.5 w-3.5 text-red-600" />
+                                ) : a.mimeType?.startsWith("video/") ? (
+                                  <ExternalLink className="h-3.5 w-3.5 text-orange-600" />
                                 ) : (
-                                  <FileText className="h-3.5 w-3.5 text-gray-600" />
+                                  <FileText className="h-3.5 w-3.5 text-indigo-600" />
                                 )}
                               </div>
                               <div className="min-w-0">
@@ -554,7 +653,7 @@ export default function AsanaData() {
                             <div className="flex items-center gap-1.5 flex-shrink-0">
                               {isLink && (
                                 <a
-                                  href={a.filePath}
+                                  href={getFullUrl(a.filePath)}
                                   target="_blank"
                                   rel="noreferrer"
                                   className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-medium"
@@ -564,10 +663,10 @@ export default function AsanaData() {
                               )}
                               {hasDownload && !isLink && (
                                 <a
-                                  href={a.filePath}
+                                  href={getFullUrl(a.filePath)}
                                   target="_blank"
                                   rel="noreferrer"
-                                  className="inline-flex items-center gap-1 text-xs text-accent hover:underline font-medium"
+                                  className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-bold hover:underline"
                                 >
                                   <Paperclip className="h-3 w-3" /> Download
                                 </a>

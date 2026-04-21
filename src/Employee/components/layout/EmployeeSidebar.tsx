@@ -75,25 +75,39 @@ export function EmployeeSidebar({ mode = "desktop", onNavigate }: EmployeeSideba
   return (
     <aside
       className={cn(
-        "flex flex-col text-white",
+        "flex flex-col text-white z-40",
+        // Deep matte navy with subtle vertical gradient (matching admin sidebar)
         isMobile
-          ? "h-full w-64 bg-gradient-to-b from-[#0b2f6b] via-[#10428b] to-[#0a2a5c]"
-          : "fixed left-0 bottom-0 w-56 bg-gradient-to-b from-[#0b2f6b] via-[#10428b] to-[#0a2a5c] shadow-floating border-r-2 border-white/20 z-40"
+          ? "h-full w-64 bg-gradient-to-b from-[#0B1323] via-[#0B1323] to-[#0F172A]"
+          : "fixed left-0 bottom-0 w-56 bg-gradient-to-b from-[#0B1323] via-[#0B1323] to-[#0F172A] shadow-floating border-r border-white/5"
       )}
       style={!isMobile ? { top: `${topOffset}px` } : undefined}
     >
-      <nav className="flex-1 flex flex-col gap-1 px-3 py-4 overflow-y-auto no-scrollbar mt-4">
+      <nav className="flex-1 flex flex-col gap-1 px-2 py-2 overflow-y-auto overflow-x-hidden no-scrollbar">
         {navItemsBase.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
             end={(item as any).end}
-            className="flex h-10 w-full items-center gap-3 rounded-lg px-4 text-white/70 hover:bg-white/15 hover:text-white transition-colors"
-            activeClassName="bg-white text-[#0b3f86] shadow-md"
+            className="group relative flex h-10 w-full items-center gap-3 rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white transition-all duration-100 linear"
+            activeClassName="bg-white/[0.06] text-white"
             onClick={handleNavigate}
           >
-            <item.icon className="h-5 w-5 flex-shrink-0" />
-            <span className="text-sm font-medium truncate">{item.label}</span>
+            {({ isActive }) => (
+              <>
+                {/* Active indicator bar */}
+                <span 
+                  className={cn(
+                    "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full",
+                    "bg-gradient-to-b from-[#00C6FF] to-[#0072FF]",
+                    "transition-all duration-[120ms] ease-in-out",
+                    isActive ? "opacity-100" : "opacity-0"
+                  )} 
+                />
+                <item.icon className="h-5 w-5 flex-shrink-0 transition-all duration-100 linear relative z-10 group-hover:brightness-[108%]" />
+                <span className="text-sm font-medium truncate">{item.label}</span>
+              </>
+            )}
           </NavLink>
         ))}
       </nav>
@@ -102,7 +116,7 @@ export function EmployeeSidebar({ mode = "desktop", onNavigate }: EmployeeSideba
         <button
           type="button"
           onClick={onLogout}
-          className="flex w-full items-center gap-3 h-10 rounded-lg px-4 text-white/80 hover:bg-red-500/20 hover:text-red-100 transition-colors"
+          className="flex w-full items-center gap-3 h-10 rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white transition-all duration-100 linear"
         >
           <LogOut className="h-5 w-5 flex-shrink-0" />
           <span className="text-sm font-medium">Logout</span>

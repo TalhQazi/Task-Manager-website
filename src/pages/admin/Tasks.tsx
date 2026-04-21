@@ -234,6 +234,31 @@ function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fa
   return <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/20"><AlertCircle className="w-5 h-5 text-destructive/50" /></div>;
 }
 
+function TaskAttachmentItem({ attachment, onPreview }: { attachment: { fileName: string; url: string; mimeType?: string }; onPreview: (url: string, fileName: string) => void }) {
+  const [imgError, setImgError] = useState(false);
+  const isImage = attachment.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(attachment.fileName || "");
+  const imageUrl = toProxiedUrl(attachment.url) || attachment.url;
+  
+  if (isImage && !imgError && attachment.url) {
+    return (
+      <div className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => onPreview(imageUrl, attachment.fileName || "Attachment")}>
+        <img 
+          src={imageUrl} 
+          alt={attachment.fileName || "Attachment"} 
+          className="w-full h-24 object-cover"
+          onError={() => setImgError(true)}
+        />
+      </div>
+    );
+  }
+  
+  return (
+    <div className="w-full h-24 flex items-center justify-center bg-muted/40 rounded-lg border border-border/60">
+      <FileText className="h-8 w-8 text-muted-foreground/60" />
+    </div>
+  );
+}
+
 // ... (all your interfaces and types remain exactly the same)
 interface Task {
   id: string;
@@ -295,6 +320,7 @@ type CreateProjectPayload = {
   description: string;
   assignees?: string[];
   logo?: ProjectLogo;
+  introVideoUrl?: string;
   attachments?: Array<{
     fileName: string;
     url: string;
@@ -357,6 +383,7 @@ interface Project {
   logo?: ProjectLogo;
   taskCount?: number;
   status?: string;
+  introVideoUrl?: string;
   attachments?: Array<{
     fileName: string;
     url: string;
@@ -477,6 +504,7 @@ export default function Tasks() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [showArchivedTasks, setShowArchivedTasks] = useState(false);
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [projectPage, setProjectPage] = useState(1);
   const [taskPage, setTaskPage] = useState(1);
@@ -485,6 +513,7 @@ export default function Tasks() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
+  const [projectIntroVideoUrl, setProjectIntroVideoUrl] = useState("");
   const [projectLogoFile, setProjectLogoFile] = useState<File | null>(null);
   const [projectLogoPreview, setProjectLogoPreview] = useState<string>("");
   const [projectAttachmentFiles, setProjectAttachmentFiles] = useState<File[]>([]);
@@ -538,6 +567,7 @@ export default function Tasks() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editProjectName, setEditProjectName] = useState("");
   const [editProjectDescription, setEditProjectDescription] = useState("");
+  const [editProjectIntroVideoUrl, setEditProjectIntroVideoUrl] = useState("");
   const [editProjectLogoFile, setEditProjectLogoFile] = useState<File | null>(null);
   const [editProjectLogoPreview, setEditProjectLogoPreview] = useState<string>("");
   const [isEditingProject, setIsEditingProject] = useState(false);
@@ -621,6 +651,7 @@ export default function Tasks() {
   }, [projectsQuery.data]);
 
   const loadProject = async (projectId: string, partialProject?: Project) => {
+    setSearchQuery(""); // Clear search bar when opening a project
     try {
       setIsLoadingProject(true);
       if (partialProject) {
@@ -756,21 +787,21 @@ export default function Tasks() {
       return normalizeTask(res.item);
     },
     onSuccess: (updatedTask) => {
-      queryClient.setQueryData<Task[]>(["tasks"], (old) => {
-        if (!old) return old;
-        return old.map((t) => (t.id === updatedTask.id ? updatedTask : t));
-      });
+      // Invalidate both paginated tasks and general projects
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      
       if (selectedTask?.id === updatedTask.id) {
         setSelectedTask(updatedTask);
       }
-      if (selectedProject?.id === updatedTask.projectId) {
+      
+      // Only update local project state if we actually have a project selected and IDs match
+      if (selectedProject && updatedTask.projectId && selectedProject.id === updatedTask.projectId) {
         setSelectedProject({
           ...selectedProject,
-          tasks: selectedProject.tasks.map(t => t.id === updatedTask.id ? updatedTask : t)
+          tasks: (selectedProject.tasks || []).map(t => t.id === updatedTask.id ? updatedTask : t)
         });
       }
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 
@@ -844,23 +875,22 @@ export default function Tasks() {
       return normalizeTask(res.item);
     },
     onSuccess: (updatedTask) => {
-      // Update cache directly instead of refetching
-      queryClient.setQueryData<Task[]>(["tasks"], (old) => {
-        if (!old) return old;
-        return old.map((t) => (t.id === updatedTask.id ? updatedTask : t));
-      });
+      // Update cache
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+
       // Synchronize state immediately
       if (selectedTask?.id === updatedTask.id) {
         setSelectedTask(updatedTask);
       }
-      if (selectedProject?.id === updatedTask.projectId) {
+      
+      // Explicit check to avoid null pointer when updatedTask.projectId is undefined/null
+      if (selectedProject && updatedTask.projectId && selectedProject.id === updatedTask.projectId) {
         setSelectedProject({
           ...selectedProject,
-          tasks: selectedProject.tasks.map(t => t.id === updatedTask.id ? updatedTask : t)
+          tasks: (selectedProject.tasks || []).map(t => t.id === updatedTask.id ? updatedTask : t)
         });
       }
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 
@@ -1103,6 +1133,7 @@ export default function Tasks() {
         description,
         assignees: projectCreationAssignees,
         logo: projectLogo,
+        introVideoUrl: projectIntroVideoUrl,
         attachments: projectAttachments,
         tasks: tasksToCreate,
       };
@@ -1223,6 +1254,7 @@ export default function Tasks() {
   };
 
   const openView = (task: Task) => {
+    setSearchQuery(""); // Clear search bar when viewing a task
     setSelectedTask(task);
     setIsViewOpen(true);
     void loadComments(task.id);
@@ -1462,6 +1494,7 @@ export default function Tasks() {
   };
 
   const openEdit = (task: Task) => {
+    setSearchQuery(""); // Clear search bar when editing a task
     setSelectedTask(task);
     setEditSelectedAssignees(task.assignees || []);
     editForm.reset({
@@ -1479,6 +1512,7 @@ export default function Tasks() {
   };
 
   const openDelete = (task: Task) => {
+    setSearchQuery(""); // Clear search bar when deleting a task
     setSelectedTask(task);
     setIsDeleteOpen(true);
   };
@@ -1707,9 +1741,17 @@ export default function Tasks() {
         statusFilter === "all" || task.status === statusFilter;
       const matchesPriority =
         priorityFilter === "all" || task.priority === priorityFilter;
+      
+      // Archive logic: Hide completed tasks if not showing archived
+      if (!showArchivedTasks && task.status === "completed") return false;
+      // If showing archived, maybe only show completed? 
+      // Actually, user said archiving completed tasks "off the screen".
+      // So if showArchivedTasks is true, we probably want to see the archived ones.
+      if (showArchivedTasks && task.status !== "completed") return false;
+
       return matchesSearch && matchesStatus && matchesPriority;
     });
-  }, [sourceTasks, searchQuery, statusFilter, priorityFilter]);
+  }, [sourceTasks, searchQuery, statusFilter, priorityFilter, showArchivedTasks]);
 
   const filteredProjects = useMemo(() => {
     const qMain = searchQuery.trim().toLowerCase();
@@ -1777,7 +1819,7 @@ export default function Tasks() {
         <div className="flex flex-wrap gap-2 sm:gap-3">
           {selectedProject ? (
             <>
-              <Button variant="outline" size="sm" onClick={() => setSelectedProject(null)} className="h-9 text-sm">
+              <Button variant="outline" size="sm" onClick={() => { setSelectedProject(null); setSearchQuery(""); }} className="h-9 text-sm">
                 Back to Projects
               </Button>
               <Button size="sm" className="gap-2 h-9 text-sm" onClick={() => {
@@ -1840,6 +1882,14 @@ export default function Tasks() {
               <SelectItem value="low">Low</SelectItem>
             </SelectContent>
           </Select>
+          <Button 
+            variant={showArchivedTasks ? "secondary" : "outline"}
+            onClick={() => setShowArchivedTasks(!showArchivedTasks)}
+            className="h-10 px-3 flex items-center gap-2"
+          >
+            <Archive className="h-4 w-4" />
+            <span className="text-xs font-medium">{showArchivedTasks ? "Hide Archived" : "Show Archived"}</span>
+          </Button>
           <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 hidden sm:flex">
             <Filter className="w-4 h-4" />
           </Button>
@@ -1862,6 +1912,27 @@ export default function Tasks() {
               <p className="text-xs text-muted-foreground mt-1 break-words">{selectedProject.assignees && selectedProject.assignees.length > 0 ? selectedProject.assignees.join(", ") : "No assignees"}</p>
             </div>
           </div>
+          {selectedProject.introVideoUrl && (
+            <div className="mt-3 p-3 bg-primary/5 border border-primary/10 rounded-lg flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                  <RefreshCw className="h-4 w-4 animate-spin-slow" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-primary uppercase tracking-wider">Project Synopsis</p>
+                  <p className="text-sm font-medium">Watch the introductory video for this project.</p>
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="bg-white border-primary/20 hover:bg-primary/5 text-primary font-bold"
+                onClick={() => window.open(selectedProject.introVideoUrl, "_blank")}
+              >
+                Watch Video
+              </Button>
+            </div>
+          )}
           {selectedProject.attachments && selectedProject.attachments.length > 0 && (
             <div className="mt-3">
               <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({selectedProject.attachments.length})</p>
@@ -1983,6 +2054,7 @@ export default function Tasks() {
                                 setEditingProject(project);
                                 setEditProjectName(project.name);
                                 setEditProjectDescription(project.description || "");
+                                setEditProjectIntroVideoUrl(project.introVideoUrl || "");
                                 setEditProjectLogoPreview(project.logo?.url || "");
                                 setEditProjectLogoFile(null);
                                 setIsEditProjectOpen(true);
@@ -2213,6 +2285,10 @@ export default function Tasks() {
                 <label className="text-sm font-medium">Project Description</label>
                 <Textarea placeholder="Short project description" className="min-h-[80px]" value={projectDescription} onChange={(e) => setProjectDescription(e.target.value)} />
               </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Intro Video URL (YouTube/Vimeo)</label>
+                <Input placeholder="https://youtube.com/watch?v=..." value={projectIntroVideoUrl} onChange={(e) => setProjectIntroVideoUrl(e.target.value)} />
+              </div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Logo</label>
                 <div className="flex flex-wrap items-center gap-3">
@@ -2364,12 +2440,8 @@ export default function Tasks() {
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 bg-muted/20 p-3 rounded-xl border border-border/50">
                         {selectedTask.attachments && selectedTask.attachments.length > 0
                           ? selectedTask.attachments.map((attachment, idx) => (
-                            <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => { if (attachment.url) { setPreviewUrl(toProxiedUrl(attachment.url) || attachment.url); setPreviewName(attachment.fileName || "Attachment"); } }}>
-                              {(attachment.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(attachment.fileName || "")) && attachment.url ? (
-                                <img src={toProxiedUrl(attachment.url) || attachment.url} alt={attachment.fileName || `Attachment`} className="w-full h-24 object-cover" />
-                              ) : (
-                                <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
-                              )}
+                            <div key={idx} className="relative group">
+                              <TaskAttachmentItem attachment={attachment} onPreview={(url, fileName) => { setPreviewUrl(url); setPreviewName(fileName); }} />
                               <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
 
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[1px]">
@@ -2859,6 +2931,7 @@ export default function Tasks() {
                   const payload: Partial<Project> = {
                     name: editProjectName,
                     description: editProjectDescription,
+                    introVideoUrl: editProjectIntroVideoUrl,
                   };
                   if (logoPayload) {
                     payload.logo = logoPayload;
@@ -2913,6 +2986,14 @@ export default function Tasks() {
                   className="min-h-[80px]"
                   value={editProjectDescription}
                   onChange={(e) => setEditProjectDescription(e.target.value)}
+                />
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Intro Video URL (YouTube/Vimeo)</label>
+                <Input 
+                  placeholder="https://youtube.com/watch?v=..." 
+                  value={editProjectIntroVideoUrl} 
+                  onChange={(e) => setEditProjectIntroVideoUrl(e.target.value)} 
                 />
               </div>
               <div className="sm:col-span-2 space-y-1.5">
@@ -3236,16 +3317,63 @@ export default function Tasks() {
                             />
                           </div>
                         )}
-                        <div><p className="text-xs text-muted-foreground mb-2">Assigned to</p><div className="flex flex-wrap items-center gap-2">{task.assignees && task.assignees.length > 0 ? (<><div className="flex -space-x-2">{task.assignees.slice(0, 3).map((assignee, idx) => {
-                          const term = assignee.toLowerCase().trim();
-                          const emp = employees.find(e => 
-                            e.name.toLowerCase().trim() === term || 
-                            e.email.toLowerCase().trim() === term ||
-                            (e.id && e.id.toLowerCase() === term)
-                          );
-                          const avatar = toProxiedUrl(emp?.avatarDataUrl || emp?.avatarUrl) || emp?.avatarDataUrl || emp?.avatarUrl;
-                          return (<Avatar key={idx} className="w-7 h-7 border-2 border-background">{avatar ? (<img src={avatar} alt="avatar" className="w-full h-full object-cover" />) : (<AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">{(emp?.initials || assignee.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()).substring(0, 2)}</AvatarFallback>)}</Avatar>);
-                        })}{task.assignees.length > 3 && (<div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">+{task.assignees.length - 3}</div>)}</div><span className="text-sm text-foreground break-words">{task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}</span></>) : (<span className="text-sm text-muted-foreground">Unassigned</span>)}</div></div>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs text-muted-foreground">Assigned to</p>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="h-7 text-[10px] uppercase font-bold px-2 py-0 border-primary/20 hover:border-primary/40 hover:bg-primary/5 text-primary"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setReassigningTask(task);
+                                setReassignTaskAssignees(task.assignees || []);
+                                setIsReassignTaskOpen(true);
+                              }}
+                            >
+                              <UserCog className="w-3 h-3 mr-1" />
+                              Assign
+                            </Button>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {task.assignees && task.assignees.length > 0 ? (
+                              <>
+                                <div className="flex -space-x-2">
+                                  {task.assignees.slice(0, 3).map((assignee, idx) => {
+                                    const term = assignee.toLowerCase().trim();
+                                    const emp = employees.find(e => 
+                                      e.name.toLowerCase().trim() === term || 
+                                      e.email.toLowerCase().trim() === term ||
+                                      (e.id && e.id.toLowerCase() === term)
+                                    );
+                                    const avatar = toProxiedUrl(emp?.avatarDataUrl || emp?.avatarUrl) || emp?.avatarDataUrl || emp?.avatarUrl;
+                                    return (
+                                      <Avatar key={idx} className="w-7 h-7 border-2 border-background">
+                                        {avatar ? (
+                                          <img src={avatar} alt="avatar" className="w-full h-full object-cover" />
+                                        ) : (
+                                          <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
+                                            {(emp?.initials || assignee.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()).substring(0, 2)}
+                                          </AvatarFallback>
+                                        )}
+                                      </Avatar>
+                                    );
+                                  })}
+                                  {task.assignees.length > 3 && (
+                                    <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">
+                                      +{task.assignees.length - 3}
+                                    </div>
+                                  )}
+                                </div>
+                                <span className="text-sm text-foreground break-words">
+                                  {task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">Unassigned</span>
+                            )}
+                          </div>
+                        </div>
                         <div className="flex gap-2 flex-wrap"><Badge variant="secondary" className={cn("text-xs", statusClasses[task.status])}>{task.status}</Badge><Badge variant="outline" className={cn("text-xs border", priorityClasses[task.priority])}>{task.priority}</Badge></div>
                       </div>
                       <div className="p-4 border-t border-muted/30 bg-muted/10 space-y-2 text-sm"><div className="flex items-center gap-2 text-muted-foreground flex-wrap"><Calendar className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs">Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}</span></div><div className="flex items-center gap-2 text-muted-foreground flex-wrap"><Clock className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs">Created: {new Date(task.createdAt).toLocaleDateString()}</span></div>{task.location && (<div className="flex items-center gap-2 text-muted-foreground flex-wrap"><MapPin className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs break-words">{task.location}</span></div>)}</div>

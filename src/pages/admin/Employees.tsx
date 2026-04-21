@@ -58,6 +58,8 @@ import {
   AlertTriangle,
   Clock,
   Key,
+  Archive,
+  RefreshCw,
 } from "lucide-react";
 import { createResource, deleteResource, listResource, updateResource, apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
@@ -149,6 +151,7 @@ const Employees = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
@@ -216,7 +219,6 @@ const Employees = () => {
   const [viewProfileOpen, setViewProfileOpen] = useState(false);
   const [editEmployeeOpen, setEditEmployeeOpen] = useState(false);
   const [deactivateConfirmOpen, setDeactivateConfirmOpen] = useState(false);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [shiftOpen, setShiftOpen] = useState(false);
 
   // Reset Password state - Super Admin only
@@ -382,7 +384,7 @@ const Employees = () => {
   useEffect(() => {
     const viewId = String(searchParams.get("view") || "").trim();
     if (!viewId) return;
-    if (viewProfileOpen || editEmployeeOpen || deactivateConfirmOpen || deleteConfirmOpen || shiftOpen || addEmployeeOpen || resetPasswordOpen) return;
+    if (viewProfileOpen || editEmployeeOpen || deactivateConfirmOpen || shiftOpen || addEmployeeOpen || resetPasswordOpen) return;
 
     const match = employeesList.find((e) => String(e.id) === viewId);
     if (!match) return;
@@ -399,7 +401,6 @@ const Employees = () => {
     viewProfileOpen,
     editEmployeeOpen,
     deactivateConfirmOpen,
-    deleteConfirmOpen,
     shiftOpen,
     addEmployeeOpen,
     resetPasswordOpen,
@@ -478,23 +479,9 @@ const Employees = () => {
     }
   };
 
-  const handleDeleteConfirm = (employee: Employee) => {
-    setSelectedEmployee(employee);
-    setDeleteConfirmOpen(true);
-  };
 
-  const confirmDelete = async () => {
-    if (!selectedEmployee) return;
-    try {
-      setApiError(null);
-      await deleteResource("employees", selectedEmployee.id);
-      await refreshEmployees();
-      setDeleteConfirmOpen(false);
-      setSelectedEmployee(null);
-    } catch (e) {
-      setApiError(e instanceof Error ? e.message : "Failed to delete employee");
-    }
-  };
+
+
 
   const handleShift = (employee: Employee) => {
     setSelectedEmployee(employee);
@@ -569,11 +556,17 @@ const Employees = () => {
       employee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       employee.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       employee.role.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Status logic for tabs
+    const isArchived = employee.status === "inactive";
+    const matchesTab = activeTab === "archived" ? isArchived : !isArchived;
+
     const matchesStatus = statusFilter === "all" || employee.status === statusFilter;
     const matchesCategory = categoryFilter === "all" || String(employee.category || "") === categoryFilter;
     const matchesRole = roleFilter === "all" || employee.role === roleFilter;
     const matchesCompany = companyFilter === "all" || (employee.company || "") === companyFilter;
-    return matchesSearch && matchesStatus && matchesCategory && matchesRole && matchesCompany;
+    
+    return matchesSearch && matchesStatus && matchesCategory && matchesRole && matchesCompany && matchesTab;
   });
 
   // Get status icon
@@ -1045,6 +1038,32 @@ const Employees = () => {
               </Card>
             </motion.div>
           ))}
+        </motion.div>
+
+        {/* Tabs for Active/Archived */}
+        <motion.div variants={itemVariants} className="flex gap-2">
+          <Button
+            variant={activeTab === "active" ? "default" : "ghost"}
+            onClick={() => setActiveTab("active")}
+            className={`h-9 px-4 rounded-full transition-all duration-300 ${
+              activeTab === "active" 
+                ? "bg-gradient-to-r from-primary to-primary/80 text-white shadow-md" 
+                : "text-muted-foreground hover:bg-primary/10"
+            }`}
+          >
+            Active Directory
+          </Button>
+          <Button
+            variant={activeTab === "archived" ? "default" : "ghost"}
+            onClick={() => setActiveTab("archived")}
+            className={`h-9 px-4 rounded-full transition-all duration-300 ${
+              activeTab === "archived" 
+                ? "bg-gradient-to-r from-muted-foreground to-muted-foreground/80 text-white shadow-md" 
+                : "text-muted-foreground hover:bg-muted"
+            }`}
+          >
+            Archive
+          </Button>
         </motion.div>
 
         {/* Filters Card - Animated */}
@@ -1525,17 +1544,19 @@ const Employees = () => {
                                     </DropdownMenuItem>
                                     <DropdownMenuItem
                                       onClick={() => handleDeactivateConfirm(employee)}
-                                      className="text-destructive"
+                                      className={employee.status === "inactive" ? "text-primary" : "text-destructive"}
                                     >
-                                      <Power className="mr-2 h-4 w-4" />
-                                      {employee.status === "inactive" ? "Activate" : "Deactivate"}
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onClick={() => handleDeleteConfirm(employee)}
-                                      className="text-destructive"
-                                    >
-                                      <Trash2 className="mr-2 h-4 w-4" />
-                                      Delete
+                                      {employee.status === "inactive" ? (
+                                        <>
+                                          <RefreshCw className="mr-2 h-4 w-4" />
+                                          Restore Employee
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Archive className="mr-2 h-4 w-4" />
+                                          Archive Employee
+                                        </>
+                                      )}
                                     </DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
@@ -1936,12 +1957,12 @@ const Employees = () => {
         <DialogContent className="w-[95vw] max-w-md mx-auto p-4 sm:p-6">
           <DialogHeader className="space-y-1.5 sm:space-y-2">
             <DialogTitle className={`text-base sm:text-lg ${selectedEmployee?.status === "inactive" ? "text-primary" : "text-destructive"}`}>
-              {selectedEmployee?.status === "inactive" ? "Activate Employee" : "Deactivate Employee"}
+              {selectedEmployee?.status === "inactive" ? "Restore Employee" : "Archive Employee"}
             </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">
               {selectedEmployee?.status === "inactive"
-                ? "This employee will be marked as active again."
-                : "This employee will be marked as inactive. You can activate them again later."}
+                ? "This employee will be moved back to the active directory."
+                : "This employee will be moved to the archive. You can restore them anytime."}
             </DialogDescription>
           </DialogHeader>
           
@@ -1984,66 +2005,14 @@ const Employees = () => {
                     : ""
                 }`}
               >
-                {selectedEmployee?.status === "inactive" ? "Activate" : "Deactivate"}
+                {selectedEmployee?.status === "inactive" ? "Restore" : "Archive"}
               </Button>
             </motion.div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirm Dialog - Animated */}
-      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-        <DialogContent className="w-[95vw] max-w-md mx-auto p-4 sm:p-6">
-          <DialogHeader className="space-y-1.5 sm:space-y-2">
-            <DialogTitle className="text-base sm:text-lg text-destructive">
-              Delete Employee
-            </DialogTitle>
-            <DialogDescription className="text-xs sm:text-sm">
-              This action cannot be undone. The employee will be permanently removed from the system.
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedEmployee && (
-            <motion.div 
-              className="rounded-lg bg-gradient-to-br from-destructive/10 to-destructive/5 p-3 sm:p-4 text-xs sm:text-sm mt-2"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <p className="font-medium break-words">{selectedEmployee.name}</p>
-            </motion.div>
-          )}
-          
-          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="w-full sm:w-auto"
-            >
-              <Button 
-                variant="outline" 
-                onClick={() => setDeleteConfirmOpen(false)}
-                className="w-full sm:w-auto order-2 sm:order-1"
-              >
-                Cancel
-              </Button>
-            </motion.div>
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="w-full sm:w-auto"
-            >
-              <Button 
-                variant="destructive" 
-                onClick={confirmDelete}
-                className="w-full sm:w-auto order-1 sm:order-2"
-              >
-                Delete
-              </Button>
-            </motion.div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+
 
       {/* Reset Password Dialog - Super Admin Only */}
       <Dialog open={resetPasswordOpen} onOpenChange={setResetPasswordOpen}>

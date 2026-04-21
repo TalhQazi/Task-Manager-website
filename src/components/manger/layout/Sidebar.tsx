@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { SidebarProfile } from "@/components/admin/layout/SidebarProfile";
 import { NavLink } from "@/components/manger/NavLink";
 import {
   LayoutDashboard,
@@ -17,12 +17,25 @@ import {
   LogOut,
   Building2,
   FileText,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
-import { cn } from "@/lib/manger/utils";
-import { clearAuthState } from "@/lib/auth";
+import { useNavigate, useLocation } from "react-router-dom";
+import { cn } from "@/lib/utils";
+import { clearAuthState, getAuthState } from "@/lib/auth";
+import React, { useMemo, useState, useEffect } from "react";
+import { apiFetch } from "@/lib/manger/api";
 
-const navItems = [
+type NavItem = {
+  icon?: any;
+  customIcon?: React.ReactNode;
+  label: string;
+  path?: string;
+  end?: boolean;
+  children?: NavItem[];
+};
+
+const navItemsBase: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/manager", end: true },
   { icon: ClipboardList, label: "Tasks", path: "/manager/tasks" },
   { icon: Users, label: "Employees", path: "/manager/employees" },
@@ -36,18 +49,17 @@ const navItems = [
   { icon: ClipboardCheck, label: "Onboarding", path: "/manager/onboarding" },
   { icon: BarChart3, label: "Reports", path: "/manager/reports" },
   { icon: MessageSquare, label: "Messages", path: "/manager/messages" },
-  { 
-    label: "SignaCore", 
+  {
+    label: "SignaCore",
     path: "/manager/contracts",
     customIcon: (
-      <img 
-        src="/signa-core.png" 
-        alt="SignaCore" 
-        className="h-6 w-6 flex-shrink-0 object-contain opacity-80 group-hover:opacity-100 transition-opacity" 
+      <img
+        src="/signa-core.png"
+        alt="SignaCore"
+        className="h-6 w-6 flex-shrink-0 object-contain opacity-80 group-hover:opacity-100 transition-opacity"
       />
-    )
+    ),
   },
-
   {
     label: "Ultimate Property Holdings",
     path: "/manager/uph-maintenance",
@@ -59,7 +71,6 @@ const navItems = [
       />
     ),
   },
-
   { icon: FileText, label: "Personal Notes", path: "/manager/personal-notes" },
   { icon: Settings, label: "Settings", path: "/manager/settings" },
 ];
@@ -73,25 +84,13 @@ interface SidebarProps {
 
 export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
   const navigate = useNavigate();
-  const [topOffset, setTopOffset] = useState(250);
+  const auth = getAuthState();
 
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 768) {
-        setTopOffset(120);
-      } else if (window.innerWidth < 1024) {
-        setTopOffset(180);
-      } else {
-        setTopOffset(250);
-      }
-    };
-    
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  const onLogout = () => {
+  const onLogout = async () => {
+    try {
+      await apiFetch("/api/auth/logout", { method: "POST" });
+    } catch {
+    }
     clearAuthState();
     onNavigate?.();
     navigate("/login", { replace: true });
@@ -99,37 +98,99 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
 
   const isMobile = mode === "mobile";
 
+  const location = useLocation();
+
   const handleNavigate = () => {
     if (isMobile) {
       onNavigate?.();
     }
   };
 
-  return (
-    <aside
-      className={cn(
-        "flex flex-col text-white",
-        isMobile
-          ? "h-full w-64 bg-gradient-to-b from-[#0B1323] via-[#0B1323] to-[#0F172A]"
-          : "fixed left-0 bottom-0 w-56 lg:w-64 bg-gradient-to-b from-[#0B1323] via-[#0B1323] to-[#0F172A] shadow-floating border-r-2 border-white/20 z-40"
-      )}
-      style={!isMobile ? { top: `${topOffset}px` } : undefined}
-    >
-      {/* Navigation icons */}
-      <nav className="flex-1 flex flex-col gap-1 px-3 py-4 overflow-y-auto no-scrollbar mt-4" style={{ msOverflowStyle: 'none', scrollbarWidth: 'none' }}>
-        {navItems.map((item) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            end={item.end}
-            className="group relative flex h-10 w-full items-center gap-3 rounded-lg px-4 text-white/60 hover:bg-white/[0.04] hover:text-white hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear"
-            activeClassName="bg-white/[0.06] text-white"
-            onClick={handleNavigate}
+  const renderNavItem = (item: NavItem, isChild = false) => {
+    if (item.children) {
+      const isExpanded = true;
+      const hasActiveChild = item.children.some(child => child.path && location.pathname.startsWith(child.path));
+      
+      return (
+        <div key={item.label} className="flex flex-col mb-1">
+          <button
+            className={cn(
+              "group relative flex h-10 w-full items-center justify-between rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white transition-all duration-100 linear",
+              hasActiveChild && "text-white bg-white/[0.02]"
+            )}
           >
+            <div className="flex items-center gap-3">
+              <item.icon className={cn("h-5 w-5 flex-shrink-0 transition-all", hasActiveChild && "text-[#00C6FF]")} />
+              <span className="text-sm font-medium truncate">{item.label}</span>
+            </div>
+            {isExpanded ? (
+              <ChevronDown className="h-4 w-4 opacity-50 transition-transform" />
+            ) : (
+              <ChevronRight className="h-4 w-4 opacity-50 transition-transform" />
+            )}
+          </button>
+          
+          {isExpanded && (
+            <div className="mt-1 flex flex-col gap-1 pl-4 ml-2 border-l border-white/10">
+              {item.children.map(child => renderNavItem(child, true))}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (!item.path) return null;
+
+    return (
+      <NavLink
+        key={item.path}
+        to={item.path}
+        end={item.end}
+        className={cn(
+          "group relative flex h-10 w-full items-center gap-3 rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear",
+          isChild && "h-9 text-[13px]"
+        )}
+        activeClassName="bg-white/[0.06] text-white"
+        onClick={handleNavigate}
+      >
+        {({ isActive }) => (
+          <>
+            {/* Active indicator bar */}
+            {!isChild && (
+              <span 
+                className={cn(
+                  "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full",
+                  "bg-gradient-to-b from-[#00C6FF] to-[#0072FF]",
+                  "transition-all duration-[120ms] ease-in-out",
+                  isActive ? "opacity-100" : "opacity-0"
+                )} 
+              />
+            )}
+            {isChild && isActive && (
+              <span 
+                className="absolute left-[-17px] top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#00C6FF]"
+              />
+            )}
+            
+            {/* Dashboard Pulse */}
+            {item.label === "Dashboard" && (
+              <span 
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gradient-to-b from-[#00C6FF] to-[#0072FF] animate-dashboard-pulse pointer-events-none"
+                aria-hidden="true"
+              />
+            )}
+            
             {item.customIcon ? (
               item.customIcon
             ) : (
-              <item.icon className="h-5 w-5 flex-shrink-0" />
+              <item.icon
+                className={cn(
+                  "flex-shrink-0 transition-all duration-100 linear relative z-10",
+                  isChild ? "h-4 w-4" : "h-5 w-5",
+                  isActive && ["brightness-[112%]", "scale-[1.03]"],
+                  "group-hover:brightness-[108%]"
+                )}
+              />
             )}
             {item.label === "SignaCore" ? (
               <span className="text-sm font-bold truncate">
@@ -143,23 +204,38 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
                 <span className="text-[#80B8D8]">H</span>
               </span>
             ) : (
-              <span className="text-sm font-medium truncate">{item.label}</span>
+              <span className="font-medium truncate">{item.label}</span>
             )}
-          </NavLink>
-        ))}
-      </nav>
+          </>
+        )}
+      </NavLink>
+    );
+  };
 
-      {/* Footer - only Logout */}
-      <div className="border-t border-white/10 px-2 pb-4 pt-3">
-        <button
-          type="button"
-          onClick={onLogout}
-          className="flex w-full items-center gap-3 h-10 rounded-lg px-4 text-white/80 hover:bg-red-500/20 hover:text-red-100 transition-colors"
-        >
-          <LogOut className="h-5 w-5 flex-shrink-0" />
-          <span className="text-sm font-medium">Logout</span>
-        </button>
+  return (
+    <aside
+      className={cn(
+        "flex flex-col text-white z-40",
+        // Deep matte navy with subtle vertical gradient
+        "bg-gradient-to-b from-[#0B1323] via-[#0B1323] to-[#0F172A]",
+        isMobile
+          ? "w-64 h-full"
+          : "fixed left-0 top-[300px] bottom-0 w-56 lg:w-64 shadow-floating"
+      )}
+    >
+      <div className="px-5 py-6 mb-3 flex flex-col items-center border-b border-white/5 bg-white/[0.03] backdrop-blur-md">
+        <div className="relative w-full rounded-xl bg-white shadow-2xl border-4 border-white/20 group flex items-center justify-center overflow-hidden">
+          <img
+            src="/new_logo.jpeg"
+            alt="Task Manager logo"
+            className="w-full h-auto object-contain transition-all duration-500 hover:scale-105 active:scale-95"
+            style={{ maxHeight: '150px' }}
+          />
+        </div>
       </div>
+      <nav className="flex-1 flex flex-col gap-1 px-2 py-2 overflow-y-auto overflow-x-hidden no-scrollbar">
+        {navItemsBase.map((item) => renderNavItem(item))}
+      </nav>
     </aside>
   );
 }

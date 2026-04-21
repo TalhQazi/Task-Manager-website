@@ -235,7 +235,7 @@ const hasTaxInfo =
     setChangingPassword(true);
     try {
       await employeeApiFetch("/api/auth/change-password", {
-        method: "POST",
+        method: "PUT",
         body: JSON.stringify({
           currentPassword,
           newPassword,

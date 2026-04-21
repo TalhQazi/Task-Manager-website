@@ -385,6 +385,7 @@ export async function downloadViaUrl(url: string, fileName: string): Promise<voi
 }
 
 
+
 // Payroll
 export async function getEmployeePayroll() {
   return employeeApiFetch<{
@@ -465,4 +466,45 @@ export const uploadDocument = (formData: FormData) =>
 
 export const getDocuments = () =>
   employeeApiFetch("/api/employees/me/documents");
+
+=======
+// Comment edit and delete APIs
+export async function updateComment(
+  taskId: string,
+  commentId: string,
+  payload: { message: string }
+): Promise<{ item: { id: string; message: string; updatedAt: string } }> {
+  return employeeApiFetch<{ item: { id: string; message: string; updatedAt: string } }>(`/api/tasks/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteComment(
+  taskId: string,
+  commentId: string
+): Promise<{ ok: true }> {
+  return employeeApiFetch<{ ok: true }>(`/api/tasks/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}`, {
+    method: "DELETE",
+  });
+}
+
+// Notification API functions
+export async function markNotificationAsRead(notificationId: string): Promise<{ success: boolean }> {
+  return employeeApiFetch<{ success: boolean }>(`/api/messages/${encodeURIComponent(notificationId)}/mark-read`, {
+    method: "POST"
+  });
+}
+
+export async function markAllNotificationsAsRead(): Promise<{ success: boolean }> {
+  return employeeApiFetch<{ success: boolean }>("/api/messages/mark-all-read", {
+    method: "POST"
+  });
+}
+
+export async function deleteNotification(notificationId: string): Promise<void> {
+  return employeeApiFetch<void>(`/api/messages/${encodeURIComponent(notificationId)}`, {
+    method: "DELETE"
+  });
+}
 

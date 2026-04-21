@@ -31,7 +31,6 @@ interface Website {
   platform: string;
   hostingProvider: string;
   status: "Live" | "Maintenance" | "Development" | "Offline";
-  owner: string;
   notes: string;
   createdAt: string;
 }
@@ -68,7 +67,6 @@ export function ActiveWebsites() {
     platform: "",
     hostingProvider: "",
     status: "Live",
-    owner: "",
     notes: "",
   });
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null);
@@ -96,7 +94,6 @@ export function ActiveWebsites() {
       platform: "",
       hostingProvider: "",
       status: "Live",
-      owner: "",
       notes: "",
     });
     setSelectedWebsite(null);
@@ -251,18 +248,7 @@ export function ActiveWebsites() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium">Owner</label>
-                  <input
-                    type="text"
-                    value={formData.owner || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, owner: e.target.value })
-                    }
-                    className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
-                    placeholder="Owner name"
-                  />
-                </div>
+
 
                 <div>
                   <label className="text-sm font-medium">Notes</label>
@@ -318,7 +304,6 @@ export function ActiveWebsites() {
                     <TableHead className="font-bold">Platform</TableHead>
                     <TableHead className="font-bold">Hosting</TableHead>
                     <TableHead className="font-bold">Status</TableHead>
-                    <TableHead className="font-bold">Owner</TableHead>
                     <TableHead className="text-right font-bold">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -328,7 +313,7 @@ export function ActiveWebsites() {
                       <TableCell className="font-medium text-sm">{website.siteName}</TableCell>
                       <TableCell>
                         <a
-                          href={website.url}
+                          href={website.url.startsWith("http") ? website.url : `https://${website.url}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs text-blue-600 hover:underline flex items-center gap-1"
@@ -344,7 +329,7 @@ export function ActiveWebsites() {
                           {website.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-xs">{website.owner}</TableCell>
+
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button
