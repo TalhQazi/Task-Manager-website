@@ -49,6 +49,7 @@ import {
   Mail,
   Phone,
   Globe,
+  ExternalLink,
   Sparkles,
   AlertTriangle,
   Upload,
@@ -1118,12 +1119,20 @@ const Companies = () => {
                     </div>
                   </motion.div>
                 )}
-                {selectedCompany.contact?.website && (
+                 {selectedCompany.contact?.website && (
                   <motion.div className="space-y-1.5" whileHover={{ x: 5 }}>
-                    <label className="text-xs sm:text-sm font-medium">Website</label>
-                    <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                      <Globe className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-                      <span>{selectedCompany.contact.website}</span>
+                    <label className="text-sm font-medium">Website</label>
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-4 w-4 text-blue-500" />
+                      <a 
+                        href={selectedCompany.contact.website.startsWith("http") ? selectedCompany.contact.website : `https://${selectedCompany.contact.website}`}
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-sm text-blue-600 hover:underline inline-flex items-center gap-1"
+                      >
+                        {selectedCompany.contact.website}
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
                     </div>
                   </motion.div>
                 )}

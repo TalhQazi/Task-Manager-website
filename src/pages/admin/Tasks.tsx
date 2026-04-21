@@ -295,6 +295,7 @@ type CreateProjectPayload = {
   description: string;
   assignees?: string[];
   logo?: ProjectLogo;
+  introVideoUrl?: string;
   attachments?: Array<{
     fileName: string;
     url: string;
@@ -359,6 +360,7 @@ interface Project {
   logo?: ProjectLogo;
   taskCount?: number;
   status?: string;
+  introVideoUrl?: string;
   attachments?: Array<{
     fileName: string;
     url: string;
@@ -479,6 +481,7 @@ export default function Tasks() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [showArchivedTasks, setShowArchivedTasks] = useState(false);
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [projectPage, setProjectPage] = useState(1);
   const [taskPage, setTaskPage] = useState(1);
@@ -487,6 +490,7 @@ export default function Tasks() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
+  const [projectIntroVideoUrl, setProjectIntroVideoUrl] = useState("");
   const [projectLogoFile, setProjectLogoFile] = useState<File | null>(null);
   const [projectLogoPreview, setProjectLogoPreview] = useState<string>("");
   const [projectAttachmentFiles, setProjectAttachmentFiles] = useState<File[]>([]);
@@ -540,6 +544,7 @@ export default function Tasks() {
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editProjectName, setEditProjectName] = useState("");
   const [editProjectDescription, setEditProjectDescription] = useState("");
+  const [editProjectIntroVideoUrl, setEditProjectIntroVideoUrl] = useState("");
   const [editProjectLogoFile, setEditProjectLogoFile] = useState<File | null>(null);
   const [editProjectLogoPreview, setEditProjectLogoPreview] = useState<string>("");
   const [isEditingProject, setIsEditingProject] = useState(false);
@@ -758,21 +763,21 @@ export default function Tasks() {
       return normalizeTask(res.item);
     },
     onSuccess: (updatedTask) => {
-      queryClient.setQueryData<Task[]>(["tasks"], (old) => {
-        if (!old) return old;
-        return old.map((t) => (t.id === updatedTask.id ? updatedTask : t));
-      });
+      // Invalidate both paginated tasks and general projects
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      
       if (selectedTask?.id === updatedTask.id) {
         setSelectedTask(updatedTask);
       }
-      if (selectedProject?.id === updatedTask.projectId) {
+      
+      // Only update local project state if we actually have a project selected and IDs match
+      if (selectedProject && updatedTask.projectId && selectedProject.id === updatedTask.projectId) {
         setSelectedProject({
           ...selectedProject,
-          tasks: selectedProject.tasks.map(t => t.id === updatedTask.id ? updatedTask : t)
+          tasks: (selectedProject.tasks || []).map(t => t.id === updatedTask.id ? updatedTask : t)
         });
       }
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 
@@ -846,23 +851,22 @@ export default function Tasks() {
       return normalizeTask(res.item);
     },
     onSuccess: (updatedTask) => {
-      // Update cache directly instead of refetching
-      queryClient.setQueryData<Task[]>(["tasks"], (old) => {
-        if (!old) return old;
-        return old.map((t) => (t.id === updatedTask.id ? updatedTask : t));
-      });
+      // Update cache
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+
       // Synchronize state immediately
       if (selectedTask?.id === updatedTask.id) {
         setSelectedTask(updatedTask);
       }
-      if (selectedProject?.id === updatedTask.projectId) {
+      
+      // Explicit check to avoid null pointer when updatedTask.projectId is undefined/null
+      if (selectedProject && updatedTask.projectId && selectedProject.id === updatedTask.projectId) {
         setSelectedProject({
           ...selectedProject,
-          tasks: selectedProject.tasks.map(t => t.id === updatedTask.id ? updatedTask : t)
+          tasks: (selectedProject.tasks || []).map(t => t.id === updatedTask.id ? updatedTask : t)
         });
       }
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
     },
   });
 
@@ -1105,6 +1109,7 @@ export default function Tasks() {
         description,
         assignees: projectCreationAssignees,
         logo: projectLogo,
+        introVideoUrl: projectIntroVideoUrl,
         attachments: projectAttachments,
         tasks: tasksToCreate,
       };
@@ -1709,9 +1714,17 @@ export default function Tasks() {
         statusFilter === "all" || task.status === statusFilter;
       const matchesPriority =
         priorityFilter === "all" || task.priority === priorityFilter;
+      
+      // Archive logic: Hide completed tasks if not showing archived
+      if (!showArchivedTasks && task.status === "completed") return false;
+      // If showing archived, maybe only show completed? 
+      // Actually, user said archiving completed tasks "off the screen".
+      // So if showArchivedTasks is true, we probably want to see the archived ones.
+      if (showArchivedTasks && task.status !== "completed") return false;
+
       return matchesSearch && matchesStatus && matchesPriority;
     });
-  }, [sourceTasks, searchQuery, statusFilter, priorityFilter]);
+  }, [sourceTasks, searchQuery, statusFilter, priorityFilter, showArchivedTasks]);
 
   const filteredProjects = useMemo(() => {
     const qMain = searchQuery.trim().toLowerCase();
@@ -1842,6 +1855,14 @@ export default function Tasks() {
               <SelectItem value="low">Low</SelectItem>
             </SelectContent>
           </Select>
+          <Button 
+            variant={showArchivedTasks ? "secondary" : "outline"}
+            onClick={() => setShowArchivedTasks(!showArchivedTasks)}
+            className="h-10 px-3 flex items-center gap-2"
+          >
+            <Archive className="h-4 w-4" />
+            <span className="text-xs font-medium">{showArchivedTasks ? "Hide Archived" : "Show Archived"}</span>
+          </Button>
           <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 hidden sm:flex">
             <Filter className="w-4 h-4" />
           </Button>
@@ -1864,6 +1885,27 @@ export default function Tasks() {
               <p className="text-xs text-muted-foreground mt-1 break-words">{selectedProject.assignees && selectedProject.assignees.length > 0 ? selectedProject.assignees.join(", ") : "No assignees"}</p>
             </div>
           </div>
+          {selectedProject.introVideoUrl && (
+            <div className="mt-3 p-3 bg-primary/5 border border-primary/10 rounded-lg flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                  <RefreshCw className="h-4 w-4 animate-spin-slow" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-primary uppercase tracking-wider">Project Synopsis</p>
+                  <p className="text-sm font-medium">Watch the introductory video for this project.</p>
+                </div>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="bg-white border-primary/20 hover:bg-primary/5 text-primary font-bold"
+                onClick={() => window.open(selectedProject.introVideoUrl, "_blank")}
+              >
+                Watch Video
+              </Button>
+            </div>
+          )}
           {selectedProject.attachments && selectedProject.attachments.length > 0 && (
             <div className="mt-3">
               <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({selectedProject.attachments.length})</p>
@@ -1985,6 +2027,7 @@ export default function Tasks() {
                                 setEditingProject(project);
                                 setEditProjectName(project.name);
                                 setEditProjectDescription(project.description || "");
+                                setEditProjectIntroVideoUrl(project.introVideoUrl || "");
                                 setEditProjectLogoPreview(project.logo?.url || "");
                                 setEditProjectLogoFile(null);
                                 setIsEditProjectOpen(true);
@@ -2214,6 +2257,10 @@ export default function Tasks() {
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Description</label>
                 <Textarea placeholder="Short project description" className="min-h-[80px]" value={projectDescription} onChange={(e) => setProjectDescription(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Intro Video URL (YouTube/Vimeo)</label>
+                <Input placeholder="https://youtube.com/watch?v=..." value={projectIntroVideoUrl} onChange={(e) => setProjectIntroVideoUrl(e.target.value)} />
               </div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Logo</label>
@@ -2861,6 +2908,7 @@ export default function Tasks() {
                   const payload: Partial<Project> = {
                     name: editProjectName,
                     description: editProjectDescription,
+                    introVideoUrl: editProjectIntroVideoUrl,
                   };
                   if (logoPayload) {
                     payload.logo = logoPayload;
@@ -2915,6 +2963,14 @@ export default function Tasks() {
                   className="min-h-[80px]"
                   value={editProjectDescription}
                   onChange={(e) => setEditProjectDescription(e.target.value)}
+                />
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Intro Video URL (YouTube/Vimeo)</label>
+                <Input 
+                  placeholder="https://youtube.com/watch?v=..." 
+                  value={editProjectIntroVideoUrl} 
+                  onChange={(e) => setEditProjectIntroVideoUrl(e.target.value)} 
                 />
               </div>
               <div className="sm:col-span-2 space-y-1.5">

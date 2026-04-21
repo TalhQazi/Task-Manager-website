@@ -57,6 +57,16 @@
     --sidebar-ring: 221 83% 53%;
     --sidebar-muted: 215 16% 47%;
 
+    --gradient-red: linear-gradient(135deg, #E41A1C 0%, #C01618 100%);
+    --gradient-blue: linear-gradient(135deg, #377EB8 0%, #2B628F 100%);
+    --gradient-green: linear-gradient(135deg, #4DAF4A 0%, #3D8B3A 100%);
+    --gradient-purple-new: linear-gradient(135deg, #984EA3 0%, #7A3E82 100%);
+    --gradient-orange-new: linear-gradient(135deg, #FF7F00 0%, #CC6600 100%);
+    --gradient-yellow: linear-gradient(135deg, #FFFF33 0%, #E6E62E 100%);
+    --gradient-brown: linear-gradient(135deg, #A65628 0%, #854520 100%);
+    --gradient-pink-new: linear-gradient(135deg, #F781BF 0%, #C56798 100%);
+    --gradient-grey: linear-gradient(135deg, #999999 0%, #7A7A7A 100%);
+
     --gradient-primary: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
     --gradient-success: linear-gradient(135deg, #10b981 0%, #059669 100%);
     --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
@@ -284,6 +294,34 @@
   }
   .gradient-majesty {
     background: var(--gradient-majesty);
+  }
+  .gradient-red {
+    background: var(--gradient-red);
+  }
+  .gradient-blue {
+    background: var(--gradient-blue);
+  }
+  .gradient-green {
+    background: var(--gradient-green);
+  }
+  .gradient-purple-new {
+    background: var(--gradient-purple-new);
+  }
+  .gradient-orange-new {
+    background: var(--gradient-orange-new);
+  }
+  .gradient-yellow {
+    background: var(--gradient-yellow);
+    color: #1a1a1a !important; /* Better contrast for yellow */
+  }
+  .gradient-brown {
+    background: var(--gradient-brown);
+  }
+  .gradient-pink-new {
+    background: var(--gradient-pink-new);
+  }
+  .gradient-grey {
+    background: var(--gradient-grey);
   }
 
   /* Task Completion Pulse Animations */

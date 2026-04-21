@@ -9,6 +9,7 @@ import { WeekAheadCard } from "@/components/admin/dashboard/WeekAheadCard";
 import { Users, CheckSquare, AlertTriangle, Clock, Car, FileSearch, Globe, FolderRoot, Bug } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useNavigate } from "react-router-dom";
+import { ReleaseNotes } from "@/components/admin/ReleaseNotes";
 
 type DashboardSummary = {
   activeTasks: number;
@@ -111,6 +112,7 @@ const Dashboard = () => {
         initial="hidden"
         animate="visible"
       >
+        <ReleaseNotes />
 
         {/* Stats Grid with animated cards */}
         <motion.div 
@@ -133,7 +135,7 @@ const Dashboard = () => {
             { title: "System Health", value: "Optimal", icon: Bug, variant: "lime", changeType: "neutral" as const, onClick: () => navigate("/admin/bug-reports") },
           ].slice(0, 9).map((stat, idx) => {
             // Further ensure unique colors by rotating if more stats are added
-            const variants: any[] = ["primary", "success", "purple", "orange", "rose", "teal", "danger", "amber", "indigo", "pink", "cyan", "majesty", "lime"];
+            const variants: any[] = ["red", "blue", "green", "purple-new", "orange-new", "yellow", "brown", "pink-new", "grey"];
             return (
             <motion.div
               key={stat.title}

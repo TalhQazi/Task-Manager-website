@@ -7,7 +7,7 @@ interface StatCardProps {
   change?: string;
   changeType?: "positive" | "negative" | "neutral";
   icon: LucideIcon;
-  variant?: "primary" | "success" | "warning" | "danger" | "info" | "purple" | "orange" | "indigo" | "teal" | "rose" | "amber" | "lime" | "pink" | "cyan" | "gold" | "majesty";
+  variant?: "primary" | "success" | "warning" | "danger" | "info" | "purple" | "orange" | "indigo" | "teal" | "rose" | "amber" | "lime" | "pink" | "cyan" | "gold" | "majesty" | "red" | "blue" | "green" | "purple-new" | "orange-new" | "yellow" | "brown" | "pink-new" | "grey";
   onClick?: () => void;
 }
 
@@ -37,6 +37,15 @@ export function StatCard({
     cyan: "stat-card-gradient gradient-cyan",
     gold: "stat-card-gradient gradient-gold",
     majesty: "stat-card-gradient gradient-majesty",
+    red: "stat-card-gradient gradient-red",
+    blue: "stat-card-gradient gradient-blue",
+    green: "stat-card-gradient gradient-green",
+    "purple-new": "stat-card-gradient gradient-purple-new",
+    "orange-new": "stat-card-gradient gradient-orange-new",
+    yellow: "stat-card-gradient gradient-yellow",
+    brown: "stat-card-gradient gradient-brown",
+    "pink-new": "stat-card-gradient gradient-pink-new",
+    grey: "stat-card-gradient gradient-grey",
   };
 
   return (

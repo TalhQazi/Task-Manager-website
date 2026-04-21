@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/admin/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Badge } from "@/components/admin/ui/badge";
-import { Plus, Edit2, Trash2, Rocket, Code } from "lucide-react";
+import { Plus, Edit2, Trash2, Rocket, Code, ExternalLink } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -338,7 +338,17 @@ export function FutureWebsites() {
               {websites.map((website) => (
                 <TableRow key={website._id} className="hover:bg-muted/30 transition-colors text-sm">
                   <TableCell className="font-medium">{website.siteName}</TableCell>
-                  <TableCell className="font-mono text-xs">{website.url}</TableCell>
+                  <TableCell>
+                    <a
+                      href={website.url.startsWith("http") ? website.url : `https://${website.url}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1 font-mono"
+                    >
+                      {website.url}
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </TableCell>
                   <TableCell>
                     <Badge className={`${stageColors[website.developmentStage]} border-0 shadow-none font-bold text-[10px] uppercase whitespace-nowrap`}>
                       {website.developmentStage}

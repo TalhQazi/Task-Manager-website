@@ -56,6 +56,7 @@ import {
   Loader2,
   Check,
   AlertCircle,
+  Archive,
 } from "lucide-react";
 import { createResource, listResource, updateResource, apiFetch, getApiBaseUrl } from "@/lib/admin/apiClient";
 
@@ -156,7 +157,7 @@ const typeClasses = {
 
 const statusClasses = {
   active: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
-  inactive: "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300",
+  inactive: "bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300",
 };
 
 const Locations = () => {
@@ -174,6 +175,7 @@ const Locations = () => {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -422,12 +424,16 @@ const Locations = () => {
 
   const filteredLocations = useMemo(() => {
     const q = searchQuery.toLowerCase();
+    const statusFilter = activeTab === "active" ? "active" : "inactive";
+    
     return locationsList.filter((l) => 
-      l.name.toLowerCase().includes(q) || 
-      l.address.toLowerCase().includes(q) || 
-      l.city.toLowerCase().includes(q)
+      l.status === statusFilter && (
+        l.name.toLowerCase().includes(q) || 
+        l.address.toLowerCase().includes(q) || 
+        l.city.toLowerCase().includes(q)
+      )
     );
-  }, [locationsList, searchQuery]);
+  }, [locationsList, searchQuery, activeTab]);
 
   const locationCodeById = useMemo(() => {
     const map = new Map<string, string>();
@@ -634,10 +640,33 @@ const Locations = () => {
       {/* Main Content Card */}
       <Card className="border-0 shadow-xl border-slate-100 bg-white dark:bg-slate-800 overflow-hidden rounded-2xl">
         <CardHeader className="p-6 border-b border-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <CardTitle className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-            <Warehouse className="h-5 w-5 text-blue-500" />
-            Location Database
-          </CardTitle>
+          <div className="flex flex-col gap-4">
+            <CardTitle className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+              <Warehouse className="h-5 w-5 text-blue-500" />
+              Location Database
+            </CardTitle>
+            
+            <div className="flex p-1 bg-slate-100 rounded-lg w-fit">
+              <button
+                onClick={() => setActiveTab("active")}
+                className={cn(
+                  "px-4 py-1.5 text-xs font-bold rounded-md transition-all",
+                  activeTab === "active" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                )}
+              >
+                Active
+              </button>
+              <button
+                onClick={() => setActiveTab("archived")}
+                className={cn(
+                  "px-4 py-1.5 text-xs font-bold rounded-md transition-all",
+                  activeTab === "archived" ? "bg-white text-slate-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                )}
+              >
+                Archived
+              </button>
+            </div>
+          </div>
           <div className="relative w-full sm:w-64 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input 
@@ -725,7 +754,7 @@ const Locations = () => {
                     </TableCell>
                     <TableCell>
                       <Badge className={cn(statusClasses[location.status], "border-0 shadow-none font-bold text-[10px] uppercase")}>
-                        {location.status}
+                        {location.status === "active" ? "Active" : "Archived"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -743,7 +772,7 @@ const Locations = () => {
                              <Edit className="h-4 w-4" /> Edit Record
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDeactivateConfirm(location)} className="rounded-lg gap-2 cursor-pointer focus:bg-red-50 focus:text-red-600 text-red-600 font-medium">
-                             <X className="h-4 w-4" /> {location.status === 'active' ? 'Deactivate' : 'Activate'}
+                             <Archive className="h-4 w-4" /> {location.status === 'active' ? 'Archive Location' : 'Restore Location'}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -948,20 +977,35 @@ const Locations = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Deactivate Modal */}
+      {/* Archive Modal */}
       <Dialog open={deactivateConfirmOpen} onOpenChange={setDeactivateConfirmOpen}>
         <DialogContent className="max-w-md p-0 overflow-hidden rounded-2xl border-0 shadow-2xl">
           <div className="p-8 text-center">
-            <div className="h-20 w-20 rounded-full bg-red-100 mx-auto flex items-center justify-center mb-6">
-               <AlertCircle className="h-10 w-10 text-red-600" />
+            <div className={cn(
+              "h-20 w-20 rounded-full mx-auto flex items-center justify-center mb-6",
+              selectedLocation?.status === 'active' ? "bg-amber-100" : "bg-blue-100"
+            )}>
+               <Archive className={cn("h-10 w-10", selectedLocation?.status === 'active' ? "text-amber-600" : "text-blue-600")} />
             </div>
-            <h3 className="text-2xl font-bold text-slate-800 mb-2">Change Site Status?</h3>
-            <p className="text-slate-500 mb-2">You are about to modify the operational status of:</p>
+            <h3 className="text-2xl font-bold text-slate-800 mb-2">
+              {selectedLocation?.status === 'active' ? 'Archive Site?' : 'Restore Site?'}
+            </h3>
+            <p className="text-slate-500 mb-2">
+              {selectedLocation?.status === 'active' 
+                ? 'This site will be moved to the archives and hidden from the active database.' 
+                : 'This site will be restored to the operational database.'}
+            </p>
             <p className="text-slate-900 font-extrabold text-lg p-3 bg-slate-50 rounded-xl border border-slate-100 mb-6">{selectedLocation?.name}</p>
             
             <div className="flex flex-col gap-3">
-               <Button onClick={confirmToggleActive} variant="destructive" className="h-12 text-base font-bold shadow-lg shadow-red-500/20 active:scale-95 transition-all">
-                  Confirm Status Change
+               <Button 
+                onClick={confirmToggleActive} 
+                className={cn(
+                  "h-12 text-base font-bold shadow-lg shadow-blue-500/20 active:scale-95 transition-all text-white",
+                  selectedLocation?.status === 'active' ? "bg-amber-600 hover:bg-amber-700 shadow-amber-500/20" : "bg-blue-600 hover:bg-blue-700 shadow-blue-500/20"
+                )}
+               >
+                  {selectedLocation?.status === 'active' ? 'Archive Location' : 'Restore Location'}
                </Button>
                <Button onClick={() => setDeactivateConfirmOpen(false)} variant="ghost" className="h-12 text-slate-500 font-semibold hover:bg-slate-50">
                   Cancel

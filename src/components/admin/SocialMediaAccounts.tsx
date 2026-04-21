@@ -348,7 +348,7 @@ export function SocialMediaAccounts() {
                     <div className="flex-1">
                       <h3 className="font-semibold text-sm">{account.platform}</h3>
                       <a
-                        href={account.url}
+                        href={account.url?.startsWith("http") ? account.url : `https://${account.url}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs text-blue-600 hover:underline flex items-center gap-1"
