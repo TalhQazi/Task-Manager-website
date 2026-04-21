@@ -13,8 +13,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/admin/ui/dialog";
-import { Plus, Search, Send, ArrowLeft, MessageCircle, User, Archive, Bookmark } from "lucide-react";
-import { apiFetch, listResource } from "@/lib/admin/apiClient";
+import { Plus, Search, Send, ArrowLeft, MessageCircle, User, Archive, Bookmark, Paperclip, Download } from "lucide-react";
+import { apiFetch, listResource, toProxiedUrl } from "@/lib/admin/apiClient";
 import { Textarea } from "@/components/admin/ui/textarea";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +40,7 @@ interface Message {
   type: "direct" | "broadcast";
   status: "sent" | "delivered" | "read";
   createdAt?: string;
+  attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number };
 }
 
 type MessageApi = Omit<Message, "id"> & {
@@ -71,6 +72,7 @@ function normalizeMessage(m: MessageApi): Message {
     type: m.type,
     status: m.status,
     createdAt: m.createdAt,
+    attachment: (m as unknown as { attachment?: Message["attachment"] }).attachment,
   };
 }
 
@@ -188,9 +190,12 @@ export default function Messaging() {
   // New message
   const [newMessageContent, setNewMessageContent] = useState("");
   const [sending, setSending] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [preview, setPreview] = useState<{ url: string; fileName: string } | null>(null);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const location = useLocation();
 
   const currentUser = "Admin"; // Current logged in user
@@ -221,6 +226,70 @@ export default function Messaging() {
       setEmployees(employeesList);
     } catch (e) {
       console.error("Failed to load employees:", e);
+    }
+  };
+
+  const uploadAttachment = async (file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await apiFetch<{
+      attachment: { fileName: string; url: string; mimeType: string; size: number };
+    }>("/api/messages/upload", {
+      method: "POST",
+      body: fd,
+    });
+    return res.attachment;
+  };
+
+  const downloadAttachment = async (url: string, fileName: string) => {
+    const safeUrl = toProxiedUrl(url) || url;
+    const res = await fetch(safeUrl);
+    if (!res.ok) throw new Error(`Download failed (${res.status})`);
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = fileName || "attachment";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(objectUrl);
+  };
+
+  const handleFileSelected = async (file: File | null) => {
+    if (!file || !selectedEmployee) return;
+
+    setUploading(true);
+    try {
+      const attachment = await uploadAttachment(file);
+
+      const payload: Omit<Message, "id"> = {
+        sender: currentUser,
+        senderAvatar: getInitials(currentUser),
+        recipient: selectedEmployee.name,
+        content: newMessageContent.trim(),
+        timestamp: new Date().toISOString(),
+        type: "direct",
+        status: "sent",
+        attachment,
+      };
+
+      const res = await apiFetch<{ item?: MessageApi }>("/api/messages", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      if (res?.item) {
+        const newMsg = normalizeMessage(res.item);
+        setConversationMessages((prev) => [...prev, newMsg]);
+        setNewMessageContent("");
+        await loadConversations();
+      }
+    } catch (e) {
+      setApiError(e instanceof Error ? e.message : "Failed to send attachment");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
@@ -714,9 +783,39 @@ export default function Messaging() {
 
         {/* Conversation View */}
         {view === "conversation" && selectedEmployee && (
-          <Card className="flex flex-col h-[calc(100vh-300px)] min-h-[500px]">
-            {/* Messages Area */}
-            <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+          <>
+            {preview ? (
+              <Dialog open={Boolean(preview)} onOpenChange={(o) => (!o ? setPreview(null) : null)}>
+                <DialogContent className="max-w-3xl">
+                  <DialogHeader>
+                    <DialogTitle className="flex items-center justify-between gap-2">
+                      <span className="truncate">{preview.fileName}</span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => downloadAttachment(preview.url, preview.fileName)}
+                      >
+                        <Download className="h-4 w-4" />
+                        Download
+                      </Button>
+                    </DialogTitle>
+                  </DialogHeader>
+                  <div className="w-full">
+                    <img
+                      src={toProxiedUrl(preview.url) || preview.url}
+                      alt={preview.fileName}
+                      className="w-full max-h-[70vh] object-contain rounded-md"
+                    />
+                  </div>
+                </DialogContent>
+              </Dialog>
+            ) : null}
+
+            <Card className="flex flex-col h-[calc(100vh-280px)] min-h-[400px]">
+              {/* Messages Area */}
+              <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
               {conversationMessages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center">
                   <MessageCircle className="h-16 w-16 text-muted-foreground/50 mb-4" />
@@ -730,6 +829,10 @@ export default function Messaging() {
                   {conversationMessages.map((msg, index) => {
                     const isMe = msg.sender === currentUser || msg.sender === "You";
                     const showAvatar = index === 0 || conversationMessages[index - 1].sender !== msg.sender;
+                    const attachmentUrl = msg.attachment?.url || "";
+                    const attachmentName = msg.attachment?.fileName || "attachment";
+                    const attachmentMime = msg.attachment?.mimeType || "";
+                    const isImage = attachmentMime.startsWith("image/");
                     
                     return (
                       <div
@@ -759,7 +862,34 @@ export default function Messaging() {
                               : "bg-muted rounded-bl-none"
                           )}
                         >
-                          <p className="text-sm">{msg.content}</p>
+                          {attachmentUrl ? (
+                            isImage ? (
+                              <button
+                                type="button"
+                                className="block"
+                                onClick={() => setPreview({ url: attachmentUrl, fileName: attachmentName })}
+                              >
+                                <img
+                                  src={toProxiedUrl(attachmentUrl) || attachmentUrl}
+                                  alt={attachmentName}
+                                  className="max-w-[160px] max-h-[160px] rounded-md object-cover"
+                                />
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                className={cn(
+                                  "text-sm underline",
+                                  isMe ? "text-primary-foreground" : "text-foreground",
+                                )}
+                                onClick={() => downloadAttachment(attachmentUrl, attachmentName)}
+                              >
+                                {attachmentName}
+                              </button>
+                            )
+                          ) : null}
+
+                          {msg.content?.trim() ? <p className="text-sm">{msg.content}</p> : null}
                           <p className={cn(
                             "text-xs mt-1",
                             isMe ? "text-primary-foreground/70" : "text-muted-foreground"
@@ -780,33 +910,50 @@ export default function Messaging() {
                   <div ref={messagesEndRef} />
                 </>
               )}
-            </CardContent>
+              </CardContent>
 
-            {/* Message Input */}
-            <div className="p-4 border-t">
-              <div className="flex gap-3">
-                <Textarea
-                  placeholder={`Message ${selectedEmployee.name}...`}
-                  className="min-h-[60px] resize-none"
-                  value={newMessageContent}
-                  onChange={(e) => setNewMessageContent(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      sendMessage();
-                    }
-                  }}
-                />
-                <Button
-                  onClick={sendMessage}
-                  disabled={!newMessageContent.trim() || sending}
-                  className="h-auto px-4"
-                >
-                  <Send className="h-5 w-5" />
-                </Button>
+              {/* Message Input */}
+              <div className="p-4 border-t">
+                <div className="flex gap-3">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    aria-label="Attach file"
+                    onChange={(e) => handleFileSelected(e.target.files?.[0] || null)}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    disabled={uploading}
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <Paperclip className="h-4 w-4" />
+                  </Button>
+                  <Textarea
+                    placeholder={`Message ${selectedEmployee.name}...`}
+                    className="min-h-[60px] resize-none"
+                    value={newMessageContent}
+                    onChange={(e) => setNewMessageContent(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage();
+                      }
+                    }}
+                  />
+                  <Button
+                    onClick={sendMessage}
+                    disabled={!newMessageContent.trim() || sending || uploading}
+                    className="h-auto px-4"
+                  >
+                    <Send className="h-5 w-5" />
+                  </Button>
+                </div>
               </div>
-            </div>
-          </Card>
+            </Card>
+          </>
         )}
       </div>
     </>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import {
   Dialog,
@@ -84,7 +84,10 @@ export function ActiveWebsites() {
     },
   });
 
-  const websites = websitesQuery.data || [];
+  const websites = useMemo(() => 
+    (websitesQuery.data || []).slice().sort((a, b) => a.siteName.localeCompare(b.siteName)),
+    [websitesQuery.data]
+  );
 
   const resetForm = () => {
     setFormData({

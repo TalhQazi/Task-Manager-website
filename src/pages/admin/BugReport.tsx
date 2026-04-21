@@ -58,14 +58,8 @@ export default function Bugs() {
     const res = await apiFetch<{ items?: any[] }>("/api/bugs");
     const list = Array.isArray(res?.items) ? res.items : [];
     
-    // Get current user to filter bugs
-    const auth = getAuthState();
-    const currentUsername = auth?.username || "";
-    
-    // Filter bugs to only show the ones posted by the current user
-    const userBugs = list.filter((x: any) => 
-      x.createdByUsername && x.createdByUsername === currentUsername
-    );
+    // Show all bugs for admins, as the backend already returns all of them
+    const userBugs = list;
 
     const mapped: BugItem[] = userBugs
       .map((x: any) => ({
@@ -122,9 +116,10 @@ export default function Bugs() {
   }, [items, searchParams, setSearchParams]);
 
   const filtered = useMemo(() => {
+    const openOnly = items.filter(b => b.status === "open");
     const query = q.trim().toLowerCase();
-    if (!query) return items;
-    return items.filter((b) => {
+    if (!query) return openOnly;
+    return openOnly.filter((b) => {
       const where = `${b.title} ${b.description} ${b.taskTitle || ""} ${b.createdByUsername || ""} ${b.source?.path || ""}`.toLowerCase();
       return where.includes(query);
     });
@@ -162,8 +157,8 @@ export default function Bugs() {
     <div className="pl-6 space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
         <div className="space-y-1.5 sm:space-y-2">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Developer Bugs</h1>
-          <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl">Bugs reported from the system.</p>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Complete Bug Report</h1>
+          <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl">Comprehensive list of system bug reports.</p>
         </div>
         <Button variant="outline" onClick={() => void load()} disabled={loading} className="w-full sm:w-auto">
           Refresh
@@ -267,7 +262,7 @@ export default function Bugs() {
                   <p className="text-xs sm:text-sm font-medium">Attachment</p>
                   <div className="w-full overflow-hidden rounded-lg border bg-white">
                     <img
-                      src={String(selected.attachment.url)}
+                      src={toProxiedUrl(String(selected.attachment.url))}
                       alt={String(selected.attachment.fileName || "Bug attachment")}
                       className="w-full h-auto max-h-[65vh] object-contain"
                     />

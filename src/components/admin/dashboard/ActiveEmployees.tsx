@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Users, ArrowRight, Briefcase } from "lucide-react";
-import { apiFetch, listResource } from "@/lib/api";
+import { apiFetch, listResource, toProxiedUrl } from "@/lib/admin/apiClient";
 
 type Employee = {
   id: string;
@@ -12,6 +12,7 @@ type Employee = {
   email: string;
   role?: string;
   status: "active" | "inactive" | "on-leave";
+  avatarUrl?: string;
 };
 
 const statusClasses = {
@@ -31,10 +32,27 @@ export function ActiveEmployees() {
       try {
         setLoading(true);
         setApiError(null);
-        const emps = await listResource<Employee>("employees");
+        interface RawEmployee {
+          id: string;
+          name: string;
+          initials: string;
+          email: string;
+          role?: string;
+          status: "active" | "inactive" | "on-leave";
+          avatarUrl?: string;
+        }
+        const emps = await listResource<RawEmployee>("employees");
         if (!mounted) return;
-        // Show all employees, max 3
-        setEmployees(emps.slice(0, 3));
+        // Show only active employees, max 3
+        setEmployees(
+          emps
+            .filter((e) => e.status === "active")
+            .slice(0, 3)
+            .map((e) => ({
+              ...e,
+              avatarUrl: toProxiedUrl(e.avatarUrl) || e.avatarUrl,
+            }))
+        );
       } catch (e) {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load employees");
@@ -55,7 +73,7 @@ export function ActiveEmployees() {
       <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 sm:px-6 py-4 sm:py-5">
         <CardTitle className="text-base sm:text-lg md:text-xl font-semibold flex items-center gap-2">
           <Users className="h-5 w-5 text-primary" />
-          Employees
+          Active Employee
         </CardTitle>
         <a 
           href="/employees" 

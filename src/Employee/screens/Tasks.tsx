@@ -469,6 +469,70 @@ const createTaskSchema = z.object({
 
 type CreateTaskValues = z.infer<typeof createTaskSchema>;
 
+// Task Contributors Component
+function TaskContributorsList({ taskId }: { taskId: string }) {
+  const [contributors, setContributors] = useState<Array<{
+    userId: string;
+    name: string;
+    email: string;
+    role: string;
+    contributionType?: string;
+    actions?: string[];
+    addedAt?: string;
+    avatar?: string;
+    stats?: any;
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadContributors = async () => {
+      setLoading(true);
+      try {
+        const res = await apiFetch<{ items: typeof contributors }>(`/api/contributors/task/${encodeURIComponent(taskId)}/contributors`);
+        setContributors(res.items || []);
+      } catch (err) {
+        console.error("Failed to load task contributors:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadContributors();
+  }, [taskId]);
+
+  if (loading) {
+    return <div className="text-xs text-muted-foreground/70 italic">Loading collaborators...</div>;
+  }
+
+  if (contributors.length === 0) {
+    return <div className="text-xs text-muted-foreground/70 italic bg-muted/10 border border-dashed border-border/40 rounded-lg p-3 text-center">No collaborators yet</div>;
+  }
+
+  return (
+    <div className="flex flex-col gap-2 max-h-[180px] overflow-y-auto">
+      {contributors.map((contributor, idx) => (
+        <div key={idx} className="flex items-center gap-2.5 bg-background border border-border/60 rounded-lg px-3 py-2 shadow-xs">
+          <Avatar className="w-6 h-6">
+            <AvatarFallback className="text-[10px] bg-amber-100 text-amber-700 font-bold">
+              {contributor.name?.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase() || "?"}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <span className="text-xs font-medium text-foreground/80 truncate">{contributor.name || "Unknown"}</span>
+            <div className="flex items-center gap-1 mt-0.5">
+              <Badge variant="outline" className="text-[8px] h-3 px-1">
+                {contributor.contributionType || "collaborator"}
+              </Badge>
+              <span className="text-[9px] text-muted-foreground">
+                {contributor.actions?.length || 0} actions
+              </span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Tasks() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
@@ -2090,9 +2154,6 @@ export default function Tasks() {
                       </div>
                       <DialogTitle className="text-xl sm:text-2xl font-black truncate leading-tight tracking-tight text-foreground">{selectedTask.title}</DialogTitle>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => setIsViewOpen(false)} className="rounded-full h-9 w-9 hover:bg-muted/80 transition-colors">
-                      <X className="h-4 w-4" />
-                    </Button>
                   </div>
                 </DialogHeader>
 
@@ -2122,19 +2183,31 @@ export default function Tasks() {
                           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                             {/* Task Specific Attachments */}
                             {selectedTask.attachments?.map((att, idx) => (
-                              <div key={`task-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-border/60 bg-background shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-zoom-in" onClick={() => att.url && setPreviewUrl(att.url) && setPreviewName(att.fileName || "Attachment")}>
+                              <div key={`task-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-border/60 bg-background shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-zoom-in" onClick={() => {
+                                if (att.url) {
+                                  setPreviewUrl(att.url);
+                                  setPreviewName(att.fileName || "Attachment");
+                                }
+                              }}>
                                 <TaskAttachmentImg taskId={selectedTask.id} index={idx} mimeType={att.mimeType} fileName={att.fileName} fallbackUrl={att.url} onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }} />
                                 <div className="p-2.5 border-t text-[11px] font-bold truncate bg-card/50 backdrop-blur-sm text-muted-foreground">{att.fileName}</div>
                                 <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
                                   <button 
-                                    onClick={(e) => { e.stopPropagation(); setPreviewUrl(att.url); setPreviewName(att.fileName || "Attachment"); }} 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPreviewUrl(att.url);
+                                      setPreviewName(att.fileName || "Attachment");
+                                    }} 
                                     className="bg-primary text-primary-foreground p-2 rounded-full shadow-lg hover:scale-110 transition-transform"
                                     title="Preview"
                                   >
                                     <Maximize2 className="h-4 w-4" />
                                   </button>
                                   <button 
-                                    onClick={(e) => { e.stopPropagation(); void downloadTaskAttachment(selectedTask.id, idx, att.fileName); }} 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void downloadTaskAttachment(selectedTask.id, idx, att.fileName);
+                                    }} 
                                     className="bg-primary text-primary-foreground p-2 rounded-full shadow-lg hover:scale-110 transition-transform"
                                     title="Download"
                                   >
@@ -2146,7 +2219,12 @@ export default function Tasks() {
 
                             {/* Project Attachments */}
                             {selectedProject?.attachments?.map((att, idx) => (
-                              <div key={`proj-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-primary/20 bg-primary/5 shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-zoom-in" onClick={() => att.url && setPreviewUrl(att.url) && setPreviewName(att.fileName || "Attachment")}>
+                              <div key={`proj-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-primary/20 bg-primary/5 shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-zoom-in" onClick={() => {
+                                if (att.url) {
+                                  setPreviewUrl(att.url);
+                                  setPreviewName(att.fileName || "Attachment");
+                                }
+                              }}>
                                 <div className="absolute top-2 left-2 z-10"><Badge className="text-[8px] h-4 bg-primary text-white font-black border-none px-1.5 uppercase">Project</Badge></div>
                                 {(att.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(att.fileName || "")) && att.url ? (
                                   <img src={att.url} alt={att.fileName} className="w-full h-24 object-cover" />
@@ -2345,6 +2423,14 @@ export default function Tasks() {
                             <p className="text-[13px] font-bold text-foreground/80 bg-background border border-border/60 rounded-xl px-4 py-3 truncate shadow-xs" title={selectedTask.location}>{selectedTask.location}</p>
                           </div>
                         )}
+                      </div>
+
+                      {/* Task Collaborators */}
+                      <div className="space-y-3 pt-6 border-t border-border/60">
+                        <label className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest flex items-center gap-2">
+                          <TrendingUp className="w-3.5 h-3.5" /> Collaborators
+                        </label>
+                        <TaskContributorsList taskId={selectedTask.id} />
                       </div>
 
                       <div className="pt-8 space-y-3 border-t border-border/60 border-dashed">

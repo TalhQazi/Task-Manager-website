@@ -64,6 +64,12 @@ const itemVariants: Variants = {
 export function FiledPatents() {
   const [isOpen, setIsOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  
+  // Filters
+  const [filterCategory, setFilterCategory] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [filterStartDate, setFilterStartDate] = useState("");
+  const [filterEndDate, setFilterEndDate] = useState("");
   const [formData, setFormData] = useState<Partial<FiledPatent>>({
     patentName: "",
     category: "",
@@ -86,6 +92,14 @@ export function FiledPatents() {
   });
 
   const patents = patentsQuery.data || [];
+
+  const filteredPatents = patents.filter((p) => {
+    if (filterCategory && !p.category.toLowerCase().includes(filterCategory.toLowerCase())) return false;
+    if (filterStatus && p.status !== filterStatus) return false;
+    if (filterStartDate && new Date(p.filingDate) < new Date(filterStartDate)) return false;
+    if (filterEndDate && new Date(p.filingDate) > new Date(filterEndDate)) return false;
+    return true;
+  });
 
   const resetForm = () => {
     setFormData({
@@ -342,11 +356,60 @@ export function FiledPatents() {
           </CardContent>
         </Card>
       ) : (
-        <div className="rounded-md border overflow-hidden">
-          <Table>
-            <TableHeader className="bg-muted/50">
-              <TableRow>
-                <TableHead className="font-bold">Patent Name</TableHead>
+        <div className="space-y-4">
+          <Card className="bg-muted/30 border-muted">
+            <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Category</label>
+                <input
+                  type="text"
+                  placeholder="Filter category..."
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md text-sm bg-background focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md text-sm bg-background focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="Filed">Filed</option>
+                  <option value="Issued">Issued</option>
+                  <option value="Expired">Expired</option>
+                  <option value="Abandoned">Abandoned</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Filed After</label>
+                <input
+                  type="date"
+                  value={filterStartDate}
+                  onChange={(e) => setFilterStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md text-sm bg-background focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Filed Before</label>
+                <input
+                  type="date"
+                  value={filterEndDate}
+                  onChange={(e) => setFilterEndDate(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md text-sm bg-background focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="rounded-md border overflow-hidden bg-background">
+            <Table>
+              <TableHeader className="bg-muted/50">
+                <TableRow>
+                  <TableHead className="w-12 font-bold">#</TableHead>
+                  <TableHead className="font-bold">Patent Name</TableHead>
                 <TableHead className="font-bold">App Number</TableHead>
                 <TableHead className="font-bold">Category</TableHead>
                 <TableHead className="font-bold">Type</TableHead>
@@ -357,9 +420,17 @@ export function FiledPatents() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {patents.map((patent) => (
-                <TableRow key={patent._id} className="hover:bg-muted/30 transition-colors text-sm">
-                  <TableCell className="font-medium">{patent.patentName}</TableCell>
+              {filteredPatents.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={9} className="h-24 text-center">
+                    No patents match your filters.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredPatents.map((patent, index) => (
+                  <TableRow key={patent._id} className="hover:bg-muted/30 transition-colors text-sm">
+                    <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
+                    <TableCell className="font-medium">{patent.patentName}</TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">{patent.applicationNumber}</TableCell>
                   <TableCell className="text-xs">{patent.category}</TableCell>
                   <TableCell className="text-xs">{patent.filingType}</TableCell>
@@ -396,9 +467,10 @@ export function FiledPatents() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+              )))}
             </TableBody>
           </Table>
+        </div>
         </div>
       )}
     </div>

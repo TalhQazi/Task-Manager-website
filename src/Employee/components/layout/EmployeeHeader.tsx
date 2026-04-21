@@ -174,7 +174,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
           <div className="flex items-center z-10" style={{ height: '75%', minHeight: '32px' }}>
             <div className="aspect-square h-full rounded-full border-2 border-white/80 overflow-hidden bg-white shadow-2xl transition-all duration-300 hover:scale-110">
               <img
-                src="/task.png"
+                src="/taskmanager-by-reardon.svg"
                 alt="Task Manager logo"
                 className="w-full h-full object-cover"
               />
@@ -184,6 +184,15 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
           {/* CENTER BRANDING REMOVED FOR CLEANLINESS */}
 
           <div className="flex items-center gap-2 sm:gap-3 text-white z-10">
+            <button
+              type="button"
+              className="inline-flex md:hidden h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              aria-label="Open navigation"
+              onClick={() => onMenuClick?.()}
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -257,15 +266,6 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-
-            <button
-              type="button"
-              className="inline-flex md:hidden h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-              aria-label="Open navigation"
-              onClick={() => onMenuClick?.()}
-            >
-              <Menu className="h-5 w-5" />
-            </button>
           </div>
         </div>
       </div>

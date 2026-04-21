@@ -165,6 +165,41 @@ export async function apiFetch<T>(
   return (await parseJsonSafe(res)) as T;
 }
 
+// Contributor API functions
+export async function getTopContributors(limit = 5) {
+  return apiFetch<{ contributors: Array<{
+    userId: string;
+    name: string;
+    email: string;
+    role: string;
+    avatar?: string;
+    stats: {
+      totalTasksCreated: number;
+      totalTasksUpdated: number;
+      totalTasksCompleted: number;
+    };
+    projects: Array<{
+      projectId: string;
+      projectName: string;
+      contributionCount: number;
+    }>;
+  }> }>(`/api/contributors/top?limit=${limit}`);
+}
+
+export async function getTaskContributors(taskId: string) {
+  return apiFetch<{ items: Array<{
+    userId: string;
+    name: string;
+    email: string;
+    role: string;
+    contributionType: string;
+    actions: string[];
+    addedAt: string;
+    avatar?: string;
+    stats?: any;
+  }> }>(`/api/contributors/task/${encodeURIComponent(taskId)}/contributors`);
+}
+
 // Download task attachment with authentication
 export async function downloadTaskAttachment(
   taskId: string,
@@ -176,6 +211,32 @@ export async function downloadTaskAttachment(
   
   const token = getStoredToken();
   
+  const res = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  
+  if (!res.ok) {
+    throw new Error(`Download failed (${res.status})`);
+  }
+  
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  
+  URL.revokeObjectURL(objectUrl);
+}
+
+// Download any URL with authentication for Manager/Admin
+export async function downloadViaUrl(url: string, fileName: string): Promise<void> {
+  const token = getStoredToken();
+  
+  // Use fetch to get the blob with headers
   const res = await fetch(url, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });

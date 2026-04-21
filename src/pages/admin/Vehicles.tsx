@@ -53,7 +53,7 @@ import {
   Clock,
   Camera,
 } from "lucide-react";
-import { createResource, deleteResource, listResource, updateResource } from "@/lib/admin/apiClient";
+import { createResource, deleteResource, listResource, updateResource, toProxiedUrl } from "@/lib/admin/apiClient";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
@@ -301,11 +301,11 @@ const Vehicles = () => {
   const getVehicleTagPhotoSrc = (v?: Partial<Vehicle> | null) => {
     if (!v) return null;
     const dataUrl = String(v.tagPhotoDataUrl || "").trim();
-    if (dataUrl) return dataUrl;
+    if (dataUrl) return toProxiedUrl(dataUrl) || dataUrl;
     const fileName = String(v.tagPhotoFileName || "").trim();
     if (!fileName) return null;
     if (fileName.startsWith("data:")) return fileName;
-    if (fileName.startsWith("http://") || fileName.startsWith("https://")) return fileName;
+    if (fileName.startsWith("http://") || fileName.startsWith("https://")) return toProxiedUrl(fileName) || fileName;
     if (fileName.startsWith("/")) return fileName;
     return null;
   };
@@ -629,9 +629,11 @@ const Vehicles = () => {
   }, [searchQuery, vehiclesList]);
 
   const vehiclesStatusData = useMemo(() => {
-    const map: Record<string, number> = { active: 0, maintenance: 0, inactive: 0 };
+    const map: Record<string, number> = { active: 0, maintenance: 0, inactive: 0, available: 0 };
     for (const v of vehiclesList) map[v.status] = (map[v.status] ?? 0) + 1;
-    return Object.entries(map).map(([name, value]) => ({ name, value }));
+    return Object.entries(map)
+      .map(([name, value]) => ({ name, value }))
+      .filter(item => item.value > 0);
   }, [vehiclesList]);
 
   const inspectionsDueCount = useMemo(() => {
@@ -686,7 +688,7 @@ const Vehicles = () => {
                   Vehicle Management
                 </h1>
               </div>
-              <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl">
+              <p className="text-xs sm:text-sm md:text-sm text-muted-foreground max-w-3xl">
                 Track fleet vehicles, inspections, and maintenance schedules.
               </p>
             </div>
@@ -1068,7 +1070,7 @@ const Vehicles = () => {
                     innerRadius={35}
                     outerRadius={80}
                     paddingAngle={3}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    label={({ name, percent, value }) => value > 0 ? `${name}: ${(percent * 100).toFixed(0)}%` : ""}
                     labelLine={false}
                   >
                     {vehiclesStatusData.map((_, index) => (
@@ -1332,14 +1334,14 @@ const Vehicles = () => {
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-muted/30">
-                          <TableHead className="text-xs md:text-sm w-[18%]">Vehicle</TableHead>
-                          <TableHead className="text-xs md:text-sm w-[12%]">Asset ID</TableHead>
-                          <TableHead className="text-xs md:text-sm w-[12%]">License Plate</TableHead>
-                          <TableHead className="text-xs md:text-sm w-[10%]">Mileage</TableHead>
-                          <TableHead className="text-xs md:text-sm w-[12%]">Assigned To</TableHead>
-                          <TableHead className="text-xs md:text-sm w-[10%]">Status</TableHead>
-                          <TableHead className="text-xs md:text-sm w-[14%]">Next Inspection</TableHead>
-                          <TableHead className="text-right text-xs md:text-sm w-[10%]">Actions</TableHead>
+                          <TableHead className="text-xs md:text-sm whitespace-nowrap px-4 py-3">Vehicle</TableHead>
+                          <TableHead className="text-xs md:text-sm whitespace-nowrap px-4 py-3">Asset ID</TableHead>
+                          <TableHead className="text-xs md:text-sm whitespace-nowrap px-4 py-3">License Plate</TableHead>
+                          <TableHead className="text-xs md:text-sm whitespace-nowrap px-4 py-3">Mileage</TableHead>
+                          <TableHead className="text-xs md:text-sm whitespace-nowrap px-4 py-3">Assigned To</TableHead>
+                          <TableHead className="text-xs md:text-sm whitespace-nowrap px-4 py-3">Status</TableHead>
+                          <TableHead className="text-xs md:text-sm whitespace-nowrap px-4 py-3">Next Inspection</TableHead>
+                          <TableHead className="text-right text-xs md:text-sm px-4 py-3">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -1378,7 +1380,7 @@ const Vehicles = () => {
                                     })()}
                                   </motion.div>
                                   <div className="min-w-0">
-                                    <p className="font-medium text-sm md:text-base truncate max-w-[200px] lg:max-w-[250px] flex items-center gap-2">
+                                    <p className="font-medium text-sm md:text-sm whitespace-nowrap flex items-center gap-2">
                                       {vehicle.year} {vehicle.make} {vehicle.model}
                                       {hoveredVehicle === vehicle.id && (
                                         <motion.span
@@ -1392,19 +1394,19 @@ const Vehicles = () => {
                                   </div>
                                 </div>
                               </TableCell>
-                              <TableCell className="font-mono text-sm md:text-base">
+                              <TableCell className="font-mono text-sm md:text-sm">
                                 {vehicle.frontendId}
                               </TableCell>
-                              <TableCell className="font-mono text-sm md:text-base">
+                              <TableCell className="font-mono text-sm md:text-sm">
                                 {vehicle.licensePlate}
                               </TableCell>
                               <TableCell>
-                                <div className="flex items-center gap-1.5 text-sm md:text-base">
+                                <div className="flex items-center gap-1.5 text-sm md:text-sm">
                                   <Gauge className="h-3 w-3 md:h-3.5 md:w-3.5 text-muted-foreground flex-shrink-0" />
                                   <span>{vehicle.mileage || "—"}</span>
                                 </div>
                               </TableCell>
-                              <TableCell className="text-sm md:text-base truncate max-w-[150px]">
+                              <TableCell className="text-sm md:text-sm whitespace-nowrap">
                                 {vehicle.assignedTo}
                               </TableCell>
                               <TableCell>
@@ -1420,7 +1422,7 @@ const Vehicles = () => {
                               </TableCell>
                               <TableCell className="text-muted-foreground">
                                 <div className="flex flex-col gap-1">
-                                  <span className="text-sm md:text-base">{toDateOnly(vehicle.nextInspection) || "—"}</span>
+                                  <span className="text-sm md:text-sm">{toDateOnly(vehicle.nextInspection) || "—"}</span>
                                   {(() => {
                                     const d = daysUntil(vehicle.nextInspection);
                                     if (d === null) return null;

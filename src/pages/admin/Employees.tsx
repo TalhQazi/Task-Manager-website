@@ -59,7 +59,7 @@ import {
   Clock,
   Key,
 } from "lucide-react";
-import { createResource, deleteResource, listResource, updateResource, apiFetch } from "@/lib/admin/apiClient";
+import { createResource, deleteResource, listResource, updateResource, apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
 import { Pagination } from "@/components/Pagination";
 
@@ -1198,7 +1198,7 @@ const Employees = () => {
                               >
                                 <Avatar className="h-10 w-10 flex-shrink-0 ring-2 ring-primary/20">
                                   {employee.avatarUrl ? (
-                                    <AvatarImage src={employee.avatarUrl} alt={employee.name} className="object-cover" />
+                                    <AvatarImage src={toProxiedUrl(employee.avatarUrl)} alt={employee.name} className="object-cover" />
                                   ) : (
                                     <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-xs">
                                       {employee.initials}
@@ -1405,7 +1405,7 @@ const Employees = () => {
                                   >
                                     <Avatar className="h-8 w-8 md:h-9 md:w-9 flex-shrink-0 ring-2 ring-primary/20">
                                       {employee.avatarUrl ? (
-                                        <AvatarImage src={employee.avatarUrl} alt={employee.name} className="object-cover" />
+                                        <AvatarImage src={toProxiedUrl(employee.avatarUrl)} alt={employee.name} className="object-cover" />
                                       ) : (
                                         <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-sm md:text-base">
                                           {employee.initials}
@@ -1583,7 +1583,7 @@ const Employees = () => {
                   >
                     <Avatar className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 ring-2 ring-primary/20">
                       {selectedEmployee.avatarUrl ? (
-                        <AvatarImage src={selectedEmployee.avatarUrl} alt={selectedEmployee.name} className="object-cover" />
+                        <AvatarImage src={toProxiedUrl(selectedEmployee.avatarUrl)} alt={selectedEmployee.name} className="object-cover" />
                       ) : (
                         <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-sm sm:text-base">
                           {selectedEmployee.initials}

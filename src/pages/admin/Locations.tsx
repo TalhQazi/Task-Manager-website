@@ -57,7 +57,7 @@ import {
   Check,
   AlertCircle,
 } from "lucide-react";
-import { createResource, listResource, updateResource, apiFetch } from "@/lib/admin/apiClient";
+import { createResource, listResource, updateResource, apiFetch, getApiBaseUrl } from "@/lib/admin/apiClient";
 
 const LOCATION_TYPES = [
   "Property",
@@ -321,12 +321,24 @@ const Locations = () => {
     }
   };
 
-  const handleViewDetails = (location: Location) => {
+  const handleViewDetails = async (location: Location) => {
     setSelectedLocation(location);
     setViewDetailsOpen(true);
+    
+    // Lazy load photo if needed
+    if (!location.photoDataUrl) {
+      try {
+        const res = await apiFetch<{ photoDataUrl: string; photoFileName: string }>(`/api/locations/${location.id}/photo`);
+        if (res.photoDataUrl) {
+          setSelectedLocation(prev => prev && prev.id === location.id ? { ...prev, photoDataUrl: res.photoDataUrl, photoFileName: res.photoFileName } : prev);
+        }
+      } catch (err) {
+        console.error("Failed to load location photo:", err);
+      }
+    }
   };
 
-  const handleEditLocation = (location: Location) => {
+  const handleEditLocation = async (location: Location) => {
     setSelectedLocation(location);
     setEditFormData({
       name: location.name,
@@ -343,6 +355,19 @@ const Locations = () => {
       photoFileName: location.photoFileName || "",
     });
     setEditLocationOpen(true);
+
+    // Lazy load photo for editing if not present
+    if (!location.photoDataUrl) {
+      try {
+        const res = await apiFetch<{ photoDataUrl: string; photoFileName: string }>(`/api/locations/${location.id}/photo`);
+        if (res.photoDataUrl) {
+           setEditFormData(prev => ({ ...prev, photoDataUrl: res.photoDataUrl, photoFileName: res.photoFileName }));
+           setSelectedLocation(prev => prev && prev.id === location.id ? { ...prev, photoDataUrl: res.photoDataUrl, photoFileName: res.photoFileName } : prev);
+        }
+      } catch (err) {
+        console.error("Failed to load location photo for edit:", err);
+      }
+    }
   };
 
   const saveEditLocation = async () => {
@@ -658,11 +683,22 @@ const Locations = () => {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-lg overflow-hidden border border-slate-100 flex-shrink-0 bg-slate-50 flex items-center justify-center">
-                          {location.photoDataUrl ? (
-                            <img src={location.photoDataUrl} alt={location.name} className="h-full w-full object-cover" />
-                          ) : (
-                            <MapPin className="h-5 w-5 text-slate-300" />
-                          )}
+                          <img 
+                            src={`${String(getApiBaseUrl()).replace(/\/$/, "")}/api/locations/${location.id}/render-photo`} 
+                            alt={location.name} 
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              // If image fails to load, replace with MapPin
+                              (e.target as HTMLImageElement).style.display = "none";
+                              const parent = (e.target as HTMLImageElement).parentElement;
+                              if (parent && !parent.querySelector(".fallback-pin")) {
+                                const pin = document.createElement("div");
+                                pin.className = "fallback-pin text-slate-300";
+                                pin.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-map-pin"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>`;
+                                parent.appendChild(pin);
+                              }
+                            }}
+                          />
                         </div>
                         <div className="min-w-0">
                           <p className="font-bold text-slate-800 dark:text-white text-sm sm:text-base truncate">{location.name}</p>

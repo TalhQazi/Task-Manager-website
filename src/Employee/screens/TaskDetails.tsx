@@ -16,6 +16,8 @@ import {
   getTaskComments,
   updateTaskStatus,
   employeeApiFetch,
+  toProxiedUrl,
+  downloadViaUrl,
 } from "../lib/api";
 import { toast } from "sonner";
 import {
@@ -111,9 +113,13 @@ function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fa
   if (src && mimeType?.startsWith("image/")) return (
     <div className="w-full h-auto flex justify-center relative group/att cursor-zoom-in" onClick={() => window.open(src, '_blank')}>
       <img src={src} alt={fileName} className="w-full h-auto max-h-[180px] rounded-lg" />
-      <a href={src} download={fileName} aria-label="Download" onClick={(e) => e.stopPropagation()} className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-opacity text-white text-[11px] font-bold backdrop-blur-[1px]">
+      <button 
+        onClick={(e) => { e.stopPropagation(); void downloadViaUrl(src, fileName); }} 
+        aria-label="Download" 
+        className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-opacity text-white text-[11px] font-bold backdrop-blur-[1px]"
+      >
         Save
-      </a>
+      </button>
     </div>
   );
   if (src && !mimeType?.startsWith("image/")) return (
@@ -122,9 +128,13 @@ function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fa
         <FileText className="w-6 h-6 text-white/60 mb-1" />
         <span className="text-[10px] text-white/40 truncate w-full px-2 font-medium">{fileName}</span>
       </div>
-      <a href={src} download={fileName} aria-label="Download" onClick={(e) => e.stopPropagation()} className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-opacity text-white text-[11px] font-bold backdrop-blur-[1px]">
+      <button 
+        onClick={(e) => { e.stopPropagation(); void downloadViaUrl(src, fileName); }} 
+        aria-label="Download" 
+        className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-opacity text-white text-[11px] font-bold backdrop-blur-[1px]"
+      >
         Save
-      </a>
+      </button>
     </div>
   );
   if (src === undefined) return <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/20"><Loader2 className="h-4 w-4 animate-spin opacity-20" /></div>;
@@ -187,12 +197,7 @@ export default function EmployeeTaskDetails() {
 
   const downloadAttachment = () => {
     if (!task?.attachment?.url) return;
-    const a = document.createElement("a");
-    a.href = task.attachment.url;
-    a.download = task.attachment.fileName || task.attachmentFileName || "attachment";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
+    void downloadViaUrl(task.attachment.url, task.attachment.fileName || task.attachmentFileName || "attachment");
   };
 
   const loadTask = async () => {
@@ -472,16 +477,16 @@ export default function EmployeeTaskDetails() {
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {task.attachments.map((att, idx) => (
                   att.mimeType?.startsWith("image/") ? (
-                    <a key={idx} href={att.url} download={att.fileName} target="_blank" rel="noopener noreferrer" className="block">
-                      <img src={att.url} alt={att.fileName} className="w-full h-20 object-cover rounded-md border" />
+                    <button key={idx} onClick={() => void downloadViaUrl(toProxiedUrl(att.url) || att.url, att.fileName)} className="block w-full text-left">
+                      <img src={toProxiedUrl(att.url) || att.url} alt={att.fileName} className="w-full h-20 object-cover rounded-md border" />
                       <span className="text-xs text-muted-foreground truncate block mt-1">{att.fileName}</span>
-                    </a>
+                    </button>
                   ) : (
-                    <a key={idx} href={att.url} download={att.fileName} target="_blank" rel="noopener noreferrer"
-                      className="flex flex-col items-center justify-center h-20 border rounded-md bg-muted/30 hover:bg-muted text-xs text-center p-2 gap-1">
+                    <button key={idx} onClick={() => void downloadViaUrl(toProxiedUrl(att.url) || att.url, att.fileName)}
+                      className="w-full flex flex-col items-center justify-center h-20 border rounded-md bg-muted/30 hover:bg-muted text-xs text-center p-2 gap-1">
                       <Download className="h-5 w-5 text-muted-foreground" />
                       <span className="truncate w-full">{att.fileName}</span>
-                    </a>
+                    </button>
                   )
                 ))}
               </div>

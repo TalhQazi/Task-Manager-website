@@ -336,7 +336,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                 {/* Task Manager Logo (Complete, not in circle) */}
                 <div className="flex items-center h-16 w-auto sm:h-24 z-20 transition-all duration-300 hover:scale-105">
                   <img
-                    src="/task.png"
+                    src="/taskmanager-by-reardon.svg"
                     alt="Task Manager logo"
                     className="h-full w-auto object-contain rounded-lg shadow-2xl bg-white/10 p-1.5"
                   />
@@ -344,7 +344,27 @@ export function MainLayout({ children }: MainLayoutProps) {
 
                 {/* Profile and Icons Row */}
                 <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-                  <Button
+              {/* Mobile nav trigger */}
+              <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
+                <SheetTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex md:hidden h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                    aria-label="Open navigation"
+                  >
+                    <Menu className="h-5 w-5" />
+                  </button>
+                </SheetTrigger>
+                <SheetContent side="left" className="p-0 w-64">
+                  <SheetHeader className="sr-only">
+                    <SheetTitle>Navigation Menu</SheetTitle>
+                    <SheetDescription>Main navigation for managers</SheetDescription>
+                  </SheetHeader>
+                  <Sidebar mode="mobile" onNavigate={() => setMobileSidebarOpen(false)} />
+                </SheetContent>
+              </Sheet>
+
+              <Button
                 type="button"
                 variant="ghost"
                 size="icon"
@@ -508,25 +528,6 @@ export function MainLayout({ children }: MainLayoutProps) {
                 </DropdownMenuContent>
               </DropdownMenu>
 
-              {/* Mobile nav trigger */}
-              <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
-                <SheetTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex md:hidden h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                    aria-label="Open navigation"
-                  >
-                    <Menu className="h-5 w-5" />
-                  </button>
-                </SheetTrigger>
-                <SheetContent side="left" className="p-0 w-64">
-                  <SheetHeader className="sr-only">
-                    <SheetTitle>Navigation Menu</SheetTitle>
-                    <SheetDescription>Main navigation for managers</SheetDescription>
-                  </SheetHeader>
-                  <Sidebar mode="mobile" onNavigate={() => setMobileSidebarOpen(false)} />
-                </SheetContent>
-              </Sheet>
               </div>
             </div>
           </div>
