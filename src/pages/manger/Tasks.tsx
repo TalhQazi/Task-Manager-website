@@ -567,6 +567,16 @@ export default function Tasks() {
   const [isCreating, setIsCreating] = useState(false);
   const [editTaskFile, setEditTaskFile] = useState<File | null>(null);
   const [editTaskFilePreview, setEditTaskFilePreview] = useState<string | null>(null);
+  // Project edit state
+  const [isEditProjectOpen, setIsEditProjectOpen] = useState(false);
+  const [isDeleteProjectOpen, setIsDeleteProjectOpen] = useState(false);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [editProjectName, setEditProjectName] = useState("");
+  const [editProjectDescription, setEditProjectDescription] = useState("");
+  const [editProjectLogoPreview, setEditProjectLogoPreview] = useState<string>("");
+  const [editProjectLogoFile, setEditProjectLogoFile] = useState<File | null>(null);
+  const [isEditingProject, setIsEditingProject] = useState(false);
+  const [isDeletingProject, setIsDeletingProject] = useState(false);
   const [validationErrors, setValidationErrors] = useState<{ projectName?: string; title?: string; description?: string }>({});
   const [assigneesOpen, setAssigneesOpen] = useState(false);
   const [editAssigneesOpen, setEditAssigneesOpen] = useState(false);
@@ -854,6 +864,19 @@ export default function Tasks() {
       });
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["projects"] });
+      // Update the selected task so the view modal shows fresh data immediately
+      if (selectedTask?.id === updatedTask.id) {
+        setSelectedTask(updatedTask);
+      }
+      // Update local tasks state for immediate UI refresh
+      setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
+      // Update selectedProject.tasks if the task belongs to the selected project
+      if (selectedProject && selectedProject.tasks.some((t) => t.id === updatedTask.id)) {
+        setSelectedProject({
+          ...selectedProject,
+          tasks: selectedProject.tasks.map((t) => (t.id === updatedTask.id ? updatedTask : t)),
+        });
+      }
     },
   });
 
@@ -872,13 +895,32 @@ export default function Tasks() {
         method: "PUT",
         body: JSON.stringify({ status }),
       });
-      return res;
+      return res.item;
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["projects"] });
       if (selectedProject) {
         setSelectedProject({ ...selectedProject, status: selectedProject.status });
       }
+    },
+  });
+
+  const editProjectMutation = useMutation({
+    mutationFn: async ({ id, payload }: { id: string; payload: Partial<Project> }) => {
+      const res = await apiFetch<{ item: Project }>(`/api/projects/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+      return res.item;
+    },
+    onSuccess: (updatedProject) => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      // Update selected project if it's the one being edited
+      if (selectedProject?.id === updatedProject.id) {
+        setSelectedProject({ ...selectedProject, ...updatedProject });
+      }
+      // Update local projects state for immediate UI refresh
+      setProjects((prev) => prev.map((p) => (p.id === updatedProject.id ? updatedProject : p)));
     },
   });
 
@@ -1544,6 +1586,8 @@ export default function Tasks() {
             setEditSelectedAssignees([]);
             setEditTaskFile(null);
             setEditTaskFilePreview(null);
+            // Update the selected task so the view modal shows fresh data immediately
+            setSelectedTask(updatedTask);
             toast({
               title: "Task updated",
               description: "The task has been updated successfully.",
@@ -1866,8 +1910,39 @@ export default function Tasks() {
                       key={project.id}
                       className="group relative p-3 sm:p-4 rounded-xl border border-border/60 hover:border-primary/50 transition-all bg-card shadow-sm hover:shadow-md flex flex-col gap-3"
                     >
+                      {/* Three dots menu for project edit */}
+                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                              aria-label="Project actions"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingProject(project);
+                                setEditProjectName(project.name);
+                                setEditProjectDescription(project.description || "");
+                                setEditProjectLogoPreview(project.logo?.url || "");
+                                setEditProjectLogoFile(null);
+                                setIsEditProjectOpen(true);
+                              }}
+                            >
+                              <Edit className="w-4 h-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+
                       <div className="cursor-pointer flex flex-col flex-1" onClick={() => void loadProject(project.id)}>
-                        <div className="flex items-center gap-3 mb-3">
+                        <div className="flex items-center gap-3 mb-3 pr-8">
                           <span className="flex-shrink-0 text-[10px] font-black text-muted-foreground/30 w-4">{projectNumber}</span>
                           <ProjectLogoImg projectId={project.id} projectName={project.name} logoUrl={project.logo?.url} />
                           <div className="min-w-0">
@@ -1922,46 +1997,118 @@ export default function Tasks() {
             ) : tasks.filter(t => !t.projectId).length === 0 ? (
               <p className="text-muted-foreground">No standalone tasks found. Create one to begin.</p>
             ) : (
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {tasks.filter(t => !t.projectId).map((task) => {
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {tasks.filter(t => !t.projectId).map((task, index) => {
+                  const letterIndex = String.fromCharCode(65 + (index % 26));
+                  const displayNumber = (taskPage - 1) * PAGE_SIZE + index + 1;
                   const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0
                     ? task.assignees.map(resolveAssigneeName)
                     : [];
                   
                   return (
-                    <button
+                    <motion.div
                       key={task.id}
-                      onClick={() => {
-                        openView(task);
-                      }}
-                      className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                      className="bg-card rounded-xl border border-muted/50 hover:border-primary/50 transition-all hover:shadow-md overflow-hidden flex flex-col group cursor-pointer"
+                      onClick={() => openView(task)}
                     >
-                      <div className="mb-2">
-                        <p className="font-medium truncate text-sm">{task.title}</p>
-                        <p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p>
+                      {/* Card Header with Title and Menu */}
+                      <div className="p-4 border-b border-muted/30 flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-foreground line-clamp-1">
+                            <span className="text-primary mr-1.5">{displayNumber}.</span>
+                            {task.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1 capitalize">{task.priority} priority</p>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              className="p-1 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100"
+                              aria-label="Task actions"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openView(task); }}>
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handlePrintTask(task); }}>
+                              Print
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(task); }}>
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }}>
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
 
-                      <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                        <span className="truncate">{assigneeList.length > 0 ? assigneeList.join(", ") : "Unassigned"}</span>
-                      </div>
+                      {/* Card Body */}
+                      <div className="p-4 flex-1 space-y-3">
+                        {/* Description */}
+                        <p className="text-sm text-muted-foreground line-clamp-2">{task.description}</p>
 
-                      <div className="flex items-center justify-between text-xs gap-2 flex-wrap">
-                        <div className="flex gap-1">
-                          <Badge className="capitalize" variant="outline" style={{
-                            backgroundColor: task.priority === 'high' ? 'rgb(239, 68, 68)' : task.priority === 'medium' ? 'rgb(234, 179, 8)' : 'rgb(34, 197, 94)',
-                            color: 'white'
+                        {/* Assignees */}
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-2">Assigned to</p>
+                          <div className="flex items-center gap-2">
+                            {task.assignees && task.assignees.length > 0 ? (
+                              <>
+                                <div className="flex -space-x-2">
+                                  {task.assignees.slice(0, 3).map((assignee, idx) => {
+                                    const displayName = resolveAssigneeName(assignee);
+                                    return (
+                                      <Avatar key={idx} className="w-7 h-7 border-2 border-background">
+                                        <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
+                                          {displayName.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                    );
+                                  })}
+                                </div>
+                                <span className="text-xs text-muted-foreground">
+                                  {task.assignees.length > 3 ? `+${task.assignees.length - 3} more` : assigneeList.slice(0, 3).join(", ")}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-xs text-muted-foreground italic">Unassigned</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Badges */}
+                        <div className="flex items-center gap-2 pt-2">
+                          <Badge variant="outline" className="text-xs capitalize" style={{
+                            backgroundColor: task.priority === 'high' ? 'rgba(239, 68, 68, 0.1)' : task.priority === 'medium' ? 'rgba(234, 179, 8, 0.1)' : 'rgba(34, 197, 94, 0.1)',
+                            color: task.priority === 'high' ? 'rgb(239, 68, 68)' : task.priority === 'medium' ? 'rgb(234, 179, 8)' : 'rgb(34, 197, 94)',
+                            borderColor: task.priority === 'high' ? 'rgba(239, 68, 68, 0.3)' : task.priority === 'medium' ? 'rgba(234, 179, 8, 0.3)' : 'rgba(34, 197, 94, 0.3)'
                           }}>
                             {task.priority}
                           </Badge>
-                          <Badge className="capitalize" variant="outline">
+                          <Badge variant="outline" className="text-xs capitalize">
                             {task.status}
                           </Badge>
                         </div>
-                        <span className="text-muted-foreground">
-                          {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}
-                        </span>
                       </div>
-                    </button>
+
+                      {/* Footer */}
+                      <div className="px-4 py-3 border-t border-muted/30 bg-muted/10">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-muted-foreground">{letterIndex}-{task.id.slice(-4).toUpperCase()}</span>
+                          <span className="text-muted-foreground">
+                            {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No due date"}
+                          </span>
+                        </div>
+                      </div>
+                    </motion.div>
                   );
                 })}
               </div>
@@ -2532,16 +2679,22 @@ export default function Tasks() {
 
                       {/* Activity Thread */}
                       <div className="pt-4 border-t border-border/60">
-                        <div className="flex items-center justify-between mb-5">
-                          <h4 className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-                            <MessageSquare className="w-4 h-4" /> Activity Feed
-                          </h4>
+                        <div className="flex items-center justify-between mb-6">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                              <MessageSquare className="w-4 h-4 text-primary" />
+                            </div>
+                            <div>
+                              <h4 className="text-sm font-bold text-foreground">Activity Feed</h4>
+                              <p className="text-[11px] text-muted-foreground">{comments.length} {comments.length === 1 ? 'comment' : 'comments'}</p>
+                            </div>
+                          </div>
                           <div className="flex items-center gap-2">
-                            <Button type="button" variant="ghost" size="sm" onClick={() => { if (selectedTask) void loadComments(selectedTask.id); }} disabled={commentsLoading} className="h-7 px-2 text-[11px] gap-1 hover:bg-muted/50">
-                              <RefreshCw className={cn("w-3 h-3", commentsLoading && "animate-spin")} /> Refresh
+                            <Button type="button" variant="ghost" size="sm" onClick={() => { if (selectedTask) void loadComments(selectedTask.id); }} disabled={commentsLoading} className="h-8 px-3 text-xs gap-1.5 hover:bg-muted/60 rounded-lg">
+                              <RefreshCw className={cn("w-3.5 h-3.5", commentsLoading && "animate-spin")} /> Refresh
                             </Button>
-                            <Button type="button" variant={autoRefreshEnabled ? "secondary" : "ghost"} size="sm" onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)} className="h-7 px-2 text-[11px] gap-1 hover:bg-muted/50 rounded-full">
-                              <Clock className="w-3 h-3" /> Auto Update {autoRefreshEnabled ? "On" : "Off"}
+                            <Button type="button" variant={autoRefreshEnabled ? "default" : "outline"} size="sm" onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)} className="h-8 px-3 text-xs gap-1.5 rounded-lg">
+                              <Clock className="w-3.5 h-3.5" /> Auto {autoRefreshEnabled ? "On" : "Off"}
                             </Button>
                           </div>
                         </div>
@@ -2553,17 +2706,25 @@ export default function Tasks() {
                         )}
 
                         {/* Feed Display */}
-                        <div className="flex flex-col h-full max-h-[600px] bg-muted/5 rounded-2xl border border-border/40 overflow-hidden">
-                          <div 
-                            ref={chatContainerRef} 
-                            className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth custom-scrollbar"
+                        <div className="flex flex-col h-full max-h-[600px] bg-gradient-to-b from-muted/30 to-muted/5 rounded-2xl border border-border/50 overflow-hidden shadow-inner">
+                          <div
+                            ref={chatContainerRef}
+                            className="flex-1 overflow-y-auto p-5 space-y-5 scroll-smooth custom-scrollbar"
                           >
                             {commentsLoading && comments.length === 0 ? (
-                              <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+                              <div className="flex flex-col items-center justify-center p-12 space-y-3">
+                                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+                                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                                </div>
+                                <p className="text-sm text-muted-foreground">Loading comments...</p>
+                              </div>
                             ) : comments.length === 0 ? (
-                              <div className="text-center p-8 text-muted-foreground border-2 border-dashed border-border/50 rounded-2xl bg-muted/5">
-                                <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                                <p className="text-sm font-medium">No activity here yet. Start the conversation!</p>
+                              <div className="flex flex-col items-center justify-center p-12 text-center">
+                                <div className="w-16 h-16 rounded-2xl bg-primary/5 flex items-center justify-center mb-4">
+                                  <MessageSquare className="h-8 w-8 text-primary/40" />
+                                </div>
+                                <p className="text-base font-semibold text-foreground mb-1">No comments yet</p>
+                                <p className="text-sm text-muted-foreground max-w-[240px]">Start the conversation by adding your first comment below.</p>
                               </div>
                             ) : (
                               <div className="space-y-4">
@@ -2574,46 +2735,62 @@ export default function Tasks() {
                                   const showSenderName = !isMe && !isSameAuthor;
                                   
                                   return (
-                                    <div 
-                                      key={c.id} 
+                                    <motion.div
+                                      key={c.id}
+                                      initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                                      transition={{ duration: 0.2, ease: "easeOut" }}
                                       className={cn(
                                         "flex flex-col group",
                                         isMe ? "items-end" : "items-start"
                                       )}
                                     >
                                       {showSenderName && (
-                                        <span className="chat-sender-name ml-10">
-                                          {c.authorFullName || c.authorUsername}
-                                        </span>
+                                        <div className="flex items-center gap-2 mb-1 ml-1">
+                                          <span className="text-xs font-semibold text-foreground/70">
+                                            {c.authorFullName || c.authorUsername}
+                                          </span>
+                                          {c.authorRole && (
+                                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4">
+                                              {c.authorRole}
+                                            </Badge>
+                                          )}
+                                        </div>
                                       )}
-                                      
+
                                       <div className={cn(
-                                        "flex items-end gap-2 max-w-[85%] w-fit",
+                                        "flex items-end gap-2 max-w-[90%] w-fit",
                                         isMe ? "flex-row-reverse" : "flex-row"
                                       )}>
                                         {!isMe && (
-                                          <div className="w-8 flex-shrink-0">
+                                          <div className="w-9 flex-shrink-0">
                                             {!isSameAuthor ? (
-                                              <Avatar className="w-8 h-8 border shadow-sm flex-shrink-0 mb-1">
+                                              <Avatar className="w-9 h-9 border-2 border-background shadow-sm flex-shrink-0 mb-1 ring-1 ring-border">
                                                 {c.authorAvatar ? (
                                                   <img src={c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
                                                 ) : (
-                                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                                                  <AvatarFallback className="text-[11px] bg-gradient-to-br from-primary/20 to-primary/40 text-primary font-semibold">
                                                     {(c.authorFullName || c.authorUsername).substring(0, 2).toUpperCase()}
                                                   </AvatarFallback>
                                                 )}
                                               </Avatar>
-                                            ) : null}
+                                            ) : (
+                                              <div className="w-9 h-9 flex items-center justify-center">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />
+                                              </div>
+                                            )}
                                           </div>
                                         )}
-                                        
+
                                         <div className={cn(
                                           "flex flex-col group/bubble relative min-w-0",
                                           isMe ? "items-end" : "items-start"
                                         )}>
                                           <div className={cn(
-                                            "chat-bubble",
-                                            isMe ? "chat-bubble-me" : "chat-bubble-others"
+                                            "relative px-4 py-2.5 rounded-2xl shadow-sm transition-all duration-200",
+                                            isMe
+                                              ? "bg-primary text-primary-foreground rounded-br-md"
+                                              : "bg-background border border-border/60 rounded-bl-md hover:border-border"
                                           )}>
                                             {editingCommentId === c.id ? (
                                               <div className="space-y-2">
@@ -2659,45 +2836,42 @@ export default function Tasks() {
                                               </div>
                                             )}
                                           </div>
-                                          
+
                                           <div className={cn(
-                                            "chat-timestamp",
-                                            isMe ? "text-right mr-1" : "text-left ml-1"
+                                            "flex items-center gap-2 mt-1.5",
+                                            isMe ? "flex-row-reverse" : "flex-row"
                                           )}>
-                                            {formatMessageTime(c.createdAt)}
+                                            <span className="text-[11px] text-muted-foreground/60 font-medium">
+                                              {formatMessageTime(c.createdAt)}
+                                            </span>
+                                            {isMe && <CheckCircle2 className="w-3 h-3 text-primary/50" />}
                                           </div>
                                         </div>
-                                        
-                                        {isMe && (
-                                          <div className="flex flex-col justify-end pb-5 opacity-40">
-                                            <CheckCircle2 className="w-3 h-3 text-blue-500" />
-                                          </div>
-                                        )}
 
                                         {/* Three dots menu for Edit/Delete */}
                                         {isMe && editingCommentId !== c.id && (
-                                          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                          <div className="opacity-0 group-hover:opacity-100 transition-all duration-200">
                                             <DropdownMenu>
                                               <DropdownMenuTrigger asChild>
-                                                <button 
-                                                  type="button" 
-                                                  className="p-1 text-muted-foreground hover:text-foreground rounded-full hover:bg-muted"
+                                                <button
+                                                  type="button"
+                                                  className="p-1.5 text-muted-foreground hover:text-foreground rounded-full hover:bg-muted/80 transition-colors"
                                                   title="Actions"
                                                 >
-                                                  <MoreHorizontal className="h-3.5 w-3.5" />
+                                                  <MoreHorizontal className="h-4 w-4" />
                                                 </button>
                                               </DropdownMenuTrigger>
-                                              <DropdownMenuContent align="end" className="w-36">
-                                                <DropdownMenuItem onClick={() => startEditComment(c)} className="text-xs">
-                                                  <Edit className="h-3.5 w-3.5 mr-2" />
+                                              <DropdownMenuContent align={isMe ? "end" : "start"} className="w-40">
+                                                <DropdownMenuItem onClick={() => startEditComment(c)} className="text-xs gap-2">
+                                                  <Edit className="h-3.5 w-3.5" />
                                                   Edit
                                                 </DropdownMenuItem>
                                                 <DropdownMenuSeparator />
-                                                <DropdownMenuItem 
-                                                  onClick={() => confirmDeleteComment(c.id)} 
-                                                  className="text-xs text-destructive focus:text-destructive"
+                                                <DropdownMenuItem
+                                                  onClick={() => confirmDeleteComment(c.id)}
+                                                  className="text-xs text-destructive focus:text-destructive gap-2"
                                                 >
-                                                  <Trash2 className="h-3.5 w-3.5 mr-2" />
+                                                  <Trash2 className="h-3.5 w-3.5" />
                                                   Delete
                                                 </DropdownMenuItem>
                                               </DropdownMenuContent>
@@ -2705,21 +2879,25 @@ export default function Tasks() {
                                           </div>
                                         )}
                                       </div>
-                                    </div>
+                                    </motion.div>
                                   );
                                 })}
                                 
                                 {othersTyping.length > 0 && (
-                                  <div className="flex items-center gap-2 max-w-[85%] self-start pt-2">
-                                    <div className="typing-indicator">
-                                      <div className="typing-dot" />
-                                      <div className="typing-dot" />
-                                      <div className="typing-dot" />
+                                  <motion.div
+                                    initial={{ opacity: 0, y: 5 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="flex items-center gap-3 max-w-[85%] self-start pt-2 pl-2"
+                                  >
+                                    <div className="flex items-center gap-1 bg-muted/60 px-3 py-2 rounded-full">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '0ms' }} />
+                                      <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '150ms' }} />
+                                      <span className="w-1.5 h-1.5 rounded-full bg-primary/60 animate-bounce" style={{ animationDelay: '300ms' }} />
                                     </div>
-                                    <span className="text-[10px] text-muted-foreground/60 italic font-medium">
-                                      {othersTyping.join(", ")} {othersTyping.length === 1 ? "is" : "are"} typing...
+                                    <span className="text-[11px] text-muted-foreground font-medium">
+                                      {othersTyping.join(", ")} {othersTyping.length === 1 ? "is" : "are"} typing
                                     </span>
-                                  </div>
+                                  </motion.div>
                                 )}
                               </div>
                             )}
@@ -2727,7 +2905,7 @@ export default function Tasks() {
                         </div>
 
                         {/* Composer Box */}
-                        <div className="mt-6 ml-0 lg:ml-14 relative rounded-2xl border-2 border-border/60 bg-background overflow-visible focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10 transition-all shadow-sm group">
+                        <div className="mt-6 ml-0 lg:ml-14 relative rounded-2xl border-2 border-border/50 bg-background/80 backdrop-blur-sm overflow-visible focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/20 focus-within:bg-background transition-all duration-200 shadow-sm hover:shadow-md group">
                           {/* Mention Dropdown */}
                           {(() => {
                             const match = commentDraft.match(/@([a-zA-Z0-9 ]*)$/);
@@ -3553,6 +3731,151 @@ export default function Tasks() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit Project Dialog */}
+      <Dialog open={isEditProjectOpen} onOpenChange={setIsEditProjectOpen}>
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto rounded-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+            <DialogDescription>Update project details.</DialogDescription>
+          </DialogHeader>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!editingProject) return;
+              setIsEditingProject(true);
+
+              const updateProject = async () => {
+                try {
+                  let logoPayload = undefined;
+                  if (editProjectLogoFile) {
+                    logoPayload = await new Promise<ProjectLogo>((resolve, reject) => {
+                      const reader = new FileReader();
+                      reader.onerror = () => reject(new Error("Failed to read project logo"));
+                      reader.onload = () => {
+                        const url = typeof reader.result === "string" ? reader.result : "";
+                        resolve({
+                          fileName: editProjectLogoFile.name,
+                          url,
+                          mimeType: editProjectLogoFile.type,
+                          size: editProjectLogoFile.size,
+                        });
+                      };
+                      reader.readAsDataURL(editProjectLogoFile);
+                    });
+                  }
+
+                  const payload: Partial<Project> = {
+                    name: editProjectName,
+                    description: editProjectDescription,
+                  };
+                  if (logoPayload) {
+                    payload.logo = logoPayload;
+                  }
+
+                  await editProjectMutation.mutateAsync({ id: editingProject.id, payload });
+
+                  setIsEditProjectOpen(false);
+                  setEditingProject(null);
+                  setEditProjectName("");
+                  setEditProjectDescription("");
+                  setEditProjectLogoPreview("");
+                  setEditProjectLogoFile(null);
+                  toast({ title: "Project updated", description: "Project has been updated successfully." });
+                } catch (err) {
+                  toast({
+                    title: "Failed to update project",
+                    description: err instanceof Error ? err.message : "Something went wrong",
+                    variant: "destructive",
+                  });
+                } finally {
+                  setIsEditingProject(false);
+                }
+              };
+
+              void updateProject();
+            }}
+            className="space-y-4"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Project Name *</label>
+                <Input
+                  placeholder="Project name"
+                  value={editProjectName}
+                  onChange={(e) => setEditProjectName(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Description</label>
+                <Textarea
+                  placeholder="Short project description"
+                  className="min-h-[80px]"
+                  value={editProjectDescription}
+                  onChange={(e) => setEditProjectDescription(e.target.value)}
+                />
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Logo</label>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => document.getElementById('edit-project-logo-input-manager')?.click()}
+                    className="px-3 py-1.5 text-sm border rounded-md hover:bg-muted transition-colors"
+                  >
+                    Change Logo
+                  </button>
+                  {editProjectLogoPreview ? (
+                    <img src={editProjectLogoPreview} alt="Project Logo" className="w-10 h-10 rounded-md object-cover" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">No logo</div>
+                  )}
+                </div>
+                <input
+                  id="edit-project-logo-input-manager"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null;
+                    setEditProjectLogoFile(file);
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        setEditProjectLogoPreview(typeof reader.result === "string" ? reader.result : "");
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+              </div>
+            </div>
+            <DialogFooter className="flex-col sm:flex-row gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsEditProjectOpen(false);
+                  setEditingProject(null);
+                  setEditProjectName("");
+                  setEditProjectDescription("");
+                  setEditProjectLogoPreview("");
+                  setEditProjectLogoFile(null);
+                }}
+                disabled={isEditingProject}
+                className="w-full sm:w-auto"
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isEditingProject || !editProjectName.trim()} className="w-full sm:w-auto gap-2">
+                {isEditingProject && <Loader2 className="h-4 w-4 animate-spin" />}
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* File Preview Lightbox */}
       <Dialog open={!!previewUrl} onOpenChange={(open) => !open && setPreviewUrl(null)}>
         <DialogContent className="max-w-[95vw] w-fit p-0 border-none bg-transparent shadow-none">
@@ -3575,11 +3898,26 @@ export default function Tasks() {
             </div>
             {previewUrl && (
               <div className="flex flex-col items-center">
-                <img 
-                  src={previewUrl} 
-                  alt={previewName} 
-                  className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl" 
-                />
+                {previewName.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i) ? (
+                  <img 
+                    src={previewUrl} 
+                    alt={previewName} 
+                    className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl" 
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-12 bg-white/5 rounded-2xl border border-white/10 min-w-[300px]">
+                    <FileText className="w-20 h-20 text-white/40 mb-4" />
+                    <p className="text-white font-semibold mb-2">{previewName}</p>
+                    <p className="text-white/40 text-xs mb-6">Preview not available for this file type</p>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); void downloadViaUrl(previewUrl, previewName); }}
+                      className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-full font-bold hover:opacity-90 transition-all shadow-lg"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download File
+                    </button>
+                  </div>
+                )}
                 <div className="mt-4 px-4 py-2 bg-black/50 backdrop-blur-md rounded-full text-white text-sm font-medium shadow-lg">
                   {previewName}
                 </div>
