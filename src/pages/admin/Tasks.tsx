@@ -335,8 +335,6 @@ interface Employee {
   name: string;
   initials: string;
   email: string;
-  avatarUrl?: string;
-  avatarDataUrl?: string;
   status: "active" | "inactive" | "on-leave";
 }
 

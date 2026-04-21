@@ -111,12 +111,13 @@ export default function EmployeeMessages() {
   useEffect(() => {
 
   socketRef.current = io("https://task.se7eninc.com", {
+ //socketRef.current = io("http://192.168.31.13:5000", {
     path: "/api/socket.io",
     transports: ["websocket"],
   });
 
   socketRef.current.on("connect", () => {
-    console.log("✅ Employee connected");
+    console.log("✅ Employee connected",employeeName);
   });
 
   socketRef.current.on("new-message", (data: { id?: string; _id?: string; sender: string; recipient: string; content: string; timestamp: string; type: string; status: string; attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number } }) => {

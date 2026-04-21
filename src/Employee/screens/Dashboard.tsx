@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import  React,{ useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,16 @@ import { CheckCircle, Clock, AlertCircle, MessageSquare, Calendar, Timer, ListTo
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
+
 interface DashboardData {
+  earnings: number;
+  hoursWorked: number;
+  alerts: string[];
+  actions: Array<{
+    type: string;
+    label: string;
+  }>;
+
   tasks: {
     total: number;
     completed: number;
@@ -101,6 +110,7 @@ export default function EmployeeDashboard() {
     refetchOnWindowFocus: true,
   });
 
+
   const profileQuery = useQuery({
     queryKey: ["employee-profile"],
     queryFn: async () => {
@@ -119,6 +129,25 @@ export default function EmployeeDashboard() {
 
   const loading = dashboardQuery.isLoading || profileQuery.isLoading;
 
+  /*useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [dashboardRes, profileRes] = await Promise.all([
+          getEmployeeDashboard(),
+          getEmployeeProfile(),
+        ]);
+        setData(dashboardRes.item as DashboardData);
+        setEmployeeName(profileRes.item.name);
+      } catch (err) {
+        console.error("Failed to load dashboard:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);*/
+
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -126,6 +155,9 @@ export default function EmployeeDashboard() {
           <h1 className="text-2xl font-bold mb-2">Welcome to Employee Portal</h1>
           <p className="text-blue-100">Loading your dashboard...</p>
         </div>
+
+       
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[1, 2, 3, 4].map((i) => (
             <Card key={i}>
@@ -172,6 +204,128 @@ export default function EmployeeDashboard() {
           ) : null}
         </div>
       </div>
+
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+  {/* Earnings */}
+  <Card>
+    <CardContent className="p-5 flex items-center justify-between">
+      <div>
+        <p className="text-sm text-muted-foreground">Current Earnings</p>
+        <p className="text-2xl font-bold text-green-600">
+          ₹{data?.earnings || 0}
+        </p>
+      </div>
+      <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+        💰
+      </div>
+    </CardContent>
+  </Card>
+
+  {/* Hours */}
+  <Card>
+    <CardContent className="p-5 flex items-center justify-between">
+      <div>
+        <p className="text-sm text-muted-foreground">Hours Worked</p>
+        <p className="text-2xl font-bold text-blue-600">
+          {data?.hoursWorked || 0} hrs
+        </p>
+      </div>
+      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+        ⏱️
+      </div>
+    </CardContent>
+  </Card>
+
+  {/* Pending Tasks (NEW) */}
+  <Card>
+    <CardContent className="p-5 flex items-center justify-between">
+      <div>
+        <p className="text-sm text-muted-foreground">Pending Tasks</p>
+        <p className="text-2xl font-bold text-orange-600">
+          {data?.tasks?.pending || 0}
+        </p>
+      </div>
+      <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+        📋
+      </div>
+    </CardContent>
+  </Card>
+</div>
+
+
+<div className="space-y-2">
+  {(data?.alerts?.length ?? 0) === 0 ? (
+    <div className="p-3 border rounded-lg bg-green-50 text-green-700">
+      All documents are up to date 🎉
+    </div>
+  ) : (
+    data.alerts.map((alert, i) => {
+      const text = alert.toLowerCase();
+
+      const isMissing = text.includes("missing");
+      const isCompleted = text.includes("completed");
+      const isPending = text.includes("pending");
+
+      return (
+        <Link key={i} to="/employee/documents">
+          <div
+            className={`p-3 border rounded-lg cursor-pointer flex justify-between items-center transition
+              ${
+                isMissing
+                  ? "bg-red-50 hover:bg-red-100 border-red-200"
+                  : isCompleted
+                  ? "bg-green-50 hover:bg-green-100 border-green-200"
+                  : isPending
+                  ? "bg-yellow-50 hover:bg-yellow-100 border-yellow-200"
+                  : "bg-gray-50"
+              }
+            `}
+          >
+            <span className="text-sm font-medium">{alert}</span>
+
+            <span className="text-xs px-2 py-1 rounded-full">
+              {isMissing && "❌ Missing"}
+              {isPending && "⏳ Pending"}
+              {isCompleted && "✅ Done"}
+              {!isMissing && !isPending && !isCompleted && "ℹ️ Info"}
+            </span>
+          </div>
+        </Link>
+      );
+    })
+  )}
+</div>
+
+{/*data?.actions?.length > 0 && (
+  <Card>
+    <CardHeader>
+      <CardTitle>Quick Actions</CardTitle>
+    </CardHeader>
+    <CardContent>
+      <div className="flex flex-wrap gap-3">
+        {data.actions.map((action, i) => (
+          <Button
+            key={i}
+            onClick={() => {
+             if (action.type === "add_payroll") {
+            window.location.href = "/employee/payroll";
+          }
+          if (action.type === "add_time") {
+            window.location.href = "/employee/TimeLogs";
+          }
+          if (action.type === "upload_docs") {
+            window.location.href = "/employee/TaxDocs";
+          }
+            }}
+          >
+            {action.label}
+          </Button>
+        ))}
+      </div>
+    </CardContent>
+  </Card>
+)*/}
 
       {/* Task Progress Circular Charts */}
       <Card>

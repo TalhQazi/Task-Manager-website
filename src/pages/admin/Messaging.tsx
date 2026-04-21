@@ -110,6 +110,7 @@ export default function Messaging() {
 
   useEffect(() => {
 
+
   socketRef.current = io(API_BASE_URL, { 
     path: "/api/socket.io",
     transports: ["websocket"],

@@ -10,3 +10,5 @@ dist-ssr
 .sixth
 .vscode
 .DS_Store
+.DS_Store
+.env.local
