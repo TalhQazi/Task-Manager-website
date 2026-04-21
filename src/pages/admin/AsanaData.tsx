@@ -78,6 +78,27 @@ function formatDate(d?: string) {
   }
 }
 
+function linkify(text: string) {
+  if (!text) return "—";
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  return text.split(urlRegex).map((part, i) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a 
+          key={i} 
+          href={part} 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          className="text-blue-600 hover:underline inline-flex items-center gap-0.5"
+        >
+          {part} <ExternalLink className="h-3 w-3" />
+        </a>
+      );
+    }
+    return part;
+  });
+}
+
 export default function AsanaData() {
   const [workspaces, setWorkspaces] = useState<AsanaWorkspace[]>([]);
   const [workspaceAsanaId, setWorkspaceAsanaId] = useState<string>("");
@@ -94,7 +115,9 @@ export default function AsanaData() {
   const [users, setUsers] = useState<AsanaUser[]>([]);
 
   const [loading, setLoading] = useState(false);
+  const [transferring, setTransferring] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [transferSuccess, setTransferSuccess] = useState<string | null>(null);
 
   const selectedWorkspace = useMemo(
     () => workspaces.find((w) => w.asanaId === workspaceAsanaId) || null,
@@ -267,6 +290,23 @@ export default function AsanaData() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTaskAsanaId]);
+  const handleTransfer = async () => {
+    if (!projectAsanaId) return;
+    setError(null);
+    setTransferSuccess(null);
+    setTransferring(true);
+    try {
+      const res = await apiFetch<{ ok: true; message: string; stats: { tasks: number; comments: number } }>("/api/asana-import/transfer-project", {
+        method: "POST",
+        body: JSON.stringify({ projectAsanaId }),
+      });
+      setTransferSuccess(`${res.message} (${res.stats.tasks} tasks, ${res.stats.comments} comments)`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Transfer failed");
+    } finally {
+      setTransferring(false);
+    }
+  };
 
   return (
     <>
@@ -282,6 +322,13 @@ export default function AsanaData() {
           <div className="rounded-md bg-destructive/10 p-3 flex items-start gap-2">
             <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
             <p className="text-xs sm:text-sm text-destructive break-words">{error}</p>
+          </div>
+        )}
+
+        {transferSuccess && (
+          <div className="rounded-md bg-green-100 p-3 flex items-start gap-2 border border-green-200">
+            <CheckSquare className="h-4 w-4 text-green-600 flex-shrink-0 mt-0.5" />
+            <p className="text-xs sm:text-sm text-green-800 break-words">{transferSuccess}</p>
           </div>
         )}
 
@@ -378,10 +425,29 @@ export default function AsanaData() {
                 variant="outline"
                 onClick={() => {
                   if (workspaces[0]?.asanaId) setWorkspaceAsanaId(workspaces[0].asanaId);
+                  setTransferSuccess(null);
                 }}
-                disabled={loading || workspaces.length === 0}
+                disabled={loading || workspaces.length === 0 || transferring}
               >
                 Reset
+              </Button>
+
+              <Button
+                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2"
+                onClick={handleTransfer}
+                disabled={loading || !projectAsanaId || transferring}
+              >
+                {transferring ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Inserting...
+                  </>
+                ) : (
+                  <>
+                    <Database className="h-4 w-4" />
+                    Insert to Task Manager
+                  </>
+                )}
               </Button>
 
               {loading && (
@@ -416,7 +482,7 @@ export default function AsanaData() {
                   <div className="space-y-1">
                     <p className="text-xs font-medium">Description</p>
                     <p className="text-xs sm:text-sm text-muted-foreground whitespace-pre-wrap break-words">
-                      {taskDetails.task.description || "—"}
+                      {linkify(taskDetails.task.description)}
                     </p>
                   </div>
 
@@ -480,7 +546,7 @@ export default function AsanaData() {
                             )}
                           </div>
                           {/* Message */}
-                          <p className="text-xs sm:text-sm break-words whitespace-pre-wrap">{c.message}</p>
+                          <p className="text-xs sm:text-sm break-words whitespace-pre-wrap">{linkify(c.message)}</p>
                         </div>
                       );
                     })}
