@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Badge } from "@/components/admin/ui/badge";
-import { AlertCircle, Loader2, User, Calendar, Paperclip, Image, Link as LinkIcon, FileText, ExternalLink } from "lucide-react";
+import { AlertCircle, Loader2, User, Calendar, Paperclip, Image, Link as LinkIcon, FileText, ExternalLink, Database, CheckSquare } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/admin/ui/select";
 
