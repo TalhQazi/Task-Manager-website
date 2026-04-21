@@ -862,7 +862,7 @@ const confirmArchiveUser = async () => {
                               >
                                 <Avatar className="h-10 w-10 flex-shrink-0 ring-2 ring-primary/20">
                                   {user.avatarUrl ? (
-                                    <AvatarImage src={user.avatarUrl} alt={user.name} className="object-cover" />
+                                    <AvatarImage src={toProxiedUrl(user.avatarUrl)} alt={user.name} className="object-cover" />
                                   ) : (
                                     <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-xs">
                                       {user.initials}
@@ -1026,7 +1026,7 @@ const confirmArchiveUser = async () => {
                                   >
                                     <Avatar className="h-8 w-8 md:h-9 md:w-9 flex-shrink-0 ring-2 ring-primary/20">
                                       {user.avatarUrl ? (
-                                        <AvatarImage src={user.avatarUrl} alt={user.name} className="object-cover" />
+                                        <AvatarImage src={toProxiedUrl(user.avatarUrl)} alt={user.name} className="object-cover" />
                                       ) : (
                                         <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-xs md:text-sm">
                                           {user.initials}
