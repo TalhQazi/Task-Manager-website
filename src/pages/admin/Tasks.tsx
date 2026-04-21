@@ -653,6 +653,7 @@ export default function Tasks() {
   }, [projectsQuery.data]);
 
   const loadProject = async (projectId: string, partialProject?: Project) => {
+    setSearchQuery(""); // Clear search bar when opening a project
     try {
       setIsLoadingProject(true);
       if (partialProject) {
@@ -1817,7 +1818,7 @@ export default function Tasks() {
         <div className="flex flex-wrap gap-2 sm:gap-3">
           {selectedProject ? (
             <>
-              <Button variant="outline" size="sm" onClick={() => setSelectedProject(null)} className="h-9 text-sm">
+              <Button variant="outline" size="sm" onClick={() => { setSelectedProject(null); setSearchQuery(""); }} className="h-9 text-sm">
                 Back to Projects
               </Button>
               <Button size="sm" className="gap-2 h-9 text-sm" onClick={() => {
@@ -3315,16 +3316,63 @@ export default function Tasks() {
                             />
                           </div>
                         )}
-                        <div><p className="text-xs text-muted-foreground mb-2">Assigned to</p><div className="flex flex-wrap items-center gap-2">{task.assignees && task.assignees.length > 0 ? (<><div className="flex -space-x-2">{task.assignees.slice(0, 3).map((assignee, idx) => {
-                          const term = assignee.toLowerCase().trim();
-                          const emp = employees.find(e => 
-                            e.name.toLowerCase().trim() === term || 
-                            e.email.toLowerCase().trim() === term ||
-                            (e.id && e.id.toLowerCase() === term)
-                          );
-                          const avatar = toProxiedUrl(emp?.avatarDataUrl || emp?.avatarUrl) || emp?.avatarDataUrl || emp?.avatarUrl;
-                          return (<Avatar key={idx} className="w-7 h-7 border-2 border-background">{avatar ? (<img src={avatar} alt="avatar" className="w-full h-full object-cover" />) : (<AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">{(emp?.initials || assignee.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()).substring(0, 2)}</AvatarFallback>)}</Avatar>);
-                        })}{task.assignees.length > 3 && (<div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">+{task.assignees.length - 3}</div>)}</div><span className="text-sm text-foreground break-words">{task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}</span></>) : (<span className="text-sm text-muted-foreground">Unassigned</span>)}</div></div>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs text-muted-foreground">Assigned to</p>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="h-7 text-[10px] uppercase font-bold px-2 py-0 border-primary/20 hover:border-primary/40 hover:bg-primary/5 text-primary"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setReassigningTask(task);
+                                setReassignTaskAssignees(task.assignees || []);
+                                setIsReassignTaskOpen(true);
+                              }}
+                            >
+                              <UserCog className="w-3 h-3 mr-1" />
+                              Assign
+                            </Button>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            {task.assignees && task.assignees.length > 0 ? (
+                              <>
+                                <div className="flex -space-x-2">
+                                  {task.assignees.slice(0, 3).map((assignee, idx) => {
+                                    const term = assignee.toLowerCase().trim();
+                                    const emp = employees.find(e => 
+                                      e.name.toLowerCase().trim() === term || 
+                                      e.email.toLowerCase().trim() === term ||
+                                      (e.id && e.id.toLowerCase() === term)
+                                    );
+                                    const avatar = toProxiedUrl(emp?.avatarDataUrl || emp?.avatarUrl) || emp?.avatarDataUrl || emp?.avatarUrl;
+                                    return (
+                                      <Avatar key={idx} className="w-7 h-7 border-2 border-background">
+                                        {avatar ? (
+                                          <img src={avatar} alt="avatar" className="w-full h-full object-cover" />
+                                        ) : (
+                                          <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
+                                            {(emp?.initials || assignee.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()).substring(0, 2)}
+                                          </AvatarFallback>
+                                        )}
+                                      </Avatar>
+                                    );
+                                  })}
+                                  {task.assignees.length > 3 && (
+                                    <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center text-xs font-medium border-2 border-background">
+                                      +{task.assignees.length - 3}
+                                    </div>
+                                  )}
+                                </div>
+                                <span className="text-sm text-foreground break-words">
+                                  {task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}
+                                </span>
+                              </>
+                            ) : (
+                              <span className="text-sm text-muted-foreground">Unassigned</span>
+                            )}
+                          </div>
+                        </div>
                         <div className="flex gap-2 flex-wrap"><Badge variant="secondary" className={cn("text-xs", statusClasses[task.status])}>{task.status}</Badge><Badge variant="outline" className={cn("text-xs border", priorityClasses[task.priority])}>{task.priority}</Badge></div>
                       </div>
                       <div className="p-4 border-t border-muted/30 bg-muted/10 space-y-2 text-sm"><div className="flex items-center gap-2 text-muted-foreground flex-wrap"><Calendar className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs">Due: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}</span></div><div className="flex items-center gap-2 text-muted-foreground flex-wrap"><Clock className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs">Created: {new Date(task.createdAt).toLocaleDateString()}</span></div>{task.location && (<div className="flex items-center gap-2 text-muted-foreground flex-wrap"><MapPin className="w-3.5 h-3.5 flex-shrink-0" /><span className="text-xs break-words">{task.location}</span></div>)}</div>

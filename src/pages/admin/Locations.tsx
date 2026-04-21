@@ -176,6 +176,7 @@ const Locations = () => {
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
+  const [refreshTimestamp, setRefreshTimestamp] = useState(Date.now());
 
   const [formData, setFormData] = useState({
     name: "",
@@ -266,6 +267,7 @@ const Locations = () => {
     try {
       const list = await listResource<BackendLocation>("locations");
       setLocationsList(list.map(normalizeLocation));
+      setRefreshTimestamp(Date.now());
     } catch (e) {
       console.error("Failed to refresh locations", e);
     }
@@ -713,7 +715,7 @@ const Locations = () => {
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-lg overflow-hidden border border-slate-100 flex-shrink-0 bg-slate-50 flex items-center justify-center">
                           <img 
-                            src={`${String(getApiBaseUrl()).replace(/\/$/, "")}/api/locations/${location.id}/render-photo`} 
+                            src={`${String(getApiBaseUrl()).replace(/\/$/, "")}/api/locations/${location.id}/render-photo?v=${refreshTimestamp}`} 
                             alt={location.name} 
                             className="h-full w-full object-cover"
                             onError={(e) => {
