@@ -1982,7 +1982,7 @@ export default function Tasks() {
           <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
               <h2 className="font-semibold text-lg">
-                Projects ({Math.min(projectPage * PAGE_SIZE, projectsQuery.data?.totalItems || 0)} - {projectsQuery.data?.totalItems || 0})
+                Projects ({projectsQuery.data?.items.length ? `${(projectPage - 1) * PAGE_SIZE + 1} - ${(projectPage - 1) * PAGE_SIZE + projectsQuery.data.items.length}` : "0"} of {projectsQuery.data?.totalItems || 0})
               </h2>
               <div className="relative w-full sm:w-64 hidden">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -2107,7 +2107,9 @@ export default function Tasks() {
 
           {/* Tasks Section */}
           <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
-            <h2 className="font-semibold text-lg mb-3">Tasks ({Math.min(taskPage * PAGE_SIZE, tasksQuery.data?.totalItems || 0)} - {tasksQuery.data?.totalItems || 0})</h2>
+            <h2 className="font-semibold text-lg mb-3">
+              Tasks ({tasksQuery.data?.items.length ? `${(taskPage - 1) * PAGE_SIZE + 1} - ${(taskPage - 1) * PAGE_SIZE + tasksQuery.data.items.length}` : "0"} of {tasksQuery.data?.totalItems || 0})
+            </h2>
             {tasksQuery.isLoading ? (
               <p className="text-muted-foreground">Loading tasks...</p>
             ) : tasksQuery.isError ? (
@@ -2308,9 +2310,44 @@ export default function Tasks() {
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Assignees</label>
                 <Popover open={projectCreationAssigneesOpen} onOpenChange={setProjectCreationAssigneesOpen}>
-                  <PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{projectCreationAssignees.length > 0 ? projectCreationAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger>
+                  <PopoverTrigger asChild>
+                    <Button type="button" variant="outline" className="w-full justify-between h-10">
+                      <span className="truncate">{projectCreationAssignees.length > 0 ? projectCreationAssignees.join(", ") : "Select assignees"}</span>
+                      <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
                   <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setProjectCreationAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); }}><Check className={cn("mr-2 h-4 w-4", projectCreationAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2">{employee.avatarDataUrl || employee.avatarUrl ? (<img src={employee.avatarDataUrl || employee.avatarUrl} alt="avatar" className="w-full h-full object-cover" />) : (<AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials || employee.name.substring(0, 2).toUpperCase()}</AvatarFallback>)}</Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command>
+                    <Command className="max-h-[300px]">
+                      <CommandInput placeholder="Search employees..." />
+                      <CommandList className="max-h-[250px] overflow-y-auto">
+                        <CommandEmpty>No employee found.</CommandEmpty>
+                        <CommandGroup>
+                          {activeEmployees.map((employee) => (
+                            <CommandItem 
+                              key={employee.id} 
+                              value={employee.name} 
+                              onSelect={() => { 
+                                setProjectCreationAssignees((prev) => 
+                                  prev.includes(employee.name) 
+                                    ? prev.filter((name) => name !== employee.name) 
+                                    : [...prev, employee.name]
+                                ); 
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", projectCreationAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} />
+                              <Avatar className="h-6 w-6 mr-2">
+                                {employee.avatarDataUrl || employee.avatarUrl ? (
+                                  <img src={employee.avatarDataUrl || employee.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                                ) : (
+                                  <AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials || employee.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                )}
+                              </Avatar>
+                              {employee.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
                   </PopoverContent>
                 </Popover>
               </div>
@@ -3132,9 +3169,9 @@ export default function Tasks() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command>
+                  <Command className="max-h-[300px]">
                     <CommandInput placeholder="Search employees..." />
-                    <CommandList>
+                    <CommandList className="max-h-[250px] overflow-y-auto">
                       <CommandEmpty>No employee found.</CommandEmpty>
                       <CommandGroup>
                         {activeEmployees.map((employee) => (
@@ -3147,7 +3184,7 @@ export default function Tasks() {
                                   ? prev.filter((name) => name !== employee.name)
                                   : [...prev, employee.name]
                               );
-                              setReassignTaskOpen(false);
+                              // Removed setReassignTaskOpen(false) to allow multiple selection without closing
                             }}
                           >
                             <Check className={cn("mr-2 h-4 w-4", reassignTaskAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} />
@@ -3212,9 +3249,9 @@ export default function Tasks() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command>
+                  <Command className="max-h-[300px]">
                     <CommandInput placeholder="Search employees..." />
-                    <CommandList>
+                    <CommandList className="max-h-[250px] overflow-y-auto">
                       <CommandEmpty>No employee found.</CommandEmpty>
                       <CommandGroup>
                         {activeEmployees.map((employee) => (
@@ -3227,7 +3264,7 @@ export default function Tasks() {
                                   ? prev.filter((name) => name !== employee.name)
                                   : [...prev, employee.name]
                               );
-                              setReassignProjectOpen(false);
+                              // Removed setReassignProjectOpen(false) to allow multiple selection without closing
                             }}
                           >
                             <Check className={cn("mr-2 h-4 w-4", reassignProjectAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} />
@@ -3382,7 +3419,9 @@ export default function Tasks() {
                 })}
               </div>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-muted-foreground mt-6 pt-4 border-t border-muted/20">
-                <span className="text-center sm:text-left">Showing {filteredTasks.length} of {tasks.length} tasks</span>
+                <span className="text-center sm:text-left">
+                  Showing {filteredTasks.length ? `${(projectTaskPage - 1) * PAGE_SIZE + 1} - ${(projectTaskPage - 1) * PAGE_SIZE + filteredTasks.length}` : "0"} of {tasks.length} tasks
+                </span>
                 <div className="flex flex-wrap items-center justify-center sm:justify-end gap-4">
                   <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-success" />{tasks.filter((t) => t.status === "completed").length} completed</span>
                   <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary" />{tasks.filter((t) => t.status === "in-progress").length} in progress</span>

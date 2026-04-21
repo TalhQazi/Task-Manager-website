@@ -148,6 +148,7 @@ const Users = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
+  const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
   const [users, setUsers] = useState<User[]>(() => []);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -478,7 +479,11 @@ const confirmArchiveUser = async () => {
   };
 
   const filteredUsers = users.filter((user) => {
-     if (user.status === "inactive") return false;
+    const isArchived = user.status === "inactive";
+    const matchesTab = activeTab === "archived" ? isArchived : !isArchived;
+    
+    if (!matchesTab) return false;
+
     const matchesSearch =
       String(user.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       String(user.email || "").toLowerCase().includes(searchQuery.toLowerCase());
@@ -714,23 +719,49 @@ const confirmArchiveUser = async () => {
           </div>
         </motion.div>
 
-        {/* API Error Message with animation */}
-        <AnimatePresence>
-          {apiError && (
-            <motion.div
-              initial={{ opacity: 0, y: -20, height: 0 }}
-              animate={{ opacity: 1, y: 0, height: "auto" }}
-              exit={{ opacity: 0, y: -20, height: 0 }}
-              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-              className="rounded-lg bg-destructive/10 p-3 sm:p-4 border border-destructive/20"
+          {/* API Error Message with animation */}
+          <AnimatePresence>
+            {apiError && (
+              <motion.div
+                initial={{ opacity: 0, y: -20, height: 0 }}
+                animate={{ opacity: 1, y: 0, height: "auto" }}
+                exit={{ opacity: 0, y: -20, height: 0 }}
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                className="rounded-lg bg-destructive/10 p-3 sm:p-4 border border-destructive/20 mb-4"
+              >
+                <p className="text-xs sm:text-sm text-destructive break-words flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  {apiError}
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* User Status Tabs */}
+          <motion.div variants={itemVariants} className="flex gap-2">
+            <Button
+              variant={activeTab === "active" ? "default" : "ghost"}
+              onClick={() => setActiveTab("active")}
+              className={`h-9 px-4 rounded-full transition-all duration-300 ${
+                activeTab === "active" 
+                  ? "bg-gradient-to-r from-primary to-primary/80 text-white shadow-md" 
+                  : "text-muted-foreground hover:bg-primary/10"
+              }`}
             >
-              <p className="text-xs sm:text-sm text-destructive break-words flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4" />
-                {apiError}
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              Active Users
+            </Button>
+            <Button
+              variant={activeTab === "archived" ? "default" : "ghost"}
+              onClick={() => setActiveTab("archived")}
+              className={`h-9 px-4 rounded-full transition-all duration-300 ${
+                activeTab === "archived" 
+                  ? "bg-gradient-to-r from-muted-foreground to-muted-foreground/80 text-white shadow-md" 
+                  : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              Archive
+            </Button>
+          </motion.div>
 
         {/* Role Summary Cards - Animated Grid */}
         <motion.div 
@@ -761,7 +792,7 @@ const confirmArchiveUser = async () => {
                     <div className="min-w-0">
                       <p className="text-xs sm:text-sm text-muted-foreground truncate">{item.label}</p>
                       <p className="text-xl sm:text-2xl font-bold">
-                        {users.filter((u) => u.role === item.role).length}
+                        {users.filter((u) => u.role === item.role && (activeTab === 'active' ? u.status !== 'inactive' : u.status === 'inactive')).length}
                       </p>
                     </div>
                   </div>
