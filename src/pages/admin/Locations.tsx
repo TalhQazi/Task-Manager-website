@@ -1065,11 +1065,11 @@ const Locations = () => {
         <DialogContent className="max-w-4xl p-0 overflow-hidden rounded-2xl border-0 shadow-2xl !bg-slate-950 block">
           {previewImage && (
             <div className="relative flex flex-col h-full max-h-[90vh]">
-              <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
+              <div className="absolute top-4 right-4 z-50 flex items-center gap-3">
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="bg-white/10 hover:bg-white/20 border-white/20 text-white rounded-full h-10 w-10 p-0"
+                  className="bg-black/50 hover:bg-black/70 backdrop-blur-md border-white/20 text-white rounded-full h-10 w-10 p-0 shadow-lg transition-all"
                   onClick={() => {
                     const link = document.createElement('a');
                     link.href = previewImage.url;
@@ -1082,7 +1082,7 @@ const Locations = () => {
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="bg-white/10 hover:bg-white/20 border-white/20 text-white rounded-full h-10 w-10 p-0"
+                  className="bg-black/50 hover:bg-black/70 backdrop-blur-md border-white/20 text-white rounded-full h-10 w-10 p-0 shadow-lg transition-all"
                   onClick={() => setPreviewImage(null)}
                 >
                   <X className="h-5 w-5" />
