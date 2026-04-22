@@ -18,6 +18,7 @@ const EmployeeProfile = lazy(() => import("../screens/Profile"));
 const EmployeeNotifications = lazy(() => import("../screens/Notifications"));
 const EmployeePersonalNotes = lazy(() => import("../screens/PersonalNotes"));
 const EmployeeScrumRecords = lazy(() => import("../screens/ScrumRecords"));
+const EmployeeAssetLibrary = lazy(() => import("../screens/AssetLibrary"));
 
 function PageLoader() {
   return (
@@ -53,6 +54,7 @@ function EmployeeController() {
           <Route path="/schedule" element={<EmployeeSchedule />} />
           <Route path="/clocked" element={<EmployeeClocked />} />
           <Route path="/messages" element={<EmployeeMessages />} />
+          <Route path="/asset-library" element={<EmployeeAssetLibrary />} />
           <Route path="/profile" element={<EmployeeProfile />} />
           <Route path="/notifications" element={<EmployeeNotifications />} />
           <Route path="/personal-notes" element={<EmployeePersonalNotes />} />

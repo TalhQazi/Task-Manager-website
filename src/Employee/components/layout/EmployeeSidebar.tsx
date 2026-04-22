@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { NavLink } from "@/components/admin/NavLink";
 
+import { LayoutDashboard, ClipboardList, Calendar, UserCircle, Bell, LogOut, Clock, MessageCircle, FileText, ClipboardCheck, Folder } from "lucide-react";
+
 import { LayoutDashboard, ClipboardList, Calendar, UserCircle, Bell, LogOut, Clock, MessageCircle, FileText, ClipboardCheck ,Wallet} from "lucide-react";
+
 
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -20,6 +23,7 @@ const navItemsBase = [
   { icon: FileText, label: "Documents", path: "/employee/documents" },
 
   { icon: MessageCircle, label: "Messages", path: "/employee/messages" },
+  { icon: Folder, label: "Asset Library", path: "/employee/asset-library" },
   { icon: UserCircle, label: "Profile", path: "/employee/profile" },
   { icon: Bell, label: "Notifications", path: "/employee/notifications" },
   { icon: FileText, label: "My Notes", path: "/employee/personal-notes" },
