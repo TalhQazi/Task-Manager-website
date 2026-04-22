@@ -213,7 +213,7 @@ export default function EmployeeDashboard() {
       <div>
         <p className="text-sm text-muted-foreground">Current Earnings</p>
         <p className="text-2xl font-bold text-green-600">
-          ₹{data?.earnings || 0}
+          ${data?.earnings || 0}
         </p>
       </div>
       <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">

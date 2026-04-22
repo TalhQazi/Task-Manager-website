@@ -89,7 +89,7 @@ export default function EmployeePayroll() {
       <CardContent className="p-4">
         <p className="text-sm text-gray-500">Total Earnings</p>
         <p className="text-xl font-bold">
-          ₹{payroll.reduce((s, p) => s + p.net, 0)}
+          ${payroll.reduce((s, p) => s + p.net, 0)}
         </p>
       </CardContent>
     </Card>
@@ -98,7 +98,7 @@ export default function EmployeePayroll() {
       <CardContent className="p-4">
         <p className="text-sm text-gray-500">Total Taxes</p>
         <p className="text-xl font-bold text-red-500">
-          ₹{payroll.reduce((s, p) => s + p.taxes, 0)}
+          ${payroll.reduce((s, p) => s + p.taxes, 0)}
         </p>
       </CardContent>
     </Card>
@@ -138,10 +138,10 @@ export default function EmployeePayroll() {
                     <h3 className="font-semibold">{p.payPeriod}</h3>
 
                     <div className="text-sm text-gray-500 space-y-1 mt-1">
-                      <p>Gross: ₹{p.gross}</p>
-                      <p>Net: ₹{p.net}</p>
-                      <p>Taxes: ₹{p.taxes}</p>
-                      <p>Deductions: ₹{p.deductions}</p>
+                      <p>Gross: ${p.gross}</p>
+                      <p>Net: ${p.net}</p>
+                      <p>Taxes: ${p.taxes}</p>
+                      <p>Deductions: ${p.deductions}</p>
                     </div>
                   </div>
 

@@ -1493,21 +1493,7 @@ export default function Tasks() {
                 Add Task
               </Button>
             </>
-          ) : (
-            <>
-              <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
-                <Plus className="w-4 h-4" />
-                Create Project
-              </Button>
-              <Button className="gap-2" onClick={() => {
-                setIsDirectTask(true);
-                setIsCreateTaskOpen(true);
-              }}>
-                <Plus className="w-4 h-4" />
-                Create Task
-              </Button>
-            </>
-          )}
+          ) : null}
         </div>
       </div>
 
