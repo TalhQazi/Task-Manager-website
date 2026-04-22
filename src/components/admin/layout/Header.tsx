@@ -815,14 +815,39 @@ export function Header({ onMenuClick }: HeaderProps) {
                          </div>
                        ))}
                        {reportImageFiles.length < 5 && (
-                         <button 
-                          onClick={handlePasteImage}
-                          className="h-16 w-16 border-2 border-dashed rounded flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors"
-                          title="Paste image"
-                         >
-                           <Camera className="h-4 w-4 mb-1" />
-                           <span className="text-[8px]">Paste</span>
-                         </button>
+                         <div className="flex gap-2">
+                           <button 
+                            onClick={handlePasteImage}
+                            className="h-16 w-16 border-2 border-dashed rounded flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+                            title="Paste image"
+                           >
+                             <Camera className="h-4 w-4 mb-1" />
+                             <span className="text-[8px]">Paste</span>
+                           </button>
+                           <button 
+                            onClick={() => document.getElementById('report-file-input')?.click()}
+                            className="h-16 w-16 border-2 border-dashed rounded flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+                            title="Select file"
+                           >
+                             <Paperclip className="h-4 w-4 mb-1" />
+                             <span className="text-[8px]">Select</span>
+                           </button>
+                           <input 
+                             id="report-file-input"
+                             type="file"
+                             accept="image/*"
+                             multiple
+                             className="hidden"
+                             onChange={(e) => {
+                               const files = Array.from(e.target.files || []);
+                               const remaining = 5 - reportImageFiles.length;
+                               const toAdd = files.slice(0, remaining);
+                               setReportImageFiles(p => [...p, ...toAdd]);
+                               setReportImagePreviewUrls(p => [...p, ...toAdd.map(f => URL.createObjectURL(f))]);
+                               e.target.value = "";
+                             }}
+                           />
+                         </div>
                        )}
                     </div>
                   </div>

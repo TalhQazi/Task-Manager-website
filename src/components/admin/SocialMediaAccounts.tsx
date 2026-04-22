@@ -41,6 +41,10 @@ const platformOptions = [
   "TikTok",
   "LinkedIn",
   "X (Twitter)",
+  "Liberty social",
+  "Rumble",
+  "Truth Social",
+  "Threads",
   "Other",
 ];
 

@@ -299,6 +299,7 @@ export function ActiveWebsites() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
+                    <TableHead className="w-12 font-bold">#</TableHead>
                     <TableHead className="font-bold">Site Name</TableHead>
                     <TableHead className="font-bold">URL</TableHead>
                     <TableHead className="font-bold">Platform</TableHead>
@@ -308,8 +309,9 @@ export function ActiveWebsites() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {websites.map((website) => (
+                  {websites.map((website, index) => (
                     <TableRow key={website._id} className="hover:bg-muted/30 transition-colors">
+                      <TableCell className="font-mono text-xs text-muted-foreground">{index + 1}</TableCell>
                       <TableCell className="font-medium text-sm">{website.siteName}</TableCell>
                       <TableCell>
                         <a

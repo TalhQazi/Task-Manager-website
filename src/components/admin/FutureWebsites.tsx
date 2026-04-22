@@ -326,6 +326,7 @@ export function FutureWebsites() {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
+                <TableHead className="w-12 font-bold">#</TableHead>
                 <TableHead className="font-bold">Project Name</TableHead>
                 <TableHead className="font-bold">Domain</TableHead>
                 <TableHead className="font-bold">Stage</TableHead>
@@ -335,8 +336,9 @@ export function FutureWebsites() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {websites.map((website) => (
+              {websites.map((website, index) => (
                 <TableRow key={website._id} className="hover:bg-muted/30 transition-colors text-sm">
+                  <TableCell className="font-mono text-xs text-muted-foreground">{index + 1}</TableCell>
                   <TableCell className="font-medium">{website.siteName}</TableCell>
                   <TableCell>
                     <a

@@ -35,7 +35,7 @@ type BugItem = {
   createdByRole?: string;
   createdAt?: string;
   source?: { panel?: string; path?: string };
-  attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number };
+  attachments?: { fileName?: string; url?: string; mimeType?: string; size?: number }[];
 };
 
 function toText(v: unknown) {
@@ -72,7 +72,7 @@ export default function Bugs() {
         createdByRole: toText(x.createdByRole),
         createdAt: toText(x.createdAt),
         source: x.source && typeof x.source === "object" ? x.source : undefined,
-        attachment: x.attachment && typeof x.attachment === "object" ? x.attachment : undefined,
+        attachments: Array.isArray(x.attachments) ? x.attachments : [],
       }))
       .filter((x) => Boolean(x.id));
 
@@ -257,15 +257,19 @@ export default function Bugs() {
                 <p className="text-sm whitespace-pre-wrap">{selected.description}</p>
               </div>
 
-              {selected.attachment?.url ? (
-                <div className="space-y-2">
-                  <p className="text-xs sm:text-sm font-medium">Attachment</p>
-                  <div className="w-full overflow-hidden rounded-lg border bg-white">
-                    <img
-                      src={toProxiedUrl(String(selected.attachment.url))}
-                      alt={String(selected.attachment.fileName || "Bug attachment")}
-                      className="w-full h-auto max-h-[65vh] object-contain"
-                    />
+              {selected.attachments && selected.attachments.length > 0 ? (
+                <div className="space-y-4">
+                  <p className="text-xs sm:text-sm font-medium">Attachments ({selected.attachments.length})</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {selected.attachments.map((att, i) => (
+                      <div key={i} className="w-full overflow-hidden rounded-lg border bg-white">
+                        <img
+                          src={toProxiedUrl(String(att.url))}
+                          alt={String(att.fileName || `Attachment ${i + 1}`)}
+                          className="w-full h-auto max-h-[65vh] object-contain"
+                        />
+                      </div>
+                    ))}
                   </div>
                 </div>
               ) : null}

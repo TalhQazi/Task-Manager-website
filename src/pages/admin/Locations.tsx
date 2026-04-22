@@ -97,6 +97,7 @@ interface Location {
   createdAt?: string;
   photoDataUrl?: string;
   photoFileName?: string;
+  attachments?: { fileName: string; url: string }[];
 }
 
 const toDateOnly = (value: string) => {
@@ -131,6 +132,7 @@ function normalizeLocation(l: BackendLocation): Location {
     createdAt: createdAt ? toDateOnly(createdAt) : undefined,
     photoDataUrl: String(l.photoDataUrl || "").trim() || undefined,
     photoFileName: String(l.photoFileName || "").trim() || undefined,
+    attachments: Array.isArray(l.attachments) ? l.attachments : [],
   };
 }
 
@@ -191,6 +193,7 @@ const Locations = () => {
     status: "active" as Location["status"],
     photoDataUrl: "",
     photoFileName: "",
+    attachments: [] as { fileName: string; url: string }[],
   });
 
   const [editFormData, setEditFormData] = useState({
@@ -206,6 +209,7 @@ const Locations = () => {
     status: "active" as Location["status"],
     photoDataUrl: "",
     photoFileName: "",
+    attachments: [] as { fileName: string; url: string }[],
   });
 
   useEffect(() => {
@@ -296,6 +300,7 @@ const Locations = () => {
         createdAt: new Date().toISOString(),
         photoDataUrl: formData.photoDataUrl || undefined,
         photoFileName: formData.photoFileName || undefined,
+        attachments: formData.attachments,
       };
       await createResource<Location>("locations", newLocation);
       setSubmitSuccess(true);
@@ -317,6 +322,7 @@ const Locations = () => {
         status: "active",
         photoDataUrl: "",
         photoFileName: "",
+        attachments: [],
       });
     } catch (e) {
       setFormError(e instanceof Error ? e.message : "Failed to add location");
@@ -332,9 +338,9 @@ const Locations = () => {
     // Lazy load photo if needed
     if (!location.photoDataUrl) {
       try {
-        const res = await apiFetch<{ photoDataUrl: string; photoFileName: string }>(`/api/locations/${location.id}/photo`);
-        if (res.photoDataUrl) {
-          setSelectedLocation(prev => prev && prev.id === location.id ? { ...prev, photoDataUrl: res.photoDataUrl, photoFileName: res.photoFileName } : prev);
+        const res = await apiFetch<{ photoDataUrl: string; photoFileName: string; attachments: { fileName: string; url: string }[] }>(`/api/locations/${location.id}/photo`);
+        if (res.photoDataUrl || (res.attachments && res.attachments.length > 0)) {
+          setSelectedLocation(prev => prev && prev.id === location.id ? { ...prev, photoDataUrl: res.photoDataUrl, photoFileName: res.photoFileName, attachments: res.attachments || [] } : prev);
         }
       } catch (err) {
         console.error("Failed to load location photo:", err);
@@ -357,16 +363,17 @@ const Locations = () => {
       status: location.status,
       photoDataUrl: location.photoDataUrl || "",
       photoFileName: location.photoFileName || "",
+      attachments: location.attachments || [],
     });
     setEditLocationOpen(true);
 
     // Lazy load photo for editing if not present
     if (!location.photoDataUrl) {
       try {
-        const res = await apiFetch<{ photoDataUrl: string; photoFileName: string }>(`/api/locations/${location.id}/photo`);
-        if (res.photoDataUrl) {
-           setEditFormData(prev => ({ ...prev, photoDataUrl: res.photoDataUrl, photoFileName: res.photoFileName }));
-           setSelectedLocation(prev => prev && prev.id === location.id ? { ...prev, photoDataUrl: res.photoDataUrl, photoFileName: res.photoFileName } : prev);
+        const res = await apiFetch<{ photoDataUrl: string; photoFileName: string; attachments: { fileName: string; url: string }[] }>(`/api/locations/${location.id}/photo`);
+        if (res.photoDataUrl || (res.attachments && res.attachments.length > 0)) {
+           setEditFormData(prev => ({ ...prev, photoDataUrl: res.photoDataUrl, photoFileName: res.photoFileName, attachments: res.attachments || [] }));
+           setSelectedLocation(prev => prev && prev.id === location.id ? { ...prev, photoDataUrl: res.photoDataUrl, photoFileName: res.photoFileName, attachments: res.attachments || [] } : prev);
         }
       } catch (err) {
         console.error("Failed to load location photo for edit:", err);
@@ -393,6 +400,7 @@ const Locations = () => {
         notes: editFormData.notes || "",
         photoDataUrl: editFormData.photoDataUrl || undefined,
         photoFileName: editFormData.photoFileName || undefined,
+        attachments: editFormData.attachments,
       });
       await refreshLocations();
       setEditLocationOpen(false);
@@ -528,24 +536,32 @@ const Locations = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-semibold">Photo</Label>
-                  <div className="flex items-center gap-4">
-                    {formData.photoDataUrl && (
-                      <div className="h-16 w-16 rounded-lg border overflow-hidden">
-                        <img src={formData.photoDataUrl} className="h-full w-full object-cover" alt="Preview" />
+                  <Label className="text-sm font-semibold">Multiple Photos</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {formData.attachments.map((att, i) => (
+                      <div key={i} className="relative h-16 w-16 border rounded overflow-hidden group">
+                        <img src={att.url} className="h-full w-full object-cover" alt={`Attachment ${i + 1}`} />
+                        <button onClick={() => setFormData({...formData, attachments: formData.attachments.filter((_, idx) => idx !== i)})} className="absolute top-0 right-0 bg-red-500 text-white p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <X className="h-3 w-3" />
+                        </button>
                       </div>
-                    )}
-                    <Button variant="outline" size="sm" onClick={() => document.getElementById('add-photo')?.click()} className="border-dashed border-2 hover:border-blue-400 hover:bg-blue-50 transition-all">
-                      <ImageIcon className="h-4 w-4 mr-2 text-blue-500" />
-                      Upload Photo
+                    ))}
+                    <Button variant="outline" size="sm" onClick={() => document.getElementById('add-multiple-photos')?.click()} className="h-16 w-16 border-dashed border-2 hover:border-blue-400 hover:bg-blue-50 transition-all p-0 flex flex-col items-center justify-center">
+                      <ImageIcon className="h-4 w-4 text-blue-500 mb-1" />
+                      <span className="text-[10px]">Add Photo</span>
                     </Button>
-                    <input id="add-photo" type="file" className="hidden" accept="image/*" onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
+                    <input id="add-multiple-photos" type="file" className="hidden" accept="image/*" multiple onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      files.forEach(file => {
                         const reader = new FileReader();
-                        reader.onload = (re) => setFormData({...formData, photoDataUrl: re.target?.result as string, photoFileName: file.name});
+                        reader.onload = (re) => {
+                          setFormData(prev => ({
+                            ...prev, 
+                            attachments: [...prev.attachments, { fileName: file.name, url: re.target?.result as string }]
+                          }));
+                        };
                         reader.readAsDataURL(file);
-                      }
+                      });
                     }} />
                   </div>
                 </div>
@@ -854,6 +870,19 @@ const Locations = () => {
                     </div>
                  </div>
                )}
+
+               {selectedLocation?.attachments && selectedLocation.attachments.length > 0 && (
+                 <div className="col-span-2 pt-4 border-t border-slate-100">
+                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Site Photos ({selectedLocation.attachments.length})</p>
+                   <div className="grid grid-cols-2 gap-3">
+                     {selectedLocation.attachments.map((att, i) => (
+                       <div key={i} className="rounded-xl overflow-hidden border border-slate-100 shadow-sm aspect-video">
+                         <img src={att.url} className="h-full w-full object-cover" alt={`Site ${i + 1}`} />
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+               )}
             </div>
           </div>
 
@@ -928,23 +957,32 @@ const Locations = () => {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-semibold">Photo</Label>
-                <div className="flex items-center gap-4">
-                  {editFormData.photoDataUrl && (
-                    <div className="h-16 w-16 rounded-xl border overflow-hidden shadow-sm">
-                      <img src={editFormData.photoDataUrl} className="h-full w-full object-cover" alt="Preview" />
+                <Label className="text-sm font-semibold">Site Photos</Label>
+                <div className="flex flex-wrap gap-2">
+                  {editFormData.attachments.map((att, i) => (
+                    <div key={i} className="relative h-16 w-16 border rounded-xl overflow-hidden group shadow-sm">
+                      <img src={att.url} className="h-full w-full object-cover" alt={`Attachment ${i + 1}`} />
+                      <button onClick={() => setEditFormData({...editFormData, attachments: editFormData.attachments.filter((_, idx) => idx !== i)})} className="absolute top-0 right-0 bg-red-500 text-white p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <X className="h-3 w-3" />
+                      </button>
                     </div>
-                  )}
-                  <Button variant="outline" size="sm" onClick={() => document.getElementById('edit-photo')?.click()} className="border-slate-200 font-semibold">
-                    Change Image
+                  ))}
+                  <Button variant="outline" size="sm" onClick={() => document.getElementById('edit-multiple-photos')?.click()} className="h-16 w-16 border-dashed border-2 hover:border-blue-400 hover:bg-blue-50 transition-all p-0 flex flex-col items-center justify-center rounded-xl">
+                    <ImageIcon className="h-4 w-4 text-blue-500 mb-1" />
+                    <span className="text-[10px]">Add Photo</span>
                   </Button>
-                  <input id="edit-photo" type="file" className="hidden" accept="image/*" onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
+                  <input id="edit-multiple-photos" type="file" className="hidden" accept="image/*" multiple onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    files.forEach(file => {
                       const reader = new FileReader();
-                      reader.onload = (re) => setEditFormData({...editFormData, photoDataUrl: re.target?.result as string, photoFileName: file.name});
+                      reader.onload = (re) => {
+                        setEditFormData(prev => ({
+                          ...prev, 
+                          attachments: [...prev.attachments, { fileName: file.name, url: re.target?.result as string }]
+                        }));
+                      };
                       reader.readAsDataURL(file);
-                    }
+                    });
                   }} />
                 </div>
               </div>
