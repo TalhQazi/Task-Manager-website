@@ -1061,7 +1061,7 @@ const Locations = () => {
       </Dialog>
       {/* Image Preview Modal */}
       <Dialog open={!!previewImage} onOpenChange={(open) => !open && setPreviewImage(null)}>
-        <DialogContent className="max-w-4xl p-0 overflow-hidden rounded-2xl border-0 shadow-2xl bg-black/95">
+        <DialogContent className="max-w-4xl p-0 overflow-hidden rounded-2xl border-0 shadow-2xl !bg-slate-950 block">
           {previewImage && (
             <div className="relative flex flex-col h-full max-h-[90vh]">
               <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
