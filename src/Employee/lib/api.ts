@@ -125,12 +125,12 @@ export async function getEmployeeTimeEntryHistory() {
 // Submit scrum and clock out
 export async function submitScrumAndClockOut(scrum: string) {
   return employeeApiFetch<{
-    item: { 
-      id: string; 
-      date: string; 
-      clockIn: string; 
-      clockOut: string; 
-      status: string; 
+    item: {
+      id: string;
+      date: string;
+      clockIn: string;
+      clockOut: string;
+      status: string;
       totalHours: number;
       scrum: string;
     };
@@ -138,6 +138,51 @@ export async function submitScrumAndClockOut(scrum: string) {
     method: "POST",
     body: JSON.stringify({ scrum }),
   });
+}
+
+// Submit EOD report with structured data
+export async function submitEODReport(data: {
+  tasksCompleted: string;
+  issuesBlockers?: string;
+  notes?: string;
+}) {
+  return employeeApiFetch<{
+    item: {
+      id: string;
+      userId: string;
+      date: string;
+      rawInput: string;
+      inputType: string;
+      status: string;
+      createdAt: string;
+    };
+  }>("/api/employees/me/eod-report", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+// Get employee's EOD reports
+export async function getEmployeeEODReports(params?: { from?: string; to?: string }) {
+  const qs = new URLSearchParams();
+  if (params?.from) qs.set("from", params.from);
+  if (params?.to) qs.set("to", params.to);
+  const queryString = qs.toString();
+  return employeeApiFetch<{
+    items: Array<{
+      id: string;
+      userId: string;
+      employeeName: string;
+      date: string;
+      rawInput: string;
+      inputType: string;
+      status: string;
+      createdAt: string;
+    }>;
+    total: number;
+    page: number;
+    limit: number;
+  }>(`/api/employees/me/eod-reports${queryString ? `?${queryString}` : ""}`);
 }
 
 // Get scrum records for employee

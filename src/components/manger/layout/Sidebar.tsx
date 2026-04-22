@@ -41,6 +41,7 @@ const navItemsBase: NavItem[] = [
   { icon: Users, label: "Employees", path: "/manager/employees" },
   { icon: Calendar, label: "Scheduling", path: "/manager/scheduling" },
   { icon: Clock, label: "Time Tracking", path: "/manager/time-tracking" },
+  { icon: ClipboardCheck, label: "EOD Reports", path: "/manager/eod-reports" },
   { icon: Car, label: "Vehicles", path: "/manager/vehicles" },
   { icon: Wrench, label: "Appliances", path: "/manager/appliances" },
   { icon: MapPin, label: "Locations", path: "/manager/locations" },

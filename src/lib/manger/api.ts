@@ -278,3 +278,41 @@ export async function deleteComment(
     method: "DELETE",
   });
 }
+
+// EOD Report API functions for Manager
+export async function getEODReports(params?: { date?: string; employeeId?: string; status?: string }) {
+  const qs = new URLSearchParams();
+  if (params?.date) qs.set("date", params.date);
+  if (params?.employeeId) qs.set("employeeId", params.employeeId);
+  if (params?.status) qs.set("status", params.status);
+  const queryString = qs.toString();
+  return apiFetch<{
+    items: Array<{
+      id: string;
+      userId: string;
+      employeeName: string;
+      date: string;
+      rawInput: string;
+      inputType: string;
+      status: "submitted" | "missing" | "late";
+      createdAt: string;
+      clockIn?: string;
+      clockOut?: string;
+      totalHours?: number;
+    }>;
+  }>(`/api/manager/eod-reports${queryString ? `?${queryString}` : ""}`);
+}
+
+export async function getEODStatus(date?: string) {
+  const qs = date ? `?date=${date}` : "";
+  return apiFetch<{
+    items: Array<{
+      employeeId: string;
+      employeeName: string;
+      status: "submitted" | "missing" | "late" | "not_clocked_in";
+      clockIn?: string;
+      clockOut?: string;
+      reportSubmittedAt?: string;
+    }>;
+  }>(`/api/manager/eod-status${qs}`);
+}

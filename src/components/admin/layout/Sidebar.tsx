@@ -55,7 +55,7 @@ const navItemsBase: NavItem[] = [
   { icon: CheckSquare, label: "Task Management", path: "/admin/tasks" },
   { icon: UserCircle, label: "Employee Directory", path: "/admin/employees" },
   { icon: Wallet, label: "Payroll", path: "/admin/payroll" },
-   { icon: ClipboardList, label: "Scrum Records", path: "/admin/scrum-records" },
+   { icon: ClipboardList, label: "EOD Reports", path: "/admin/eod-reports" },
   { icon: History, label: "Task History", path: "/admin/task-history" },
   {
     icon: Layers,

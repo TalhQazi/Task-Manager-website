@@ -385,3 +385,73 @@ export async function deleteComment(taskId: string, commentId: string) {
     }
   );
 }
+
+// EOD Reports API for Admin
+export async function getAdminEODReports(params?: { date?: string; employeeId?: string; status?: string; page?: number; limit?: number }) {
+  const qs = new URLSearchParams();
+  if (params?.date) qs.set("date", params.date);
+  if (params?.employeeId) qs.set("employeeId", params.employeeId);
+  if (params?.status) qs.set("status", params.status);
+  if (params?.page) qs.set("page", String(params.page));
+  if (params?.limit) qs.set("limit", String(params.limit));
+  const queryString = qs.toString();
+  return apiFetch<{
+    items: Array<{
+      id: string;
+      userId: string;
+      employeeName: string;
+      date: string;
+      rawInput: string;
+      inputType: string;
+      status: "submitted" | "missing" | "late";
+      createdAt: string;
+      clockIn?: string;
+      clockOut?: string;
+      totalHours?: number;
+    }>;
+    total: number;
+    page: number;
+    limit: number;
+  }>(`/api/admin/eod-reports${queryString ? `?${queryString}` : ""}`);
+}
+
+export async function getAdminEODStatus(date?: string) {
+  const qs = date ? `?date=${date}` : "";
+  return apiFetch<{
+    items: Array<{
+      employeeId: string;
+      employeeName: string;
+      status: "submitted" | "missing" | "late" | "not_clocked_in";
+      clockIn?: string;
+      clockOut?: string;
+      reportSubmittedAt?: string;
+    }>;
+  }>(`/api/admin/eod-status${qs}`);
+}
+
+export async function getAdminEmployeeEODReports(employeeName: string, params?: { from?: string; to?: string; page?: number; limit?: number }) {
+  const qs = new URLSearchParams();
+  if (params?.from) qs.set("from", params.from);
+  if (params?.to) qs.set("to", params.to);
+  if (params?.page) qs.set("page", String(params.page));
+  if (params?.limit) qs.set("limit", String(params.limit));
+  const queryString = qs.toString();
+  return apiFetch<{
+    items: Array<{
+      id: string;
+      userId: string;
+      employeeName: string;
+      date: string;
+      rawInput: string;
+      inputType: string;
+      status: string;
+      createdAt: string;
+      clockIn?: string;
+      clockOut?: string;
+      totalHours?: number;
+    }>;
+    total: number;
+    page: number;
+    limit: number;
+  }>(`/api/admin/eod-reports?employee=${encodeURIComponent(employeeName)}${queryString ? `&${queryString}` : ""}`);
+}
