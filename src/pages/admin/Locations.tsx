@@ -179,6 +179,7 @@ const Locations = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
   const [refreshTimestamp, setRefreshTimestamp] = useState(Date.now());
+  const [previewImage, setPreviewImage] = useState<{ url: string; fileName: string } | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -876,7 +877,11 @@ const Locations = () => {
                    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Site Photos ({selectedLocation.attachments.length})</p>
                    <div className="grid grid-cols-2 gap-3">
                      {selectedLocation.attachments.map((att, i) => (
-                       <div key={i} className="rounded-xl overflow-hidden border border-slate-100 shadow-sm aspect-video">
+                       <div 
+                         key={i} 
+                         className="rounded-xl overflow-hidden border border-slate-100 shadow-sm aspect-video cursor-zoom-in hover:opacity-90 transition-all"
+                         onClick={() => setPreviewImage({ url: att.url, fileName: att.fileName || `Site Photo ${i+1}` })}
+                       >
                          <img src={att.url} className="h-full w-full object-cover" alt={`Site ${i + 1}`} />
                        </div>
                      ))}
@@ -1052,6 +1057,50 @@ const Locations = () => {
                </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+      {/* Image Preview Modal */}
+      <Dialog open={!!previewImage} onOpenChange={(open) => !open && setPreviewImage(null)}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden rounded-2xl border-0 shadow-2xl bg-black/95">
+          {previewImage && (
+            <div className="relative flex flex-col h-full max-h-[90vh]">
+              <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="bg-white/10 hover:bg-white/20 border-white/20 text-white rounded-full h-10 w-10 p-0"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = previewImage.url;
+                    link.download = previewImage.fileName || 'site-photo.jpg';
+                    link.click();
+                  }}
+                >
+                  <Download className="h-5 w-5" />
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="bg-white/10 hover:bg-white/20 border-white/20 text-white rounded-full h-10 w-10 p-0"
+                  onClick={() => setPreviewImage(null)}
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+              
+              <div className="flex-1 flex items-center justify-center p-4 min-h-[300px]">
+                <img 
+                  src={previewImage.url} 
+                  alt={previewImage.fileName} 
+                  className="max-w-full max-h-full object-contain shadow-2xl" 
+                />
+              </div>
+              
+              <div className="p-4 bg-gradient-to-t from-black/80 to-transparent">
+                <p className="text-white font-medium text-center">{previewImage.fileName}</p>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
