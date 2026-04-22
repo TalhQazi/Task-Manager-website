@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import {
   Dialog,
@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/admin/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Badge } from "@/components/admin/ui/badge";
-import { Plus, Edit2, Trash2, Rocket, Code } from "lucide-react";
+import { Plus, Edit2, Trash2, Rocket, Code, ExternalLink } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -26,8 +26,8 @@ import {
 
 interface FutureWebsite {
   _id: string;
-  projectName: string;
-  domain: string;
+  siteName: string;
+  url: string;
   developmentStage: "Concept" | "Planning" | "Design" | "Development" | "Testing" | "Ready for Launch";
   priority: "Low" | "Medium" | "High" | "Critical";
   concept: string;
@@ -71,8 +71,8 @@ const itemVariants: Variants = {
 export function FutureWebsites() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [formData, setFormData] = useState<Partial<FutureWebsite>>({
-    projectName: "",
-    domain: "",
+    siteName: "",
+    url: "",
     developmentStage: "Concept",
     priority: "Medium",
     concept: "",
@@ -90,12 +90,15 @@ export function FutureWebsites() {
     },
   });
 
-  const websites = websitesQuery.data || [];
+  const websites = useMemo(() => 
+    (websitesQuery.data || []).slice().sort((a, b) => (a.siteName || "").localeCompare(b.siteName || "")),
+    [websitesQuery.data]
+  );
 
   const resetForm = () => {
     setFormData({
-      projectName: "",
-      domain: "",
+      siteName: "",
+      url: "",
       developmentStage: "Concept",
       priority: "Medium",
       concept: "",
@@ -105,7 +108,7 @@ export function FutureWebsites() {
   };
 
   const handleSave = async () => {
-    if (!formData.projectName || !formData.domain) {
+    if (!formData.siteName || !formData.url) {
       setApiError("Project Name and Domain are required");
       return;
     }
@@ -114,18 +117,20 @@ export function FutureWebsites() {
       setIsSubmitting(true);
       setApiError(null);
 
+      const payload = {
+        ...formData,
+        websiteType: "future",
+      };
+
       if (selectedWebsite) {
         await apiFetch(`/api/websites/${selectedWebsite._id}`, {
           method: "PUT",
-          body: JSON.stringify(formData),
+          body: JSON.stringify(payload),
         });
       } else {
         await apiFetch("/api/websites", {
           method: "POST",
-          body: JSON.stringify({
-            ...formData,
-            websiteType: "future",
-          }),
+          body: JSON.stringify(payload),
         });
       }
 
@@ -195,9 +200,9 @@ export function FutureWebsites() {
               <label className="text-sm font-medium">Project Name *</label>
               <input
                 type="text"
-                value={formData.projectName || ""}
+                value={formData.siteName || ""}
                 onChange={(e) =>
-                  setFormData({ ...formData, projectName: e.target.value })
+                  setFormData({ ...formData, siteName: e.target.value })
                 }
                 className="w-full mt-1 px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Project name"
@@ -208,9 +213,9 @@ export function FutureWebsites() {
               <label className="text-sm font-medium">Domain *</label>
               <input
                 type="text"
-                value={formData.domain || ""}
+                value={formData.url || ""}
                 onChange={(e) =>
-                  setFormData({ ...formData, domain: e.target.value })
+                  setFormData({ ...formData, url: e.target.value })
                 }
                 className="w-full mt-1 px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="example.com"
@@ -321,6 +326,7 @@ export function FutureWebsites() {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/50">
+                <TableHead className="w-12 font-bold">#</TableHead>
                 <TableHead className="font-bold">Project Name</TableHead>
                 <TableHead className="font-bold">Domain</TableHead>
                 <TableHead className="font-bold">Stage</TableHead>
@@ -330,10 +336,21 @@ export function FutureWebsites() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {websites.map((website) => (
+              {websites.map((website, index) => (
                 <TableRow key={website._id} className="hover:bg-muted/30 transition-colors text-sm">
-                  <TableCell className="font-medium">{website.projectName}</TableCell>
-                  <TableCell className="font-mono text-xs">{website.domain}</TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">{index + 1}</TableCell>
+                  <TableCell className="font-medium">{website.siteName}</TableCell>
+                  <TableCell>
+                    <a
+                      href={website.url.startsWith("http") ? website.url : `https://${website.url}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1 font-mono"
+                    >
+                      {website.url}
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </TableCell>
                   <TableCell>
                     <Badge className={`${stageColors[website.developmentStage]} border-0 shadow-none font-bold text-[10px] uppercase whitespace-nowrap`}>
                       {website.developmentStage}

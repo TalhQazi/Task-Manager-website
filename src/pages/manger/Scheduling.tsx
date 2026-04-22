@@ -1,6 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
-import { Button } from "@/components/manger/ui/button";
-import { Badge } from "@/components/manger/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
+import { Button } from "@/components/admin/ui/button";
+import { Input } from "@/components/admin/ui/input";
+import { Badge } from "@/components/admin/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/admin/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/admin/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -8,103 +24,33 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/manger/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/manger/ui/form";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/manger/ui/select";
-import { Input } from "@/components/manger/ui/input";
-import { toast } from "@/components/manger/ui/use-toast";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
+  DialogTrigger,
+} from "@/components/admin/ui/dialog";
 import {
   ChevronLeft,
   ChevronRight,
   Plus,
-  User,
+  Search,
+  MoreHorizontal,
+  Edit,
+  Trash2,
+  Calendar as CalendarIcon,
   MapPin,
+  User,
   Clock,
 } from "lucide-react";
-import { cn } from "@/lib/manger/utils";
 import { apiFetch } from "@/lib/manger/api";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-interface ScheduleEvent {
+interface ScheduleItem {
   id: string;
   title: string;
   assignee: string;
   location: string;
+  date: string;
   startTime: string;
   endTime: string;
   type: "task" | "meeting" | "break" | "training";
-}
-
-const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const hours = Array.from({ length: 12 }, (_, i) => i + 7); // 7 AM to 6 PM
-
-const typeColors = {
-  task: "bg-primary/10 border-primary/30 text-primary",
-  meeting: "bg-info/10 border-info/30 text-info",
-  break: "bg-muted border-muted-foreground/30 text-muted-foreground",
-  training: "bg-warning/10 border-warning/30 text-warning",
-};
-
-const createEventSchema = z
-  .object({
-    day: z.enum(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]),
-    title: z.string().min(1, "Title is required"),
-    assignee: z.string().min(1, "Assignee is required"),
-    location: z.string().min(1, "Location is required"),
-    type: z.enum(["task", "meeting", "break", "training"]),
-    startTime: z.string().min(1, "Start time is required"),
-    endTime: z.string().min(1, "End time is required"),
-  })
-  .refine(
-    (v) => {
-      const toMinutes = (t: string) => {
-        const [h, m] = t.split(":").map((x) => Number(x));
-        return h * 60 + (Number.isFinite(m) ? m : 0);
-      };
-      return toMinutes(v.endTime) > toMinutes(v.startTime);
-    },
-    { message: "End time must be after start time", path: ["endTime"] },
-  );
-
-type CreateEventValues = z.infer<typeof createEventSchema>;
-
-type ScheduleEventApi = Omit<ScheduleEvent, "id"> & {
-  _id: string;
-  day: "Mon" | "Tue" | "Wed" | "Thu" | "Fri" | "Sat" | "Sun";
-};
-
-function normalizeEvent(e: ScheduleEventApi): ScheduleEvent & { day: ScheduleEventApi["day"] } {
-  return {
-    id: e._id,
-    day: e.day,
-    title: e.title,
-    assignee: e.assignee,
-    location: e.location,
-    startTime: e.startTime,
-    endTime: e.endTime,
-    type: e.type,
-  };
-}
-
-function timeToMinutes(time: string) {
-  const [h, m] = time.split(":").map((x) => Number(x));
-  return h * 60 + (Number.isFinite(m) ? m : 0);
+  status: "scheduled" | "completed" | "canceled";
 }
 
 interface Employee {
@@ -113,511 +59,685 @@ interface Employee {
   status: string;
 }
 
+type ScheduleItemApi = Omit<ScheduleItem, "id"> & {
+  _id: string;
+};
+
+function normalizeScheduleItem(s: ScheduleItemApi): ScheduleItem {
+  return {
+    id: s._id,
+    title: s.title,
+    assignee: s.assignee,
+    location: s.location,
+    date: s.date,
+    startTime: s.startTime,
+    endTime: s.endTime,
+    type: s.type,
+    status: s.status || "scheduled",
+  };
+}
+
 export default function Scheduling() {
-  const [currentWeek, setCurrentWeek] = useState(new Date());
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent & { day: ScheduleEventApi["day"] } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const queryClient = useQueryClient();
+  const [addOpen, setAddOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [selected, setSelected] = useState<ScheduleItem | null>(null);
+  const [formData, setFormData] = useState({
+    title: "",
+    assignee: "",
+    location: "",
+    date: "",
+    startTime: "",
+    endTime: "",
+    type: "task" as ScheduleItem["type"],
+    status: "scheduled" as ScheduleItem["status"],
+  });
+  const [editFormData, setEditFormData] = useState({
+    title: "",
+    assignee: "",
+    location: "",
+    date: "",
+    startTime: "",
+    endTime: "",
+    type: "task" as ScheduleItem["type"],
+    status: "scheduled" as ScheduleItem["status"],
+  });
 
   useEffect(() => {
-    apiFetch<{ items: Employee[] }>("/api/employees")
-      .then((res) => setEmployees((res.items ?? []).filter((e) => e.status === "active")))
-      .catch(() => setEmployees([]));
+    let mounted = true;
+    const load = async () => {
+      try {
+        setLoading(true);
+        setApiError(null);
+
+        // Fetch schedules
+        const res = await apiFetch<{ items: ScheduleItemApi[] }>("/api/events");
+        if (!mounted) return;
+        setSchedules(res.items.map(normalizeScheduleItem));
+
+        // Fetch employees
+        const empRes = await apiFetch<{ items: Employee[] }>("/api/employees");
+        if (!mounted) return;
+        setEmployees((empRes.items ?? []).filter((e) => e.status === "active"));
+      } catch (e) {
+        if (!mounted) return;
+        setApiError(e instanceof Error ? e.message : "Failed to load schedules");
+      } finally {
+        if (!mounted) return;
+        setLoading(false);
+      }
+    };
+    void load();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  const eventsQuery = useQuery({
-    queryKey: ["events"],
-    queryFn: async () => {
-      const res = await apiFetch<{ items: ScheduleEventApi[] }>("/api/events");
-      return res.items.map(normalizeEvent);
-    },
-  });
+  const refreshSchedules = async () => {
+    const res = await apiFetch<{ items: ScheduleItemApi[] }>("/api/events");
+    setSchedules(res.items.map(normalizeScheduleItem));
+  };
 
-  const createEventMutation = useMutation({
-    mutationFn: async (payload: CreateEventValues) => {
-      const res = await apiFetch<{ item: ScheduleEventApi }>("/api/events", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      return normalizeEvent(res.item);
-    },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["events"] });
-    },
-  });
+  const displayIdByScheduleId = useMemo(() => {
+    return new Map(
+      schedules.map((s, idx) => {
+        const displayId = `SC${String(idx + 1).padStart(3, "0")}`;
+        return [s.id, displayId] as const;
+      }),
+    );
+  }, [schedules]);
 
-  const eventsByDay = useMemo(() => {
-    const grouped: Record<string, ScheduleEvent[]> = {
-      Mon: [],
-      Tue: [],
-      Wed: [],
-      Thu: [],
-      Fri: [],
-      Sat: [],
-      Sun: [],
+  const getDisplayScheduleId = (scheduleId: string) => {
+    return displayIdByScheduleId.get(scheduleId) || scheduleId;
+  };
+
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return schedules;
+    return schedules.filter((s) => {
+      return (
+        s.location.toLowerCase().includes(q) ||
+        s.assignee.toLowerCase().includes(q) ||
+        s.title.toLowerCase().includes(q)
+      );
+    });
+  }, [schedules, searchQuery]);
+
+  const addSchedule = async () => {
+    if (!formData.title || !formData.assignee || !formData.date) return;
+    const next: ScheduleItem = {
+      id: `SCH-${Date.now().toString().slice(-6)}`,
+      title: formData.title,
+      assignee: formData.assignee,
+      location: formData.location,
+      date: formData.date,
+      startTime: formData.startTime,
+      endTime: formData.endTime,
+      type: formData.type,
+      status: formData.status,
     };
-
-    (eventsQuery.data ?? []).forEach((e) => {
-      const day = (e as any).day as string;
-      if (!grouped[day]) grouped[day] = [];
-      grouped[day].push({
-        id: e.id,
-        title: e.title,
-        assignee: e.assignee,
-        location: e.location,
-        startTime: e.startTime,
-        endTime: e.endTime,
-        type: e.type,
+    try {
+      setApiError(null);
+      await apiFetch("/api/events", {
+        method: "POST",
+        body: JSON.stringify(next),
       });
-    });
-
-    Object.keys(grouped).forEach((day) => {
-      grouped[day].sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
-    });
-
-    return grouped;
-  }, [eventsQuery.data]);
-
-  const form = useForm<CreateEventValues>({
-    resolver: zodResolver(createEventSchema),
-    defaultValues: {
-      day: "Mon",
-      title: "",
-      assignee: "",
-      location: "",
-      type: "task",
-      startTime: "09:00",
-      endTime: "10:00",
-    },
-  });
-
-  const onCreateEvent = (values: CreateEventValues) => {
-    createEventMutation.mutate(values, {
-      onSuccess: () => {
-        setIsCreateOpen(false);
-        form.reset();
-        toast({
-          title: "Event scheduled",
-          description: "Your event has been added to the schedule.",
-        });
-      },
-      onError: (err) => {
-        toast({
-          title: "Failed to schedule event",
-          description: err instanceof Error ? err.message : "Something went wrong",
-        });
-      },
-    });
+      await refreshSchedules();
+      setAddOpen(false);
+      setFormData({
+        title: "",
+        assignee: "",
+        location: "",
+        date: "",
+        startTime: "",
+        endTime: "",
+        type: "task",
+        status: "scheduled",
+      });
+    } catch (e) {
+      setApiError(e instanceof Error ? e.message : "Failed to add schedule");
+    }
   };
 
-  const getWeekDates = () => {
-    const startOfWeek = new Date(currentWeek);
-    const day = startOfWeek.getDay();
-    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1);
-    startOfWeek.setDate(diff);
-
-    return weekDays.map((_, index) => {
-      const date = new Date(startOfWeek);
-      date.setDate(startOfWeek.getDate() + index);
-      return date;
+  const onEdit = (s: ScheduleItem) => {
+    setSelected(s);
+    setEditFormData({
+      title: s.title,
+      assignee: s.assignee,
+      location: s.location,
+      date: s.date,
+      startTime: s.startTime,
+      endTime: s.endTime,
+      type: s.type,
+      status: s.status,
     });
+    setEditOpen(true);
   };
 
-  const weekDates = getWeekDates();
-  const today = new Date();
+  const saveEdit = async () => {
+    if (!selected) return;
+    try {
+      setApiError(null);
+      await apiFetch(`/api/events/${selected.id}`, {
+        method: "PUT",
+        body: JSON.stringify(editFormData),
+      });
+      await refreshSchedules();
+      setEditOpen(false);
+      setSelected(null);
+    } catch (e) {
+      setApiError(e instanceof Error ? e.message : "Failed to update schedule");
+    }
+  };
 
-  const weekMonthLabel = useMemo(() => {
-    return weekDates[0].toLocaleDateString("en-US", {
-      month: "long",
-      year: "numeric",
-    });
-  }, [weekDates]);
+  const onDelete = async (s: ScheduleItem) => {
+    if (!confirm("Are you sure you want to delete this schedule?")) return;
+    try {
+      setApiError(null);
+      await apiFetch(`/api/events/${s.id}`, {
+        method: "DELETE",
+      });
+      await refreshSchedules();
+    } catch (e) {
+      setApiError(e instanceof Error ? e.message : "Failed to delete schedule");
+    }
+  };
 
   return (
-    <div className="pl-6 space-y-6">
+    <div className="px-3 sm:px-4 lg:px-6 py-4 space-y-6 max-w-[2000px] mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="page-header mb-0">
-          <h1 className="page-title">Scheduling</h1>
-          <p className="page-subtitle">Plan and manage team schedules</p>
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+            Scheduling
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Plan and manage team schedules
+          </p>
         </div>
-        <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
-          <Plus className="w-4 h-4" />
-          Add Event
-        </Button>
-      </div>
+        <Dialog open={addOpen} onOpenChange={setAddOpen}>
+          <DialogTrigger asChild>
+            <Button className="gap-2">
+              <Plus className="w-4 h-4" />
+              Add Schedule
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="space-y-1.5 sm:space-y-2">
+              <DialogTitle className="text-lg sm:text-xl">Add Schedule</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">
+                Create a new shift schedule
+              </DialogDescription>
+            </DialogHeader>
 
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add Event</DialogTitle>
-            <DialogDescription>
-              Create a new schedule entry.
-            </DialogDescription>
-          </DialogHeader>
-
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onCreateEvent)} className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="day"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Day</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select day" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {weekDays.map((d) => (
-                            <SelectItem key={d} value={d}>
-                              {d}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Type</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="task">Task</SelectItem>
-                          <SelectItem value="meeting">Meeting</SelectItem>
-                          <SelectItem value="training">Training</SelectItem>
-                          <SelectItem value="break">Break</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Title</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Event title" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="assignee"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Assignee</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select employee" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {employees.length === 0 && (
-                            <SelectItem value="_none" disabled>No employees found</SelectItem>
-                          )}
-                          {employees.map((emp) => (
-                            <SelectItem key={emp.id} value={emp.name}>
-                              {emp.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Location</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Main Office" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="startTime"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Start Time</FormLabel>
-                      <FormControl>
-                        <Input type="time" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="endTime"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>End Time</FormLabel>
-                      <FormControl>
-                        <Input type="time" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" className="gap-2">
-                  <Plus className="w-4 h-4" />
-                  Add
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Week View Grid */}
-      <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
-        {eventsQuery.isLoading ? (
-          <div className="p-6 text-sm text-muted-foreground">Loading schedule...</div>
-        ) : eventsQuery.isError ? (
-          <div className="p-6 text-sm text-destructive">
-            {eventsQuery.error instanceof Error
-              ? eventsQuery.error.message
-              : "Failed to load schedule"}
-          </div>
-        ) : null}
-
-        <div className="p-4 border-b border-border flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                const prev = new Date(currentWeek);
-                prev.setDate(prev.getDate() - 7);
-                setCurrentWeek(prev);
-              }}
-              className="p-2 rounded-lg hover:bg-muted transition-colors"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-            <h3 className="font-semibold text-foreground">{weekMonthLabel}</h3>
-            <button
-              onClick={() => {
-                const next = new Date(currentWeek);
-                next.setDate(next.getDate() + 7);
-                setCurrentWeek(next);
-              }}
-              className="p-2 rounded-lg hover:bg-muted transition-colors"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setCurrentWeek(new Date())}
-          >
-            Today
-          </Button>
-        </div>
-
-        {/* Week View */}
-        <div className="overflow-x-auto">
-          <div className="min-w-[900px]">
-            {/* Day Headers */}
-            <div className="grid grid-cols-8 border-b border-border">
-              <div className="p-4 text-xs font-medium text-muted-foreground uppercase">
-                Time
-              </div>
-              {weekDays.map((day, index) => {
-                const date = weekDates[index];
-                const isToday = date.toDateString() === today.toDateString();
-                return (
-                  <div
-                    key={day}
-                    className={cn(
-                      "p-4 text-center border-l border-border",
-                      isToday && "bg-primary/5"
-                    )}
-                  >
-                    <p className="text-xs font-medium text-muted-foreground uppercase">
-                      {day}
-                    </p>
-                    <p
-                      className={cn(
-                        "text-2xl font-semibold mt-1",
-                        isToday ? "text-primary" : "text-foreground"
-                      )}
-                    >
-                      {date.getDate()}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Time Slots */}
-            <div className="divide-y divide-border">
-              {hours.map((hour) => (
-                <div key={hour} className="grid grid-cols-8 min-h-[80px]">
-                  <div className="p-2 text-xs text-muted-foreground text-right pr-4 pt-0 -mt-2">
-                    {hour.toString().padStart(2, "0")}:00
-                  </div>
-                  {weekDays.map((day, dayIndex) => {
-                    const events = (eventsByDay[day] ?? []).filter((event) => {
-                      const startMinutes = timeToMinutes(event.startTime);
-                      const startHour = Math.floor(startMinutes / 60);
-                      return startHour === hour;
-                    });
-                    const isToday =
-                      weekDates[dayIndex].toDateString() === today.toDateString();
-
-                    return (
-                      <div
-                        key={day}
-                        className={cn(
-                          "border-l border-border p-1 relative",
-                          isToday && "bg-primary/5"
-                        )}
-                      >
-                        {events?.map((event) => {
-                          const startMinutes = timeToMinutes(event.startTime);
-                          const endMinutes = timeToMinutes(event.endTime);
-                          const durationMinutes = Math.max(endMinutes - startMinutes, 15);
-                          const startMinuteOfHour = startMinutes % 60;
-
-                          return (
-                            <div
-                              key={event.id}
-                              onClick={() => setSelectedEvent(event as any)}
-                              className={cn(
-                                "absolute left-1 right-1 p-2 rounded-lg border text-xs cursor-pointer transition-all hover:shadow-md hover:scale-[1.02]",
-                                typeColors[event.type]
-                              )}
-                              style={{
-                                top: `${4 + (startMinuteOfHour / 60) * 80}px`,
-                                height: `${(durationMinutes / 60) * 80 - 8}px`,
-                              }}
-                            >
-                              <p className="font-medium truncate">
-                                {event.title}
-                              </p>
-                              <div className="flex items-center gap-1 mt-1 opacity-80">
-                                <Clock className="w-3 h-3" />
-                                <span>
-                                  {event.startTime} - {event.endTime}
-                                </span>
-                              </div>
-                              {durationMinutes >= 120 && (
-                                <>
-                                  <div className="flex items-center gap-1 mt-1 opacity-80">
-                                    <User className="w-3 h-3" />
-                                    <span className="truncate">
-                                      {event.assignee}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-1 mt-1 opacity-80">
-                                    <MapPin className="w-3 h-3" />
-                                    <span className="truncate">
-                                      {event.location}
-                                    </span>
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    );
-                  })}
+            <div className="space-y-4 sm:space-y-5">
+              {/* Title & Employee */}
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                <div className="flex-1 min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Title *</label>
+                  <input
+                    type="text"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                    placeholder="Event title"
+                    required
+                  />
                 </div>
-              ))}
+                <div className="flex-1 min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Employee *</label>
+                  <select
+                    value={formData.assignee}
+                    onChange={(e) => setFormData({ ...formData, assignee: e.target.value })}
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                    required
+                  >
+                    <option value="">Select employee</option>
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.name}>
+                        {emp.name}
+                      </option>
+                    ))}
+                  </select>
+                  {employees.length === 0 && (
+                    <p className="text-xs text-warning mt-1">No employees found.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Location & Date */}
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                <div className="flex-1 min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Location *</label>
+                  <input
+                    type="text"
+                    value={formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                    placeholder="e.g., Main Office"
+                    required
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Date *</label>
+                  <input
+                    type="date"
+                    value={formData.date}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Start Time & End Time */}
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                <div className="flex-1 min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Start Time</label>
+                  <input
+                    type="time"
+                    value={formData.startTime}
+                    onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">End Time</label>
+                  <input
+                    type="time"
+                    value={formData.endTime}
+                    onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                  />
+                </div>
+              </div>
+
+              {/* Type & Status */}
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                <div className="flex-1 min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Type</label>
+                  <select
+                    value={formData.type}
+                    onChange={(e) => setFormData({ ...formData, type: e.target.value as ScheduleItem["type"] })}
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                  >
+                    <option value="task">Task</option>
+                    <option value="meeting">Meeting</option>
+                    <option value="break">Break</option>
+                    <option value="training">Training</option>
+                  </select>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Status</label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value as ScheduleItem["status"] })}
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                  >
+                    <option value="scheduled">Scheduled</option>
+                    <option value="completed">Completed</option>
+                    <option value="canceled">Canceled</option>
+                  </select>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
+
+            <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
+              <Button
+                variant="outline"
+                onClick={() => setAddOpen(false)}
+                className="w-full sm:w-auto order-2 sm:order-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={addSchedule}
+                className="w-full sm:w-auto order-1 sm:order-2"
+              >
+                <Plus className="h-4 w-4 mr-2 flex-shrink-0" />
+                Add Schedule
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {/* Event Detail Dialog */}
-      <Dialog open={!!selectedEvent} onOpenChange={(open) => { if (!open) setSelectedEvent(null); }}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{selectedEvent?.title}</DialogTitle>
-            <DialogDescription>
-              {selectedEvent?.day} · {selectedEvent?.type}
+      {/* API Error Message */}
+      {apiError && (
+        <div className="rounded-md bg-destructive/10 p-3 sm:p-4">
+          <p className="text-xs sm:text-sm text-destructive break-words">
+            {apiError}
+          </p>
+        </div>
+      )}
+
+      {/* Search Card */}
+      <Card className="shadow-soft border-0 sm:border">
+        <CardContent className="p-3 sm:p-6">
+          <div className="relative w-full sm:max-w-md">
+            <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
+              Search Schedules
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by location, employee, or type..."
+                className="pl-8 sm:pl-10 h-9 sm:h-10 text-sm sm:text-base"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Schedules Card */}
+      <Card className="shadow-soft border-0 sm:border">
+        <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
+          <CardTitle className="text-base sm:text-lg md:text-xl font-semibold">
+            Schedules ({filtered.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0 sm:p-6">
+          {loading ? (
+            <div className="flex justify-center items-center py-8 sm:py-12">
+              <div className="text-xs sm:text-sm text-muted-foreground">
+                Loading schedules...
+              </div>
+            </div>
+          ) : (
+            <>
+              {/* Mobile View - Cards */}
+              <div className="block sm:hidden space-y-3 p-4">
+                {filtered.map((s) => (
+                  <div key={s.id} className="bg-white rounded-lg border p-4 space-y-3">
+                    {/* Header with ID and Actions */}
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="h-8 w-8 rounded-lg bg-info/10 flex items-center justify-center flex-shrink-0">
+                          <CalendarIcon className="h-4 w-4 text-info" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium">{getDisplayScheduleId(s.id)}</p>
+                          <p className="text-xs text-muted-foreground">{s.title}</p>
+                        </div>
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => onEdit(s)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onDelete(s)} className="text-destructive">
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Remove
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+
+                    {/* Employee */}
+                    <div className="flex items-start gap-2">
+                      <User className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-medium">Employee</p>
+                        <p className="text-sm">{s.assignee}</p>
+                      </div>
+                    </div>
+
+                    {/* Location */}
+                    <div className="flex items-start gap-2">
+                      <MapPin className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-medium">Location</p>
+                        <p className="text-sm">{s.location}</p>
+                      </div>
+                    </div>
+
+                    {/* Date & Time */}
+                    <div className="flex items-start gap-2">
+                      <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-xs font-medium">Date & Time</p>
+                        <p className="text-sm">{s.date} · {s.startTime || "—"} - {s.endTime || "—"}</p>
+                      </div>
+                    </div>
+
+                    {/* Type */}
+                    <div className="flex justify-start">
+                      <Badge className="text-xs" variant="secondary">
+                        {s.type || "—"}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+
+                {filtered.length === 0 && (
+                  <div className="text-center py-8">
+                    <div className="flex justify-center mb-3">
+                      <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                        <CalendarIcon className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground">No schedules found</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Try adjusting your search or add a new schedule
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Tablet/Desktop View - Table */}
+              <div className="hidden sm:block w-full overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-xs md:text-sm w-[12%]">Schedule ID</TableHead>
+                      <TableHead className="text-xs md:text-sm w-[20%]">Title</TableHead>
+                      <TableHead className="text-xs md:text-sm w-[20%]">Employee</TableHead>
+                      <TableHead className="text-xs md:text-sm w-[18%]">Location</TableHead>
+                      <TableHead className="text-xs md:text-sm w-[12%]">Date</TableHead>
+                      <TableHead className="text-xs md:text-sm w-[8%]">Time</TableHead>
+                      <TableHead className="text-right text-xs md:text-sm w-[10%]">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((s) => (
+                      <TableRow key={s.id} className="hover:bg-muted/30">
+                        <TableCell>
+                          <span className="text-sm md:text-base font-mono text-muted-foreground">
+                            {getDisplayScheduleId(s.id)}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <p className="text-sm md:text-base truncate max-w-[200px] lg:max-w-[250px]">
+                            {s.title}
+                          </p>
+                        </TableCell>
+                        <TableCell className="text-sm md:text-base">
+                          {s.assignee}
+                        </TableCell>
+                        <TableCell className="text-sm md:text-base">
+                          {s.location}
+                        </TableCell>
+                        <TableCell className="text-sm md:text-base text-muted-foreground">
+                          {s.date}
+                        </TableCell>
+                        <TableCell className="text-sm md:text-base text-muted-foreground">
+                          {s.startTime || "—"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => onEdit(s)}>
+                                <Edit className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => onDelete(s)} className="text-destructive">
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Remove
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Edit Dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="space-y-1.5 sm:space-y-2">
+            <DialogTitle className="text-lg sm:text-xl">Edit Schedule</DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
+              Update schedule information and save changes
             </DialogDescription>
           </DialogHeader>
-          {selectedEvent && (
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center gap-2">
-                <User className="w-4 h-4 text-muted-foreground" />
-                <span><span className="font-medium">Assignee:</span> {selectedEvent.assignee}</span>
+          {selected && (
+            <div className="space-y-4 sm:space-y-5">
+              {/* Title & Employee */}
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                <div className="flex-1 min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Title *</label>
+                  <input
+                    type="text"
+                    value={editFormData.title}
+                    onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                    required
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Employee *</label>
+                  <select
+                    value={editFormData.assignee}
+                    onChange={(e) => setEditFormData({ ...editFormData, assignee: e.target.value })}
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                    required
+                  >
+                    <option value="">Select employee</option>
+                    {employees.map((emp) => (
+                      <option key={emp.id} value={emp.name}>
+                        {emp.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-muted-foreground" />
-                <span><span className="font-medium">Location:</span> {selectedEvent.location}</span>
+
+              {/* Location & Date */}
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                <div className="flex-1 min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Location *</label>
+                  <input
+                    type="text"
+                    value={editFormData.location}
+                    onChange={(e) => setEditFormData({ ...editFormData, location: e.target.value })}
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                    required
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Date *</label>
+                  <input
+                    type="date"
+                    value={editFormData.date}
+                    onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                    required
+                  />
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-muted-foreground" />
-                <span><span className="font-medium">Time:</span> {selectedEvent.startTime} – {selectedEvent.endTime}</span>
+
+              {/* Start Time & End Time */}
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                <div className="flex-1 min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Start Time</label>
+                  <input
+                    type="time"
+                    value={editFormData.startTime}
+                    onChange={(e) => setEditFormData({ ...editFormData, startTime: e.target.value })}
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                  />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">End Time</label>
+                  <input
+                    type="time"
+                    value={editFormData.endTime}
+                    onChange={(e) => setEditFormData({ ...editFormData, endTime: e.target.value })}
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base"
+                  />
+                </div>
+              </div>
+
+              {/* Type & Status */}
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                <div className="flex-1 min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Type</label>
+                  <select
+                    value={editFormData.type}
+                    onChange={(e) => setEditFormData({ ...editFormData, type: e.target.value as ScheduleItem["type"] })}
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                  >
+                    <option value="task">Task</option>
+                    <option value="meeting">Meeting</option>
+                    <option value="break">Break</option>
+                    <option value="training">Training</option>
+                  </select>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Status</label>
+                  <select
+                    value={editFormData.status}
+                    onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value as ScheduleItem["status"] })}
+                    className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white"
+                  >
+                    <option value="scheduled">Scheduled</option>
+                    <option value="completed">Completed</option>
+                    <option value="canceled">Canceled</option>
+                  </select>
+                </div>
               </div>
             </div>
           )}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSelectedEvent(null)}>Close</Button>
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
+            <Button
+              variant="outline"
+              onClick={() => setEditOpen(false)}
+              className="w-full sm:w-auto order-2 sm:order-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={saveEdit}
+              className="w-full sm:w-auto order-1 sm:order-2"
+            >
+              Save Changes
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Legend */}
-      <div className="flex items-center gap-6 text-sm">
-        <span className="text-muted-foreground">Event Types:</span>
-        <div className="flex items-center gap-4">
-          <span className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded bg-primary" />
-            Task
-          </span>
-          <span className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded bg-info" />
-            Meeting
-          </span>
-          <span className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded bg-warning" />
-            Training
-          </span>
-        </div>
-      </div>
     </div>
   );
 }

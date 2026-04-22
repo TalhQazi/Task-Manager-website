@@ -27,7 +27,9 @@ import {
   Eye,
   EyeOff,
 } from "lucide-react";
-import { getEmployeeProfile, employeeApiFetch, toProxiedUrl } from "../lib/api";
+
+import { getEmployeeProfile, employeeApiFetch, updateBankInfo, updateTaxInfo, getDocuments,toProxiedUrl } from "../lib/api";
+
 
 interface EmployeeProfileData {
   id: string;
@@ -42,6 +44,20 @@ interface EmployeeProfileData {
   department?: string;
   joinDate?: string;
   employeeId?: string;
+
+  bankInfo?: {
+    accountName?: string;
+    accountNumber?: string;
+    ifsc?: string;
+    bankName?: string;
+  };
+
+  
+  taxSettings?: {
+    pan?: string;
+    tds?: string | number;
+    regime?: string;
+  };
 }
 
 export default function EmployeeProfile() {
@@ -52,6 +68,22 @@ export default function EmployeeProfile() {
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [bank, setBank] = useState({
+  accountName: "",
+  accountNumber: "",
+  ifsc: "",
+  bankName: "",
+});
+
+const [tax, setTax] = useState({
+  pan: "",
+  tds: "",
+  regime: "",
+});
+
+const [uploading, setUploading] = useState(false);
+const [refresh, setRefresh] = useState(0);
 
   // Password change state
   const [currentPassword, setCurrentPassword] = useState("");
@@ -66,6 +98,17 @@ export default function EmployeeProfile() {
   const [pushNotifications, setPushNotifications] = useState(true);
   const [taskReminders, setTaskReminders] = useState(true);
 
+  const hasBankInfo =
+  !!profile?.bankInfo &&
+  (profile.bankInfo.accountNumber ||
+    profile.bankInfo.ifsc ||
+    profile.bankInfo.bankName);
+
+const hasTaxInfo =
+  !!profile?.taxSettings &&
+  (profile.taxSettings.pan || profile.taxSettings.tds);
+
+
   useEffect(() => {
     loadProfile();
   }, []);
@@ -73,8 +116,21 @@ export default function EmployeeProfile() {
   const loadProfile = async () => {
     try {
       const res = await getEmployeeProfile();
+      console.log("Profile data:", res);
       setProfile(res.item);
       setEditedProfile(res.item);
+      setBank(res.item.bankInfo || {
+      accountName: "",
+      accountNumber: "",
+      ifsc: "",
+      bankName: "",
+    });
+
+    setTax(res.item.taxSettings || {
+      pan: "",
+      tds: "",
+      regime: "",
+    });
     } catch (err) {
       console.error("Failed to load profile:", err);
       toast.error("Failed to load profile");
@@ -179,7 +235,7 @@ export default function EmployeeProfile() {
     setChangingPassword(true);
     try {
       await employeeApiFetch("/api/auth/change-password", {
-        method: "POST",
+        method: "PUT",
         body: JSON.stringify({
           currentPassword,
           newPassword,
@@ -196,6 +252,43 @@ export default function EmployeeProfile() {
       setChangingPassword(false);
     }
   };
+
+
+
+  const fileToBase64 = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+
+  function DocumentList() {
+  const [docs, setDocs] = useState([]);
+
+
+useEffect(() => {
+  getDocuments().then((res) => setDocs(res?.items || []));
+}, [refresh]);
+  
+
+  return (
+    <div className="space-y-2 mt-4">
+      {docs.map((d: any) => (
+        <div key={d.id} className="flex justify-between border p-2 rounded">
+          <div>
+            <p className="font-medium">{d.docType}</p>
+            <p className="text-sm text-gray-500">{d.status}</p>
+          </div>
+
+          <a href={d.fileUrl} target="_blank">
+            <Button size="sm">View</Button>
+          </a>
+        </div>
+      ))}
+    </div>
+  );
+}
 
   const handleSaveNotifications = async () => {
     try {
@@ -347,10 +440,11 @@ export default function EmployeeProfile() {
 
       {/* Tabs */}
       <Tabs defaultValue="personal" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="personal">Personal Info</TabsTrigger>
           <TabsTrigger value="work">Work Details</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
         </TabsList>
 
         {/* Personal Info Tab */}
@@ -561,6 +655,49 @@ export default function EmployeeProfile() {
               </Button>
             </CardContent>
           </Card>
+ <Separator />
+            {/* Bank Information */}       
+          <Card>
+              <CardHeader>
+                <CardTitle>Bank Information</CardTitle>
+                <CardDescription>Secure payment details</CardDescription>
+              </CardHeader>
+
+              <CardContent className="space-y-3">
+                <Input
+  placeholder="Account Holder Name"
+  value={bank.accountName}
+  onChange={(e) => setBank({ ...bank, accountName: e.target.value })}
+/>
+
+<Input
+  placeholder="Account Number"
+  value={bank.accountNumber}
+  onChange={(e) => setBank({ ...bank, accountNumber: e.target.value })}
+/>
+
+<Input
+  placeholder="IFSC Code"
+  value={bank.ifsc}
+  onChange={(e) => setBank({ ...bank, ifsc: e.target.value })}
+/>
+
+<Input
+  placeholder="Bank Name"
+  value={bank.bankName}
+  onChange={(e) => setBank({ ...bank, bankName: e.target.value })}
+/>
+               <Button
+  className="bg-[#133767] hover:bg-[#1a4585]"
+  onClick={async () => {
+    await updateBankInfo({ bankInfo: bank });
+    toast.success("Bank info updated");
+  }}
+>
+ {hasBankInfo ? "Update Bank Info" : "Add Bank Info"}
+</Button>
+              </CardContent>
+          </Card>
 
           <Separator />
 
@@ -624,6 +761,20 @@ export default function EmployeeProfile() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="documents">
+  <Card>
+    <CardHeader>
+      <CardTitle>Document Center</CardTitle>
+    </CardHeader>
+
+    <CardContent>
+    
+
+      <DocumentList />
+    </CardContent>
+  </Card>
+</TabsContent>
       </Tabs>
     </div>
   );

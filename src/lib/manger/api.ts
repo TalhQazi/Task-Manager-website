@@ -165,6 +165,41 @@ export async function apiFetch<T>(
   return (await parseJsonSafe(res)) as T;
 }
 
+// Contributor API functions
+export async function getTopContributors(limit = 5) {
+  return apiFetch<{ contributors: Array<{
+    userId: string;
+    name: string;
+    email: string;
+    role: string;
+    avatar?: string;
+    stats: {
+      totalTasksCreated: number;
+      totalTasksUpdated: number;
+      totalTasksCompleted: number;
+    };
+    projects: Array<{
+      projectId: string;
+      projectName: string;
+      contributionCount: number;
+    }>;
+  }> }>(`/api/contributors/top?limit=${limit}`);
+}
+
+export async function getTaskContributors(taskId: string) {
+  return apiFetch<{ items: Array<{
+    userId: string;
+    name: string;
+    email: string;
+    role: string;
+    contributionType: string;
+    actions: string[];
+    addedAt: string;
+    avatar?: string;
+    stats?: any;
+  }> }>(`/api/contributors/task/${encodeURIComponent(taskId)}/contributors`);
+}
+
 // Download task attachment with authentication
 export async function downloadTaskAttachment(
   taskId: string,
@@ -195,4 +230,89 @@ export async function downloadTaskAttachment(
   document.body.removeChild(a);
   
   URL.revokeObjectURL(objectUrl);
+}
+
+// Download any URL with authentication for Manager/Admin
+export async function downloadViaUrl(url: string, fileName: string): Promise<void> {
+  const token = getStoredToken();
+  
+  // Use fetch to get the blob with headers
+  const res = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  
+  if (!res.ok) {
+    throw new Error(`Download failed (${res.status})`);
+  }
+  
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  
+  URL.revokeObjectURL(objectUrl);
+}
+
+// Comment edit and delete APIs
+export async function updateComment(
+  taskId: string,
+  commentId: string,
+  payload: { message: string }
+): Promise<{ item: { id: string; message: string; updatedAt: string } }> {
+  return apiFetch<{ item: { id: string; message: string; updatedAt: string } }>(`/api/tasks/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteComment(
+  taskId: string,
+  commentId: string
+): Promise<{ ok: true }> {
+  return apiFetch<{ ok: true }>(`/api/tasks/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}`, {
+    method: "DELETE",
+  });
+}
+
+// EOD Report API functions for Manager
+export async function getEODReports(params?: { date?: string; employeeId?: string; status?: string }) {
+  const qs = new URLSearchParams();
+  if (params?.date) qs.set("date", params.date);
+  if (params?.employeeId) qs.set("employeeId", params.employeeId);
+  if (params?.status) qs.set("status", params.status);
+  const queryString = qs.toString();
+  return apiFetch<{
+    items: Array<{
+      id: string;
+      userId: string;
+      employeeName: string;
+      date: string;
+      rawInput: string;
+      inputType: string;
+      status: "submitted" | "missing" | "late";
+      createdAt: string;
+      clockIn?: string;
+      clockOut?: string;
+      totalHours?: number;
+    }>;
+  }>(`/api/manager/eod-reports${queryString ? `?${queryString}` : ""}`);
+}
+
+export async function getEODStatus(date?: string) {
+  const qs = date ? `?date=${date}` : "";
+  return apiFetch<{
+    items: Array<{
+      employeeId: string;
+      employeeName: string;
+      status: "submitted" | "missing" | "late" | "not_clocked_in";
+      clockIn?: string;
+      clockOut?: string;
+      reportSubmittedAt?: string;
+    }>;
+  }>(`/api/manager/eod-status${qs}`);
 }

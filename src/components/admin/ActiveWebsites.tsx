@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import {
   Dialog,
@@ -31,7 +31,6 @@ interface Website {
   platform: string;
   hostingProvider: string;
   status: "Live" | "Maintenance" | "Development" | "Offline";
-  owner: string;
   notes: string;
   createdAt: string;
 }
@@ -68,7 +67,6 @@ export function ActiveWebsites() {
     platform: "",
     hostingProvider: "",
     status: "Live",
-    owner: "",
     notes: "",
   });
   const [selectedWebsite, setSelectedWebsite] = useState<Website | null>(null);
@@ -84,7 +82,10 @@ export function ActiveWebsites() {
     },
   });
 
-  const websites = websitesQuery.data || [];
+  const websites = useMemo(() => 
+    (websitesQuery.data || []).slice().sort((a, b) => a.siteName.localeCompare(b.siteName)),
+    [websitesQuery.data]
+  );
 
   const resetForm = () => {
     setFormData({
@@ -93,7 +94,6 @@ export function ActiveWebsites() {
       platform: "",
       hostingProvider: "",
       status: "Live",
-      owner: "",
       notes: "",
     });
     setSelectedWebsite(null);
@@ -248,18 +248,7 @@ export function ActiveWebsites() {
                   </select>
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium">Owner</label>
-                  <input
-                    type="text"
-                    value={formData.owner || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, owner: e.target.value })
-                    }
-                    className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
-                    placeholder="Owner name"
-                  />
-                </div>
+
 
                 <div>
                   <label className="text-sm font-medium">Notes</label>
@@ -310,22 +299,23 @@ export function ActiveWebsites() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
+                    <TableHead className="w-12 font-bold">#</TableHead>
                     <TableHead className="font-bold">Site Name</TableHead>
                     <TableHead className="font-bold">URL</TableHead>
                     <TableHead className="font-bold">Platform</TableHead>
                     <TableHead className="font-bold">Hosting</TableHead>
                     <TableHead className="font-bold">Status</TableHead>
-                    <TableHead className="font-bold">Owner</TableHead>
                     <TableHead className="text-right font-bold">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {websites.map((website) => (
+                  {websites.map((website, index) => (
                     <TableRow key={website._id} className="hover:bg-muted/30 transition-colors">
+                      <TableCell className="font-mono text-xs text-muted-foreground">{index + 1}</TableCell>
                       <TableCell className="font-medium text-sm">{website.siteName}</TableCell>
                       <TableCell>
                         <a
-                          href={website.url}
+                          href={website.url.startsWith("http") ? website.url : `https://${website.url}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-xs text-blue-600 hover:underline flex items-center gap-1"
@@ -341,7 +331,7 @@ export function ActiveWebsites() {
                           {website.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-xs">{website.owner}</TableCell>
+
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
                           <Button

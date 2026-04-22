@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -19,8 +20,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Clock, LogIn, LogOut, Timer, Calendar, History, ClipboardList } from "lucide-react";
-import { getTodayTimeEntry, clockIn, submitScrumAndClockOut, getEmployeeTimeEntryHistory, getEmployeeProfile } from "../lib/api";
+import { Clock, LogIn, LogOut, Timer, Calendar, History, ClipboardList, AlertCircle } from "lucide-react";
+import { getTodayTimeEntry, clockIn, submitScrumAndClockOut, getEmployeeTimeEntryHistory, getEmployeeProfile, submitEODReport } from "../lib/api";
 import { toast } from "sonner";
 
 interface TimeEntry {
@@ -54,8 +55,13 @@ export default function EmployeeClocked() {
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [showScrumModal, setShowScrumModal] = useState(false);
-  const [scrumText, setScrumText] = useState("");
   const [scrumSubmitting, setScrumSubmitting] = useState(false);
+  const [eodData, setEodData] = useState({
+    tasksCompleted: "",
+    issuesBlockers: "",
+    notes: "",
+  });
+  const [validationError, setValidationError] = useState("");
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -116,18 +122,45 @@ export default function EmployeeClocked() {
   };
 
   const handleScrumSubmit = async () => {
-    if (!scrumText.trim()) {
-      toast.error("Please enter scrum details before checking out");
+    // Validation: Tasks completed is mandatory
+    if (!eodData.tasksCompleted.trim()) {
+      setValidationError("Please enter tasks completed before checking out");
       return;
     }
-    
+
+    // Validation: Check for very short input (less than 10 characters)
+    if (eodData.tasksCompleted.trim().length < 10) {
+      setValidationError("Please provide more details about tasks completed (at least 10 characters)");
+      return;
+    }
+
+    setValidationError("");
     setScrumSubmitting(true);
+
     try {
-      const res = await submitScrumAndClockOut(scrumText.trim());
+      // Submit EOD report first
+      await submitEODReport({
+        tasksCompleted: eodData.tasksCompleted.trim(),
+        issuesBlockers: eodData.issuesBlockers.trim(),
+        notes: eodData.notes.trim(),
+      });
+
+      // Then clock out with scrum (for backward compatibility)
+      const eodReport = JSON.stringify({
+        tasksCompleted: eodData.tasksCompleted.trim(),
+        issuesBlockers: eodData.issuesBlockers.trim(),
+        notes: eodData.notes.trim(),
+      });
+
+      const res = await submitScrumAndClockOut(eodReport);
       setTimeEntry(res.item as TimeEntry);
-      toast.success("Clocked out successfully with scrum");
+      toast.success("Clocked out successfully with EOD report");
       setShowScrumModal(false);
-      setScrumText("");
+      setEodData({
+        tasksCompleted: "",
+        issuesBlockers: "",
+        notes: "",
+      });
       // Refresh history
       const historyRes = await getEmployeeTimeEntryHistory();
       setHistory(historyRes.items || []);
@@ -393,38 +426,86 @@ export default function EmployeeClocked() {
 
       {/* Scrum Modal */}
       <Dialog open={showScrumModal} onOpenChange={setShowScrumModal}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ClipboardList className="h-5 w-5" />
-              Daily Scrum
+              End-of-Day Report
             </DialogTitle>
             <DialogDescription>
-              Please enter your daily scrum details before checking out.
+              Please complete your EOD report before checking out. Tasks completed is mandatory.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <label className="text-sm font-medium mb-2 block">
-              What did you work on today?
-            </label>
-            <Input
-              placeholder="Enter your scrum details..."
-              value={scrumText}
-              onChange={(e) => setScrumText(e.target.value)}
-              className="w-full"
-            />
+
+          <div className="py-4 space-y-4">
+            {/* Tasks Completed - Mandatory */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-1">
+                Tasks Completed <span className="text-red-500">*</span>
+              </label>
+              <Textarea
+                placeholder="Describe the tasks you completed today..."
+                value={eodData.tasksCompleted}
+                onChange={(e) => setEodData({ ...eodData, tasksCompleted: e.target.value })}
+                className="w-full min-h-[100px]"
+                disabled={scrumSubmitting}
+              />
+              <p className="text-xs text-muted-foreground">
+                Minimum 10 characters required
+              </p>
+            </div>
+
+            {/* Issues/Blockers - Optional */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Issues / Blockers <span className="text-muted-foreground">(Optional)</span>
+              </label>
+              <Textarea
+                placeholder="Any issues or blockers you faced today..."
+                value={eodData.issuesBlockers}
+                onChange={(e) => setEodData({ ...eodData, issuesBlockers: e.target.value })}
+                className="w-full min-h-[80px]"
+                disabled={scrumSubmitting}
+              />
+            </div>
+
+            {/* Notes - Optional */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">
+                Notes <span className="text-muted-foreground">(Optional)</span>
+              </label>
+              <Textarea
+                placeholder="Any additional notes or comments..."
+                value={eodData.notes}
+                onChange={(e) => setEodData({ ...eodData, notes: e.target.value })}
+                className="w-full min-h-[60px]"
+                disabled={scrumSubmitting}
+              />
+            </div>
+
+            {/* Validation Error */}
+            {validationError && (
+              <div className="flex items-start gap-2 p-3 bg-red-50 border border-red-200 rounded-md">
+                <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700">{validationError}</p>
+              </div>
+            )}
           </div>
+
           <DialogFooter className="flex gap-2">
             <Button
               variant="outline"
-              onClick={() => setShowScrumModal(false)}
+              onClick={() => {
+                setShowScrumModal(false);
+                setValidationError("");
+              }}
               disabled={scrumSubmitting}
             >
               Cancel
             </Button>
             <Button
               onClick={handleScrumSubmit}
-              disabled={scrumSubmitting || !scrumText.trim()}
+              disabled={scrumSubmitting}
               className="bg-[#133767] hover:bg-[#0d2654]"
             >
               {scrumSubmitting ? "Submitting..." : "Submit & Clock Out"}

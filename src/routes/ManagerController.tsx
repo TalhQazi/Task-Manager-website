@@ -9,6 +9,7 @@ const Tasks = lazy(() => import("@/pages/manger/Tasks"));
 const Employees = lazy(() => import("@/pages/manger/Employees"));
 const Scheduling = lazy(() => import("@/pages/manger/Scheduling"));
 const TimeTracking = lazy(() => import("@/pages/manger/TimeTracking"));
+const EODReports = lazy(() => import("@/pages/manger/EODReports"));
 const EmployeeTimeHistory = lazy(() => import("@/pages/manger/EmployeeTimeHistory"));
 const Vehicles = lazy(() => import("@/pages/manger/Vehicles"));
 const Appliances = lazy(() => import("@/pages/manger/Appliances"));
@@ -54,6 +55,7 @@ export default function ManagerController() {
       { path: "employees", element: <Employees /> },
       { path: "scheduling", element: <Scheduling /> },
       { path: "time-tracking", element: <TimeTracking /> },
+      { path: "eod-reports", element: <EODReports /> },
       { path: "time-tracking/history/:employee", element: <EmployeeTimeHistory /> },
       { path: "vehicles", element: <Vehicles /> },
       { path: "appliances", element: <Appliances /> },

@@ -7,7 +7,7 @@ interface StatCardProps {
   change?: string;
   changeType?: "positive" | "negative" | "neutral";
   icon: LucideIcon;
-  variant?: "primary" | "success" | "warning" | "danger";
+  variant?: "primary" | "success" | "warning" | "danger" | "info" | "purple" | "orange" | "indigo" | "teal" | "rose" | "amber" | "lime" | "pink" | "cyan" | "gold" | "majesty" | "red" | "blue" | "green" | "purple-new" | "orange-new" | "yellow" | "brown" | "pink-new" | "grey";
   onClick?: () => void;
 }
 
@@ -25,6 +25,27 @@ export function StatCard({
     success: "stat-card-gradient gradient-success",
     warning: "stat-card-gradient gradient-warning",
     danger: "stat-card-gradient gradient-danger",
+    info: "stat-card-gradient gradient-info",
+    purple: "stat-card-gradient gradient-purple",
+    orange: "stat-card-gradient gradient-orange",
+    indigo: "stat-card-gradient gradient-indigo",
+    teal: "stat-card-gradient gradient-teal",
+    rose: "stat-card-gradient gradient-rose",
+    amber: "stat-card-gradient gradient-amber",
+    lime: "stat-card-gradient gradient-lime",
+    pink: "stat-card-gradient gradient-pink",
+    cyan: "stat-card-gradient gradient-cyan",
+    gold: "stat-card-gradient gradient-gold",
+    majesty: "stat-card-gradient gradient-majesty",
+    red: "stat-card-gradient gradient-red",
+    blue: "stat-card-gradient gradient-blue",
+    green: "stat-card-gradient gradient-green",
+    "purple-new": "stat-card-gradient gradient-purple-new",
+    "orange-new": "stat-card-gradient gradient-orange-new",
+    yellow: "stat-card-gradient gradient-yellow",
+    brown: "stat-card-gradient gradient-brown",
+    "pink-new": "stat-card-gradient gradient-pink-new",
+    grey: "stat-card-gradient gradient-grey",
   };
 
   return (
@@ -33,7 +54,7 @@ export function StatCard({
       className={cn(
         "rounded-xl p-3 text-white shadow-soft animate-fade-in relative",
         "transition-all duration-300 hover:scale-[1.02] hover:shadow-lg cursor-pointer",
-        variantClasses[variant]
+        variantClasses[variant as keyof typeof variantClasses] || variantClasses.primary
       )}
     >
       <div className="flex items-start justify-between gap-3 sm:gap-4">
@@ -45,7 +66,7 @@ export function StatCard({
           )}>
             {title}
           </p>
-          
+
           <p className={cn(
             "text-xl font-bold animate-count-up",
             "leading-tight",
@@ -53,7 +74,7 @@ export function StatCard({
           )}>
             {value}
           </p>
-          
+
           {change && (
             <p
               className={cn(

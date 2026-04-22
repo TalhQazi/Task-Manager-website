@@ -55,7 +55,7 @@ import {
   DialogTrigger 
 } from "@/components/admin/ui/dialog";
 import { useForm } from "react-hook-form";
-import { createResource, deleteResource, listResource, updateResource, apiFetch } from "@/lib/admin/apiClient";
+import { createResource, deleteResource, listResource, updateResource, apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
 
 interface User {
@@ -379,12 +379,14 @@ const Users = () => {
   const confirmDeactivate = async () => {
     if (!selectedUser) return;
     try {
-      await updateResource<User>("users", selectedUser.id, { ...selectedUser, status: "inactive" });
+      await apiFetch(`/api/users/${selectedUser.id}/archive`, { 
+        method: "POST",
+      });
       await refreshUsers();
       setDeactivateOpen(false);
       setSelectedUser(null);
     } catch (e) {
-      setApiError(e instanceof Error ? e.message : "Failed to update user");
+      setApiError(e instanceof Error ? e.message : "Failed to archive user");
     }
   };
 
@@ -478,7 +480,6 @@ const confirmArchiveUser = async () => {
   };
 
   const filteredUsers = users.filter((user) => {
-     if (user.status === "inactive") return false;
     const matchesSearch =
       String(user.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       String(user.email || "").toLowerCase().includes(searchQuery.toLowerCase());
@@ -714,23 +715,25 @@ const confirmArchiveUser = async () => {
           </div>
         </motion.div>
 
-        {/* API Error Message with animation */}
-        <AnimatePresence>
-          {apiError && (
-            <motion.div
-              initial={{ opacity: 0, y: -20, height: 0 }}
-              animate={{ opacity: 1, y: 0, height: "auto" }}
-              exit={{ opacity: 0, y: -20, height: 0 }}
-              transition={{ type: "spring", stiffness: 500, damping: 30 }}
-              className="rounded-lg bg-destructive/10 p-3 sm:p-4 border border-destructive/20"
-            >
-              <p className="text-xs sm:text-sm text-destructive break-words flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4" />
-                {apiError}
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+          {/* API Error Message with animation */}
+          <AnimatePresence>
+            {apiError && (
+              <motion.div
+                initial={{ opacity: 0, y: -20, height: 0 }}
+                animate={{ opacity: 1, y: 0, height: "auto" }}
+                exit={{ opacity: 0, y: -20, height: 0 }}
+                transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                className="rounded-lg bg-destructive/10 p-3 sm:p-4 border border-destructive/20 mb-4"
+              >
+                <p className="text-xs sm:text-sm text-destructive break-words flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  {apiError}
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* User Status Tabs - Removed as per instruction */}
 
         {/* Role Summary Cards - Animated Grid */}
         <motion.div 
@@ -861,7 +864,7 @@ const confirmArchiveUser = async () => {
                               >
                                 <Avatar className="h-10 w-10 flex-shrink-0 ring-2 ring-primary/20">
                                   {user.avatarUrl ? (
-                                    <AvatarImage src={user.avatarUrl} alt={user.name} className="object-cover" />
+                                    <AvatarImage src={toProxiedUrl(user.avatarUrl)} alt={user.name} className="object-cover" />
                                   ) : (
                                     <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-xs">
                                       {user.initials}
@@ -905,13 +908,8 @@ const confirmArchiveUser = async () => {
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleDeactivate(user)} className="text-destructive">
                                   <Trash2 className="mr-2 h-4 w-4" />
-                                  {user.status === "inactive" ? "Activate" : "Deactivate"}
+                                  Deactivate & Archive
                                 </DropdownMenuItem>
-
-                                <DropdownMenuItem onClick={() => handleArchiveUser(user)} className="text-destructive">
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Archive User
-                                  </DropdownMenuItem>
 
                                 {/* <DropdownMenuItem onClick={() => handleDeleteUser(user)} className="text-destructive">
                                     <Trash2 className="mr-2 h-4 w-4" />
@@ -1025,7 +1023,7 @@ const confirmArchiveUser = async () => {
                                   >
                                     <Avatar className="h-8 w-8 md:h-9 md:w-9 flex-shrink-0 ring-2 ring-primary/20">
                                       {user.avatarUrl ? (
-                                        <AvatarImage src={user.avatarUrl} alt={user.name} className="object-cover" />
+                                        <AvatarImage src={toProxiedUrl(user.avatarUrl)} alt={user.name} className="object-cover" />
                                       ) : (
                                         <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-xs md:text-sm">
                                           {user.initials}
@@ -1099,13 +1097,8 @@ const confirmArchiveUser = async () => {
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => handleDeactivate(user)} className="text-destructive">
                                       <Trash2 className="mr-2 h-4 w-4" />
-                                      {user.status === "inactive" ? "Activate" : "Deactivate"}
+                                      Deactivate & Archive
                                     </DropdownMenuItem>
-
-                                    <DropdownMenuItem onClick={() => handleArchiveUser(user)} className="text-destructive">
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Archive User
-                                  </DropdownMenuItem>
 
                                    {/* <DropdownMenuItem onClick={() => handleDeleteUser(user)} className="text-destructive">
                                       <Trash2 className="mr-2 h-4 w-4" />
@@ -1148,7 +1141,7 @@ const confirmArchiveUser = async () => {
                 >
                   <Avatar className="h-12 w-12 sm:h-14 sm:w-14 flex-shrink-0 ring-2 ring-primary/20">
                     {selectedUser.avatarUrl ? (
-                      <AvatarImage src={selectedUser.avatarUrl} alt={selectedUser.name} className="object-cover" />
+                      <AvatarImage src={toProxiedUrl(selectedUser.avatarUrl)} alt={selectedUser.name} className="object-cover" />
                     ) : (
                       <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-sm sm:text-base">
                         {selectedUser.initials}

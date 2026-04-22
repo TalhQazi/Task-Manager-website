@@ -22,6 +22,7 @@ interface SocialMediaAccount {
   brand: string;
   url: string;
   username: string;
+  accountHandle: string;
   status: "Active" | "Inactive" | "Suspended";
   notes: string;
   createdAt: string;
@@ -40,6 +41,10 @@ const platformOptions = [
   "TikTok",
   "LinkedIn",
   "X (Twitter)",
+  "Liberty social",
+  "Rumble",
+  "Truth Social",
+  "Threads",
   "Other",
 ];
 
@@ -68,6 +73,7 @@ export function SocialMediaAccounts() {
     brand: "",
     url: "",
     username: "",
+    accountHandle: "",
     status: "Active",
     notes: "",
   });
@@ -80,7 +86,10 @@ export function SocialMediaAccounts() {
     queryKey: ["social-media-accounts"],
     queryFn: async () => {
       const res = await apiFetch<{ items: SocialMediaAccount[] }>("/api/social-media");
-      return res.items || [];
+      return (res.items || []).map(item => ({
+        ...item,
+        username: item.username || item.accountHandle || ""
+      }));
     },
   });
 
@@ -92,6 +101,7 @@ export function SocialMediaAccounts() {
       brand: "",
       url: "",
       username: "",
+      accountHandle: "",
       status: "Active",
       notes: "",
     });
@@ -99,7 +109,10 @@ export function SocialMediaAccounts() {
   };
 
   const handleSave = async () => {
-    if (!formData.platform || !formData.username) {
+    // Both username and accountHandle should be present for compatibility
+    const handle = formData.accountHandle || formData.username;
+    
+    if (!formData.platform || !handle) {
       setApiError("Platform and Username are required");
       return;
     }
@@ -108,15 +121,21 @@ export function SocialMediaAccounts() {
       setIsSubmitting(true);
       setApiError(null);
 
+      const payload = {
+        ...formData,
+        accountHandle: handle,
+        username: formData.username || handle
+      };
+
       if (selectedAccount) {
         await apiFetch(`/api/social-media/${selectedAccount._id}`, {
           method: "PUT",
-          body: JSON.stringify(formData),
+          body: JSON.stringify(payload),
         });
       } else {
         await apiFetch("/api/social-media", {
           method: "POST",
-          body: JSON.stringify(formData),
+          body: JSON.stringify(payload),
         });
       }
 
@@ -247,7 +266,7 @@ export function SocialMediaAccounts() {
                     type="text"
                     value={formData.username || ""}
                     onChange={(e) =>
-                      setFormData({ ...formData, username: e.target.value })
+                      setFormData({ ...formData, username: e.target.value, accountHandle: e.target.value })
                     }
                     className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
                     placeholder="Username"
@@ -333,7 +352,7 @@ export function SocialMediaAccounts() {
                     <div className="flex-1">
                       <h3 className="font-semibold text-sm">{account.platform}</h3>
                       <a
-                        href={account.url}
+                        href={account.url?.startsWith("http") ? account.url : `https://${account.url}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-xs text-blue-600 hover:underline flex items-center gap-1"

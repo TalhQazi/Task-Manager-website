@@ -215,6 +215,32 @@ export async function downloadTaskAttachment(
   URL.revokeObjectURL(objectUrl);
 }
 
+// Download any URL with authentication
+export async function downloadViaUrl(url: string, fileName: string): Promise<void> {
+  const auth = getAuthState();
+  
+  // Use fetch to get the blob with headers
+  const res = await fetch(url, {
+    headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
+  });
+  
+  if (!res.ok) {
+    throw new Error(`Download failed (${res.status})`);
+  }
+  
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  
+  URL.revokeObjectURL(objectUrl);
+}
+
 // Admin Scrum Records API
 export async function getAdminScrumRecords(params?: { from?: string; to?: string; employee?: string; page?: number; limit?: number }) {
   const query = new URLSearchParams();
@@ -235,4 +261,197 @@ export async function getAdminEmployeeScrumRecords(employeeName: string, params?
   if (params?.limit) query.append("limit", String(params.limit));
 
   return apiFetch<{ items: Array<{ id: string; date: string; clockIn: string; clockOut: string; totalHours: number; scrum: string; createdAt: string }>; total: number; page: number; limit: number }>(`/api/time-entries/scrum-records/${encodeURIComponent(employeeName)}?${query.toString()}`);
+}
+
+// Contributor API
+export interface Contributor {
+  _id: string;
+  userId: string;
+  name: string;
+  email: string;
+  role: string;
+  avatar?: string;
+  department?: string;
+  stats: {
+    totalTasksCreated: number;
+    totalTasksUpdated: number;
+    totalTasksCompleted: number;
+    totalProjectsContributed: number;
+    totalTimeSpent: number;
+    lastContributionAt?: string;
+  };
+  projects: Array<{
+    projectId: string;
+    projectName: string;
+    firstContributionAt: string;
+    lastContributionAt: string;
+    contributionCount: number;
+  }>;
+  status: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Contribution {
+  _id: string;
+  contributorId: string;
+  contributorName: string;
+  contributorEmail: string;
+  contributorRole: string;
+  action: string;
+  resourceType: string;
+  resourceId: string;
+  resourceName: string;
+  projectId?: string;
+  projectName?: string;
+  description: string;
+  changes?: Array<{ field: string; oldValue: any; newValue: any }>;
+  timeSpent?: number;
+  impact: string;
+  createdAt: string;
+}
+
+export async function getContributors(params?: { search?: string; role?: string; projectId?: string; page?: number; limit?: number }) {
+  const query = new URLSearchParams();
+  if (params?.search) query.append("search", params.search);
+  if (params?.role) query.append("role", params.role);
+  if (params?.projectId) query.append("projectId", params.projectId);
+  if (params?.page) query.append("page", String(params.page));
+  if (params?.limit) query.append("limit", String(params.limit));
+  return apiFetch<{ items: Contributor[]; total: number; page: number; limit: number; totalPages: number }>(`/api/contributors?${query.toString()}`);
+}
+
+export async function getTopContributors(params?: { limit?: number; projectId?: string; role?: string }) {
+  const query = new URLSearchParams();
+  if (params?.limit) query.append("limit", String(params.limit));
+  if (params?.projectId) query.append("projectId", params.projectId);
+  if (params?.role) query.append("role", params.role);
+  return apiFetch<{ items: Contributor[]; total: number }>(`/api/contributors/top?${query.toString()}`);
+}
+
+export async function getContributor(userId: string) {
+  return apiFetch<{ contributor: Contributor; recentContributions: Contribution[]; tasksWorkedOn: any[] }>(`/api/contributors/${userId}`);
+}
+
+export async function getContributorContributions(userId: string, params?: { resourceType?: string; action?: string; from?: string; to?: string; page?: number; limit?: number }) {
+  const query = new URLSearchParams();
+  if (params?.resourceType) query.append("resourceType", params.resourceType);
+  if (params?.action) query.append("action", params.action);
+  if (params?.from) query.append("from", params.from);
+  if (params?.to) query.append("to", params.to);
+  if (params?.page) query.append("page", String(params.page));
+  if (params?.limit) query.append("limit", String(params.limit));
+  return apiFetch<{ items: Contribution[]; total: number; page: number; limit: number; totalPages: number }>(`/api/contributors/${userId}/contributions?${query.toString()}`);
+}
+
+export async function getTaskContributors(taskId: string) {
+  return apiFetch<{ items: Array<{ userId: string; name: string; email: string; role: string; addedAt: string; contributionType: string; actions: string[]; avatar?: string; department?: string; stats?: any }>; total: number }>(`/api/contributors/task/${taskId}/contributors`);
+}
+
+export async function getTaskContributionHistory(taskId: string, limit?: number) {
+  const query = new URLSearchParams();
+  if (limit) query.append("limit", String(limit));
+  return apiFetch<{ items: Contribution[]; total: number }>(`/api/contributors/task/${taskId}?${query.toString()}`);
+}
+
+export async function getProjectContributors(projectId: string) {
+  return apiFetch<{ items: Array<{ userId: string; name: string; email: string; role: string; contributions: Contribution[]; stats: { tasksCreated: number; tasksUpdated: number; tasksCompleted: number; totalContributions: number } }>; total: number }>(`/api/contributors/project/${projectId}`);
+}
+
+export async function searchContributors(term: string, params?: { role?: string; projectId?: string; limit?: number }) {
+  const query = new URLSearchParams();
+  if (params?.role) query.append("role", params.role);
+  if (params?.projectId) query.append("projectId", params.projectId);
+  if (params?.limit) query.append("limit", String(params.limit));
+  return apiFetch<{ items: Contributor[]; total: number }>(`/api/contributors/search/${encodeURIComponent(term)}?${query.toString()}`);
+}
+
+// Comment edit and delete APIs
+export async function updateComment(taskId: string, commentId: string, payload: { message?: string; attachments?: any[] }) {
+  return apiFetch<{ item: { id: string; taskId: string; message: string; authorUserId: string; authorUsername: string; authorRole: string; attachments: any[]; createdAt: string; updatedAt: string } }>(
+    `/api/tasks/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }
+  );
+}
+
+export async function deleteComment(taskId: string, commentId: string) {
+  return apiFetch<{ ok: boolean; message: string }>(
+    `/api/tasks/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}`,
+    {
+      method: "DELETE",
+    }
+  );
+}
+
+// EOD Reports API for Admin
+export async function getAdminEODReports(params?: { date?: string; employeeId?: string; status?: string; page?: number; limit?: number }) {
+  const qs = new URLSearchParams();
+  if (params?.date) qs.set("date", params.date);
+  if (params?.employeeId) qs.set("employeeId", params.employeeId);
+  if (params?.status) qs.set("status", params.status);
+  if (params?.page) qs.set("page", String(params.page));
+  if (params?.limit) qs.set("limit", String(params.limit));
+  const queryString = qs.toString();
+  return apiFetch<{
+    items: Array<{
+      id: string;
+      userId: string;
+      employeeName: string;
+      date: string;
+      rawInput: string;
+      inputType: string;
+      status: "submitted" | "missing" | "late";
+      createdAt: string;
+      clockIn?: string;
+      clockOut?: string;
+      totalHours?: number;
+    }>;
+    total: number;
+    page: number;
+    limit: number;
+  }>(`/api/admin/eod-reports${queryString ? `?${queryString}` : ""}`);
+}
+
+export async function getAdminEODStatus(date?: string) {
+  const qs = date ? `?date=${date}` : "";
+  return apiFetch<{
+    items: Array<{
+      employeeId: string;
+      employeeName: string;
+      status: "submitted" | "missing" | "late" | "not_clocked_in";
+      clockIn?: string;
+      clockOut?: string;
+      reportSubmittedAt?: string;
+    }>;
+  }>(`/api/admin/eod-status${qs}`);
+}
+
+export async function getAdminEmployeeEODReports(employeeName: string, params?: { from?: string; to?: string; page?: number; limit?: number }) {
+  const qs = new URLSearchParams();
+  if (params?.from) qs.set("from", params.from);
+  if (params?.to) qs.set("to", params.to);
+  if (params?.page) qs.set("page", String(params.page));
+  if (params?.limit) qs.set("limit", String(params.limit));
+  const queryString = qs.toString();
+  return apiFetch<{
+    items: Array<{
+      id: string;
+      userId: string;
+      employeeName: string;
+      date: string;
+      rawInput: string;
+      inputType: string;
+      status: string;
+      createdAt: string;
+      clockIn?: string;
+      clockOut?: string;
+      totalHours?: number;
+    }>;
+    total: number;
+    page: number;
+    limit: number;
+  }>(`/api/admin/eod-reports?employee=${encodeURIComponent(employeeName)}${queryString ? `&${queryString}` : ""}`);
 }

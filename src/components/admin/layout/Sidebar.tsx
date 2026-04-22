@@ -56,7 +56,7 @@ const navItemsBase: NavItem[] = [
   { icon: CheckSquare, label: "Task Management", path: "/admin/tasks" },
   { icon: UserCircle, label: "Employee Directory", path: "/admin/employees" },
   { icon: Wallet, label: "Payroll", path: "/admin/payroll" },
-   { icon: ClipboardList, label: "Scrum Records", path: "/admin/scrum-records" },
+   { icon: ClipboardList, label: "EOD Reports", path: "/admin/eod-reports" },
   { icon: History, label: "Task History", path: "/admin/task-history" },
   {
     icon: Layers,
@@ -74,6 +74,7 @@ const navItemsBase: NavItem[] = [
   },
   { icon: Landmark, label: "Companies", path: "/admin/companies" },
   { icon: Building2, label: "Vendors", path: "/admin/vendors" },
+  { icon: Users, label: "Contributors", path: "/admin/contributors" },
   { icon: MessageSquare, label: "Messaging", path: "/admin/messaging" },
   { icon: ClipboardList, label: "Onboarding", path: "/admin/onboarding" },
   { icon: FolderOpen, label: "Asset Library", path: "/admin/asset-library" },
@@ -295,7 +296,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
       <div className="px-5 py-6 mb-3 flex flex-col items-center border-b border-white/5 bg-white/[0.03] backdrop-blur-md">
         <div className="relative w-full rounded-xl bg-white shadow-2xl border-4 border-white/20 group flex items-center justify-center overflow-hidden">
           <img
-            src="/clock2.png"
+            src="/new_logo.jpeg"
             alt="Task Manager logo"
             className="w-full h-auto object-contain transition-all duration-500 hover:scale-105 active:scale-95"
           />

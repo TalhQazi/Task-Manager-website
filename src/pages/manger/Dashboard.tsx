@@ -1,259 +1,301 @@
-import { motion, type Variants } from "framer-motion";
-import { StatCard } from "@/components/manger/dashboard/StatCard";
-import { TaskList } from "@/components/manger/dashboard/TaskList";
-import { EmployeeActivity } from "@/components/manger/dashboard/EmployeeActivity";
-import { ScheduleOverview } from "@/components/manger/dashboard/ScheduleOverview";
-import { DayAheadCard } from "@/components/manger/dashboard/DayAheadCard";
-import { WeekAheadCard } from "@/components/manger/dashboard/WeekAheadCard";
-import { ClipboardList, Users, Clock, AlertCircle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
+import { StatCard } from "@/components/admin/dashboard/StatCard";
+import { RecentTasksList } from "@/components/admin/dashboard/RecentTasksList";
+import { ActiveEmployees } from "@/components/admin/dashboard/ActiveEmployees";
+import { TaskCharts } from "@/components/admin/dashboard/TaskCharts";
+import { DayAheadCard } from "@/components/admin/dashboard/DayAheadCard";
+import { WeekAheadCard } from "@/components/admin/dashboard/WeekAheadCard";
+import { Users, CheckSquare, FolderRoot, Car, MapPin, Sparkles, TrendingUp } from "lucide-react";
 import { apiFetch } from "@/lib/manger/api";
-import { useQuery } from "@tanstack/react-query";
-import { getAuthState } from "@/lib/auth";
+import { useNavigate } from "react-router-dom";
 
-// Animation variants
+type DashboardSummary = {
+  activeTasks: number;
+  dueToday: number;
+  overdueTasks: number;
+  employeesWorking: number;
+  employeeTotal: number;
+  hoursLoggedToday: number;
+  avgHoursPerEmployee: number;
+  projectTotal: number;
+  vehicleTotal: number;
+  locationTotal: number;
+};
+
+// Enhanced animation variants
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.1,
-      delayChildren: 0.2,
+      staggerChildren: 0.08,
+      delayChildren: 0.15,
     },
   },
 };
 
 const itemVariants: Variants = {
+  hidden: { y: 30, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: {
+      type: "spring",
+      stiffness: 80,
+      damping: 15,
+      mass: 0.8,
+    },
+  },
+};
+
+const fadeUpVariants: Variants = {
   hidden: { y: 20, opacity: 0 },
   visible: {
     y: 0,
     opacity: 1,
     transition: {
-      type: "spring",
-      stiffness: 300,
-      damping: 24,
+      duration: 0.5,
+      ease: [0.25, 0.1, 0.25, 1],
     },
   },
 };
 
-const headerVariants: Variants = {
-  hidden: { opacity: 0, x: -20 },
-  visible: {
-    opacity: 1,
-    x: 0,
-    transition: {
-      type: "spring",
-      stiffness: 400,
-      damping: 30,
-    },
-  },
-};
+const Dashboard = () => {
+  const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
 
-const statsGridVariants: Variants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.15,
-      delayChildren: 0.3,
-    },
-  },
-};
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      try {
+        setLoading(true);
+        setApiError(null);
+        const data = await apiFetch<DashboardSummary>("/api/dashboard/summary");
+        if (!mounted) return;
+        setSummary(data);
+      } catch (e) {
+        if (!mounted) return;
+        setApiError(e instanceof Error ? e.message : "Failed to load dashboard");
+      } finally {
+        if (!mounted) return;
+        setLoading(false);
+      }
+    };
 
-const statCardVariants: Variants = {
-  hidden: { scale: 0.8, opacity: 0, y: 30 },
-  visible: {
-    scale: 1,
-    opacity: 1,
-    y: 0,
-    transition: {
-      type: "spring",
-      stiffness: 400,
-      damping: 25,
-    },
-  },
-  hover: {
-    scale: 1.02,
-    y: -5,
-    transition: {
-      type: "spring",
-      stiffness: 400,
-      damping: 20,
-    },
-  },
-};
+    void load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
-const contentVariants: Variants = {
-  hidden: { opacity: 0, y: 40 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      type: "spring",
-      stiffness: 300,
-      damping: 30,
-      delay: 0.4,
-    },
-  },
-};
+  const metrics = useMemo(() => {
+    if (!summary) return null;
+    return {
+      totalEmployees: summary.employeeTotal,
+      activeTasks: summary.activeTasks,
+      totalProjects: summary.projectTotal || 0,
+      totalVehicles: summary.vehicleTotal || 0,
+      totalLocations: summary.locationTotal || 0,
+    };
+  }, [summary]);
 
-const scheduleVariants: Variants = {
-  hidden: { opacity: 0, y: 50 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      type: "spring",
-      stiffness: 300,
-      damping: 30,
-      delay: 0.6,
-    },
-  },
-};
-
-export default function Dashboard() {
-  const summaryQuery = useQuery({
-    queryKey: ["dashboard", "summary"],
-    queryFn: async () => {
-      return apiFetch<{
-        activeTasks: number;
-        dueToday: number;
-        overdueTasks: number;
-        employeesWorking: number;
-        employeeTotal: number;
-        hoursLoggedToday: number;
-        avgHoursPerEmployee: number;
-      }>("/api/dashboard/summary");
-    },
-  });
-
-  const summary = summaryQuery.data;
-  const auth = getAuthState();
-  const displayName = (auth.username || "Sarah").split(" ")[0];
+  if (loading) {
+    return (
+      <div className="flex h-[80vh] items-center justify-center">
+        <motion.div 
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="relative"
+        >
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
+          <div className="absolute inset-0 h-12 w-12 animate-ping rounded-full border-4 border-primary/10" />
+        </motion.div>
+      </div>
+    );
+  }
 
   return (
-    <motion.div
-      initial="hidden"
-      animate="visible"
-      variants={containerVariants}
-      className="px-2 sm:px-4 lg:px-6 space-y-5 sm:space-y-6 lg:space-y-8"
-    >
-      {/* Welcome + top cards container */}
-      <motion.div
-        variants={headerVariants}
-        className="rounded-2xl bg-white/90 shadow-floating border border-white/60 overflow-hidden"
+    <>
+      <motion.div 
+        className="px-3 sm:px-4 lg:px-6 py-4 space-y-6 sm:space-y-7 lg:space-y-8 max-w-[2000px] mx-auto"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
       >
-        <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-200/70">
-          <h1 className="text-2xl sm:text-3xl font-semibold text-slate-900">
-            Welcome,{" "}
-            <span className="text-[#0b5ed7]">
-              {displayName}
-              !
-            </span>
-          </h1>
-        </div>
-
-        {/* Stat summary row - single card */}
-        <motion.div
-          variants={statsGridVariants}
-          className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
+        {/* Welcome Header */}
+        <motion.div 
+          variants={fadeUpVariants}
+          className="flex items-center justify-between"
         >
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-slate-200">
-            <motion.div variants={statCardVariants} whileHover="hover" className="p-4 sm:p-5">
-              <StatCard
-                title="Tasks Assigned"
-                value={summary ? summary.activeTasks : "—"}
-                subtitle={summary ? `${summary.dueToday} due today` : "Loading..."}
-                icon={ClipboardList}
-                variant="default"
-              />
-            </motion.div>
-
-            <motion.div variants={statCardVariants} whileHover="hover" className="p-4 sm:p-5">
-              <StatCard
-                title="Shifts Today"
-                value={summary ? summary.employeesWorking : "—"}
-                subtitle={summary ? `Out of ${summary.employeeTotal} employees` : "Loading..."}
-                icon={Clock}
-                variant="default"
-              />
-            </motion.div>
-
-            <motion.div variants={statCardVariants} whileHover="hover" className="p-4 sm:p-5">
-              <StatCard
-                title="Locations"
-                value={summary ? summary.employeeTotal : "—"}
-                subtitle="Active locations"
-                icon={Users}
-                variant="default"
-              />
-            </motion.div>
-
-            <motion.div variants={statCardVariants} whileHover="hover" className="p-4 sm:p-5">
-              <StatCard
-                title="New Hires"
-                value={summary ? summary.overdueTasks : "—"}
-                subtitle="This week"
-                icon={AlertCircle}
-                variant="default"
-              />
-            </motion.div>
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+              Dashboard Overview
+            </h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Welcome back! Here's what's happening today.
+            </p>
+          </div>
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20">
+            <Sparkles className="h-4 w-4 text-primary" />
+            <span className="text-sm font-medium text-primary">
+              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </span>
           </div>
         </motion.div>
 
-        {/* Middle cards: Priority tasks + upcoming shifts */}
-        <motion.div
-          variants={contentVariants}
-          className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6"
+        {/* Stats Grid */}
+        <motion.div 
+          className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+          variants={containerVariants}
         >
-          <motion.div
-            className="lg:col-span-2"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{
-              type: "spring",
-              stiffness: 300,
-              damping: 30,
-              delay: 0.35,
-            }}
-          >
-            <TaskList />
-          </motion.div>
+          {metrics && [
+            { 
+              title: "Total Employees", 
+              value: metrics.totalEmployees, 
+              icon: Users, 
+              variant: "cyan" as const, 
+              changeType: "positive" as const, 
+              onClick: () => navigate("/manager/employees"),
+              description: "Active workforce"
+            },
+            { 
+              title: "Active Tasks", 
+              value: metrics.activeTasks, 
+              icon: CheckSquare, 
+              variant: "success" as const, 
+              changeType: "neutral" as const, 
+              onClick: () => navigate("/manager/tasks"),
+              description: "In progress"
+            },
+            { 
+              title: "Active Projects", 
+              value: metrics.totalProjects, 
+              icon: FolderRoot, 
+              variant: "purple" as const, 
+              changeType: "positive" as const, 
+              onClick: () => navigate("/manager/tasks"),
+              description: "Ongoing initiatives"
+            },
+            { 
+              title: "Total Vehicles", 
+              value: metrics.totalVehicles, 
+              icon: Car, 
+              variant: "orange" as const, 
+              changeType: "positive" as const, 
+              onClick: () => navigate("/manager/vehicles"),
+              description: "Fleet size"
+            },
+            { 
+              title: "Total Locations", 
+              value: metrics.totalLocations, 
+              icon: MapPin, 
+              variant: "teal" as const, 
+              changeType: "positive" as const, 
+              onClick: () => navigate("/manager/locations"),
+              description: "Service areas"
+            },
+          ].map((stat) => (
+            <motion.div
+              key={stat.title}
+              variants={itemVariants}
+              whileHover={{ y: -4, transition: { duration: 0.2 } }}
+              whileTap={{ scale: 0.98 }}
+              className="cursor-pointer"
+            >
+              <StatCard
+                title={stat.title}
+                value={stat.value}
+                changeType={stat.changeType}
+                icon={stat.icon}
+                variant={stat.variant}
+                onClick={stat.onClick}
+              />
+            </motion.div>
+          ))}
+        </motion.div>
 
+        {/* Charts Section */}
+        <motion.div 
+          className="relative"
+          variants={fadeUpVariants}
+        >
+          <div className="absolute -inset-1 bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
           <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{
-              type: "spring",
-              stiffness: 300,
-              damping: 30,
-              delay: 0.4,
-            }}
+            whileHover={{ scale: 1.002 }}
+            transition={{ duration: 0.3 }}
+            className="relative rounded-2xl border bg-gradient-to-br from-card via-card to-card/95 p-5 lg:p-6 shadow-lg backdrop-blur-sm"
           >
-            <ScheduleOverview />
+            <div className="flex items-center gap-2 mb-4">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold">Analytics Overview</h2>
+            </div>
+            <TaskCharts />
           </motion.div>
+        </motion.div>
+
+        {/* Two Column Layout - Row 1 */}
+        <motion.div 
+          className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6"
+          variants={containerVariants}
+        >
+          <motion.div 
+            variants={itemVariants}
+            whileHover={{ y: -2 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="h-full rounded-2xl border bg-gradient-to-br from-card to-card/95 p-5 lg:p-6 shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm">
+              <RecentTasksList />
+            </div>
+          </motion.div>
+          <motion.div 
+            variants={itemVariants}
+            whileHover={{ y: -2 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="h-full rounded-2xl border bg-gradient-to-br from-card to-card/95 p-5 lg:p-6 shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm">
+              <ActiveEmployees />
+            </div>
+          </motion.div>
+        </motion.div>
+
+        {/* Two Column Layout - Row 2 */}
+        <motion.div 
+          className="grid grid-cols-1 gap-5 lg:grid-cols-2 lg:gap-6"
+          variants={containerVariants}
+        >
+          <motion.div 
+            variants={itemVariants}
+            whileHover={{ y: -2 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="h-full rounded-2xl border bg-gradient-to-br from-card to-card/95 p-5 lg:p-6 shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm">
+              <DayAheadCard />
+            </div>
+          </motion.div>
+          <motion.div 
+            variants={itemVariants}
+            whileHover={{ y: -2 }}
+            transition={{ duration: 0.2 }}
+          >
+            <div className="h-full rounded-2xl border bg-gradient-to-br from-card to-card/95 p-5 lg:p-6 shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm">
+              <WeekAheadCard />
+            </div>
+          </motion.div>
+        </motion.div>
+
+        {/* Subtle Footer */}
+        <motion.div 
+          variants={fadeUpVariants}
+          className="text-center text-xs text-muted-foreground/60 py-4"
+        >
+          <p>Real-time updates • Data refreshes automatically</p>
         </motion.div>
       </motion.div>
-
-      {/* Day & Week Ahead Planning Views */}
-      <motion.div
-        variants={scheduleVariants}
-        className="grid grid-cols-1 gap-4 sm:gap-5 lg:gap-6 lg:grid-cols-2"
-      >
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ type: "spring", stiffness: 300, damping: 30, delay: 0.55 }}
-        >
-          <DayAheadCard />
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ type: "spring", stiffness: 300, damping: 30, delay: 0.6 }}
-        >
-          <WeekAheadCard />
-        </motion.div>
-      </motion.div>
-    </motion.div>
+    </>
   );
 }
+
+export default Dashboard;

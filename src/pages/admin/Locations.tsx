@@ -56,8 +56,9 @@ import {
   Loader2,
   Check,
   AlertCircle,
+  Archive,
 } from "lucide-react";
-import { createResource, listResource, updateResource, apiFetch } from "@/lib/admin/apiClient";
+import { createResource, listResource, updateResource, apiFetch, getApiBaseUrl } from "@/lib/admin/apiClient";
 
 const LOCATION_TYPES = [
   "Property",
@@ -96,6 +97,7 @@ interface Location {
   createdAt?: string;
   photoDataUrl?: string;
   photoFileName?: string;
+  attachments?: { fileName: string; url: string }[];
 }
 
 const toDateOnly = (value: string) => {
@@ -130,6 +132,7 @@ function normalizeLocation(l: BackendLocation): Location {
     createdAt: createdAt ? toDateOnly(createdAt) : undefined,
     photoDataUrl: String(l.photoDataUrl || "").trim() || undefined,
     photoFileName: String(l.photoFileName || "").trim() || undefined,
+    attachments: Array.isArray(l.attachments) ? l.attachments : [],
   };
 }
 
@@ -156,7 +159,7 @@ const typeClasses = {
 
 const statusClasses = {
   active: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
-  inactive: "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300",
+  inactive: "bg-slate-100 text-slate-700 dark:bg-slate-900/30 dark:text-slate-300",
 };
 
 const Locations = () => {
@@ -174,6 +177,9 @@ const Locations = () => {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
+  const [refreshTimestamp, setRefreshTimestamp] = useState(Date.now());
+  const [previewImage, setPreviewImage] = useState<{ url: string; fileName: string } | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -188,6 +194,7 @@ const Locations = () => {
     status: "active" as Location["status"],
     photoDataUrl: "",
     photoFileName: "",
+    attachments: [] as { fileName: string; url: string }[],
   });
 
   const [editFormData, setEditFormData] = useState({
@@ -203,6 +210,7 @@ const Locations = () => {
     status: "active" as Location["status"],
     photoDataUrl: "",
     photoFileName: "",
+    attachments: [] as { fileName: string; url: string }[],
   });
 
   useEffect(() => {
@@ -264,6 +272,7 @@ const Locations = () => {
     try {
       const list = await listResource<BackendLocation>("locations");
       setLocationsList(list.map(normalizeLocation));
+      setRefreshTimestamp(Date.now());
     } catch (e) {
       console.error("Failed to refresh locations", e);
     }
@@ -292,6 +301,7 @@ const Locations = () => {
         createdAt: new Date().toISOString(),
         photoDataUrl: formData.photoDataUrl || undefined,
         photoFileName: formData.photoFileName || undefined,
+        attachments: formData.attachments,
       };
       await createResource<Location>("locations", newLocation);
       setSubmitSuccess(true);
@@ -313,6 +323,7 @@ const Locations = () => {
         status: "active",
         photoDataUrl: "",
         photoFileName: "",
+        attachments: [],
       });
     } catch (e) {
       setFormError(e instanceof Error ? e.message : "Failed to add location");
@@ -321,12 +332,24 @@ const Locations = () => {
     }
   };
 
-  const handleViewDetails = (location: Location) => {
+  const handleViewDetails = async (location: Location) => {
     setSelectedLocation(location);
     setViewDetailsOpen(true);
+    
+    // Lazy load photo if needed
+    if (!location.photoDataUrl) {
+      try {
+        const res = await apiFetch<{ photoDataUrl: string; photoFileName: string; attachments: { fileName: string; url: string }[] }>(`/api/locations/${location.id}/photo`);
+        if (res.photoDataUrl || (res.attachments && res.attachments.length > 0)) {
+          setSelectedLocation(prev => prev && prev.id === location.id ? { ...prev, photoDataUrl: res.photoDataUrl, photoFileName: res.photoFileName, attachments: res.attachments || [] } : prev);
+        }
+      } catch (err) {
+        console.error("Failed to load location photo:", err);
+      }
+    }
   };
 
-  const handleEditLocation = (location: Location) => {
+  const handleEditLocation = async (location: Location) => {
     setSelectedLocation(location);
     setEditFormData({
       name: location.name,
@@ -341,8 +364,22 @@ const Locations = () => {
       status: location.status,
       photoDataUrl: location.photoDataUrl || "",
       photoFileName: location.photoFileName || "",
+      attachments: location.attachments || [],
     });
     setEditLocationOpen(true);
+
+    // Lazy load photo for editing if not present
+    if (!location.photoDataUrl) {
+      try {
+        const res = await apiFetch<{ photoDataUrl: string; photoFileName: string; attachments: { fileName: string; url: string }[] }>(`/api/locations/${location.id}/photo`);
+        if (res.photoDataUrl || (res.attachments && res.attachments.length > 0)) {
+           setEditFormData(prev => ({ ...prev, photoDataUrl: res.photoDataUrl, photoFileName: res.photoFileName, attachments: res.attachments || [] }));
+           setSelectedLocation(prev => prev && prev.id === location.id ? { ...prev, photoDataUrl: res.photoDataUrl, photoFileName: res.photoFileName, attachments: res.attachments || [] } : prev);
+        }
+      } catch (err) {
+        console.error("Failed to load location photo for edit:", err);
+      }
+    }
   };
 
   const saveEditLocation = async () => {
@@ -364,6 +401,7 @@ const Locations = () => {
         notes: editFormData.notes || "",
         photoDataUrl: editFormData.photoDataUrl || undefined,
         photoFileName: editFormData.photoFileName || undefined,
+        attachments: editFormData.attachments,
       });
       await refreshLocations();
       setEditLocationOpen(false);
@@ -397,12 +435,16 @@ const Locations = () => {
 
   const filteredLocations = useMemo(() => {
     const q = searchQuery.toLowerCase();
+    const statusFilter = activeTab === "active" ? "active" : "inactive";
+    
     return locationsList.filter((l) => 
-      l.name.toLowerCase().includes(q) || 
-      l.address.toLowerCase().includes(q) || 
-      l.city.toLowerCase().includes(q)
+      l.status === statusFilter && (
+        l.name.toLowerCase().includes(q) || 
+        l.address.toLowerCase().includes(q) || 
+        l.city.toLowerCase().includes(q)
+      )
     );
-  }, [locationsList, searchQuery]);
+  }, [locationsList, searchQuery, activeTab]);
 
   const locationCodeById = useMemo(() => {
     const map = new Map<string, string>();
@@ -495,24 +537,32 @@ const Locations = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-semibold">Photo</Label>
-                  <div className="flex items-center gap-4">
-                    {formData.photoDataUrl && (
-                      <div className="h-16 w-16 rounded-lg border overflow-hidden">
-                        <img src={formData.photoDataUrl} className="h-full w-full object-cover" alt="Preview" />
+                  <Label className="text-sm font-semibold">Multiple Photos</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {formData.attachments.map((att, i) => (
+                      <div key={i} className="relative h-16 w-16 border rounded overflow-hidden group">
+                        <img src={att.url} className="h-full w-full object-cover" alt={`Attachment ${i + 1}`} />
+                        <button onClick={() => setFormData({...formData, attachments: formData.attachments.filter((_, idx) => idx !== i)})} className="absolute top-0 right-0 bg-red-500 text-white p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <X className="h-3 w-3" />
+                        </button>
                       </div>
-                    )}
-                    <Button variant="outline" size="sm" onClick={() => document.getElementById('add-photo')?.click()} className="border-dashed border-2 hover:border-blue-400 hover:bg-blue-50 transition-all">
-                      <ImageIcon className="h-4 w-4 mr-2 text-blue-500" />
-                      Upload Photo
+                    ))}
+                    <Button variant="outline" size="sm" onClick={() => document.getElementById('add-multiple-photos')?.click()} className="h-16 w-16 border-dashed border-2 hover:border-blue-400 hover:bg-blue-50 transition-all p-0 flex flex-col items-center justify-center">
+                      <ImageIcon className="h-4 w-4 text-blue-500 mb-1" />
+                      <span className="text-[10px]">Add Photo</span>
                     </Button>
-                    <input id="add-photo" type="file" className="hidden" accept="image/*" onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
+                    <input id="add-multiple-photos" type="file" className="hidden" accept="image/*" multiple onChange={(e) => {
+                      const files = Array.from(e.target.files || []);
+                      files.forEach(file => {
                         const reader = new FileReader();
-                        reader.onload = (re) => setFormData({...formData, photoDataUrl: re.target?.result as string, photoFileName: file.name});
+                        reader.onload = (re) => {
+                          setFormData(prev => ({
+                            ...prev, 
+                            attachments: [...prev.attachments, { fileName: file.name, url: re.target?.result as string }]
+                          }));
+                        };
                         reader.readAsDataURL(file);
-                      }
+                      });
                     }} />
                   </div>
                 </div>
@@ -609,10 +659,33 @@ const Locations = () => {
       {/* Main Content Card */}
       <Card className="border-0 shadow-xl border-slate-100 bg-white dark:bg-slate-800 overflow-hidden rounded-2xl">
         <CardHeader className="p-6 border-b border-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <CardTitle className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-            <Warehouse className="h-5 w-5 text-blue-500" />
-            Location Database
-          </CardTitle>
+          <div className="flex flex-col gap-4">
+            <CardTitle className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+              <Warehouse className="h-5 w-5 text-blue-500" />
+              Location Database
+            </CardTitle>
+            
+            <div className="flex p-1 bg-slate-100 rounded-lg w-fit">
+              <button
+                onClick={() => setActiveTab("active")}
+                className={cn(
+                  "px-4 py-1.5 text-xs font-bold rounded-md transition-all",
+                  activeTab === "active" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                )}
+              >
+                Active
+              </button>
+              <button
+                onClick={() => setActiveTab("archived")}
+                className={cn(
+                  "px-4 py-1.5 text-xs font-bold rounded-md transition-all",
+                  activeTab === "archived" ? "bg-white text-slate-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+                )}
+              >
+                Archived
+              </button>
+            </div>
+          </div>
           <div className="relative w-full sm:w-64 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input 
@@ -658,11 +731,22 @@ const Locations = () => {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="h-10 w-10 rounded-lg overflow-hidden border border-slate-100 flex-shrink-0 bg-slate-50 flex items-center justify-center">
-                          {location.photoDataUrl ? (
-                            <img src={location.photoDataUrl} alt={location.name} className="h-full w-full object-cover" />
-                          ) : (
-                            <MapPin className="h-5 w-5 text-slate-300" />
-                          )}
+                          <img 
+                            src={`${String(getApiBaseUrl()).replace(/\/$/, "")}/api/locations/${location.id}/render-photo?v=${refreshTimestamp}`} 
+                            alt={location.name} 
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              // If image fails to load, replace with MapPin
+                              (e.target as HTMLImageElement).style.display = "none";
+                              const parent = (e.target as HTMLImageElement).parentElement;
+                              if (parent && !parent.querySelector(".fallback-pin")) {
+                                const pin = document.createElement("div");
+                                pin.className = "fallback-pin text-slate-300";
+                                pin.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-map-pin"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>`;
+                                parent.appendChild(pin);
+                              }
+                            }}
+                          />
                         </div>
                         <div className="min-w-0">
                           <p className="font-bold text-slate-800 dark:text-white text-sm sm:text-base truncate">{location.name}</p>
@@ -689,7 +773,7 @@ const Locations = () => {
                     </TableCell>
                     <TableCell>
                       <Badge className={cn(statusClasses[location.status], "border-0 shadow-none font-bold text-[10px] uppercase")}>
-                        {location.status}
+                        {location.status === "active" ? "Active" : "Archived"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
@@ -707,7 +791,7 @@ const Locations = () => {
                              <Edit className="h-4 w-4" /> Edit Record
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleDeactivateConfirm(location)} className="rounded-lg gap-2 cursor-pointer focus:bg-red-50 focus:text-red-600 text-red-600 font-medium">
-                             <X className="h-4 w-4" /> {location.status === 'active' ? 'Deactivate' : 'Activate'}
+                             <Archive className="h-4 w-4" /> {location.status === 'active' ? 'Archive Location' : 'Restore Location'}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -787,6 +871,23 @@ const Locations = () => {
                     </div>
                  </div>
                )}
+
+               {selectedLocation?.attachments && selectedLocation.attachments.length > 0 && (
+                 <div className="col-span-2 pt-4 border-t border-slate-100">
+                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">Site Photos ({selectedLocation.attachments.length})</p>
+                   <div className="grid grid-cols-2 gap-3">
+                     {selectedLocation.attachments.map((att, i) => (
+                       <div 
+                         key={i} 
+                         className="rounded-xl overflow-hidden border border-slate-100 shadow-sm aspect-video cursor-zoom-in hover:opacity-90 transition-all"
+                         onClick={() => setPreviewImage({ url: att.url, fileName: att.fileName || `Site Photo ${i+1}` })}
+                       >
+                         <img src={att.url} className="h-full w-full object-cover" alt={`Site ${i + 1}`} />
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+               )}
             </div>
           </div>
 
@@ -861,23 +962,32 @@ const Locations = () => {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-sm font-semibold">Photo</Label>
-                <div className="flex items-center gap-4">
-                  {editFormData.photoDataUrl && (
-                    <div className="h-16 w-16 rounded-xl border overflow-hidden shadow-sm">
-                      <img src={editFormData.photoDataUrl} className="h-full w-full object-cover" alt="Preview" />
+                <Label className="text-sm font-semibold">Site Photos</Label>
+                <div className="flex flex-wrap gap-2">
+                  {editFormData.attachments.map((att, i) => (
+                    <div key={i} className="relative h-16 w-16 border rounded-xl overflow-hidden group shadow-sm">
+                      <img src={att.url} className="h-full w-full object-cover" alt={`Attachment ${i + 1}`} />
+                      <button onClick={() => setEditFormData({...editFormData, attachments: editFormData.attachments.filter((_, idx) => idx !== i)})} className="absolute top-0 right-0 bg-red-500 text-white p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <X className="h-3 w-3" />
+                      </button>
                     </div>
-                  )}
-                  <Button variant="outline" size="sm" onClick={() => document.getElementById('edit-photo')?.click()} className="border-slate-200 font-semibold">
-                    Change Image
+                  ))}
+                  <Button variant="outline" size="sm" onClick={() => document.getElementById('edit-multiple-photos')?.click()} className="h-16 w-16 border-dashed border-2 hover:border-blue-400 hover:bg-blue-50 transition-all p-0 flex flex-col items-center justify-center rounded-xl">
+                    <ImageIcon className="h-4 w-4 text-blue-500 mb-1" />
+                    <span className="text-[10px]">Add Photo</span>
                   </Button>
-                  <input id="edit-photo" type="file" className="hidden" accept="image/*" onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
+                  <input id="edit-multiple-photos" type="file" className="hidden" accept="image/*" multiple onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    files.forEach(file => {
                       const reader = new FileReader();
-                      reader.onload = (re) => setEditFormData({...editFormData, photoDataUrl: re.target?.result as string, photoFileName: file.name});
+                      reader.onload = (re) => {
+                        setEditFormData(prev => ({
+                          ...prev, 
+                          attachments: [...prev.attachments, { fileName: file.name, url: re.target?.result as string }]
+                        }));
+                      };
                       reader.readAsDataURL(file);
-                    }
+                    });
                   }} />
                 </div>
               </div>
@@ -912,26 +1022,85 @@ const Locations = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Deactivate Modal */}
+      {/* Archive Modal */}
       <Dialog open={deactivateConfirmOpen} onOpenChange={setDeactivateConfirmOpen}>
         <DialogContent className="max-w-md p-0 overflow-hidden rounded-2xl border-0 shadow-2xl">
           <div className="p-8 text-center">
-            <div className="h-20 w-20 rounded-full bg-red-100 mx-auto flex items-center justify-center mb-6">
-               <AlertCircle className="h-10 w-10 text-red-600" />
+            <div className={cn(
+              "h-20 w-20 rounded-full mx-auto flex items-center justify-center mb-6",
+              selectedLocation?.status === 'active' ? "bg-amber-100" : "bg-blue-100"
+            )}>
+               <Archive className={cn("h-10 w-10", selectedLocation?.status === 'active' ? "text-amber-600" : "text-blue-600")} />
             </div>
-            <h3 className="text-2xl font-bold text-slate-800 mb-2">Change Site Status?</h3>
-            <p className="text-slate-500 mb-2">You are about to modify the operational status of:</p>
+            <h3 className="text-2xl font-bold text-slate-800 mb-2">
+              {selectedLocation?.status === 'active' ? 'Archive Site?' : 'Restore Site?'}
+            </h3>
+            <p className="text-slate-500 mb-2">
+              {selectedLocation?.status === 'active' 
+                ? 'This site will be moved to the archives and hidden from the active database.' 
+                : 'This site will be restored to the operational database.'}
+            </p>
             <p className="text-slate-900 font-extrabold text-lg p-3 bg-slate-50 rounded-xl border border-slate-100 mb-6">{selectedLocation?.name}</p>
             
             <div className="flex flex-col gap-3">
-               <Button onClick={confirmToggleActive} variant="destructive" className="h-12 text-base font-bold shadow-lg shadow-red-500/20 active:scale-95 transition-all">
-                  Confirm Status Change
+               <Button 
+                onClick={confirmToggleActive} 
+                className={cn(
+                  "h-12 text-base font-bold shadow-lg shadow-blue-500/20 active:scale-95 transition-all text-white",
+                  selectedLocation?.status === 'active' ? "bg-amber-600 hover:bg-amber-700 shadow-amber-500/20" : "bg-blue-600 hover:bg-blue-700 shadow-blue-500/20"
+                )}
+               >
+                  {selectedLocation?.status === 'active' ? 'Archive Location' : 'Restore Location'}
                </Button>
                <Button onClick={() => setDeactivateConfirmOpen(false)} variant="ghost" className="h-12 text-slate-500 font-semibold hover:bg-slate-50">
                   Cancel
                </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+      {/* Image Preview Modal */}
+      <Dialog open={!!previewImage} onOpenChange={(open) => !open && setPreviewImage(null)}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden rounded-2xl border-0 shadow-2xl !bg-slate-950 block">
+          {previewImage && (
+            <div className="relative flex flex-col h-full max-h-[90vh]">
+              <div className="absolute top-4 right-4 z-50 flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="bg-white/10 hover:bg-white/20 border-white/20 text-white rounded-full h-10 w-10 p-0"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = previewImage.url;
+                    link.download = previewImage.fileName || 'site-photo.jpg';
+                    link.click();
+                  }}
+                >
+                  <Download className="h-5 w-5" />
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="bg-white/10 hover:bg-white/20 border-white/20 text-white rounded-full h-10 w-10 p-0"
+                  onClick={() => setPreviewImage(null)}
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+              
+              <div className="flex-1 flex items-center justify-center p-4 min-h-[300px]">
+                <img 
+                  src={previewImage.url} 
+                  alt={previewImage.fileName} 
+                  className="max-w-full max-h-full object-contain shadow-2xl" 
+                />
+              </div>
+              
+              <div className="p-4 bg-gradient-to-t from-black/80 to-transparent">
+                <p className="text-white font-medium text-center">{previewImage.fileName}</p>
+              </div>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

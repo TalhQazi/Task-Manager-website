@@ -57,10 +57,32 @@
     --sidebar-ring: 221 83% 53%;
     --sidebar-muted: 215 16% 47%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(230 100% 67%), hsl(250 100% 60%));
-    --gradient-success: linear-gradient(135deg, hsl(150 100% 40%), hsl(175 100% 35%));
-    --gradient-warning: linear-gradient(135deg, hsl(35 100% 55%), hsl(20 100% 50%));
-    --gradient-danger: linear-gradient(135deg, hsl(350 100% 65%), hsl(330 100% 55%));
+    --gradient-red: linear-gradient(135deg, #E41A1C 0%, #C01618 100%);
+    --gradient-blue: linear-gradient(135deg, #377EB8 0%, #2B628F 100%);
+    --gradient-green: linear-gradient(135deg, #4DAF4A 0%, #3D8B3A 100%);
+    --gradient-purple-new: linear-gradient(135deg, #984EA3 0%, #7A3E82 100%);
+    --gradient-orange-new: linear-gradient(135deg, #FF7F00 0%, #CC6600 100%);
+    --gradient-yellow: linear-gradient(135deg, #FFFF33 0%, #E6E62E 100%);
+    --gradient-brown: linear-gradient(135deg, #A65628 0%, #854520 100%);
+    --gradient-pink-new: linear-gradient(135deg, #F781BF 0%, #C56798 100%);
+    --gradient-grey: linear-gradient(135deg, #999999 0%, #7A7A7A 100%);
+
+    --gradient-primary: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    --gradient-success: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    --gradient-danger: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    --gradient-info: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+    --gradient-purple: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+    --gradient-orange: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+    --gradient-indigo: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+    --gradient-teal: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+    --gradient-rose: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+    --gradient-amber: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+    --gradient-lime: linear-gradient(135deg, #84cc16 0%, #65a30d 100%);
+    --gradient-pink: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
+    --gradient-cyan: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+    --gradient-gold: linear-gradient(135deg, #ffd700 0%, #b8860b 100%);
+    --gradient-majesty: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
 
     --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
     --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -228,17 +250,78 @@
   .gradient-primary {
     background: var(--gradient-primary);
   }
-
   .gradient-success {
     background: var(--gradient-success);
   }
-
   .gradient-warning {
     background: var(--gradient-warning);
   }
-
   .gradient-danger {
     background: var(--gradient-danger);
+  }
+  .gradient-info {
+    background: var(--gradient-info);
+  }
+  .gradient-purple {
+    background: var(--gradient-purple);
+  }
+  .gradient-orange {
+    background: var(--gradient-orange);
+  }
+  .gradient-indigo {
+    background: var(--gradient-indigo);
+  }
+  .gradient-teal {
+    background: var(--gradient-teal);
+  }
+  .gradient-rose {
+    background: var(--gradient-rose);
+  }
+  .gradient-amber {
+    background: var(--gradient-amber);
+  }
+  .gradient-lime {
+    background: var(--gradient-lime);
+  }
+  .gradient-pink {
+    background: var(--gradient-pink);
+  }
+  .gradient-cyan {
+    background: var(--gradient-cyan);
+  }
+  .gradient-gold {
+    background: var(--gradient-gold);
+  }
+  .gradient-majesty {
+    background: var(--gradient-majesty);
+  }
+  .gradient-red {
+    background: var(--gradient-red);
+  }
+  .gradient-blue {
+    background: var(--gradient-blue);
+  }
+  .gradient-green {
+    background: var(--gradient-green);
+  }
+  .gradient-purple-new {
+    background: var(--gradient-purple-new);
+  }
+  .gradient-orange-new {
+    background: var(--gradient-orange-new);
+  }
+  .gradient-yellow {
+    background: var(--gradient-yellow);
+    color: #1a1a1a !important; /* Better contrast for yellow */
+  }
+  .gradient-brown {
+    background: var(--gradient-brown);
+  }
+  .gradient-pink-new {
+    background: var(--gradient-pink-new);
+  }
+  .gradient-grey {
+    background: var(--gradient-grey);
   }
 
   /* Task Completion Pulse Animations */

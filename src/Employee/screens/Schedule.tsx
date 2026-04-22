@@ -34,6 +34,8 @@ export default function EmployeeSchedule() {
     const loadSchedule = async () => {
       try {
         const res = await getEmployeeSchedule();
+        console.log("Schedule API response:", res);
+        console.log("Schedule items:", res.items);
         setEvents(res.items || []);
       } catch (err) {
         console.error("Failed to load schedule:", err);
@@ -50,8 +52,10 @@ export default function EmployeeSchedule() {
   const parseEventDate = (event: ScheduleEvent): Date | null => {
     if (!event.day) return null;
     try {
+      // Try parsing as ISO date first
       return parseISO(event.day);
     } catch {
+      // If it's a day name like "Tue", "Wed", etc., return null since we can't sort by date
       return null;
     }
   };
@@ -64,24 +68,13 @@ export default function EmployeeSchedule() {
     return matchesSearch && matchesType;
   });
 
-  // Sort events by date
-  const sortedEvents = [...filteredEvents].sort((a, b) => {
-    const dateA = parseEventDate(a);
-    const dateB = parseEventDate(b);
-    if (!dateA || !dateB) return 0;
-    return dateA.getTime() - dateB.getTime();
-  });
+  // Since backend sends day names like "Tue", "Wed", we can't sort by date
+  // Just use the filtered events as-is
+  const sortedEvents = filteredEvents;
 
-  // Group events
-  const upcomingEvents = sortedEvents.filter((e) => {
-    const date = parseEventDate(e);
-    return date && isAfter(date, addDays(now, -1));
-  });
-
-  const pastEvents = sortedEvents.filter((e) => {
-    const date = parseEventDate(e);
-    return date && isBefore(date, now);
-  });
+  // Show all events since we can't determine upcoming/past from day names
+  const upcomingEvents = sortedEvents;
+  const pastEvents: ScheduleEvent[] = [];
 
   const getTypeColor = (type: string) => {
     switch (type?.toLowerCase()) {
@@ -101,6 +94,11 @@ export default function EmployeeSchedule() {
   };
 
   const formatEventDate = (day: string) => {
+    // If it's a day name like "Tue", "Wed", just return it as-is
+    if (day && !day.includes("-")) {
+      return day;
+    }
+    // Otherwise try to parse as ISO date
     try {
       const date = parseISO(day);
       return format(date, "MMM d, yyyy");
@@ -110,6 +108,11 @@ export default function EmployeeSchedule() {
   };
 
   const formatEventDay = (day: string) => {
+    // If it's a day name like "Tue", "Wed", just return it as-is
+    if (day && !day.includes("-")) {
+      return day;
+    }
+    // Otherwise try to parse as ISO date
     try {
       const date = parseISO(day);
       const today = new Date();

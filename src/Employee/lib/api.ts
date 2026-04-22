@@ -6,18 +6,14 @@ export async function employeeApiFetch<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
 
-  const isFormData =
-    typeof FormData !== "undefined" &&
-    !!options.body &&
-    options.body instanceof FormData;
+   const isFormData = options.body instanceof FormData;
 
   const headers: Record<string, string> = {
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...((options.headers as Record<string, string>) || {}),
   };
 
-  if (!isFormData) {
-    headers["Content-Type"] = headers["Content-Type"] || "application/json";
-  }
+  
 
   const authRaw = localStorage.getItem("employee_auth");
   if (authRaw) {
@@ -129,12 +125,12 @@ export async function getEmployeeTimeEntryHistory() {
 // Submit scrum and clock out
 export async function submitScrumAndClockOut(scrum: string) {
   return employeeApiFetch<{
-    item: { 
-      id: string; 
-      date: string; 
-      clockIn: string; 
-      clockOut: string; 
-      status: string; 
+    item: {
+      id: string;
+      date: string;
+      clockIn: string;
+      clockOut: string;
+      status: string;
       totalHours: number;
       scrum: string;
     };
@@ -142,6 +138,51 @@ export async function submitScrumAndClockOut(scrum: string) {
     method: "POST",
     body: JSON.stringify({ scrum }),
   });
+}
+
+// Submit EOD report with structured data
+export async function submitEODReport(data: {
+  tasksCompleted: string;
+  issuesBlockers?: string;
+  notes?: string;
+}) {
+  return employeeApiFetch<{
+    item: {
+      id: string;
+      userId: string;
+      date: string;
+      rawInput: string;
+      inputType: string;
+      status: string;
+      createdAt: string;
+    };
+  }>("/api/employees/me/eod-report", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+// Get employee's EOD reports
+export async function getEmployeeEODReports(params?: { from?: string; to?: string }) {
+  const qs = new URLSearchParams();
+  if (params?.from) qs.set("from", params.from);
+  if (params?.to) qs.set("to", params.to);
+  const queryString = qs.toString();
+  return employeeApiFetch<{
+    items: Array<{
+      id: string;
+      userId: string;
+      employeeName: string;
+      date: string;
+      rawInput: string;
+      inputType: string;
+      status: string;
+      createdAt: string;
+    }>;
+    total: number;
+    page: number;
+    limit: number;
+  }>(`/api/employees/me/eod-reports${queryString ? `?${queryString}` : ""}`);
 }
 
 // Get scrum records for employee
@@ -173,6 +214,7 @@ export async function getTaskById(taskId: string) {
       createdAt?: string;
       attachmentFileName?: string;
       attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number };
+      attachments?: Array<{ fileName: string; url: string; mimeType: string; size: number }>;
       updatedAt?: string;
     };
   }>(`/api/tasks/${encodeURIComponent(taskId)}`);
@@ -354,3 +396,160 @@ export async function deletePersonalNote(id: string) {
     method: "DELETE"
   });
 }
+
+
+// Download any URL with authentication for Employee
+export async function downloadViaUrl(url: string, fileName: string): Promise<void> {
+  const authRaw = localStorage.getItem("employee_auth");
+  let token = "";
+  if (authRaw) {
+    try {
+      const auth = JSON.parse(authRaw);
+      token = auth.token || "";
+    } catch {}
+  }
+  
+  const res = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  
+  if (!res.ok) {
+    throw new Error(`Download failed (${res.status})`);
+  }
+  
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  
+  URL.revokeObjectURL(objectUrl);
+}
+
+
+
+// Payroll
+export async function getEmployeePayroll() {
+  return employeeApiFetch<{
+    items: Array<{
+      id: string;
+      payPeriod: string;
+      gross: number;
+      net: number;
+      taxes: number;
+      deductions: number;
+      pdfUrl: string;
+    }>;
+  }>("/api/employees/me/payroll");
+}
+
+// Tax Docs
+export async function getEmployeeTaxDocs(year?: number) {
+  return employeeApiFetch<{
+    items: Array<{
+      id: string;
+      year: number;
+      type: string;
+      fileUrl: string;
+    }>;
+  }>(`/api/employees/me/tax-docs${year ? `?year=${year}` : ""}`);
+}
+
+// Time Logs
+export async function getEmployeeTimeLogs() {
+  return employeeApiFetch<{
+    items: Array<{
+      id: string;
+      date: string;
+      clockIn: string;
+      clockOut: string;
+      totalHours: number;
+    }>;
+  }>("/api/employees/me/time-logs");
+}
+
+// Documents
+export async function getEmployeeDocuments() {
+  return employeeApiFetch<{
+    items: Array<{
+      id: string;
+      docType: string;
+      status: string;
+      fileUrl: string;
+    }>;
+  }>("/api/employees/me/documents");
+}
+
+// Profile update
+export async function updateEmployeeProfile(data: any) {
+  return employeeApiFetch<{ item: any }>("/api/employees/me/profile", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export const updateBankInfo = (data: any) =>
+  employeeApiFetch("/api/employees/me/profile/bank", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+
+export const updateTaxInfo = (data: any) =>
+  employeeApiFetch("/api/employees/me/profile/tax", {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+
+export const uploadDocument = (formData: FormData) =>
+  employeeApiFetch("/api/employees/me/documents", {
+    method: "POST",
+    body: formData,
+  });
+
+export const getDocuments = () =>
+  employeeApiFetch("/api/employees/me/documents");
+
+// Comment edit and delete APIs
+export async function updateComment(
+  taskId: string,
+  commentId: string,
+  payload: { message: string }
+): Promise<{ item: { id: string; message: string; updatedAt: string } }> {
+  return employeeApiFetch<{ item: { id: string; message: string; updatedAt: string } }>(`/api/tasks/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteComment(
+  taskId: string,
+  commentId: string
+): Promise<{ ok: true }> {
+  return employeeApiFetch<{ ok: true }>(`/api/tasks/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}`, {
+    method: "DELETE",
+  });
+}
+
+// Notification API functions
+export async function markNotificationAsRead(notificationId: string): Promise<{ success: boolean }> {
+  return employeeApiFetch<{ success: boolean }>(`/api/messages/${encodeURIComponent(notificationId)}/mark-read`, {
+    method: "POST"
+  });
+}
+
+export async function markAllNotificationsAsRead(): Promise<{ success: boolean }> {
+  return employeeApiFetch<{ success: boolean }>("/api/messages/mark-all-read", {
+    method: "POST"
+  });
+}
+
+export async function deleteNotification(notificationId: string): Promise<void> {
+  return employeeApiFetch<void>(`/api/messages/${encodeURIComponent(notificationId)}`, {
+    method: "DELETE"
+  });
+}
+

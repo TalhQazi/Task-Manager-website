@@ -37,11 +37,13 @@ export function SocketProvider({ children }: SocketProviderProps) {
     const empRaw = localStorage.getItem("employee_auth");
     if (!authRaw && !empRaw) return;
 
+
     const socket = io("https://task.se7eninc.com", {
       path: "/api/socket.io/",
       withCredentials: true,
       transports: ["websocket", "polling"],
     });
+
 
     socketRef.current = socket;
 

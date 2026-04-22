@@ -92,7 +92,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { io, Socket } from "socket.io-client";
 import { cn } from "@/lib/manger/utils";
-import { apiFetch, downloadTaskAttachment, toProxiedUrl } from "@/lib/manger/api";
+import { apiFetch, downloadTaskAttachment, toProxiedUrl, updateComment, deleteComment } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
 import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -469,6 +469,70 @@ const createTaskSchema = z.object({
 
 type CreateTaskValues = z.infer<typeof createTaskSchema>;
 
+// Task Contributors Component
+function TaskContributorsList({ taskId }: { taskId: string }) {
+  const [contributors, setContributors] = useState<Array<{
+    userId: string;
+    name: string;
+    email: string;
+    role: string;
+    contributionType?: string;
+    actions?: string[];
+    addedAt?: string;
+    avatar?: string;
+    stats?: any;
+  }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadContributors = async () => {
+      setLoading(true);
+      try {
+        const res = await apiFetch<{ items: typeof contributors }>(`/api/contributors/task/${encodeURIComponent(taskId)}/contributors`);
+        setContributors(res.items || []);
+      } catch (err) {
+        console.error("Failed to load task contributors:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadContributors();
+  }, [taskId]);
+
+  if (loading) {
+    return <div className="text-xs text-muted-foreground/70 italic">Loading collaborators...</div>;
+  }
+
+  if (contributors.length === 0) {
+    return <div className="text-xs text-muted-foreground/70 italic bg-muted/10 border border-dashed border-border/40 rounded-lg p-3 text-center">No collaborators yet</div>;
+  }
+
+  return (
+    <div className="flex flex-col gap-2 max-h-[180px] overflow-y-auto">
+      {contributors.map((contributor, idx) => (
+        <div key={idx} className="flex items-center gap-2.5 bg-background border border-border/60 rounded-lg px-3 py-2 shadow-xs">
+          <Avatar className="w-6 h-6">
+            <AvatarFallback className="text-[10px] bg-amber-100 text-amber-700 font-bold">
+              {contributor.name?.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase() || "?"}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex-1 min-w-0">
+            <span className="text-xs font-medium text-foreground/80 truncate">{contributor.name || "Unknown"}</span>
+            <div className="flex items-center gap-1 mt-0.5">
+              <Badge variant="outline" className="text-[8px] h-3 px-1">
+                {contributor.contributionType || "collaborator"}
+              </Badge>
+              <span className="text-[9px] text-muted-foreground">
+                {contributor.actions?.length || 0} actions
+              </span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Tasks() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
@@ -531,6 +595,9 @@ export default function Tasks() {
   const [commentAttachments, setCommentAttachments] = useState<File[]>([]);
   const [isSendingComment, setIsSendingComment] = useState(false);
   const [isViewProjectOpen, setIsViewProjectOpen] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editCommentDraft, setEditCommentDraft] = useState("");
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
   const chatContainerRef = useMemo(() => ({ current: null as HTMLDivElement | null }), []);
 
   // Fetch tasks with server-side pagination
@@ -1426,21 +1493,7 @@ export default function Tasks() {
                 Add Task
               </Button>
             </>
-          ) : (
-            <>
-              <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
-                <Plus className="w-4 h-4" />
-                Create Project
-              </Button>
-              <Button className="gap-2" onClick={() => {
-                setIsDirectTask(true);
-                setIsCreateTaskOpen(true);
-              }}>
-                <Plus className="w-4 h-4" />
-                Create Task
-              </Button>
-            </>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -1724,6 +1777,7 @@ export default function Tasks() {
                   type="file"
                   accept="image/*"
                   className="hidden"
+                  aria-label="Upload project logo"
                   onChange={(e) => {
                     const file = e.target.files?.[0] ?? null;
                     setProjectLogoFile(file);
@@ -1759,6 +1813,7 @@ export default function Tasks() {
                     accept="*"
                     multiple
                     className="hidden"
+                    aria-label="Upload project attachments"
                     onChange={(e) => {
                       const files = Array.from(e.target.files ?? []);
                       setProjectAttachmentFiles((prev) => [...prev, ...files]);
@@ -2016,6 +2071,7 @@ export default function Tasks() {
                     accept="*"
                     multiple
                     className="hidden"
+                    aria-label="Upload task attachments"
                     onChange={(e) => {
                       const files = Array.from(e.target.files ?? []);
                       setAttachmentFiles((prev) => [...prev, ...files]);
@@ -2090,9 +2146,6 @@ export default function Tasks() {
                       </div>
                       <DialogTitle className="text-xl sm:text-2xl font-black truncate leading-tight tracking-tight text-foreground">{selectedTask.title}</DialogTitle>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => setIsViewOpen(false)} className="rounded-full h-9 w-9 hover:bg-muted/80 transition-colors">
-                      <X className="h-4 w-4" />
-                    </Button>
                   </div>
                 </DialogHeader>
 
@@ -2122,19 +2175,31 @@ export default function Tasks() {
                           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                             {/* Task Specific Attachments */}
                             {selectedTask.attachments?.map((att, idx) => (
-                              <div key={`task-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-border/60 bg-background shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-zoom-in" onClick={() => att.url && setPreviewUrl(att.url) && setPreviewName(att.fileName || "Attachment")}>
+                              <div key={`task-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-border/60 bg-background shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-zoom-in" onClick={() => {
+                                if (att.url) {
+                                  setPreviewUrl(att.url);
+                                  setPreviewName(att.fileName || "Attachment");
+                                }
+                              }}>
                                 <TaskAttachmentImg taskId={selectedTask.id} index={idx} mimeType={att.mimeType} fileName={att.fileName} fallbackUrl={att.url} onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }} />
                                 <div className="p-2.5 border-t text-[11px] font-bold truncate bg-card/50 backdrop-blur-sm text-muted-foreground">{att.fileName}</div>
                                 <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
                                   <button 
-                                    onClick={(e) => { e.stopPropagation(); setPreviewUrl(att.url); setPreviewName(att.fileName || "Attachment"); }} 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setPreviewUrl(att.url);
+                                      setPreviewName(att.fileName || "Attachment");
+                                    }} 
                                     className="bg-primary text-primary-foreground p-2 rounded-full shadow-lg hover:scale-110 transition-transform"
                                     title="Preview"
                                   >
                                     <Maximize2 className="h-4 w-4" />
                                   </button>
                                   <button 
-                                    onClick={(e) => { e.stopPropagation(); void downloadTaskAttachment(selectedTask.id, idx, att.fileName); }} 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void downloadTaskAttachment(selectedTask.id, idx, att.fileName);
+                                    }} 
                                     className="bg-primary text-primary-foreground p-2 rounded-full shadow-lg hover:scale-110 transition-transform"
                                     title="Download"
                                   >
@@ -2146,7 +2211,12 @@ export default function Tasks() {
 
                             {/* Project Attachments */}
                             {selectedProject?.attachments?.map((att, idx) => (
-                              <div key={`proj-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-primary/20 bg-primary/5 shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-zoom-in" onClick={() => att.url && setPreviewUrl(att.url) && setPreviewName(att.fileName || "Attachment")}>
+                              <div key={`proj-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-primary/20 bg-primary/5 shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-zoom-in" onClick={() => {
+                                if (att.url) {
+                                  setPreviewUrl(att.url);
+                                  setPreviewName(att.fileName || "Attachment");
+                                }
+                              }}>
                                 <div className="absolute top-2 left-2 z-10"><Badge className="text-[8px] h-4 bg-primary text-white font-black border-none px-1.5 uppercase">Project</Badge></div>
                                 {(att.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(att.fileName || "")) && att.url ? (
                                   <img src={att.url} alt={att.fileName} className="w-full h-24 object-cover" />
@@ -2230,7 +2300,7 @@ export default function Tasks() {
                                     {c.attachments && c.attachments.length > 0 && (
                                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-3 border-t border-dashed border-border/50">
                                         {c.attachments.map((att, attIdx) => (
-                                          <div key={attIdx} className="relative rounded-xl overflow-hidden border border-border/50 bg-background shadow-xs group/att aspect-square flex flex-col items-center justify-center bg-muted/5 cursor-pointer">
+                                          <div key={attIdx} className="relative rounded-xl overflow-hidden border border-border/50 bg-background shadow-xs group/att aspect-square flex flex-col items-center justify-center cursor-pointer">
                                             <CommentAttachmentImg 
                                               taskId={selectedTask.id} 
                                               commentId={c.id} 
@@ -2260,7 +2330,7 @@ export default function Tasks() {
                               <div className="p-3 border-b bg-muted/5 grid grid-cols-3 sm:grid-cols-6 gap-3 max-h-40 overflow-y-auto rounded-t-3xl border-dashed">
                                 {commentAttachments.map((f, i) => (
                                   <div key={i} className="relative rounded-xl border border-border/50 bg-background flex flex-col items-center justify-center p-2 text-center aspect-square group shadow-xs">
-                                    {f.type.startsWith("image/") ? <img src={URL.createObjectURL(f)} className="w-full h-full object-cover rounded-md" /> : <FileText className="h-5 w-5 text-muted-foreground/60" />}
+                                    {f.type.startsWith("image/") ? <img src={URL.createObjectURL(f)} alt={f.name} className="w-full h-full object-cover rounded-md" /> : <FileText className="h-5 w-5 text-muted-foreground/60" />}
                                     <span className="text-[9px] w-full mt-1.5 truncate font-bold text-muted-foreground/70 uppercase px-1">{f.name}</span>
                                     <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-2 -right-2 bg-destructive text-white rounded-full w-5 h-5 flex items-center justify-center shadow-lg hover:scale-110 transition-transform text-[10px] font-black border-2 border-background">✕</button>
                                   </div>
@@ -2277,7 +2347,7 @@ export default function Tasks() {
                               <button type="button" onClick={() => { const el = document.getElementById("task-comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground/70 hover:text-primary hover:bg-primary/10 rounded-xl transition-all flex items-center gap-2 group" title="Shared assets">
                                 <Paperclip className="w-4 h-4 group-hover:rotate-12 transition-transform" /> <span className="text-[12px] font-bold uppercase tracking-wider hidden sm:inline">Attach Files</span>
                               </button>
-                              <input id="task-comment-attachment-input" type="file" multiple className="hidden" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value = ''; }} />
+                              <input id="task-comment-attachment-input" type="file" multiple className="hidden" aria-label="Attach files to comment" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value = ''; }} />
                               <Button type="button" onClick={() => void sendComment()} disabled={(!commentDraft.trim() && commentAttachments.length === 0) || isSendingComment} className="h-10 px-6 rounded-xl font-black uppercase tracking-widest text-[11px] shadow-lg hover:shadow-primary/20 transition-all border-none">
                                 {isSendingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send Message"}
                               </Button>
@@ -2345,6 +2415,14 @@ export default function Tasks() {
                             <p className="text-[13px] font-bold text-foreground/80 bg-background border border-border/60 rounded-xl px-4 py-3 truncate shadow-xs" title={selectedTask.location}>{selectedTask.location}</p>
                           </div>
                         )}
+                      </div>
+
+                      {/* Task Collaborators */}
+                      <div className="space-y-3 pt-6 border-t border-border/60">
+                        <label className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest flex items-center gap-2">
+                          <TrendingUp className="w-3.5 h-3.5" /> Collaborators
+                        </label>
+                        <TaskContributorsList taskId={selectedTask.id} />
                       </div>
 
                       <div className="pt-8 space-y-3 border-t border-border/60 border-dashed">
@@ -2432,8 +2510,8 @@ export default function Tasks() {
                                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
                                         {c.attachments.map((att: any, attIdx: number) => (
                                           <div key={attIdx} className="relative rounded-lg overflow-hidden border border-border/40 bg-background shadow-xs group/att aspect-square flex flex-col items-center justify-center cursor-pointer">
-                                            {att.mimeType?.startsWith("image/") ? <img src={att.url} className="w-full h-full object-cover" /> : <FileText className="h-6 w-6 text-muted-foreground/30" />}
-                                            <a href={att.url || "#"} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]"><Download className="h-4 w-4 text-white" /></a>
+                                            {att.mimeType?.startsWith("image/") ? <img src={att.url} alt={att.fileName} className="w-full h-full object-cover" /> : <FileText className="h-6 w-6 text-muted-foreground/30" />}
+                                            <a href={att.url || "#"} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]" title="Download attachment"><Download className="h-4 w-4 text-white" /></a>
                                           </div>
                                         ))}
                                       </div>
@@ -2452,7 +2530,7 @@ export default function Tasks() {
                               <div className="p-3 border-b bg-muted/5 grid grid-cols-6 gap-2">
                                 {commentAttachments.map((f, i) => (
                                   <div key={i} className="relative rounded-lg border border-border/50 bg-background p-1 aspect-square group">
-                                    {f.type.startsWith("image/") ? <img src={URL.createObjectURL(f)} className="w-full h-full object-cover rounded" /> : <FileText className="h-4 w-4 mx-auto mt-1 text-muted-foreground" />}
+                                    {f.type.startsWith("image/") ? <img src={URL.createObjectURL(f)} alt={f.name} className="w-full h-full object-cover rounded" /> : <FileText className="h-4 w-4 mx-auto mt-1 text-muted-foreground" />}
                                     <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1 -right-1 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center text-[7px] font-black border-2 border-background">✕</button>
                                   </div>
                                 ))}
@@ -2468,7 +2546,7 @@ export default function Tasks() {
                               <button type="button" onClick={() => { const el = document.getElementById("proj-comment-attachment-input-emp") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground/70 hover:text-primary transition-colors flex items-center gap-2 group">
                                 <Paperclip className="w-4 h-4" /> <span className="text-[11px] font-black uppercase tracking-wider">Add files</span>
                               </button>
-                              <input id="proj-comment-attachment-input-emp" type="file" multiple className="hidden" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value=''; }} />
+                              <input id="proj-comment-attachment-input-emp" type="file" multiple className="hidden" aria-label="Attach files to project comment" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value=''; }} />
                               <Button type="button" onClick={() => void sendComment(true)} disabled={(!commentDraft.trim() && commentAttachments.length === 0) || isSendingComment} className="h-9 px-5 rounded-xl font-black uppercase tracking-[0.1em] text-[10px] shadow-lg">
                                 {isSendingComment ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : null}
                                 Post Update
@@ -2508,7 +2586,7 @@ export default function Tasks() {
                           <div className="grid grid-cols-2 gap-2">
                             {selectedProject.attachments?.map((att, idx) => (
                               <a href={att.url} target="_blank" rel="noopener noreferrer" key={idx} className="bg-background border border-border/40 p-2 rounded-xl flex flex-col items-center justify-center gap-2 group hover:border-primary/20 transition-all">
-                                {att.mimeType?.startsWith("image/") ? <img src={att.url} className="w-full h-12 object-cover rounded-md" /> : <FileText className="w-6 h-6 text-muted-foreground/30" />}
+                                {att.mimeType?.startsWith("image/") ? <img src={att.url} alt={att.fileName} className="w-full h-12 object-cover rounded-md" /> : <FileText className="w-6 h-6 text-muted-foreground/30" />}
                                 <span className="text-[8px] font-black text-muted-foreground/60 truncate w-full text-center">{att.fileName}</span>
                               </a>
                             ))}

@@ -1,6 +1,6 @@
 import { Sidebar } from "./Sidebar";
 import { ReactNode, useState, useEffect } from "react";
-import { Bell, Bug, Mail, Menu, Search, User } from "lucide-react";
+import { Bell, Bug, LogOut, Mail, Menu, Search, Settings, User } from "lucide-react";
 import { TaskBlaster } from "@/components/shared/TaskBlaster";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "@/components/manger/ui/sheet";
 import { Button } from "@/components/manger/ui/button";
@@ -135,23 +135,6 @@ export function MainLayout({ children }: MainLayoutProps) {
   });
 
   const headerSettings = headerSettingsQuery.data?.item;
-  const [headerHeight, setHeaderHeight] = useState(250);
-  
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 768) {
-        setHeaderHeight(120);
-      } else if (window.innerWidth < 1024) {
-        setHeaderHeight(180);
-      } else {
-        setHeaderHeight(250);
-      }
-    };
-    
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
 
   const hasImageBackground = headerSettings?.backgroundType === 'image' && headerSettings.imageConfig?.dataUrl;
 
@@ -293,32 +276,35 @@ export function MainLayout({ children }: MainLayoutProps) {
     <div className="min-h-screen bg-[#e6f0ff]">
       {/* Top header with dynamic background from admin settings - FULL WIDTH */}
       <header 
-        className="fixed top-0 left-0 right-0 z-30 shadow-floating overflow-hidden"
-        style={{ height: `${headerHeight}px` }}
+        className="fixed top-0 left-0 right-0 z-50 shadow-floating"
+        style={{ 
+          height: '300px',
+          left: '0',
+        }}
       >
         <div 
-          className="w-full h-full relative"
+          className="w-full h-full relative overflow-hidden group"
           style={{
             background: hasImageBackground 
               ? 'transparent'
               : `linear-gradient(to right, ${headerSettings?.colorConfig?.from || '#133767'}, ${headerSettings?.colorConfig?.via || '#133767'}, ${headerSettings?.colorConfig?.to || '#133767'})`
           }}
         >
-          {/* Background Image - Full Width */}
+          {/* Background Image */}
           {hasImageBackground && (
             <>
               <img
                 src={headerSettings?.imageConfig?.dataUrl}
                 alt="header background"
-                className="absolute inset-0 w-full h-full object-cover"
-                style={{ 
+                className="absolute inset-0 w-full h-full"
+                style={{
+                  objectFit: 'cover',
                   objectPosition: headerSettings?.imageConfig?.position || 'center',
-                  objectFit: headerSettings?.imageConfig?.size === 'contain' ? 'contain' : 'cover'
                 }}
+                draggable={false}
               />
-              {/* Overlay */}
               {headerSettings?.overlay?.enabled && (
-                <div
+                <div 
                   className="absolute inset-0"
                   style={{ backgroundColor: headerSettings.overlay.color || 'rgba(0,0,0,0.3)' }}
                 />
@@ -329,215 +315,133 @@ export function MainLayout({ children }: MainLayoutProps) {
           <div className="absolute inset-0 flex flex-col pointer-events-none">
             {/* Header Content Area */}
             <div 
-              className="flex-1 relative flex items-start justify-between px-3 sm:px-6 lg:px-10 pt-4 sm:pt-6 md:pt-10 animate-fade-in md:pl-20 lg:pl-24"
+              className="flex-1 relative flex flex-col justify-end px-3 sm:px-6 lg:px-8 md:pl-64 pb-8 sm:pb-12 md:pb-16 animate-fade-in pointer-events-auto"
             >
               {/* LEFT SIDE: Branding and Profile Stacking */}
-              <div className="flex flex-col gap-4 text-white z-30 relative pointer-events-auto mr-auto">
-                {/* Task Manager Logo (Complete, not in circle) */}
-                <div className="flex items-center h-16 w-auto sm:h-24 z-20 transition-all duration-300 hover:scale-105">
-                  <img
-                    src="/task.png"
-                    alt="Task Manager logo"
-                    className="h-full w-auto object-contain rounded-lg shadow-2xl bg-white/10 p-1.5"
-                  />
-                </div>
-
-                {/* Profile and Icons Row */}
-                <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-                  <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="hidden sm:inline-flex relative h-9 w-9 rounded-full bg-white/10 hover:bg-white/20"
-                aria-label="Report Issue"
-                onClick={() => {
-                  resetReport();
-                  setReportOpen(true);
-                }}
-              >
-                <Bug className="h-4 w-4" />
-              </Button>
-
-              {/* Notifications dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="hidden sm:inline-flex relative h-9 w-9 rounded-full bg-white/10 hover:bg-white/20"
-                    aria-label="Notifications"
-                  >
-                    <Bell className="h-4 w-4" />
-                    {unreadCount > 0 && (
-                      <Badge className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 p-0 flex items-center justify-center bg-red-500 text-[10px]">
-                        {unreadCount > 9 ? "9+" : unreadCount}
-                      </Badge>
-                    )}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-72 mr-2">
-                  <DropdownMenuSeparator />
-                  {notifications.length === 0 ? (
-                    <DropdownMenuItem className="text-xs text-muted-foreground">
-                      No notifications
+              <div className="flex flex-col gap-4">
+                {/* Profile Card (Top) */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <div className="flex items-center gap-3 p-2 rounded-xl bg-black/20 backdrop-blur-md border border-white/10 hover:bg-black/30 transition-all cursor-pointer group w-fit">
+                      <div className="relative">
+                        <Avatar className="h-10 w-10 border border-white/20 shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20 transition-all">
+                          {avatarUrl ? (
+                            <AvatarImage src={avatarUrl} alt={fullName} className="object-cover" />
+                          ) : (
+                            <AvatarFallback className="bg-gradient-to-br from-[#00C6FF] to-[#0072FF] text-white text-xs font-bold">{initials}</AvatarFallback>
+                          )}
+                        </Avatar>
+                        <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-black rounded-full" />
+                      </div>
+                      <div className="flex flex-col min-w-0 pr-4">
+                        <span className="text-base font-bold text-white truncate leading-tight drop-shadow-md">{fullName}</span>
+                        <span className="text-[11px] text-white/60 truncate tracking-wide uppercase font-semibold">{auth.role || "Manager"}</span>
+                      </div>
+                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" side="bottom" className="w-56 mt-2">
+                    <DropdownMenuLabel className="text-xs">Account Settings</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => navigate("/manager/settings")}>
+                      <User className="mr-2 h-4 w-4" /> Profile Details
                     </DropdownMenuItem>
-                  ) : (
-                    notifications.map((n) => (
-                      <DropdownMenuItem
-                        key={n.id}
-                        className="flex flex-col items-start gap-0.5 text-xs"
-                        onClick={() => {
-                          void markRead(n.id);
-                          navigate(resolveNotificationLink(n));
-                        }}
-                      >
-                        <span className="font-medium line-clamp-1">
-                          {String(n.content || "")}
-                        </span>
-                      </DropdownMenuItem>
-                    ))
-                  )}
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-xs text-center justify-center font-medium text-primary cursor-pointer"
-                    onClick={async () => {
-                      await markAllRead();
-                      navigate("/manager/notifications");
-                    }}
-                  >
-                    View all notifications
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    <DropdownMenuItem onClick={() => navigate("/manager/settings")}>
+                      <Settings className="mr-2 h-4 w-4" /> System Preferences
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
-              {/* Messages icon - go to messages */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="hidden sm:inline-flex relative h-9 w-9 rounded-full bg-white/10 hover:bg-white/20"
-                    aria-label="Messages"
-                  >
-                    <Mail className="h-4 w-4" />
-                    {unreadMessageCount > 0 && (
-                      <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[10px]">
-                        {Math.min(unreadMessageCount, 9)}
-                      </Badge>
-                    )}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-80 mr-2">
-                  <DropdownMenuSeparator />
-                  {(messagesQuery.data || []).length === 0 ? (
-                    <DropdownMenuItem className="text-xs text-muted-foreground">No messages</DropdownMenuItem>
-                  ) : (
-                    (messagesQuery.data || []).slice(0, 4).map((c) => (
-                      <DropdownMenuItem
-                        key={c.employee?.id || c.employee?.name}
-                        className="flex items-start gap-3 py-3 text-xs"
-                        onClick={() => navigate("/manager/messages", { state: { selectedEmployee: c.employee } })}
-                      >
-                        <div className="h-8 w-8 rounded-full bg-muted flex items-center justify-center flex-shrink-0">
-                          <span className="text-xs font-medium">{c.employee?.initials || c.employee?.name?.slice(0,2).toUpperCase()}</span>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-xs truncate">{c.employee?.name}</p>
-                          <p className="text-[11px] text-muted-foreground line-clamp-1">
-                            {c.lastMessage?.content || "No messages yet"}
-                          </p>
-                        </div>
-                        {c.unreadCount > 0 && (
-                          <Badge className="h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[9px] text-white flex-shrink-0">
-                            {c.unreadCount}
+                {/* Quick Actions Bar (Bottom) */}
+                <div className="flex items-center justify-start gap-4">
+                  <div className="md:hidden">
+                    <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/[0.14] transition-all" aria-label="Open navigation" onClick={() => setMobileSidebarOpen(true)}><Menu className="h-5 w-5 text-white" /></button>
+                  </div>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
+                        <Mail className="h-5 w-5" />
+                        {unreadMessageCount > 0 && (
+                          <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-[#00C6FF] text-[9px] border-black">
+                            {Math.min(unreadMessageCount, 9)}
                           </Badge>
                         )}
-                      </DropdownMenuItem>
-                    ))
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* Profile menu with avatar / initials */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="hidden sm:inline-flex items-center justify-center h-12 w-12 p-0 rounded-full bg-transparent hover:bg-transparent"
-                    aria-label="Account menu"
-                  >
-                    <Avatar className="h-12 w-12 border border-white/70">
-                      {avatarUrl ? (
-                        <AvatarImage src={avatarUrl} alt={fullName} className="object-cover" crossOrigin="anonymous" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
+                      <DropdownMenuLabel className="text-xs">Direct Messages</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {messagesQuery.data?.length === 0 ? (
+                        <div className="p-4 text-center text-xs text-muted-foreground">No messages</div>
                       ) : (
-                        <AvatarFallback className="bg-white/20 text-sm font-semibold">
-                          {initials}
-                        </AvatarFallback>
+                        messagesQuery.data?.map(c => (
+                          <DropdownMenuItem key={c.employee?.id} onClick={() => navigate("/manager/messages")}>
+                            <div className="flex flex-col gap-0.5">
+                              <span className="font-medium text-xs">{c.employee?.name}</span>
+                              <span className="text-[10px] text-muted-foreground truncate">{c.lastMessage?.content}</span>
+                            </div>
+                          </DropdownMenuItem>
+                        ))
                       )}
-                    </Avatar>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 mr-2">
-                  <DropdownMenuLabel className="text-xs">
-                    {fullName}
-                    {email && (
-                      <span className="block text-[11px] text-muted-foreground">{email}</span>
-                    )}
-                  </DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-xs"
-                    onClick={() => navigate("/manager/settings")}
-                  >
-                    <User className="mr-2 h-4 w-4" />
-                    Profile & Settings
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-xs text-destructive"
-                    onClick={() => {
-                      clearAuthState();
-                      navigate("/login", { replace: true });
-                    }}
-                  >
-                    Logout
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
 
-              {/* Mobile nav trigger */}
-              <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
-                <SheetTrigger asChild>
-                  <button
-                    type="button"
-                    className="inline-flex md:hidden h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-                    aria-label="Open navigation"
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
+                        <Bell className="h-4.5 w-4.5" />
+                        {unreadCount > 0 && (
+                          <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[9px] border-black">
+                            {unreadCount > 9 ? "9+" : unreadCount}
+                          </Badge>
+                        )}
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
+                      <DropdownMenuLabel className="text-xs">Notifications</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {notificationsQuery.data?.length === 0 ? (
+                        <div className="p-4 text-center text-xs text-muted-foreground">No notifications</div>
+                      ) : (
+                        notificationsQuery.data?.slice(0, 5).map(n => (
+                          <DropdownMenuItem key={n.id} className="text-xs">{n.content}</DropdownMenuItem>
+                        ))
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <button 
+                    onClick={() => { resetReport(); setReportOpen(true); }}
+                    className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white"
+                    title="Submit Bug Report"
                   >
-                    <Menu className="h-5 w-5" />
+                    <Bug className="h-4.5 w-4.5" />
                   </button>
-                </SheetTrigger>
-                <SheetContent side="left" className="p-0 w-64">
-                  <SheetHeader className="sr-only">
-                    <SheetTitle>Navigation Menu</SheetTitle>
-                    <SheetDescription>Main navigation for managers</SheetDescription>
-                  </SheetHeader>
-                  <Sidebar mode="mobile" onNavigate={() => setMobileSidebarOpen(false)} />
-                </SheetContent>
-              </Sheet>
+
+                  <button 
+                    onClick={() => { clearAuthState(); navigate("/login"); }}
+                    className="p-2 rounded-lg bg-black/20 hover:bg-red-500/20 backdrop-blur-sm transition-colors text-red-400/70 hover:text-red-400"
+                    title="Logout"
+                  >
+                    <LogOut className="h-4.5 w-4.5" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-
-          {/* Founder Message Bar at the very bottom of the fixed header */}
-          <div className="mt-auto pointer-events-auto w-full z-40 bg-metallic-gold/90 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.1)] md:pl-56 lg:pl-64">
-            <FounderMessageBar />
-          </div>
-          </div>
         </div>
       </header>
+
+      {/* Mobile Sidebar */}
+      <Sheet open={mobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
+        <SheetContent side="left" className="p-0 w-64 bg-gradient-to-b from-[#0B1323] via-[#0B1323] to-[#0F172A]">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Navigation Menu</SheetTitle>
+            <SheetDescription>Main navigation for managers</SheetDescription>
+          </SheetHeader>
+          <Sidebar mode="mobile" onNavigate={() => setMobileSidebarOpen(false)} />
+        </SheetContent>
+      </Sheet>
 
       <Dialog
         open={reportOpen}
@@ -623,7 +527,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         </div>
         <main 
           className="flex-1 min-h-screen md:ml-56 lg:ml-64"
-          style={{ paddingTop: `${headerHeight}px` }}
+          style={{ paddingTop: '300px' }}
         >
           <div className="w-full px-4 py-4 sm:py-8 animate-fade-in">
             {children}

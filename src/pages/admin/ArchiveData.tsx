@@ -63,12 +63,14 @@ const itemTypeIcons: Record<string, any> = {
   comment: MessageSquare,
   attachment: Paperclip,
   task: FileText,
+  user: User,
 };
 
 const itemTypeColors: Record<string, string> = {
   comment: "bg-blue-100 text-blue-700 border-blue-200",
   attachment: "bg-purple-100 text-purple-700 border-purple-200",
   task: "bg-amber-100 text-amber-700 border-amber-200",
+  user: "bg-slate-100 text-slate-700 border-slate-200",
 };
 
 export default function ArchiveData() {
@@ -166,6 +168,9 @@ export default function ArchiveData() {
     return (
       (data.message || "").toLowerCase().includes(q) ||
       (data.fileName || "").toLowerCase().includes(q) ||
+      (data.name || "").toLowerCase().includes(q) ||
+      (data.email || "").toLowerCase().includes(q) ||
+      (data.username || "").toLowerCase().includes(q) ||
       (item.parentName || "").toLowerCase().includes(q) ||
       (data.authorUsername || "").toLowerCase().includes(q)
     );
@@ -217,6 +222,7 @@ export default function ArchiveData() {
                 <SelectItem value="comment">Comments</SelectItem>
                 <SelectItem value="attachment">Attachments</SelectItem>
                 <SelectItem value="task">Tasks</SelectItem>
+                <SelectItem value="user">Users</SelectItem>
               </SelectContent>
             </Select>
             <Button
@@ -239,6 +245,7 @@ export default function ArchiveData() {
             { label: "Comments", count: items.filter((i) => i.itemType === "comment").length, color: "bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200" },
             { label: "Attachments", count: items.filter((i) => i.itemType === "attachment").length, color: "bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200" },
             { label: "Tasks", count: items.filter((i) => i.itemType === "task").length, color: "bg-gradient-to-br from-amber-50 to-amber-100 border-amber-200" },
+            { label: "Users", count: items.filter((i) => i.itemType === "user").length, color: "bg-gradient-to-br from-slate-50 to-slate-100 border-slate-200" },
           ].map((stat) => (
             <Card key={stat.label} className={`shadow-sm border ${stat.color}`}>
               <CardContent className="p-3 sm:p-4">
@@ -336,6 +343,18 @@ export default function ArchiveData() {
                                   {item.itemData.assignees?.length > 0 && (
                                     <span>Assigned: {item.itemData.assignees.join(", ")}</span>
                                   )}
+                                </div>
+                              </div>
+                            )}
+                            {item.itemType === "user" && (
+                              <div className="space-y-1">
+                                <p className="text-sm font-medium break-words">
+                                  {item.itemData.name || "—"}
+                                </p>
+                                <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground">
+                                  <span>{item.itemData.email}</span>
+                                  <span className="px-1.5 py-0.5 rounded bg-muted capitalize">{item.itemData.role}</span>
+                                  <span className="px-1.5 py-0.5 rounded bg-muted">username: {item.itemData.username}</span>
                                 </div>
                               </div>
                             )}

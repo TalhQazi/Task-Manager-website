@@ -1,4 +1,4 @@
-import { Bell, Bug, Camera, ChevronDown, ChevronUp, Loader2, LogOut, Mail, Menu, Move, Save, Search, User, Settings, X as XIcon } from "lucide-react";
+import { Bell, Bug, Camera, CheckCircle2, ChevronDown, ChevronUp, Loader2, LogOut, Mail, Menu, Move, Save, Search, User, Settings, X as XIcon, Paperclip } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -308,8 +308,7 @@ export function Header({ onMenuClick }: HeaderProps) {
         method: "POST",
         body: JSON.stringify({ title: reportTitle, description: reportDescription, attachments, source: { panel: "admin", path: window.location.pathname } }),
       });
-      setReportSuccess("Submitted!");
-      setTimeout(() => setReportOpen(false), 1500);
+      setReportSuccess("Your bug report has been sent successfully!");
     } catch (e) {
       setReportError("Failed to submit.");
     } finally {
@@ -674,6 +673,10 @@ export function Header({ onMenuClick }: HeaderProps) {
 
               {/* Quick Actions Bar (Bottom) */}
               <div className="flex items-center justify-start gap-4">
+                <div className="md:hidden">
+                  <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/[0.14] transition-all" aria-label="Open navigation" onClick={() => onMenuClick?.()}><Menu className="h-5 w-5 text-white" /></button>
+                </div>
+
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
@@ -744,10 +747,6 @@ export function Header({ onMenuClick }: HeaderProps) {
                 >
                   <LogOut className="h-4.5 w-4.5" />
                 </button>
-
-                <div className="md:hidden">
-                  <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/[0.14] transition-all" aria-label="Open navigation" onClick={() => onMenuClick?.()}><Menu className="h-5 w-5 text-white" /></button>
-                </div>
               </div>
             </div>
           </div>
@@ -756,58 +755,112 @@ export function Header({ onMenuClick }: HeaderProps) {
         {/* Bug Report Dialog */}
         <Dialog open={reportOpen} onOpenChange={setReportOpen}>
           <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle>Report an Issue</DialogTitle>
-              <DialogDescription>Help us improve Task Manager by reporting bugs.</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-2">
-              <div className="space-y-2">
-                <label className="text-xs font-medium">Title</label>
-                <Input value={reportTitle} onChange={e => setReportTitle(e.target.value)} placeholder="What's wrong?" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-medium">Description</label>
-                <textarea 
-                  value={reportDescription} 
-                  onChange={e => setReportDescription(e.target.value)} 
-                  className="w-full rounded-md border p-2 text-sm min-h-24 bg-background"
-                  placeholder="Give us details..."
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-xs font-medium">Attachments (Max 5)</label>
-                <div className="flex flex-wrap gap-2">
-                   {reportImagePreviewUrls.map((url, i) => (
-                     <div key={i} className="relative h-16 w-16 border rounded overflow-hidden group">
-                       <img src={url} className="h-full w-full object-cover" />
-                       <button onClick={() => {
-                          URL.revokeObjectURL(url);
-                          setReportImagePreviewUrls(p => p.filter((_, idx) => idx !== i));
-                          setReportImageFiles(p => p.filter((_, idx) => idx !== i));
-                       }} className="absolute top-0 right-0 bg-red-500 text-white p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                         <XIcon className="h-3 w-3" />
-                       </button>
-                     </div>
-                   ))}
-                   {reportImageFiles.length < 5 && (
-                     <button 
-                      onClick={handlePasteImage}
-                      className="h-16 w-16 border-2 border-dashed rounded flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors"
-                      title="Paste image"
-                     >
-                       <Camera className="h-4 w-4 mb-1" />
-                       <span className="text-[8px]">Paste</span>
-                     </button>
-                   )}
+            {reportSuccess ? (
+              <div className="flex flex-col items-center justify-center py-10 space-y-6 animate-in fade-in zoom-in duration-500">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-green-500/20 blur-2xl rounded-full animate-pulse" />
+                  <div className="relative h-20 w-20 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center shadow-xl shadow-green-500/30">
+                    <CheckCircle2 className="h-10 w-10 text-white animate-bounce" />
+                  </div>
                 </div>
+                <div className="text-center space-y-2">
+                  <DialogTitle className="text-2xl font-bold tracking-tight text-foreground text-center">Report Sent!</DialogTitle>
+                  <DialogDescription className="text-sm text-center text-muted-foreground max-w-[240px] leading-relaxed mx-auto">
+                    {reportSuccess}
+                  </DialogDescription>
+                </div>
+                <Button 
+                  onClick={() => {
+                    setReportOpen(false);
+                    setReportSuccess(null);
+                  }}
+                  className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 px-10 rounded-full transition-all hover:scale-105 active:scale-95 font-semibold"
+                >
+                  Done
+                </Button>
               </div>
-            </div>
-            {reportError && <p className="text-xs text-red-500">{reportError}</p>}
-            {reportSuccess && <p className="text-xs text-green-500 font-bold">{reportSuccess}</p>}
-            <DialogFooter>
-              <Button variant="ghost" size="sm" onClick={() => setReportOpen(false)}>Cancel</Button>
-              <Button size="sm" onClick={submitReport} disabled={reportSubmitting}>{reportSubmitting ? "Sending..." : "Submit Report"}</Button>
-            </DialogFooter>
+            ) : (
+              <>
+                <DialogHeader>
+                  <DialogTitle>Report an Issue</DialogTitle>
+                  <DialogDescription>Help us improve Task Manager by reporting bugs.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-2">
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium">Title</label>
+                    <Input value={reportTitle} onChange={e => setReportTitle(e.target.value)} placeholder="What's wrong?" />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium">Description</label>
+                    <textarea 
+                      value={reportDescription} 
+                      onChange={e => setReportDescription(e.target.value)} 
+                      className="w-full rounded-md border p-2 text-sm min-h-24 bg-background"
+                      placeholder="Give us details..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium">Attachments (Max 5)</label>
+                    <div className="flex flex-wrap gap-2">
+                       {reportImagePreviewUrls.map((url, i) => (
+                         <div key={i} className="relative h-16 w-16 border rounded overflow-hidden group">
+                           <img src={url} className="h-full w-full object-cover" />
+                           <button onClick={() => {
+                              URL.revokeObjectURL(url);
+                              setReportImagePreviewUrls(p => p.filter((_, idx) => idx !== i));
+                              setReportImageFiles(p => p.filter((_, idx) => idx !== i));
+                           }} className="absolute top-0 right-0 bg-red-500 text-white p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                             <XIcon className="h-3 w-3" />
+                           </button>
+                         </div>
+                       ))}
+                       {reportImageFiles.length < 5 && (
+                         <div className="flex gap-2">
+                           <button 
+                            onClick={handlePasteImage}
+                            className="h-16 w-16 border-2 border-dashed rounded flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+                            title="Paste image"
+                           >
+                             <Camera className="h-4 w-4 mb-1" />
+                             <span className="text-[8px]">Paste</span>
+                           </button>
+                           <button 
+                            onClick={() => document.getElementById('report-file-input')?.click()}
+                            className="h-16 w-16 border-2 border-dashed rounded flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+                            title="Select file"
+                           >
+                             <Paperclip className="h-4 w-4 mb-1" />
+                             <span className="text-[8px]">Select</span>
+                           </button>
+                           <input 
+                             id="report-file-input"
+                             type="file"
+                             accept="image/*"
+                             multiple
+                             className="hidden"
+                             onChange={(e) => {
+                               const files = Array.from(e.target.files || []);
+                               const remaining = 5 - reportImageFiles.length;
+                               const toAdd = files.slice(0, remaining);
+                               setReportImageFiles(p => [...p, ...toAdd]);
+                               setReportImagePreviewUrls(p => [...p, ...toAdd.map(f => URL.createObjectURL(f))]);
+                               e.target.value = "";
+                             }}
+                           />
+                         </div>
+                       )}
+                    </div>
+                  </div>
+                </div>
+                {reportError && <p className="text-xs text-red-500">{reportError}</p>}
+                <DialogFooter>
+                  <Button variant="ghost" size="sm" onClick={() => setReportOpen(false)}>Cancel</Button>
+                  <Button size="sm" onClick={submitReport} disabled={reportSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white">
+                    {reportSubmitting ? "Sending..." : "Submit Report"}
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
           </DialogContent>
         </Dialog>
       </div>

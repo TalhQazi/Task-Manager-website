@@ -5,6 +5,7 @@ import { Header } from "./Header";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { TaskBlaster } from "@/components/shared/TaskBlaster";
+import { ReleaseNotes } from "@/components/admin/ReleaseNotes";
 
 // Context to share header height across components
 const HeaderHeightContext = createContext<number>(300);
@@ -63,6 +64,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
         {/* TaskBlaster overlay for celebrations */}
         <TaskBlaster />
+
+        {/* Release Notes for new versions */}
+        <ReleaseNotes />
       </div>
     </HeaderHeightContext.Provider>
   );
