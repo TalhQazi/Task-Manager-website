@@ -362,24 +362,30 @@ export default function EmployeeMessages() {
 
         <div className="h-[calc(100vh-12rem)] flex flex-col">
         {/* Chat Header */}
-        <Card className="mb-4">
+        <Card className="mb-4 border-b-2 border-[#133767]/10">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setSelectedConversation(null)}
+                className="hover:bg-gray-100"
               >
                 <ChevronLeft className="h-5 w-5" />
               </Button>
-              <Avatar className="h-10 w-10">
-                <AvatarFallback className="bg-[#133767] text-white">
-                  {selectedConversation.employee.initials}
-                </AvatarFallback>
-              </Avatar>
+              <div className="relative">
+                <Avatar className="h-11 w-11">
+                  <AvatarFallback className="bg-[#133767] text-white font-semibold text-sm">
+                    {selectedConversation.employee.initials}
+                  </AvatarFallback>
+                </Avatar>
+                {selectedConversation.employee.status === "active" && (
+                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
+                )}
+              </div>
               <div className="flex-1 min-w-0">
-                <p className="font-semibold truncate">{selectedConversation.employee.name}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="font-semibold truncate text-gray-900">{selectedConversation.employee.name}</p>
+                <p className="text-xs text-gray-500">
                   {selectedConversation.employee.department || "No department"}
                 </p>
               </div>
@@ -387,8 +393,8 @@ export default function EmployeeMessages() {
                 variant="outline"
                 className={
                   selectedConversation.employee.status === "active"
-                    ? "border-green-500 text-green-700"
-                    : "border-gray-500 text-gray-700"
+                    ? "border-green-500 text-green-700 bg-green-50"
+                    : "border-gray-300 text-gray-600 bg-gray-50"
                 }
               >
                 {selectedConversation.employee.status}
@@ -424,10 +430,10 @@ export default function EmployeeMessages() {
                     >
                       <div
                         className={cn(
-                          "max-w-[70%] min-w-0 rounded-lg p-3",
+                          "max-w-[70%] min-w-0 rounded-2xl p-3 shadow-sm",
                           isSentByMe
-                            ? "bg-[#133767] text-white"
-                            : "bg-gray-100 text-gray-900"
+                            ? "bg-[#133767] text-white rounded-br-sm"
+                            : "bg-white border border-gray-200 text-gray-900 rounded-bl-sm"
                         )}
                       >
                         {attachmentUrl ? (
@@ -466,7 +472,6 @@ export default function EmployeeMessages() {
                             isSentByMe ? "text-white/70" : "text-gray-500"
                           )}
                         >
-                          <Clock className="h-3 w-3" />
                           {formatTime(msg.timestamp)}
                           {isSentByMe && (
                             <>
@@ -609,33 +614,38 @@ export default function EmployeeMessages() {
                   <button
                     key={conversation.employee.id}
                     onClick={() => setSelectedConversation(conversation)}
-                    className="w-full p-4 hover:bg-gray-50 transition-colors text-left"
+                    className="w-full p-4 hover:bg-gray-50 transition-colors text-left group"
                   >
                     <div className="flex items-start gap-3">
-                      <Avatar className="h-12 w-12">
-                        <AvatarFallback className="bg-[#133767] text-white">
-                          {conversation.employee.initials}
-                        </AvatarFallback>
-                      </Avatar>
+                      <div className="relative">
+                        <Avatar className="h-12 w-12">
+                          <AvatarFallback className="bg-[#133767] text-white font-semibold">
+                            {conversation.employee.initials}
+                          </AvatarFallback>
+                        </Avatar>
+                        {conversation.employee.status === "active" && (
+                          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
+                        )}
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <p className="font-semibold truncate">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="font-semibold truncate text-gray-900">
                             {conversation.employee.name}
                           </p>
                           {conversation.lastMessage && (
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-xs text-gray-500 font-medium">
                               {formatTime(conversation.lastMessage.timestamp)}
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground truncate">
+                        <p className="text-sm text-gray-600 truncate">
                           {conversation.lastMessage
                             ? conversation.lastMessage.content
                             : "No messages yet"}
                         </p>
                       </div>
                       {conversation.unreadCount > 0 && (
-                        <Badge className="bg-[#133767] text-white">
+                        <Badge className="bg-[#133767] text-white shrink-0">
                           {conversation.unreadCount}
                         </Badge>
                       )}

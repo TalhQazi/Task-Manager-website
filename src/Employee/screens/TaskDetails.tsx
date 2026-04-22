@@ -12,7 +12,7 @@ import { useRef } from "react";
 import { cn } from "@/lib/utils";
 import {
   addTaskComment,
-  getTaskById,
+  getTaskById,  
   getTaskComments,
   updateTaskStatus,
   employeeApiFetch,
@@ -34,7 +34,15 @@ import {
   AlertCircle,
   CheckCircle2,
   User,
+  Maximize2,
+  X,
 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type TaskStatus = "pending" | "in-progress" | "completed" | "overdue";
 
@@ -100,27 +108,23 @@ function renderMessageWithMentions(text: string) {
   );
 }
 
-function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fallbackUrl }: { taskId: string; commentId: string; index: number; mimeType: string; fileName: string; fallbackUrl?: string }) {
-  const [src, setSrc] = useState<string | null | undefined>(fallbackUrl || undefined);
+function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fallbackUrl, onPreview }: { taskId: string; commentId: string; index: number; mimeType: string; fileName: string; fallbackUrl?: string; onPreview?: (url: string, name: string) => void }) {
+  const [src, setSrc] = useState<string | null | undefined>(toProxiedUrl(fallbackUrl) || undefined);
   useEffect(() => {
-    if (fallbackUrl) return; 
+    if (fallbackUrl) return;
     let cancelled = false;
     employeeApiFetch<{ attachment: { url: string } }>(`/api/tasks/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}/attachments/${index}`)
-      .then(d => { if (!cancelled) setSrc(d.attachment?.url || null); })
+      .then(d => { if (!cancelled) setSrc(toProxiedUrl(d.attachment?.url) || null); })
       .catch(() => { if (!cancelled) setSrc(null); });
     return () => { cancelled = true; };
   }, [taskId, commentId, index, fallbackUrl]);
-  
+
   if (src && mimeType?.startsWith("image/")) return (
-    <div className="w-full h-auto flex justify-center relative group/att cursor-zoom-in" onClick={() => window.open(src, '_blank')}>
-      <img src={src} alt={fileName} className="w-full h-auto max-h-[180px] rounded-lg" />
-      <button 
-        onClick={(e) => { e.stopPropagation(); void downloadViaUrl(src, fileName); }} 
-        aria-label="Download" 
-        className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-opacity text-white text-[11px] font-bold backdrop-blur-[1px]"
-      >
-        Save
-      </button>
+    <div className="w-full h-auto flex justify-center relative group/att cursor-zoom-in" onClick={() => onPreview?.(src, fileName)}>
+      <img src={src} alt={fileName} className="w-full h-auto max-h-[180px] object-contain rounded-lg" />
+      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-all duration-200 rounded-lg">
+        <Maximize2 className="w-5 h-5 text-white" />
+      </div>
     </div>
   );
   if (src && !mimeType?.startsWith("image/")) return (
@@ -129,38 +133,48 @@ function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fa
         <FileText className="w-6 h-6 text-white/60 mb-1" />
         <span className="text-[10px] text-white/40 truncate w-full px-2 font-medium">{fileName}</span>
       </div>
-      <button 
-        onClick={(e) => { e.stopPropagation(); void downloadViaUrl(src, fileName); }} 
-        aria-label="Download" 
-        className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-opacity text-white text-[11px] font-bold backdrop-blur-[1px]"
-      >
-        Save
-      </button>
+      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center gap-3 transition-opacity backdrop-blur-[1px] cursor-default">
+        <button
+          onClick={(e) => { e.stopPropagation(); onPreview?.(src, fileName); }}
+          className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+          title="Preview"
+        >
+          <Maximize2 className="w-4 h-4" />
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); void downloadViaUrl(src, fileName); }}
+          aria-label="Download"
+          className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
+          title="Download"
+        >
+          <Download className="w-4 h-4" />
+        </button>
+      </div>
     </div>
   );
-  if (src === undefined) return <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/20"><Loader2 className="h-4 w-4 animate-spin opacity-20" /></div>;
-  return <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/20"><AlertCircle className="w-5 h-5 text-destructive/50" /></div>;
+  if (src === undefined) return <div className="w-full h-20 flex items-center justify-center"><Loader2 className="h-4 w-4 animate-spin opacity-10" /></div>;
+  return <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/10"><AlertCircle className="w-4 h-4 text-muted-foreground/40" /></div>;
 }
 
 function AttachmentItem({ att, idx, onDownload }: { att: { fileName: string; url: string; mimeType?: string }; idx: number; onDownload: (url: string, fileName: string) => void }) {
   const [imgError, setImgError] = useState(false);
   const isImage = att.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(att.fileName || "");
   const imageUrl = toProxiedUrl(att.url) || att.url;
-  
+
   if (isImage && !imgError) {
     return (
       <button onClick={() => onDownload(imageUrl, att.fileName)} className="block w-full text-left">
-        <img 
-          src={imageUrl} 
-          alt={att.fileName} 
-          className="w-full h-20 object-cover rounded-md border"
+        <img
+          src={imageUrl}
+          alt={att.fileName}
+          className="w-full h-auto object-contain rounded-md max-h-32"
           onError={() => setImgError(true)}
         />
         <span className="text-xs text-muted-foreground truncate block mt-1">{att.fileName}</span>
       </button>
     );
   }
-  
+
   return (
     <button onClick={() => onDownload(imageUrl, att.fileName)}
       className="w-full flex flex-col items-center justify-center h-20 border rounded-md bg-muted/30 hover:bg-muted text-xs text-center p-2 gap-1">
@@ -177,6 +191,8 @@ export default function EmployeeTaskDetails() {
   const [task, setTask] = useState<TaskItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewName, setPreviewName] = useState<string | null>(null);
   const [profile, setProfile] = useState<{ avatarUrl?: string } | null>(null);
 
   const [statusUpdating, setStatusUpdating] = useState(false);
@@ -223,11 +239,21 @@ export default function EmployeeTaskDetails() {
     }
   };
 
-  const canDownloadAttachment = Boolean(task?.attachment?.url);
+  const canDownloadAttachment = Boolean(task?.attachment?.url) || Boolean(task?.attachments && task.attachments.length > 0);
 
   const downloadAttachment = () => {
-    if (!task?.attachment?.url) return;
-    void downloadViaUrl(task.attachment.url, task.attachment.fileName || task.attachmentFileName || "attachment");
+    // Handle single attachment
+    if (task?.attachment?.url) {
+      const url = toProxiedUrl(task.attachment.url) || task.attachment.url;
+      void downloadViaUrl(url, task.attachment.fileName || task.attachmentFileName || "attachment");
+      return;
+    }
+    // Handle attachments array - download first attachment
+    if (task?.attachments && task.attachments.length > 0) {
+      const firstAttachment = task.attachments[0];
+      const url = toProxiedUrl(firstAttachment.url) || firstAttachment.url;
+      void downloadViaUrl(url, firstAttachment.fileName || "attachment");
+    }
   };
 
   const loadTask = async () => {
@@ -605,13 +631,14 @@ export default function EmployeeTaskDetails() {
                                 )}>
                                   {c.attachments.map((att, attIdx) => (
                                     <div key={attIdx} className="relative rounded-lg overflow-hidden border border-white/20 bg-black/10 min-w-[120px] max-w-full h-auto">
-                                      <CommentAttachmentImg 
-                                        taskId={taskId || task?.id || ""} 
-                                        commentId={c.id} 
-                                        index={attIdx} 
-                                        mimeType={att.mimeType} 
-                                        fileName={att.fileName} 
-                                        fallbackUrl={att.url} 
+                                      <CommentAttachmentImg
+                                        taskId={taskId || task?.id || ""}
+                                        commentId={c.id}
+                                        index={attIdx}
+                                        mimeType={att.mimeType}
+                                        fileName={att.fileName}
+                                        fallbackUrl={att.url}
+                                        onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
                                       />
                                     </div>
                                   ))}
@@ -681,6 +708,34 @@ export default function EmployeeTaskDetails() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Preview Dialog */}
+      {previewUrl && (
+        <Dialog open={Boolean(previewUrl)} onOpenChange={(open) => !open && setPreviewUrl(null)}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center justify-between">
+                <span className="truncate">{previewName}</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setPreviewUrl(null)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </DialogTitle>
+            </DialogHeader>
+            <div className="w-full">
+              <img
+                src={previewUrl}
+                alt={previewName || "Preview"}
+                className="w-full max-h-[70vh] object-contain rounded-md"
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
