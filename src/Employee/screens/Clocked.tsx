@@ -20,9 +20,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Clock, LogIn, LogOut, Timer, Calendar, History, ClipboardList, AlertCircle } from "lucide-react";
-import { getTodayTimeEntry, clockIn, submitScrumAndClockOut, getEmployeeTimeEntryHistory, getEmployeeProfile, submitEODReport } from "../lib/api";
+import { Clock, LogIn, LogOut, Timer, Calendar, History, ClipboardList, AlertCircle, AlertTriangle } from "lucide-react";
+import { getTodayTimeEntry, clockIn, submitScrumAndClockOut, getEmployeeTimeEntryHistory, getEmployeeProfile, submitEODReport, getOnboardingStatus } from "../lib/api";
 import { toast } from "sonner";
+import { Link } from "react-router-dom";
 
 interface TimeEntry {
   id: string;
@@ -62,6 +63,7 @@ export default function EmployeeClocked() {
     notes: "",
   });
   const [validationError, setValidationError] = useState("");
+  const [onboardingStatus, setOnboardingStatus] = useState<string>("not_started");
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -71,12 +73,14 @@ export default function EmployeeClocked() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [entryRes, profileRes] = await Promise.all([
+        const [entryRes, profileRes, onboardingRes] = await Promise.all([
           getTodayTimeEntry(),
           getEmployeeProfile(),
+          getOnboardingStatus().catch(() => ({ item: { overallStatus: "not_started" } })),
         ]);
         setTimeEntry(entryRes.item);
         setEmployeeName(profileRes.item.name);
+        setOnboardingStatus(onboardingRes.item.overallStatus);
       } catch (err) {
         console.error("Failed to load time entry:", err);
         toast.error("Failed to load time entry data");
@@ -203,6 +207,7 @@ export default function EmployeeClocked() {
 
   const isClockedIn = timeEntry?.clockIn && !timeEntry?.clockOut;
   const isClockedOut = timeEntry?.clockIn && timeEntry?.clockOut;
+  const isOnboardingApproved = onboardingStatus === "approved";
 
   if (loading) {
     return (
@@ -230,6 +235,34 @@ export default function EmployeeClocked() {
           <p className="text-sm text-muted-foreground">{formatDate(currentTime)}</p>
         </div>
       </div>
+
+      {/* Onboarding Warning Banner */}
+      {!isOnboardingApproved && (
+        <Card className="border-l-4 border-l-orange-500 bg-orange-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+                  <AlertTriangle className="h-5 w-5 text-orange-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-orange-900">Onboarding Required</p>
+                  <p className="text-sm text-orange-700">
+                    {onboardingStatus === "not_started" || onboardingStatus === "in_progress"
+                      ? "Please complete your onboarding before clocking in."
+                      : onboardingStatus === "submitted"
+                      ? "Your onboarding is submitted and pending approval."
+                      : "Please complete your onboarding before clocking in."}
+                  </p>
+                </div>
+              </div>
+              <Button asChild className="bg-orange-600 hover:bg-orange-700">
+                <Link to="/employee/profile">Complete Onboarding</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Status Card */}
       <Card className="border-l-4 border-l-[#133767]">
@@ -333,10 +366,11 @@ export default function EmployeeClocked() {
               size="lg"
               className="flex-1 bg-green-600 hover:bg-green-700"
               onClick={handleClockIn}
-              disabled={!!(isClockedIn || isClockedOut || actionLoading)}
+              disabled={!!(isClockedIn || isClockedOut || actionLoading || !isOnboardingApproved)}
+              title={!isOnboardingApproved ? "Complete onboarding first" : ""}
             >
               <LogIn className="h-5 w-5 mr-2" />
-              {actionLoading && !isClockedIn ? "Processing..." : "Clock In"}
+              {actionLoading && !isClockedIn ? "Processing..." : !isOnboardingApproved ? "Onboarding Required" : "Clock In"}
             </Button>
             <Button
               size="lg"

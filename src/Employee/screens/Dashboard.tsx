@@ -2,8 +2,8 @@ import  React,{ useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getEmployeeDashboard, getEmployeeProfile } from "../lib/api";
-import { CheckCircle, Clock, AlertCircle, MessageSquare, Calendar, Timer, ListTodo } from "lucide-react";
+import { getEmployeeDashboard, getEmployeeProfile, getOnboardingStatus } from "../lib/api";
+import { CheckCircle, Clock, AlertCircle, MessageSquare, Calendar, Timer, ListTodo, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 
@@ -121,7 +121,19 @@ export default function EmployeeDashboard() {
     refetchOnWindowFocus: false,
   });
 
+  const onboardingQuery = useQuery({
+    queryKey: ["onboarding-status"],
+    queryFn: async () => {
+      const res = await getOnboardingStatus();
+      return res.item;
+    },
+    staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+  });
+
   const data = dashboardQuery.data || null;
+  const onboardingStatus = onboardingQuery.data?.overallStatus || "not_started";
+  const isOnboardingApproved = onboardingStatus === "approved";
   const employeeName = useMemo(() => {
     const n = String(profileQuery.data?.name || "").trim();
     return n;
@@ -204,6 +216,34 @@ export default function EmployeeDashboard() {
           ) : null}
         </div>
       </div>
+
+      {/* Onboarding Warning Banner */}
+      {!isOnboardingApproved && (
+        <Card className="border-l-4 border-l-orange-500 bg-orange-50">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+                  <AlertTriangle className="h-5 w-5 text-orange-600" />
+                </div>
+                <div>
+                  <p className="font-semibold text-orange-900">Complete Your Onboarding</p>
+                  <p className="text-sm text-orange-700">
+                    {onboardingStatus === "not_started" || onboardingStatus === "in_progress"
+                      ? "Please complete your onboarding to access all features."
+                      : onboardingStatus === "submitted"
+                      ? "Your onboarding is submitted and pending approval."
+                      : "Please complete your onboarding to access all features."}
+                  </p>
+                </div>
+              </div>
+              <Button asChild className="bg-orange-600 hover:bg-orange-700">
+                <Link to="/employee/profile">Complete Onboarding</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

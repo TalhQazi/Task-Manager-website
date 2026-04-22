@@ -547,6 +547,11 @@ export async function markAllNotificationsAsRead(): Promise<{ success: boolean }
   });
 }
 
+// Onboarding API functions
+export async function getOnboardingStatus(): Promise<{ item: { overallStatus: string; progress: number } }> {
+  return employeeApiFetch<{ item: { overallStatus: string; progress: number } }>("/api/onboarding/me");
+}
+
 export async function deleteNotification(notificationId: string): Promise<void> {
   return employeeApiFetch<void>(`/api/messages/${encodeURIComponent(notificationId)}`, {
     method: "DELETE"

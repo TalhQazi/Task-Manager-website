@@ -1,10 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink } from "@/components/admin/NavLink";
 
-import { LayoutDashboard, ClipboardList, Calendar, UserCircle, Bell, LogOut, Clock, MessageCircle, FileText, ClipboardCheck, Folder } from "lucide-react";
-
-import { LayoutDashboard, ClipboardList, Calendar, UserCircle, Bell, LogOut, Clock, MessageCircle, FileText, ClipboardCheck ,Wallet} from "lucide-react";
-
+import { LayoutDashboard, ClipboardList, Calendar, UserCircle, Bell, LogOut, Clock, MessageCircle, FileText, ClipboardCheck, Folder, Wallet } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";

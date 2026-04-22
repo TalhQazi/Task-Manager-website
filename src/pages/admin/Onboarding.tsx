@@ -1,15 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Badge } from "@/components/admin/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/admin/ui/avatar";
-import { Input } from "@/components/admin/ui/input";
 import { Progress } from "@/components/admin/ui/progress";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -17,298 +15,228 @@ import {
 import {
   CheckCircle2,
   Clock,
-  FileText,
   AlertCircle,
   UserPlus,
+  X,
+  FileText,
+  FileImage,
+  PenTool,
 } from "lucide-react";
-import { listResource, updateResource } from "@/lib/admin/apiClient";
+import { getAdminOnboardingList, getAdminOnboardingDetails, approveOnboarding, rejectOnboarding } from "@/lib/admin/apiClient";
 
-interface OnboardingEmployee {
+interface OnboardingData {
   id: string;
-  name: string;
-  initials: string;
-  email: string;
-  startDate: string;
+  userId: string;
+  employeeId: string;
+  employeeName: string;
+  basicInfo: {
+    completed: boolean;
+    email: string;
+    phone: string;
+    location: string;
+  };
+  identityVerification: {
+    primaryId: {
+      idType: string;
+      frontImage: string;
+      backImage: string;
+      status: "missing" | "submitted" | "verified";
+    };
+    secondaryId: {
+      idType: string;
+      image: string;
+      status: "missing" | "submitted" | "verified";
+    };
+  };
+  w4Form: {
+    file: string;
+    status: "missing" | "submitted" | "verified";
+  };
+  employeeHandbook: {
+    acknowledged: boolean;
+    signature: string;
+    signedAt: string;
+    status: "missing" | "submitted" | "verified";
+  };
+  digitalSignature: {
+    signature: string;
+    status: "missing" | "submitted" | "verified";
+  };
+  overallStatus: "not_started" | "in_progress" | "submitted" | "approved" | "rejected";
   progress: number;
-  status: "pending" | "in-progress" | "completed" | "needs-review";
-  approvalStatus: "pending" | "approved" | "rejected";
-  employeeId?: string;
-  w4FileName?: string;
-  i9FileName?: string;
-  signatureFileName?: string;
-  generatedPdfFileName?: string;
-  completedSteps: string[];
-  pendingSteps: string[];
+  adminReview?: {
+    reviewedBy: string;
+    reviewedAt: string;
+    comments: string;
+    rejectionReason: string;
+  };
+  createdAt: string;
+  updatedAt: string;
 }
-
-interface Employee {
-  id: string;
-  name: string;
-  initials: string;
-  email: string;
-  status: "active" | "inactive" | "on-leave";
-}
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: "admin" | "manager" | "employee";
-  status: "active" | "inactive" | "pending";
-}
-
-type BackendOnboarding = {
-  id?: string;
-  _id?: string;
-  employeeName?: string;
-  role?: string;
-  startDate?: string;
-  progress?: number;
-  documentsUploaded?: number;
-  documentsRequired?: number;
-  approvalStatus?: "pending" | "approved" | "rejected" | string;
-};
 
 const statusClasses = {
-  pending: "bg-muted text-muted-foreground",
-  "in-progress": "bg-info/10 text-info",
-  completed: "bg-success/10 text-success",
-  "needs-review": "bg-warning/10 text-warning",
-};
-
-const statusLabels = {
-  pending: "Not Started",
-  "in-progress": "In Progress",
-  completed: "Completed",
-  "needs-review": "Needs Review",
-};
-
-const approvalClasses = {
-  pending: "bg-muted text-muted-foreground",
+  not_started: "bg-muted text-muted-foreground",
+  in_progress: "bg-info/10 text-info",
+  submitted: "bg-warning/10 text-warning",
   approved: "bg-success/10 text-success",
   rejected: "bg-destructive/10 text-destructive",
 };
 
-const allSteps = ["Personal Info", "W-4 Form", "I-9 Form", "Direct Deposit", "Handbook"];
+const statusLabels = {
+  not_started: "Not Started",
+  in_progress: "In Progress",
+  submitted: "Submitted",
+  approved: "Approved",
+  rejected: "Rejected",
+};
+
+const stepStatusClasses = {
+  missing: "bg-red-100 text-red-700",
+  submitted: "bg-yellow-100 text-yellow-700",
+  verified: "bg-green-100 text-green-700",
+};
 
 const Onboarding = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
-  const [selectedEmployee, setSelectedEmployee] = useState<OnboardingEmployee | null>(null);
-  const [detailsApprovalStatus, setDetailsApprovalStatus] = useState<OnboardingEmployee["approvalStatus"]>("pending");
-  const [savingDetails, setSavingDetails] = useState(false);
+  const [selectedOnboarding, setSelectedOnboarding] = useState<OnboardingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
-  const [onboardingList, setOnboardingList] = useState<OnboardingEmployee[]>(() => []);
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [onboardingList, setOnboardingList] = useState<OnboardingData[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      try {
-        setLoading(true);
-        setApiError(null);
-        
-        // Fetch onboarding list
-        const list = await listResource<BackendOnboarding>("onboarding");
-        if (!mounted) return;
-        setOnboardingList(list.map(normalizeOnboardingItem));
-        
-        // Fetch employees from employees API
-        let allEmployees: Employee[] = [];
-        try {
-          const employeeList = await listResource<Employee>("employees");
-          if (mounted) {
-            allEmployees = employeeList.filter((e) => e.status === "active");
-          }
-        } catch (empErr) {
-          console.error("Failed to load employees:", empErr);
-        }
-        
-        // Fetch users with employee role from users API
-        try {
-          const userList = await listResource<User>("users");
-          if (mounted) {
-            const employeeUsers = userList
-              .filter((u) => u.role === "employee" && (u.status === "active" || u.status === "pending"))
-              .map((u) => ({
-                id: u.id,
-                name: u.name,
-                initials: u.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .slice(0, 2)
-                  .join("")
-                  .toUpperCase(),
-                email: u.email,
-                status: "active" as const,
-              }));
-            
-            // Merge both lists (remove duplicates by email)
-            employeeUsers.forEach((eu) => {
-              if (!allEmployees.some((e) => e.email === eu.email)) {
-                allEmployees.push(eu);
-              }
-            });
-          }
-        } catch (userErr) {
-          console.error("Failed to load users:", userErr);
-        }
-        
-        if (mounted) {
-          setEmployees(allEmployees);
-        }
-      } catch (e) {
-        if (!mounted) return;
-        setApiError(e instanceof Error ? e.message : "Failed to load onboarding");
-      } finally {
-        if (!mounted) return;
-        setLoading(false);
-      }
-    };
+    loadOnboardingList();
+  }, [statusFilter]);
 
-    void load();
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  const refresh = async () => {
-    const list = await listResource<BackendOnboarding>("onboarding");
-    setOnboardingList(list.map(normalizeOnboardingItem));
-  };
-
-  const normalizeOnboardingItem = (item: BackendOnboarding): OnboardingEmployee => {
-    const name = String(item.employeeName || "").trim();
-    const initials = name
-      ? name
-          .split(" ")
-          .map((n) => n[0])
-          .slice(0, 2)
-          .join("")
-          .toUpperCase()
-      : "";
-
-    const progress = typeof item.progress === "number" && Number.isFinite(item.progress) ? item.progress : 0;
-    const documentsUploaded = typeof item.documentsUploaded === "number" ? item.documentsUploaded : 0;
-    const documentsRequired = typeof item.documentsRequired === "number" ? item.documentsRequired : 0;
-
-    let status: OnboardingEmployee["status"] = "pending";
-    if (progress >= 100) status = "completed";
-    else if (progress > 0) status = "in-progress";
-    else if (documentsRequired > 0 && documentsUploaded > 0) status = "in-progress";
-
-    const rawApproval = String(item.approvalStatus || "pending").toLowerCase();
-    const approvalStatus: OnboardingEmployee["approvalStatus"] =
-      rawApproval === "approved" ? "approved" : rawApproval === "rejected" ? "rejected" : "pending";
-
-    const completedCount = Math.max(0, Math.min(allSteps.length, Math.round((progress / 100) * allSteps.length)));
-    const completedSteps = allSteps.slice(0, completedCount);
-    const pendingSteps = allSteps.slice(completedCount);
-
-    return {
-      id: String(item.id || item._id || ""),
-      name,
-      initials: initials || "U",
-      email: "",
-      startDate: String(item.startDate || ""),
-      progress,
-      status,
-      approvalStatus,
-      w4FileName: "",
-      i9FileName: "",
-      signatureFileName: "",
-      generatedPdfFileName: "",
-      completedSteps,
-      pendingSteps,
-    };
-  };
-
-  const summary = useMemo(() => {
-    const total = onboardingList.length;
-    const pending = onboardingList.filter((e) => e.approvalStatus === "pending").length;
-    const approved = onboardingList.filter((e) => e.approvalStatus === "approved").length;
-    const rejected = onboardingList.filter((e) => e.approvalStatus === "rejected").length;
-    return {
-      total,
-      pending,
-      approved,
-      rejected,
-    };
-  }, [onboardingList]);
-
-  const setApproval = async (id: string, approvalStatus: OnboardingEmployee["approvalStatus"]) => {
-    const employee = onboardingList.find((e) => e.id === id);
-    if (!employee) return;
+  const loadOnboardingList = async () => {
     try {
+      setLoading(true);
       setApiError(null);
-      await updateResource<OnboardingEmployee>("onboarding", id, { ...employee, approvalStatus });
-      await refresh();
+      const data = await getAdminOnboardingList(statusFilter === "all" ? undefined : statusFilter);
+      setOnboardingList(data.items || []);
     } catch (e) {
-      setApiError(e instanceof Error ? e.message : "Failed to update approval");
-    }
-    setSelectedEmployee((prev) => (prev && prev.id === id ? { ...prev, approvalStatus } : prev));
-  };
-
-  const saveDetailsApproval = async () => {
-    if (!selectedEmployee) return;
-    try {
-      setSavingDetails(true);
-      await setApproval(selectedEmployee.id, detailsApprovalStatus);
-      setViewDetailsOpen(false);
+      setApiError(e instanceof Error ? e.message : "Failed to load onboarding");
     } finally {
-      setSavingDetails(false);
+      setLoading(false);
     }
   };
 
-  const handleViewDetails = (employee: OnboardingEmployee) => {
-    setSelectedEmployee(employee);
-    setDetailsApprovalStatus(employee.approvalStatus);
+  const loadOnboardingDetails = async (id: string) => {
+    try {
+      const data = await getAdminOnboardingDetails(id);
+      setSelectedOnboarding(data.item);
+    } catch (e) {
+      setApiError(e instanceof Error ? e.message : "Failed to load details");
+    }
+  };
+
+  const handleViewDetails = async (onboarding: OnboardingData) => {
+    setSelectedOnboarding(onboarding);
+    await loadOnboardingDetails(onboarding.id);
     setViewDetailsOpen(true);
+  };
+
+  const handleApprove = async () => {
+    if (!selectedOnboarding) return;
+    try {
+      setActionLoading(true);
+      await approveOnboarding(selectedOnboarding.id, "");
+      await loadOnboardingList();
+      await loadOnboardingDetails(selectedOnboarding.id);
+      setViewDetailsOpen(false);
+    } catch (e) {
+      setApiError(e instanceof Error ? e.message : "Failed to approve");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleReject = async (reason: string) => {
+    if (!selectedOnboarding) return;
+    try {
+      setActionLoading(true);
+      await rejectOnboarding(selectedOnboarding.id, reason);
+      await loadOnboardingList();
+      await loadOnboardingDetails(selectedOnboarding.id);
+      setViewDetailsOpen(false);
+    } catch (e) {
+      setApiError(e instanceof Error ? e.message : "Failed to reject");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const downloadFile = (base64Data: string, filename: string, mimeType: string) => {
+    const link = document.createElement("a");
+    link.href = base64Data;
+    link.download = filename;
+    link.click();
+  };
+
+  const summary = {
+    total: onboardingList.length,
+    not_started: onboardingList.filter((o) => o.overallStatus === "not_started").length,
+    in_progress: onboardingList.filter((o) => o.overallStatus === "in_progress").length,
+    submitted: onboardingList.filter((o) => o.overallStatus === "submitted").length,
+    approved: onboardingList.filter((o) => o.overallStatus === "approved").length,
+    rejected: onboardingList.filter((o) => o.overallStatus === "rejected").length,
+  };
+
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
+  };
+
+  const renderStepStatus = (status: string) => {
+    const icon = status === "verified" ? <CheckCircle2 className="h-3 w-3 mr-1" /> :
+                 status === "submitted" ? <Clock className="h-3 w-3 mr-1" /> :
+                 <X className="h-3 w-3 mr-1" />;
+    return (
+      <Badge className={`${stepStatusClasses[status as keyof typeof stepStatusClasses]} text-xs`} variant="secondary">
+        {icon}
+        {status}
+      </Badge>
+    );
   };
 
   useEffect(() => {
     const viewId = String(searchParams.get("view") || "").trim();
-    if (!viewId) return;
-    if (viewDetailsOpen) return;
-
-    const match = onboardingList.find((e) => String(e.id) === viewId);
-    if (!match) return;
-
-    handleViewDetails(match);
-
-    const next = new URLSearchParams(searchParams);
-    next.delete("view");
-    setSearchParams(next, { replace: true });
+    if (!viewId || viewDetailsOpen) return;
+    const match = onboardingList.find((o) => String(o.id) === viewId);
+    if (match) {
+      handleViewDetails(match);
+      const next = new URLSearchParams(searchParams);
+      next.delete("view");
+      setSearchParams(next, { replace: true });
+    }
   }, [onboardingList, searchParams, setSearchParams, viewDetailsOpen]);
 
   return (
     <>
-      {/* Mobile-first container */}
       <div className="pl-12 space-y-4 sm:space-y-5 md:space-y-6 pr-2 sm:pr-0">
-        
-        {/* Page Header - Responsive */}
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
           <div className="space-y-1.5 sm:space-y-2">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
               Employee Onboarding
             </h1>
             <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl">
-              Track and manage new employee onboarding progress.
+              Review and approve employee onboarding submissions.
             </p>
           </div>
         </div>
 
-        {/* API Error Message */}
         {apiError && (
           <div className="rounded-md bg-destructive/10 p-3 sm:p-4">
-            <p className="text-xs sm:text-sm text-destructive break-words">
-              {apiError}
-            </p>
+            <p className="text-xs sm:text-sm text-destructive break-words">{apiError}</p>
           </div>
         )}
 
-        {/* Summary Cards - Responsive Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <Card className="shadow-soft border-0 sm:border">
             <CardContent className="p-4 sm:p-6">
@@ -323,21 +251,19 @@ const Onboarding = () => {
               </div>
             </CardContent>
           </Card>
-          
           <Card className="shadow-soft border-0 sm:border">
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center gap-3 sm:gap-4">
-                <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                  <Clock className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
+                <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-warning/10 flex items-center justify-center flex-shrink-0">
+                  <Clock className="h-5 w-5 sm:h-6 sm:w-6 text-warning" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-xs sm:text-sm text-muted-foreground">Pending</p>
-                  <p className="text-xl sm:text-2xl font-bold">{summary.pending}</p>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Submitted</p>
+                  <p className="text-xl sm:text-2xl font-bold">{summary.submitted}</p>
                 </div>
               </div>
             </CardContent>
           </Card>
-          
           <Card className="shadow-soft border-0 sm:border">
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center gap-3 sm:gap-4">
@@ -351,7 +277,6 @@ const Onboarding = () => {
               </div>
             </CardContent>
           </Card>
-          
           <Card className="shadow-soft border-0 sm:border">
             <CardContent className="p-4 sm:p-6">
               <div className="flex items-center gap-3 sm:gap-4">
@@ -367,114 +292,73 @@ const Onboarding = () => {
           </Card>
         </div>
 
-        {/* Onboarding List Card */}
         <Card className="shadow-soft border-0 sm:border">
-          <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
+          <CardHeader className="px-4 sm:px-6 py-4 sm:py-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <CardTitle className="text-base sm:text-lg md:text-xl font-semibold">
-              Employees ({onboardingList.length})
+              Onboarding Records ({onboardingList.length})
             </CardTitle>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full sm:w-auto rounded-md border px-3 py-2 text-sm bg-white"
+            >
+              <option value="all">All Status</option>
+              <option value="submitted">Submitted</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="in_progress">In Progress</option>
+              <option value="not_started">Not Started</option>
+            </select>
           </CardHeader>
           <CardContent className="p-0 sm:p-6">
             {loading ? (
               <div className="flex justify-center items-center py-8 sm:py-12">
-                <div className="text-xs sm:text-sm text-muted-foreground">
-                  Loading onboarding records...
-                </div>
+                <div className="text-xs sm:text-sm text-muted-foreground">Loading...</div>
               </div>
             ) : (
               <div className="space-y-3 sm:space-y-4 p-4 sm:p-0">
-                {onboardingList.map((employee) => (
+                {onboardingList.map((onboarding) => (
                   <div
-                    key={employee.id}
+                    key={onboarding.id}
                     className="p-4 sm:p-5 rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors border border-transparent sm:border-0"
                   >
-                    {/* Mobile View - Stacked Layout */}
                     <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                      {/* Avatar and Basic Info */}
                       <div className="flex items-center gap-3 sm:flex-1">
                         <Avatar className="h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0">
                           <AvatarFallback className="bg-primary text-primary-foreground text-xs sm:text-sm">
-                            {employee.initials}
+                            {getInitials(onboarding.employeeName)}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex-1 min-w-0">
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mb-1">
-                            <h4 className="font-medium text-sm sm:text-base truncate">{employee.name}</h4>
-                          </div>
-                          <p className="text-xs sm:text-sm text-muted-foreground truncate">{employee.email}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-xs text-muted-foreground">
-                              Start: {employee.startDate}
-                            </span>
-                            <Badge 
-                              className={`${approvalClasses[employee.approvalStatus]} text-xs`} 
-                              variant="secondary"
-                            >
-                              {employee.approvalStatus}
+                          <h4 className="font-medium text-sm sm:text-base truncate">{onboarding.employeeName}</h4>
+                          <p className="text-xs sm:text-sm text-muted-foreground">{onboarding.basicInfo?.email || "No email"}</p>
+                          <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <Badge className={`${statusClasses[onboarding.overallStatus]} text-xs`} variant="secondary">
+                              {statusLabels[onboarding.overallStatus]}
                             </Badge>
                           </div>
                         </div>
                       </div>
-
-                      {/* View Details Button - Full width on mobile */}
                       <Button
                         variant="outline"
                         size="sm"
                         className="w-full sm:w-auto mt-2 sm:mt-0"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleViewDetails(employee);
-                        }}
+                        onClick={() => handleViewDetails(onboarding)}
                       >
-                        View Details
+                        Review
                       </Button>
                     </div>
-
-                    {/* Progress Bar */}
                     <div className="mt-4">
                       <div className="flex items-center justify-between text-xs sm:text-sm mb-1.5">
                         <span className="text-muted-foreground">Progress</span>
-                        <span className="font-medium">{employee.progress}%</span>
+                        <span className="font-medium">{onboarding.progress}%</span>
                       </div>
-                      <Progress value={employee.progress} className="h-1.5 sm:h-2" />
-                    </div>
-
-                    {/* Steps Badges - Horizontal scroll on mobile if needed */}
-                    <div className="mt-3 overflow-x-auto pb-1">
-                      <div className="flex flex-nowrap sm:flex-wrap gap-1.5 sm:gap-2 min-w-0">
-                        {employee.completedSteps.map((step) => (
-                          <Badge 
-                            key={step} 
-                            variant="secondary" 
-                            className="bg-success/10 text-success text-xs whitespace-nowrap sm:whitespace-normal"
-                          >
-                            <CheckCircle2 className="h-3 w-3 mr-1 flex-shrink-0" />
-                            <span className="truncate max-w-[120px] sm:max-w-none">{step}</span>
-                          </Badge>
-                        ))}
-                        {employee.pendingSteps.map((step) => (
-                          <Badge 
-                            key={step} 
-                            variant="secondary" 
-                            className="bg-muted text-muted-foreground text-xs whitespace-nowrap sm:whitespace-normal"
-                          >
-                            <Clock className="h-3 w-3 mr-1 flex-shrink-0" />
-                            <span className="truncate max-w-[120px] sm:max-w-none">{step}</span>
-                          </Badge>
-                        ))}
-                      </div>
+                      <Progress value={onboarding.progress} className="h-1.5 sm:h-2" />
                     </div>
                   </div>
                 ))}
-
                 {onboardingList.length === 0 && (
                   <div className="text-center py-8 sm:py-12">
-                    <div className="flex justify-center mb-3">
-                      <div className="h-12 w-12 sm:h-16 sm:w-16 rounded-full bg-muted flex items-center justify-center">
-                        <UserPlus className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground" />
-                      </div>
-                    </div>
                     <p className="text-sm sm:text-base text-muted-foreground">No onboarding records found</p>
                   </div>
                 )}
@@ -484,140 +368,255 @@ const Onboarding = () => {
         </Card>
       </div>
 
-      {/* View Details Dialog - Responsive */}
       <Dialog open={viewDetailsOpen} onOpenChange={setViewDetailsOpen}>
-        <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-3xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
           <DialogHeader className="space-y-1.5 sm:space-y-2">
-            <DialogTitle className="text-lg sm:text-xl">Onboarding Details</DialogTitle>
+            <DialogTitle className="text-lg sm:text-xl">Onboarding Review</DialogTitle>
           </DialogHeader>
-          
-          {selectedEmployee && (
+
+          {selectedOnboarding && (
             <div className="space-y-4 sm:space-y-5">
-              {/* Header with Name and Badges */}
               <div className="pb-4 border-b">
                 <div className="flex flex-wrap items-center gap-2 mb-1">
-                  <p className="text-base sm:text-xl font-semibold break-words">{selectedEmployee.name}</p>
-                  <Badge className={`${statusClasses[selectedEmployee.status]} text-xs sm:text-sm`} variant="secondary">
-                    {statusLabels[selectedEmployee.status]}
+                  <p className="text-base sm:text-xl font-semibold">{selectedOnboarding.employeeName}</p>
+                  <Badge className={`${statusClasses[selectedOnboarding.overallStatus]} text-xs sm:text-sm`} variant="secondary">
+                    {statusLabels[selectedOnboarding.overallStatus]}
                   </Badge>
                 </div>
-                <p className="text-xs sm:text-sm text-muted-foreground break-words">{selectedEmployee.email}</p>
-                <p className="text-xs text-muted-foreground mt-1">Start Date: {selectedEmployee.startDate}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground">{selectedOnboarding.basicInfo?.email || "No email"}</p>
+                <p className="text-xs text-muted-foreground mt-1">Phone: {selectedOnboarding.basicInfo?.phone || "No phone"}</p>
+                <p className="text-xs text-muted-foreground">Location: {selectedOnboarding.basicInfo?.location || "No location"}</p>
+              </div>
 
-                <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs sm:text-sm font-medium">Approval Status</label>
-                    <select
-                      value={detailsApprovalStatus}
-                      onChange={(e) => setDetailsApprovalStatus(e.target.value as OnboardingEmployee["approvalStatus"])}
-                      className="w-full rounded-md border px-3 py-2 text-sm sm:text-base bg-white h-9 sm:h-10"
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="approved">Approved</option>
-                      <option value="rejected">Rejected</option>
-                    </select>
-                    <div className="pt-1">
-                      <Badge className={`${approvalClasses[detailsApprovalStatus]} text-xs`} variant="secondary">
-                        Current: {detailsApprovalStatus}
-                      </Badge>
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold">Onboarding Steps</h3>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">Basic Information</span>
                     </div>
+                    {renderStepStatus(selectedOnboarding.basicInfo?.completed ? "verified" : "missing")}
+                  </div>
+
+                  <div className="space-y-2 p-3 bg-muted/30 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <FileImage className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Identity Verification - Primary ID</span>
+                      </div>
+                      {renderStepStatus(selectedOnboarding.identityVerification?.primaryId?.status || "missing")}
+                    </div>
+                    {selectedOnboarding.identityVerification?.primaryId?.frontImage && (
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-xs text-muted-foreground">Front Image:</p>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs h-6"
+                            onClick={() => downloadFile(selectedOnboarding.identityVerification!.primaryId!.frontImage!, "primary-id-front.png", "image/png")}
+                          >
+                            Download
+                          </Button>
+                        </div>
+                        <img
+                          src={selectedOnboarding.identityVerification.primaryId.frontImage}
+                          alt="Primary ID Front"
+                          className="max-w-full h-32 object-cover rounded border"
+                        />
+                      </div>
+                    )}
+                    {selectedOnboarding.identityVerification?.primaryId?.backImage && (
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-xs text-muted-foreground">Back Image:</p>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs h-6"
+                            onClick={() => downloadFile(selectedOnboarding.identityVerification!.primaryId!.backImage!, "primary-id-back.png", "image/png")}
+                          >
+                            Download
+                          </Button>
+                        </div>
+                        <img
+                          src={selectedOnboarding.identityVerification.primaryId.backImage}
+                          alt="Primary ID Back"
+                          className="max-w-full h-32 object-cover rounded border"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 p-3 bg-muted/30 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <FileImage className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Identity Verification - Secondary ID</span>
+                      </div>
+                      {renderStepStatus(selectedOnboarding.identityVerification?.secondaryId?.status || "missing")}
+                    </div>
+                    {selectedOnboarding.identityVerification?.secondaryId?.image && (
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-xs text-muted-foreground">Secondary ID Image:</p>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs h-6"
+                            onClick={() => downloadFile(selectedOnboarding.identityVerification!.secondaryId!.image!, "secondary-id.png", "image/png")}
+                          >
+                            Download
+                          </Button>
+                        </div>
+                        <img
+                          src={selectedOnboarding.identityVerification.secondaryId.image}
+                          alt="Secondary ID"
+                          className="max-w-full h-32 object-cover rounded border"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 p-3 bg-muted/30 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">W-4 Tax Form</span>
+                      </div>
+                      {renderStepStatus(selectedOnboarding.w4Form?.status || "missing")}
+                    </div>
+                    {selectedOnboarding.w4Form?.file && (
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-xs text-muted-foreground">W-4 Form:</p>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs h-6"
+                            onClick={() => downloadFile(selectedOnboarding.w4Form!.file!, "w4-form.pdf", "application/pdf")}
+                          >
+                            Download
+                          </Button>
+                        </div>
+                        <a
+                          href={selectedOnboarding.w4Form.file}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-blue-600 hover:underline"
+                        >
+                          View W-4 Form
+                        </a>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 p-3 bg-muted/30 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <PenTool className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Employee Handbook</span>
+                      </div>
+                      {renderStepStatus(selectedOnboarding.employeeHandbook?.status || "missing")}
+                    </div>
+                    {selectedOnboarding.employeeHandbook?.signature && (
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-xs text-muted-foreground">Signature:</p>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs h-6"
+                            onClick={() => downloadFile(selectedOnboarding.employeeHandbook!.signature!, "handbook-signature.png", "image/png")}
+                          >
+                            Download
+                          </Button>
+                        </div>
+                        <img
+                          src={selectedOnboarding.employeeHandbook.signature}
+                          alt="Handbook Signature"
+                          className="max-w-full h-24 object-contain rounded border"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 p-3 bg-muted/30 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <PenTool className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Digital Signature</span>
+                      </div>
+                      {renderStepStatus(selectedOnboarding.digitalSignature?.status || "missing")}
+                    </div>
+                    {selectedOnboarding.digitalSignature?.signature && (
+                      <div className="mt-2">
+                        <div className="flex items-center justify-between mb-1">
+                          <p className="text-xs text-muted-foreground">Signature:</p>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-xs h-6"
+                            onClick={() => downloadFile(selectedOnboarding.digitalSignature!.signature!, "digital-signature.png", "image/png")}
+                          >
+                            Download
+                          </Button>
+                        </div>
+                        <img
+                          src={selectedOnboarding.digitalSignature.signature}
+                          alt="Digital Signature"
+                          className="max-w-full h-24 object-contain rounded border"
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Documents Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs sm:text-sm font-medium">W-4 (File)</label>
-                  <p className="text-xs sm:text-sm text-muted-foreground break-all bg-muted/30 p-2 rounded">
-                    {selectedEmployee.w4FileName ? selectedEmployee.w4FileName : "—"}
-                  </p>
+              {selectedOnboarding.adminReview && selectedOnboarding.adminReview.rejectionReason && (
+                <div className="p-3 bg-destructive/10 rounded-lg">
+                  <p className="text-sm font-medium text-destructive">Rejection Reason:</p>
+                  <p className="text-sm text-destructive">{selectedOnboarding.adminReview.rejectionReason}</p>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs sm:text-sm font-medium">I-9 (File)</label>
-                  <p className="text-xs sm:text-sm text-muted-foreground break-all bg-muted/30 p-2 rounded">
-                    {selectedEmployee.i9FileName ? selectedEmployee.i9FileName : "—"}
-                  </p>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs sm:text-sm font-medium">Signature (File)</label>
-                  <p className="text-xs sm:text-sm text-muted-foreground break-all bg-muted/30 p-2 rounded">
-                    {selectedEmployee.signatureFileName ? selectedEmployee.signatureFileName : "—"}
-                  </p>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs sm:text-sm font-medium">Generated PDF (File)</label>
-                  <p className="text-xs sm:text-sm text-muted-foreground break-all bg-muted/30 p-2 rounded">
-                    {selectedEmployee.generatedPdfFileName ? selectedEmployee.generatedPdfFileName : "—"}
-                  </p>
-                </div>
-              </div>
+              )}
 
-              {/* Progress */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-xs sm:text-sm">
-                  <span className="text-muted-foreground">Progress</span>
-                  <span className="font-medium">{selectedEmployee.progress}%</span>
+                  <span className="text-muted-foreground">Overall Progress</span>
+                  <span className="font-medium">{selectedOnboarding.progress}%</span>
                 </div>
-                <Progress value={selectedEmployee.progress} className="h-1.5 sm:h-2" />
-              </div>
-
-              {/* Completed Steps */}
-              <div className="space-y-1.5">
-                <label className="text-xs sm:text-sm font-medium">Completed Steps</label>
-                <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                  {selectedEmployee.completedSteps.length === 0 ? (
-                    <p className="text-xs sm:text-sm text-muted-foreground">—</p>
-                  ) : (
-                    selectedEmployee.completedSteps.map((step) => (
-                      <Badge key={step} variant="secondary" className="bg-success/10 text-success text-xs sm:text-sm">
-                        <CheckCircle2 className="h-3 w-3 mr-1 flex-shrink-0" />
-                        {step}
-                      </Badge>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              {/* Pending Steps */}
-              <div className="space-y-1.5">
-                <label className="text-xs sm:text-sm font-medium">Pending Steps</label>
-                <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                  {selectedEmployee.pendingSteps.length === 0 ? (
-                    <p className="text-xs sm:text-sm text-muted-foreground">—</p>
-                  ) : (
-                    selectedEmployee.pendingSteps.map((step) => (
-                      <Badge key={step} variant="secondary" className="bg-muted text-muted-foreground text-xs sm:text-sm">
-                        <Clock className="h-3 w-3 mr-1 flex-shrink-0" />
-                        {step}
-                      </Badge>
-                    ))
-                  )}
-                </div>
+                <Progress value={selectedOnboarding.progress} className="h-1.5 sm:h-2" />
               </div>
             </div>
           )}
 
-          <DialogFooter className="mt-4 sm:mt-6">
-            {selectedEmployee && (
-              <div className="flex flex-col sm:flex-row gap-2 w-full">
+          <DialogFooter className="mt-4 sm:mt-6 gap-2">
+            {selectedOnboarding && (selectedOnboarding.overallStatus === "submitted" || selectedOnboarding.overallStatus === "in_progress") && (
+              <>
                 <Button
-                  variant="outline"
-                  className="w-full sm:w-auto order-2 sm:order-1"
-                  onClick={() => setViewDetailsOpen(false)}
-                  disabled={savingDetails}
+                  variant="destructive"
+                  onClick={() => {
+                    const reason = prompt("Enter rejection reason:");
+                    if (reason) handleReject(reason);
+                  }}
+                  disabled={actionLoading}
                 >
-                  Close
+                  Reject
                 </Button>
                 <Button
-                  className="w-full sm:w-auto order-1 sm:order-2"
-                  onClick={saveDetailsApproval}
-                  disabled={savingDetails}
+                  className="bg-success hover:bg-success/90"
+                  onClick={handleApprove}
+                  disabled={actionLoading}
                 >
-                  Save
+                  Approve
                 </Button>
-              </div>
+              </>
             )}
+            <Button variant="outline" onClick={() => setViewDetailsOpen(false)}>
+              Close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

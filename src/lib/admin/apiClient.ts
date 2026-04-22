@@ -92,6 +92,19 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   return (await parseJsonSafe(res)) as T;
 }
 
+export async function apiGet<T>(path: string): Promise<T> {
+  return apiFetch<T>(path, {
+    method: "GET",
+  });
+}
+
+export async function apiPut<T>(path: string, body?: any): Promise<T> {
+  return apiFetch<T>(path, {
+    method: "PUT",
+    body: body ? JSON.stringify(body) : undefined,
+  });
+}
+
 export type LoginResponse = {
   item: {
     token: string;
@@ -454,4 +467,89 @@ export async function getAdminEmployeeEODReports(employeeName: string, params?: 
     page: number;
     limit: number;
   }>(`/api/admin/eod-reports?employee=${encodeURIComponent(employeeName)}${queryString ? `&${queryString}` : ""}`);
+}
+
+// Onboarding API functions
+export async function getAdminOnboardingList(status?: string) {
+  const queryString = status ? `?status=${encodeURIComponent(status)}` : "";
+  return apiGet<{
+    items: Array<{
+      id: string;
+      userId: string;
+      employeeId: string;
+      employeeName: string;
+      basicInfo: {
+        completed: boolean;
+        email: string;
+        phone: string;
+        location: string;
+      };
+      identityVerification: {
+        primaryId: {
+          idType: string;
+          frontImage: string;
+          backImage: string;
+          status: string;
+        };
+        secondaryId: {
+          idType: string;
+          image: string;
+          status: string;
+        };
+      };
+      w4Form: {
+        file: string;
+        status: string;
+      };
+      employeeHandbook: {
+        acknowledged: boolean;
+        signature: string;
+        signedAt: string;
+        status: string;
+      };
+      digitalSignature: {
+        signature: string;
+        status: string;
+      };
+      overallStatus: string;
+      progress: number;
+      adminReview?: {
+        reviewedBy: string;
+        reviewedAt: string;
+        comments: string;
+        rejectionReason: string;
+      };
+      createdAt: string;
+      updatedAt: string;
+    }>;
+  }>(`/api/onboarding/admin/all${queryString}`);
+}
+
+export async function getAdminOnboardingDetails(id: string) {
+  return apiGet<{
+    item: {
+      id: string;
+      userId: string;
+      employeeId: string;
+      employeeName: string;
+      basicInfo: any;
+      identityVerification: any;
+      w4Form: any;
+      employeeHandbook: any;
+      digitalSignature: any;
+      overallStatus: string;
+      progress: number;
+      adminReview?: any;
+      createdAt: string;
+      updatedAt: string;
+    };
+  }>(`/api/onboarding/admin/${id}`);
+}
+
+export async function approveOnboarding(id: string, comments?: string) {
+  return apiPut(`/api/onboarding/admin/${id}/approve`, { comments: comments || "" });
+}
+
+export async function rejectOnboarding(id: string, reason: string) {
+  return apiPut(`/api/onboarding/admin/${id}/reject`, { reason });
 }
