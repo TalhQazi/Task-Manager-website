@@ -214,6 +214,7 @@ export async function getTaskById(taskId: string) {
       createdAt?: string;
       attachmentFileName?: string;
       attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number };
+      attachments?: Array<{ fileName: string; url: string; mimeType: string; size: number }>;
       updatedAt?: string;
     };
   }>(`/api/tasks/${encodeURIComponent(taskId)}`);
