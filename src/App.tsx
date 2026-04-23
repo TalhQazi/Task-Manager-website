@@ -10,6 +10,7 @@ import { getAuthState } from "./lib/auth";
 import { getEmployeeAuth } from "./Employee/lib/auth";
 import { SocketProvider } from "./contexts/SocketContext";
 import { TaskBlasterProvider } from "./contexts/TaskBlasterContext";
+import { ThemeProvider } from "./contexts/ThemeContext";
 
 // Lazy-load route controllers — each pulls in its own pages lazily
 const AdminRoutes = lazy(() => import("./routes/AdminRoutes"));
@@ -54,10 +55,22 @@ const App = () => (
               <Route path="/" element={<IndexRedirect />} />
               <Route path="/login" element={<Login />} />
               <Route path="/login/employee" element={<EmployeeLogin />} />
-              <Route path="/admin/*" element={<AdminRoutes />} />
-              <Route path="/manager/*" element={<ManagerController />} />
+              <Route path="/admin/*" element={
+                <ThemeProvider>
+                  <AdminRoutes />
+                </ThemeProvider>
+              } />
+              <Route path="/manager/*" element={
+                <ThemeProvider>
+                  <ManagerController />
+                </ThemeProvider>
+              } />
               <Route path="/developer/*" element={<DeveloperController />} />
-              <Route path="/employee/*" element={<EmployeeController />} />
+              <Route path="/employee/*" element={
+                <ThemeProvider>
+                  <EmployeeController />
+                </ThemeProvider>
+              } />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>

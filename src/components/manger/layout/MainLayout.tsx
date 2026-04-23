@@ -273,7 +273,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       .toUpperCase() || "M";
 
   return (
-    <div className="min-h-screen bg-[#e6f0ff]">
+    <div className="min-h-screen" style={{ background: "var(--tb-dashboard-bg)" }}>
       {/* Top header with dynamic background from admin settings - FULL WIDTH */}
       <header 
         className="fixed top-0 left-0 right-0 z-50 shadow-floating"
@@ -304,9 +304,9 @@ export function MainLayout({ children }: MainLayoutProps) {
                 draggable={false}
               />
               {headerSettings?.overlay?.enabled && (
-                <div 
+                <div
                   className="absolute inset-0"
-                  style={{ backgroundColor: headerSettings.overlay.color || 'rgba(0,0,0,0.3)' }}
+                  style={{ backgroundColor: headerSettings.overlay.color || 'var(--tb-header-overlay-color)', opacity: headerSettings.overlay.color ? 1 : 'var(--tb-header-overlay-opacity)' }}
                 />
               )}
             </>
