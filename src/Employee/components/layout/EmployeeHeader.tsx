@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
-import { Bell, Menu, Search, User } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Bell, Menu, Mail, User, Settings, LogOut, Bug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -61,24 +61,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
   });
 
   const headerSettings = headerSettingsQuery.data?.item;
-  const [headerHeight, setHeaderHeight] = useState(250);
-
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 768) {
-        setHeaderHeight(120);
-      } else if (window.innerWidth < 1024) {
-        setHeaderHeight(180);
-      } else {
-        setHeaderHeight(250);
-      }
-    };
-    
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
+  const headerHeight = 300;
   const hasImageBackground = headerSettings?.backgroundType === 'image' && headerSettings.imageConfig?.dataUrl;
 
   const fullName = (profile?.name || auth?.name || auth?.username || "Employee").trim();
@@ -126,146 +109,145 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
     }
   };
 
-  const onLogout = () => {
+  const onLogout = async () => {
+    try {
+      await apiFetch("/api/auth/logout", { method: "POST" });
+    } catch {
+      // ignore
+    }
     clearEmployeeAuth();
     localStorage.removeItem("token");
     navigate("/login/employee", { replace: true });
   };
 
   return (
-    <header 
-      className="fixed top-0 left-0 right-0 z-30 shadow-floating overflow-hidden"
-      style={{ height: `${headerHeight}px` }}
+    <header
+      className="fixed top-0 left-0 right-0 z-50 shadow-floating"
+      style={{ height: '300px' }}
     >
-      <div 
-        className="w-full h-full relative"
+      <div
+        className="w-full h-full relative overflow-hidden group"
         style={{
-          background: hasImageBackground 
+          background: hasImageBackground
             ? 'transparent'
-            : `linear-gradient(to right, ${headerSettings?.colorConfig?.from || '#133767'}, ${headerSettings?.colorConfig?.via || '#133767'}, ${headerSettings?.colorConfig?.to || '#133767'})`
+            : `linear-gradient(to right, ${headerSettings?.colorConfig?.from || 'var(--tb-header-bg)'}, ${headerSettings?.colorConfig?.via || 'var(--tb-header-bg)'}, ${headerSettings?.colorConfig?.to || 'var(--tb-header-bg)'})`
         }}
       >
-        {/* Background Image - Full Width */}
+        {/* Background Image */}
         {hasImageBackground && (
           <>
             <img
               src={headerSettings?.imageConfig?.dataUrl}
               alt="header background"
-              className="absolute inset-0 w-full h-full object-cover"
-              style={{ 
+              className="absolute inset-0 w-full h-full"
+              style={{
+                objectFit: 'cover',
                 objectPosition: headerSettings?.imageConfig?.position || 'center',
-                objectFit: headerSettings?.imageConfig?.size === 'contain' ? 'contain' : 'cover'
               }}
+              draggable={false}
             />
-            {/* Overlay */}
             {headerSettings?.overlay?.enabled && (
-              <div 
+              <div
                 className="absolute inset-0"
-                style={{ backgroundColor: headerSettings.overlay.color || 'rgba(0,0,0,0.3)' }}
+                style={{ backgroundColor: headerSettings.overlay.color || 'var(--tb-header-overlay-color)', opacity: headerSettings.overlay.color ? 1 : 'var(--tb-header-overlay-opacity)' }}
               />
             )}
           </>
         )}
 
-        {/* Content - with left padding for sidebar on desktop */}
-        <div 
-          className="relative flex items-center justify-between px-3 sm:px-6 lg:px-10 py-2 md:py-4 animate-fade-in h-full md:pl-20 lg:pl-24"
-        >
-          <div className="flex items-center z-10" style={{ height: '75%', minHeight: '32px' }}>
-            <div className="aspect-square h-full rounded-full border-2 border-white/80 overflow-hidden bg-white shadow-2xl transition-all duration-300 hover:scale-110">
-              <img
-                src="/taskmanager-by-reardon.svg"
-                alt="Task Manager logo"
-                className="w-full h-full object-cover"
-              />
+        <div className="absolute inset-0 flex flex-col pointer-events-none">
+          {/* Header Content Area */}
+          <div
+            className="flex-1 relative flex flex-col justify-end px-3 sm:px-6 lg:px-8 md:pl-64 pb-8 sm:pb-12 md:pb-16 animate-fade-in pointer-events-auto"
+          >
+            {/* LEFT SIDE: Branding and Profile Stacking */}
+            <div className="flex flex-col gap-4">
+              {/* Profile Card (Top) */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <div className="flex items-center gap-3 p-2 rounded-xl bg-black/20 backdrop-blur-md border border-white/10 hover:bg-black/30 transition-all cursor-pointer group w-fit">
+                    <div className="relative">
+                      <Avatar className="h-10 w-10 border border-white/20 shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20 transition-all">
+                        {profile?.avatarUrl ? (
+                          <AvatarImage src={toProxiedUrl(profile.avatarUrl)} alt={fullName} crossOrigin="anonymous" className="object-cover" />
+                        ) : (
+                          <AvatarFallback className="bg-gradient-to-br from-[#00C6FF] to-[#0072FF] text-white text-xs font-bold">{initials}</AvatarFallback>
+                        )}
+                      </Avatar>
+                      <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-black rounded-full" />
+                    </div>
+                    <div className="flex flex-col min-w-0 pr-4">
+                      <span className="text-base font-bold text-white truncate leading-tight drop-shadow-md">{fullName}</span>
+                      <span className="text-[11px] text-white/60 truncate tracking-wide uppercase font-semibold">Employee</span>
+                    </div>
+                  </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" side="bottom" className="w-56 mt-2">
+                  <DropdownMenuLabel className="text-xs">Account Settings</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/employee/profile")}>
+                    <User className="mr-2 h-4 w-4" /> Profile Details
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/employee/ui-customization")}>
+                    <Settings className="mr-2 h-4 w-4" /> UI Preferences
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Quick Actions Bar (Bottom) */}
+              <div className="flex items-center justify-start gap-4">
+                <div className="md:hidden">
+                  <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/[0.14] transition-all" aria-label="Open navigation" onClick={() => onMenuClick?.()}><Menu className="h-5 w-5 text-white" /></button>
+                </div>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
+                      <Mail className="h-5 w-5" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
+                    <DropdownMenuLabel className="text-xs">Direct Messages</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <div className="p-4 text-center text-xs text-muted-foreground">No messages</div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
+                      <Bell className="h-4.5 w-4.5" />
+                      {unreadCount > 0 && (
+                        <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[9px] border-black">
+                          {unreadCount > 9 ? "9+" : unreadCount}
+                        </Badge>
+                      )}
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
+                    <DropdownMenuLabel className="text-xs">Notifications</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {notifications.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-muted-foreground">No notifications</div>
+                    ) : (
+                      notifications.map((n: any) => (
+                        <DropdownMenuItem key={n.id} className="text-xs" onClick={() => { void markRead(n.id); navigate("/employee/notifications"); }}>
+                          {String(n.content || "")}
+                        </DropdownMenuItem>
+                      ))
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <button
+                  onClick={onLogout}
+                  className="p-2 rounded-lg bg-black/20 hover:bg-red-500/20 backdrop-blur-sm transition-colors text-red-400/70 hover:text-red-400"
+                  title="Logout"
+                >
+                  <LogOut className="h-4.5 w-4.5" />
+                </button>
+              </div>
             </div>
-          </div>
-
-          {/* CENTER BRANDING REMOVED FOR CLEANLINESS */}
-
-          <div className="flex items-center gap-2 sm:gap-3 text-white z-10">
-            <button
-              type="button"
-              className="inline-flex md:hidden h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-              aria-label="Open navigation"
-              onClick={() => onMenuClick?.()}
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="hidden sm:inline-flex relative h-9 w-9 rounded-full bg-white/10 hover:bg-white/20"
-                  aria-label="Notifications"
-                >
-                  <Bell className="h-4 w-4" />
-                  {unreadCount > 0 && (
-                    <Badge className="absolute -top-1 -right-1 h-5 min-w-[20px] px-1 p-0 flex items-center justify-center bg-red-500 text-[10px]">
-                      {unreadCount > 9 ? "9+" : unreadCount}
-                    </Badge>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-72 mr-2">
-                <DropdownMenuSeparator />
-                {notifications.length === 0 ? (
-                  <DropdownMenuItem className="text-xs text-muted-foreground">No notifications</DropdownMenuItem>
-                ) : (
-                  notifications.map((n: any) => (
-                    <DropdownMenuItem
-                      key={n.id}
-                      className="flex flex-col items-start gap-0.5 text-xs"
-                      onClick={() => { void markRead(n.id); navigate("/employee/notifications"); }}
-                    >
-                      <span className={`font-medium line-clamp-2 ${n.status !== "read" ? "font-semibold" : "text-muted-foreground"}`}>{String(n.content || "")}</span>
-                    </DropdownMenuItem>
-                  ))
-                )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-xs text-center justify-center font-medium text-primary cursor-pointer"
-                  onClick={async () => {
-                    await markAllRead();
-                    navigate("/employee/notifications");
-                  }}
-                >
-                  View all notifications
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="hidden sm:inline-flex items-center justify-center h-12 w-12 p-0 rounded-full bg-transparent hover:bg-transparent"
-                  aria-label="Account menu"
-                >
-                  <Avatar className="h-12 w-12 border-2 border-white/70">
-                    <AvatarImage src={toProxiedUrl(profile?.avatarUrl)} alt={fullName} crossOrigin="anonymous" />
-                    <AvatarFallback className="bg-white/20 text-sm font-semibold text-white">{initials}</AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56 mr-2">
-                <DropdownMenuLabel className="text-xs">{fullName}</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-xs" onClick={() => navigate("/employee/profile")}
-                >
-                  <User className="mr-2 h-4 w-4" />
-                  Profile
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-xs text-destructive" onClick={onLogout}>
-                  Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         </div>
       </div>

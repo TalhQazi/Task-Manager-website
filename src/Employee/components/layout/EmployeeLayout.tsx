@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Outlet } from "react-router-dom";
 import { EmployeeSidebar } from "./EmployeeSidebar";
 import { EmployeeHeader } from "./EmployeeHeader";
@@ -8,26 +8,13 @@ import { TaskBlaster } from "@/components/shared/TaskBlaster";
 
 export function EmployeeLayout() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [headerHeight, setHeaderHeight] = useState(250);
-
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 768) {
-        setHeaderHeight(120);
-      } else if (window.innerWidth < 1024) {
-        setHeaderHeight(180);
-      } else {
-        setHeaderHeight(250);
-      }
-    };
-    
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const headerHeight = 300;
 
   return (
-    <div className="min-h-screen bg-[#e6f0ff]" style={{ paddingTop: `${headerHeight + 10}px` }}>
+    <div
+      className="min-h-screen"
+      style={{ paddingTop: `${headerHeight}px`, background: "var(--tb-dashboard-bg)" }}
+    >
       <EmployeeHeader onMenuClick={() => setMobileSidebarOpen(true)} />
 
       <div className="flex">

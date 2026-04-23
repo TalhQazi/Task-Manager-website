@@ -40,7 +40,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   return (
     <HeaderHeightContext.Provider value={headerHeight}>
-      <div className="min-h-screen bg-[#e6f0ff] overflow-x-hidden flex flex-col" style={{ paddingTop: `${headerHeight}px` }}>
+      <div className="min-h-screen overflow-x-hidden flex flex-col" style={{ paddingTop: `${headerHeight}px`, background: "var(--tb-dashboard-bg)" }}>
         <Header onMenuClick={() => setMobileSidebarOpen(true)} />
         
 

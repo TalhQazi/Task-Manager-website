@@ -543,3 +543,6 @@
     animation: none !important;
   }
 }
+
+/* TaskBlaster UI System Styles */
+@import "./styles/taskblaster.css";
