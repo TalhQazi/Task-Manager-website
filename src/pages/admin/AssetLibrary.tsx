@@ -955,6 +955,8 @@ export default function AssetLibrary() {
                           ) : null}
                         </div>
                       </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
