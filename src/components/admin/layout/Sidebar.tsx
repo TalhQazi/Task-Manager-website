@@ -107,6 +107,7 @@ const navItemsBase: NavItem[] = [
       />
     ),
   },
+  { icon: Settings, label: "UI Customization", path: "/admin/ui-customization" },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
   { icon: Bug, label: "Bug Reports", path: "/admin/bug-reports" },
 ];
@@ -260,6 +261,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
                   isActive && ["brightness-[112%]", "scale-[1.03]"],
                   "group-hover:brightness-[108%]"
                 )}
+                style={{ color: "var(--tb-sidebar-icon-color)" }}
               />
             )}
             {item.label === "SignaCore" ? (
@@ -286,12 +288,11 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
     <aside
       className={cn(
         "flex flex-col text-white z-40 h-full",
-        // Deep matte navy with subtle vertical gradient
-        "bg-gradient-to-b from-[#0B1323] via-[#0B1323] to-[#0F172A]",
         isMobile
           ? "w-64"
           : "w-full shadow-floating animate-slide-in"
       )}
+      style={{ background: "var(--tb-sidebar-bg)" }}
     >
       <div className="px-5 py-6 mb-3 flex flex-col items-center border-b border-white/5 bg-white/[0.03] backdrop-blur-md">
         <div className="relative w-full rounded-xl bg-white shadow-2xl border-4 border-white/20 group flex items-center justify-center overflow-hidden">

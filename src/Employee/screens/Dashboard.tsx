@@ -85,7 +85,10 @@ function CircularProgress({
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
-          <Icon className={`h-6 w-6 ${color.replace('stroke-', 'text-')}`} />
+          <Icon
+            className={`h-6 w-6 ${color.replace('stroke-', 'text-')}`}
+            style={{ color: "var(--tb-dashboard-icon-color)" }}
+          />
         </div>
       </div>
       <div className="mt-2 text-center">
@@ -371,7 +374,7 @@ export default function EmployeeDashboard() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <ListTodo className="h-5 w-5" />
+            <ListTodo className="h-5 w-5" style={{ color: "var(--tb-dashboard-icon-color)" }} />
             Task Progress Overview
           </CardTitle>
         </CardHeader>

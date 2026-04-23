@@ -203,12 +203,12 @@ export function Header({ onMenuClick }: HeaderProps) {
     }
 
     if (!headerSettings) {
-      return { background: "linear-gradient(to right, #133767, #133767, #133767)" };
+      return { background: `linear-gradient(to right, var(--tb-header-bg), var(--tb-header-bg), var(--tb-header-bg))` };
     }
 
     const { from, via, to } = headerSettings.colorConfig || {};
     return {
-      background: `linear-gradient(to right, ${from || "#133767"}, ${via || "#133767"}, ${to || "#133767"})`,
+      background: `linear-gradient(to right, ${from || "var(--tb-header-bg)"}, ${via || "var(--tb-header-bg)"}, ${to || "var(--tb-header-bg)"})`,
     };
   };
 
@@ -552,9 +552,9 @@ export function Header({ onMenuClick }: HeaderProps) {
               onTouchStart={coverEditMode ? handleCoverTouchStart : undefined}
             />
             {headerSettings?.overlay?.enabled && !coverEditMode && (
-              <div 
+              <div
                 className="absolute inset-0"
-                style={{ backgroundColor: headerSettings.overlay.color || 'rgba(0,0,0,0.3)' }}
+                style={{ backgroundColor: headerSettings.overlay.color || 'var(--tb-header-overlay-color)', opacity: headerSettings.overlay.color ? 1 : 'var(--tb-header-overlay-opacity)' }}
               />
             )}
           </>

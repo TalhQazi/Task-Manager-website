@@ -1,12 +1,9 @@
-import { useEffect, useState } from "react";
 import { NavLink } from "@/components/admin/NavLink";
 
-import { LayoutDashboard, ClipboardList, Calendar, UserCircle, Bell, LogOut, Clock, MessageCircle, FileText, ClipboardCheck, Folder, Wallet } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Calendar, UserCircle, Bell, Clock, MessageCircle, FileText, ClipboardCheck, Folder, Wallet, Palette } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { clearEmployeeAuth } from "@/Employee/lib/auth";
-import { employeeApiFetch } from "@/Employee/lib/api";
 
 const navItemsBase = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/employee", end: true },
@@ -17,13 +14,13 @@ const navItemsBase = [
 
   { icon: Clock, label: "Time Tracking", path: "/employee/clocked" },
   { icon: Wallet, label: "Payroll", path: "/employee/payroll" },
-  { icon: FileText, label: "Documents", path: "/employee/documents" },
 
   { icon: MessageCircle, label: "Messages", path: "/employee/messages" },
   { icon: Folder, label: "Asset Library", path: "/employee/asset-library" },
   { icon: UserCircle, label: "Profile", path: "/employee/profile" },
   { icon: Bell, label: "Notifications", path: "/employee/notifications" },
   { icon: FileText, label: "My Notes", path: "/employee/personal-notes" },
+  { icon: Palette, label: "UI Customization", path: "/employee/ui-customization" },
 ];
 
 type SidebarMode = "desktop" | "mobile";
@@ -35,23 +32,7 @@ interface EmployeeSidebarProps {
 
 export function EmployeeSidebar({ mode = "desktop", onNavigate }: EmployeeSidebarProps) {
   const navigate = useNavigate();
-  const [topOffset, setTopOffset] = useState(250);
-
-  useEffect(() => {
-    const handleResize = () => {
-      if (window.innerWidth < 768) {
-        setTopOffset(120);
-      } else if (window.innerWidth < 1024) {
-        setTopOffset(180);
-      } else {
-        setTopOffset(250);
-      }
-    };
-    
-    handleResize();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+  const topOffset = 300;
 
   const isMobile = mode === "mobile";
 
@@ -61,29 +42,26 @@ export function EmployeeSidebar({ mode = "desktop", onNavigate }: EmployeeSideba
     }
   };
 
-  const onLogout = async () => {
-    try {
-      await employeeApiFetch("/api/auth/logout", { method: "POST" });
-    } catch {
-      // ignore errors
-    }
-    clearEmployeeAuth();
-    localStorage.removeItem("token");
-    onNavigate?.();
-    navigate("/login/employee", { replace: true });
-  };
-
   return (
     <aside
       className={cn(
         "flex flex-col text-white z-40",
-        // Deep matte navy with subtle vertical gradient (matching admin sidebar)
         isMobile
-          ? "h-full w-64 bg-gradient-to-b from-[#0B1323] via-[#0B1323] to-[#0F172A]"
-          : "fixed left-0 bottom-0 w-56 bg-gradient-to-b from-[#0B1323] via-[#0B1323] to-[#0F172A] shadow-floating border-r border-white/5"
+          ? "h-full w-64"
+          : "fixed left-0 top-[300px] bottom-0 w-56 shadow-floating"
       )}
-      style={!isMobile ? { top: `${topOffset}px` } : undefined}
+      style={{ background: "var(--tb-sidebar-bg)" }}
     >
+      <div className="px-5 py-6 mb-3 flex flex-col items-center border-b border-white/5 bg-white/[0.03] backdrop-blur-md">
+        <div className="relative w-full rounded-xl bg-white shadow-2xl border-4 border-white/20 group flex items-center justify-center overflow-hidden">
+          <img
+            src="/new_logo.jpeg"
+            alt="Task Manager logo"
+            className="w-full h-auto object-contain transition-all duration-500 hover:scale-105 active:scale-95"
+            style={{ maxHeight: '150px' }}
+          />
+        </div>
+      </div>
       <nav className="flex-1 flex flex-col gap-1 px-2 py-2 overflow-y-auto overflow-x-hidden no-scrollbar">
         {navItemsBase.map((item) => (
           <NavLink
@@ -105,24 +83,18 @@ export function EmployeeSidebar({ mode = "desktop", onNavigate }: EmployeeSideba
                     isActive ? "opacity-100" : "opacity-0"
                   )} 
                 />
-                <item.icon className="h-5 w-5 flex-shrink-0 transition-all duration-100 linear relative z-10 group-hover:brightness-[108%]" />
-                <span className="text-sm font-medium truncate">{item.label}</span>
+                <item.icon
+                  className="h-5 w-5 flex-shrink-0 transition-all duration-100 linear relative z-10 group-hover:brightness-[108%]"
+                  style={{ color: "var(--tb-sidebar-icon-color)" }}
+                />
+                <span className="text-sm font-medium truncate" style={{ color: "var(--tb-sidebar-text-color)" }}>
+                  {item.label}
+                </span>
               </>
             )}
           </NavLink>
         ))}
       </nav>
-
-      <div className="border-t border-white/10 px-2 pb-4 pt-3">
-        <button
-          type="button"
-          onClick={onLogout}
-          className="flex w-full items-center gap-3 h-10 rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white transition-all duration-100 linear"
-        >
-          <LogOut className="h-5 w-5 flex-shrink-0" />
-          <span className="text-sm font-medium">Logout</span>
-        </button>
-      </div>
     </aside>
   );
 }

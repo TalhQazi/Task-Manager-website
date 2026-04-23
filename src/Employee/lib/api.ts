@@ -28,6 +28,15 @@ export async function employeeApiFetch<T>(
   }
 
   console.log("[employeeApiFetch] Request:", endpoint, "URL:", url);
+
+  if (!headers["Authorization"]) {
+    const token = localStorage.getItem("token");
+    if (token) {
+      headers["Authorization"] = `Bearer ${token}`;
+    }
+  }
+
+
   const response = await fetch(url, {
     ...options,
     headers,
@@ -552,6 +561,24 @@ export async function markAllNotificationsAsRead(): Promise<{ success: boolean }
 // Onboarding API functions
 export async function getOnboardingStatus(): Promise<{ item: { overallStatus: string; progress: number } }> {
   return employeeApiFetch<{ item: { overallStatus: string; progress: number } }>("/api/onboarding/me");
+}
+
+// UI Preferences API functions
+export async function getUIPreferences(): Promise<{ item: any }> {
+  return employeeApiFetch<{ item: any }>("/api/ui-preferences");
+}
+
+export async function updateUIPreferences(preferences: any): Promise<{ item: any }> {
+  return employeeApiFetch<{ item: any }>("/api/ui-preferences", {
+    method: "PUT",
+    body: JSON.stringify(preferences),
+  });
+}
+
+export async function resetUIPreferences(): Promise<{ item: any; message: string }> {
+  return employeeApiFetch<{ item: any; message: string }>("/api/ui-preferences/reset", {
+    method: "POST",
+  });
 }
 
 export async function deleteNotification(notificationId: string): Promise<void> {

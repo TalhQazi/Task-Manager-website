@@ -1,0 +1,356 @@
+/* TaskBlaster UI System - Core CSS Variables */
+:root {
+  /* Default theme colors - will be overridden by theme classes */
+  --tb-primary: #133767;
+  --tb-secondary: #3b82f6;
+  --tb-accent: #8b5cf6;
+
+  /* Employee panel surfaces */
+  --tb-header-bg: #133767;
+  --tb-header-overlay-color: #000000;
+  --tb-header-overlay-opacity: 0.3;
+  --tb-sidebar-bg: #0b1323;
+  --tb-dashboard-bg: #e6f0ff;
+  --tb-sidebar-icon-color: #ffffff;
+  --tb-dashboard-icon-color: #133767;
+  --tb-sidebar-text-color: #ffffff;
+  --tb-dashboard-card-bg: #ffffff;
+
+  /* Animation settings */
+  --tb-animation-speed: 0.3s;
+  --tb-glow-intensity: 50%;
+  --tb-animations-enabled: 1;
+  --tb-reduce-motion: 0;
+  --tb-hover-effects: 1;
+  --tb-click-effects: 1;
+
+  /* Layout settings */
+  --tb-spacing: 1rem;
+  --tb-card-style: glass;
+
+  /* Card styles */
+  --tb-card-bg: rgba(255, 255, 255, 0.95);
+  --tb-card-border: 1px solid rgba(0, 0, 0, 0.1);
+  --tb-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --tb-card-hover-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  --tb-card-radius: 0.75rem;
+}
+
+/* ==================== THEME: Neon Tech ==================== */
+body.tb-theme-neon-tech,
+.tb-theme-neon-tech {
+  --tb-primary: #00f5ff;
+  --tb-secondary: #ff00ff;
+  --tb-accent: #00ff88;
+  --tb-card-border: 1px solid rgba(0, 245, 255, 0.3);
+  --tb-card-shadow: 0 0 20px rgba(0, 245, 255, 0.2);
+  --tb-card-hover-shadow: 0 0 30px rgba(0, 245, 255, 0.4);
+  background: linear-gradient(135deg, #0a0a1e 0%, #1a1a3e 100%) !important;
+  color: #ffffff !important;
+}
+
+.tb-theme-neon-tech .tb-card {
+  backdrop-filter: blur(10px);
+  box-shadow: 0 0 calc(var(--tb-glow-intensity) * 0.2px) rgba(0, 245, 255, 0.3);
+  border: 1px solid rgba(0, 245, 255, 0.3);
+}
+
+.tb-theme-neon-tech .tb-card:hover {
+  box-shadow: 0 0 calc(var(--tb-glow-intensity) * 0.4px) rgba(0, 245, 255, 0.5);
+  border-color: rgba(0, 245, 255, 0.6);
+}
+
+/* ==================== THEME: Metallic Elite ==================== */
+body.tb-theme-metallic-elite,
+.tb-theme-metallic-elite {
+  --tb-primary: #c0c0c0;
+  --tb-secondary: #ffd700;
+  --tb-accent: #4a90d9;
+  --tb-card-border: 1px solid rgba(192, 192, 192, 0.3);
+  --tb-card-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  --tb-card-hover-shadow: 0 8px 16px rgba(192, 192, 192, 0.2);
+  background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%) !important;
+  color: #e0e0e0 !important;
+}
+
+.tb-theme-metallic-elite .tb-card {
+  background: var(--tb-dashboard-card-bg) !important;
+  border: 1px solid rgba(192, 192, 192, 0.2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+.tb-theme-metallic-elite .tb-card:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    0 8px 16px rgba(192, 192, 192, 0.3);
+  border-color: rgba(192, 192, 192, 0.4);
+}
+
+/* ==================== THEME: Executive Black ==================== */
+body.tb-theme-executive-black,
+.tb-theme-executive-black {
+  --tb-primary: #1a1a1a;
+  --tb-secondary: #333333;
+  --tb-accent: #666666;
+  --tb-card-border: 1px solid rgba(255, 255, 255, 0.05);
+  --tb-card-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  --tb-card-hover-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  background: #0d0d0d !important;
+  color: #e5e5e5 !important;
+}
+
+.tb-theme-executive-black .tb-card {
+  background: var(--tb-dashboard-card-bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.tb-theme-executive-black .tb-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* ==================== THEME: Dark Minimal ==================== */
+body.tb-theme-dark-minimal,
+.tb-theme-dark-minimal {
+  --tb-primary: #133767;
+  --tb-secondary: #3b82f6;
+  --tb-accent: #8b5cf6;
+  --tb-card-border: 1px solid rgba(255, 255, 255, 0.1);
+  --tb-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --tb-card-hover-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  background: #0f172a !important;
+  color: #f1f5f9 !important;
+}
+
+.tb-theme-dark-minimal .tb-card {
+  background: var(--tb-dashboard-card-bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.tb-theme-dark-minimal .tb-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  transform: translateY(-2px);
+}
+
+/* ==================== THEME: High Contrast ==================== */
+body.tb-theme-high-contrast,
+.tb-theme-high-contrast {
+  --tb-primary: #000000;
+  --tb-secondary: #ffffff;
+  --tb-accent: #ffff00;
+  --tb-card-border: 3px solid #000000;
+  --tb-card-shadow: 4px 4px 0 #000000;
+  --tb-card-hover-shadow: 6px 6px 0 #000000;
+  background: #ffffff !important;
+  color: #000000 !important;
+}
+
+.tb-theme-high-contrast .tb-card {
+  background: var(--tb-dashboard-card-bg) !important;
+  border: 3px solid #000000;
+  box-shadow: 4px 4px 0 #000000;
+}
+
+.tb-theme-high-contrast .tb-card:hover {
+  box-shadow: 6px 6px 0 #000000;
+  transform: translate(-2px, -2px);
+}
+
+.tb-theme-high-contrast .tb-card h1,
+.tb-theme-high-contrast .tb-card h2,
+.tb-theme-high-contrast .tb-card h3,
+.tb-theme-high-contrast .tb-card h4 {
+  color: #000000 !important;
+}
+
+/* ==================== THEME: Energy Mode ==================== */
+body.tb-theme-energy-mode,
+.tb-theme-energy-mode {
+  --tb-primary: #ff6b6b;
+  --tb-secondary: #feca57;
+  --tb-accent: #48dbfb;
+  --tb-card-border: 2px solid rgba(255, 107, 107, 0.5);
+  --tb-card-shadow: 0 0 20px rgba(255, 107, 107, 0.3);
+  --tb-card-hover-shadow: 0 0 40px rgba(255, 107, 107, 0.5);
+  background: linear-gradient(45deg, #ff6b6b, #feca57, #48dbfb) !important;
+  background-size: 400% 400%;
+  animation: energyGradient 15s ease infinite;
+  color: #ffffff !important;
+}
+
+@keyframes energyGradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.tb-theme-energy-mode .tb-card {
+  background: var(--tb-dashboard-card-bg) !important;
+  border: 2px solid rgba(255, 107, 107, 0.5);
+  box-shadow: 0 0 calc(var(--tb-glow-intensity) * 0.3px) rgba(255, 107, 107, 0.4);
+}
+
+.tb-theme-energy-mode .tb-card:hover {
+  box-shadow: 0 0 calc(var(--tb-glow-intensity) * 0.6px) rgba(255, 107, 107, 0.6);
+  transform: scale(1.02);
+}
+
+/* ==================== CARD STYLES ==================== */
+
+/* Glass Card Style */
+[data-tb-card-style="glass"] .tb-card {
+  background: var(--tb-dashboard-card-bg) !important;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Neon Card Style */
+[data-tb-card-style="neon"] .tb-card {
+  border: 1px solid var(--tb-primary);
+  box-shadow: 0 0 calc(var(--tb-glow-intensity) * 0.2px) var(--tb-primary);
+}
+
+[data-tb-card-style="neon"] .tb-card:hover {
+  box-shadow: 0 0 calc(var(--tb-glow-intensity) * 0.4px) var(--tb-primary);
+}
+
+/* Metallic Card Style */
+[data-tb-card-style="metallic"] .tb-card {
+  background: var(--tb-dashboard-card-bg) !important;
+  border: 1px solid rgba(192, 192, 192, 0.2);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+/* ==================== ANIMATIONS: Global Toggle ==================== */
+
+[data-tb-animations-enabled="0"] .tb-card {
+  transition: none !important;
+}
+
+[data-tb-animations-enabled="0"] .tb-card:hover,
+[data-tb-animations-enabled="0"] .tb-card:active {
+  transform: none !important;
+}
+
+/* ==================== ANIMATIONS ==================== */
+
+/* Hover Effects - Only when enabled */
+@media (hover: hover) {
+  [data-tb-hover-effects="1"] .tb-card {
+    transition: all var(--tb-animation-speed) ease;
+  }
+
+  [data-tb-hover-effects="1"] .tb-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--tb-card-hover-shadow);
+  }
+
+  [data-tb-hover-effects="0"] .tb-card {
+    transition: none;
+  }
+
+  [data-tb-hover-effects="0"] .tb-card:hover {
+    transform: none;
+    box-shadow: var(--tb-card-shadow);
+  }
+}
+
+/* Click Effects - Only when enabled */
+[data-tb-click-effects="1"] .tb-card:active {
+  transform: scale(0.98);
+  transition: transform 0.1s ease;
+}
+
+[data-tb-click-effects="0"] .tb-card:active {
+  transform: none;
+}
+
+/* Reduce Motion - Respect user preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+[data-tb-reduce-motion="1"] *,
+[data-tb-reduce-motion="1"] *::before,
+[data-tb-reduce-motion="1"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+
+/* ==================== LAYOUT DENSITY ==================== */
+
+.tb-layout-compact {
+  --tb-spacing: 0.75rem;
+}
+
+.tb-layout-comfortable {
+  --tb-spacing: 1rem;
+}
+
+.tb-layout-spacious {
+  --tb-spacing: 1.5rem;
+}
+
+/* ==================== UTILITY CLASSES ==================== */
+
+.tb-card {
+  background: var(--tb-dashboard-card-bg) !important;
+  border: var(--tb-card-border);
+  border-radius: var(--tb-card-radius);
+  box-shadow: var(--tb-card-shadow);
+  padding: var(--tb-spacing);
+  transition: all var(--tb-animation-speed) ease;
+}
+
+.tb-card-glow {
+  box-shadow: 0 0 calc(var(--tb-glow-intensity) * 0.3px) var(--tb-primary);
+}
+
+.tb-text-primary {
+  color: var(--tb-primary);
+}
+
+.tb-text-secondary {
+  color: var(--tb-secondary);
+}
+
+.tb-text-accent {
+  color: var(--tb-accent);
+}
+
+.tb-bg-primary {
+  background-color: var(--tb-primary);
+}
+
+.tb-bg-secondary {
+  background-color: var(--tb-secondary);
+}
+
+.tb-bg-accent {
+  background-color: var(--tb-accent);
+}
+
+.tb-border-primary {
+  border-color: var(--tb-primary);
+}
+
+.tb-border-secondary {
+  border-color: var(--tb-secondary);
+}
+
+.tb-border-accent {
+  border-color: var(--tb-accent);
+}

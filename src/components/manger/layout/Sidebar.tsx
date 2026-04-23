@@ -78,6 +78,7 @@ const navItemsBase: NavItem[] = [
     ),
   },
   { icon: FileText, label: "Personal Notes", path: "/manager/personal-notes" },
+  { icon: Settings, label: "UI Customization", path: "/manager/ui-customization" },
   { icon: Settings, label: "Settings", path: "/manager/settings" },
 ];
 
@@ -153,9 +154,10 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
         to={item.path}
         end={item.end}
         className={cn(
-          "group relative flex h-10 w-full items-center gap-3 rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear",
+          "group relative flex h-10 w-full items-center gap-3 rounded-lg px-3 hover:bg-white/[0.04] hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear",
           isChild && "h-9 text-[13px]"
         )}
+        style={{ color: "var(--tb-sidebar-text-color)" }}
         activeClassName="bg-white/[0.06] text-white"
         onClick={handleNavigate}
       >
@@ -196,6 +198,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
                   isActive && ["brightness-[112%]", "scale-[1.03]"],
                   "group-hover:brightness-[108%]"
                 )}
+                style={{ color: "var(--tb-sidebar-icon-color)" }}
               />
             )}
             {item.label === "SignaCore" ? (
@@ -222,12 +225,11 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
     <aside
       className={cn(
         "flex flex-col text-white z-40",
-        // Deep matte navy with subtle vertical gradient
-        "bg-gradient-to-b from-[#0B1323] via-[#0B1323] to-[#0F172A]",
         isMobile
           ? "w-64 h-full"
           : "fixed left-0 top-[300px] bottom-0 w-56 lg:w-64 shadow-floating"
       )}
+      style={{ background: "var(--tb-sidebar-bg)" }}
     >
       <div className="px-5 py-6 mb-3 flex flex-col items-center border-b border-white/5 bg-white/[0.03] backdrop-blur-md">
         <div className="relative w-full rounded-xl bg-white shadow-2xl border-4 border-white/20 group flex items-center justify-center overflow-hidden">
