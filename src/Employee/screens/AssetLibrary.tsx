@@ -92,7 +92,9 @@ export default function EmployeeAssetLibrary() {
       params.set("page", String(page));
       params.set("limit", String(limit));
       const qs = params.toString() ? `?${params.toString()}` : "";
-      return employeeApiFetch<Paginated<Asset>>(`/api/asset-library/assets${qs}`);
+      const result = await employeeApiFetch<Paginated<Asset>>(`/api/asset-library/assets${qs}`);
+      console.log("[AssetLibrary] API Response:", result);
+      return result;
     },
     enabled: !foldersQuery.isLoading,
   });
