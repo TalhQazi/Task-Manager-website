@@ -1,9 +1,9 @@
 import { useEffect, useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/manger/ui/card";
+import { Badge } from "@/components/manger/ui/badge";
+import { Button } from "@/components/manger/ui/button";
 import { Clock, DollarSign, TrendingUp, ChevronLeft, ChevronRight, Download } from "lucide-react";
-import { getEmployeeProfile, employeeApiFetch } from "../lib/api";
+import { apiFetch } from "@/lib/manger/api";
 
 interface TimeEntry {
   id: string;
@@ -69,7 +69,7 @@ function getMonthName(date: Date): string {
   return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
-export default function EmployeePayroll() {
+export default function Payroll() {
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [employeeProfile, setEmployeeProfile] = useState<EmployeeProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -78,7 +78,7 @@ export default function EmployeePayroll() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const profileRes = await getEmployeeProfile();
+      const profileRes = await apiFetch<{ item: EmployeeProfile }>("/api/employees/me");
       console.log("Employee profile from API:", profileRes.item);
       console.log("PayRate field:", profileRes.item.payRate);
       console.log("PayType field:", profileRes.item.payType);
@@ -94,7 +94,7 @@ export default function EmployeePayroll() {
     if (!employeeProfile) return;
     
     try {
-      const res = await employeeApiFetch<{ success: boolean; items: TimeEntry[] }>(
+      const res = await apiFetch<{ success: boolean; items: TimeEntry[] }>(
         "/api/employees/me/time-entry/history"
       );
       const allEntries = res.items || [];
@@ -229,14 +229,14 @@ export default function EmployeePayroll() {
 
   if (loading) {
     return (
-      <div className="p-6 text-center">
+      <div className="ml-12 pl-6 p-6 text-center">
         <p>Loading payroll...</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="ml-12 pl-6 space-y-6">
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

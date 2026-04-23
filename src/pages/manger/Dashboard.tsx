@@ -6,9 +6,12 @@ import { ActiveEmployees } from "@/components/admin/dashboard/ActiveEmployees";
 import { TaskCharts } from "@/components/admin/dashboard/TaskCharts";
 import { DayAheadCard } from "@/components/admin/dashboard/DayAheadCard";
 import { WeekAheadCard } from "@/components/admin/dashboard/WeekAheadCard";
-import { Users, CheckSquare, FolderRoot, Car, MapPin, Sparkles, TrendingUp } from "lucide-react";
+import { Users, CheckSquare, FolderRoot, Car, MapPin, Sparkles, TrendingUp, AlertTriangle } from "lucide-react";
 import { apiFetch } from "@/lib/manger/api";
 import { useNavigate } from "react-router-dom";
+import { Card, CardContent } from "@/components/manger/ui/card";
+import { Button } from "@/components/manger/ui/button";
+import { Link } from "react-router-dom";
 
 type DashboardSummary = {
   activeTasks: number;
@@ -66,6 +69,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [onboardingStatus, setOnboardingStatus] = useState<string>("not_started");
 
   useEffect(() => {
     let mounted = true;
@@ -73,9 +77,13 @@ const Dashboard = () => {
       try {
         setLoading(true);
         setApiError(null);
-        const data = await apiFetch<DashboardSummary>("/api/dashboard/summary");
+        const [data, onboardingRes] = await Promise.all([
+          apiFetch<DashboardSummary>("/api/dashboard/summary").catch(() => null),
+          apiFetch<{ item: { overallStatus: string } }>("/api/onboarding/me").catch(() => ({ item: { overallStatus: "not_started" } })),
+        ]);
         if (!mounted) return;
-        setSummary(data);
+        if (data) setSummary(data);
+        setOnboardingStatus(onboardingRes.item.overallStatus);
       } catch (e) {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load dashboard");
@@ -145,6 +153,38 @@ const Dashboard = () => {
             </span>
           </div>
         </motion.div>
+
+        {/* Onboarding Warning Banner */}
+        {onboardingStatus !== "approved" && (
+          <motion.div 
+            variants={fadeUpVariants}
+          >
+            <Card className="border-l-4 border-l-orange-500 bg-orange-50">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+                      <AlertTriangle className="h-5 w-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-orange-900">Onboarding Required</p>
+                      <p className="text-sm text-orange-700">
+                        {onboardingStatus === "not_started" || onboardingStatus === "in_progress"
+                          ? "Please complete your onboarding to access all features."
+                          : onboardingStatus === "submitted"
+                          ? "Your onboarding is submitted and pending approval."
+                          : "Please complete your onboarding to access all features."}
+                      </p>
+                    </div>
+                  </div>
+                  <Button asChild className="bg-orange-600 hover:bg-orange-700">
+                    <Link to="/manager/profile">Complete Onboarding</Link>
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
 
         {/* Stats Grid */}
         <motion.div 

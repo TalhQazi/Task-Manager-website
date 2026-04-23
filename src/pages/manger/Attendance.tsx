@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/manger/ui/card";
+import { Button } from "@/components/manger/ui/button";
+import { Badge } from "@/components/manger/ui/badge";
+import { Textarea } from "@/components/manger/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -11,7 +10,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/components/manger/ui/dialog";
 import {
   Table,
   TableBody,
@@ -19,11 +18,10 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
+} from "@/components/manger/ui/table";
 import { Clock, LogIn, LogOut, Timer, Calendar, History, ClipboardList, AlertCircle, AlertTriangle } from "lucide-react";
-import { getTodayTimeEntry, clockIn, submitScrumAndClockOut, getEmployeeTimeEntryHistory, getEmployeeProfile, submitEODReport, getOnboardingStatus } from "../lib/api";
+import { apiFetch } from "@/lib/manger/api";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
 
 interface TimeEntry {
   id: string;
@@ -47,9 +45,9 @@ interface HistoryEntry {
   scrum?: string | null;
 }
 
-export default function EmployeeClocked() {
+export default function Attendance() {
   const [timeEntry, setTimeEntry] = useState<TimeEntry | null>(null);
-  const [employeeName, setEmployeeName] = useState<string>("");
+  const [managerName, setManagerName] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -63,7 +61,6 @@ export default function EmployeeClocked() {
     notes: "",
   });
   const [validationError, setValidationError] = useState("");
-  const [onboardingStatus, setOnboardingStatus] = useState<string>("not_started");
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -74,12 +71,12 @@ export default function EmployeeClocked() {
     const loadData = async () => {
       try {
         const [entryRes, profileRes, onboardingRes] = await Promise.all([
-          getTodayTimeEntry(),
-          getEmployeeProfile(),
-          getOnboardingStatus().catch(() => ({ item: { overallStatus: "not_started" } })),
+          apiFetch<{ item: TimeEntry | null }>("/api/employees/me/time-entry/today"),
+          apiFetch<{ item: { name: string } }>("/api/employees/me"),
+          apiFetch<{ item: { overallStatus: string } }>("/api/onboarding/me").catch(() => ({ item: { overallStatus: "not_started" } })),
         ]);
         setTimeEntry(entryRes.item);
-        setEmployeeName(profileRes.item.name);
+        setManagerName(profileRes.item.name);
         setOnboardingStatus(onboardingRes.item.overallStatus);
       } catch (err) {
         console.error("Failed to load time entry:", err);
@@ -96,7 +93,7 @@ export default function EmployeeClocked() {
     const loadHistory = async () => {
       setHistoryLoading(true);
       try {
-        const res = await getEmployeeTimeEntryHistory();
+        const res = await apiFetch<{ items: HistoryEntry[] }>("/api/employees/me/time-entry/history");
         setHistory(res.items || []);
       } catch (err) {
         console.error("Failed to load history:", err);
@@ -110,8 +107,10 @@ export default function EmployeeClocked() {
   const handleClockIn = async () => {
     setActionLoading(true);
     try {
-      const res = await clockIn();
-      setTimeEntry(res.item as TimeEntry);
+      const res = await apiFetch<{ item: TimeEntry }>("/api/employees/me/clock-in", {
+        method: "POST",
+      });
+      setTimeEntry(res.item);
       toast.success("Clocked in successfully");
     } catch (err: any) {
       toast.error(err.message || "Failed to clock in");
@@ -143,10 +142,13 @@ export default function EmployeeClocked() {
 
     try {
       // Submit EOD report first
-      await submitEODReport({
-        tasksCompleted: eodData.tasksCompleted.trim(),
-        issuesBlockers: eodData.issuesBlockers.trim(),
-        notes: eodData.notes.trim(),
+      await apiFetch("/api/employees/me/eod-report", {
+        method: "POST",
+        body: JSON.stringify({
+          tasksCompleted: eodData.tasksCompleted.trim(),
+          issuesBlockers: eodData.issuesBlockers.trim(),
+          notes: eodData.notes.trim(),
+        }),
       });
 
       // Then clock out with scrum (for backward compatibility)
@@ -156,7 +158,10 @@ export default function EmployeeClocked() {
         notes: eodData.notes.trim(),
       });
 
-      const res = await submitScrumAndClockOut(eodReport);
+      const res = await apiFetch<{ item: TimeEntry }>("/api/employees/me/clock-out-with-scrum", {
+        method: "POST",
+        body: JSON.stringify({ scrum: eodReport }),
+      });
       toast.success("Clocked out successfully with EOD report");
       setShowScrumModal(false);
       setEodData({
@@ -165,10 +170,10 @@ export default function EmployeeClocked() {
         notes: "",
       });
       // Reload time entry to get fresh state
-      const entryRes = await getTodayTimeEntry();
+      const entryRes = await apiFetch<{ item: TimeEntry | null }>("/api/employees/me/time-entry/today");
       setTimeEntry(entryRes.item);
       // Refresh history
-      const historyRes = await getEmployeeTimeEntryHistory();
+      const historyRes = await apiFetch<{ items: HistoryEntry[] }>("/api/employees/me/time-entry/history");
       setHistory(historyRes.items || []);
     } catch (err: any) {
       toast.error(err.message || "Failed to clock out");
@@ -209,11 +214,10 @@ export default function EmployeeClocked() {
 
   const isClockedIn = timeEntry?.clockIn && !timeEntry?.clockOut;
   const isClockedOut = timeEntry?.clockIn && timeEntry?.clockOut;
-  const isOnboardingApproved = onboardingStatus === "approved";
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="ml-12 pl-6 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Attendance</h1>
         </div>
@@ -228,7 +232,7 @@ export default function EmployeeClocked() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="ml-12 pl-6 space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Attendance</h1>
@@ -237,34 +241,6 @@ export default function EmployeeClocked() {
           <p className="text-sm text-muted-foreground">{formatDate(currentTime)}</p>
         </div>
       </div>
-
-      {/* Onboarding Warning Banner */}
-      {!isOnboardingApproved && (
-        <Card className="border-l-4 border-l-orange-500 bg-orange-50">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
-                  <AlertTriangle className="h-5 w-5 text-orange-600" />
-                </div>
-                <div>
-                  <p className="font-semibold text-orange-900">Onboarding Required</p>
-                  <p className="text-sm text-orange-700">
-                    {onboardingStatus === "not_started" || onboardingStatus === "in_progress"
-                      ? "Please complete your onboarding before clocking in."
-                      : onboardingStatus === "submitted"
-                      ? "Your onboarding is submitted and pending approval."
-                      : "Please complete your onboarding before clocking in."}
-                  </p>
-                </div>
-              </div>
-              <Button asChild className="bg-orange-600 hover:bg-orange-700">
-                <Link to="/employee/profile">Complete Onboarding</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Status Card */}
       <Card className="border-l-4 border-l-[#133767]">
@@ -291,8 +267,8 @@ export default function EmployeeClocked() {
                 <p className="text-2xl font-bold">
                   {isClockedIn ? "Clocked In" : isClockedOut ? "Shift Complete" : "Not Clocked In"}
                 </p>
-                {employeeName && (
-                  <p className="text-sm text-muted-foreground">Welcome, {employeeName}</p>
+                {managerName && (
+                  <p className="text-sm text-muted-foreground">Welcome, {managerName}</p>
                 )}
               </div>
             </div>
@@ -368,11 +344,10 @@ export default function EmployeeClocked() {
               size="lg"
               className="flex-1 bg-green-600 hover:bg-green-700"
               onClick={handleClockIn}
-              disabled={!!(isClockedIn || isClockedOut || actionLoading || !isOnboardingApproved)}
-              title={!isOnboardingApproved ? "Complete onboarding first" : ""}
+              disabled={!!(isClockedIn || isClockedOut || actionLoading)}
             >
               <LogIn className="h-5 w-5 mr-2" />
-              {actionLoading && !isClockedIn ? "Processing..." : !isOnboardingApproved ? "Onboarding Required" : "Clock In"}
+              {actionLoading && !isClockedIn ? "Processing..." : "Clock In"}
             </Button>
             <Button
               size="lg"

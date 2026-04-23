@@ -27,6 +27,7 @@ export async function employeeApiFetch<T>(
     }
   }
 
+  console.log("[employeeApiFetch] Request:", endpoint, "URL:", url);
   const response = await fetch(url, {
     ...options,
     headers,
@@ -34,6 +35,7 @@ export async function employeeApiFetch<T>(
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
+    console.error("[employeeApiFetch] Error:", response.status, errorData);
     throw new Error(errorData.error?.message || `Request failed: ${response.status}`);
   }
 
