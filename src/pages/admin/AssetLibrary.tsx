@@ -346,6 +346,14 @@ export default function AssetLibrary() {
     mutationFn: async (files: File[]) => {
       setUploadError(null);
 
+      const LIMIT_MB = 15;
+      const LIMIT_BYTES = LIMIT_MB * 1024 * 1024;
+
+      const oversized = files.filter(f => f.size > LIMIT_BYTES);
+      if (oversized.length) {
+        throw new Error(`File too large: ${oversized[0].name} exceeds ${LIMIT_MB}MB limit.`);
+      }
+
       const supported = files.filter(
         (f) => f.type?.startsWith("image/") || f.type === "application/pdf"
       );
@@ -596,8 +604,17 @@ export default function AssetLibrary() {
             onClick={() => fileInputRef.current?.click()}
             disabled={uploadAssetsMutation.isPending || isSelectedFolderReadOnly}
           >
-            <Upload className="h-4 w-4" />
-            Upload
+            {uploadAssetsMutation.isPending ? (
+              <>
+                <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                Uploading...
+              </>
+            ) : (
+              <>
+                <Upload className="h-4 w-4" />
+                Upload
+              </>
+            )}
           </Button>
         </div>
       </div>

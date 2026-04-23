@@ -42,6 +42,8 @@ body.tb-theme-neon-tech,
   --tb-primary: #00f5ff;
   --tb-secondary: #ff00ff;
   --tb-accent: #00ff88;
+  --tb-dashboard-bg: #0a0a1e;
+  --tb-sidebar-bg: #0a0a1e;
   --tb-card-border: 1px solid rgba(0, 245, 255, 0.3);
   --tb-card-shadow: 0 0 20px rgba(0, 245, 255, 0.2);
   --tb-card-hover-shadow: 0 0 30px rgba(0, 245, 255, 0.4);
@@ -66,6 +68,8 @@ body.tb-theme-metallic-elite,
   --tb-primary: #c0c0c0;
   --tb-secondary: #ffd700;
   --tb-accent: #4a90d9;
+  --tb-dashboard-bg: #1a1a1a;
+  --tb-sidebar-bg: #111111;
   --tb-card-border: 1px solid rgba(192, 192, 192, 0.3);
   --tb-card-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
   --tb-card-hover-shadow: 0 8px 16px rgba(192, 192, 192, 0.2);
@@ -94,6 +98,8 @@ body.tb-theme-executive-black,
   --tb-primary: #1a1a1a;
   --tb-secondary: #333333;
   --tb-accent: #666666;
+  --tb-dashboard-bg: #0d0d0d;
+  --tb-sidebar-bg: #000000;
   --tb-card-border: 1px solid rgba(255, 255, 255, 0.05);
   --tb-card-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
   --tb-card-hover-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
@@ -118,6 +124,8 @@ body.tb-theme-dark-minimal,
   --tb-primary: #133767;
   --tb-secondary: #3b82f6;
   --tb-accent: #8b5cf6;
+  --tb-dashboard-bg: #0f172a;
+  --tb-sidebar-bg: #0b1323;
   --tb-card-border: 1px solid rgba(255, 255, 255, 0.1);
   --tb-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   --tb-card-hover-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
