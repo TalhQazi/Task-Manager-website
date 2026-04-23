@@ -346,14 +346,6 @@ export default function AssetLibrary() {
     mutationFn: async (files: File[]) => {
       setUploadError(null);
 
-      const LIMIT_MB = 15;
-      const LIMIT_BYTES = LIMIT_MB * 1024 * 1024;
-
-      const oversized = files.filter(f => f.size > LIMIT_BYTES);
-      if (oversized.length) {
-        throw new Error(`File too large: ${oversized[0].name} exceeds ${LIMIT_MB}MB limit.`);
-      }
-
       const supported = files.filter(
         (f) => f.type?.startsWith("image/") || f.type === "application/pdf"
       );
