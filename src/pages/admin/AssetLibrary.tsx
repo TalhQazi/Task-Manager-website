@@ -195,6 +195,14 @@ export default function AssetLibrary() {
     },
   });
 
+  const globalStatsQuery = useQuery({
+    queryKey: ["asset-library", "stats"],
+    queryFn: async () => {
+      const data = await apiFetch<{ totalAssets: number }>("/api/asset-library/stats");
+      return data;
+    },
+  });
+
   const patchFolderMutation = useMutation({
     mutationFn: async (payload: { id: string; name: string }) => {
       return apiFetch<{ item: FolderNode }>(`/api/asset-library/folders/${encodeURIComponent(payload.id)}`, {
@@ -216,8 +224,7 @@ export default function AssetLibrary() {
     },
     onSuccess: async () => {
       setSelectedFolderId(null);
-      await queryClient.invalidateQueries({ queryKey: ["asset-library", "folders"] });
-      await queryClient.invalidateQueries({ queryKey: ["asset-library", "assets"] });
+      await queryClient.invalidateQueries({ queryKey: ["asset-library"] });
     },
   });
 
@@ -246,7 +253,7 @@ export default function AssetLibrary() {
       setIsBulkTagOpen(false);
       setBulkTags("");
       setSelectedAssetIds(new Set());
-      await queryClient.invalidateQueries({ queryKey: ["asset-library", "assets"] });
+      await queryClient.invalidateQueries({ queryKey: ["asset-library"] });
     },
   });
 
@@ -368,7 +375,7 @@ export default function AssetLibrary() {
       });
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["asset-library", "assets"] });
+      await queryClient.invalidateQueries({ queryKey: ["asset-library"] });
     },
     onError: (err: any) => {
       setUploadError(err?.message || "Upload failed");
@@ -396,7 +403,7 @@ export default function AssetLibrary() {
     onSuccess: async (data) => {
       setIsEditAssetOpen(false);
       if (data?.item) setPreview(data.item);
-      await queryClient.invalidateQueries({ queryKey: ["asset-library", "assets"] });
+      await queryClient.invalidateQueries({ queryKey: ["asset-library"] });
     },
   });
 
@@ -409,7 +416,7 @@ export default function AssetLibrary() {
     onSuccess: async () => {
       setPreview(null);
       setIsEditAssetOpen(false);
-      await queryClient.invalidateQueries({ queryKey: ["asset-library", "assets"] });
+      await queryClient.invalidateQueries({ queryKey: ["asset-library"] });
     },
   });
 
@@ -437,8 +444,7 @@ export default function AssetLibrary() {
       setIsReplaceVersionOpen(false);
       setReplaceChangeNote("");
       if (data?.item) setPreview(data.item);
-      await queryClient.invalidateQueries({ queryKey: ["asset-library", "assets"] });
-      await queryClient.invalidateQueries({ queryKey: ["asset-library", "asset-versions"] });
+      await queryClient.invalidateQueries({ queryKey: ["asset-library"] });
     },
   });
 
@@ -679,7 +685,9 @@ export default function AssetLibrary() {
               >
                 <Folder className="h-4 w-4" />
                 <span className="truncate">All Assets</span>
-                <Badge variant="secondary" className="ml-auto">{total}</Badge>
+                <Badge variant="secondary" className="ml-auto">
+                  {globalStatsQuery.isLoading ? "..." : globalStatsQuery.data?.totalAssets ?? 0}
+                </Badge>
               </button>
               {(foldersQuery.data ?? []).map((n) => renderFolderNode(n, 0))}
             </div>
