@@ -686,7 +686,7 @@ export default function AssetLibrary() {
           </CardContent>
         </Card>
 
-        <Card className="h-[calc(100vh-260px)] min-h-[420px] overflow-hidden">
+        <Card className="h-[calc(100vh-260px)] min-h-[420px] overflow-hidden flex flex-col">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
@@ -794,7 +794,7 @@ export default function AssetLibrary() {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="pt-0 h-full overflow-y-auto">
+          <CardContent className="pt-0 flex-1 overflow-y-auto">
             {uploadError ? (
               <div className="p-3 mb-2 rounded-md border border-destructive/30 bg-destructive/10 text-sm text-destructive">
                 {uploadError}
@@ -955,80 +955,76 @@ export default function AssetLibrary() {
                           ) : null}
                         </div>
                       </div>
-                    );
-                  })}
                 </div>
               )}
-
-              <div className="flex items-center justify-between gap-2 px-1 py-4 border-t mt-2">
-                <div className="text-xs text-muted-foreground font-medium">
-                  Showing <span className="text-foreground">{(page - 1) * limit + 1}</span> to <span className="text-foreground">{Math.min(page * limit, total)}</span> of <span className="text-foreground">{total}</span> assets
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8"
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    disabled={page <= 1 || assetsQuery.isLoading}
-                  >
-                    Previous
-                  </Button>
-                  
-                  {/* Page numbers */}
-                  <div className="flex items-center gap-1 mx-2">
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      // Logic to show pages around current page
-                      let pageNum = i + 1;
-                      if (totalPages > 5) {
-                        if (page > 3) pageNum = page - 3 + i;
-                        if (pageNum > totalPages) pageNum = totalPages - (4 - i);
-                      }
-                      
-                      if (pageNum <= 0 || pageNum > totalPages) return null;
-
-                      return (
-                        <Button
-                          key={pageNum}
-                          variant={page === pageNum ? "default" : "outline"}
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={() => setPage(pageNum)}
-                        >
-                          {pageNum}
-                        </Button>
-                      );
-                    })}
-                    {totalPages > 5 && page < totalPages - 2 && (
-                      <>
-                        <span className="text-muted-foreground">...</span>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-8 w-8 p-0"
-                          onClick={() => setPage(totalPages)}
-                        >
-                          {totalPages}
-                        </Button>
-                      </>
-                    )}
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-8"
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={page >= totalPages || assetsQuery.isLoading}
-                  >
-                    Next
-                  </Button>
-                </div>
-              </div>
             </div>
           </CardContent>
+
+          <div className="border-t bg-card px-4 py-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="text-xs text-muted-foreground font-medium">
+                Showing <span className="text-foreground">{(page - 1) * limit + 1}</span> to <span className="text-foreground">{Math.min(page * limit, total)}</span> of <span className="text-foreground">{total}</span> assets
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1 || assetsQuery.isLoading}
+                >
+                  Previous
+                </Button>
+                
+                <div className="flex items-center gap-1 mx-2">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum = i + 1;
+                    if (totalPages > 5) {
+                      if (page > 3) pageNum = page - 3 + i;
+                      if (pageNum > totalPages) pageNum = totalPages - (4 - i);
+                    }
+                    if (pageNum <= 0 || pageNum > totalPages) return null;
+                    return (
+                      <Button
+                        key={pageNum}
+                        variant={page === pageNum ? "default" : "outline"}
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => setPage(pageNum)}
+                      >
+                        {pageNum}
+                      </Button>
+                    );
+                  })}
+                  {totalPages > 5 && page < totalPages - 2 && (
+                    <>
+                      <span className="text-muted-foreground">...</span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 w-8 p-0"
+                        onClick={() => setPage(totalPages)}
+                      >
+                        {totalPages}
+                      </Button>
+                    </>
+                  )}
+                </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages || assetsQuery.isLoading}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </div>
         </Card>
       </div>
 
