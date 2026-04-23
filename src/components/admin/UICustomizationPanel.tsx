@@ -278,6 +278,18 @@ export function AdminUICustomizationPanel() {
                 />
               </div>
             </div>
+
+            <div>
+              <Label>Dashboard Text Color</Label>
+              <div className="flex gap-2 mt-2">
+                <input
+                  type="color"
+                  value={localTheme.panelColors.dashboardTextColor || "#1e293b"}
+                  onChange={(e) => handlePanelColorChange("dashboardTextColor", e.target.value)}
+                  className="w-12 h-12 rounded cursor-pointer border-0"
+                />
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

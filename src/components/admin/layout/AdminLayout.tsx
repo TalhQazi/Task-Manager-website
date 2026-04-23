@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { TaskBlaster } from "@/components/shared/TaskBlaster";
 import { ReleaseNotes } from "@/components/admin/ReleaseNotes";
+import { useTheme } from "@/contexts/ThemeContext";
 
 // Context to share header height across components
 const HeaderHeightContext = createContext<number>(300);
@@ -23,6 +24,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(300);
   const [pageKey, setPageKey] = useState(0);
+  const { uiTheme } = useTheme();
 
   // Trigger page transition animation on route change
   useEffect(() => {
@@ -40,7 +42,34 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
   return (
     <HeaderHeightContext.Provider value={headerHeight}>
-      <div className="min-h-screen overflow-x-hidden flex flex-col" style={{ paddingTop: `${headerHeight}px`, background: "var(--tb-dashboard-bg)" }}>
+      <div 
+        className="min-h-screen overflow-x-hidden flex flex-col text-foreground" 
+        style={{ 
+          paddingTop: `${headerHeight}px`, 
+          background: "var(--tb-dashboard-bg)",
+          color: "var(--tb-dashboard-text-color)",
+          "--foreground": uiTheme.panelColors.dashboardTextColor 
+            ? (() => {
+                const hex = uiTheme.panelColors.dashboardTextColor;
+                let r = parseInt(hex.slice(1, 3), 16) / 255;
+                let g = parseInt(hex.slice(3, 5), 16) / 255;
+                let b = parseInt(hex.slice(5, 7), 16) / 255;
+                const max = Math.max(r, g, b), min = Math.min(r, g, b);
+                let h = 0, s = 0, l = (max + min) / 2;
+                if (max !== min) {
+                  const d = max - min;
+                  s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                  switch (max) {
+                    case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
+                    case g: h = ((b - r) / d + 2) / 6; break;
+                    case b: h = ((r - g) / d + 4) / 6; break;
+                  }
+                }
+                return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+              })()
+            : undefined,
+        } as React.CSSProperties}
+      >
         <Header onMenuClick={() => setMobileSidebarOpen(true)} />
         
 

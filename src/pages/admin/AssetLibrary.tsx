@@ -139,7 +139,7 @@ export default function AssetLibrary() {
   const [typeFilter, setTypeFilter] = useState<"" | "image" | "pdf">("");
   const [sort, setSort] = useState<"newest" | "oldest" | "az" | "za" | "size-asc" | "size-desc">("newest");
   const [page, setPage] = useState(1);
-  const limit = 24;
+  const limit = 25;
 
   const [expandedFolderIds, setExpandedFolderIds] = useState<Record<string, boolean>>({});
 
@@ -960,23 +960,66 @@ export default function AssetLibrary() {
                 </div>
               )}
 
-              <div className="flex items-center justify-between gap-2 px-1 py-3">
-                <div className="text-xs text-muted-foreground">{total} total</div>
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between gap-2 px-1 py-4 border-t mt-2">
+                <div className="text-xs text-muted-foreground font-medium">
+                  Showing <span className="text-foreground">{(page - 1) * limit + 1}</span> to <span className="text-foreground">{Math.min(page * limit, total)}</span> of <span className="text-foreground">{total}</span> assets
+                </div>
+                <div className="flex items-center gap-1.5">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
+                    className="h-8"
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
                     disabled={page <= 1 || assetsQuery.isLoading}
                   >
-                    Prev
+                    Previous
                   </Button>
-                  <div className="text-xs text-muted-foreground">Page {page} of {totalPages}</div>
+                  
+                  {/* Page numbers */}
+                  <div className="flex items-center gap-1 mx-2">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      // Logic to show pages around current page
+                      let pageNum = i + 1;
+                      if (totalPages > 5) {
+                        if (page > 3) pageNum = page - 3 + i;
+                        if (pageNum > totalPages) pageNum = totalPages - (4 - i);
+                      }
+                      
+                      if (pageNum <= 0 || pageNum > totalPages) return null;
+
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={page === pageNum ? "default" : "outline"}
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => setPage(pageNum)}
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    })}
+                    {totalPages > 5 && page < totalPages - 2 && (
+                      <>
+                        <span className="text-muted-foreground">...</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-8 w-8 p-0"
+                          onClick={() => setPage(totalPages)}
+                        >
+                          {totalPages}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
+                    className="h-8"
                     onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                     disabled={page >= totalPages || assetsQuery.isLoading}
                   >

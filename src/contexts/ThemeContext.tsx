@@ -21,6 +21,7 @@ export interface UITheme {
     dashboardIconColor: string;
     sidebarTextColor: string;
     dashboardCardBackground: string;
+    dashboardTextColor: string;
   };
   glowIntensity: number;
   animationSpeed: "slow" | "normal" | "fast";
@@ -60,6 +61,7 @@ const defaultTheme: UITheme = {
     dashboardIconColor: "#133767",
     sidebarTextColor: "#ffffff",
     dashboardCardBackground: "#ffffff",
+    dashboardTextColor: "#1e293b",
   },
   glowIntensity: 50,
   animationSpeed: "normal",
@@ -126,6 +128,7 @@ const applyThemeToDOM = (theme: UITheme) => {
   root.style.setProperty("--tb-dashboard-icon-color", panelColors.dashboardIconColor);
   root.style.setProperty("--tb-sidebar-text-color", panelColors.sidebarTextColor);
   root.style.setProperty("--tb-dashboard-card-bg", panelColors.dashboardCardBackground);
+  root.style.setProperty("--tb-dashboard-text-color", panelColors.dashboardTextColor || "#1e293b");
   
   // Also update Tailwind --card variable to match TaskBlaster card background
   // Convert hex to HSL format for Tailwind
