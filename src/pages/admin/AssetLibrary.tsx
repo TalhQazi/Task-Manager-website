@@ -28,6 +28,7 @@ import {
   History,
   Archive,
   Share2,
+  File,
 } from "lucide-react";
 
 type FolderNode = {
@@ -353,22 +354,10 @@ export default function AssetLibrary() {
     mutationFn: async (files: File[]) => {
       setUploadError(null);
 
-      const supported = files.filter(
-        (f) => f.type?.startsWith("image/") || f.type === "application/pdf"
-      );
-      const rejected = files.filter(
-        (f) => !(f.type?.startsWith("image/") || f.type === "application/pdf")
-      );
-
-      if (rejected.length) {
-        const first = rejected[0];
-        throw new Error(`Unsupported file type: ${first.type || first.name}`);
-      }
-
       const fd = new FormData();
       console.log("Uploading with folderId:", selectedFolderId);
       if (selectedFolderId) fd.append("folderId", selectedFolderId);
-      supported.forEach((f) => fd.append("files", f));
+      files.forEach((f) => fd.append("files", f));
       return apiFetch<{ items: Asset[] }>("/api/asset-library/assets/upload", {
         method: "POST",
         body: fd,
@@ -942,9 +931,9 @@ export default function AssetLibrary() {
                           ) : (
                             <div className="flex flex-col items-center justify-center text-muted-foreground">
                               {mime === "application/pdf" ? (
-                                <FileText className="h-8 w-8" />
+                                <FileText className="h-8 w-8 text-blue-500" />
                               ) : (
-                                <ImageIcon className="h-8 w-8" />
+                                <File className="h-8 w-8 text-muted-foreground" />
                               )}
                             </div>
                           )}
@@ -988,38 +977,65 @@ export default function AssetLibrary() {
                 </Button>
                 
                 <div className="flex items-center gap-1 mx-2">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum = i + 1;
-                    if (totalPages > 5) {
-                      if (page > 3) pageNum = page - 3 + i;
-                      if (pageNum > totalPages) pageNum = totalPages - (4 - i);
+                  {(() => {
+                    const pages = [];
+                    const maxVisible = 5;
+                    
+                    if (totalPages <= maxVisible) {
+                      for (let i = 1; i <= totalPages; i++) pages.push(i);
+                    } else {
+                      let start = Math.max(1, page - 2);
+                      let end = Math.min(totalPages, start + maxVisible - 1);
+                      
+                      if (end === totalPages) {
+                        start = Math.max(1, end - maxVisible + 1);
+                      }
+                      
+                      for (let i = start; i <= end; i++) pages.push(i);
                     }
-                    if (pageNum <= 0 || pageNum > totalPages) return null;
+
                     return (
-                      <Button
-                        key={pageNum}
-                        variant={page === pageNum ? "default" : "outline"}
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={() => setPage(pageNum)}
-                      >
-                        {pageNum}
-                      </Button>
+                      <>
+                        {pages[0] > 1 && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => setPage(1)}
+                            >
+                              1
+                            </Button>
+                            {pages[0] > 2 && <span className="text-muted-foreground px-1">...</span>}
+                          </>
+                        )}
+                        {pages.map((pageNum) => (
+                          <Button
+                            key={pageNum}
+                            variant={page === pageNum ? "default" : "outline"}
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            onClick={() => setPage(pageNum)}
+                          >
+                            {pageNum}
+                          </Button>
+                        ))}
+                        {pages[pages.length - 1] < totalPages && (
+                          <>
+                            {pages[pages.length - 1] < totalPages - 1 && <span className="text-muted-foreground px-1">...</span>}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-8 w-8 p-0"
+                              onClick={() => setPage(totalPages)}
+                            >
+                              {totalPages}
+                            </Button>
+                          </>
+                        )}
+                      </>
                     );
-                  })}
-                  {totalPages > 5 && page < totalPages - 2 && (
-                    <>
-                      <span className="text-muted-foreground">...</span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 w-8 p-0"
-                        onClick={() => setPage(totalPages)}
-                      >
-                        {totalPages}
-                      </Button>
-                    </>
-                  )}
+                  })()}
                 </div>
 
                 <Button
