@@ -194,46 +194,83 @@ export default function Bugs() {
               <div className="text-xs sm:text-sm text-muted-foreground">Loading...</div>
             </div>
           ) : (
-            <div className="w-full overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="text-xs md:text-sm">Title</TableHead>
-                    <TableHead className="text-xs md:text-sm">Status</TableHead>
-                    <TableHead className="text-xs md:text-sm">Posted By</TableHead>
-                    <TableHead className="text-xs md:text-sm">Where</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filtered.map((b) => (
-                    <TableRow key={b.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => openBug(b)}>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <p className="font-medium text-sm md:text-base line-clamp-1">{b.title}</p>
-                          <p className="text-xs md:text-sm text-muted-foreground line-clamp-1">{b.taskTitle ? `Task: ${b.taskTitle}` : ""}</p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant={b.status === "closed" ? "secondary" : "default"} className="text-xs md:text-sm">
-                          {b.status === "closed" ? "Closed" : "Open"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs md:text-sm text-muted-foreground">
-                        {b.createdByUsername || "-"}
-                        {b.createdByRole ? ` (${b.createdByRole})` : ""}
-                      </TableCell>
-                      <TableCell className="text-xs md:text-sm text-muted-foreground">{b.source?.path || b.source?.panel || "-"}</TableCell>
+            <div className="w-full">
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="text-sm">Title</TableHead>
+                      <TableHead className="text-sm">Status</TableHead>
+                      <TableHead className="text-sm">Posted By</TableHead>
+                      <TableHead className="text-sm">Where</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((b) => (
+                      <TableRow key={b.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => openBug(b)}>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <p className="font-semibold text-base line-clamp-1">{b.title}</p>
+                            <p className="text-sm text-muted-foreground line-clamp-1">{b.taskTitle ? `Task: ${b.taskTitle}` : ""}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={b.status === "closed" ? "secondary" : "default"} className="text-xs">
+                            {b.status === "closed" ? "Closed" : "Open"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {b.createdByUsername || "-"}
+                          {b.createdByRole ? ` (${b.createdByRole})` : ""}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{b.source?.path || b.source?.panel || "-"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-3 p-3">
+                {filtered.map((b) => (
+                  <div 
+                    key={b.id} 
+                    className="p-4 rounded-xl border bg-card hover:border-blue-500/50 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
+                    onClick={() => openBug(b)}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <Badge variant={b.status === "closed" ? "secondary" : "default"} className="text-[10px] uppercase">
+                        {b.status === "closed" ? "Closed" : "Open"}
+                      </Badge>
+                      <span className="text-[10px] text-muted-foreground font-medium">{b.source?.path?.split('/').pop() || "System"}</span>
+                    </div>
+                    <h3 className="font-bold text-base leading-tight mb-1">{b.title}</h3>
+                    <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{b.description}</p>
+                    <div className="flex items-center justify-between mt-auto pt-3 border-t">
+                      <div className="flex items-center gap-1.5">
+                        <div className="h-5 w-5 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-700">
+                          {b.createdByUsername?.charAt(0).toUpperCase() || "A"}
+                        </div>
+                        <span className="text-[10px] font-medium text-muted-foreground">{b.createdByUsername}</span>
+                      </div>
+                      <span className="text-[10px] text-muted-foreground">{b.createdAt ? new Date(b.createdAt).toLocaleDateString() : ""}</span>
+                    </div>
+                  </div>
+                ))}
+                {filtered.length === 0 && (
+                  <div className="text-center py-10 text-muted-foreground text-sm italic">
+                    No open bugs found.
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </CardContent>
       </Card>
 
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-        <DialogContent className="w-[95vw] max-w-3xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl">
           <DialogHeader className="space-y-1.5 sm:space-y-2">
             <DialogTitle className="text-lg sm:text-xl">{selected?.title || "Bug"}</DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">{selected?.source?.path || selected?.source?.panel || ""}</DialogDescription>

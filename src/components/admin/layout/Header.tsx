@@ -754,7 +754,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
         {/* Bug Report Dialog */}
         <Dialog open={reportOpen} onOpenChange={setReportOpen}>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="w-[95vw] max-w-lg mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto rounded-xl">
             {reportSuccess ? (
               <div className="flex flex-col items-center justify-center py-10 space-y-6 animate-in fade-in zoom-in duration-500">
                 <div className="relative">
@@ -781,56 +781,69 @@ export function Header({ onMenuClick }: HeaderProps) {
               </div>
             ) : (
               <>
-                <DialogHeader>
-                  <DialogTitle>Report an Issue</DialogTitle>
-                  <DialogDescription>Help us improve Task Manager by reporting bugs.</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-2">
-                  <div className="space-y-2">
-                    <label className="text-xs font-medium">Title</label>
-                    <Input value={reportTitle} onChange={e => setReportTitle(e.target.value)} placeholder="What's wrong?" />
+                <DialogHeader className="pb-4 border-b">
+                  <div className="flex items-center gap-2 text-blue-600 mb-1">
+                    <Bug className="h-5 w-5" />
+                    <DialogTitle className="text-xl font-bold">Report an Issue</DialogTitle>
                   </div>
+                  <DialogDescription className="text-sm">
+                    Help us improve the system by describing any bugs or issues you've encountered.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-5 py-5">
                   <div className="space-y-2">
-                    <label className="text-xs font-medium">Description</label>
-                    <textarea 
-                      value={reportDescription} 
-                      onChange={e => setReportDescription(e.target.value)} 
-                      className="w-full rounded-md border p-2 text-sm min-h-24 bg-background"
-                      placeholder="Give us details..."
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Issue Title</label>
+                    <Input 
+                      value={reportTitle} 
+                      onChange={e => setReportTitle(e.target.value)} 
+                      placeholder="e.g., Dashboard stats not loading on mobile" 
+                      className="h-11 rounded-lg border-muted-foreground/20 focus:ring-blue-500/20"
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-xs font-medium">Attachments (Max 5)</label>
-                    <div className="flex flex-wrap gap-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Detailed Description</label>
+                    <textarea 
+                      value={reportDescription} 
+                      onChange={e => setReportDescription(e.target.value)} 
+                      className="w-full rounded-lg border border-muted-foreground/20 px-3 py-3 text-sm sm:text-base min-h-[140px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20 bg-background shadow-sm transition-all"
+                      placeholder="Please provide as much detail as possible, including steps to reproduce the issue..."
+                    />
+                  </div>
+                  <div className="space-y-3">
+                    <label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                      <span>Screenshots (Max 5)</span>
+                      <span className="font-medium normal-case text-[10px]">{reportImageFiles.length}/5</span>
+                    </label>
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
                        {reportImagePreviewUrls.map((url, i) => (
-                         <div key={i} className="relative h-16 w-16 border rounded overflow-hidden group">
-                           <img src={url} className="h-full w-full object-cover" />
+                         <div key={i} className="relative aspect-square border rounded-xl overflow-hidden group shadow-sm bg-muted">
+                           <img src={url} className="h-full w-full object-cover transition-transform group-hover:scale-110" />
                            <button onClick={() => {
-                              URL.revokeObjectURL(url);
-                              setReportImagePreviewUrls(p => p.filter((_, idx) => idx !== i));
-                              setReportImageFiles(p => p.filter((_, idx) => idx !== i));
-                           }} className="absolute top-0 right-0 bg-red-500 text-white p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                             <XIcon className="h-3 w-3" />
+                               URL.revokeObjectURL(url);
+                               setReportImagePreviewUrls(p => p.filter((_, idx) => idx !== i));
+                               setReportImageFiles(p => p.filter((_, idx) => idx !== i));
+                           }} className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                             <XIcon className="h-5 w-5 text-white" />
                            </button>
                          </div>
                        ))}
                        {reportImageFiles.length < 5 && (
-                         <div className="flex gap-2">
+                         <div className="flex gap-2 contents">
                            <button 
                             onClick={handlePasteImage}
-                            className="h-16 w-16 border-2 border-dashed rounded flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+                            className="aspect-square border-2 border-dashed border-muted-foreground/20 rounded-xl flex flex-col items-center justify-center text-muted-foreground hover:text-blue-600 hover:border-blue-600/50 hover:bg-blue-50/50 transition-all group"
                             title="Paste image"
                            >
-                             <Camera className="h-4 w-4 mb-1" />
-                             <span className="text-[8px]">Paste</span>
+                             <Camera className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
+                             <span className="text-[10px] font-medium uppercase tracking-tight">Paste</span>
                            </button>
                            <button 
                             onClick={() => document.getElementById('report-file-input')?.click()}
-                            className="h-16 w-16 border-2 border-dashed rounded flex flex-col items-center justify-center text-muted-foreground hover:text-primary transition-colors"
+                            className="aspect-square border-2 border-dashed border-muted-foreground/20 rounded-xl flex flex-col items-center justify-center text-muted-foreground hover:text-blue-600 hover:border-blue-600/50 hover:bg-blue-50/50 transition-all group"
                             title="Select file"
                            >
-                             <Paperclip className="h-4 w-4 mb-1" />
-                             <span className="text-[8px]">Select</span>
+                             <Paperclip className="h-5 w-5 mb-1 group-hover:scale-110 transition-transform" />
+                             <span className="text-[10px] font-medium uppercase tracking-tight">Select</span>
                            </button>
                            <input 
                              id="report-file-input"
@@ -849,14 +862,25 @@ export function Header({ onMenuClick }: HeaderProps) {
                            />
                          </div>
                        )}
-                    </div>
+                     </div>
                   </div>
                 </div>
-                {reportError && <p className="text-xs text-red-500">{reportError}</p>}
-                <DialogFooter>
-                  <Button variant="ghost" size="sm" onClick={() => setReportOpen(false)}>Cancel</Button>
-                  <Button size="sm" onClick={submitReport} disabled={reportSubmitting} className="bg-blue-600 hover:bg-blue-700 text-white">
-                    {reportSubmitting ? "Sending..." : "Submit Report"}
+                {reportError && (
+                  <div className="bg-destructive/10 border border-destructive/20 rounded-md p-2.5">
+                    <p className="text-xs text-destructive font-medium">{reportError}</p>
+                  </div>
+                )}
+                <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 pt-2">
+                  <Button variant="ghost" className="w-full sm:w-auto" onClick={() => setReportOpen(false)}>Cancel</Button>
+                  <Button onClick={submitReport} disabled={reportSubmitting} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/20">
+                    {reportSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sending...
+                      </>
+                    ) : (
+                      "Submit Report"
+                    )}
                   </Button>
                 </DialogFooter>
               </>
