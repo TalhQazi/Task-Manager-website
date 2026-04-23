@@ -15,10 +15,12 @@ export function EmployeeLayout() {
       className="min-h-screen"
       style={{ paddingTop: `${headerHeight}px`, background: "var(--tb-dashboard-bg)" }}
     >
-      <EmployeeHeader onMenuClick={() => setMobileSidebarOpen(true)} />
+      <div className="tb-employee-header-wrapper">
+        <EmployeeHeader onMenuClick={() => setMobileSidebarOpen(true)} />
+      </div>
 
       <div className="flex">
-        <div className="hidden md:block">
+        <div className="hidden md:block tb-employee-sidebar-wrapper">
           <EmployeeSidebar />
         </div>
 

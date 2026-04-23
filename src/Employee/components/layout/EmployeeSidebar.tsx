@@ -4,6 +4,7 @@ import { LayoutDashboard, ClipboardList, Calendar, UserCircle, Bell, Clock, Mess
 
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/contexts/ThemeContext";
 
 const navItemsBase = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/employee", end: true },
@@ -34,6 +35,8 @@ export function EmployeeSidebar({ mode = "desktop", onNavigate }: EmployeeSideba
   const navigate = useNavigate();
   const topOffset = 300;
 
+  const { uiTheme } = useTheme();
+
   const isMobile = mode === "mobile";
 
   const handleNavigate = () => {
@@ -45,12 +48,16 @@ export function EmployeeSidebar({ mode = "desktop", onNavigate }: EmployeeSideba
   return (
     <aside
       className={cn(
-        "flex flex-col text-white z-40",
+        "flex flex-col text-white z-40 tb-sidebar-surface",
         isMobile
           ? "h-full w-64"
           : "fixed left-0 top-[300px] bottom-0 w-56 shadow-floating"
       )}
-      style={{ background: "var(--tb-sidebar-bg)" }}
+      style={{
+        background: "var(--tb-sidebar-bg)",
+        filter: `drop-shadow(0 10px 30px rgba(0,0,0,0.28)) drop-shadow(0 0 ${uiTheme.glowIntensity * 0.7}px rgba(0,198,255,0.30)) drop-shadow(0 0 ${uiTheme.glowIntensity * 0.35}px rgba(0,114,255,0.22))`,
+        transition: "filter var(--tb-animation-speed) ease",
+      }}
     >
       <div className="px-5 py-6 mb-3 flex flex-col items-center border-b border-white/5 bg-white/[0.03] backdrop-blur-md">
         <div className="relative w-full rounded-xl bg-white shadow-2xl border-4 border-white/20 group flex items-center justify-center overflow-hidden">

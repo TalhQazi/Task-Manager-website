@@ -269,7 +269,7 @@ export function UICustomizationPanel() {
       </Card>
 
       {/* Card Style & Layout - Responsive Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+      {/* <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <Card>
           <CardHeader className="px-4 sm:px-6">
             <CardTitle className="text-lg sm:text-xl">Card Style</CardTitle>
@@ -311,7 +311,7 @@ export function UICustomizationPanel() {
             </Select>
           </CardContent>
         </Card>
-      </div>
+      </div> */}
 
       {/* Glow Intensity */}
       <Card>

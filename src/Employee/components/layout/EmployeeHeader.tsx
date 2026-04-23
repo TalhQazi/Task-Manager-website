@@ -16,6 +16,7 @@ import { getEmployeeAuth, clearEmployeeAuth } from "@/Employee/lib/auth";
 import { getEmployeeProfile, toProxiedUrl } from "@/Employee/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/manger/api";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface EmployeeHeaderProps {
   onMenuClick?: () => void;
@@ -30,6 +31,8 @@ interface ProfileData {
 export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<ProfileData | null>(null);
+
+  const { uiTheme } = useTheme();
 
   const auth = getEmployeeAuth();
 
@@ -122,8 +125,12 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
 
   return (
     <header
-      className="fixed top-0 left-0 right-0 z-50 shadow-floating"
-      style={{ height: '300px' }}
+      className="fixed top-0 left-0 right-0 z-50 shadow-floating tb-header-surface"
+      style={{
+        height: "300px",
+        filter: `drop-shadow(0 10px 30px rgba(0,0,0,0.28)) drop-shadow(0 0 ${uiTheme.glowIntensity * 0.8}px rgba(0,198,255,0.35)) drop-shadow(0 0 ${uiTheme.glowIntensity * 0.4}px rgba(0,114,255,0.25))`,
+        transition: "filter var(--tb-animation-speed) ease",
+      }}
     >
       <div
         className="w-full h-full relative overflow-hidden group"

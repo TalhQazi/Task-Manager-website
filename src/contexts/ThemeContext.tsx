@@ -4,6 +4,8 @@ import { apiFetch } from "../lib/manger/api";
 import { getAuthState } from "../lib/auth";
 import { apiFetch as adminApiFetch } from "../lib/admin/apiClient";
 
+type ApiFetchFn = <T>(url: string, init?: RequestInit) => Promise<T>;
+
 export interface UITheme {
   theme: "neon-tech" | "metallic-elite" | "executive-black" | "dark-minimal" | "high-contrast" | "energy-mode";
   customColors: {
@@ -152,7 +154,7 @@ const applyThemeToDOM = (theme: UITheme) => {
   root.style.setProperty("--card", hexToHSL(panelColors.dashboardCardBackground));
 
   // Apply glow intensity
-  root.style.setProperty("--tb-glow-intensity", `${theme.glowIntensity}%`);
+  root.style.setProperty("--tb-glow-intensity", String(theme.glowIntensity));
 
   // Apply animation speed
   const speedMap = {
@@ -162,17 +164,25 @@ const applyThemeToDOM = (theme: UITheme) => {
   };
   root.style.setProperty("--tb-animation-speed", speedMap[theme.animationSpeed]);
 
-  // Apply card style
+  // Apply card style - both data attribute and class for better specificity
   root.style.setProperty("--tb-card-style", theme.cardStyle);
   root.setAttribute("data-tb-card-style", theme.cardStyle);
+  
+  // Remove old card style classes and add new one
+  root.classList.remove("tb-card-style-glass", "tb-card-style-neon", "tb-card-style-metallic");
+  root.classList.add(`tb-card-style-${theme.cardStyle}`);
 
-  // Apply layout density
+  // Apply layout density - both variable and class for better specificity
   const densityMap = {
     compact: "0.75rem",
     comfortable: "1rem",
     spacious: "1.5rem"
   };
   root.style.setProperty("--tb-spacing", densityMap[theme.layoutDensity]);
+  
+  // Remove old layout density classes and add new one
+  root.classList.remove("tb-layout-compact", "tb-layout-comfortable", "tb-layout-spacious");
+  root.classList.add(`tb-layout-${theme.layoutDensity}`);
 
   // Apply animation settings
   root.style.setProperty("--tb-animations-enabled", theme.animationSettings.enabled ? "1" : "0");
@@ -223,7 +233,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       try {
         // Use appropriate API fetch based on auth type
         const auth = getAuthState();
-        let apiFetchFn;
+        let apiFetchFn: ApiFetchFn;
         if (auth.isAuthenticated && (auth.role === "admin" || auth.role === "super-admin")) {
           apiFetchFn = adminApiFetch;
         } else if (auth.isAuthenticated && auth.role === "manager") {
@@ -287,7 +297,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const loadFromBackend = async () => {
     try {
       const auth = getAuthState();
-      let apiFetchFn;
+      let apiFetchFn: ApiFetchFn;
       if (auth.isAuthenticated && (auth.role === "admin" || auth.role === "super-admin")) {
         apiFetchFn = adminApiFetch;
       } else if (auth.isAuthenticated && auth.role === "manager") {

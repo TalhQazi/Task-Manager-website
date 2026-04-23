@@ -10,7 +10,7 @@ import { getAuthState } from "./lib/auth";
 import { getEmployeeAuth } from "./Employee/lib/auth";
 import { SocketProvider } from "./contexts/SocketContext";
 import { TaskBlasterProvider } from "./contexts/TaskBlasterContext";
-import { ThemeProvider } from "./contexts/ThemeContext";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 
 // Lazy-load route controllers — each pulls in its own pages lazily
 const AdminRoutes = lazy(() => import("./routes/AdminRoutes"));

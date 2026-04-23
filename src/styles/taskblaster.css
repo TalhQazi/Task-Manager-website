@@ -18,7 +18,7 @@
 
   /* Animation settings */
   --tb-animation-speed: 0.3s;
-  --tb-glow-intensity: 50%;
+  --tb-glow-intensity: 50;
   --tb-animations-enabled: 1;
   --tb-reduce-motion: 0;
   --tb-hover-effects: 1;
@@ -47,6 +47,42 @@ body.tb-theme-neon-tech,
   --tb-card-hover-shadow: 0 0 30px rgba(0, 245, 255, 0.4);
   background: linear-gradient(135deg, #0a0a1e 0%, #1a1a3e 100%) !important;
   color: #ffffff !important;
+}
+
+/* ==================== HEADER/SIDEBAR GLOW ==================== */
+
+.tb-header-surface {
+  box-shadow: none !important;
+  filter:
+    drop-shadow(0 10px 30px rgba(0, 0, 0, 0.28))
+    drop-shadow(0 0 calc(var(--tb-glow-intensity) * 0.6px) rgba(0, 198, 255, 0.28))
+    drop-shadow(0 0 calc(var(--tb-glow-intensity) * 0.3px) rgba(0, 114, 255, 0.22));
+  transition: filter var(--tb-animation-speed) ease;
+}
+
+.tb-sidebar-surface {
+  box-shadow: none !important;
+  filter:
+    drop-shadow(0 10px 30px rgba(0, 0, 0, 0.28))
+    drop-shadow(0 0 calc(var(--tb-glow-intensity) * 0.5px) rgba(0, 198, 255, 0.22))
+    drop-shadow(0 0 calc(var(--tb-glow-intensity) * 0.25px) rgba(0, 114, 255, 0.18));
+  transition: filter var(--tb-animation-speed) ease;
+}
+
+.tb-employee-header-wrapper {
+  filter:
+    drop-shadow(0 10px 30px rgba(0, 0, 0, 0.28))
+    drop-shadow(0 0 calc(var(--tb-glow-intensity) * 0.6px) rgba(0, 198, 255, 0.28))
+    drop-shadow(0 0 calc(var(--tb-glow-intensity) * 0.3px) rgba(0, 114, 255, 0.22)) !important;
+  transition: filter var(--tb-animation-speed) ease;
+}
+
+.tb-employee-sidebar-wrapper {
+  filter:
+    drop-shadow(0 10px 30px rgba(0, 0, 0, 0.28))
+    drop-shadow(0 0 calc(var(--tb-glow-intensity) * 0.5px) rgba(0, 198, 255, 0.22))
+    drop-shadow(0 0 calc(var(--tb-glow-intensity) * 0.25px) rgba(0, 114, 255, 0.18)) !important;
+  transition: filter var(--tb-animation-speed) ease;
 }
 
 .tb-theme-neon-tech .tb-card {
@@ -202,39 +238,44 @@ body.tb-theme-energy-mode,
 /* ==================== CARD STYLES ==================== */
 
 /* Glass Card Style */
-[data-tb-card-style="glass"] .tb-card {
+[data-tb-card-style="glass"] .tb-card,
+.tb-card-style-glass .tb-card {
   background: var(--tb-dashboard-card-bg) !important;
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
 }
 
 /* Neon Card Style */
-[data-tb-card-style="neon"] .tb-card {
-  border: 1px solid var(--tb-primary);
-  box-shadow: 0 0 calc(var(--tb-glow-intensity) * 0.2px) var(--tb-primary);
+[data-tb-card-style="neon"] .tb-card,
+.tb-card-style-neon .tb-card {
+  border: 1px solid var(--tb-primary) !important;
+  box-shadow: 0 0 calc(var(--tb-glow-intensity) * 0.2px) var(--tb-primary) !important;
 }
 
-[data-tb-card-style="neon"] .tb-card:hover {
-  box-shadow: 0 0 calc(var(--tb-glow-intensity) * 0.4px) var(--tb-primary);
+[data-tb-card-style="neon"] .tb-card:hover,
+.tb-card-style-neon .tb-card:hover {
+  box-shadow: 0 0 calc(var(--tb-glow-intensity) * 0.4px) var(--tb-primary) !important;
 }
 
 /* Metallic Card Style */
-[data-tb-card-style="metallic"] .tb-card {
+[data-tb-card-style="metallic"] .tb-card,
+.tb-card-style-metallic .tb-card {
   background: var(--tb-dashboard-card-bg) !important;
-  border: 1px solid rgba(192, 192, 192, 0.2);
-  box-shadow: 
+  border: 1px solid rgba(192, 192, 192, 0.2) !important;
+  box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 4px 8px rgba(0, 0, 0, 0.4);
+    0 4px 8px rgba(0, 0, 0, 0.4) !important;
 }
 
 /* ==================== ANIMATIONS: Global Toggle ==================== */
 
-[data-tb-animations-enabled="0"] .tb-card {
+[data-tb-animations-enabled="0"] * {
   transition: none !important;
+  animation: none !important;
 }
 
-[data-tb-animations-enabled="0"] .tb-card:hover,
-[data-tb-animations-enabled="0"] .tb-card:active {
+[data-tb-animations-enabled="0"] *:hover,
+[data-tb-animations-enabled="0"] *:active {
   transform: none !important;
 }
 
@@ -259,6 +300,28 @@ body.tb-theme-energy-mode,
     transform: none;
     box-shadow: var(--tb-card-shadow);
   }
+
+  /* Hover effects for buttons */
+  [data-tb-hover-effects="1"] button,
+  [data-tb-hover-effects="1"] .group {
+    transition: all var(--tb-animation-speed) ease;
+  }
+
+  [data-tb-hover-effects="0"] button,
+  [data-tb-hover-effects="0"] .group {
+    transition: none;
+  }
+
+  /* Hover effects for nav items */
+  [data-tb-hover-effects="1"] a,
+  [data-tb-hover-effects="1"] nav a {
+    transition: all var(--tb-animation-speed) ease;
+  }
+
+  [data-tb-hover-effects="0"] a,
+  [data-tb-hover-effects="0"] nav a {
+    transition: none;
+  }
 }
 
 /* Click Effects - Only when enabled */
@@ -268,6 +331,15 @@ body.tb-theme-energy-mode,
 }
 
 [data-tb-click-effects="0"] .tb-card:active {
+  transform: none;
+}
+
+[data-tb-click-effects="1"] button:active {
+  transform: scale(0.95);
+  transition: transform 0.1s ease;
+}
+
+[data-tb-click-effects="0"] button:active {
   transform: none;
 }
 
@@ -308,9 +380,9 @@ body.tb-theme-energy-mode,
 
 .tb-card {
   background: var(--tb-dashboard-card-bg) !important;
-  border: var(--tb-card-border);
+  border: var(--tb-card-border) !important;
   border-radius: var(--tb-card-radius);
-  box-shadow: var(--tb-card-shadow);
+  box-shadow: var(--tb-card-shadow) !important;
   padding: var(--tb-spacing);
   transition: all var(--tb-animation-speed) ease;
 }
