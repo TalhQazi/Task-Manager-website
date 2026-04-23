@@ -178,11 +178,7 @@ export function TaskBlaster() {
 
   const getIcon = () => {
     return (
-      <img
-        src="/taskmanager-by-reardon.svg"
-        alt="Task Manager"
-        className={isMobile ? "w-20 h-auto" : isTablet ? "w-28 h-auto" : "w-36 h-auto"}
-      />
+      <Trophy className={isMobile ? "w-16 h-16" : isTablet ? "w-24 h-24" : "w-32 h-32"} />
     );
   };
 
@@ -419,9 +415,9 @@ export function TaskBlaster() {
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
                 transition={{ delay: 0.4, type: "spring", stiffness: 200 }}
-                className={`${isMobile ? 'w-12 h-12' : 'w-16 h-16'} rounded-full bg-white flex items-center justify-center shadow-lg p-1`}
+                className={`${isMobile ? 'w-12 h-12' : 'w-16 h-16'} rounded-full bg-white flex items-center justify-center shadow-lg p-1 text-green-500`}
               >
-                <img src="/taskmanager-by-reardon.svg" alt="logo" className="w-[80%] h-auto" />
+                <CheckCircle2 className="w-[60%] h-auto" />
               </motion.div>
               <div className="text-center">
                 <motion.p 

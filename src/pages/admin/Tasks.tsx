@@ -596,6 +596,11 @@ export default function Tasks() {
   // Lightbox / File Preview State
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState<string>("");
+  
+  // Confirmation state for completing/archiving via side badge
+  const [confirmCompleteTask, setConfirmCompleteTask] = useState<Task | null>(null);
+  const [confirmArchiveCommentId, setConfirmArchiveCommentId] = useState<string | null>(null);
+  const [confirmArchiveAttachmentIndex, setConfirmArchiveAttachmentIndex] = useState<number | null>(null);
 
   // Fetch tasks with server-side pagination
   const tasksQuery = useQuery({
@@ -1591,21 +1596,42 @@ export default function Tasks() {
 
       if (attIsImage) {
         const img = new Image();
-        img.src = attUrl;
+        img.crossOrigin = "anonymous"; // Essential for CORS
+        const proxiedUrl = toProxiedUrl(attUrl) || attUrl;
+        img.src = proxiedUrl;
+        
         await new Promise<void>((resolve) => {
-          if (img.complete) return resolve();
           img.onload = () => resolve();
-          img.onerror = () => resolve();
+          img.onerror = (err) => {
+            console.error("Failed to load image for PDF:", err);
+            resolve();
+          };
+          // Handle case where image is already loaded
+          if (img.complete) resolve();
         });
 
-        const imgW = img.naturalWidth || 1;
-        const imgH = img.naturalHeight || 1;
-        const renderW = maxWidth;
-        const renderH = (imgH / imgW) * renderW;
-        ensureSpace(Math.min(renderH + 10, pageHeight - margin * 2));
-        const type: "PNG" | "JPEG" = attMime.includes("png") || attUrl.startsWith("data:image/png") ? "PNG" : "JPEG";
-        doc.addImage(attUrl, type, margin, y, renderW, renderH);
-        y += renderH + 10;
+        if (img.complete && img.naturalWidth > 0) {
+          const imgW = img.naturalWidth;
+          const imgH = img.naturalHeight;
+          const renderW = maxWidth;
+          const renderH = (imgH / imgW) * renderW;
+          
+          ensureSpace(Math.min(renderH + 10, pageHeight - margin * 2));
+          
+          // Use the image object directly
+          const type: "PNG" | "JPEG" = attMime.includes("png") || proxiedUrl.includes(".png") || proxiedUrl.startsWith("data:image/png") ? "PNG" : "JPEG";
+          try {
+            doc.addImage(img, type, margin, y, renderW, renderH);
+            y += renderH + 10;
+          } catch (addImageError) {
+            console.error("jsPDF addImage failed:", addImageError);
+            doc.text(`[Image could not be rendered: ${attName}]`, margin, y);
+            y += 18;
+          }
+        } else {
+          doc.text(`[Image missing or failed to load: ${attName}]`, margin, y);
+          y += 18;
+        }
       } else if (attName) {
         const attLines = doc.splitTextToSize(attName, maxWidth);
         doc.text(attLines, margin, y);
@@ -2400,7 +2426,12 @@ export default function Tasks() {
                       "completed": "pending",
                       "overdue": "completed"
                     };
-                    void updateStatus(next[selectedTask.status] || "pending");
+                    const nextStatus = next[selectedTask.status] || "pending";
+                    if (nextStatus === "completed") {
+                      setConfirmCompleteTask(selectedTask);
+                    } else {
+                      void updateStatus(nextStatus);
+                    }
                   }}>
                     {selectedTask.status === "completed" ? <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> : selectedTask.status === "overdue" ? <AlertTriangle className="w-3.5 h-3.5 mr-1.5" /> : <Clock className="w-3.5 h-3.5 mr-1.5" />}
                     {selectedTask.status}
@@ -2499,7 +2530,7 @@ export default function Tasks() {
                                   <Download className="w-4 h-4" />
                                 </button>
                               </div>
-                              {isAdminRole && (<button type="button" onClick={(e) => { e.stopPropagation(); void archiveAttachment(idx); }} disabled={archivingAttachment === idx} className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100/90 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-lg z-10" title="Archive attachment">{archivingAttachment === idx ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}</button>)}
+                              {isAdminRole && (<button type="button" onClick={(e) => { e.stopPropagation(); setConfirmArchiveAttachmentIndex(idx); }} disabled={archivingAttachment === idx} className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100/90 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-lg z-10" title="Archive attachment">{archivingAttachment === idx ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}</button>)}
                             </div>
                           ))
                           : selectedTask.attachment?.fileName ? (
@@ -2528,7 +2559,7 @@ export default function Tasks() {
                                   <Download className="w-4 h-4" />
                                 </button>
                               </div>
-                              {isAdminRole && (<button type="button" onClick={(e) => { e.stopPropagation(); void archiveAttachment(-1); }} disabled={archivingAttachment === -1} className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100/90 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-lg z-10" title="Archive attachment">{archivingAttachment === -1 ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}</button>)}
+                              {isAdminRole && (<button type="button" onClick={(e) => { e.stopPropagation(); setConfirmArchiveAttachmentIndex(-1); }} disabled={archivingAttachment === -1} className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100/90 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-lg z-10" title="Archive attachment">{archivingAttachment === -1 ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}</button>)}
                             </div>
                           ) : null}
                       </div>
@@ -2664,7 +2695,7 @@ export default function Tasks() {
                                     {isAdminRole && (
                                       <button 
                                         type="button" 
-                                        onClick={() => void archiveComment(c.id)} 
+                                        onClick={() => setConfirmArchiveCommentId(c.id)} 
                                         disabled={archivingCommentId === c.id} 
                                         className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-0 -right-8 p-1 text-muted-foreground hover:text-destructive"
                                         title="Archive"
@@ -2928,6 +2959,82 @@ export default function Tasks() {
         <AlertDialogContent className="w-[95vw] max-w-[95vw] sm:max-w-md rounded-lg">
           <AlertDialogHeader><AlertDialogTitle>Archive task?</AlertDialogTitle><AlertDialogDescription>This will move the task and its comments to the archive. You can restore it later from the Archive Data page.</AlertDialogDescription></AlertDialogHeader>
           <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2"><AlertDialogCancel disabled={deleteTaskMutation.isPending} className="w-full sm:w-auto">Cancel</AlertDialogCancel><AlertDialogAction onClick={confirmDelete} disabled={deleteTaskMutation.isPending} className="gap-2 bg-amber-600 hover:bg-amber-700 w-full sm:w-auto">{deleteTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}<Archive className="h-4 w-4" />Archive</AlertDialogAction></AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!confirmCompleteTask} onOpenChange={(open) => !open && setConfirmCompleteTask(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Complete & Archive Task?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to mark this task as completed? It will be moved out of the active tasks view.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel disabled={statusSaving} className="w-full sm:w-auto">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (confirmCompleteTask) {
+                void updateStatus("completed");
+              }
+              setConfirmCompleteTask(null);
+            }} disabled={statusSaving} className="gap-2 bg-green-600 hover:bg-green-700 w-full sm:w-auto text-white">
+              {statusSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+              <CheckCircle2 className="h-4 w-4" />
+              Complete Task
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!confirmArchiveCommentId} onOpenChange={(open) => !open && setConfirmArchiveCommentId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive Comment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to archive this comment? It will be moved to the archive and can be restored later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel disabled={!!archivingCommentId}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (confirmArchiveCommentId) {
+                  void archiveComment(confirmArchiveCommentId);
+                }
+                setConfirmArchiveCommentId(null);
+              }}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              disabled={!!archivingCommentId}
+            >
+              Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmArchiveAttachmentIndex !== null} onOpenChange={(open) => !open && setConfirmArchiveAttachmentIndex(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archive Attachment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to archive this attachment?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel disabled={archivingAttachment !== null}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (confirmArchiveAttachmentIndex !== null) {
+                  void archiveAttachment(confirmArchiveAttachmentIndex);
+                }
+                setConfirmArchiveAttachmentIndex(null);
+              }}
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              disabled={archivingAttachment !== null}
+            >
+              Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 

@@ -645,6 +645,9 @@ export default function Tasks() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState<string>("");
 
+  // Confirmation state for completing/archiving via side badge
+  const [confirmCompleteTask, setConfirmCompleteTask] = useState<Task | null>(null);
+
   // Fetch tasks with server-side pagination
   const tasksQuery = useQuery({
     queryKey: ["tasks", taskPage, searchQuery, statusFilter, priorityFilter],
@@ -3309,14 +3312,42 @@ export default function Tasks() {
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete task?</AlertDialogTitle>
+            <AlertDialogTitle>Archive task?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently remove the task.
+              This will move the task and its comments to the archive. You can restore it later from the Archive Data page.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleteTaskMutation.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} disabled={deleteTaskMutation.isPending} className="gap-2">{deleteTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Delete</AlertDialogAction>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel disabled={deleteTaskMutation.isPending} className="w-full sm:w-auto">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} disabled={deleteTaskMutation.isPending} className="gap-2 bg-amber-600 hover:bg-amber-700 w-full sm:w-auto">
+              {deleteTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              <Archive className="h-4 w-4" />
+              Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!confirmCompleteTask} onOpenChange={(open) => !open && setConfirmCompleteTask(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Complete & Archive Task?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to mark this task as completed? It will be moved out of the active tasks view.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel disabled={statusSaving} className="w-full sm:w-auto">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              if (confirmCompleteTask) {
+                void updateStatus("completed");
+              }
+              setConfirmCompleteTask(null);
+            }} disabled={statusSaving} className="gap-2 bg-green-600 hover:bg-green-700 w-full sm:w-auto text-white">
+              {statusSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+              <CheckCircle2 className="h-4 w-4" />
+              Complete Task
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -35,9 +35,11 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  Maximize2,
+  X,
 } from "lucide-react";
 import { Input } from "@/components/admin/ui/input";
-import { apiFetch } from "@/lib/admin/apiClient";
+import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
 
 type ArchivedItem = {
@@ -82,6 +84,8 @@ export default function ArchiveData() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [restoring, setRestoring] = useState<string | null>(null);
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 20, total: 0, totalPages: 1 });
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewName, setPreviewName] = useState<string>("");
 
   const auth = getAuthState();
   const isAdminRole = auth.role === "admin" || auth.role === "super-admin" || auth.role === "manager";
@@ -316,20 +320,32 @@ export default function ArchiveData() {
                               </p>
                             )}
                             {item.itemType === "attachment" && (
-                              <div className="flex items-center gap-2">
-                                <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
-                                <span className="text-sm font-medium truncate">
-                                  {item.itemData.fileName || "Unknown file"}
-                                </span>
-                                {item.itemData.size > 0 && (
-                                  <span className="text-[11px] text-muted-foreground">
-                                    ({(item.itemData.size / 1024).toFixed(1)} KB)
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <span className="text-sm font-medium truncate">
+                                    {item.itemData.fileName || "Unknown file"}
                                   </span>
+                                  {item.itemData.size > 0 && (
+                                    <span className="text-[11px] text-muted-foreground">
+                                      ({(item.itemData.size / 1024).toFixed(1)} KB)
+                                    </span>
+                                  )}
+                                </div>
+                                {item.itemData.mimeType?.startsWith("image/") && item.itemData.url && (
+                                  <div className="w-32 h-20 rounded-md overflow-hidden border bg-muted/20">
+                                    <img 
+                                      src={toProxiedUrl(item.itemData.url) || item.itemData.url} 
+                                      alt="preview" 
+                                      className="w-full h-full object-cover opacity-80 hover:opacity-100 transition-opacity cursor-pointer"
+                                      onClick={() => { setPreviewUrl(toProxiedUrl(item.itemData.url) || item.itemData.url); setPreviewName(item.itemData.fileName); }}
+                                    />
+                                  </div>
                                 )}
                               </div>
                             )}
                             {item.itemType === "task" && (
-                              <div className="space-y-1">
+                              <div className="space-y-2">
                                 <p className="text-sm font-medium break-words">
                                   {item.itemData.title || "—"}
                                 </p>
@@ -344,6 +360,16 @@ export default function ArchiveData() {
                                     <span>Assigned: {item.itemData.assignees.join(", ")}</span>
                                   )}
                                 </div>
+                                {item.itemData.attachment?.url && item.itemData.attachment?.mimeType?.startsWith("image/") && (
+                                  <div className="w-32 h-20 rounded-md overflow-hidden border bg-muted/20 mt-1">
+                                    <img 
+                                      src={toProxiedUrl(item.itemData.attachment.url) || item.itemData.attachment.url} 
+                                      alt="task preview" 
+                                      className="w-full h-full object-cover opacity-80 hover:opacity-100 transition-opacity cursor-pointer"
+                                      onClick={() => { setPreviewUrl(toProxiedUrl(item.itemData.attachment.url) || item.itemData.attachment.url); setPreviewName(item.itemData.title); }}
+                                    />
+                                  </div>
+                                )}
                               </div>
                             )}
                             {item.itemType === "user" && (
@@ -432,6 +458,44 @@ export default function ArchiveData() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Image Preview Lightbox */}
+      <AnimatePresence>
+        {previewUrl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 sm:p-10"
+            onClick={() => setPreviewUrl(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="relative max-w-5xl w-full h-full flex flex-col items-center justify-center"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="absolute top-0 right-0 p-4 z-10">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 rounded-full bg-black/20 hover:bg-black/40 text-white"
+                  onClick={() => setPreviewUrl(null)}
+                >
+                  <X className="h-6 w-6" />
+                </Button>
+              </div>
+              <img
+                src={previewUrl}
+                alt={previewName}
+                className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+              />
+              <p className="mt-4 text-white font-medium text-lg drop-shadow-md">{previewName}</p>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

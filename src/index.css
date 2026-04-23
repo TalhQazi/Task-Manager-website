@@ -1,4 +1,5 @@
 /* 1️⃣ Import fonts first */
+@import "./styles/taskblaster.css";
 
 /* 2️⃣ Tailwind directives next */
 @tailwind base;
@@ -138,6 +139,20 @@
     overflow-y: auto !important;
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
+    touch-action: manipulation; /* Fix for Apple Pencil / iOS double tap issue */
+  }
+
+  /* Ensure all clickable elements respond immediately to touch/pencil */
+  button, a, input, select, textarea, [role="button"], [onclick] {
+    touch-action: manipulation;
+    cursor: pointer;
+  }
+  
+  /* Fix double tap issue on iOS where hover states require first tap */
+  @media (hover: none) {
+    .hover\:opacity-100:hover {
+      opacity: inherit; /* Don't force hover state to show on touch devices */
+    }
   }
 
   html {
@@ -545,4 +560,3 @@
 }
 
 /* TaskBlaster UI System Styles */
-@import "./styles/taskblaster.css";

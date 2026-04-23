@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { apiFetch } from "@/lib/manger/api";
+import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
