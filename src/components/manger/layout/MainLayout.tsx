@@ -471,6 +471,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                 value={reportTitle}
                 onChange={(e) => setReportTitle(e.target.value)}
                 placeholder="Button not working"
+                className="text-foreground"
               />
             </div>
 
@@ -479,7 +480,7 @@ export function MainLayout({ children }: MainLayoutProps) {
               <textarea
                 value={reportDescription}
                 onChange={(e) => setReportDescription(e.target.value)}
-                className="w-full rounded-md border px-3 py-2 text-sm sm:text-base min-h-24 resize-none"
+                className="w-full rounded-md border px-3 py-2 text-sm sm:text-base min-h-24 resize-none bg-background text-foreground placeholder:text-muted-foreground/60"
                 placeholder="Explain what happened, expected vs actual..."
               />
             </div>

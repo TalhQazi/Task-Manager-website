@@ -797,7 +797,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                       value={reportTitle} 
                       onChange={e => setReportTitle(e.target.value)} 
                       placeholder="e.g., Dashboard stats not loading on mobile" 
-                      className="h-11 rounded-lg border-muted-foreground/20 focus:ring-blue-500/20"
+                      className="h-11 rounded-lg border-muted-foreground/20 focus:ring-blue-500/20 text-foreground"
                     />
                   </div>
                   <div className="space-y-2">
@@ -805,7 +805,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                     <textarea 
                       value={reportDescription} 
                       onChange={e => setReportDescription(e.target.value)} 
-                      className="w-full rounded-lg border border-muted-foreground/20 px-3 py-3 text-sm sm:text-base min-h-[140px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20 bg-background shadow-sm transition-all"
+                      className="w-full rounded-lg border border-muted-foreground/20 px-3 py-3 text-sm sm:text-base min-h-[140px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/20 bg-background text-foreground shadow-sm transition-all placeholder:text-muted-foreground/60"
                       placeholder="Please provide as much detail as possible, including steps to reproduce the issue..."
                     />
                   </div>
