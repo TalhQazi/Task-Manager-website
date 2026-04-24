@@ -111,6 +111,9 @@
   .gradient-brown { background: var(--gradient-brown); }
   .gradient-pink-new { background: var(--gradient-pink-new); }
   .gradient-grey { background: var(--gradient-grey); }
+  .gradient-dark-grey { background: linear-gradient(135deg, #4b5563 0%, #1f2937 100%); }
+  .gradient-silver { background: linear-gradient(135deg, #e5e7eb 0%, #9ca3af 100%); color: #1a1a1a !important; }
+  .gradient-dark-green { background: linear-gradient(135deg, #166534 0%, #14532d 100%); }
 
   /* Premium Metallic Gold Utils */
   .bg-metallic-gold {

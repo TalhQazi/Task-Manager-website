@@ -118,23 +118,16 @@ const Dashboard = () => {
           variants={containerVariants}
         >
           {metrics && [
-            { title: "Active Employee", value: metrics.totalEmployees, icon: Users, variant: "cyan", changeType: "positive" as const, onClick: () => navigate("/admin/employees") },
-            { title: "Active Tasks", value: metrics.activeTasks, icon: CheckSquare, variant: "success", changeType: "neutral" as const, onClick: () => navigate("/admin/tasks") },
-            { title: "Active Projects", value: metrics.totalProjects, icon: FolderRoot, variant: "purple", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
-            { title: "Total Vehicles", value: metrics.totalVehicles, icon: Car, variant: "orange", changeType: "positive" as const, onClick: () => navigate("/admin/vehicles") },
-            { title: "Patents", value: metrics.totalPatents, icon: FileSearch, variant: "amber", changeType: "positive" as const, onClick: () => navigate("/admin/intellectual-property") },
-            { title: "Websites", value: metrics.totalWebsites, icon: Globe, variant: "teal", changeType: "positive" as const, onClick: () => navigate("/admin/websites") },
-            { title: "Overdue Tasks", value: metrics.overdueTasks, icon: AlertTriangle, variant: "danger", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
-            { title: "Clocked In", value: metrics.clockedInEmployees, icon: Clock, variant: "lime", changeType: "neutral" as const, onClick: () => navigate("/admin/time-tracking") },
-            { title: "Pending Bugs", value: metrics.pendingBugs, icon: Bug, variant: "pink", changeType: "neutral" as const, onClick: () => navigate("/admin/bug-reports") },
-            { title: "Total Users", value: summary?.employeeTotal || 0, icon: Users, variant: "pink", changeType: "positive" as const, onClick: () => navigate("/admin/employees") },
-            { title: "Network", value: metrics.totalWebsites, icon: Globe, variant: "cyan", changeType: "positive" as const, onClick: () => navigate("/admin/websites") },
-            { title: "Assets", value: metrics.totalPatents, icon: FileSearch, variant: "majesty", changeType: "positive" as const, onClick: () => navigate("/admin/intellectual-property") },
-            { title: "System Health", value: "Optimal", icon: Bug, variant: "lime", changeType: "neutral" as const, onClick: () => navigate("/admin/bug-reports") },
-          ].slice(0, 9).map((stat, idx) => {
-            // Further ensure unique colors by rotating if more stats are added
-            const variants: any[] = ["red", "blue", "green", "purple-new", "orange-new", "yellow", "brown", "pink-new", "grey"];
-            return (
+            { title: "Active Employee", value: metrics.totalEmployees, icon: Users, variant: "lime", changeType: "positive" as const, onClick: () => navigate("/admin/employees") },
+            { title: "Active Tasks", value: metrics.activeTasks, icon: CheckSquare, variant: "blue", changeType: "neutral" as const, onClick: () => navigate("/admin/tasks") },
+            { title: "Active Projects", value: metrics.totalProjects, icon: FolderRoot, variant: "teal", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
+            { title: "Total Vehicles", value: metrics.totalVehicles, icon: Car, variant: "dark-grey", changeType: "positive" as const, onClick: () => navigate("/admin/vehicles") },
+            { title: "Patents", value: metrics.totalPatents, icon: FileSearch, variant: "gold", changeType: "positive" as const, onClick: () => navigate("/admin/intellectual-property") },
+            { title: "Websites", value: metrics.totalWebsites, icon: Globe, variant: "silver", changeType: "positive" as const, onClick: () => navigate("/admin/websites") },
+            { title: "Overdue Tasks", value: metrics.overdueTasks, icon: AlertTriangle, variant: "red", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
+            { title: "Clocked In", value: metrics.clockedInEmployees, icon: Clock, variant: "dark-green", changeType: "neutral" as const, onClick: () => navigate("/admin/time-tracking") },
+            { title: "Pending Bugs", value: metrics.pendingBugs, icon: Bug, variant: "yellow", changeType: "neutral" as const, onClick: () => navigate("/admin/bug-reports") },
+          ].map((stat, idx) => (
             <motion.div
               key={stat.title}
               variants={itemVariants}
@@ -146,11 +139,11 @@ const Dashboard = () => {
                 value={stat.value}
                 changeType={stat.changeType}
                 icon={stat.icon}
-                variant={variants[idx % variants.length]}
+                variant={stat.variant}
                 onClick={stat.onClick}
               />
             </motion.div>
-          )})}
+          ))}
         </motion.div>
 
         {/* Charts Section with fade-in animation */}
