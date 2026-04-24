@@ -125,9 +125,9 @@ export function Header({ onMenuClick }: HeaderProps) {
     return "/admin/notifications";
   };
 
-  // Standard header height
-  const headerHeight = 64;
-  const bgStyle = { background: '#133767' };
+  // Banner header height
+  const headerHeight = 300;
+  const bgStyle = { background: 'linear-gradient(to right, #133767, #133767, #133767)' };
 
 
 
@@ -286,104 +286,171 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   return (
     <header 
-      className="fixed top-0 left-0 right-0 z-50 shadow-md flex items-center px-4 sm:px-6 lg:px-8 bg-[#133767] text-white"
-      style={{ height: `${headerHeight}px` }}
+      className="fixed top-0 left-0 right-0 z-50 shadow-floating"
+      style={{ 
+        height: `${headerHeight}px`,
+        left: '0',
+      }}
     >
-      <div className="flex-1" />
-      
-      <div className="flex items-center gap-4">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <div className="flex items-center gap-3 cursor-pointer group">
-              <div className="flex flex-col items-end hidden sm:flex">
-                <span className="text-sm font-bold text-white leading-tight">{fullName}</span>
-                <span className="text-[10px] text-white/70 uppercase font-semibold">{auth.role || "Admin"}</span>
-              </div>
-              <Avatar className="h-9 w-9 border border-white/20 shadow-sm">
-                {avatarUrl ? (
-                  <AvatarImage src={avatarUrl} alt={fullName} className="object-cover" />
-                ) : (
-                  <AvatarFallback className="bg-white/10 text-white text-xs font-bold">{initials}</AvatarFallback>
-                )}
-              </Avatar>
-            </div>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel className="text-xs">Account Settings</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => navigate("/admin/settings")}>
-              <User className="mr-2 h-4 w-4" /> Profile Details
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => navigate("/admin/settings")}>
-              <Settings className="mr-2 h-4 w-4" /> System Preferences
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => { clearAuthState(); navigate("/login"); }} className="text-red-600">
-              <LogOut className="mr-2 h-4 w-4" /> Logout
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <div className="flex items-center gap-2 border-l border-white/10 pl-4">
-          <button className="relative p-2 text-white/70 hover:text-white transition-colors" onClick={() => navigate("/admin/messaging")}>
-            <Mail className="h-5 w-5" />
-            {unreadMessageCount > 0 && (
-              <Badge className="absolute top-1 right-1 h-4 w-4 p-0 flex items-center justify-center bg-[#00C6FF] text-[9px] border-none">{unreadMessageCount}</Badge>
-            )}
-          </button>
-          
-          <button className="relative p-2 text-white/70 hover:text-white transition-colors" onClick={() => navigate("/admin/notifications")}>
-            <Bell className="h-5 w-5" />
-            {unreadCount > 0 && (
-              <Badge className="absolute top-1 right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[9px] border-none">{unreadCount}</Badge>
-            )}
-          </button>
-
-          <button 
-            onClick={() => { resetReport(); setReportOpen(true); }}
-            className="p-2 text-white/70 hover:text-white transition-colors"
-            title="Submit Bug Report"
+      <div 
+        className="w-full h-full relative overflow-hidden group"
+        style={bgStyle}
+      >
+        <div className="absolute inset-0 flex flex-col pointer-events-none">
+          {/* Header Content Area */}
+          <div 
+            className="flex-1 relative flex flex-col justify-end px-3 sm:px-6 lg:px-8 md:pl-64 pb-8 sm:pb-12 md:pb-16 animate-fade-in pointer-events-auto"
           >
-            <Bug className="h-5 w-5" />
-          </button>
+            {/* Branding and Profile */}
+            <div className="flex flex-col gap-4">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <div className="flex items-center gap-3 p-2 rounded-xl bg-black/20 backdrop-blur-md border border-white/10 hover:bg-black/30 transition-all cursor-pointer group w-fit">
+                    <div className="relative">
+                      <Avatar className="h-10 w-10 border border-white/20 shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20 transition-all">
+                        {avatarUrl ? (
+                          <AvatarImage src={avatarUrl} alt={fullName} className="object-cover" />
+                        ) : (
+                          <AvatarFallback className="bg-gradient-to-br from-[#00C6FF] to-[#0072FF] text-white text-xs font-bold">{initials}</AvatarFallback>
+                        )}
+                      </Avatar>
+                      <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-black rounded-full" />
+                    </div>
+                    <div className="flex flex-col min-w-0 pr-4">
+                      <span className="text-base font-bold text-white truncate leading-tight drop-shadow-md">{fullName}</span>
+                      <span className="text-[11px] text-white/60 truncate tracking-wide uppercase font-semibold">{auth.role || "Admin"}</span>
+                    </div>
+                  </div>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" side="bottom" className="w-56 mt-2">
+                  <DropdownMenuLabel className="text-xs text-foreground">Account Settings</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate("/admin/settings")}>
+                    <User className="mr-2 h-4 w-4" /> Profile Details
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate("/admin/settings")}>
+                    <Settings className="mr-2 h-4 w-4" /> System Preferences
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => { clearAuthState(); navigate("/login"); }} className="text-red-600">
+                    <LogOut className="mr-2 h-4 w-4" /> Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <div className="flex items-center justify-start gap-4">
+                <div className="md:hidden">
+                  <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/[0.14] transition-all" aria-label="Open navigation" onClick={() => onMenuClick?.()}><Menu className="h-5 w-5 text-white" /></button>
+                </div>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
+                      <Mail className="h-5 w-5" />
+                      {unreadMessageCount > 0 && (
+                        <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-[#00C6FF] text-[9px] border-black">
+                          {Math.min(unreadMessageCount, 9)}
+                        </Badge>
+                      )}
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
+                    <DropdownMenuLabel className="text-xs text-foreground">Direct Messages</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {messagesQuery.data?.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-muted-foreground">No messages</div>
+                    ) : (
+                      messagesQuery.data?.map(c => (
+                        <DropdownMenuItem key={c.employee?.id} onClick={() => navigate("/admin/messaging")}>
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-medium text-xs">{c.employee?.name}</span>
+                            <span className="text-[10px] text-muted-foreground truncate">{c.lastMessage?.content}</span>
+                          </div>
+                        </DropdownMenuItem>
+                      ))
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
+                      <Bell className="h-5 w-5" />
+                      {unreadCount > 0 && (
+                        <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[9px] border-black">
+                          {unreadCount > 9 ? "9+" : unreadCount}
+                        </Badge>
+                      )}
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
+                    <DropdownMenuLabel className="text-xs text-foreground">Notifications</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {notificationsQuery.data?.length === 0 ? (
+                      <div className="p-4 text-center text-xs text-muted-foreground">No notifications</div>
+                    ) : (
+                      notificationsQuery.data?.slice(0, 5).map(n => (
+                        <DropdownMenuItem key={n.id} className="text-xs">{n.content}</DropdownMenuItem>
+                      ))
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <AdminInfoManager />
+
+                <button 
+                  onClick={() => { resetReport(); setReportOpen(true); }}
+                  className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white"
+                  title="Submit Bug Report"
+                >
+                  <Bug className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
+
+        {/* Bug Report Dialog */}
+        <Dialog open={reportOpen} onOpenChange={setReportOpen}>
+          <DialogContent className="max-w-lg">
+            {reportSuccess ? (
+              <div className="p-6 text-center">
+                <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                <h2 className="text-xl font-bold mb-2">Report Sent!</h2>
+                <p className="text-muted-foreground mb-6">{reportSuccess}</p>
+                <Button onClick={() => { setReportOpen(false); setReportSuccess(null); }}>Done</Button>
+              </div>
+            ) : (
+              <>
+                <DialogHeader>
+                  <DialogTitle>Report an Issue</DialogTitle>
+                  <DialogDescription>Help us improve by describing the issue.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <Input value={reportTitle} onChange={e => setReportTitle(e.target.value)} placeholder="Issue Title" className="text-foreground" />
+                  <textarea 
+                    value={reportDescription} 
+                    onChange={e => setReportDescription(e.target.value)} 
+                    className="w-full min-h-[100px] p-3 rounded-md border bg-background text-foreground"
+                    placeholder="Describe the issue..."
+                  />
+                </div>
+                <DialogFooter>
+                  <Button variant="ghost" onClick={() => setReportOpen(false)}>Cancel</Button>
+                  <Button onClick={submitReport} disabled={reportSubmitting}>
+                    {reportSubmitting ? "Sending..." : "Submit Report"}
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {/* Bug Report Dialog */}
-      <Dialog open={reportOpen} onOpenChange={setReportOpen}>
-        <DialogContent className="max-w-lg">
-          {reportSuccess ? (
-            <div className="p-6 text-center">
-              <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
-              <h2 className="text-xl font-bold mb-2">Report Sent!</h2>
-              <p className="text-muted-foreground mb-6">{reportSuccess}</p>
-              <Button onClick={() => { setReportOpen(false); setReportSuccess(null); }}>Done</Button>
-            </div>
-          ) : (
-            <>
-              <DialogHeader>
-                <DialogTitle>Report an Issue</DialogTitle>
-                <DialogDescription>Help us improve by describing the issue.</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <Input value={reportTitle} onChange={e => setReportTitle(e.target.value)} placeholder="Issue Title" />
-                <textarea 
-                  value={reportDescription} 
-                  onChange={e => setReportDescription(e.target.value)} 
-                  className="w-full min-h-[100px] p-3 rounded-md border"
-                  placeholder="Describe the issue..."
-                />
-              </div>
-              <DialogFooter>
-                <Button variant="ghost" onClick={() => setReportOpen(false)}>Cancel</Button>
-                <Button onClick={submitReport} disabled={reportSubmitting}>
-                  {reportSubmitting ? "Sending..." : "Submit Report"}
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Founder Message Bar */}
+      <div className="absolute bottom-0 left-0 right-0 z-[60] bg-metallic-gold/90 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.1)] pointer-events-auto">
+        <FounderMessageBar />
+      </div>
     </header>
   );
 }
