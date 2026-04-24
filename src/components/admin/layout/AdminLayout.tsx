@@ -6,10 +6,10 @@ import { cn } from "@/lib/utils";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { TaskBlaster } from "@/components/shared/TaskBlaster";
 import { ReleaseNotes } from "@/components/admin/ReleaseNotes";
-import { useTheme } from "@/contexts/ThemeContext";
+
 
 // Context to share header height across components
-const HeaderHeightContext = createContext<number>(300);
+const HeaderHeightContext = createContext<number>(64);
 
 export function useHeaderHeight() {
   return useContext(HeaderHeightContext);
@@ -22,9 +22,9 @@ interface AdminLayoutProps {
 export function AdminLayout({ children }: AdminLayoutProps) {
   const location = useLocation();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [headerHeight, setHeaderHeight] = useState(300);
+  const [headerHeight, setHeaderHeight] = useState(64);
   const [pageKey, setPageKey] = useState(0);
-  const { uiTheme } = useTheme();
+
 
   // Trigger page transition animation on route change
   useEffect(() => {
@@ -43,42 +43,21 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   return (
     <HeaderHeightContext.Provider value={headerHeight}>
       <div 
-        className="min-h-screen overflow-x-hidden flex flex-col text-foreground" 
+        className="min-h-screen overflow-x-hidden flex flex-col bg-slate-50" 
         style={{ 
           paddingTop: `${headerHeight}px`, 
-          background: "var(--tb-dashboard-bg)",
-          color: "var(--tb-dashboard-text-color)",
-          "--foreground": uiTheme.panelColors.dashboardTextColor 
-            ? (() => {
-                const hex = uiTheme.panelColors.dashboardTextColor;
-                let r = parseInt(hex.slice(1, 3), 16) / 255;
-                let g = parseInt(hex.slice(3, 5), 16) / 255;
-                let b = parseInt(hex.slice(5, 7), 16) / 255;
-                const max = Math.max(r, g, b), min = Math.min(r, g, b);
-                let h = 0, s = 0, l = (max + min) / 2;
-                if (max !== min) {
-                  const d = max - min;
-                  s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-                  switch (max) {
-                    case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break;
-                    case g: h = ((b - r) / d + 2) / 6; break;
-                    case b: h = ((r - g) / d + 4) / 6; break;
-                  }
-                }
-                return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
-              })()
-            : undefined,
+          '--header-height': `${headerHeight}px`
         } as React.CSSProperties}
       >
         <Header onMenuClick={() => setMobileSidebarOpen(true)} />
         
 
         <div className="flex flex-1 items-start relative w-full overflow-y-auto overflow-x-hidden">
-          <div className="hidden md:block fixed left-0 z-40 w-56 border-r border-white/5 shadow-2xl transition-all duration-300" style={{ top: `${headerHeight}px`, height: `calc(100vh - ${headerHeight}px)`, '--header-height': `${headerHeight}px` } as React.CSSProperties}>
+          <div className="hidden md:block fixed left-0 z-40 w-56 border-r border-white/5 shadow-2xl transition-all duration-300" style={{ top: `${headerHeight}px`, height: `calc(100vh - ${headerHeight}px)` } as React.CSSProperties}>
             <Sidebar />
           </div>
 
-          <main className={cn("flex-1 px-4 sm:px-6 lg:px-8 py-6 transition-all duration-300 min-w-0 w-full min-h-[calc(100vh-var(--header-height,250px))] flex flex-col", "md:ml-56")}>
+          <main className={cn("flex-1 px-4 sm:px-6 lg:px-8 py-6 transition-all duration-300 min-w-0 w-full min-h-[calc(100vh-var(--header-height,64px))] flex flex-col", "md:ml-56")}>
             <div key={pageKey} className="w-full max-w-[1600px] mx-auto animate-page-enter flex-1 flex flex-col">
               {children}
             </div>
