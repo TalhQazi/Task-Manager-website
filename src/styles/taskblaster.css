@@ -42,7 +42,11 @@ body[class*="tb-theme-"] {
   --tb-dashboard-bg: #1a1a1a;
   --tb-dashboard-card-bg: linear-gradient(145deg, #2a2a2a, #1a1a1a);
   --tb-dashboard-text-color: #d4af37;
-  --tb-sidebar-bg: #111111;
+  --tb-sidebar-bg: rgba(17, 17, 17, 0.8);
+  background-image: url('/hud_metallic_target_bg.png');
+  background-size: cover;
+  background-position: center top;
+  background-attachment: fixed;
 }
 
 .tb-theme-executive-black {

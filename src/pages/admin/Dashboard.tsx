@@ -112,21 +112,19 @@ const Dashboard = () => {
         animate="visible"
       >
 
-        {/* Stats Grid with animated cards */}
         <motion.div 
-          className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-4 lg:gap-6"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-4 lg:gap-6"
           variants={containerVariants}
         >
           {metrics && [
-            { title: "Active Employee", value: metrics.totalEmployees, icon: Users, variant: "lime", changeType: "positive" as const, onClick: () => navigate("/admin/employees") },
-            { title: "Active Tasks", value: metrics.activeTasks, icon: CheckSquare, variant: "blue", changeType: "neutral" as const, onClick: () => navigate("/admin/tasks") },
-            { title: "Active Projects", value: metrics.totalProjects, icon: FolderRoot, variant: "teal", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
-            { title: "Total Vehicles", value: metrics.totalVehicles, icon: Car, variant: "dark-grey", changeType: "positive" as const, onClick: () => navigate("/admin/vehicles") },
-            { title: "Patents", value: metrics.totalPatents, icon: FileSearch, variant: "gold", changeType: "positive" as const, onClick: () => navigate("/admin/intellectual-property") },
-            { title: "Websites", value: metrics.totalWebsites, icon: Globe, variant: "silver", changeType: "positive" as const, onClick: () => navigate("/admin/websites") },
+            { title: "Active Employee", value: metrics.totalEmployees, icon: Users, variant: "dark-grey", changeType: "positive" as const, onClick: () => navigate("/admin/employees") },
+            { title: "Active Tasks", value: metrics.activeTasks, icon: CheckSquare, variant: "green", changeType: "neutral" as const, onClick: () => navigate("/admin/tasks") },
+            { title: "Active Projects", value: metrics.totalProjects, icon: FolderRoot, variant: "purple", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
+            { title: "Total Vehicles", value: metrics.totalVehicles, icon: Car, variant: "orange", changeType: "positive" as const, onClick: () => navigate("/admin/vehicles") },
+            { title: "Patents", value: metrics.totalPatents, icon: FileSearch, variant: "amber", changeType: "positive" as const, onClick: () => navigate("/admin/intellectual-property") },
+            { title: "Websites", value: metrics.totalWebsites, icon: Globe, variant: "teal", changeType: "positive" as const, onClick: () => navigate("/admin/websites") },
             { title: "Overdue Tasks", value: metrics.overdueTasks, icon: AlertTriangle, variant: "red", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
-            { title: "Clocked In", value: metrics.clockedInEmployees, icon: Clock, variant: "dark-green", changeType: "neutral" as const, onClick: () => navigate("/admin/time-tracking") },
-            { title: "Pending Bugs", value: metrics.pendingBugs, icon: Bug, variant: "yellow", changeType: "neutral" as const, onClick: () => navigate("/admin/bug-reports") },
+            { title: "Clocked In", value: metrics.clockedInEmployees, icon: Clock, variant: "gold", changeType: "neutral" as const, onClick: () => navigate("/admin/time-tracking") },
           ].map((stat, idx) => (
             <motion.div
               key={stat.title}
