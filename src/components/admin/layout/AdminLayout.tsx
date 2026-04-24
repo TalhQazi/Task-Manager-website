@@ -26,13 +26,26 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [pageKey, setPageKey] = useState(0);
 
 
-  // Clear any theme classes from body when in Admin panel to ensure standard text visibility
+  // Apply user UI preferences on load
   useEffect(() => {
-    const classes = Array.from(document.body.classList);
-    classes.forEach(c => {
-      if (c.startsWith('tb-theme-')) document.body.classList.remove(c);
+    import("@/lib/admin/apiClient").then(({ apiFetch }) => {
+      apiFetch<{item: any}>("/api/ui-preferences").then(res => {
+        if (res?.item?.theme) {
+          const classes = Array.from(document.body.classList);
+          classes.forEach(c => {
+            if (c.startsWith('tb-theme-')) document.body.classList.remove(c);
+          });
+          document.body.classList.add(`tb-theme-${res.item.theme}`);
+        }
+        if (res?.item?.cardStyle) {
+          document.body.setAttribute("data-tb-card-style", res.item.cardStyle);
+        }
+      }).catch(() => {
+        // Fallback to dark-minimal
+        document.body.classList.add('tb-theme-dark-minimal');
+      });
     });
-    // Ensure standard background for the body
+    // Ensure inline styles from previous broken states are cleared
     document.body.style.backgroundColor = '';
     document.body.style.color = '';
   }, []);

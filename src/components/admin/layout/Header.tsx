@@ -1,4 +1,4 @@
-import { Bell, Bug, Camera, CheckCircle2, ChevronDown, ChevronUp, Loader2, LogOut, Mail, Menu, Move, Save, Search, User, Settings, X as XIcon, Paperclip } from "lucide-react";
+import { Bell, Bug, Camera, CheckCircle2, ChevronDown, ChevronUp, Loader2, LogOut, Mail, Menu, Move, Save, Search, User, Settings, X as XIcon, Paperclip, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -25,6 +25,7 @@ import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 import { getAuthState, clearAuthState } from "@/lib/auth";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { AdminInfoManager } from "@/components/admin/AdminInfoManager";
+import { UICustomizationPanel } from "@/components/admin/UICustomizationPanel";
 import { FounderMessageBar } from "@/components/FounderMessageBar";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -256,6 +257,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   // Bug Report State
   const [reportOpen, setReportOpen] = useState(false);
+  const [uiPanelOpen, setUiPanelOpen] = useState(false);
   const [reportTitle, setReportTitle] = useState("");
   const [reportDescription, setReportDescription] = useState("");
   const [reportImageFiles, setReportImageFiles] = useState<File[]>([]);
@@ -384,7 +386,14 @@ export function Header({ onMenuClick }: HeaderProps) {
           >
             {/* Branding and Profile */}
             {/* Header Picture Edit Button (Camera Icon) */}
-            <div className="absolute top-4 right-4 z-20">
+            <div className="absolute top-4 right-4 z-20 flex gap-2">
+              <button 
+                onClick={() => setUiPanelOpen(true)}
+                className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white transition-all backdrop-blur-sm border border-white/20"
+                title="Theme Customization"
+              >
+                <Palette className="h-5 w-5" />
+              </button>
               <button 
                 onClick={() => setHeaderModalOpen(true)}
                 className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white transition-all backdrop-blur-sm border border-white/20"
@@ -393,6 +402,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                 <Camera className="h-5 w-5" />
               </button>
             </div>
+
 
             <div className="flex flex-col gap-4">
               <DropdownMenu>
@@ -551,6 +561,9 @@ export function Header({ onMenuClick }: HeaderProps) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* UI Customization Panel */}
+        <UICustomizationPanel open={uiPanelOpen} onOpenChange={setUiPanelOpen} />
 
         {/* Bug Report Dialog */}
         <Dialog open={reportOpen} onOpenChange={setReportOpen}>

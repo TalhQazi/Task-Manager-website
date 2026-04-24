@@ -27,10 +27,59 @@ body[class*="tb-theme-"] {
 
 /* Individual themes can override variables, but we avoid !important here */
 .tb-theme-neon-tech {
-  --tb-primary: #00f5ff;
-  --tb-dashboard-bg: #0a0a1e;
+  --background: 240 100% 5%;
+  --foreground: 180 100% 90%;
+  --tb-dashboard-bg: #030014;
+  --tb-dashboard-card-bg: rgba(0, 245, 255, 0.03);
+  --tb-dashboard-text-color: #e0f7fa;
+  --tb-sidebar-bg: #06061a;
+  border-color: rgba(0, 245, 255, 0.2);
+}
+
+.tb-theme-metallic-elite {
+  --background: 0 0% 10%;
+  --foreground: 43 74% 49%;
+  --tb-dashboard-bg: #1a1a1a;
+  --tb-dashboard-card-bg: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+  --tb-dashboard-text-color: #d4af37;
+  --tb-sidebar-bg: #111111;
+}
+
+.tb-theme-executive-black {
+  --background: 0 0% 5%;
+  --foreground: 0 0% 90%;
+  --tb-dashboard-bg: #0a0a0a;
+  --tb-dashboard-card-bg: rgba(20, 20, 20, 0.8);
+  --tb-dashboard-text-color: #f3f4f6;
+  --tb-sidebar-bg: #050505;
+}
+
+.tb-theme-dark-minimal {
+  --background: 220 20% 8%;
+  --foreground: 220 10% 90%;
+  --tb-dashboard-bg: #0f172a;
+  --tb-dashboard-card-bg: rgba(30, 41, 59, 0.7);
+  --tb-dashboard-text-color: #f8fafc;
+  --tb-sidebar-bg: #020617;
+}
+
+.tb-theme-high-contrast {
+  --background: 0 0% 0%;
+  --foreground: 0 0% 100%;
+  --tb-dashboard-bg: #000000;
+  --tb-dashboard-card-bg: #000000;
   --tb-dashboard-text-color: #ffffff;
-  --tb-dashboard-card-bg: rgba(10, 10, 30, 0.8);
+  --tb-sidebar-bg: #000000;
+  border-color: #ffffff !important;
+}
+
+.tb-theme-energy-mode {
+  --background: 40 100% 10%;
+  --foreground: 40 100% 90%;
+  --tb-dashboard-bg: #1a0f00;
+  --tb-dashboard-card-bg: rgba(255, 150, 0, 0.1);
+  --tb-dashboard-text-color: #ffedd5;
+  --tb-sidebar-bg: #0a0500;
 }
 
 /* Glass Card Style Logic - Scoped to main content */
