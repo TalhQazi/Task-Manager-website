@@ -130,7 +130,7 @@ export function Header({ onMenuClick }: HeaderProps) {
     queryKey: ["header-settings"],
     queryFn: async () => {
       try {
-        return await apiFetch<any>("/api/admin/header-settings");
+        return await apiFetch<any>("/api/header-settings");
       } catch (e) {
         console.warn("Failed to fetch header settings:", e);
         return null;
@@ -140,7 +140,8 @@ export function Header({ onMenuClick }: HeaderProps) {
   });
 
   const headerSettings = headerSettingsQuery.data?.item;
-  const headerImageUrl = headerSettings?.imageConfig?.url || headerSettings?.imageConfig?.dataUrl;
+  const headerImageUrlRaw = headerSettings?.imageConfig?.url || headerSettings?.imageConfig?.dataUrl;
+  const headerImageUrl = headerImageUrlRaw ? toProxiedUrl(headerImageUrlRaw) : null;
 
   // Banner header height
   const headerHeight = 300;
@@ -178,7 +179,7 @@ export function Header({ onMenuClick }: HeaderProps) {
       const reader = new FileReader();
       reader.onloadend = async () => {
         const base64String = reader.result as string;
-        await apiFetch("/api/admin/header-settings", {
+        await apiFetch("/api/header-settings", {
           method: "PUT",
           body: {
             backgroundType: "image",
@@ -201,7 +202,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   const handleResetHeader = async () => {
     try {
-      await apiFetch("/api/admin/header-settings/reset", { method: "POST" });
+      await apiFetch("/api/header-settings/reset", { method: "POST" });
       queryClient.invalidateQueries({ queryKey: ["header-settings"] });
       setHeaderModalOpen(false);
     } catch (error) {
