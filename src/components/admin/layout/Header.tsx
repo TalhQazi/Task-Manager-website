@@ -139,8 +139,8 @@ export function Header({ onMenuClick }: HeaderProps) {
     staleTime: 60000,
   });
 
-  const headerSettings = headerSettingsQuery.data;
-  const headerImageUrl = headerSettings?.coverPhotoUrl ? toProxiedUrl(headerSettings.coverPhotoUrl) : null;
+  const headerSettings = headerSettingsQuery.data?.item;
+  const headerImageUrl = headerSettings?.imageConfig?.url || headerSettings?.imageConfig?.dataUrl;
 
   // Banner header height
   const headerHeight = 300;
@@ -154,14 +154,60 @@ export function Header({ onMenuClick }: HeaderProps) {
 
     if (headerImageUrl) {
       baseStyle.backgroundImage = `url("${headerImageUrl}")`;
-      baseStyle.backgroundSize = 'cover';
-      baseStyle.backgroundPosition = 'center';
+      baseStyle.backgroundSize = headerSettings?.imageConfig?.size || 'cover';
+      baseStyle.backgroundPosition = headerSettings?.imageConfig?.position || 'center';
+      baseStyle.backgroundRepeat = headerSettings?.imageConfig?.repeat || 'no-repeat';
     } else {
       baseStyle.background = 'linear-gradient(to right, #133767, #133767, #133767)';
     }
 
     return baseStyle;
-  }, [headerImageUrl]);
+  }, [headerImageUrl, headerSettings]);
+
+  // Handle Image Upload for Header
+  const [headerModalOpen, setHeaderModalOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleHeaderImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64String = reader.result as string;
+        await apiFetch("/api/admin/header-settings", {
+          method: "PUT",
+          body: {
+            backgroundType: "image",
+            imageConfig: {
+              dataUrl: base64String,
+              url: base64String
+            }
+          }
+        });
+        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+        setHeaderModalOpen(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Failed to upload header image:", error);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleResetHeader = async () => {
+    try {
+      await apiFetch("/api/admin/header-settings/reset", { method: "POST" });
+      queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+      setHeaderModalOpen(false);
+    } catch (error) {
+      console.error("Failed to reset header:", error);
+    }
+  };
 
 
 
@@ -336,6 +382,17 @@ export function Header({ onMenuClick }: HeaderProps) {
             className="flex-1 relative flex flex-col justify-end px-3 sm:px-6 lg:px-8 md:pl-64 pb-8 sm:pb-12 md:pb-16 animate-fade-in pointer-events-auto"
           >
             {/* Branding and Profile */}
+            {/* Header Picture Edit Button (Camera Icon) */}
+            <div className="absolute top-4 right-4 z-20">
+              <button 
+                onClick={() => setHeaderModalOpen(true)}
+                className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white transition-all backdrop-blur-sm border border-white/20"
+                title="Change Header Picture"
+              >
+                <Camera className="h-5 w-5" />
+              </button>
+            </div>
+
             <div className="flex flex-col gap-4">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -443,6 +500,48 @@ export function Header({ onMenuClick }: HeaderProps) {
             </div>
           </div>
         </div>
+
+        {/* Header Settings Modal (Simplified for Image Only) */}
+        <Dialog open={headerModalOpen} onOpenChange={setHeaderModalOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Update Header Picture</DialogTitle>
+              <DialogDescription>Choose a high-quality image for your admin dashboard banner.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6 py-4">
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-full h-32 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center bg-muted/5 overflow-hidden relative group">
+                  {headerImageUrl ? (
+                    <img src={headerImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="text-center">
+                      <Camera className="h-8 w-8 mx-auto text-muted-foreground/50" />
+                      <p className="text-xs text-muted-foreground mt-2">No background image set</p>
+                    </div>
+                  )}
+                  <label className="absolute inset-0 cursor-pointer flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-white text-sm font-medium">Click to Upload</span>
+                    <input type="file" className="hidden" accept="image/*" onChange={handleHeaderImageUpload} disabled={uploading} />
+                  </label>
+                </div>
+                {uploading && (
+                  <div className="flex items-center gap-2 text-primary">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Uploading image...</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <DialogFooter className="flex justify-between sm:justify-between w-full">
+              <Button variant="outline" size="sm" onClick={handleResetHeader} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                Reset to Default
+              </Button>
+              <Button size="sm" onClick={() => setHeaderModalOpen(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* Bug Report Dialog */}
         <Dialog open={reportOpen} onOpenChange={setReportOpen}>
