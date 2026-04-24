@@ -125,9 +125,18 @@ export default function Bugs() {
     });
   }, [items, q]);
 
-  const openBug = (b: BugItem) => {
+  const openBug = async (b: BugItem) => {
     setSelected(b);
     setViewOpen(true);
+    // Fetch full details (with attachments)
+    try {
+      const res = await apiFetch<{ item: BugItem }>(`/api/bugs/${encodeURIComponent(b.id)}`);
+      if (res?.item) {
+        setSelected(prev => prev?.id === b.id ? { ...prev, ...res.item } : prev);
+      }
+    } catch (e) {
+      console.error("Failed to load bug details", e);
+    }
   };
 
   const updateStatus = async (next: BugStatus) => {
