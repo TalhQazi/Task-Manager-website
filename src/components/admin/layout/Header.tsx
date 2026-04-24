@@ -654,8 +654,8 @@ export function Header({ onMenuClick }: HeaderProps) {
                       <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-black rounded-full" />
                     </div>
                     <div className="flex flex-col min-w-0 pr-4">
-                      <span className="text-base font-bold truncate leading-tight drop-shadow-md" style={{ color: 'var(--tb-header-text-color)' }}>{fullName}</span>
-                      <span className="text-[11px] truncate tracking-wide uppercase font-semibold" style={{ color: 'var(--tb-header-text-color)', opacity: 0.6 }}>{auth.role || "Admin"}</span>
+                      <span className="text-base font-bold text-white truncate leading-tight drop-shadow-md">{fullName}</span>
+                      <span className="text-[11px] text-white/60 truncate tracking-wide uppercase font-semibold">{auth.role || "Admin"}</span>
                     </div>
                   </div>
                 </DropdownMenuTrigger>
@@ -674,16 +674,13 @@ export function Header({ onMenuClick }: HeaderProps) {
               {/* Quick Actions Bar (Bottom) */}
               <div className="flex items-center justify-start gap-4">
                 <div className="md:hidden">
-                  <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/[0.14] transition-all" aria-label="Open navigation" onClick={() => onMenuClick?.()}><Menu className="h-5 w-5" style={{ color: 'var(--tb-header-text-color)' }} /></button>
+                  <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/[0.14] transition-all" aria-label="Open navigation" onClick={() => onMenuClick?.()}><Menu className="h-5 w-5 text-white" /></button>
                 </div>
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button 
-                      className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors"
-                      style={{ color: 'var(--tb-header-text-color)' }}
-                    >
-                      <Mail className="h-5 w-5 opacity-70 group-hover:opacity-100" />
+                    <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
+                      <Mail className="h-5 w-5" />
                       {unreadMessageCount > 0 && (
                         <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-[#00C6FF] text-[9px] border-black">
                           {Math.min(unreadMessageCount, 9)}
@@ -711,11 +708,8 @@ export function Header({ onMenuClick }: HeaderProps) {
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button 
-                      className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors"
-                      style={{ color: 'var(--tb-header-text-color)' }}
-                    >
-                      <Bell className="h-4.5 w-4.5 opacity-70 group-hover:opacity-100" />
+                    <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
+                      <Bell className="h-4.5 w-4.5" />
                       {unreadCount > 0 && (
                         <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[9px] border-black">
                           {unreadCount > 9 ? "9+" : unreadCount}
@@ -740,11 +734,10 @@ export function Header({ onMenuClick }: HeaderProps) {
 
                 <button 
                   onClick={() => { resetReport(); setReportOpen(true); }}
-                  className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors"
-                  style={{ color: 'var(--tb-header-text-color)' }}
+                  className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white"
                   title="Submit Bug Report"
                 >
-                  <Bug className="h-4.5 w-4.5 opacity-70 group-hover:opacity-100" />
+                  <Bug className="h-4.5 w-4.5" />
                 </button>
 
                 <button 

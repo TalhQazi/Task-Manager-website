@@ -14,9 +14,7 @@
   --tb-sidebar-icon-color: #ffffff;
   --tb-dashboard-icon-color: #133767;
   --tb-sidebar-text-color: #ffffff;
-  --tb-header-text-color: #ffffff;
   --tb-dashboard-card-bg: #ffffff;
-  --tb-dashboard-text-color: #1e293b;
 
   /* Animation settings */
   --tb-animation-speed: 0.3s;
@@ -50,7 +48,7 @@ body.tb-theme-neon-tech,
   --tb-card-shadow: 0 0 20px rgba(0, 245, 255, 0.2);
   --tb-card-hover-shadow: 0 0 30px rgba(0, 245, 255, 0.4);
   background: linear-gradient(135deg, #0a0a1e 0%, #1a1a3e 100%) !important;
-  color: var(--tb-dashboard-text-color) !important;
+  color: #ffffff !important;
 }
 
 .tb-theme-neon-tech .rounded-xl,
@@ -80,7 +78,7 @@ body.tb-theme-metallic-elite,
   --tb-card-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
   --tb-card-hover-shadow: 0 8px 16px rgba(192, 192, 192, 0.2);
   background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%) !important;
-  color: var(--tb-dashboard-text-color) !important;
+  color: #e0e0e0 !important;
 }
 
 .tb-theme-metallic-elite .rounded-xl,
@@ -114,7 +112,7 @@ body.tb-theme-executive-black,
   --tb-card-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
   --tb-card-hover-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
   background: #0d0d0d !important;
-  color: var(--tb-dashboard-text-color) !important;
+  color: #e5e5e5 !important;
 }
 
 .tb-theme-executive-black .tb-card {
@@ -140,7 +138,7 @@ body.tb-theme-dark-minimal,
   --tb-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   --tb-card-hover-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   background: #0f172a !important;
-  color: var(--tb-dashboard-text-color) !important;
+  color: #f1f5f9 !important;
 }
 
 .tb-theme-dark-minimal .tb-card {
@@ -164,7 +162,7 @@ body.tb-theme-high-contrast,
   --tb-card-shadow: 4px 4px 0 #000000;
   --tb-card-hover-shadow: 6px 6px 0 #000000;
   background: #ffffff !important;
-  color: var(--tb-dashboard-text-color) !important;
+  color: #000000 !important;
 }
 
 .tb-theme-high-contrast .tb-card {
@@ -197,7 +195,7 @@ body.tb-theme-energy-mode,
   background: linear-gradient(45deg, #ff6b6b, #feca57, #48dbfb) !important;
   background-size: 400% 400%;
   animation: energyGradient 15s ease infinite;
-  color: var(--tb-dashboard-text-color) !important;
+  color: #ffffff !important;
 }
 
 @keyframes energyGradient {
