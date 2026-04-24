@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import { EmployeeSidebar } from "./EmployeeSidebar";
 import { EmployeeHeader } from "./EmployeeHeader";
@@ -9,11 +9,29 @@ import { TaskBlaster } from "@/components/shared/TaskBlaster";
 export function EmployeeLayout() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const headerHeight = 300;
+  const [dashboardBg, setDashboardBg] = useState("var(--tb-dashboard-bg, #e6f0ff)");
+
+  // Update dashboard background when CSS variable changes
+  useEffect(() => {
+    const updateDashboardBg = () => {
+      const bg = getComputedStyle(document.documentElement).getPropertyValue("--tb-dashboard-bg").trim() || "#e6f0ff";
+      setDashboardBg(bg);
+      console.log("Dashboard background from CSS variable:", bg);
+    };
+    
+    updateDashboardBg();
+    
+    // Listen for theme changes
+    const observer = new MutationObserver(updateDashboardBg);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["style"] });
+    
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <div
       className="min-h-screen"
-      style={{ paddingTop: `${headerHeight}px`, background: "var(--tb-dashboard-bg)" }}
+      style={{ paddingTop: `${headerHeight}px`, background: dashboardBg }}
     >
       <EmployeeHeader onMenuClick={() => setMobileSidebarOpen(true)} />
 

@@ -10,13 +10,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useTheme, UITheme } from "@/contexts/ThemeContext";
-import { Layout, Zap, RotateCcw, Save, Sparkles } from "lucide-react";
+import { useTheme, UITheme, themePresets } from "@/contexts/ThemeContext";
+import { Layout, Zap, RotateCcw, Save, Sparkles, Palette, Check } from "lucide-react";
 import { toast } from "sonner";
 import { resetUIPreferences } from "../lib/api";
 
 export function UICustomizationPanel() {
-  const { uiTheme, updateTheme, resetTheme, saveToBackend, loadFromBackend } = useTheme();
+  const { uiTheme, updateTheme, resetTheme, saveToBackend, loadFromBackend, applyPreset } = useTheme();
   const [localTheme, setLocalTheme] = useState<UITheme>(uiTheme);
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -121,6 +121,39 @@ export function UICustomizationPanel() {
     toast.success("Live preview applied");
   };
 
+  const handlePresetApply = async (presetName: string) => {
+    applyPreset(presetName);
+    setLocalTheme(themePresets[presetName]);
+    try {
+      await saveToBackend(themePresets[presetName]);
+    } catch (error) {
+      console.error("Failed to save theme to backend:", error);
+    }
+    toast.success("Theme applied successfully");
+  };
+
+  const presetOptions = [
+    { id: "ocean-professional", name: "Ocean Professional", description: "Professional blue tones", colors: ["#0c4a6e", "#e0f2fe", "#f0f9ff"] },
+    { id: "midnight-elegance", name: "Midnight Elegance", description: "Dark theme with purple accents", colors: ["#1e1b4b", "#0f0f23", "#1a1a2e"] },
+    { id: "emerald-fresh", name: "Emerald Fresh", description: "Fresh green tones", colors: ["#064e3b", "#065f46", "#ecfdf5"] },
+    { id: "sunset-blaze", name: "Sunset Blaze", description: "Warm orange tones", colors: ["#7c2d12", "#431407", "#fff7ed"] },
+    { id: "royal-gold", name: "Royal Gold", description: "Brand gold & blue", colors: ["#1e1b4b", "#312e81", "#fef3c7"] },
+    { id: "frost-mint", name: "Frost Mint", description: "Cool cyan tones", colors: ["#164e63", "#155e75", "#ecfeff"] },
+    { id: "lavender-dream", name: "Lavender Dream", description: "Soft purple tones", colors: ["#6b21a8", "#581c87", "#faf5ff"] },
+    { id: "rose-blush", name: "Rose Blush", description: "Elegant pink tones", colors: ["#9d174d", "#831843", "#fdf2f8"] },
+    { id: "slate-professional", name: "Slate Professional", description: "Modern gray tones", colors: ["#334155", "#1e293b", "#f8fafc"] },
+  ];
+
+  const isPresetActive = (presetId: string) => {
+    const preset = themePresets[presetId];
+    if (!preset) return false;
+    return (
+      uiTheme.panelColors.sidebarBackground === preset.panelColors.sidebarBackground &&
+      uiTheme.panelColors.dashboardBackground === preset.panelColors.dashboardBackground &&
+      uiTheme.panelColors.headerBackground === preset.panelColors.headerBackground
+    );
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6 px-4 sm:px-0">
       {/* Header Section - Responsive */}
@@ -150,6 +183,52 @@ export function UICustomizationPanel() {
         </div>
       </div>
 
+      {/* Theme Presets */}
+      <Card>
+        <CardHeader className="px-4 sm:px-6">
+          <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+            <Palette className="h-4 w-4 sm:h-5 sm:w-5" />
+            Theme Presets
+          </CardTitle>
+          <CardDescription className="text-sm">Choose a professionally designed theme</CardDescription>
+        </CardHeader>
+        <CardContent className="px-4 sm:px-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {presetOptions.map((preset) => (
+              <button
+                key={preset.id}
+                onClick={() => handlePresetApply(preset.id)}
+                className={`group relative overflow-hidden rounded-xl border-2 transition-all duration-300 hover:scale-105 hover:shadow-lg ${
+                  isPresetActive(preset.id)
+                    ? "border-primary shadow-lg ring-2 ring-primary/20"
+                    : "border-border/60 hover:border-primary/50"
+                }`}
+              >
+                <div className="h-20 flex">
+                  <div className="flex-1" style={{ backgroundColor: preset.colors[0] }}></div>
+                  <div className="w-8" style={{ backgroundColor: preset.colors[1] }}></div>
+                  <div className="flex-1" style={{ backgroundColor: preset.colors[2] }}></div>
+                </div>
+                <div className="p-3 bg-background">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="font-semibold text-sm">{preset.name}</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">{preset.description}</p>
+                    </div>
+                    {isPresetActive(preset.id) && (
+                      <div className="h-6 w-6 rounded-full bg-primary flex items-center justify-center">
+                        <Check className="h-4 w-4 text-primary-foreground" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Panel Colors - Responsive Grid */}
       <Card>
         <CardHeader className="px-4 sm:px-6">
@@ -166,6 +245,7 @@ export function UICustomizationPanel() {
                   value={localTheme.panelColors.headerBackground}
                   onChange={(e) => handlePanelColorChange("headerBackground", e.target.value)}
                   className="w-10 h-10 sm:w-12 sm:h-12 rounded cursor-pointer border-0"
+                  title="Header Background"
                 />
               </div>
             </div>
@@ -178,6 +258,7 @@ export function UICustomizationPanel() {
                   value={localTheme.panelColors.headerOverlayColor}
                   onChange={(e) => handlePanelColorChange("headerOverlayColor", e.target.value)}
                   className="w-10 h-10 sm:w-12 sm:h-12 rounded cursor-pointer border-0"
+                  title="Header Overlay Color"
                 />
               </div>
               <div className="mt-3">
@@ -201,6 +282,7 @@ export function UICustomizationPanel() {
                   value={localTheme.panelColors.sidebarBackground}
                   onChange={(e) => handlePanelColorChange("sidebarBackground", e.target.value)}
                   className="w-10 h-10 sm:w-12 sm:h-12 rounded cursor-pointer border-0"
+                  title="Sidebar Background"
                 />
               </div>
             </div>
@@ -213,6 +295,7 @@ export function UICustomizationPanel() {
                   value={localTheme.panelColors.dashboardBackground}
                   onChange={(e) => handlePanelColorChange("dashboardBackground", e.target.value)}
                   className="w-10 h-10 sm:w-12 sm:h-12 rounded cursor-pointer border-0"
+                  title="Screen Background"
                 />
               </div>
             </div>
@@ -225,6 +308,7 @@ export function UICustomizationPanel() {
                   value={localTheme.panelColors.dashboardCardBackground}
                   onChange={(e) => handlePanelColorChange("dashboardCardBackground", e.target.value)}
                   className="w-10 h-10 sm:w-12 sm:h-12 rounded cursor-pointer border-0"
+                  title="Dashboard Cards Background"
                 />
               </div>
             </div>
@@ -237,6 +321,7 @@ export function UICustomizationPanel() {
                   value={localTheme.panelColors.sidebarIconColor}
                   onChange={(e) => handlePanelColorChange("sidebarIconColor", e.target.value)}
                   className="w-10 h-10 sm:w-12 sm:h-12 rounded cursor-pointer border-0"
+                  title="Sidebar Icon Color"
                 />
               </div>
             </div>
@@ -249,6 +334,7 @@ export function UICustomizationPanel() {
                   value={localTheme.panelColors.sidebarTextColor}
                   onChange={(e) => handlePanelColorChange("sidebarTextColor", e.target.value)}
                   className="w-10 h-10 sm:w-12 sm:h-12 rounded cursor-pointer border-0"
+                  title="Sidebar Text Color"
                 />
               </div>
             </div>
@@ -261,6 +347,7 @@ export function UICustomizationPanel() {
                   value={localTheme.panelColors.dashboardIconColor}
                   onChange={(e) => handlePanelColorChange("dashboardIconColor", e.target.value)}
                   className="w-10 h-10 sm:w-12 sm:h-12 rounded cursor-pointer border-0"
+                  title="Dashboard Icon Color"
                 />
               </div>
             </div>
@@ -378,6 +465,7 @@ export function UICustomizationPanel() {
                 checked={localTheme.animationSettings.enabled}
                 onChange={(e) => handleAnimationToggle("enabled", e.target.checked)}
                 className="w-4 h-4 sm:w-5 sm:h-5 rounded"
+                title="Enable Animations"
               />
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -388,6 +476,7 @@ export function UICustomizationPanel() {
                 checked={localTheme.animationSettings.reduceMotion}
                 onChange={(e) => handleAnimationToggle("reduceMotion", e.target.checked)}
                 className="w-4 h-4 sm:w-5 sm:h-5 rounded"
+                title="Reduce Motion"
               />
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -398,6 +487,7 @@ export function UICustomizationPanel() {
                 checked={localTheme.animationSettings.hoverEffects}
                 onChange={(e) => handleAnimationToggle("hoverEffects", e.target.checked)}
                 className="w-4 h-4 sm:w-5 sm:h-5 rounded"
+                title="Hover Effects"
               />
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -408,6 +498,7 @@ export function UICustomizationPanel() {
                 checked={localTheme.animationSettings.clickEffects}
                 onChange={(e) => handleAnimationToggle("clickEffects", e.target.checked)}
                 className="w-4 h-4 sm:w-5 sm:h-5 rounded"
+                title="Click Effects"
               />
             </div>
           </div>
