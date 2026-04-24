@@ -139,8 +139,8 @@ export function Header({ onMenuClick }: HeaderProps) {
     staleTime: 60000,
   });
 
-  const settings = headerSettingsQuery.data;
-  const headerImageUrl = settings?.coverPhotoUrl ? toProxiedUrl(settings.coverPhotoUrl) : null;
+  const headerSettings = headerSettingsQuery.data;
+  const headerImageUrl = headerSettings?.coverPhotoUrl ? toProxiedUrl(headerSettings.coverPhotoUrl) : null;
 
   // Banner header height
   const headerHeight = 300;
