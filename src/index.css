@@ -111,6 +111,23 @@
   .gradient-brown { background: var(--gradient-brown); }
   .gradient-pink-new { background: var(--gradient-pink-new); }
   .gradient-grey { background: var(--gradient-grey); }
+
+  /* Premium Metallic Gold Utils */
+  .bg-metallic-gold {
+    background: linear-gradient(
+      to right, 
+      #BF953F, 
+      #FCF6BA 25%, 
+      #B38728 50%, 
+      #FBF5B7 75%, 
+      #BF953F
+    );
+    background-size: 200% auto;
+  }
+
+  .text-gold-dark {
+    color: #5d4037;
+  }
 }
 
 /* Glass effect only for specific dashboard cards, not global rounded-xl */
