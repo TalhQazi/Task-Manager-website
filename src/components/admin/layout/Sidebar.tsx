@@ -107,7 +107,6 @@ const navItemsBase: NavItem[] = [
       />
     ),
   },
-  { icon: Settings, label: "UI Customization", path: "/admin/ui-customization" },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
   { icon: Bug, label: "Bug Reports", path: "/admin/bug-reports" },
 ];

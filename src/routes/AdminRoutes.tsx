@@ -43,7 +43,7 @@ const SignaCore = lazy(() => import("@/pages/admin/SignaCore"));
 const UphMaintenance = lazy(() => import("@/pages/admin/UphMaintenance"));
 const BugReport = lazy(() => import("@/pages/admin/BugReport"));
 const Contributors = lazy(() => import("@/pages/admin/Contributors"));
-const UICustomization = lazy(() => import("@/pages/admin/UICustomization"));
+
 
 function PageLoader() {
   return (
@@ -103,7 +103,7 @@ export default function AdminRoutes() {
       { path: "eod-reports", element: <EODReports /> },
       { path: "eod-reports/:employeeName", element: <EmployeeEODHistory /> },
       { path: "contributors", element: <Contributors /> },
-      { path: "ui-customization", element: <UICustomization /> },
+
       { path: "bug-reports", element: <BugReport /> },
       { path: "*", element: <NotFound /> },
     ],
