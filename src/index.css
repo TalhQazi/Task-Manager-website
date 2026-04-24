@@ -140,6 +140,40 @@
     overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     touch-action: manipulation; /* Fix for Apple Pencil / iOS double tap issue */
+    color: var(--tb-dashboard-text-color, #1e293b) !important;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--tb-dashboard-text-color, #1e293b) !important;
+  }
+
+  p, span, label, div {
+    color: inherit !important;
+  }
+
+  /* Force all text to use theme color */
+  * {
+    color: var(--tb-dashboard-text-color, #1e293b) !important;
+  }
+
+  /* Exception for sidebar text - use sidebar text color */
+  aside, aside * {
+    color: var(--tb-sidebar-text-color, #ffffff) !important;
+  }
+
+  /* Exception for header text - use sidebar text color */
+  header, header * {
+    color: var(--tb-sidebar-text-color, #ffffff) !important;
+  }
+
+  /* Exception for dropdown menus - use dark text for visibility on light backgrounds */
+  [role="menu"], [role="menu"] *, [role="menuitem"], [role="menuitem"] * {
+    color: #1e293b !important;
+  }
+
+  /* Exception for buttons, links, inputs - keep their default colors */
+  button, a, input, select, textarea {
+    color: inherit !important;
   }
 
   /* Ensure all clickable elements respond immediately to touch/pencil */

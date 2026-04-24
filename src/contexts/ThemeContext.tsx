@@ -40,6 +40,7 @@ interface ThemeContextType {
   updateTheme: (updates: Partial<UITheme>) => void;
   resetTheme: () => void;
   applyTheme: () => void;
+  applyPreset: (presetName: string) => void;
   saveToBackend: (theme?: UITheme) => Promise<void>;
   loadFromBackend: () => Promise<void>;
 }
@@ -72,6 +73,280 @@ const defaultTheme: UITheme = {
     reduceMotion: false,
     hoverEffects: true,
     clickEffects: true
+  }
+};
+
+// Theme Presets
+export const themePresets: Record<string, UITheme> = {
+  "ocean-professional": {
+    theme: "dark-minimal",
+    customColors: {
+      primary: "#0ea5e9",
+      secondary: "#0284c7",
+      accent: "#38bdf8"
+    },
+    panelColors: {
+      headerBackground: "#0c4a6e",
+      headerOverlayColor: "#000000",
+      headerOverlayOpacity: 20,
+      sidebarBackground: "#e0f2fe",
+      dashboardBackground: "#f0f9ff",
+      sidebarIconColor: "#0284c7",
+      dashboardIconColor: "#0284c7",
+      sidebarTextColor: "#0f172a",
+      dashboardCardBackground: "#ffffff",
+      dashboardTextColor: "#000000",
+    },
+    glowIntensity: 40,
+    animationSpeed: "normal",
+    cardStyle: "glass",
+    layoutDensity: "comfortable",
+    animationSettings: {
+      enabled: true,
+      reduceMotion: false,
+      hoverEffects: true,
+      clickEffects: true
+    }
+  },
+  "midnight-elegance": {
+    theme: "dark-minimal",
+    customColors: {
+      primary: "#7c3aed",
+      secondary: "#a855f7",
+      accent: "#c084fc"
+    },
+    panelColors: {
+      headerBackground: "#1e1b4b",
+      headerOverlayColor: "#000000",
+      headerOverlayOpacity: 30,
+      sidebarBackground: "#0f0f23",
+      dashboardBackground: "#1a1a2e",
+      sidebarIconColor: "#a855f7",
+      dashboardIconColor: "#7c3aed",
+      sidebarTextColor: "#ffffff",
+      dashboardCardBackground: "#1e1b4b",
+      dashboardTextColor: "#ffffff",
+    },
+    glowIntensity: 60,
+    animationSpeed: "normal",
+    cardStyle: "glass",
+    layoutDensity: "comfortable",
+    animationSettings: {
+      enabled: true,
+      reduceMotion: false,
+      hoverEffects: true,
+      clickEffects: true
+    }
+  },
+  "emerald-fresh": {
+    theme: "dark-minimal",
+    customColors: {
+      primary: "#10b981",
+      secondary: "#059669",
+      accent: "#34d399"
+    },
+    panelColors: {
+      headerBackground: "#064e3b",
+      headerOverlayColor: "#000000",
+      headerOverlayOpacity: 25,
+      sidebarBackground: "#065f46",
+      dashboardBackground: "#ecfdf5",
+      sidebarIconColor: "#34d399",
+      dashboardIconColor: "#059669",
+      sidebarTextColor: "#ffffff",
+      dashboardCardBackground: "#ffffff",
+      dashboardTextColor: "#000000",
+    },
+    glowIntensity: 45,
+    animationSpeed: "normal",
+    cardStyle: "glass",
+    layoutDensity: "comfortable",
+    animationSettings: {
+      enabled: true,
+      reduceMotion: false,
+      hoverEffects: true,
+      clickEffects: true
+    }
+  },
+  "sunset-blaze": {
+    theme: "dark-minimal",
+    customColors: {
+      primary: "#f97316",
+      secondary: "#ea580c",
+      accent: "#fb923c"
+    },
+    panelColors: {
+      headerBackground: "#7c2d12",
+      headerOverlayColor: "#000000",
+      headerOverlayOpacity: 25,
+      sidebarBackground: "#431407",
+      dashboardBackground: "#fff7ed",
+      sidebarIconColor: "#fed7aa",
+      dashboardIconColor: "#ea580c",
+      sidebarTextColor: "#ffffff",
+      dashboardCardBackground: "#ffffff",
+      dashboardTextColor: "#000000",
+    },
+    glowIntensity: 50,
+    animationSpeed: "normal",
+    cardStyle: "glass",
+    layoutDensity: "comfortable",
+    animationSettings: {
+      enabled: true,
+      reduceMotion: false,
+      hoverEffects: true,
+      clickEffects: true
+    }
+  },
+  "royal-gold": {
+    theme: "dark-minimal",
+    customColors: {
+      primary: "#fbbf24",
+      secondary: "#f59e0b",
+      accent: "#fcd34d"
+    },
+    panelColors: {
+      headerBackground: "#1e1b4b",
+      headerOverlayColor: "#000000",
+      headerOverlayOpacity: 20,
+      sidebarBackground: "#312e81",
+      dashboardBackground: "#fef3c7",
+      sidebarIconColor: "#fbbf24",
+      dashboardIconColor: "#f59e0b",
+      sidebarTextColor: "#ffffff",
+      dashboardCardBackground: "#ffffff",
+      dashboardTextColor: "#000000",
+    },
+    glowIntensity: 55,
+    animationSpeed: "normal",
+    cardStyle: "glass",
+    layoutDensity: "comfortable",
+    animationSettings: {
+      enabled: true,
+      reduceMotion: false,
+      hoverEffects: true,
+      clickEffects: true
+    }
+  },
+  "frost-mint": {
+    theme: "dark-minimal",
+    customColors: {
+      primary: "#06b6d4",
+      secondary: "#0891b2",
+      accent: "#22d3ee"
+    },
+    panelColors: {
+      headerBackground: "#164e63",
+      headerOverlayColor: "#000000",
+      headerOverlayOpacity: 22,
+      sidebarBackground: "#155e75",
+      dashboardBackground: "#ecfeff",
+      sidebarIconColor: "#22d3ee",
+      dashboardIconColor: "#0891b2",
+      sidebarTextColor: "#ffffff",
+      dashboardCardBackground: "#ffffff",
+      dashboardTextColor: "#000000",
+    },
+    glowIntensity: 42,
+    animationSpeed: "normal",
+    cardStyle: "glass",
+    layoutDensity: "comfortable",
+    animationSettings: {
+      enabled: true,
+      reduceMotion: false,
+      hoverEffects: true,
+      clickEffects: true
+    }
+  },
+  "lavender-dream": {
+    theme: "dark-minimal",
+    customColors: {
+      primary: "#a855f7",
+      secondary: "#9333ea",
+      accent: "#c084fc"
+    },
+    panelColors: {
+      headerBackground: "#6b21a8",
+      headerOverlayColor: "#000000",
+      headerOverlayOpacity: 20,
+      sidebarBackground: "#581c87",
+      dashboardBackground: "#faf5ff",
+      sidebarIconColor: "#c084fc",
+      dashboardIconColor: "#9333ea",
+      sidebarTextColor: "#ffffff",
+      dashboardCardBackground: "#ffffff",
+      dashboardTextColor: "#000000",
+    },
+    glowIntensity: 48,
+    animationSpeed: "normal",
+    cardStyle: "glass",
+    layoutDensity: "comfortable",
+    animationSettings: {
+      enabled: true,
+      reduceMotion: false,
+      hoverEffects: true,
+      clickEffects: true
+    }
+  },
+  "rose-blush": {
+    theme: "dark-minimal",
+    customColors: {
+      primary: "#ec4899",
+      secondary: "#db2777",
+      accent: "#f472b6"
+    },
+    panelColors: {
+      headerBackground: "#9d174d",
+      headerOverlayColor: "#000000",
+      headerOverlayOpacity: 25,
+      sidebarBackground: "#831843",
+      dashboardBackground: "#fdf2f8",
+      sidebarIconColor: "#f472b6",
+      dashboardIconColor: "#db2777",
+      sidebarTextColor: "#ffffff",
+      dashboardCardBackground: "#ffffff",
+      dashboardTextColor: "#000000",
+    },
+    glowIntensity: 45,
+    animationSpeed: "normal",
+    cardStyle: "glass",
+    layoutDensity: "comfortable",
+    animationSettings: {
+      enabled: true,
+      reduceMotion: false,
+      hoverEffects: true,
+      clickEffects: true
+    }
+  },
+  "slate-professional": {
+    theme: "dark-minimal",
+    customColors: {
+      primary: "#64748b",
+      secondary: "#475569",
+      accent: "#94a3b8"
+    },
+    panelColors: {
+      headerBackground: "#334155",
+      headerOverlayColor: "#000000",
+      headerOverlayOpacity: 20,
+      sidebarBackground: "#1e293b",
+      dashboardBackground: "#f8fafc",
+      sidebarIconColor: "#94a3b8",
+      dashboardIconColor: "#475569",
+      sidebarTextColor: "#ffffff",
+      dashboardCardBackground: "#ffffff",
+      dashboardTextColor: "#000000",
+    },
+    glowIntensity: 35,
+    animationSpeed: "normal",
+    cardStyle: "glass",
+    layoutDensity: "comfortable",
+    animationSettings: {
+      enabled: true,
+      reduceMotion: false,
+      hoverEffects: true,
+      clickEffects: true
+    }
   }
 };
 
@@ -123,12 +398,24 @@ const applyThemeToDOM = (theme: UITheme) => {
     `${Math.max(0, Math.min(100, panelColors.headerOverlayOpacity)) / 100}`,
   );
   root.style.setProperty("--tb-sidebar-bg", panelColors.sidebarBackground);
+  console.log("Sidebar background set to:", panelColors.sidebarBackground);
   root.style.setProperty("--tb-dashboard-bg", panelColors.dashboardBackground);
   root.style.setProperty("--tb-sidebar-icon-color", panelColors.sidebarIconColor);
   root.style.setProperty("--tb-dashboard-icon-color", panelColors.dashboardIconColor);
   root.style.setProperty("--tb-sidebar-text-color", panelColors.sidebarTextColor);
+  // Force sidebar text color to white for Sunset Blaze theme
+  if (panelColors.sidebarBackground === "#431407") {
+    root.style.setProperty("--tb-sidebar-text-color", "#ffffff");
+    console.log("Forced sidebar text color to white for Sunset Blaze theme");
+  }
+  console.log("Sidebar text color set to:", panelColors.sidebarTextColor);
   root.style.setProperty("--tb-dashboard-card-bg", panelColors.dashboardCardBackground);
   root.style.setProperty("--tb-dashboard-text-color", panelColors.dashboardTextColor || "#1e293b");
+  
+  // Also set Tailwind CSS variables for consistent text colors across all pages
+  root.style.setProperty("--foreground", panelColors.dashboardTextColor || "#1e293b");
+  root.style.setProperty("--card-foreground", panelColors.dashboardTextColor || "#1e293b");
+  root.style.setProperty("--muted-foreground", panelColors.dashboardTextColor === "#000000" ? "#64748b" : "#94a3b8");
   
   // Also update Tailwind --card variable to match TaskBlaster card background
   // Convert hex to HSL format for Tailwind
@@ -271,6 +558,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(getThemeStorageKey(), JSON.stringify(defaultTheme));
   };
 
+  const applyPreset = (presetName: string) => {
+    const preset = themePresets[presetName];
+    if (preset) {
+      setUITheme(preset);
+      localStorage.setItem(getThemeStorageKey(), JSON.stringify(preset));
+      applyThemeToDOM(preset);
+    }
+  };
+
   const applyTheme = () => {
     applyThemeToDOM(uiTheme);
   };
@@ -307,6 +603,11 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
           panelColors: { ...defaultTheme.panelColors, ...(data.item as any)?.panelColors },
           animationSettings: { ...defaultTheme.animationSettings, ...(data.item as any)?.animationSettings },
         };
+        // Ensure these properties are preserved from the loaded theme
+        if (data.item.cardStyle) merged.cardStyle = data.item.cardStyle;
+        if (data.item.layoutDensity) merged.layoutDensity = data.item.layoutDensity;
+        if (data.item.glowIntensity !== undefined) merged.glowIntensity = data.item.glowIntensity;
+        if (data.item.animationSpeed) merged.animationSpeed = data.item.animationSpeed;
         setUITheme(merged);
         localStorage.setItem(getThemeStorageKey(), JSON.stringify(merged));
         applyThemeToDOM(merged);
@@ -318,7 +619,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <ThemeContext.Provider value={{ uiTheme, updateTheme, resetTheme, applyTheme, saveToBackend, loadFromBackend }}>
+    <ThemeContext.Provider value={{ uiTheme, updateTheme, resetTheme, applyTheme, applyPreset, saveToBackend, loadFromBackend }}>
       {children}
     </ThemeContext.Provider>
   );

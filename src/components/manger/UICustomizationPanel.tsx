@@ -10,14 +10,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/manger/ui/select";
-import { useTheme, UITheme } from "@/contexts/ThemeContext";
+import { useTheme, UITheme, themePresets } from "@/contexts/ThemeContext";
 import { Layout, Zap, RotateCcw, Save, Sparkles, Palette } from "lucide-react";
 import { toast } from "sonner";
 import { apiFetch } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
+import { cn } from "@/lib/utils";
 
 export function ManagerUICustomizationPanel() {
-  const { uiTheme, updateTheme, resetTheme, saveToBackend, loadFromBackend } = useTheme();
+  const { uiTheme, updateTheme, resetTheme, saveToBackend, loadFromBackend, applyPreset } = useTheme();
   const [localTheme, setLocalTheme] = useState<UITheme>(uiTheme);
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -63,6 +64,18 @@ export function ManagerUICustomizationPanel() {
     { id: "comfortable", name: "Comfortable", description: "Balanced spacing" },
     { id: "spacious", name: "Spacious", description: "More breathing room" },
   ] as const;
+
+  const presetOptions = [
+    { id: "ocean-professional", name: "Ocean Professional", description: "Professional blue tones", colors: ["#0c4a6e", "#e0f2fe", "#f0f9ff"] },
+    { id: "midnight-elegance", name: "Midnight Elegance", description: "Dark theme with purple accents", colors: ["#1e1b4b", "#0f0f23", "#1a1a2e"] },
+    { id: "emerald-fresh", name: "Emerald Fresh", description: "Fresh green tones", colors: ["#064e3b", "#065f46", "#ecfdf5"] },
+    { id: "sunset-blaze", name: "Sunset Blaze", description: "Warm orange tones", colors: ["#7c2d12", "#431407", "#fff7ed"] },
+    { id: "royal-gold", name: "Royal Gold", description: "Brand gold & blue", colors: ["#1e1b4b", "#312e81", "#fef3c7"] },
+    { id: "frost-mint", name: "Frost Mint", description: "Cool cyan tones", colors: ["#164e63", "#155e75", "#ecfeff"] },
+    { id: "lavender-dream", name: "Lavender Dream", description: "Soft purple tones", colors: ["#6b21a8", "#581c87", "#faf5ff"] },
+    { id: "rose-blush", name: "Rose Blush", description: "Elegant pink tones", colors: ["#9d174d", "#831843", "#fdf2f8"] },
+    { id: "slate-professional", name: "Slate Professional", description: "Modern gray tones", colors: ["#334155", "#1e293b", "#f8fafc"] },
+  ];
 
   const handlePanelColorChange = (key: keyof UITheme["panelColors"], value: string | number) => {
     setLocalTheme((prev) => ({
@@ -141,6 +154,36 @@ export function ManagerUICustomizationPanel() {
     }
   };
 
+  const handlePresetApply = async (presetName: string) => {
+    const preset = themePresets[presetName];
+    if (!preset) return;
+    
+    // Apply the preset using ThemeContext's applyPreset function
+    applyPreset(presetName);
+    
+    setLocalTheme(preset);
+    localStorage.setItem(getThemeStorageKey(), JSON.stringify(preset));
+    try {
+      await apiFetch("/api/ui-preferences", {
+        method: "PUT",
+        body: JSON.stringify(preset),
+      });
+    } catch (error) {
+      console.error("Failed to save theme to backend:", error);
+    }
+    toast.success("Theme applied successfully");
+  };
+
+  const isPresetActive = (presetId: string) => {
+    const preset = themePresets[presetId];
+    if (!preset) return false;
+    return (
+      uiTheme.panelColors.sidebarBackground === preset.panelColors.sidebarBackground &&
+      uiTheme.panelColors.dashboardBackground === preset.panelColors.dashboardBackground &&
+      uiTheme.panelColors.headerBackground === preset.panelColors.headerBackground
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -159,6 +202,52 @@ export function ManagerUICustomizationPanel() {
           </Button>
         </div>
       </div>
+
+      {/* Theme Presets */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Palette className="h-5 w-5" />
+            Theme Presets
+          </CardTitle>
+          <CardDescription>Choose a professionally designed theme</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {presetOptions.map((preset) => (
+              <button
+                key={preset.id}
+                onClick={() => handlePresetApply(preset.id)}
+                className={cn(
+                  "relative p-4 rounded-lg border-2 transition-all hover:scale-105",
+                  isPresetActive(preset.id)
+                    ? "border-primary ring-2 ring-primary/20"
+                    : "border-border hover:border-primary/50"
+                )}
+              >
+                {isPresetActive(preset.id) && (
+                  <div className="absolute top-2 right-2">
+                    <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                      <div className="w-2 h-2 rounded-full bg-white" />
+                    </div>
+                  </div>
+                )}
+                <div className="flex gap-1 mb-3">
+                  {preset.colors.map((color, i) => (
+                    <div
+                      key={i}
+                      className="flex-1 h-8 rounded"
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+                <h3 className="font-semibold text-sm mb-1">{preset.name}</h3>
+                <p className="text-xs text-muted-foreground">{preset.description}</p>
+              </button>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Panel Colors */}
       <Card>

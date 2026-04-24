@@ -27,6 +27,13 @@ interface ProfileData {
   avatarUrl?: string;
 }
 
+interface Notification {
+  id: string;
+  content: string;
+  timestamp?: string;
+  status?: string;
+}
+
 export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -77,19 +84,19 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
   const notificationsQuery = useQuery({
     queryKey: ["employee-notifications"],
     queryFn: async () => {
-      const res = await apiFetch<{ items?: any[] } | any[]>("/api/notifications?type=broadcast");
-      const items = Array.isArray(res) ? res : Array.isArray((res as any)?.items) ? (res as any).items : [];
-      return items.map((m: any) => ({ ...m, id: String(m.id || m._id || "") })).filter((m: any) => Boolean(m.id));
+      const res = await apiFetch<{ items?: Notification[] } | Notification[]>("/api/notifications?type=broadcast");
+      const items = Array.isArray(res) ? res : Array.isArray((res as { items?: Notification[] })?.items) ? (res as { items?: Notification[] }).items : [];
+      return items.map((m: Notification) => ({ ...m, id: String(m.id || m._id || "") })).filter((m: Notification) => Boolean(m.id));
     },
     refetchInterval: 5000,
   });
 
   const notifications = (notificationsQuery.data || [])
     .slice()
-    .sort((a: any, b: any) => String(b.timestamp || "").localeCompare(String(a.timestamp || "")))
+    .sort((a: Notification, b: Notification) => String(b.timestamp || "").localeCompare(String(a.timestamp || "")))
     .slice(0, 4);
 
-  const unreadCount = (notificationsQuery.data || []).filter((n: any) => n.status !== "read").length;
+  const unreadCount = (notificationsQuery.data || []).filter((n: Notification) => n.status !== "read").length;
 
   const markAllRead = async () => {
     try {
@@ -136,7 +143,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
         {/* Background Image */}
         {hasImageBackground && (
           <>
-            <img
+            <img      
               src={headerSettings?.imageConfig?.dataUrl}
               alt="header background"
               className="absolute inset-0 w-full h-full"
@@ -165,9 +172,9 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
               {/* Profile Card (Top) */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <div className="flex items-center gap-3 p-2 rounded-xl bg-black/20 backdrop-blur-md border border-white/10 hover:bg-black/30 transition-all cursor-pointer group w-fit">
+                  <div className="flex items-center gap-3 p-2 rounded-xl backdrop-blur-md border hover:bg-black/30 transition-all cursor-pointer group w-fit" style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', borderColor: 'var(--tb-header-border, rgba(255,255,255,0.1))' }}>
                     <div className="relative">
-                      <Avatar className="h-10 w-10 border border-white/20 shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20 transition-all">
+                      <Avatar className="h-10 w-10 border shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20 transition-all" style={{ borderColor: 'var(--tb-header-border, rgba(255,255,255,0.2))' }}>
                         {profile?.avatarUrl ? (
                           <AvatarImage src={toProxiedUrl(profile.avatarUrl)} alt={fullName} crossOrigin="anonymous" className="object-cover" />
                         ) : (
@@ -177,8 +184,8 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                       <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-black rounded-full" />
                     </div>
                     <div className="flex flex-col min-w-0 pr-4">
-                      <span className="text-base font-bold text-white truncate leading-tight drop-shadow-md">{fullName}</span>
-                      <span className="text-[11px] text-white/60 truncate tracking-wide uppercase font-semibold">Employee</span>
+                      <span className="text-base font-bold truncate leading-tight drop-shadow-md" style={{ color: 'var(--tb-sidebar-text-color, white)' }}>{fullName}</span>
+                      <span className="text-[11px] truncate tracking-wide uppercase font-semibold" style={{ color: 'var(--tb-sidebar-text-color, white)', opacity: 0.6 }}>Employee</span>
                     </div>
                   </div>
                 </DropdownMenuTrigger>
@@ -197,12 +204,12 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
               {/* Quick Actions Bar (Bottom) */}
               <div className="flex items-center justify-start gap-4">
                 <div className="md:hidden">
-                  <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/[0.14] transition-all" aria-label="Open navigation" onClick={() => onMenuClick?.()}><Menu className="h-5 w-5 text-white" /></button>
+                  <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full transition-all" aria-label="Open navigation" title="Open navigation" onClick={() => onMenuClick?.()} style={{ backgroundColor: 'var(--tb-header-bg, rgba(255,255,255,0.1))' }}><Menu className="h-5 w-5" style={{ color: 'var(--tb-sidebar-text-color, white)' }} /></button>
                 </div>
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
+                    <button className="relative group p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-black/40" style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, white)', opacity: 0.7 }}>
                       <Mail className="h-5 w-5" />
                     </button>
                   </DropdownMenuTrigger>
@@ -215,7 +222,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
+                    <button className="relative group p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-black/40" style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, white)', opacity: 0.7 }}>
                       <Bell className="h-4.5 w-4.5" />
                       {unreadCount > 0 && (
                         <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[9px] border-black">
@@ -230,7 +237,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                     {notifications.length === 0 ? (
                       <div className="p-4 text-center text-xs text-muted-foreground">No notifications</div>
                     ) : (
-                      notifications.map((n: any) => (
+                      notifications.map((n: Notification) => (
                         <DropdownMenuItem key={n.id} className="text-xs" onClick={() => { void markRead(n.id); navigate("/employee/notifications"); }}>
                           {String(n.content || "")}
                         </DropdownMenuItem>
@@ -241,8 +248,9 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
 
                 <button
                   onClick={onLogout}
-                  className="p-2 rounded-lg bg-black/20 hover:bg-red-500/20 backdrop-blur-sm transition-colors text-red-400/70 hover:text-red-400"
+                  className="p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-red-500/20"
                   title="Logout"
+                  style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, #f87171)', opacity: 0.7 }}
                 >
                   <LogOut className="h-4.5 w-4.5" />
                 </button>
