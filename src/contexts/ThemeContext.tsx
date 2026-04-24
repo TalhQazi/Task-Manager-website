@@ -22,6 +22,7 @@ export interface UITheme {
     sidebarTextColor: string;
     dashboardCardBackground: string;
     dashboardTextColor: string;
+    headerTextColor: string;
   };
   glowIntensity: number;
   animationSpeed: "slow" | "normal" | "fast";
@@ -63,6 +64,7 @@ const defaultTheme: UITheme = {
     sidebarTextColor: "#ffffff",
     dashboardCardBackground: "#ffffff",
     dashboardTextColor: "#1e293b",
+    headerTextColor: "#ffffff",
   },
   glowIntensity: 50,
   animationSpeed: "normal",
@@ -411,6 +413,7 @@ const applyThemeToDOM = (theme: UITheme) => {
   console.log("Sidebar text color set to:", panelColors.sidebarTextColor);
   root.style.setProperty("--tb-dashboard-card-bg", panelColors.dashboardCardBackground);
   root.style.setProperty("--tb-dashboard-text-color", panelColors.dashboardTextColor || "#1e293b");
+  root.style.setProperty("--tb-header-text-color", panelColors.headerTextColor || "#ffffff");
   
   // Also set Tailwind CSS variables for consistent text colors across all pages
   root.style.setProperty("--foreground", panelColors.dashboardTextColor || "#1e293b");

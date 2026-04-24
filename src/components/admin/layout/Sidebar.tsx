@@ -186,12 +186,16 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
           <button
             onClick={() => toggleGroup(item.label)}
             className={cn(
-              "group relative flex h-10 w-full items-center justify-between rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white transition-all duration-100 linear",
-              hasActiveChild && "text-white bg-white/[0.02]"
+              "group relative flex h-10 w-full items-center justify-between rounded-lg px-3 hover:bg-white/[0.04] transition-all duration-100 linear",
+              hasActiveChild ? "text-white bg-white/[0.02]" : "text-[var(--tb-sidebar-text-color)] opacity-70 hover:opacity-100"
             )}
+            style={{ color: hasActiveChild ? 'white' : 'var(--tb-sidebar-text-color)' }}
           >
             <div className="flex items-center gap-3">
-              <item.icon className={cn("h-5 w-5 flex-shrink-0 transition-all", hasActiveChild && "text-[#00C6FF]")} />
+              <item.icon 
+                className={cn("h-5 w-5 flex-shrink-0 transition-all", hasActiveChild && "text-[#00C6FF]")} 
+                style={!hasActiveChild ? { color: "var(--tb-sidebar-icon-color)" } : undefined}
+              />
               <span className="text-sm font-medium truncate">{item.label}</span>
             </div>
             {isExpanded ? (
@@ -218,10 +222,11 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
         to={item.path}
         end={item.end}
         className={cn(
-          "group relative flex h-10 w-full items-center gap-3 rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear",
+          "group relative flex h-10 w-full items-center gap-3 rounded-lg px-3 hover:bg-white/[0.04] hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear",
           isChild && "h-9 text-[13px]"
         )}
-        activeClassName="bg-white/[0.06] text-white"
+        style={{ color: 'var(--tb-sidebar-text-color)' }}
+        activeClassName="bg-white/[0.06]"
         onClick={handleNavigate}
       >
         {({ isActive }) => (
@@ -287,12 +292,12 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "flex flex-col text-white z-40 h-full",
+        "flex flex-col z-40 h-full",
         isMobile
           ? "w-64"
           : "w-full shadow-floating animate-slide-in"
       )}
-      style={{ background: "var(--tb-sidebar-bg)" }}
+      style={{ background: "var(--tb-sidebar-bg)", color: "var(--tb-sidebar-text-color)" }}
     >
       <div className="px-5 py-6 mb-3 flex flex-col items-center border-b border-white/5 bg-white/[0.03] backdrop-blur-md">
         <div className="relative w-full rounded-xl bg-white shadow-2xl border-4 border-white/20 group flex items-center justify-center overflow-hidden">
