@@ -43,7 +43,7 @@ const SignaCore = lazy(() => import("@/pages/admin/SignaCore"));
 const UphMaintenance = lazy(() => import("@/pages/admin/UphMaintenance"));
 const BugReport = lazy(() => import("@/pages/admin/BugReport"));
 const Contributors = lazy(() => import("@/pages/admin/Contributors"));
-
+const ThemeEngine = lazy(() => import("@/pages/admin/ThemeEngine"));
 
 function PageLoader() {
   return (
@@ -105,6 +105,7 @@ export default function AdminRoutes() {
       { path: "contributors", element: <Contributors /> },
 
       { path: "bug-reports", element: <BugReport /> },
+      { path: "theme-engine", element: <ThemeEngine /> },
       { path: "*", element: <NotFound /> },
     ],
     [],

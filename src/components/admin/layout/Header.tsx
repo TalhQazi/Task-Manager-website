@@ -25,7 +25,6 @@ import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 import { getAuthState, clearAuthState } from "@/lib/auth";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { AdminInfoManager } from "@/components/admin/AdminInfoManager";
-import { UICustomizationPanel } from "@/components/admin/UICustomizationPanel";
 import { FounderMessageBar } from "@/components/FounderMessageBar";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -257,7 +256,6 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   // Bug Report State
   const [reportOpen, setReportOpen] = useState(false);
-  const [uiPanelOpen, setUiPanelOpen] = useState(false);
   const [reportTitle, setReportTitle] = useState("");
   const [reportDescription, setReportDescription] = useState("");
   const [reportImageFiles, setReportImageFiles] = useState<File[]>([]);
@@ -388,7 +386,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             {/* Header Picture Edit Button (Camera Icon) */}
             <div className="absolute top-4 right-4 z-20 flex gap-2">
               <button 
-                onClick={() => setUiPanelOpen(true)}
+                onClick={() => navigate("/admin/theme-engine")}
                 className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white transition-all backdrop-blur-sm border border-white/20"
                 title="Theme Customization"
               >
@@ -561,9 +559,6 @@ export function Header({ onMenuClick }: HeaderProps) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-
-        {/* UI Customization Panel */}
-        <UICustomizationPanel open={uiPanelOpen} onOpenChange={setUiPanelOpen} />
 
         {/* Bug Report Dialog */}
         <Dialog open={reportOpen} onOpenChange={setReportOpen}>

@@ -33,6 +33,7 @@ import {
   ChevronRight,
   FileText,
   Bug,
+  Palette,
 } from "lucide-react";
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -108,6 +109,7 @@ const navItemsBase: NavItem[] = [
     ),
   },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
+  { icon: Palette, label: "Theme Engine", path: "/admin/theme-engine" },
   { icon: Bug, label: "Bug Reports", path: "/admin/bug-reports" },
 ];
 
