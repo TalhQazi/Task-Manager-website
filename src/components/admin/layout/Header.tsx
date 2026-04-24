@@ -125,9 +125,43 @@ export function Header({ onMenuClick }: HeaderProps) {
     return "/admin/notifications";
   };
 
+  // Query for header background/picture settings
+  const headerSettingsQuery = useQuery({
+    queryKey: ["header-settings"],
+    queryFn: async () => {
+      try {
+        return await apiFetch<any>("/api/admin/header-settings");
+      } catch (e) {
+        console.warn("Failed to fetch header settings:", e);
+        return null;
+      }
+    },
+    staleTime: 60000,
+  });
+
+  const settings = headerSettingsQuery.data;
+  const headerImageUrl = settings?.coverPhotoUrl ? toProxiedUrl(settings.coverPhotoUrl) : null;
+
   // Banner header height
   const headerHeight = 300;
-  const bgStyle = { background: 'linear-gradient(to right, #133767, #133767, #133767)' };
+  
+  // Dynamic background style based on settings
+  const bgStyle = useMemo(() => {
+    const baseStyle: any = {
+      transition: 'all 0.5s cubic-bezier(0.4, 0, 0.2, 1)',
+      backgroundColor: '#133767'
+    };
+
+    if (headerImageUrl) {
+      baseStyle.backgroundImage = `url("${headerImageUrl}")`;
+      baseStyle.backgroundSize = 'cover';
+      baseStyle.backgroundPosition = 'center';
+    } else {
+      baseStyle.background = 'linear-gradient(to right, #133767, #133767, #133767)';
+    }
+
+    return baseStyle;
+  }, [headerImageUrl]);
 
 
 
@@ -305,7 +339,7 @@ export function Header({ onMenuClick }: HeaderProps) {
             <div className="flex flex-col gap-4">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <div className="flex items-center gap-3 p-2 rounded-xl bg-black/20 backdrop-blur-md border border-white/10 hover:bg-black/30 transition-all cursor-pointer group w-fit">
+                  <div className="flex items-center gap-3 p-2 rounded-xl bg-white shadow-sm border border-black/5 hover:bg-gray-50 transition-all cursor-pointer group w-fit">
                     <div className="relative">
                       <Avatar className="h-10 w-10 border border-white/20 shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20 transition-all">
                         {avatarUrl ? (
@@ -317,8 +351,8 @@ export function Header({ onMenuClick }: HeaderProps) {
                       <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-black rounded-full" />
                     </div>
                     <div className="flex flex-col min-w-0 pr-4">
-                      <span className="text-base font-bold text-white truncate leading-tight drop-shadow-md">{fullName}</span>
-                      <span className="text-[11px] text-white/60 truncate tracking-wide uppercase font-semibold">{auth.role || "Admin"}</span>
+                      <span className="text-base font-bold text-[#133767] truncate leading-tight">{fullName}</span>
+                      <span className="text-[11px] text-[#133767]/70 truncate tracking-wide uppercase font-semibold">{auth.role || "Admin"}</span>
                     </div>
                   </div>
                 </DropdownMenuTrigger>
@@ -345,10 +379,10 @@ export function Header({ onMenuClick }: HeaderProps) {
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
+                    <button className="relative group p-2 rounded-lg bg-white shadow-sm border border-black/5 hover:bg-gray-50 transition-colors text-[#133767]/70 hover:text-[#133767]">
                       <Mail className="h-5 w-5" />
                       {unreadMessageCount > 0 && (
-                        <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-[#00C6FF] text-[9px] border-black">
+                        <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-[#00C6FF] text-[9px] text-white">
                           {Math.min(unreadMessageCount, 9)}
                         </Badge>
                       )}
@@ -374,10 +408,10 @@ export function Header({ onMenuClick }: HeaderProps) {
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
+                    <button className="relative group p-2 rounded-lg bg-white shadow-sm border border-black/5 hover:bg-gray-50 transition-colors text-[#133767]/70 hover:text-[#133767]">
                       <Bell className="h-5 w-5" />
                       {unreadCount > 0 && (
-                        <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[9px] border-black">
+                        <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[9px] text-white">
                           {unreadCount > 9 ? "9+" : unreadCount}
                         </Badge>
                       )}
@@ -400,7 +434,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
                 <button 
                   onClick={() => { resetReport(); setReportOpen(true); }}
-                  className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white"
+                  className="relative group p-2 rounded-lg bg-white shadow-sm border border-black/5 hover:bg-gray-50 transition-colors text-[#133767]/70 hover:text-[#133767]"
                   title="Submit Bug Report"
                 >
                   <Bug className="h-5 w-5" />
