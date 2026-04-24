@@ -497,6 +497,14 @@ export function Header({ onMenuClick }: HeaderProps) {
                 >
                   <Bug className="h-5 w-5" />
                 </button>
+
+                <button 
+                  onClick={() => { clearAuthState(); navigate("/login"); }}
+                  className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white hover:text-red-400"
+                  title="Logout"
+                >
+                  <LogOut className="h-5 w-5" />
+                </button>
               </div>
             </div>
           </div>
