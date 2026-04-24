@@ -23,7 +23,7 @@ import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 import { getAuthState, clearAuthState } from "@/lib/auth";
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { AdminInfoManager } from "@/components/admin/AdminInfoManager";
 import { FounderMessageBar } from "@/components/FounderMessageBar";
 import { useQueryClient } from "@tanstack/react-query";
