@@ -5,11 +5,12 @@ import { getAuthState } from "../lib/auth";
 import { apiFetch as adminApiFetch } from "../lib/admin/apiClient";
 
 export interface UITheme {
-  theme: "neon-tech" | "metallic-elite" | "executive-black" | "dark-minimal" | "high-contrast" | "energy-mode";
+  theme: "neon-tech" | "metallic-elite" | "executive-black" | "dark-minimal" | "high-contrast" | "energy-mode" | "crystal-white";
   customColors: {
     primary: string;
     secondary: string;
     accent: string;
+    textColor?: string;
   };
   panelColors: {
     headerBackground: string;
@@ -25,7 +26,7 @@ export interface UITheme {
   };
   glowIntensity: number;
   animationSpeed: "slow" | "normal" | "fast";
-  cardStyle: "glass" | "neon" | "metallic";
+  cardStyle: "glass" | "neon" | "metallic" | "flat";
   layoutDensity: "compact" | "comfortable" | "spacious";
   animationSettings: {
     enabled: boolean;
@@ -403,11 +404,7 @@ const applyThemeToDOM = (theme: UITheme) => {
   root.style.setProperty("--tb-sidebar-icon-color", panelColors.sidebarIconColor);
   root.style.setProperty("--tb-dashboard-icon-color", panelColors.dashboardIconColor);
   root.style.setProperty("--tb-sidebar-text-color", panelColors.sidebarTextColor);
-  // Force sidebar text color to white for Sunset Blaze theme
-  if (panelColors.sidebarBackground === "#431407") {
-    root.style.setProperty("--tb-sidebar-text-color", "#ffffff");
-    console.log("Forced sidebar text color to white for Sunset Blaze theme");
-  }
+  root.style.setProperty("--tb-sidebar-text-color", panelColors.sidebarTextColor);
   console.log("Sidebar text color set to:", panelColors.sidebarTextColor);
   root.style.setProperty("--tb-dashboard-card-bg", panelColors.dashboardCardBackground);
   root.style.setProperty("--tb-dashboard-text-color", panelColors.dashboardTextColor || "#1e293b");

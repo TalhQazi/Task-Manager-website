@@ -27,6 +27,7 @@ export default function ThemeEngine() {
   const cardStyles = [
     { id: "glass", name: "Glassmorphism" },
     { id: "metallic", name: "Metallic" },
+    { id: "neon", name: "Neon Glow" },
     { id: "flat", name: "Flat Default" },
   ];
 
