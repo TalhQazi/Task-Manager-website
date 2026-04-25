@@ -170,6 +170,7 @@ body[class*="tb-theme-"] input,
 body[class*="tb-theme-"] select,
 body[class*="tb-theme-"] [class*="bg-muted"],
 body[class*="tb-theme-"] [class*="bg-background"],
+body[class*="tb-theme-"] [class*="bg-popover"],
 body[class*="tb-theme-"] .recharts-surface {
   background-color: var(--tb-dashboard-bg) !important;
   color: var(--tb-dashboard-text-color) !important;
