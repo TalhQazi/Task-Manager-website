@@ -142,6 +142,29 @@ body[class*="tb-theme-"] div:not([class*="bg-"]):not([class*="btn"]):not([class*
   animation: fadeIn 0.4s ease-out forwards;
 }
 
+/* Ensure cards and dashboard containers follow the theme colors */
+body[class*="tb-theme-"] .rounded-xl,
+body[class*="tb-theme-"] .card,
+body[class*="tb-theme-"] [class*="bg-card"] {
+  background-color: var(--tb-dashboard-card-bg) !important;
+  color: var(--tb-dashboard-text-color) !important;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Ensure chart labels and tick marks follow theme text color */
+body[class*="tb-theme-"] .recharts-cartesian-axis-tick text {
+  fill: var(--tb-dashboard-text-color) !important;
+}
+
+body[class*="tb-theme-"] .recharts-text {
+  fill: var(--tb-dashboard-text-color) !important;
+}
+
+body[class*="tb-theme-"] .recharts-default-tooltip {
+  background-color: var(--tb-dashboard-card-bg) !important;
+  border-color: var(--tb-dashboard-text-color) !important;
+}
+
 /* Ensure active buttons in Theme Engine are readable */
 .bg-primary.text-white {
   color: white !important;
