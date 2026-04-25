@@ -40,14 +40,22 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         if (res?.item?.cardStyle) {
           document.body.setAttribute("data-tb-card-style", res.item.cardStyle);
         }
+        
+        document.body.style.backgroundColor = '';
+        if (res?.item?.customColors?.textColor) {
+          document.documentElement.style.setProperty("--tb-dashboard-text-color", res.item.customColors.textColor);
+          document.body.style.color = res.item.customColors.textColor;
+        } else {
+          document.documentElement.style.removeProperty("--tb-dashboard-text-color");
+          document.body.style.color = '';
+        }
       }).catch(() => {
         // Fallback to dark-minimal
         document.body.classList.add('tb-theme-dark-minimal');
+        document.body.style.backgroundColor = '';
+        document.body.style.color = '';
       });
     });
-    // Ensure inline styles from previous broken states are cleared
-    document.body.style.backgroundColor = '';
-    document.body.style.color = '';
   }, []);
 
   // Trigger page transition animation on route change

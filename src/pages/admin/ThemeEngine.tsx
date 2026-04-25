@@ -21,6 +21,7 @@ export default function ThemeEngine() {
 
   const [activeTheme, setActiveTheme] = useState("dark-minimal");
   const [activeCardStyle, setActiveCardStyle] = useState("glass");
+  const [customTextColor, setCustomTextColor] = useState("#ffffff");
   const [loading, setLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -34,6 +35,11 @@ export default function ThemeEngine() {
       if (res?.item?.cardStyle) {
         setActiveCardStyle(res.item.cardStyle);
         document.body.setAttribute("data-tb-card-style", res.item.cardStyle);
+      }
+      if (res?.item?.customColors?.textColor) {
+        setCustomTextColor(res.item.customColors.textColor);
+        document.documentElement.style.setProperty("--tb-dashboard-text-color", res.item.customColors.textColor);
+        document.body.style.color = res.item.customColors.textColor;
       }
     }).catch(console.error);
   }, []);
@@ -55,16 +61,26 @@ export default function ThemeEngine() {
     setSaveSuccess(false);
   };
 
+  const handleTextColorChange = (color: string) => {
+    setCustomTextColor(color);
+    document.documentElement.style.setProperty("--tb-dashboard-text-color", color);
+    document.body.style.color = color;
+    setSaveSuccess(false);
+  };
+
   const saveSettings = async () => {
     setLoading(true);
     setSaveSuccess(false);
     try {
       await apiFetch("/api/ui-preferences", {
         method: "PUT",
-        body: {
+        body: JSON.stringify({
           theme: activeTheme,
           cardStyle: activeCardStyle,
-        }
+          customColors: {
+            textColor: customTextColor
+          }
+        })
       });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -82,6 +98,11 @@ export default function ThemeEngine() {
       const res = await apiFetch<{item: any}>("/api/ui-preferences/reset", { method: "POST" });
       handlePreviewTheme(res.item.theme || "dark-minimal");
       handlePreviewCardStyle(res.item.cardStyle || "glass");
+      
+      const defaultTextColor = res.item.customColors?.textColor || "";
+      setCustomTextColor(defaultTextColor);
+      document.documentElement.style.removeProperty("--tb-dashboard-text-color");
+      document.body.style.color = "";
     } catch (e) {
       console.error(e);
     } finally {
@@ -139,6 +160,17 @@ export default function ThemeEngine() {
                 {s.name}
               </button>
             ))}
+          </div>
+
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider border-b pb-2 mt-6">Global Text Color</h3>
+          <div className="flex items-center gap-4">
+            <input 
+              type="color" 
+              value={customTextColor || "#ffffff"} 
+              onChange={(e) => handleTextColorChange(e.target.value)}
+              className="w-12 h-12 rounded cursor-pointer border-0 bg-transparent"
+            />
+            <span className="text-sm text-muted-foreground">Select the default text color for the admin panel</span>
           </div>
         </div>
       </div>

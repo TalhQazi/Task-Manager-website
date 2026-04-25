@@ -23,6 +23,19 @@
 /* Base Theme styles - Scoped to avoid breaking everything */
 body[class*="tb-theme-"] {
   transition: background-color 0.5s ease, color 0.5s ease;
+  color: var(--tb-dashboard-text-color, inherit);
+}
+
+body[class*="tb-theme-"] p,
+body[class*="tb-theme-"] h1,
+body[class*="tb-theme-"] h2,
+body[class*="tb-theme-"] h3,
+body[class*="tb-theme-"] h4,
+body[class*="tb-theme-"] h5,
+body[class*="tb-theme-"] h6,
+body[class*="tb-theme-"] span:not(.lucide),
+body[class*="tb-theme-"] div:not([class*="bg-"]):not([class*="btn"]) {
+  color: inherit;
 }
 
 /* Individual themes can override variables, but we avoid !important here */
