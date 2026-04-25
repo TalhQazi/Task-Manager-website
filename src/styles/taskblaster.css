@@ -34,7 +34,11 @@ body[class*="tb-theme-"] h4,
 body[class*="tb-theme-"] h5,
 body[class*="tb-theme-"] h6,
 body[class*="tb-theme-"] span:not(.lucide),
-body[class*="tb-theme-"] div:not([class*="bg-"]):not([class*="btn"]) {
+body[class*="tb-theme-"] label,
+body[class*="tb-theme-"] input:not([type="checkbox"]):not([type="radio"]),
+body[class*="tb-theme-"] textarea,
+body[class*="tb-theme-"] select,
+body[class*="tb-theme-"] div:not([class*="bg-"]):not([class*="btn"]):not([class*="card"]) {
   color: inherit;
 }
 

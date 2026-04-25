@@ -17,7 +17,7 @@ export default function ThemeEngine() {
   const themeDefaults: Record<string, string> = {
     "dark-minimal": "#ffffff",
     "neon-tech": "#ffffff",
-    "metallic-elite": "#ffffff",
+    "metallic-elite": "#d4af37",
     "executive-black": "#ffffff",
     "high-contrast": "#ffffff",
     "energy-mode": "#ffffff",
