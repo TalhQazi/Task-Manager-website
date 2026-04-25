@@ -157,7 +157,7 @@ export default function ThemeEngine() {
                 onClick={() => handlePreviewTheme(t.id)}
                 className={`p-4 rounded-lg border text-sm transition-all flex flex-col items-start gap-1 ${
                   activeTheme === t.id 
-                    ? "bg-primary/10 border-primary text-primary font-bold shadow-md ring-2 ring-primary" 
+                    ? "bg-primary border-primary text-white font-bold shadow-md ring-2 ring-primary" 
                     : "bg-background hover:bg-muted"
                 }`}
               >
@@ -177,7 +177,7 @@ export default function ThemeEngine() {
                 onClick={() => handlePreviewCardStyle(s.id)}
                 className={`p-4 rounded-lg border text-sm text-left transition-all ${
                   activeCardStyle === s.id 
-                    ? "bg-primary/10 border-primary text-primary font-bold shadow-md ring-2 ring-primary" 
+                    ? "bg-primary border-primary text-white font-bold shadow-md ring-2 ring-primary" 
                     : "bg-background hover:bg-muted"
                 }`}
               >
