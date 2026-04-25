@@ -75,10 +75,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   return (
     <HeaderHeightContext.Provider value={headerHeight}>
       <div 
-        className="min-h-screen overflow-x-hidden flex flex-col bg-slate-50" 
+        className="min-h-screen overflow-x-hidden flex flex-col bg-[var(--tb-dashboard-bg)]" 
         style={{ 
           paddingTop: `${headerHeight}px`, 
-          '--header-height': `${headerHeight}px`
+          '--header-height': `${headerHeight}px`,
+          backgroundColor: 'var(--tb-dashboard-bg)'
         } as React.CSSProperties}
       >
         <Header onMenuClick={() => setMobileSidebarOpen(true)} />
