@@ -99,6 +99,15 @@ body[class*="tb-theme-"] div:not([class*="bg-"]):not([class*="btn"]) {
   --tb-sidebar-bg: #0a0500;
 }
 
+.tb-theme-crystal-white {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 0%;
+  --tb-dashboard-bg: #f8fafc;
+  --tb-dashboard-card-bg: #ffffff;
+  --tb-dashboard-text-color: #000000;
+  --tb-sidebar-bg: #ffffff;
+}
+
 /* Glass Card Style Logic - Scoped to main content */
 [data-tb-card-style="glass"] main .rounded-xl:not(.stat-card-gradient) {
   background: var(--tb-dashboard-card-bg);

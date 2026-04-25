@@ -11,7 +11,18 @@ export default function ThemeEngine() {
     { id: "executive-black", name: "Executive Black" },
     { id: "high-contrast", name: "High Contrast" },
     { id: "energy-mode", name: "Energy Mode" },
+    { id: "crystal-white", name: "Crystal White" },
   ];
+
+  const themeDefaults: Record<string, string> = {
+    "dark-minimal": "#ffffff",
+    "neon-tech": "#ffffff",
+    "metallic-elite": "#ffffff",
+    "executive-black": "#ffffff",
+    "high-contrast": "#ffffff",
+    "energy-mode": "#ffffff",
+    "crystal-white": "#000000",
+  };
 
   const cardStyles = [
     { id: "glass", name: "Glassmorphism" },
@@ -52,6 +63,11 @@ export default function ThemeEngine() {
   const handlePreviewTheme = (themeId: string) => {
     applyThemeClass(themeId);
     setActiveTheme(themeId);
+    
+    // Automatically set text color according to theme
+    const defaultColor = themeDefaults[themeId] || "#ffffff";
+    handleTextColorChange(defaultColor);
+    
     setSaveSuccess(false);
   };
 
@@ -96,13 +112,20 @@ export default function ThemeEngine() {
     setSaveSuccess(false);
     try {
       const res = await apiFetch<{item: any}>("/api/ui-preferences/reset", { method: "POST" });
-      handlePreviewTheme(res.item.theme || "dark-minimal");
-      handlePreviewCardStyle(res.item.cardStyle || "glass");
+      const theme = res.item.theme || "dark-minimal";
+      const cardStyle = res.item.cardStyle || "glass";
       
-      const defaultTextColor = res.item.customColors?.textColor || "";
-      setCustomTextColor(defaultTextColor);
-      document.documentElement.style.removeProperty("--tb-dashboard-text-color");
-      document.body.style.color = "";
+      applyThemeClass(theme);
+      setActiveTheme(theme);
+      
+      document.body.setAttribute("data-tb-card-style", cardStyle);
+      setActiveCardStyle(cardStyle);
+      
+      const textColor = res.item.customColors?.textColor || "#ffffff";
+      setCustomTextColor(textColor);
+      document.documentElement.style.setProperty("--tb-dashboard-text-color", textColor);
+      document.body.style.color = textColor;
+      
     } catch (e) {
       console.error(e);
     } finally {
