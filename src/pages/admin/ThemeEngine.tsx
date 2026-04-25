@@ -15,12 +15,12 @@ export default function ThemeEngine() {
   ];
 
   const themeDefaults: Record<string, string> = {
-    "dark-minimal": "#ffffff",
-    "neon-tech": "#ffffff",
+    "dark-minimal": "#f8fafc",
+    "neon-tech": "#e0f7fa",
     "metallic-elite": "#d4af37",
-    "executive-black": "#ffffff",
+    "executive-black": "#f3f4f6",
     "high-contrast": "#ffffff",
-    "energy-mode": "#ffffff",
+    "energy-mode": "#ffedd5",
     "crystal-white": "#000000",
   };
 

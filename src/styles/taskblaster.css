@@ -35,11 +35,16 @@ body[class*="tb-theme-"] h5,
 body[class*="tb-theme-"] h6,
 body[class*="tb-theme-"] span:not(.lucide),
 body[class*="tb-theme-"] label,
+body[class*="tb-theme-"] li,
+body[class*="tb-theme-"] td,
+body[class*="tb-theme-"] th,
+body[class*="tb-theme-"] summary,
+body[class*="tb-theme-"] a:not([class*="btn"]):not([class*="bg-"]),
 body[class*="tb-theme-"] input:not([type="checkbox"]):not([type="radio"]),
 body[class*="tb-theme-"] textarea,
 body[class*="tb-theme-"] select,
-body[class*="tb-theme-"] div:not([class*="bg-"]):not([class*="btn"]):not([class*="card"]) {
-  color: inherit;
+body[class*="tb-theme-"] div:not([class*="bg-"]):not([class*="btn"]):not([class*="card"]):not([class*="badge"]) {
+  color: inherit !important;
 }
 
 /* Individual themes can override variables, but we avoid !important here */
