@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/
 import { Button } from "@/components/admin/ui/button";
 import { Badge } from "@/components/admin/ui/badge";
 import { AlertCircle, Loader2, User, Calendar, Paperclip, Image, Link as LinkIcon, FileText, ExternalLink, Database, CheckSquare } from "lucide-react";
-import { apiFetch, getApiBaseUrl } from "@/lib/admin/apiClient";
+import { apiFetch, getApiBaseUrl, downloadViaUrl, toProxiedUrl } from "@/lib/admin/apiClient";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/admin/ui/select";
 
 type AsanaWorkspace = {
@@ -122,10 +122,11 @@ function linkify(text: string) {
 
 function getFullUrl(path?: string) {
   if (!path) return "";
-  if (path.startsWith("http")) return path;
+  if (path.startsWith("http")) return toProxiedUrl(path) || path;
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
-  return `${baseUrl}${cleanPath}`;
+  const full = `${baseUrl}${cleanPath}`;
+  return toProxiedUrl(full) || full;
 }
 
 export default function AsanaData() {
@@ -662,14 +663,12 @@ export default function AsanaData() {
                                 </a>
                               )}
                               {hasDownload && !isLink && (
-                                <a
-                                  href={getFullUrl(a.filePath)}
-                                  target="_blank"
-                                  rel="noreferrer"
+                                <button
+                                  onClick={() => downloadViaUrl(getFullUrl(a.filePath), a.fileName || "file")}
                                   className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-bold hover:underline"
                                 >
                                   <Paperclip className="h-3 w-3" /> Download
-                                </a>
+                                </button>
                               )}
                               {!hasDownload && (
                                 <span className="text-xs text-muted-foreground">—</span>
