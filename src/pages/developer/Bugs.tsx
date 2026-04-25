@@ -247,7 +247,7 @@ export default function Bugs() {
                 </div>
               </div>
 
-              <div className="rounded-md border p-3 bg-white">
+              <div className="rounded-md border p-3 bg-muted/30">
                 <p className="text-sm whitespace-pre-wrap">{selected.description}</p>
               </div>
 
@@ -256,7 +256,7 @@ export default function Bugs() {
                   <p className="text-xs sm:text-sm font-medium">Attachments ({selected.attachments.length})</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {selected.attachments.map((att, i) => (
-                      <div key={i} className="w-full overflow-hidden rounded-lg border bg-white">
+                      <div key={i} className="w-full overflow-hidden rounded-lg border bg-muted/20">
                         <img
                           src={String(att.url)}
                           alt={String(att.fileName || `Attachment ${i + 1}`)}
