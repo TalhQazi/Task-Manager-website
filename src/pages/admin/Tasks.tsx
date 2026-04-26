@@ -2409,10 +2409,10 @@ export default function Tasks() {
                       <ChevronsUpDown className="h-4 w-4 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <Command className="max-h-[300px]">
+                  <PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] p-0 z-[100]" align="start" collisionPadding={20}>
+                    <Command className="h-full">
                       <CommandInput placeholder="Search employees..." />
-                      <CommandList className="max-h-[250px] overflow-y-auto">
+                      <CommandList className="max-h-[250px] overflow-y-auto custom-scrollbar">
                         <CommandEmpty>No employee found.</CommandEmpty>
                         <CommandGroup>
                           {activeEmployees.map((employee) => (
@@ -3022,7 +3022,7 @@ export default function Tasks() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField control={editForm.control} name="title" render={({ field }) => (<FormItem className="sm:col-span-2"><FormLabel>Title</FormLabel><FormControl><Input placeholder="Task title" autoComplete="on" autoCorrect="on" spellCheck="true" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={editForm.control} name="description" render={({ field }) => (<FormItem className="sm:col-span-2"><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Short description" className="min-h-[90px]" autoComplete="on" autoCorrect="on" spellCheck="true" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Assignees</label><Popover open={editAssigneesOpen} onOpenChange={setEditAssigneesOpen}><PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{editSelectedAssignees.length > 0 ? editSelectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start"><Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setEditSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); }}><Check className={cn("mr-2 h-4 w-4", editSelectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover></div>
+                <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Assignees</label><Popover open={editAssigneesOpen} onOpenChange={setEditAssigneesOpen}><PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{editSelectedAssignees.length > 0 ? editSelectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] p-0 z-[100]" align="start" collisionPadding={20}><Command className="h-full"><CommandInput placeholder="Search employees..." /><CommandList className="max-h-[250px] overflow-y-auto custom-scrollbar"><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setEditSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); }}><Check className={cn("mr-2 h-4 w-4", editSelectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover></div>
                 <FormField control={editForm.control} name="location" render={({ field }) => (<FormItem><FormLabel>Location</FormLabel><FormControl><Input placeholder="e.g. Main Office" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={editForm.control} name="priority" render={({ field }) => (<FormItem><FormLabel>Priority</FormLabel><Select value={field.value} onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue placeholder="Select priority" /></SelectTrigger></FormControl><SelectContent><SelectItem value="high">High</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="low">Low</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
                 <FormField control={editForm.control} name="status" render={({ field }) => (<FormItem><FormLabel>Status</FormLabel><Select value={field.value} onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger></FormControl><SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="in-progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem><SelectItem value="overdue">Overdue</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
@@ -3405,10 +3405,16 @@ export default function Tasks() {
                     <ChevronsUpDown className="h-4 w-4 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command className="max-h-[400px] w-full">
+                <PopoverContent 
+                  className="w-[90vw] sm:w-[--radix-popover-trigger-width] p-0 pointer-events-auto z-[100]" 
+                  align="start"
+                  side="bottom"
+                  sideOffset={4}
+                  collisionPadding={20}
+                >
+                  <Command className="h-full w-full">
                     <CommandInput placeholder="Search employees..." />
-                    <CommandList className="max-h-[350px] overflow-y-auto overflow-x-hidden custom-scrollbar">
+                    <CommandList className="max-h-[300px] overflow-y-auto custom-scrollbar">
                       <CommandEmpty>No employee found.</CommandEmpty>
                       <CommandGroup>
                         {activeEmployees.map((employee) => (
@@ -3485,10 +3491,16 @@ export default function Tasks() {
                     <ChevronsUpDown className="h-4 w-4 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command className="max-h-[400px] w-full">
+                <PopoverContent 
+                  className="w-[90vw] sm:w-[--radix-popover-trigger-width] p-0 pointer-events-auto z-[100]" 
+                  align="start"
+                  side="bottom"
+                  sideOffset={4}
+                  collisionPadding={20}
+                >
+                  <Command className="h-full w-full">
                     <CommandInput placeholder="Search employees..." />
-                    <CommandList className="max-h-[350px] overflow-y-auto overflow-x-hidden custom-scrollbar">
+                    <CommandList className="max-h-[300px] overflow-y-auto custom-scrollbar">
                       <CommandEmpty>No employee found.</CommandEmpty>
                       <CommandGroup>
                         {activeEmployees.map((employee) => (
@@ -3756,8 +3768,18 @@ export default function Tasks() {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.1); border-radius: 10px; }
         .custom-scrollbar {
           scrollbar-width: thin;
-          -webkit-overflow-scrolling: touch;
-          overscroll-behavior: contain;
+          -webkit-overflow-scrolling: touch !important;
+          overscroll-behavior: contain !important;
+          touch-action: pan-y !important;
+        }
+        /* Mobile specific fix for Radix Popover/CommandList scroll */
+        [data-radix-popper-content-wrapper] {
+          z-index: 100 !important;
+          pointer-events: auto !important;
+        }
+        /* Ensure the dialog doesn't block scroll on its own children on some mobile browsers */
+        [role="dialog"] {
+          pointer-events: auto !important;
         }
       `}</style>
     </div>
