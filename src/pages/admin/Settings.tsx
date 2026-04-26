@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/admin/ui/dialog";
 import { useNavigate } from "react-router-dom";
+import AssetLibraryPicker from "@/components/admin/AssetLibraryPicker";
 
 type UploadStatus = "idle" | "uploading" | "success" | "error";
 
@@ -433,6 +434,7 @@ export default function Settings() {
     const [isLoading, setIsLoading] = useState(false);
     const [isSavingHeader, setIsSavingHeader] = useState(false);
     const [message, setMessage] = useState<string | null>(null);
+    const [isLibraryPickerOpen, setIsLibraryPickerOpen] = useState(false);
     const headerFileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -547,6 +549,14 @@ export default function Settings() {
                     >
                       <Upload className="h-4 w-4 mr-2" />
                       {headerSettings.imageConfig.dataUrl ? "Change Image" : "Upload Image"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsLibraryPickerOpen(true)}
+                      className="h-9 text-sm bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 border-indigo-500/20 gap-2 font-bold"
+                    >
+                      <FileImage className="h-4 w-4" /> Pick from Library
                     </Button>
                     <input
                       ref={headerFileInputRef}
@@ -724,6 +734,18 @@ export default function Settings() {
             </>
           )}
         </CardContent>
+        <AssetLibraryPicker
+          open={isLibraryPickerOpen}
+          onOpenChange={setIsLibraryPickerOpen}
+          onSelect={(url) => {
+            setHeaderSettings(prev => ({
+              ...prev,
+              backgroundType: "image",
+              imageConfig: { ...prev.imageConfig, dataUrl: url }
+            }));
+            setIsLibraryPickerOpen(false);
+          }}
+        />
       </Card>
     );
   }

@@ -98,6 +98,7 @@ import jsPDF from "jspdf";
 import { useSocket } from "@/contexts/SocketContext";
 import { Pagination } from "@/components/Pagination";
 import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
+import AssetLibraryPicker from "@/components/admin/AssetLibraryPicker";
 import { TaskContributors } from "@/components/admin/tasks/TaskContributors";
 
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
@@ -598,6 +599,11 @@ export default function Tasks() {
   // Lightbox / File Preview State
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState<string>("");
+
+  // Asset Library Picker states
+  const [isProjectLogoPickerOpen, setIsProjectLogoPickerOpen] = useState(false);
+  const [isEditProjectLogoPickerOpen, setIsEditProjectLogoPickerOpen] = useState(false);
+  const [isEditTaskLogoPickerOpen, setIsEditTaskLogoPickerOpen] = useState(false);
 
   // Inline editing states for View Dialog
   const [taskViewTitle, setTaskViewTitle] = useState("");
@@ -2388,6 +2394,13 @@ export default function Tasks() {
                 <label className="text-sm font-medium">Project Logo</label>
                 <div className="flex flex-wrap items-center gap-3">
                   <button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted" onClick={() => { const el = document.getElementById("project-logo-input") as HTMLInputElement | null; el?.click(); }}>Upload Logo</button>
+                  <button
+                    type="button"
+                    className="py-2 px-3 border border-border rounded-md text-sm bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 transition-all font-medium flex items-center gap-1.5"
+                    onClick={() => setIsProjectLogoPickerOpen(true)}
+                  >
+                    <FileText className="h-4 w-4" /> Pick from Library
+                  </button>
                   {projectLogoPreview ? <img src={projectLogoPreview} alt="Project Logo" className="w-10 h-10 rounded-md object-cover" /> : <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">No logo</div>}
                 </div>
                 <input id="project-logo-input" type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0] ?? null; setProjectLogoFile(file); if (file) { const reader = new FileReader(); reader.onload = () => { setProjectLogoPreview(typeof reader.result === "string" ? reader.result : ""); }; reader.readAsDataURL(file); } else { setProjectLogoPreview(""); } }} />
@@ -3061,19 +3074,30 @@ export default function Tasks() {
                   
                   <div className="flex-1">
                     <p className="text-xs text-muted-foreground mb-2">Update task image or document (Max 16MB)</p>
-                    <Input 
-                      type="file" 
-                      className="h-8 text-xs cursor-pointer"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          setEditTaskFile(file);
-                          const reader = new FileReader();
-                          reader.onloadend = () => setEditTaskFilePreview(reader.result as string);
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                    />
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Input 
+                        type="file" 
+                        className="h-8 text-xs cursor-pointer flex-1"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            setEditTaskFile(file);
+                            const reader = new FileReader();
+                            reader.onloadend = () => setEditTaskFilePreview(reader.result as string);
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 text-xs bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 border-indigo-500/20"
+                        onClick={() => setIsEditTaskLogoPickerOpen(true)}
+                      >
+                        <FileText className="h-3.5 w-3.5 mr-1" /> Library
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -3282,6 +3306,13 @@ export default function Tasks() {
                     }}
                   >
                     Change Logo
+                  </button>
+                  <button
+                    type="button"
+                    className="py-2 px-3 border border-border rounded-md text-sm bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 transition-all font-medium flex items-center gap-1.5"
+                    onClick={() => setIsEditProjectLogoPickerOpen(true)}
+                  >
+                    <FileText className="h-4 w-4" /> Pick from Library
                   </button>
                   {editProjectLogoPreview ? (
                     <img src={editProjectLogoPreview} alt="Project Logo" className="w-10 h-10 rounded-md object-cover" />
@@ -3773,6 +3804,24 @@ export default function Tasks() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AssetLibraryPicker
+        open={isProjectLogoPickerOpen}
+        onOpenChange={setIsProjectLogoPickerOpen}
+        onSelect={(url) => setProjectLogoPreview(url)}
+      />
+
+      <AssetLibraryPicker
+        open={isEditProjectLogoPickerOpen}
+        onOpenChange={setIsEditProjectLogoPickerOpen}
+        onSelect={(url) => setEditProjectLogoPreview(url)}
+      />
+
+      <AssetLibraryPicker
+        open={isEditTaskLogoPickerOpen}
+        onOpenChange={setIsEditTaskLogoPickerOpen}
+        onSelect={(url) => setEditTaskFilePreview(url)}
+      />
       
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }

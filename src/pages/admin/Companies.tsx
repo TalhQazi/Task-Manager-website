@@ -54,8 +54,10 @@ import {
   AlertTriangle,
   Upload,
   X,
+  Image as ImageIcon,
 } from "lucide-react";
 import { createResource, deleteResource, listResource, updateResource } from "@/lib/admin/apiClient";
+import AssetLibraryPicker from "@/components/admin/AssetLibraryPicker";
 
 // World countries list
 const COUNTRIES = [
@@ -155,6 +157,8 @@ const Companies = () => {
   const [editCompanyOpen, setEditCompanyOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [isAdding, setIsAdding] = useState(false);
+  const [addPickerOpen, setAddPickerOpen] = useState(false);
+  const [editPickerOpen, setEditPickerOpen] = useState(false);
 
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
 
@@ -678,6 +682,13 @@ const Companies = () => {
                               className="hidden"
                             />
                           </label>
+                          <button
+                            type="button"
+                            onClick={() => setAddPickerOpen(true)}
+                            className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 text-indigo-600 rounded-lg hover:bg-indigo-500/20 transition-all text-sm font-medium"
+                          >
+                            <ImageIcon className="h-4 w-4" /> Pick from Library
+                          </button>
                         </div>
                       )}
                     </div>
@@ -1314,6 +1325,13 @@ const Companies = () => {
                           className="hidden"
                         />
                       </label>
+                      <button
+                        type="button"
+                        onClick={() => setEditPickerOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 text-indigo-600 rounded-lg hover:bg-indigo-500/20 transition-all text-sm font-medium"
+                      >
+                        <ImageIcon className="h-4 w-4" /> Pick from Library
+                      </button>
                     </div>
                   )}
                 </div>
@@ -1366,6 +1384,20 @@ const Companies = () => {
           background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgb(255 255 255 / 0.05)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
         }
       `}</style>
+
+      {/* Asset Library Picker for Add */}
+      <AssetLibraryPicker
+        open={addPickerOpen}
+        onOpenChange={setAddPickerOpen}
+        onSelect={(url) => setAddFormData({ ...addFormData, logo: url })}
+      />
+
+      {/* Asset Library Picker for Edit */}
+      <AssetLibraryPicker
+        open={editPickerOpen}
+        onOpenChange={setEditPickerOpen}
+        onSelect={(url) => setEditFormData({ ...editFormData, logo: url })}
+      />
     </>
   );
 };

@@ -27,6 +27,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { AdminInfoManager } from "@/components/admin/AdminInfoManager";
 import { FounderMessageBar } from "@/components/FounderMessageBar";
 import { useQueryClient } from "@tanstack/react-query";
+import AssetLibraryPicker from "@/components/admin/AssetLibraryPicker";
 
 
 
@@ -168,6 +169,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   // Handle Image Upload for Header
   const [headerModalOpen, setHeaderModalOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [isHeaderPickerOpen, setIsHeaderPickerOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const handleHeaderImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -541,6 +543,19 @@ export function Header({ onMenuClick }: HeaderProps) {
                     <input type="file" className="hidden" accept="image/*" onChange={handleHeaderImageUpload} disabled={uploading} />
                   </label>
                 </div>
+                <div className="w-full flex items-center gap-3">
+                  <div className="h-[1px] flex-1 bg-border" />
+                  <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">OR</span>
+                  <div className="h-[1px] flex-1 bg-border" />
+                </div>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="w-full bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 border-indigo-500/20 gap-2 font-bold"
+                  onClick={() => setIsHeaderPickerOpen(true)}
+                >
+                  <Palette className="h-4 w-4" /> Pick from Asset Library
+                </Button>
                 {uploading && (
                   <div className="flex items-center gap-2 text-primary">
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -650,6 +665,30 @@ export function Header({ onMenuClick }: HeaderProps) {
       <div className="absolute bottom-0 left-0 right-0 z-[60] bg-metallic-gold/90 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.1)] pointer-events-auto">
         <FounderMessageBar />
       </div>
+
+      <AssetLibraryPicker
+        open={isHeaderPickerOpen}
+        onOpenChange={setIsHeaderPickerOpen}
+        onSelect={async (url) => {
+          try {
+            await apiFetch("/api/header-settings", {
+              method: "PUT",
+              body: {
+                backgroundType: "image",
+                imageConfig: {
+                  url: url,
+                  dataUrl: url
+                }
+              }
+            });
+            queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+            setIsHeaderPickerOpen(false);
+            setHeaderModalOpen(false);
+          } catch (error) {
+            console.error("Failed to set header image from library:", error);
+          }
+        }}
+      />
     </header>
   );
 }
