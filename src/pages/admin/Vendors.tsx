@@ -48,6 +48,8 @@ import {
   Building,
   CheckCircle,
   XCircle,
+  Globe,
+  PlusCircle,
 } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useToast } from "@/components/admin/ui/use-toast";
@@ -57,7 +59,11 @@ interface Vendor {
   name: string;
   phone: string;
   email: string;
-  address: string;
+  street: string;
+  city: string;
+  state: string;
+  zip: string;
+  website: string;
   serviceType: string;
   location: string;
   status: "approved" | "not-approved";
@@ -70,14 +76,21 @@ interface Location {
   name: string;
 }
 
+interface VendorCategory {
+  _id: string;
+  name: string;
+}
+
 export default function Vendors() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [categories, setCategories] = useState<VendorCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   
   // Dialog states
   const { toast } = useToast();
@@ -85,6 +98,8 @@ export default function Vendors() {
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isNewCategoryOpen, setIsNewCategoryOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
   
   // Form states
@@ -92,32 +107,36 @@ export default function Vendors() {
     name: "",
     phone: "",
     email: "",
-    address: "",
+    street: "",
+    city: "",
+    state: "",
+    zip: "",
+    website: "",
     serviceType: "",
     location: "",
     status: "approved" as "approved" | "not-approved",
     notes: "",
   });
 
-  // Fetch vendors and locations
+  // Fetch vendors, locations, and categories
+  const fetchData = async () => {
+    try {
+      const [vendorsRes, locationsRes, categoriesRes] = await Promise.all([
+        apiFetch<{ items: Vendor[] }>("/api/vendors"),
+        apiFetch<{ items: Location[] }>("/api/locations"),
+        apiFetch<{ items: VendorCategory[] }>("/api/vendor-categories"),
+      ]);
+      setVendors(vendorsRes?.items || []);
+      setLocations(locationsRes?.items || []);
+      setCategories(categoriesRes?.items || []);
+    } catch (error) {
+      console.error("Failed to fetch data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [vendorsRes, locationsRes] = await Promise.all([
-          apiFetch<{ items: Vendor[] }>("/api/vendors"),
-          apiFetch<{ items: Location[] }>("/api/locations"),
-        ]);
-        console.log("Full locations response:", JSON.stringify(locationsRes, null, 2));
-        const locationsData = locationsRes?.items || [];
-        console.log("Extracted locations:", locationsData);
-        setVendors(vendorsRes?.items || []);
-        setLocations(locationsData);
-      } catch (error) {
-        console.error("Failed to fetch data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchData();
   }, []);
 
@@ -131,9 +150,11 @@ export default function Vendors() {
         locationFilter === "all" || vendor.location === locationFilter;
       const matchesStatus =
         statusFilter === "all" || vendor.status === statusFilter;
-      return matchesSearch && matchesLocation && matchesStatus;
+      const matchesCategory = 
+        categoryFilter === "all" || vendor.serviceType === categoryFilter;
+      return matchesSearch && matchesLocation && matchesStatus && matchesCategory;
     });
-  }, [vendors, searchQuery, locationFilter, statusFilter]);
+  }, [vendors, searchQuery, locationFilter, statusFilter, categoryFilter]);
 
   const approvedCount = vendors.filter((v) => v.status === "approved").length;
   const notApprovedCount = vendors.filter((v) => v.status === "not-approved").length;
@@ -206,6 +227,23 @@ export default function Vendors() {
     }
   };
 
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim()) return;
+    try {
+      const res = await apiFetch<{ item: VendorCategory }>("/api/vendor-categories", {
+        method: "POST",
+        body: JSON.stringify({ name: newCategoryName }),
+      });
+      setCategories([...categories, res.item].sort((a, b) => a.name.localeCompare(b.name)));
+      setFormData({ ...formData, serviceType: res.item.name });
+      setIsNewCategoryOpen(false);
+      setNewCategoryName("");
+      toast({ title: "Category added successfully" });
+    } catch (error) {
+      toast({ title: "Failed to add category", description: error instanceof Error ? error.message : "Something went wrong", variant: "destructive" });
+    }
+  };
+
   const openView = (vendor: Vendor) => {
     setSelectedVendor(vendor);
     setIsViewOpen(true);
@@ -232,7 +270,11 @@ export default function Vendors() {
       name: vendor.name,
       phone: vendor.phone,
       email: vendor.email,
-      address: vendor.address,
+      street: vendor.street || "",
+      city: vendor.city || "",
+      state: vendor.state || "",
+      zip: vendor.zip || "",
+      website: vendor.website || "",
       serviceType: vendor.serviceType,
       location: vendor.location,
       status: vendor.status,
@@ -256,8 +298,12 @@ export default function Vendors() {
       name: "",
       phone: "",
       email: "",
-      address: "",
-      serviceType: "",
+      street: "",
+      city: "",
+      state: "",
+      zip: "",
+      website: "",
+      serviceType: categories[0]?.name || "",
       location: locations[0]?.name || "",
       status: "approved",
       notes: "",
@@ -281,15 +327,23 @@ export default function Vendors() {
     );
   };
 
+  const formatWebsite = (url: string) => {
+    if (!url) return "";
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      return `https://${url}`;
+    }
+    return url;
+  };
+
   return (
     <>
       <div className="pl-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Vendor Directory</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Vendor Rolodex</h1>
             <p className="text-muted-foreground">
-              Manage approved and not-approved vendors by location
+              Manage approved and not-approved vendors by location and category
             </p>
           </div>
           <Button onClick={openCreate}>
@@ -345,9 +399,22 @@ export default function Vendors() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
+              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All Categories" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat._id} value={cat.name}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Select value={locationFilter} onValueChange={setLocationFilter}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Filter by location" />
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All Locations" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Locations</SelectItem>
@@ -359,8 +426,8 @@ export default function Vendors() {
                 </SelectContent>
               </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Filter by status" />
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
@@ -375,7 +442,7 @@ export default function Vendors() {
         {/* Vendors Table */}
         <Card>
           <CardHeader>
-            <CardTitle>Vendor List</CardTitle>
+            <CardTitle>Vendor Rolodex List</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -400,14 +467,33 @@ export default function Vendors() {
                   {filteredVendors.map((vendor) => (
                     <TableRow key={vendor._id}>
                       <TableCell>
-                        <div>
+                        <div className="space-y-1">
                           <p className="font-medium">{vendor.name}</p>
-                          {vendor.email && (
-                            <p className="text-sm text-muted-foreground">{vendor.email}</p>
-                          )}
+                          <div className="flex flex-col text-sm text-muted-foreground">
+                            {vendor.email && (
+                              <span className="flex items-center gap-1">
+                                <Mail className="w-3 h-3" /> {vendor.email}
+                              </span>
+                            )}
+                            {vendor.website && (
+                              <a 
+                                href={formatWebsite(vendor.website)} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-1 text-primary hover:underline"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Globe className="w-3 h-3" /> {vendor.website}
+                              </a>
+                            )}
+                          </div>
                         </div>
                       </TableCell>
-                      <TableCell>{vendor.serviceType}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className="bg-muted/50">
+                          {vendor.serviceType}
+                        </Badge>
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <MapPin className="w-3 h-3 text-muted-foreground" />
@@ -457,11 +543,11 @@ export default function Vendors() {
 
         {/* Create Dialog */}
         <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add Vendor</DialogTitle>
               <DialogDescription>
-                Add a new vendor to the directory
+                Add a new vendor to the Rolodex
               </DialogDescription>
             </DialogHeader>
             <div className="grid grid-cols-2 gap-4 py-4">
@@ -496,15 +582,48 @@ export default function Vendors() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Service Type *</Label>
+                <Label>Website</Label>
                 <Input
-                  value={formData.serviceType}
+                  value={formData.website}
                   onChange={(e) =>
-                    setFormData({ ...formData, serviceType: e.target.value })
+                    setFormData({ ...formData, website: e.target.value })
                   }
-                  placeholder="e.g., Plumbing, Electrical"
+                  placeholder="e.g., www.plumbingexperts.com"
                 />
               </div>
+              
+              <div className="space-y-2">
+                <Label>Service Category *</Label>
+                <div className="flex gap-2">
+                  <Select
+                    value={formData.serviceType}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, serviceType: value })
+                    }
+                  >
+                    <SelectTrigger className="flex-1">
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat._id} value={cat.name}>
+                          {cat.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={() => setIsNewCategoryOpen(true)}
+                    title="Add new category"
+                  >
+                    <PlusCircle className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label>Location *</Label>
                 <Select
@@ -519,7 +638,7 @@ export default function Vendors() {
                   <SelectContent>
                     {locations?.length === 0 ? (
                       <SelectItem value="no-locations" disabled>
-                        No locations available - Add in Location Management
+                        No locations available
                       </SelectItem>
                     ) : (
                       locations.map((loc) => (
@@ -531,6 +650,7 @@ export default function Vendors() {
                   </SelectContent>
                 </Select>
               </div>
+
               <div className="space-y-2">
                 <Label>Status *</Label>
                 <Select
@@ -548,16 +668,46 @@ export default function Vendors() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="col-span-2 space-y-2">
-                <Label>Address</Label>
-                <Input
-                  value={formData.address}
-                  onChange={(e) =>
-                    setFormData({ ...formData, address: e.target.value })
-                  }
-                  placeholder="Full address"
-                />
+
+              <div className="col-span-2 grid grid-cols-2 md:grid-cols-4 gap-3 border rounded-lg p-3 bg-muted/20">
+                <div className="col-span-2 space-y-1.5">
+                  <Label className="text-xs">Road/Street Address</Label>
+                  <Input
+                    className="h-8 text-sm"
+                    value={formData.street}
+                    onChange={(e) => setFormData({ ...formData, street: e.target.value })}
+                    placeholder="123 Main St"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">City</Label>
+                  <Input
+                    className="h-8 text-sm"
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    placeholder="City"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">State</Label>
+                  <Input
+                    className="h-8 text-sm"
+                    value={formData.state}
+                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                    placeholder="State"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Zip Code</Label>
+                  <Input
+                    className="h-8 text-sm"
+                    value={formData.zip}
+                    onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
+                    placeholder="Zip"
+                  />
+                </div>
               </div>
+
               <div className="col-span-2 space-y-2">
                 <Label>Notes</Label>
                 <Textarea
@@ -578,6 +728,37 @@ export default function Vendors() {
           </DialogContent>
         </Dialog>
 
+        {/* New Category Dialog */}
+        <Dialog open={isNewCategoryOpen} onOpenChange={setIsNewCategoryOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Add New Category</DialogTitle>
+              <DialogDescription>
+                Create a new service category for vendors.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="name" className="text-right">
+                  Name
+                </Label>
+                <Input
+                  id="name"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  className="col-span-3"
+                  placeholder="e.g., Electrical"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsNewCategoryOpen(false)}>Cancel</Button>
+              <Button onClick={handleAddCategory}>Add Category</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* View Dialog */}
         <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
           <DialogContent className="max-w-lg">
@@ -592,8 +773,8 @@ export default function Vendors() {
                 </div>
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <p className="text-muted-foreground">Service Type</p>
-                    <p className="font-medium">{selectedVendor.serviceType}</p>
+                    <p className="text-muted-foreground">Service Category</p>
+                    <Badge variant="secondary">{selectedVendor.serviceType}</Badge>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Location</p>
@@ -616,19 +797,37 @@ export default function Vendors() {
                       {selectedVendor.email || "—"}
                     </p>
                   </div>
-                  {selectedVendor.address && (
-                    <div className="col-span-2">
-                      <p className="text-muted-foreground">Address</p>
-                      <p className="font-medium flex items-center gap-1">
-                        <Building className="w-3 h-3" />
-                        {selectedVendor.address}
-                      </p>
-                    </div>
-                  )}
+                  <div className="col-span-2">
+                    <p className="text-muted-foreground">Website</p>
+                    {selectedVendor.website ? (
+                      <a 
+                        href={formatWebsite(selectedVendor.website)} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="font-medium flex items-center gap-1 text-primary hover:underline"
+                      >
+                        <Globe className="w-3 h-3" />
+                        {selectedVendor.website}
+                      </a>
+                    ) : (
+                      <p className="font-medium">—</p>
+                    )}
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-muted-foreground">Address</p>
+                    <p className="font-medium flex items-start gap-1">
+                      <Building className="w-3 h-3 mt-0.5" />
+                      <span>
+                        {selectedVendor.street || ""}<br />
+                        {[selectedVendor.city, selectedVendor.state, selectedVendor.zip].filter(Boolean).join(", ")}
+                        {(!selectedVendor.street && !selectedVendor.city && !selectedVendor.state && !selectedVendor.zip) && "—"}
+                      </span>
+                    </p>
+                  </div>
                   {selectedVendor.notes && (
                     <div className="col-span-2">
                       <p className="text-muted-foreground">Notes</p>
-                      <p className="font-medium">{selectedVendor.notes}</p>
+                      <p className="font-medium bg-muted/30 p-2 rounded">{selectedVendor.notes}</p>
                     </div>
                   )}
                 </div>
@@ -642,11 +841,11 @@ export default function Vendors() {
 
         {/* Edit Dialog */}
         <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Edit Vendor</DialogTitle>
               <DialogDescription>
-                Update vendor information
+                Update vendor information in the Rolodex
               </DialogDescription>
             </DialogHeader>
             <div className="grid grid-cols-2 gap-4 py-4">
@@ -678,13 +877,33 @@ export default function Vendors() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Service Type *</Label>
+                <Label>Website</Label>
                 <Input
-                  value={formData.serviceType}
+                  value={formData.website}
                   onChange={(e) =>
-                    setFormData({ ...formData, serviceType: e.target.value })
+                    setFormData({ ...formData, website: e.target.value })
                   }
                 />
+              </div>
+              <div className="space-y-2">
+                <Label>Service Category *</Label>
+                <Select
+                  value={formData.serviceType}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, serviceType: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat._id} value={cat.name}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>Location *</Label>
@@ -723,15 +942,42 @@ export default function Vendors() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="col-span-2 space-y-2">
-                <Label>Address</Label>
-                <Input
-                  value={formData.address}
-                  onChange={(e) =>
-                    setFormData({ ...formData, address: e.target.value })
-                  }
-                />
+
+              <div className="col-span-2 grid grid-cols-2 md:grid-cols-4 gap-3 border rounded-lg p-3 bg-muted/20">
+                <div className="col-span-2 space-y-1.5">
+                  <Label className="text-xs">Road/Street Address</Label>
+                  <Input
+                    className="h-8 text-sm"
+                    value={formData.street}
+                    onChange={(e) => setFormData({ ...formData, street: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">City</Label>
+                  <Input
+                    className="h-8 text-sm"
+                    value={formData.city}
+                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">State</Label>
+                  <Input
+                    className="h-8 text-sm"
+                    value={formData.state}
+                    onChange={(e) => setFormData({ ...formData, state: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Zip Code</Label>
+                  <Input
+                    className="h-8 text-sm"
+                    value={formData.zip}
+                    onChange={(e) => setFormData({ ...formData, zip: e.target.value })}
+                  />
+                </div>
               </div>
+
               <div className="col-span-2 space-y-2">
                 <Label>Notes</Label>
                 <Textarea
