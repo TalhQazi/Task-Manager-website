@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Badge } from "@/components/admin/ui/badge";
-import { AlertCircle, Loader2, User, Calendar, Paperclip, Image, Link as LinkIcon, FileText, ExternalLink, Database, CheckSquare } from "lucide-react";
+import { AlertCircle, Loader2, User, Calendar, Paperclip, Image, Link as LinkIcon, FileText, ExternalLink, Database, CheckSquare, Eye, X, Download } from "lucide-react";
 import { apiFetch, getApiBaseUrl, downloadViaUrl, toProxiedUrl } from "@/lib/admin/apiClient";
+import { getAuthState } from "@/lib/auth";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/admin/ui/select";
 
 type AsanaWorkspace = {
@@ -127,6 +128,47 @@ function getFullUrl(path?: string) {
   const cleanPath = path.startsWith("/") ? path : `/${path}`;
   const full = `${baseUrl}${cleanPath}`;
   return toProxiedUrl(full) || full;
+}
+
+/** Fetch a file with auth headers and open it in a new browser tab */
+async function viewFileAuthenticated(url: string) {
+  const auth = getAuthState();
+  const res = await fetch(url, {
+    headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
+  });
+  if (!res.ok) throw new Error(`View failed (${res.status})`);
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  window.open(objectUrl, "_blank");
+}
+
+/** Image component that loads via authenticated fetch to avoid blank screens */
+function AuthenticatedImage({ url, alt, className }: { url: string; alt: string; className?: string }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const auth = getAuthState();
+        const res = await fetch(url, {
+          headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
+        });
+        if (!res.ok) throw new Error("Failed");
+        const blob = await res.blob();
+        if (cancelled) return;
+        setBlobUrl(URL.createObjectURL(blob));
+      } catch {
+        if (!cancelled) setError(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [url]);
+
+  if (error) return <div className={`flex items-center justify-center bg-muted/30 text-muted-foreground text-xs ${className || ""}`} style={{ minHeight: 60 }}>Failed to load image</div>;
+  if (!blobUrl) return <div className={`flex items-center justify-center bg-muted/20 ${className || ""}`} style={{ minHeight: 60 }}><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+  return <img src={blobUrl} alt={alt} className={className} />;
 }
 
 export default function AsanaData() {
@@ -604,16 +646,20 @@ export default function AsanaData() {
 
                       return (
                         <div key={a.asanaId} className="rounded-lg border overflow-hidden bg-white/50">
-                          {/* Image preview */}
+                          {/* Image preview - use authenticated fetch */}
                           {isImage && hasDownload && (
                             <div className="bg-gray-50 border-b p-2 flex justify-center">
-                              <a href={getFullUrl(a.filePath)} target="_blank" rel="noreferrer">
-                                <img
-                                  src={getFullUrl(a.filePath)}
+                              <button
+                                type="button"
+                                onClick={() => void viewFileAuthenticated(getFullUrl(a.filePath))}
+                                className="cursor-pointer"
+                              >
+                                <AuthenticatedImage
+                                  url={getFullUrl(a.filePath)}
                                   alt={a.fileName || "attachment"}
-                                  className="max-h-48 max-w-full rounded object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                                  className="max-h-48 max-w-full rounded object-contain hover:opacity-90 transition-opacity"
                                 />
-                              </a>
+                              </button>
                             </div>
                           )}
                           
@@ -663,12 +709,20 @@ export default function AsanaData() {
                                 </a>
                               )}
                               {hasDownload && !isLink && (
-                                <button
-                                  onClick={() => downloadViaUrl(getFullUrl(a.filePath), a.fileName || "file")}
-                                  className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-bold hover:underline"
-                                >
-                                  <Paperclip className="h-3 w-3" /> Download
-                                </button>
+                                <>
+                                  <button
+                                    onClick={() => void viewFileAuthenticated(getFullUrl(a.filePath))}
+                                    className="inline-flex items-center gap-1 text-xs text-green-600 hover:text-green-800 font-bold hover:underline"
+                                  >
+                                    <Eye className="h-3 w-3" /> View
+                                  </button>
+                                  <button
+                                    onClick={() => downloadViaUrl(getFullUrl(a.filePath), a.fileName || "file")}
+                                    className="inline-flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 font-bold hover:underline"
+                                  >
+                                    <Download className="h-3 w-3" /> Download
+                                  </button>
+                                </>
                               )}
                               {!hasDownload && (
                                 <span className="text-xs text-muted-foreground">—</span>
