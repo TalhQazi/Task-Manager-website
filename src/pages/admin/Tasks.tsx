@@ -1305,9 +1305,6 @@ export default function Tasks() {
     }
   };
 
-    return () => {};
-  }, [isViewOpen, selectedTask, autoRefreshEnabled]);
-
   const sendComment = async () => {
     if (!selectedTask || isSendingComment) return;
     const msg = commentDraft.trim();
