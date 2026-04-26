@@ -61,6 +61,13 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   const auth = getAuthState();
   const headers = new Headers(init?.headers);
 
+  // Cache busting for GET requests
+  let finalUrl = url;
+  if (init?.method === "GET" || !init?.method) {
+    const connector = finalUrl.includes("?") ? "&" : "?";
+    finalUrl = `${finalUrl}${connector}_cb=${Date.now()}`;
+  }
+
   const isFormData =
     typeof FormData !== "undefined" && 
     !!init?.body &&
@@ -74,7 +81,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     headers.set("Authorization", `Bearer ${auth.token}`);
   }
 
-  const res = await fetch(url, {
+  const res = await fetch(finalUrl, {
     ...init,
     headers,
   });

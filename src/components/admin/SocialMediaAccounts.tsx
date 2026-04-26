@@ -12,9 +12,10 @@ import {
 import { Button } from "@/components/admin/ui/button";
 import { Card, CardContent } from "@/components/admin/ui/card";
 import { Badge } from "@/components/admin/ui/badge";
-import { Plus, Edit2, Trash2, Lock, ExternalLink } from "lucide-react";
+import { Plus, Edit2, Trash2, Lock, ExternalLink, Search } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useQuery } from "@tanstack/react-query";
+import { Input } from "@/components/admin/ui/input";
 import {
   Table,
   TableBody,
@@ -71,6 +72,7 @@ export function SocialMediaAccounts() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCredentials, setShowCredentials] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const accountsQuery = useQuery<SocialMediaAccount[]>({
     queryKey: ["social-media-accounts"],
@@ -83,10 +85,21 @@ export function SocialMediaAccounts() {
     },
   });
 
-  const accounts = useMemo(() => 
-    (accountsQuery.data || []).slice().sort((a, b) => a.platform.localeCompare(b.platform)),
-    [accountsQuery.data]
-  );
+  const accounts = useMemo(() => {
+    let list = (accountsQuery.data || []).slice();
+    
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(a => 
+        a.platform.toLowerCase().includes(q) || 
+        a.brand.toLowerCase().includes(q) || 
+        a.username.toLowerCase().includes(q) ||
+        a.accountHandle.toLowerCase().includes(q)
+      );
+    }
+    
+    return list.sort((a, b) => a.platform.localeCompare(b.platform));
+  }, [accountsQuery.data, searchQuery]);
 
   const resetForm = () => {
     setFormData({
@@ -168,21 +181,22 @@ export function SocialMediaAccounts() {
         </div>
       )}
 
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogTrigger asChild>
-          <Button
-            onClick={() => {
-              resetForm();
-              setIsEditDialogOpen(true);
-            }}
-            className="w-full sm:w-auto bg-gradient-to-r from-primary to-primary/80"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Add Account
-          </Button>
-        </DialogTrigger>
+      <div className="flex flex-col sm:flex-row gap-3">
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogTrigger asChild>
+            <Button
+              onClick={() => {
+                resetForm();
+                setIsEditDialogOpen(true);
+              }}
+              className="w-full sm:w-auto bg-gradient-to-r from-primary to-primary/80"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Account
+            </Button>
+          </DialogTrigger>
 
-        <DialogContent className="w-[95vw] max-w-md">
+          <DialogContent className="w-[95vw] max-w-md">
           <DialogHeader>
             <DialogTitle>
               {selectedAccount ? "Edit Account" : "Add New Account"}
@@ -296,6 +310,17 @@ export function SocialMediaAccounts() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <div className="relative flex-1">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Filter by platform, brand or username..."
+          className="pl-9 h-10"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
+    </div>
 
       {accountsQuery.isLoading ? (
         <div className="flex justify-center py-8">

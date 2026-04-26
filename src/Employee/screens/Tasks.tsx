@@ -101,6 +101,7 @@ import { Pagination } from "@/components/Pagination";
 
 interface Task {
   id: string;
+  taskNumber?: number;
   title: string;
   description: string;
   assignees: string[];
@@ -234,6 +235,7 @@ function normalizeTask(t: TaskApi): Task {
   const extra = t as TaskApi & TaskApiAttachmentFields;
   return {
     id: t._id,
+    taskNumber: t.taskNumber,
     title: t.title,
     description: t.description,
     assignees,
@@ -619,6 +621,7 @@ export default function Tasks() {
       };
     },
     placeholderData: (previousData) => previousData,
+    refetchInterval: 10000, // Auto-refresh every 10 seconds
   });
 
   // Fetch projects with server-side pagination
@@ -638,6 +641,7 @@ export default function Tasks() {
       };
     },
     placeholderData: (previousData) => previousData,
+    refetchInterval: 10000, // Auto-refresh every 10 seconds
   });
 
   // Reset pages when filters change
@@ -1683,9 +1687,29 @@ export default function Tasks() {
                       className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card"
                     >
                       <div className="mb-2">
-                        <p className="font-medium truncate text-sm">{task.title}</p>
+                        <p className="font-medium truncate text-sm">
+                          <span className="text-primary mr-1.5">{task.taskNumber || ((taskPage - 1) * PAGE_SIZE + tasks.indexOf(task) + 1)}.</span>
+                          {task.title}
+                        </p>
                         <p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p>
                       </div>
+
+                      {/* Attachment Summary */}
+                      {task.attachments && task.attachments.length > 0 && (
+                        <div className="flex items-center gap-1.5 py-1 px-2 bg-primary/5 border border-primary/10 rounded-md w-fit mb-2">
+                          <Paperclip className="h-3 w-3 text-primary" />
+                          <span className="text-[10px] font-bold text-primary uppercase tracking-tight">
+                            {(() => {
+                              const docs = task.attachments.filter(a => !a.mimeType?.startsWith("image/")).length;
+                              const imgs = task.attachments.filter(a => a.mimeType?.startsWith("image/")).length;
+                              const parts = [];
+                              if (docs > 0) parts.push(`${docs} document${docs > 1 ? "s" : ""}`);
+                              if (imgs > 0) parts.push(`${imgs} image${imgs > 1 ? "s" : ""}`);
+                              return parts.join(", ");
+                            })()}
+                          </span>
+                        </div>
+                      )}
 
                       <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
                         <span className="truncate">{assigneeList.length > 0 ? assigneeList.join(", ") : "Unassigned"}</span>
@@ -2020,6 +2044,9 @@ export default function Tasks() {
                   <Textarea
                     value={formData.description}
                     onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                    spellCheck="true"
+                    autoCorrect="on"
+                    autoComplete="on"
                   />
                   {validationErrors.description && <p className="text-xs text-destructive">{validationErrors.description}</p>}
                 </div>
@@ -2342,6 +2369,9 @@ export default function Tasks() {
                               onChange={(e) => setCommentDraft(e.target.value)}
                               placeholder="Type a message or share an update... @mention someone"
                               className="w-full min-h-[100px] max-h-[350px] border-0 focus:ring-0 resize-y p-5 text-[15px] bg-transparent outline-none placeholder-muted-foreground/50 font-semibold"
+                              spellCheck="true"
+                              autoCorrect="on"
+                              autoComplete="on"
                             />
                             <div className="flex items-center justify-between p-3 pl-5 bg-muted/20 border-t border-border/40 rounded-b-[22px]">
                               <button type="button" onClick={() => { const el = document.getElementById("task-comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground/70 hover:text-primary hover:bg-primary/10 rounded-xl transition-all flex items-center gap-2 group" title="Shared assets">
@@ -2856,7 +2886,10 @@ export default function Tasks() {
                     {/* Card Header with Title and Menu */}
                     <div className="p-4 border-b border-muted/30 flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-foreground line-clamp-1">{task.title}</p>
+                        <p className="font-semibold text-foreground line-clamp-1">
+                          <span className="text-primary mr-1.5">{task.taskNumber || ((taskPage - 1) * PAGE_SIZE + index + 1)}.</span>
+                          {task.title}
+                        </p>
                         <p className="text-xs text-muted-foreground mt-1 capitalize">{task.priority} priority</p>
                       </div>
                       <DropdownMenu>
@@ -2891,6 +2924,23 @@ export default function Tasks() {
                     <div className="p-4 flex-1 space-y-3">
                       {/* Description */}
                       <p className="text-sm text-muted-foreground line-clamp-2">{task.description}</p>
+
+                      {/* Attachment Summary */}
+                      {task.attachments && task.attachments.length > 0 && (
+                        <div className="flex items-center gap-1.5 py-1 px-2 bg-primary/5 border border-primary/10 rounded-md w-fit">
+                          <Paperclip className="h-3 w-3 text-primary" />
+                          <span className="text-[10px] font-bold text-primary uppercase tracking-tight">
+                            {(() => {
+                              const docs = task.attachments.filter(a => !a.mimeType?.startsWith("image/")).length;
+                              const imgs = task.attachments.filter(a => a.mimeType?.startsWith("image/")).length;
+                              const parts = [];
+                              if (docs > 0) parts.push(`${docs} document${docs > 1 ? "s" : ""}`);
+                              if (imgs > 0) parts.push(`${imgs} image${imgs > 1 ? "s" : ""}`);
+                              return parts.join(", ");
+                            })()}
+                          </span>
+                        </div>
+                      )}
 
                       {/* Assignees */}
                       <div>

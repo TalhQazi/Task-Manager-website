@@ -164,9 +164,9 @@ export default function EmployeeAssetLibrary() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Asset Library</h1>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Company Information/Images</h1>
           <p className="text-xs sm:text-sm text-muted-foreground">Browse and download approved brand assets.</p>
         </div>
       </div>
@@ -197,45 +197,47 @@ export default function EmployeeAssetLibrary() {
 
         <Card className="min-h-[520px] overflow-hidden">
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <CardTitle className="text-base">Assets</CardTitle>
-              <div className="flex items-center justify-end gap-2 w-full">
-                <select
-                  className={cn(
-                    "h-10 rounded-md border border-input bg-background px-3 text-sm",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  )}
-                  value={typeFilter}
-                  onChange={(e) => {
-                    setPage(1);
-                    setTypeFilter(e.target.value as any);
-                  }}
-                >
-                  <option value="">All types</option>
-                  <option value="image">Images</option>
-                  <option value="pdf">PDF</option>
-                </select>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2 w-full">
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+                  <select
+                    className={cn(
+                      "h-10 rounded-md border border-input bg-background px-3 text-sm w-full sm:w-auto",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    )}
+                    value={typeFilter}
+                    onChange={(e) => {
+                      setPage(1);
+                      setTypeFilter(e.target.value as any);
+                    }}
+                  >
+                    <option value="">All types</option>
+                    <option value="image">Images</option>
+                    <option value="pdf">PDF</option>
+                  </select>
 
-                <select
-                  className={cn(
-                    "h-10 rounded-md border border-input bg-background px-3 text-sm",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                  )}
-                  value={sort}
-                  onChange={(e) => {
-                    setPage(1);
-                    setSort(e.target.value as any);
-                  }}
-                >
-                  <option value="newest">Newest</option>
-                  <option value="oldest">Oldest</option>
-                  <option value="az">A–Z</option>
-                  <option value="za">Z–A</option>
-                  <option value="size-asc">File size (small → large)</option>
-                  <option value="size-desc">File size (large → small)</option>
-                </select>
+                  <select
+                    className={cn(
+                      "h-10 rounded-md border border-input bg-background px-3 text-sm w-full sm:w-auto",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    )}
+                    value={sort}
+                    onChange={(e) => {
+                      setPage(1);
+                      setSort(e.target.value as any);
+                    }}
+                  >
+                    <option value="newest">Newest</option>
+                    <option value="oldest">Oldest</option>
+                    <option value="az">A–Z</option>
+                    <option value="za">Z–A</option>
+                    <option value="size-asc">Size ↑</option>
+                    <option value="size-desc">Size ↓</option>
+                  </select>
+                </div>
 
-                <div className="relative w-full max-w-md">
+                <div className="relative w-full sm:max-w-[200px] lg:max-w-md">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     value={search}
@@ -244,7 +246,7 @@ export default function EmployeeAssetLibrary() {
                       setSearch(e.target.value);
                     }}
                     placeholder="Search..."
-                    className="pl-10"
+                    className="pl-10 w-full"
                   />
                 </div>
               </div>

@@ -17,7 +17,7 @@ const navItemsBase = [
   { icon: Wallet, label: "Payroll", path: "/employee/payroll" },
 
   { icon: MessageCircle, label: "Messages", path: "/employee/messages" },
-  { icon: Folder, label: "Asset Library", path: "/employee/asset-library" },
+  { icon: Folder, label: "Company Information/Images", path: "/employee/asset-library" },
   { icon: UserCircle, label: "Profile", path: "/employee/profile" },
   { icon: Bell, label: "Notifications", path: "/employee/notifications" },
   { icon: FileText, label: "My Notes", path: "/employee/personal-notes" },

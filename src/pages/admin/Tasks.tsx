@@ -262,6 +262,7 @@ function TaskAttachmentItem({ attachment, onPreview }: { attachment: { fileName:
 // ... (all your interfaces and types remain exactly the same)
 interface Task {
   id: string;
+  taskNumber?: number;
   title: string;
   description: string;
   assignees: string[];
@@ -408,6 +409,7 @@ function normalizeTask(t: any): Task {
   const extra = t as TaskApiAttachmentFields;
   return {
     id: t._id || t.id,
+    taskNumber: t.taskNumber,
     title: t.title,
     description: t.description,
     assignees,
@@ -596,6 +598,17 @@ export default function Tasks() {
   // Lightbox / File Preview State
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState<string>("");
+
+  // Inline editing states for View Dialog
+  const [taskViewTitle, setTaskViewTitle] = useState("");
+  const [taskViewDesc, setTaskViewDesc] = useState("");
+  const [taskViewEdited, setTaskViewEdited] = useState(false);
+
+  // Inline editing states for Project Header
+  const [projectViewName, setProjectViewName] = useState("");
+  const [projectViewDesc, setProjectViewDesc] = useState("");
+  const [projectViewEdited, setProjectViewEdited] = useState(false);
+  const [isUpdatingProject, setIsUpdatingProject] = useState(false);
   
   // Confirmation state for completing/archiving via side badge
   const [confirmCompleteTask, setConfirmCompleteTask] = useState<Task | null>(null);
@@ -677,6 +690,9 @@ export default function Tasks() {
         : [];
 
       setSelectedProject({ ...project, tasks: projectTasks });
+      setProjectViewName(project.name);
+      setProjectViewDesc(project.description || "");
+      setProjectViewEdited(false);
       setTasks(projectTasks);
     } catch (err) {
       toast({ title: "Failed to load project", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });
@@ -844,10 +860,10 @@ export default function Tasks() {
       });
       return res.item;
     },
-    onSuccess: async () => {
+    onSuccess: async (updated) => {
       await queryClient.invalidateQueries({ queryKey: ["projects"] });
-      if (selectedProject && editingProject && selectedProject.id === editingProject.id) {
-        void loadProject(selectedProject.id);
+      if (selectedProject && selectedProject.id === updated.id) {
+        setSelectedProject({ ...selectedProject, ...updated });
       }
     },
     onError: (err) => {
@@ -1261,6 +1277,9 @@ export default function Tasks() {
   const openView = (task: Task) => {
     setSearchQuery(""); // Clear search bar when viewing a task
     setSelectedTask(task);
+    setTaskViewTitle(task.title);
+    setTaskViewDesc(task.description);
+    setTaskViewEdited(false);
     setIsViewOpen(true);
     void loadComments(task.id);
   };
@@ -1286,27 +1305,7 @@ export default function Tasks() {
     }
   };
 
-  // Auto-refresh comments every 5 seconds when task view is open
-  useEffect(() => {
-    if (isViewOpen && selectedTask && autoRefreshEnabled) {
-      // Clear any existing interval
-      if (autoRefreshIntervalRef.current) {
-        clearInterval(autoRefreshIntervalRef.current);
-      }
-      // Set up new interval for auto-refresh
-      autoRefreshIntervalRef.current = setInterval(() => {
-        if (selectedTask && isViewOpen) {
-          loadComments(selectedTask.id, true);
-        }
-      }, 5000);
-    }
-
-    return () => {
-      if (autoRefreshIntervalRef.current) {
-        clearInterval(autoRefreshIntervalRef.current);
-        autoRefreshIntervalRef.current = null;
-      }
-    };
+    return () => {};
   }, [isViewOpen, selectedTask, autoRefreshEnabled]);
 
   const sendComment = async () => {
@@ -1925,17 +1924,74 @@ export default function Tasks() {
       {/* Project/Tasks sections - same as before, omitted for brevity but all code remains */}
       {selectedProject ? (
         <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
-          {/* ... project details remain same ... */}
           <div className="flex flex-col sm:flex-row sm:items-start gap-3">
             <ProjectLogoImg 
               projectId={selectedProject.id} 
               projectName={selectedProject.name} 
               logoUrl={selectedProject.logo?.url} 
             />
-            <div className="flex-1 min-w-0">
-              <h2 className="font-semibold text-lg break-words">Project: {selectedProject.name}</h2>
-              <p className="text-sm text-muted-foreground break-words">{selectedProject.description || "No description"}</p>
+            <div className="flex-1 min-w-0 space-y-1">
+              <div className="flex items-center gap-2">
+                <Input
+                  className="font-semibold text-lg border-transparent hover:border-border focus:border-primary px-1 -ml-1 bg-transparent h-auto py-0"
+                  value={projectViewName}
+                  onChange={(e) => {
+                    setProjectViewName(e.target.value);
+                    setProjectViewEdited(true);
+                  }}
+                  placeholder="Project Name"
+                />
+              </div>
+              <Textarea
+                className="text-sm text-muted-foreground border-transparent hover:border-border focus:border-primary px-1 -ml-1 bg-transparent resize-none min-h-[40px] py-0"
+                value={projectViewDesc}
+                onChange={(e) => {
+                  setProjectViewDesc(e.target.value);
+                  setProjectViewEdited(true);
+                }}
+                placeholder="Add project description..."
+              />
               <p className="text-xs text-muted-foreground mt-1 break-words">{selectedProject.assignees && selectedProject.assignees.length > 0 ? selectedProject.assignees.join(", ") : "No assignees"}</p>
+              
+              {projectViewEdited && (
+                <div className="flex gap-2 mt-2">
+                  <Button 
+                    size="sm" 
+                    className="h-7 text-xs" 
+                    disabled={isUpdatingProject || !projectViewName.trim()}
+                    onClick={async () => {
+                      setIsUpdatingProject(true);
+                      try {
+                        await editProjectMutation.mutateAsync({
+                          id: selectedProject.id,
+                          payload: { name: projectViewName, description: projectViewDesc }
+                        });
+                        setProjectViewEdited(false);
+                        toast({ title: "Project updated" });
+                      } catch (err) {
+                        toast({ title: "Update failed", variant: "destructive" });
+                      } finally {
+                        setIsUpdatingProject(false);
+                      }
+                    }}
+                  >
+                    {isUpdatingProject && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+                    Save Project Changes
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-7 text-xs"
+                    onClick={() => {
+                      setProjectViewName(selectedProject.name);
+                      setProjectViewDesc(selectedProject.description || "");
+                      setProjectViewEdited(false);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
           {selectedProject.introVideoUrl && (
@@ -2052,7 +2108,10 @@ export default function Tasks() {
                             </div>
                           </div>
                           <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                            <span className="truncate flex-1 mr-2">{assigneeList.length > 0 ? assigneeList.join(", ") : "No assignees"}</span>
+                            <span className="truncate flex-1 mr-2">
+                              <Users className="w-3 h-3 inline mr-1" />
+                              {assigneeList.length} Assignee{assigneeList.length === 1 ? "" : "s"}
+                            </span>
                             <span className="flex-shrink-0">{taskNum} task{taskNum === 1 ? "" : "s"}</span>
                           </div>
                           <div className="flex items-center justify-between text-xs">
@@ -2175,7 +2234,10 @@ export default function Tasks() {
                             </div>
                           )}
                           <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                            <span className="truncate flex-1 mr-2">{assigneeList.length > 0 ? assigneeList.join(", ") : "Unassigned"}</span>
+                            <span className="truncate flex-1 mr-2">
+                              <Users className="w-3 h-3 inline mr-1" />
+                              {assigneeList.length} Assignee{assigneeList.length === 1 ? "" : "s"}
+                            </span>
                           </div>
                           <div className="flex items-center justify-between text-xs gap-2 flex-wrap">
                             <div className="flex gap-1 flex-wrap">
@@ -2311,7 +2373,15 @@ export default function Tasks() {
               </div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Description</label>
-                <Textarea placeholder="Short project description" className="min-h-[80px]" value={projectDescription} onChange={(e) => setProjectDescription(e.target.value)} />
+                <Textarea 
+                  placeholder="Short project description" 
+                  className="min-h-[80px]" 
+                  value={projectDescription} 
+                  onChange={(e) => setProjectDescription(e.target.value)}
+                  spellCheck="true"
+                  autoCorrect="on"
+                  autoComplete="on"
+                />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Intro Video URL (YouTube/Vimeo)</label>
@@ -2394,8 +2464,28 @@ export default function Tasks() {
           <DialogHeader><DialogTitle>{isDirectTask ? "Create Standalone Task" : "Create Task"}</DialogTitle><DialogDescription>{isDirectTask ? "Create a new standalone task without a project." : "Create a new task under the selected project."}</DialogDescription></DialogHeader>
           <form onSubmit={(e) => { e.preventDefault(); void (isCreateOpen ? addTaskToProject() : handleCreateTask()); }} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Task Title *</label><Input value={formData.title} onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))} />{validationErrors.title && <p className="text-xs text-destructive">{validationErrors.title}</p>}</div>
-              <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Task Description *</label><Textarea value={formData.description} onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))} />{validationErrors.description && <p className="text-xs text-destructive">{validationErrors.description}</p>}</div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Task Title *</label>
+                <Input 
+                  value={formData.title} 
+                  onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))}
+                  spellCheck="true"
+                  autoCorrect="on"
+                  autoComplete="on"
+                />
+                {validationErrors.title && <p className="text-xs text-destructive">{validationErrors.title}</p>}
+              </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Task Description *</label>
+                <Textarea 
+                  value={formData.description} 
+                  onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                  spellCheck="true"
+                  autoCorrect="on"
+                  autoComplete="on"
+                />
+                {validationErrors.description && <p className="text-xs text-destructive">{validationErrors.description}</p>}
+              </div>
               <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Assignees</label><Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}><PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{selectedAssignees.length > 0 ? selectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start"><Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); }}><Check className={cn("mr-2 h-4 w-4", selectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover></div>
               <div className="sm:col-span-1 space-y-1.5"><label className="text-sm font-medium">Priority</label><Select value={formData.priority} onValueChange={(value) => setFormData((prev) => ({ ...prev, priority: value as Task['priority'] }))}><SelectTrigger><SelectValue placeholder="Priority" /></SelectTrigger><SelectContent><SelectItem value="high">High</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="low">Low</SelectItem></SelectContent></Select></div>
               <div className="sm:col-span-1 space-y-1.5"><label className="text-sm font-medium">Status</label><Select value={formData.status} onValueChange={(value) => setFormData((prev) => ({ ...prev, status: value as Task['status'] }))}><SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="in-progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem><SelectItem value="overdue">Overdue</SelectItem></SelectContent></Select></div>
@@ -2439,6 +2529,29 @@ export default function Tasks() {
                 </div>
                 {/* We leave space for standard dialog close X button, so add marginRight */}
                 <div className="flex items-center gap-1.5 mr-10">
+                  {taskViewEdited && (
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      className="bg-green-600 hover:bg-green-700 text-white font-bold"
+                      onClick={async () => {
+                        try {
+                          await updateTaskMutation.mutateAsync({
+                            id: selectedTask.id,
+                            payload: { title: taskViewTitle, description: taskViewDesc }
+                          });
+                          setTaskViewEdited(false);
+                          toast({ title: "Task updated" });
+                        } catch (err) {
+                          toast({ title: "Update failed", variant: "destructive" });
+                        }
+                      }}
+                      disabled={updateTaskMutation.isPending || !taskViewTitle.trim()}
+                    >
+                      {updateTaskMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-1.5" /> : <Check className="w-4 h-4 mr-1.5" />}
+                      Save
+                    </Button>
+                  )}
                   <Button variant="ghost" size="sm" onClick={() => void handlePrintTask(selectedTask)} title="Print Task"><Printer className="w-4 h-4 mr-1.5 hidden sm:block" /> Print</Button>
                   <Button variant="ghost" size="sm" onClick={() => { setIsViewOpen(false); openEdit(selectedTask); }} title="Edit Task"><Edit className="w-4 h-4 mr-1.5 hidden sm:block" /> Edit</Button>
                 </div>
@@ -2461,8 +2574,17 @@ export default function Tasks() {
                 {/* Left Pane: Title, Description, Attachments, Comments Feed */}
                 <div className="flex-1 overflow-y-auto w-full md:w-2/3 p-5 sm:p-8 space-y-8 scroll-smooth pb-24">
                   {/* Task Title */}
-                  <div>
-                    <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight break-words">{selectedTask.title}</h2>
+                  <div className="group/title relative">
+                    <Input
+                      className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight break-words bg-transparent border-transparent hover:border-border focus:border-primary focus:ring-0 px-1 -ml-1 h-auto py-1 shadow-none transition-all"
+                      value={taskViewTitle}
+                      onChange={(e) => {
+                        setTaskViewTitle(e.target.value);
+                        setTaskViewEdited(true);
+                      }}
+                      placeholder="Task Title"
+                      spellCheck="true"
+                    />
                   </div>
 
                   {/* Mobile Status - Only visible on mobile */}
@@ -2496,9 +2618,17 @@ export default function Tasks() {
                   {/* Task Description */}
                   <div className="space-y-2">
                     <h4 className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><FileText className="w-4 h-4" /> Description</h4>
-                    <div className="text-[15px] leading-relaxed text-foreground/90 whitespace-pre-wrap break-words border border-border/60 rounded-xl p-4 sm:p-5 bg-muted/10 shadow-sm min-h-[100px]">
-                      {selectedTask.description ? selectedTask.description : <span className="text-muted-foreground italic">No description provided.</span>}
-                    </div>
+                    <Textarea
+                      className="text-[15px] leading-relaxed text-foreground/90 whitespace-pre-wrap break-words border border-border/60 rounded-xl p-4 sm:p-5 bg-muted/10 shadow-sm min-h-[150px] focus:bg-background transition-colors focus:ring-2 focus:ring-primary/10"
+                      value={taskViewDesc}
+                      onChange={(e) => {
+                        setTaskViewDesc(e.target.value);
+                        setTaskViewEdited(true);
+                      }}
+                      placeholder="Add a detailed description..."
+                      spellCheck="true"
+                      autoCorrect="on"
+                    />
                   </div>
 
                   {/* Task Attachments Grid */}
@@ -2770,6 +2900,9 @@ export default function Tasks() {
                         value={commentDraft}
                         onChange={handleTypingIndicator}
                         placeholder="Write a comment... (Type @ to mention)"
+                        autoComplete="on"
+                        autoCorrect="on"
+                        spellCheck="true"
                         className="w-full min-h-[90px] max-h-[300px] border-0 focus:ring-0 resize-y p-4 text-[14px] bg-transparent outline-none placeholder-muted-foreground/60 font-medium"
                         onKeyDown={(e) => {
                           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -2890,8 +3023,8 @@ export default function Tasks() {
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit(onEditTask)} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField control={editForm.control} name="title" render={({ field }) => (<FormItem className="sm:col-span-2"><FormLabel>Title</FormLabel><FormControl><Input placeholder="Task title" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                <FormField control={editForm.control} name="description" render={({ field }) => (<FormItem className="sm:col-span-2"><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Short description" className="min-h-[90px]" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={editForm.control} name="title" render={({ field }) => (<FormItem className="sm:col-span-2"><FormLabel>Title</FormLabel><FormControl><Input placeholder="Task title" autoComplete="on" autoCorrect="on" spellCheck="true" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                <FormField control={editForm.control} name="description" render={({ field }) => (<FormItem className="sm:col-span-2"><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Short description" className="min-h-[90px]" autoComplete="on" autoCorrect="on" spellCheck="true" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Assignees</label><Popover open={editAssigneesOpen} onOpenChange={setEditAssigneesOpen}><PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{editSelectedAssignees.length > 0 ? editSelectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start"><Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setEditSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); }}><Check className={cn("mr-2 h-4 w-4", editSelectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover></div>
                 <FormField control={editForm.control} name="location" render={({ field }) => (<FormItem><FormLabel>Location</FormLabel><FormControl><Input placeholder="e.g. Main Office" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={editForm.control} name="priority" render={({ field }) => (<FormItem><FormLabel>Priority</FormLabel><Select value={field.value} onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue placeholder="Select priority" /></SelectTrigger></FormControl><SelectContent><SelectItem value="high">High</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="low">Low</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
@@ -3275,10 +3408,10 @@ export default function Tasks() {
                     <ChevronsUpDown className="h-4 w-4 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command className="max-h-[300px]">
+                <PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command className="max-h-[400px] w-full">
                     <CommandInput placeholder="Search employees..." />
-                    <CommandList className="max-h-[250px] overflow-y-auto">
+                    <CommandList className="max-h-[350px] overflow-y-auto overflow-x-hidden custom-scrollbar">
                       <CommandEmpty>No employee found.</CommandEmpty>
                       <CommandGroup>
                         {activeEmployees.map((employee) => (
@@ -3355,10 +3488,10 @@ export default function Tasks() {
                     <ChevronsUpDown className="h-4 w-4 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command className="max-h-[300px]">
+                <PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command className="max-h-[400px] w-full">
                     <CommandInput placeholder="Search employees..." />
-                    <CommandList className="max-h-[250px] overflow-y-auto">
+                    <CommandList className="max-h-[350px] overflow-y-auto overflow-x-hidden custom-scrollbar">
                       <CommandEmpty>No employee found.</CommandEmpty>
                       <CommandGroup>
                         {activeEmployees.map((employee) => (
@@ -3430,7 +3563,7 @@ export default function Tasks() {
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredTasks.map((task, index) => {
                   const letterIndex = String.fromCharCode(65 + (index % 26));
-                  const displayNumber = (projectTaskPage - 1) * PAGE_SIZE + index + 1;
+                  const displayNumber = task.taskNumber || (projectTaskPage - 1) * PAGE_SIZE + index + 1;
                   return (
                     <motion.div
                       key={task.id}
@@ -3459,6 +3592,19 @@ export default function Tasks() {
                               attachmentUrl={task.attachment?.url}
                               onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
                             />
+                          </div>
+                        )}
+                        {(task.attachments && task.attachments.length > 0) && (
+                          <div className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-tight bg-muted/30 px-2 py-1 rounded-md w-fit">
+                            <Paperclip className="w-3 h-3" />
+                            {(() => {
+                              const docs = task.attachments.filter(a => !a.mimeType?.startsWith("image/")).length;
+                              const imgs = task.attachments.filter(a => a.mimeType?.startsWith("image/")).length;
+                              const parts = [];
+                              if (docs > 0) parts.push(`${docs} document${docs > 1 ? "s" : ""}`);
+                              if (imgs > 0) parts.push(`${imgs} image${imgs > 1 ? "s" : ""}`);
+                              return parts.join(", ");
+                            })()}
                           </div>
                         )}
                         <div className="space-y-2">
@@ -3606,7 +3752,17 @@ export default function Tasks() {
           </div>
         </DialogContent>
       </Dialog>
+      
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.1); border-radius: 10px; }
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior: contain;
+        }
+      `}</style>
     </div>
-
   );
 }

@@ -189,7 +189,7 @@ export default function AssetLibrary() {
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const foldersQuery = useQuery({
-    queryKey: ["asset-library", "folders"],
+    queryKey: ["company-information-images", "folders"],
     queryFn: async () => {
       const res = await apiFetch<{ items: FolderNode[] }>("/api/asset-library/folders");
       return res.items || [];
@@ -197,7 +197,7 @@ export default function AssetLibrary() {
   });
 
   const globalStatsQuery = useQuery({
-    queryKey: ["asset-library", "stats"],
+    queryKey: ["company-information-images", "stats"],
     queryFn: async () => {
       const data = await apiFetch<{ totalAssets: number }>("/api/asset-library/stats");
       return data;
@@ -213,7 +213,7 @@ export default function AssetLibrary() {
     },
     onSuccess: async () => {
       setIsEditFolderOpen(false);
-      await queryClient.invalidateQueries({ queryKey: ["asset-library", "folders"] });
+      await queryClient.invalidateQueries({ queryKey: ["company-information-images", "folders"] });
     },
   });
 
@@ -225,7 +225,7 @@ export default function AssetLibrary() {
     },
     onSuccess: async () => {
       setSelectedFolderId(null);
-      await queryClient.invalidateQueries({ queryKey: ["asset-library"] });
+      await queryClient.invalidateQueries({ queryKey: ["company-information-images"] });
     },
   });
 
@@ -239,7 +239,7 @@ export default function AssetLibrary() {
     onSuccess: async () => {
       setIsMoveFolderOpen(false);
       setMoveFolderTargetId("");
-      await queryClient.invalidateQueries({ queryKey: ["asset-library", "folders"] });
+      await queryClient.invalidateQueries({ queryKey: ["company-information-images", "folders"] });
     },
   });
 
@@ -254,7 +254,7 @@ export default function AssetLibrary() {
       setIsBulkTagOpen(false);
       setBulkTags("");
       setSelectedAssetIds(new Set());
-      await queryClient.invalidateQueries({ queryKey: ["asset-library"] });
+      await queryClient.invalidateQueries({ queryKey: ["company-information-images"] });
     },
   });
 
@@ -272,7 +272,7 @@ export default function AssetLibrary() {
   });
 
   const brandKitsQuery = useQuery({
-    queryKey: ["asset-library", "brand-kits"],
+    queryKey: ["company-information-images", "brand-kits"],
     queryFn: async () => {
       const res = await apiFetch<{ items: BrandKit[] }>("/api/asset-library/brand-kits");
       return res.items || [];
@@ -293,7 +293,7 @@ export default function AssetLibrary() {
       setBrandKitColors("");
       setBrandKitGuidelines("");
       setEditingBrandKitId(null);
-      await queryClient.invalidateQueries({ queryKey: ["asset-library", "brand-kits"] });
+      await queryClient.invalidateQueries({ queryKey: ["company-information-images", "brand-kits"] });
     },
   });
 
@@ -304,12 +304,12 @@ export default function AssetLibrary() {
       });
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["asset-library", "brand-kits"] });
+      await queryClient.invalidateQueries({ queryKey: ["company-information-images", "brand-kits"] });
     },
   });
 
   const assetsQuery = useQuery({
-    queryKey: ["asset-library", "assets", selectedFolderId, search, typeFilter, sort, page, limit],
+    queryKey: ["company-information-images", "assets", selectedFolderId, search, typeFilter, sort, page, limit],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (selectedFolderId) params.set("folderId", selectedFolderId);
@@ -346,7 +346,7 @@ export default function AssetLibrary() {
     onSuccess: async () => {
       setIsCreateFolderOpen(false);
       setNewFolderName("");
-      await queryClient.invalidateQueries({ queryKey: ["asset-library", "folders"] });
+      await queryClient.invalidateQueries({ queryKey: ["company-information-images", "folders"] });
     },
   });
 
@@ -364,7 +364,7 @@ export default function AssetLibrary() {
       });
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["asset-library"] });
+      await queryClient.invalidateQueries({ queryKey: ["company-information-images"] });
     },
     onError: (err: any) => {
       setUploadError(err?.message || "Upload failed");
@@ -392,7 +392,7 @@ export default function AssetLibrary() {
     onSuccess: async (data) => {
       setIsEditAssetOpen(false);
       if (data?.item) setPreview(data.item);
-      await queryClient.invalidateQueries({ queryKey: ["asset-library"] });
+      await queryClient.invalidateQueries({ queryKey: ["company-information-images"] });
     },
   });
 
@@ -405,12 +405,12 @@ export default function AssetLibrary() {
     onSuccess: async () => {
       setPreview(null);
       setIsEditAssetOpen(false);
-      await queryClient.invalidateQueries({ queryKey: ["asset-library"] });
+      await queryClient.invalidateQueries({ queryKey: ["company-information-images"] });
     },
   });
 
   const versionsQuery = useQuery({
-    queryKey: ["asset-library", "asset-versions", preview?.id],
+    queryKey: ["company-information-images", "asset-versions", preview?.id],
     queryFn: async () => {
       if (!preview?.id) return [];
       const res = await apiFetch<{ items: AssetVersion[] }>(`/api/asset-library/assets/${encodeURIComponent(preview.id)}/versions`);
@@ -433,7 +433,7 @@ export default function AssetLibrary() {
       setIsReplaceVersionOpen(false);
       setReplaceChangeNote("");
       if (data?.item) setPreview(data.item);
-      await queryClient.invalidateQueries({ queryKey: ["asset-library"] });
+      await queryClient.invalidateQueries({ queryKey: ["company-information-images"] });
     },
   });
 
@@ -532,20 +532,20 @@ export default function AssetLibrary() {
 
   return (
     <div className="pl-6 space-y-4 sm:space-y-5 md:space-y-6">
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="space-y-1.5">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Asset Library</h1>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Company Information/Images</h1>
           <p className="text-xs sm:text-sm md:text-base text-muted-foreground">
             Upload, organize, preview, and download brand assets.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="flex items-center border rounded-md bg-background">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <div className="flex items-center border rounded-md bg-background overflow-hidden shrink-0">
             <button
               type="button"
               className={cn(
-                "px-3 py-1.5 text-sm font-medium rounded-l-md",
+                "px-3 py-1.5 text-xs sm:text-sm font-medium rounded-l-md transition-colors",
                 activeTab === "assets" ? "bg-muted" : "hover:bg-muted/50"
               )}
               onClick={() => setActiveTab("assets")}
@@ -555,7 +555,7 @@ export default function AssetLibrary() {
             <button
               type="button"
               className={cn(
-                "px-3 py-1.5 text-sm font-medium rounded-r-md",
+                "px-3 py-1.5 text-xs sm:text-sm font-medium rounded-r-md transition-colors",
                 activeTab === "brand-kits" ? "bg-muted" : "hover:bg-muted/50"
               )}
               onClick={() => setActiveTab("brand-kits")}
@@ -579,27 +579,30 @@ export default function AssetLibrary() {
           <Button
             type="button"
             variant="outline"
-            className="gap-2"
+            size="sm"
+            className="gap-2 h-9 text-xs sm:text-sm"
             onClick={() => setIsCreateFolderOpen(true)}
           >
             <Plus className="h-4 w-4" />
-            Create Folder
+            <span className="hidden xs:inline">Create Folder</span>
+            <span className="xs:hidden">Folder</span>
           </Button>
           <Button
             type="button"
-            className="gap-2"
+            size="sm"
+            className="gap-2 h-9 text-xs sm:text-sm"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploadAssetsMutation.isPending || isSelectedFolderReadOnly}
           >
             {uploadAssetsMutation.isPending ? (
               <>
-                <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
-                Uploading...
+                <div className="h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-1" />
+                <span className="hidden xs:inline">Uploading...</span>
               </>
             ) : (
               <>
                 <Upload className="h-4 w-4" />
-                Upload
+                <span>Upload</span>
               </>
             )}
           </Button>
@@ -685,7 +688,7 @@ export default function AssetLibrary() {
 
         <Card className="h-[calc(100vh-260px)] min-h-[420px] overflow-hidden flex flex-col">
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -699,14 +702,14 @@ export default function AssetLibrary() {
                   }}
                   className="h-4 w-4 rounded border-input"
                 />
-                <CardTitle className="text-base">Assets</CardTitle>
+                <CardTitle className="text-base whitespace-nowrap">Assets</CardTitle>
               </div>
-              <div className="flex items-center justify-end gap-2 w-full">
+              <div className="flex flex-wrap items-center gap-2 w-full sm:justify-end">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="gap-2"
+                  className="gap-2 h-9 text-xs sm:text-sm"
                   onClick={async () => {
                     const payload: { folderId?: string; assetIds?: string[] } = {};
                     if (selectedFolderId) payload.folderId = selectedFolderId;
@@ -728,14 +731,15 @@ export default function AssetLibrary() {
                   disabled={assetsQuery.isLoading || assets.length === 0}
                 >
                   <Download className="h-4 w-4" />
-                  Download All
+                  <span className="hidden sm:inline">Download All</span>
+                  <span className="sm:hidden">Download</span>
                 </Button>
                 {selectedAssetIds.size > 0 ? (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    className="gap-2"
+                    className="gap-2 h-9 text-xs sm:text-sm"
                     onClick={() => setIsBulkTagOpen(true)}
                   >
                     Tag ({selectedAssetIds.size})
@@ -743,7 +747,7 @@ export default function AssetLibrary() {
                 ) : null}
                 <select
                   className={cn(
-                    "h-10 rounded-md border border-input bg-background px-3 text-sm",
+                    "h-9 rounded-md border border-input bg-background px-2 text-[11px] sm:text-xs",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   )}
                   value={typeFilter}
@@ -759,7 +763,7 @@ export default function AssetLibrary() {
 
                 <select
                   className={cn(
-                    "h-10 rounded-md border border-input bg-background px-3 text-sm",
+                    "h-9 rounded-md border border-input bg-background px-2 text-[11px] sm:text-xs",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   )}
                   value={sort}
@@ -772,22 +776,22 @@ export default function AssetLibrary() {
                   <option value="oldest">Oldest</option>
                   <option value="az">A–Z</option>
                   <option value="za">Z–A</option>
-                  <option value="size-asc">File size (small → large)</option>
-                  <option value="size-desc">File size (large → small)</option>
+                  <option value="size-asc">Size ↑</option>
+                  <option value="size-desc">Size ↓</option>
                 </select>
 
-                <div className="relative w-full max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={(e) => {
-                    setPage(1);
-                    setSearch(e.target.value);
-                  }}
-                  placeholder="Search by name..."
-                  className="pl-10"
-                />
-              </div>
+                <div className="relative w-full sm:max-w-[200px]">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    value={search}
+                    onChange={(e) => {
+                      setPage(1);
+                      setSearch(e.target.value);
+                    }}
+                    placeholder="Search..."
+                    className="pl-8 h-9 text-xs"
+                  />
+                </div>
               </div>
             </div>
           </CardHeader>
