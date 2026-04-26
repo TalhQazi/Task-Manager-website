@@ -3406,39 +3406,45 @@ export default function Tasks() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent 
-                  className="w-[90vw] sm:w-[--radix-popover-trigger-width] p-0 pointer-events-auto z-[100]" 
+                  className="w-[90vw] sm:w-[--radix-popover-trigger-width] p-0 pointer-events-auto z-[101] shadow-xl border-border" 
                   align="start"
                   side="bottom"
                   sideOffset={4}
-                  collisionPadding={20}
+                  collisionPadding={10}
                 >
-                  <Command className="h-full w-full">
+                  <Command className="w-full">
                     <CommandInput placeholder="Search employees..." />
-                    <CommandList className="max-h-[300px] overflow-y-auto custom-scrollbar">
-                      <CommandEmpty>No employee found.</CommandEmpty>
-                      <CommandGroup>
-                        {activeEmployees.map((employee) => (
-                          <CommandItem
-                            key={employee.id}
-                            value={employee.name.toLowerCase()}
-                            onSelect={() => {
-                              setReassignTaskAssignees((prev) =>
-                                prev.includes(employee.name)
-                                  ? prev.filter((name) => name !== employee.name)
-                                  : [...prev, employee.name]
-                              );
-                              // Removed setReassignTaskOpen(false) to allow multiple selection without closing
-                            }}
-                          >
-                            <Check className={cn("mr-2 h-4 w-4", reassignTaskAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} />
-                            <Avatar className="h-6 w-6 mr-2">
-                              <AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback>
-                            </Avatar>
-                            {employee.name}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
+                    <div 
+                      className="max-h-[280px] overflow-y-auto custom-scrollbar overscroll-contain" 
+                      onWheel={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
+                      onTouchMove={(e) => e.stopPropagation()}
+                    >
+                      <CommandList className="h-auto">
+                        <CommandEmpty>No employee found.</CommandEmpty>
+                        <CommandGroup className="pb-2">
+                          {activeEmployees.map((employee) => (
+                            <CommandItem
+                              key={employee.id}
+                              value={employee.name.toLowerCase()}
+                              onSelect={() => {
+                                setReassignTaskAssignees((prev) =>
+                                  prev.includes(employee.name)
+                                    ? prev.filter((name) => name !== employee.name)
+                                    : [...prev, employee.name]
+                                );
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", reassignTaskAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} />
+                              <Avatar className="h-6 w-6 mr-2">
+                                <AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback>
+                              </Avatar>
+                              {employee.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </div>
                   </Command>
                 </PopoverContent>
               </Popover>
@@ -3492,39 +3498,45 @@ export default function Tasks() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent 
-                  className="w-[90vw] sm:w-[--radix-popover-trigger-width] p-0 pointer-events-auto z-[100]" 
+                  className="w-[90vw] sm:w-[--radix-popover-trigger-width] p-0 pointer-events-auto z-[101] shadow-xl border-border" 
                   align="start"
                   side="bottom"
                   sideOffset={4}
-                  collisionPadding={20}
+                  collisionPadding={10}
                 >
-                  <Command className="h-full w-full">
+                  <Command className="w-full">
                     <CommandInput placeholder="Search employees..." />
-                    <CommandList className="max-h-[300px] overflow-y-auto custom-scrollbar">
-                      <CommandEmpty>No employee found.</CommandEmpty>
-                      <CommandGroup>
-                        {activeEmployees.map((employee) => (
-                          <CommandItem
-                            key={employee.id}
-                            value={employee.name.toLowerCase()}
-                            onSelect={() => {
-                              setReassignProjectAssignees((prev) =>
-                                prev.includes(employee.name)
-                                  ? prev.filter((name) => name !== employee.name)
-                                  : [...prev, employee.name]
-                              );
-                              // Removed setReassignProjectOpen(false) to allow multiple selection without closing
-                            }}
-                          >
-                            <Check className={cn("mr-2 h-4 w-4", reassignProjectAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} />
-                            <Avatar className="h-6 w-6 mr-2">
-                              <AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback>
-                            </Avatar>
-                            {employee.name}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
+                    <div 
+                      className="max-h-[280px] overflow-y-auto custom-scrollbar overscroll-contain" 
+                      onWheel={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
+                      onTouchMove={(e) => e.stopPropagation()}
+                    >
+                      <CommandList className="h-auto">
+                        <CommandEmpty>No employee found.</CommandEmpty>
+                        <CommandGroup className="pb-2">
+                          {activeEmployees.map((employee) => (
+                            <CommandItem
+                              key={employee.id}
+                              value={employee.name.toLowerCase()}
+                              onSelect={() => {
+                                setReassignProjectAssignees((prev) =>
+                                  prev.includes(employee.name)
+                                    ? prev.filter((name) => name !== employee.name)
+                                    : [...prev, employee.name]
+                                );
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", reassignProjectAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} />
+                              <Avatar className="h-6 w-6 mr-2">
+                                <AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback>
+                              </Avatar>
+                              {employee.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </div>
                   </Command>
                 </PopoverContent>
               </Popover>
@@ -3765,7 +3777,7 @@ export default function Tasks() {
       <style>{`
         .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.1); border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
         .custom-scrollbar {
           scrollbar-width: thin;
           -webkit-overflow-scrolling: touch !important;
@@ -3774,12 +3786,13 @@ export default function Tasks() {
         }
         /* Mobile specific fix for Radix Popover/CommandList scroll */
         [data-radix-popper-content-wrapper] {
-          z-index: 100 !important;
+          z-index: 200 !important;
           pointer-events: auto !important;
         }
         /* Ensure the dialog doesn't block scroll on its own children on some mobile browsers */
         [role="dialog"] {
           pointer-events: auto !important;
+          overscroll-behavior: contain;
         }
       `}</style>
     </div>
