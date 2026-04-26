@@ -188,6 +188,7 @@ export default function AsanaData() {
 
   const [loading, setLoading] = useState(false);
   const [transferring, setTransferring] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [transferSuccess, setTransferSuccess] = useState<string | null>(null);
 
@@ -520,6 +521,33 @@ export default function AsanaData() {
                     Insert to Task Manager
                   </>
                 )}
+              </Button>
+
+              <Button
+                variant="destructive"
+                className="gap-2"
+                onClick={async () => {
+                  if (!window.confirm("Are you sure? This will delete ALL imported Asana data (workspaces, projects, tasks, comments, attachments, files). You will need to re-import from scratch.")) return;
+                  setClearing(true);
+                  setError(null);
+                  setTransferSuccess(null);
+                  try {
+                    const res = await apiFetch<{ ok: true; message: string; deleted: any; filesDeleted: number }>("/api/asana-import/clear", { method: "DELETE" });
+                    setTransferSuccess(`${res.message} (${res.filesDeleted} files removed from disk)`);
+                    // Reset all local state
+                    setWorkspaces([]); setWorkspaceAsanaId("");
+                    setProjects([]); setProjectAsanaId("");
+                    setTasks([]); setSelectedTaskAsanaId("");
+                    setTaskDetails(null); setComments([]); setAttachments([]); setUsers([]);
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : "Failed to clear data");
+                  } finally {
+                    setClearing(false);
+                  }
+                }}
+                disabled={loading || transferring || clearing}
+              >
+                {clearing ? <><Loader2 className="h-4 w-4 animate-spin" /> Clearing...</> : <>Clear All Data</>}
               </Button>
 
               {loading && (
