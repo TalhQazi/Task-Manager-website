@@ -100,6 +100,7 @@ import { Pagination } from "@/components/Pagination";
 import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import AssetLibraryPicker from "@/components/admin/AssetLibraryPicker";
 import { TaskContributors } from "@/components/admin/tasks/TaskContributors";
+import DropboxFilePicker, { type DropboxSelectedFile, formatBytes, DropboxIcon } from "@/components/admin/DropboxFilePicker";
 
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
   const [src, setSrc] = useState<string | null | undefined>(undefined);
@@ -277,6 +278,7 @@ interface Task {
   projectId?: string;
   attachmentFileName?: string;
   attachmentNote?: string;
+  dropboxAttachmentCount?: number;
   attachment?: {
     fileName: string;
     url: string;
@@ -424,6 +426,7 @@ function normalizeTask(t: any): Task {
     attachmentNote: extra.attachmentNote,
     attachment: extra.attachment,
     attachments: Array.isArray((t as any).attachments) ? (t as any).attachments : undefined,
+    dropboxAttachmentCount: t.dropboxAttachmentCount,
   };
 }
 
@@ -595,6 +598,13 @@ export default function Tasks() {
   const isAdminRole = currentRole === "admin" || currentRole === "super-admin";
   const [archivingCommentId, setArchivingCommentId] = useState<string | null>(null);
   const [archivingAttachment, setArchivingAttachment] = useState<number | null>(null);
+
+  // Dropbox integration state
+  const [isDropboxPickerOpen, setIsDropboxPickerOpen] = useState(false);
+  const [dropboxSelectedFiles, setDropboxSelectedFiles] = useState<DropboxSelectedFile[]>([]);
+  const [viewDropboxAttachments, setViewDropboxAttachments] = useState<Array<{ id: string; file_name: string; file_type: string; file_size: number; dropbox_path: string; temporary_link: string; created_at: string }>>([]);
+  const [loadingDropboxAttachments, setLoadingDropboxAttachments] = useState(false);
+  const [dropboxAttachmentsError, setDropboxAttachmentsError] = useState<string | null>(null);
   
   // Lightbox / File Preview State
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -1229,6 +1239,8 @@ export default function Tasks() {
         attachmentNote: formData.attachmentNote,
         attachment,
         attachments,
+        // Dropbox attachment references (source == "DROPBOX")
+        dropboxAttachments: dropboxSelectedFiles,
       };
 
       if (!isDirectTask && selectedProject) {
@@ -1264,6 +1276,7 @@ export default function Tasks() {
       setAttachmentFile(null);
       setAttachmentFiles([]);
       setAttachmentFilePreviews([]);
+      setDropboxSelectedFiles([]);
       setValidationErrors({});
 
       toast({
@@ -1288,6 +1301,41 @@ export default function Tasks() {
     setTaskViewEdited(false);
     setIsViewOpen(true);
     void loadComments(task.id);
+    void loadDropboxAttachments(task.id);
+  };
+
+  // Load Dropbox attachments for a specific task
+  const loadDropboxAttachments = async (taskId: string) => {
+    try {
+      setLoadingDropboxAttachments(true);
+      setDropboxAttachmentsError(null);
+      const res = await apiFetch<{ items: Array<{ id: string; file_name: string; file_type: string; file_size: number; dropbox_path: string; temporary_link: string; created_at: string }> }>(
+        `/api/tasks/${encodeURIComponent(taskId)}/dropbox-attachments`
+      );
+      setViewDropboxAttachments(res.items || []);
+    } catch (err) {
+      setViewDropboxAttachments([]);
+      setDropboxAttachmentsError(err instanceof Error ? err.message : "Failed to load Dropbox files");
+    } finally {
+      setLoadingDropboxAttachments(false);
+    }
+  };
+
+  // Open a Dropbox file via a fresh temporary link
+  const openDropboxFile = async (dropboxPath: string) => {
+    try {
+      const res = await apiFetch<{ link: string }>("/api/dropbox/files/temporary-link", {
+        method: "POST",
+        body: JSON.stringify({ path: dropboxPath }),
+      });
+      if (res.link) {
+        window.open(res.link, "_blank", "noopener,noreferrer");
+      } else {
+        toast({ title: "Link unavailable", description: "Could not generate a viewing link for this file.", variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Failed to open file", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });
+    }
   };
 
   const loadComments = async (taskId: string, silent: boolean = false) => {
@@ -2236,6 +2284,15 @@ export default function Tasks() {
                               />
                             </div>
                           )}
+                          {/* Attachment indicators */}
+                          {(task.dropboxAttachmentCount && task.dropboxAttachmentCount > 0) ? (
+                            <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                              <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-tight bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded w-fit border border-blue-500/20">
+                                <DropboxIcon size={9} />
+                                {task.dropboxAttachmentCount} file{task.dropboxAttachmentCount > 1 ? "s" : ""}
+                              </div>
+                            </div>
+                          ) : null}
                           <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
                             <span className="truncate flex-1 mr-2">
                               <Users className="w-3 h-3 inline mr-1" />
@@ -2500,7 +2557,7 @@ export default function Tasks() {
               <div className="sm:col-span-1 space-y-1.5"><label className="text-sm font-medium">Priority</label><Select value={formData.priority} onValueChange={(value) => setFormData((prev) => ({ ...prev, priority: value as Task['priority'] }))}><SelectTrigger><SelectValue placeholder="Priority" /></SelectTrigger><SelectContent><SelectItem value="high">High</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="low">Low</SelectItem></SelectContent></Select></div>
               <div className="sm:col-span-1 space-y-1.5"><label className="text-sm font-medium">Status</label><Select value={formData.status} onValueChange={(value) => setFormData((prev) => ({ ...prev, status: value as Task['status'] }))}><SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="in-progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem><SelectItem value="overdue">Overdue</SelectItem></SelectContent></Select></div>
             </div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Task Attachments</label><div className="space-y-2"><button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted w-full" onClick={() => { const el = document.getElementById("task-attachments-input") as HTMLInputElement | null; el?.click(); }}>+ Add Files/Images</button><input id="task-attachments-input" type="file" accept="*" multiple className="hidden" onChange={(e) => { const files = Array.from(e.target.files ?? []); setAttachmentFiles((prev) => [...prev, ...files]); files.forEach((file) => { const reader = new FileReader(); reader.onload = () => { const result = typeof reader.result === "string" ? reader.result : ""; setAttachmentFilePreviews((prev) => [...prev, result]); }; if (file.type.startsWith("image/")) { reader.readAsDataURL(file); } else { setAttachmentFilePreviews((prev) => [...prev, ""]); } }); }} />{attachmentFiles.length > 0 && (<div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">{attachmentFiles.map((file, idx) => (<div key={idx} className="relative group">{attachmentFilePreviews[idx] ? (<img src={attachmentFilePreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />) : (<div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">📄 {file.name}</div>)}<button type="button" onClick={() => { setAttachmentFiles((prev) => prev.filter((_, i) => i !== idx)); setAttachmentFilePreviews((prev) => prev.filter((_, i) => i !== idx)); }} className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs">✕</button></div>))}</div>)}</div></div>
+            <div className="space-y-1.5"><label className="text-sm font-medium">Task Attachments</label><div className="space-y-2"><div className="flex gap-2"><button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1" onClick={() => { const el = document.getElementById("task-attachments-input") as HTMLInputElement | null; el?.click(); }}>+ Add Files/Images</button>{currentRole === "super-admin" && (<button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1 flex items-center justify-center gap-2" onClick={() => setIsDropboxPickerOpen(true)}><DropboxIcon size={14} />Dropbox</button>)}</div><input id="task-attachments-input" type="file" accept="*" multiple className="hidden" onChange={(e) => { const files = Array.from(e.target.files ?? []); setAttachmentFiles((prev) => [...prev, ...files]); files.forEach((file) => { const reader = new FileReader(); reader.onload = () => { const result = typeof reader.result === "string" ? reader.result : ""; setAttachmentFilePreviews((prev) => [...prev, result]); }; if (file.type.startsWith("image/")) { reader.readAsDataURL(file); } else { setAttachmentFilePreviews((prev) => [...prev, ""]); } }); }} />{attachmentFiles.length > 0 && (<div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">{attachmentFiles.map((file, idx) => (<div key={idx} className="relative group">{attachmentFilePreviews[idx] ? (<img src={attachmentFilePreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />) : (<div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">📄 {file.name}</div>)}<button type="button" onClick={() => { setAttachmentFiles((prev) => prev.filter((_, i) => i !== idx)); setAttachmentFilePreviews((prev) => prev.filter((_, i) => i !== idx)); }} className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs">✕</button></div>))}</div>)}{dropboxSelectedFiles.length > 0 && (<div className="border border-border rounded-md p-2 space-y-1.5 bg-muted/30"><p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><DropboxIcon size={12} />Dropbox Files (External)</p>{dropboxSelectedFiles.map((dbf, idx) => (<div key={idx} className="flex items-center gap-2 bg-background rounded-md px-2.5 py-1.5 border border-border text-sm"><FileText className="w-4 h-4 text-blue-400 flex-shrink-0" /><span className="flex-1 truncate text-foreground">{dbf.file_name}</span><span className="text-xs text-muted-foreground">{dbf.file_size > 0 ? formatBytes(dbf.file_size) : ""}</span><button type="button" onClick={() => setDropboxSelectedFiles((prev) => prev.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive transition-colors">✕</button></div>))}</div>)}</div></div>
             <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end"><Button type="button" variant="outline" onClick={() => { setIsCreateTaskOpen(false); setIsDirectTask(false); }} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button><Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">{isCreating && <Loader2 className="h-4 w-4 animate-spin" />}{isDirectTask ? "Create Task" : "Create Task"}</Button></DialogFooter>
           </form>
         </DialogContent>
@@ -2703,6 +2760,54 @@ export default function Tasks() {
                             </div>
                           ) : null}
                       </div>
+                    </div>
+                  )}
+
+                  {/* Dropbox (External) Attachments */}
+                  {viewDropboxAttachments.length > 0 && (
+                    <div className="space-y-3 pt-2">
+                      <h4 className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                        <DropboxIcon size={14} className="flex-shrink-0" />
+                        Dropbox Files
+                      </h4>
+                      <div className="space-y-2 bg-muted/20 border border-border/50 rounded-xl p-3">
+                        {viewDropboxAttachments.map((dbAtt) => (
+                          <button
+                            key={dbAtt.id}
+                            type="button"
+                            onClick={() => void openDropboxFile(dbAtt.dropbox_path)}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 bg-background rounded-lg border border-border/60 hover:border-primary/30 hover:bg-muted/50 transition-all text-left group"
+                            aria-label={`Open ${dbAtt.file_name} from Dropbox`}
+                            title={dbAtt.file_name}
+                          >
+                            <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                              <FileText className="w-4 h-4 text-blue-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">{dbAtt.file_name}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-semibold uppercase">External File</span>
+                                {dbAtt.file_size > 0 && <span className="text-[10px] text-muted-foreground">{formatBytes(dbAtt.file_size)}</span>}
+                                {dbAtt.file_type && <span className="text-[10px] text-muted-foreground">{dbAtt.file_type.split('/').pop()?.toUpperCase()}</span>}
+                              </div>
+                            </div>
+                            <DropboxIcon size={12} className="flex-shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Dropbox loading state */}
+                  {loadingDropboxAttachments && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2" role="status">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Loading Dropbox attachments...
+                    </div>
+                  )}
+                  {/* Dropbox error state — shows when fetch fails */}
+                  {dropboxAttachmentsError && !loadingDropboxAttachments && viewDropboxAttachments.length === 0 && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2">
+                      <DropboxIcon size={12} className="opacity-40" />
+                      <span className="text-destructive/70">Couldn't load external files</span>
                     </div>
                   )}
 
@@ -3646,17 +3751,12 @@ export default function Tasks() {
                             />
                           </div>
                         )}
-                        {(task.attachments && task.attachments.length > 0) && (
-                          <div className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-tight bg-muted/30 px-2 py-1 rounded-md w-fit">
-                            <Paperclip className="w-3 h-3" />
-                            {(() => {
-                              const docs = task.attachments.filter(a => !a.mimeType?.startsWith("image/")).length;
-                              const imgs = task.attachments.filter(a => a.mimeType?.startsWith("image/")).length;
-                              const parts = [];
-                              if (docs > 0) parts.push(`${docs} document${docs > 1 ? "s" : ""}`);
-                              if (imgs > 0) parts.push(`${imgs} image${imgs > 1 ? "s" : ""}`);
-                              return parts.join(", ");
-                            })()}
+                        {(task.dropboxAttachmentCount !== undefined && task.dropboxAttachmentCount > 0) && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-tight bg-blue-500/10 text-blue-400 px-2 py-1 rounded-md w-fit border border-blue-500/20">
+                              <DropboxIcon size={10} />
+                              {task.dropboxAttachmentCount} file{task.dropboxAttachmentCount > 1 ? "s" : ""}
+                            </div>
                           </div>
                         )}
                         <div className="space-y-2">
@@ -3844,6 +3944,14 @@ export default function Tasks() {
           overscroll-behavior: contain;
         }
       `}</style>
+
+      {/* Dropbox File Picker Modal */}
+      <DropboxFilePicker
+        open={isDropboxPickerOpen}
+        onOpenChange={setIsDropboxPickerOpen}
+        onSelect={(files) => setDropboxSelectedFiles((prev) => [...prev, ...files])}
+        multiple={true}
+      />
     </div>
   );
 }
