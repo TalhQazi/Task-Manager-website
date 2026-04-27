@@ -29,6 +29,7 @@ import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
 import { getAuthState, clearAuthState } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { FounderMessageBar } from "@/components/FounderMessageBar";
+import { applyFullTheme, themeDefaults } from "@/lib/manger/theme";
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -137,6 +138,19 @@ export function MainLayout({ children }: MainLayoutProps) {
   const headerSettings = headerSettingsQuery.data?.item;
 
   const hasImageBackground = headerSettings?.backgroundType === 'image' && headerSettings.imageConfig?.dataUrl;
+
+  // Apply user UI preferences on load - same as EmployeeLayout (full applyThemeToDOM)
+  useEffect(() => {
+    apiFetch<{item: { theme?: string; cardStyle?: string; customColors?: { textColor?: string } }}>("/api/ui-preferences").then(res => {
+      const theme = res?.item?.theme || "dark-minimal";
+      const cardStyle = res?.item?.cardStyle || "glass";
+      const textColor = res?.item?.customColors?.textColor;
+      applyFullTheme(theme, textColor || themeDefaults[theme], cardStyle);
+    }).catch(() => {
+      // Fallback to dark-minimal
+      applyFullTheme("dark-minimal");
+    });
+  }, []);
 
   // System notifications (broadcasts only)
   const notificationsQuery = useQuery({
@@ -273,7 +287,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       .toUpperCase() || "M";
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--tb-dashboard-bg)" }}>
+    <div className="min-h-screen tb-manager-panel" style={{ background: "var(--tb-dashboard-bg)" }}>
       {/* Top header with dynamic background from admin settings - FULL WIDTH */}
       <header 
         className="fixed top-0 left-0 right-0 z-50 shadow-floating"
@@ -526,9 +540,9 @@ export function MainLayout({ children }: MainLayoutProps) {
         <div className="hidden md:block">
           <Sidebar />
         </div>
-        <main 
+        <main
           className="flex-1 min-h-screen md:ml-56 lg:ml-64"
-          style={{ paddingTop: '300px' }}
+          style={{ paddingTop: '300px', background: 'var(--tb-dashboard-bg)' }}
         >
           <div className="w-full px-4 py-4 sm:py-8 animate-fade-in">
             {children}

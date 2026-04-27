@@ -4,47 +4,37 @@ import { cn } from "@/lib/utils";
 interface StatCardProps {
   title: string;
   value: string | number;
-  change?: string;
-  changeType?: "positive" | "negative" | "neutral";
   icon: LucideIcon;
-  variant?: "primary" | "success" | "warning" | "danger" | "info" | "purple" | "orange" | "indigo" | "teal" | "rose" | "amber" | "lime" | "pink" | "cyan" | "gold" | "majesty" | "red" | "blue" | "green" | "purple-new" | "orange-new" | "yellow" | "brown" | "pink-new" | "grey" | "dark-grey" | "silver" | "dark-green";
+  variant?: "primary" | "success" | "warning" | "danger" | "info" | "purple" | "orange" | "teal" | "amber" | "gold" | "red" | "blue" | "green" | "yellow";
   onClick?: () => void;
 }
 
-export function StatCard({
+export function EmployeeStatCard({
   title,
   value,
-  change,
-  changeType = "neutral",
   icon: Icon,
   variant = "primary",
   onClick,
 }: StatCardProps) {
 
-  // Map variants to specific glow colors from the reference image
   const glowColors = {
     primary: "rgba(59, 130, 246, 0.5)",
     success: "rgba(16, 185, 129, 0.6)",
-    green: "rgba(34, 197, 94, 0.6)",
     warning: "rgba(245, 158, 11, 0.6)",
     danger: "rgba(239, 68, 68, 0.6)",
     info: "rgba(14, 165, 233, 0.6)",
-    cyan: "rgba(0, 198, 255, 0.65)",
     purple: "rgba(168, 85, 247, 0.6)",
     orange: "rgba(249, 115, 22, 0.6)",
     teal: "rgba(20, 184, 166, 0.6)",
     amber: "rgba(251, 191, 36, 0.6)",
-    lime: "rgba(132, 204, 22, 0.6)",
     gold: "rgba(250, 204, 21, 0.7)",
     red: "rgba(239, 68, 68, 0.6)",
     blue: "rgba(59, 130, 246, 0.6)",
-    "dark-grey": "rgba(156, 163, 175, 0.3)",
-    silver: "rgba(209, 213, 219, 0.4)",
-    "dark-green": "rgba(22, 163, 74, 0.6)",
-    yellow: "rgba(234, 179, 8, 0.6)"
+    green: "rgba(16, 185, 129, 0.6)",
+    yellow: "rgba(234, 179, 8, 0.6)",
   };
 
-  const glowColor = glowColors[variant as keyof typeof glowColors] || glowColors.primary;
+  const glowColor = glowColors[variant] || glowColors.primary;
 
   return (
     <div
@@ -57,15 +47,15 @@ export function StatCard({
       )}
     >
       {/* Dynamic Background Glow */}
-      <div 
+      <div
         className="absolute inset-0 opacity-60 transition-opacity group-hover:opacity-100 mix-blend-screen"
         style={{
           background: `radial-gradient(circle at 50% 120%, ${glowColor} 0%, transparent 70%)`
         }}
       />
-      
+
       {/* Horizontal Light Streak */}
-      <div 
+      <div
         className="absolute inset-0 opacity-30 mix-blend-overlay"
         style={{
           background: `linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.8) 50%, transparent 100%)`,
@@ -97,12 +87,12 @@ export function StatCard({
         )}>
           {/* Inner ring for the icon */}
           <div className="absolute inset-[2px] rounded-md border border-black/80" />
-          <Icon 
-            className="h-5 w-5 sm:h-6 sm:w-6 relative z-10" 
-            style={{ 
+          <Icon
+            className="h-5 w-5 sm:h-6 sm:w-6 relative z-10"
+            style={{
               color: glowColor.replace(/,\s*[\d.]+\)$/, ', 1)'),
               filter: `drop-shadow(0 0 6px ${glowColor.replace(/,\s*[\d.]+\)$/, ', 0.8)')})`
-            }} 
+            }}
           />
         </div>
       </div>

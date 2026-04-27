@@ -353,6 +353,35 @@ export const themePresets: Record<string, UITheme> = {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+type ApiFetch = <T>(endpoint: string, options?: RequestInit) => Promise<T>;
+
+const baseThemeIds: Array<UITheme["theme"]> = [
+  "dark-minimal",
+  "neon-tech",
+  "metallic-elite",
+  "executive-black",
+  "high-contrast",
+  "energy-mode",
+  "crystal-white",
+];
+
+const isDefaultPanelColors = (panelColors: UITheme["panelColors"] | undefined) => {
+  if (!panelColors) return true;
+  const d = defaultTheme.panelColors;
+  return (
+    panelColors.headerBackground === d.headerBackground &&
+    panelColors.headerOverlayColor === d.headerOverlayColor &&
+    panelColors.headerOverlayOpacity === d.headerOverlayOpacity &&
+    panelColors.sidebarBackground === d.sidebarBackground &&
+    panelColors.dashboardBackground === d.dashboardBackground &&
+    panelColors.sidebarIconColor === d.sidebarIconColor &&
+    panelColors.dashboardIconColor === d.dashboardIconColor &&
+    panelColors.sidebarTextColor === d.sidebarTextColor &&
+    panelColors.dashboardCardBackground === d.dashboardCardBackground &&
+    panelColors.dashboardTextColor === d.dashboardTextColor
+  );
+};
+
 const getThemeStorageKey = () => {
   try {
     // Try Manager auth first
@@ -386,33 +415,39 @@ const applyThemeToDOM = (theme: UITheme) => {
   root.style.setProperty("--tb-secondary", theme.customColors.secondary);
   root.style.setProperty("--tb-accent", theme.customColors.accent);
 
+  const resolvedDashboardTextColor = theme.customColors?.textColor || theme.panelColors?.dashboardTextColor || "#1e293b";
+
   // Apply panel colors
   const panelColors = {
     ...defaultTheme.panelColors,
     ...(theme.panelColors || ({} as UITheme["panelColors"])),
   };
 
-  root.style.setProperty("--tb-header-bg", panelColors.headerBackground);
-  root.style.setProperty("--tb-header-overlay-color", panelColors.headerOverlayColor);
-  root.style.setProperty(
-    "--tb-header-overlay-opacity",
-    `${Math.max(0, Math.min(100, panelColors.headerOverlayOpacity)) / 100}`,
-  );
-  root.style.setProperty("--tb-sidebar-bg", panelColors.sidebarBackground);
-  console.log("Sidebar background set to:", panelColors.sidebarBackground);
-  root.style.setProperty("--tb-dashboard-bg", panelColors.dashboardBackground);
-  root.style.setProperty("--tb-sidebar-icon-color", panelColors.sidebarIconColor);
-  root.style.setProperty("--tb-dashboard-icon-color", panelColors.dashboardIconColor);
-  root.style.setProperty("--tb-sidebar-text-color", panelColors.sidebarTextColor);
-  root.style.setProperty("--tb-sidebar-text-color", panelColors.sidebarTextColor);
-  console.log("Sidebar text color set to:", panelColors.sidebarTextColor);
-  root.style.setProperty("--tb-dashboard-card-bg", panelColors.dashboardCardBackground);
-  root.style.setProperty("--tb-dashboard-text-color", panelColors.dashboardTextColor || "#1e293b");
+  const shouldApplyPanelColors = !baseThemeIds.includes(theme.theme) || !isDefaultPanelColors(theme.panelColors);
+  if (shouldApplyPanelColors) {
+    root.style.setProperty("--tb-header-bg", panelColors.headerBackground);
+    root.style.setProperty("--tb-header-overlay-color", panelColors.headerOverlayColor);
+    root.style.setProperty(
+      "--tb-header-overlay-opacity",
+      `${Math.max(0, Math.min(100, panelColors.headerOverlayOpacity)) / 100}`,
+    );
+    root.style.setProperty("--tb-sidebar-bg", panelColors.sidebarBackground);
+    console.log("Sidebar background set to:", panelColors.sidebarBackground);
+    root.style.setProperty("--tb-dashboard-bg", panelColors.dashboardBackground);
+    root.style.setProperty("--tb-sidebar-icon-color", panelColors.sidebarIconColor);
+    root.style.setProperty("--tb-dashboard-icon-color", panelColors.dashboardIconColor);
+    root.style.setProperty("--tb-sidebar-text-color", panelColors.sidebarTextColor);
+    root.style.setProperty("--tb-sidebar-text-color", panelColors.sidebarTextColor);
+    console.log("Sidebar text color set to:", panelColors.sidebarTextColor);
+    root.style.setProperty("--tb-dashboard-card-bg", panelColors.dashboardCardBackground);
+  }
+  root.style.setProperty("--tb-dashboard-text-color", resolvedDashboardTextColor);
+  document.body.style.color = resolvedDashboardTextColor;
   
   // Also set Tailwind CSS variables for consistent text colors across all pages
-  root.style.setProperty("--foreground", panelColors.dashboardTextColor || "#1e293b");
-  root.style.setProperty("--card-foreground", panelColors.dashboardTextColor || "#1e293b");
-  root.style.setProperty("--muted-foreground", panelColors.dashboardTextColor === "#000000" ? "#64748b" : "#94a3b8");
+  root.style.setProperty("--foreground", resolvedDashboardTextColor);
+  root.style.setProperty("--card-foreground", resolvedDashboardTextColor);
+  root.style.setProperty("--muted-foreground", resolvedDashboardTextColor === "#000000" ? "#64748b" : "#94a3b8");
   
   // Also update Tailwind --card variable to match TaskBlaster card background
   // Convert hex to HSL format for Tailwind
@@ -424,7 +459,8 @@ const applyThemeToDOM = (theme: UITheme) => {
       b = parseInt(hex.slice(5, 7), 16) / 255;
     }
     const max = Math.max(r, g, b), min = Math.min(r, g, b);
-    let h = 0, s = 0, l = (max + min) / 2;
+    let h = 0, s = 0;
+    const l = (max + min) / 2;
     if (max !== min) {
       const d = max - min;
       s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
@@ -436,7 +472,9 @@ const applyThemeToDOM = (theme: UITheme) => {
     }
     return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
   };
-  root.style.setProperty("--card", hexToHSL(panelColors.dashboardCardBackground));
+  if (shouldApplyPanelColors) {
+    root.style.setProperty("--card", hexToHSL(panelColors.dashboardCardBackground));
+  }
 
   // Apply glow intensity
   root.style.setProperty("--tb-glow-intensity", `${theme.glowIntensity}%`);
@@ -468,8 +506,9 @@ const applyThemeToDOM = (theme: UITheme) => {
   root.setAttribute("data-tb-hover-effects", theme.animationSettings.hoverEffects ? "1" : "0");
   root.setAttribute("data-tb-click-effects", theme.animationSettings.clickEffects ? "1" : "0");
 
-  // Apply theme class to body
-  document.body.className = `tb-theme-${theme.theme}`;
+  // Apply theme class to body (preserve other body classes)
+  document.body.className = document.body.className.replace(/\btb-theme-[a-z-]+\b/g, "").trim();
+  document.body.classList.add(`tb-theme-${theme.theme}`);
 
   console.log("Theme applied. Body class:", document.body.className);
 };
@@ -510,22 +549,22 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       try {
         // Use appropriate API fetch based on auth type
         const auth = getAuthState();
-        let apiFetchFn;
+        let apiFetchFn: ApiFetch;
         if (auth.isAuthenticated && (auth.role === "admin" || auth.role === "super-admin")) {
-          apiFetchFn = adminApiFetch;
+          apiFetchFn = adminApiFetch as unknown as ApiFetch;
         } else if (auth.isAuthenticated && auth.role === "manager") {
-          apiFetchFn = apiFetch;
+          apiFetchFn = apiFetch as unknown as ApiFetch;
         } else {
-          apiFetchFn = employeeApiFetch;
+          apiFetchFn = employeeApiFetch as unknown as ApiFetch;
         }
         const data = await apiFetchFn<{ item: UITheme }>("/api/ui-preferences");
         if (data.item) {
           const merged: UITheme = {
             ...defaultTheme,
             ...data.item,
-            customColors: { ...defaultTheme.customColors, ...(data.item as any)?.customColors },
-            panelColors: { ...defaultTheme.panelColors, ...(data.item as any)?.panelColors },
-            animationSettings: { ...defaultTheme.animationSettings, ...(data.item as any)?.animationSettings },
+            customColors: { ...defaultTheme.customColors, ...(data.item.customColors || {}) },
+            panelColors: { ...defaultTheme.panelColors, ...(data.item.panelColors || {}) },
+            animationSettings: { ...defaultTheme.animationSettings, ...(data.item.animationSettings || {}) },
           };
           setUITheme(merged);
           localStorage.setItem(getThemeStorageKey(), JSON.stringify(merged));
@@ -583,22 +622,22 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const loadFromBackend = async () => {
     try {
       const auth = getAuthState();
-      let apiFetchFn;
+      let apiFetchFn: ApiFetch;
       if (auth.isAuthenticated && (auth.role === "admin" || auth.role === "super-admin")) {
-        apiFetchFn = adminApiFetch;
+        apiFetchFn = adminApiFetch as unknown as ApiFetch;
       } else if (auth.isAuthenticated && auth.role === "manager") {
-        apiFetchFn = apiFetch;
+        apiFetchFn = apiFetch as unknown as ApiFetch;
       } else {
-        apiFetchFn = employeeApiFetch;
+        apiFetchFn = employeeApiFetch as unknown as ApiFetch;
       }
       const data = await apiFetchFn<{ item: UITheme }>("/api/ui-preferences");
       if (data.item) {
         const merged: UITheme = {
           ...defaultTheme,
           ...data.item,
-          customColors: { ...defaultTheme.customColors, ...(data.item as any)?.customColors },
-          panelColors: { ...defaultTheme.panelColors, ...(data.item as any)?.panelColors },
-          animationSettings: { ...defaultTheme.animationSettings, ...(data.item as any)?.animationSettings },
+          customColors: { ...defaultTheme.customColors, ...(data.item.customColors || {}) },
+          panelColors: { ...defaultTheme.panelColors, ...(data.item.panelColors || {}) },
+          animationSettings: { ...defaultTheme.animationSettings, ...(data.item.animationSettings || {}) },
         };
         // Ensure these properties are preserved from the loaded theme
         if (data.item.cardStyle) merged.cardStyle = data.item.cardStyle;

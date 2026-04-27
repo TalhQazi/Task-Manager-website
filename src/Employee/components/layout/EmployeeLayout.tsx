@@ -5,32 +5,54 @@ import { EmployeeHeader } from "./EmployeeHeader";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { TaskBlaster } from "@/components/shared/TaskBlaster";
+import { employeeApiFetch } from "@/Employee/lib/api";
+import { applyFullTheme, themeDefaults } from "@/Employee/lib/theme";
 
 export function EmployeeLayout() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const headerHeight = 300;
   const [dashboardBg, setDashboardBg] = useState("var(--tb-dashboard-bg, #e6f0ff)");
 
+  // Apply user UI preferences on load - same as AdminLayout (full applyThemeToDOM)
+  useEffect(() => {
+    employeeApiFetch<{item: { theme?: string; cardStyle?: string; customColors?: { textColor?: string } }}>("/api/ui-preferences").then(res => {
+      const theme = res?.item?.theme || "dark-minimal";
+      const cardStyle = res?.item?.cardStyle || "glass";
+      const textColor = res?.item?.customColors?.textColor;
+      applyFullTheme(theme, textColor || themeDefaults[theme], cardStyle);
+    }).catch(() => {
+      // Fallback to dark-minimal
+      applyFullTheme("dark-minimal");
+    });
+  }, []);
+
   // Update dashboard background when CSS variable changes
   useEffect(() => {
     const updateDashboardBg = () => {
-      const bg = getComputedStyle(document.documentElement).getPropertyValue("--tb-dashboard-bg").trim() || "#e6f0ff";
+      // Get from body since theme CSS variables are scoped to body[class*="tb-theme-"]
+      const bg = getComputedStyle(document.body).getPropertyValue("--tb-dashboard-bg").trim() || "#e6f0ff";
       setDashboardBg(bg);
       console.log("Dashboard background from CSS variable:", bg);
     };
     
     updateDashboardBg();
     
-    // Listen for theme changes
-    const observer = new MutationObserver(updateDashboardBg);
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ["style"] });
+    // Listen for theme changes on body (theme class changes)
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.attributeName === "class") {
+          updateDashboardBg();
+        }
+      });
+    });
+    observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
     
     return () => observer.disconnect();
   }, []);
 
   return (
     <div
-      className="min-h-screen"
+      className="min-h-screen tb-employee-panel"
       style={{ paddingTop: `${headerHeight}px`, background: dashboardBg }}
     >
       <EmployeeHeader onMenuClick={() => setMobileSidebarOpen(true)} />
