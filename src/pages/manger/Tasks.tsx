@@ -792,11 +792,9 @@ export default function Tasks() {
       const projectTasks: Task[] = Array.isArray(project.tasks) ? project.tasks : [];
 
       setSelectedProject({ ...project, tasks: projectTasks });
-      setTasks(projectTasks);
     } catch (err) {
       toast({ title: "Failed to load project", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });
       setSelectedProject(null);
-      setTasks([]);
     } finally {
       setIsLoadingProject(false);
     }
@@ -1708,7 +1706,7 @@ export default function Tasks() {
 
   // When a project is selected, tasks come from that project (client-side filtered)
   // Otherwise tasks come from the server-paginated query
-  const sourceTasks = selectedProject ? selectedProject.tasks : tasks;
+  const sourceTasks = selectedProject ? selectedProject.tasks : (tasksQuery.data?.items || []);
 
   const filteredTasks = useMemo(() => {
     if (!selectedProject) return sourceTasks; // already filtered server-side
@@ -1751,7 +1749,13 @@ export default function Tasks() {
         <div className="flex flex-wrap gap-2">
           {selectedProject ? (
             <>
-              <Button variant="outline" onClick={() => setSelectedProject(null)}>
+              <Button variant="outline" onClick={() => {
+                setSelectedProject(null);
+                setSearchQuery("");
+                setStatusFilter("all");
+                setPriorityFilter("all");
+                setTaskPage(1);
+              }}>
                 Back to Projects
               </Button>
               <Button className="gap-2" onClick={() => setIsCreateTaskOpen(true)}>
@@ -2053,11 +2057,11 @@ export default function Tasks() {
               <p className="text-muted-foreground">Loading tasks...</p>
             ) : tasksQuery.isError ? (
               <p className="text-destructive">Failed to load tasks</p>
-            ) : tasks.filter(t => !t.projectId).length === 0 ? (
+            ) : paginatedTasks.length === 0 ? (
               <p className="text-muted-foreground">No standalone tasks found. Create one to begin.</p>
             ) : (
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {tasks.filter(t => !t.projectId).map((task, index) => {
+                {paginatedTasks.map((task, index) => {
                   const letterIndex = String.fromCharCode(65 + (index % 26));
                   const displayNumber = (taskPage - 1) * PAGE_SIZE + index + 1;
                   const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0

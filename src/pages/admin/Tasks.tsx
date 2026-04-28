@@ -709,13 +709,11 @@ export default function Tasks() {
       setProjectViewName(project.name);
       setProjectViewDesc(project.description || "");
       setProjectViewEdited(false);
-      setTasks(projectTasks);
     } catch (err) {
       toast({ title: "Failed to load project", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });
       if (!partialProject) {
         setSelectedProject(null);
       }
-      setTasks([]);
     } finally {
       setIsLoadingProject(false);
     }
@@ -1811,7 +1809,7 @@ export default function Tasks() {
     });
   };
 
-  const sourceTasks = selectedProject ? selectedProject.tasks : tasks;
+  const sourceTasks = selectedProject ? selectedProject.tasks : (tasksQuery.data?.items || []);
 
   const filteredTasks = useMemo(() => {
     return sourceTasks.filter((task) => {
@@ -1860,14 +1858,14 @@ export default function Tasks() {
   }, [projects, searchQuery, statusFilter]);
 
   const filteredStandaloneTasks = useMemo(() => {
-    const standalone = tasks.filter((t) => !t.projectId);
+    const standalone = tasksQuery.data?.items || [];
     if (!searchQuery.trim()) return standalone;
     const q = searchQuery.toLowerCase();
     return standalone.filter((task) => {
       const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
       return task.title.toLowerCase().includes(q) || assigneesText.toLowerCase().includes(q);
     });
-  }, [tasks, searchQuery]);
+  }, [tasksQuery.data, searchQuery]);
 
   // Project & Task counts from server data
   const projectTotalPages = projectsQuery.data?.totalPages || 1;
@@ -1901,7 +1899,14 @@ export default function Tasks() {
         <div className="flex flex-wrap gap-2 sm:gap-3">
           {selectedProject ? (
             <>
-              <Button variant="outline" size="sm" onClick={() => { setSelectedProject(null); setSearchQuery(""); }} className="h-9 text-sm">
+              <Button variant="outline" size="sm" onClick={() => { 
+                setSelectedProject(null); 
+                setSearchQuery(""); 
+                // Explicitly clear filters if needed
+                setStatusFilter("all");
+                setPriorityFilter("all");
+                setTaskPage(1);
+              }} className="h-9 text-sm">
                 Back to Projects
               </Button>
               <Button size="sm" className="gap-2 h-9 text-sm" onClick={() => {
