@@ -12,14 +12,28 @@ import {
 } from "@/components/manger/ui/table";
 import { Search, Bell } from "lucide-react";
 import { apiFetch } from "@/lib/manger/api";
+import { useNavigate } from "react-router-dom";
 
 interface NotificationItem {
   id: string;
   title: string;
   content: string;
   message?: string;
-  audience: "all" | "employees" | "managers";
+  audience: string;
   createdAt: string;
+  _id?: string;
+  sender?: string;
+  recipient?: string;
+  type?: string;
+  status?: string;
+  readBy?: string[];
+  assignees?: string[];
+  meta?: {
+    resourceType?: string;
+    resourceId?: string;
+    link?: string;
+  };
+  timestamp?: string;
 }
 
 function formatUSA(dateStr: string) {
@@ -40,10 +54,41 @@ function formatUSA(dateStr: string) {
 }
 
 export default function Notifications() {
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [items, setItems] = useState<NotificationItem[]>([]);
+
+  const resolveNotificationLink = (n: NotificationItem): string => {
+    const direct = String(n.meta?.link || "").trim();
+    if (direct) return direct;
+
+    const resourceType = String(n.meta?.resourceType || "").toLowerCase();
+    const resourceId = String(n.meta?.resourceId || "").trim();
+
+    if (resourceType.includes("task") && resourceId) return `/manager/tasks?view=${encodeURIComponent(resourceId)}`;
+    if (resourceType.includes("project") && resourceId) return `/manager/tasks?project=${encodeURIComponent(resourceId)}`;
+    if (resourceType.includes("time") && resourceId) return `/manager/time-tracking?view=${encodeURIComponent(resourceId)}`;
+
+    return "/manager/notifications";
+  };
+
+  const markRead = async (id: string) => {
+    try {
+      await apiFetch(`/api/notifications/${encodeURIComponent(id)}/mark-read`, { method: "POST" });
+    } catch {
+      // ignore
+    }
+  };
+
+  const onOpenNotification = async (n: NotificationItem) => {
+    const id = String(n.id || n._id || "").trim();
+    if (id) {
+      void markRead(id);
+    }
+    navigate(resolveNotificationLink(n));
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -51,7 +96,7 @@ export default function Notifications() {
       try {
         setLoading(true);
         setApiError(null);
-        const res = await apiFetch<{ items?: NotificationItem[] } | NotificationItem[]>("/api/notifications");
+        const res = await apiFetch<{ items?: NotificationItem[] } | NotificationItem[]>("/api/notifications?type=broadcast");
         const notificationsList = Array.isArray(res) ? res : Array.isArray(res?.items) ? res.items : [];
         if (!mounted) return;
         setItems(notificationsList);
@@ -147,7 +192,16 @@ export default function Notifications() {
                 {filteredNotifications.map((n) => {
                   const { date, time } = formatUSA(n.createdAt);
                   return (
-                    <div key={n.id} className="bg-white rounded-lg border p-4 space-y-3">
+                    <div
+                      key={n.id}
+                      className="bg-white rounded-lg border p-4 space-y-3 cursor-pointer"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => void onOpenNotification(n)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") void onOpenNotification(n);
+                      }}
+                    >
                       {/* Header with Icon and Title */}
                       <div className="flex items-start gap-3">
                         <div className="h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
@@ -205,7 +259,16 @@ export default function Notifications() {
                     {filteredNotifications.map((n) => {
                       const { date, time } = formatUSA(n.createdAt);
                       return (
-                        <TableRow key={n.id} className="hover:bg-muted/30">
+                        <TableRow
+                          key={n.id}
+                          className="hover:bg-muted/30 cursor-pointer"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => void onOpenNotification(n)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") void onOpenNotification(n);
+                          }}
+                        >
                           <TableCell>
                             <div className="space-y-1">
                               <p className="font-medium text-sm md:text-base">{n.title}</p>

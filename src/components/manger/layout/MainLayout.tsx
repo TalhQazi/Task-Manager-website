@@ -156,7 +156,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   const notificationsQuery = useQuery({
     queryKey: ["manager-notifications"],
     queryFn: async () => {
-      const res = await apiFetch<{ items?: MessageApi[] } | MessageApi[]>("/api/messages?type=broadcast");
+      const res = await apiFetch<{ items?: MessageApi[] } | MessageApi[]>("/api/notifications?type=broadcast");
       const items = Array.isArray(res) ? res : Array.isArray(res?.items) ? res.items : [];
       return items
         .map((m: any) => ({
@@ -181,7 +181,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   const notifications = (notificationsQuery.data || [])
     .slice()
-    .sort((a, b) => String(b.timestamp || "").localeCompare(String(a.timestamp || "")))
+    .sort((a, b) => String(b.timestamp || b.createdAt || "").localeCompare(String(a.timestamp || a.createdAt || "")))
     .slice(0, 4);
 
   const unreadCount = (notificationsQuery.data || []).filter((n) => n.status !== "read").length;
@@ -266,7 +266,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   const markRead = async (id: string) => {
     try {
-      await apiFetch(`/api/messages/${id}/mark-read`, { method: "POST" });
+      await apiFetch(`/api/notifications/${id}/mark-read`, { method: "POST" });
       await notificationsQuery.refetch();
     } catch {
       // ignore errors
@@ -414,12 +414,34 @@ export function MainLayout({ children }: MainLayoutProps) {
                     <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
                       <DropdownMenuLabel className="text-xs">Notifications</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      {notificationsQuery.data?.length === 0 ? (
+                      {notificationsQuery.isLoading ? (
+                        <div className="p-4 text-center text-xs text-muted-foreground">Loading...</div>
+                      ) : (notificationsQuery.data || []).length === 0 ? (
                         <div className="p-4 text-center text-xs text-muted-foreground">No notifications</div>
                       ) : (
-                        notificationsQuery.data?.slice(0, 5).map(n => (
-                          <DropdownMenuItem key={n.id} className="text-xs">{n.content}</DropdownMenuItem>
+                        (notificationsQuery.data || []).slice(0, 5).map((n) => (
+                          <DropdownMenuItem
+                            key={n.id}
+                            className="text-xs"
+                            onClick={() => {
+                              void markRead(String(n.id));
+                              navigate(resolveNotificationLink(n));
+                            }}
+                          >
+                            {n.content}
+                          </DropdownMenuItem>
                         ))
+                      )}
+                      {(notificationsQuery.data || []).length > 0 && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-xs text-center justify-center"
+                            onClick={() => navigate("/manager/notifications")}
+                          >
+                            View All Notifications
+                          </DropdownMenuItem>
+                        </>
                       )}
                     </DropdownMenuContent>
                   </DropdownMenu>
