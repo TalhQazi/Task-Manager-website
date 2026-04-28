@@ -123,8 +123,8 @@ const normalizeDoNotHireItem = (item: BackendDoNotHire, employeesById: Map<strin
   return {
     id,
     name,
-    phone: String(item.phone || "").trim() || undefined,
-    email: String(item.email || "").trim() || undefined,
+    phone: (item.phone && item.phone !== "null") ? String(item.phone).trim() : undefined,
+    email: (item.email && item.email !== "null") ? String(item.email).trim() : undefined,
     employeeId,
     reason: String(item.reason || ""),
     incidentNotes: String(item.incidentNotes || item.notes || ""),
