@@ -205,7 +205,7 @@ export function SocialMediaAccounts() {
 
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium">Platform</label>
+              <label className="text-sm font-medium">Platform <span className="text-red-500">*</span></label>
               <select
                 value={formData.platform || ""}
                 onChange={(e) =>
@@ -249,7 +249,7 @@ export function SocialMediaAccounts() {
             </div>
 
             <div>
-              <label className="text-sm font-medium">Username</label>
+              <label className="text-sm font-medium">Username <span className="text-red-500">*</span></label>
               <input
                 type="text"
                 value={formData.username || ""}

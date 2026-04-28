@@ -89,6 +89,7 @@ import {
   MessageSquare,
   Download,
   Maximize2,
+  Smile,
 } from "lucide-react";
 import { cn } from "@/lib/admin/utils";
 import { apiFetch, downloadTaskAttachment, toProxiedUrl, downloadViaUrl } from "@/lib/admin/apiClient";
@@ -355,6 +356,13 @@ type TaskComment = {
     mimeType: string;
     size: number;
     uploadedAt?: string;
+  }>;
+  reactions?: Array<{
+    emoji: string;
+    userId: string;
+    username: string;
+    fullName?: string;
+    createdAt?: string;
   }>;
 };
 
@@ -1408,14 +1416,50 @@ export default function Tasks() {
       };
 
       socket.on("user-typing", handleTyping);
+      
+      const handleReactionUpdated = ({ commentId, reactions }: { commentId: string; reactions: any[] }) => {
+        setComments((prev) => prev.map(c => c.id === commentId ? { ...c, reactions } : c));
+      };
+
+      socket.on("comment-reaction-updated", handleReactionUpdated);
 
       return () => {
         socket.off("new-comment", handleNewComment);
         socket.off("user-typing", handleTyping);
+        socket.off("comment-reaction-updated", handleReactionUpdated);
         leaveTask(selectedTask.id);
       };
     }
   }, [isViewOpen, selectedTask?.id, socket, joinTask, leaveTask]);
+
+  const toggleReaction = async (commentId: string, emoji: string) => {
+    if (!selectedTask) return;
+    try {
+      // Optimistic update
+      setComments((prev) => 
+        prev.map(c => {
+          if (c.id !== commentId) return c;
+          const auth = getAuthState();
+          const userId = String(auth.sub || auth.id || "");
+          const existing = (c.reactions || []).find(r => r.emoji === emoji && r.userId === userId);
+          let newReactions;
+          if (existing) {
+            newReactions = (c.reactions || []).filter(r => !(r.emoji === emoji && r.userId === userId));
+          } else {
+            newReactions = [...(c.reactions || []), { emoji, userId, username: auth.username || "", fullName: "" }];
+          }
+          return { ...c, reactions: newReactions };
+        })
+      );
+
+      await apiFetch(`/api/tasks/${encodeURIComponent(selectedTask.id)}/comments/${encodeURIComponent(commentId)}/reactions`, {
+        method: "POST",
+        body: JSON.stringify({ emoji }),
+      });
+    } catch (e) {
+      console.error("Failed to toggle reaction:", e);
+    }
+  };
 
   const archiveComment = async (commentId: string) => {
     if (!selectedTask) return;
@@ -2788,6 +2832,30 @@ export default function Tasks() {
                                       "flex flex-col group/bubble relative min-w-0",
                                       isMe ? "items-end" : "items-start"
                                     )}>
+                                      {/* Reaction Trigger */}
+                                      <div className={cn(
+                                        "absolute -top-4 opacity-0 group-hover/bubble:opacity-100 transition-opacity flex items-center gap-1 bg-background border border-border shadow-sm rounded-full px-1.5 py-0.5 z-20",
+                                        isMe ? "right-0" : "left-0"
+                                      )}>
+                                        <Popover>
+                                          <PopoverTrigger asChild>
+                                            <button className="p-1 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground">
+                                              <Smile className="w-3.5 h-3.5" />
+                                            </button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-fit p-1.5 grid grid-cols-4 gap-1" align={isMe ? "end" : "start"}>
+                                            {["👍", "❤️", "🔥", "🚀", "👏", "🎉", "😮", "🙏"].map(emoji => (
+                                              <button
+                                                key={emoji}
+                                                onClick={() => { toggleReaction(c.id, emoji); }}
+                                                className="p-1.5 hover:bg-muted rounded text-lg transition-transform hover:scale-125"
+                                              >
+                                                {emoji}
+                                              </button>
+                                            ))}
+                                          </PopoverContent>
+                                        </Popover>
+                                      </div>
                                       <div className={cn(
                                         "chat-bubble",
                                         isMe ? "chat-bubble-me" : "chat-bubble-others"
@@ -2817,7 +2885,38 @@ export default function Tasks() {
                                           </div>
                                         )}
                                       </div>
-                                      
+
+                                      {/* Reactions Display */}
+                                      {c.reactions && c.reactions.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mt-1 px-1">
+                                          {Object.entries(
+                                            c.reactions.reduce((acc, r) => {
+                                              acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+                                              return acc;
+                                            }, {} as Record<string, number>)
+                                          ).map(([emoji, count]) => {
+                                            const auth = getAuthState();
+                                            const userId = String(auth.sub || auth.id || "");
+                                            const hasReacted = c.reactions?.some(r => r.emoji === emoji && r.userId === userId);
+                                            return (
+                                              <button
+                                                key={emoji}
+                                                onClick={() => toggleReaction(c.id, emoji)}
+                                                className={cn(
+                                                  "flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] border transition-all",
+                                                  hasReacted 
+                                                    ? "bg-primary/20 border-primary/40 text-primary" 
+                                                    : "bg-muted/30 border-border/40 text-muted-foreground hover:bg-muted/50"
+                                                )}
+                                              >
+                                                <span>{emoji}</span>
+                                                <span className="font-bold">{count}</span>
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+
                                       <div className={cn(
                                         "chat-timestamp",
                                         isMe ? "text-right mr-1" : "text-left ml-1"

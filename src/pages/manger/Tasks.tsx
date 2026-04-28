@@ -90,6 +90,7 @@ import {
   PlusCircle,
   TrendingUp,
   Maximize2,
+  Smile,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch, downloadTaskAttachment, toProxiedUrl, getTopContributors, downloadViaUrl, updateComment, deleteComment } from "@/lib/manger/api";
@@ -183,6 +184,13 @@ type TaskComment = {
     mimeType: string;
     size: number;
     uploadedAt?: string;
+  }>;
+  reactions?: Array<{
+    emoji: string;
+    userId: string;
+    username: string;
+    fullName?: string;
+    createdAt?: string;
   }>;
   createdAt: string;
 };
@@ -754,9 +762,16 @@ export default function Tasks() {
 
     socket.on("typing", handleTyping);
 
+    const handleReactionUpdated = ({ commentId, reactions }: { commentId: string; reactions: any[] }) => {
+      setComments((prev) => prev.map(c => c.id === commentId ? { ...c, reactions } : c));
+    };
+
+    socket.on("comment-reaction-updated", handleReactionUpdated);
+
     return () => {
       socket.off("new-comment", handleNewComment);
       socket.off("typing", handleTyping);
+      socket.off("comment-reaction-updated", handleReactionUpdated);
       leaveTask(selectedTask.id);
     };
   }, [socket, selectedTask?.id]);
@@ -1318,6 +1333,35 @@ export default function Tasks() {
       setDeletingCommentId(null);
     } catch (e) {
       setCommentError(e instanceof Error ? e.message : "Failed to delete comment");
+    }
+  };
+
+  const toggleReaction = async (commentId: string, emoji: string) => {
+    if (!selectedTask) return;
+    try {
+      // Optimistic update
+      setComments((prev) => 
+        prev.map(c => {
+          if (c.id !== commentId) return c;
+          const auth = getAuthState();
+          const userId = String(auth.sub || auth.id || "");
+          const existing = (c.reactions || []).find(r => r.emoji === emoji && r.userId === userId);
+          let newReactions;
+          if (existing) {
+            newReactions = (c.reactions || []).filter(r => !(r.emoji === emoji && r.userId === userId));
+          } else {
+            newReactions = [...(c.reactions || []), { emoji, userId, username: auth.username || "", fullName: "" }];
+          }
+          return { ...c, reactions: newReactions };
+        })
+      );
+
+      await apiFetch(`/api/tasks/${encodeURIComponent(selectedTask.id)}/comments/${encodeURIComponent(commentId)}/reactions`, {
+        method: "POST",
+        body: JSON.stringify({ emoji }),
+      });
+    } catch (e) {
+      console.error("Failed to toggle reaction:", e);
     }
   };
 
