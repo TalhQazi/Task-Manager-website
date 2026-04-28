@@ -577,6 +577,8 @@ export default function Tasks() {
   const [isCreating, setIsCreating] = useState(false);
   const [editTaskFile, setEditTaskFile] = useState<File | null>(null);
   const [editTaskFilePreview, setEditTaskFilePreview] = useState<string | null>(null);
+  const [editTaskFiles, setEditTaskFiles] = useState<File[]>([]);
+  const [editTaskFilePreviews, setEditTaskFilePreviews] = useState<string[]>([]);
   // Project edit state
   const [isEditProjectOpen, setIsEditProjectOpen] = useState(false);
   const [isDeleteProjectOpen, setIsDeleteProjectOpen] = useState(false);
@@ -1460,6 +1462,8 @@ export default function Tasks() {
     setEditSelectedAssignees(task.assignees || []);
     setEditTaskFile(null);
     setEditTaskFilePreview(task.attachment?.url || null);
+    setEditTaskFiles([]);
+    setEditTaskFilePreviews(task.attachments?.map(a => a.url) || (task.attachment?.url ? [task.attachment.url] : []));
     editForm.reset({
       title: task.title,
       description: task.description,
@@ -1607,26 +1611,28 @@ export default function Tasks() {
     if (!selectedTask) return;
     const previousStatus = selectedTask.status;
     try {
-      let attachment = undefined;
-      if (editTaskFile) {
-        const base64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(editTaskFile);
-        });
-        attachment = {
-          fileName: editTaskFile.name,
-          url: base64,
-          mimeType: editTaskFile.type,
-          size: editTaskFile.size
-        };
-      } else if (editTaskFilePreview === null) {
-        attachment = { fileName: "", url: "", mimeType: "", size: 0 };
+      // Handle multiple attachments
+      const newAttachments = editTaskFiles.length > 0 ? await filesToAttachments(editTaskFiles) : [];
+      const existingAttachments = (selectedTask.attachments || [])
+        .filter(a => editTaskFilePreviews.includes(a.url));
+
+      // Support legacy single attachment
+      if (selectedTask.attachment?.url && editTaskFilePreviews.includes(selectedTask.attachment.url)) {
+        if (!existingAttachments.some(a => a.url === selectedTask.attachment?.url)) {
+          existingAttachments.push(selectedTask.attachment);
+        }
       }
 
+      const combinedAttachments = [...existingAttachments, ...newAttachments];
       const payload: Partial<Task> = { ...values, assignees: editSelectedAssignees };
-      if (attachment !== undefined) {
-        (payload as any).attachment = attachment;
+      (payload as any).attachments = combinedAttachments;
+
+      if (combinedAttachments.length > 0) {
+        (payload as any).attachment = combinedAttachments[0];
+        (payload as any).attachmentFileName = combinedAttachments[0].fileName;
+      } else {
+        (payload as any).attachment = { fileName: "", url: "", mimeType: "", size: 0 };
+        (payload as any).attachmentFileName = "";
       }
 
       updateTaskMutation.mutate(
@@ -1637,6 +1643,8 @@ export default function Tasks() {
             setEditSelectedAssignees([]);
             setEditTaskFile(null);
             setEditTaskFilePreview(null);
+            setEditTaskFiles([]);
+            setEditTaskFilePreviews([]);
             // Update the selected task so the view modal shows fresh data immediately
             setSelectedTask(updatedTask);
             toast({
@@ -3348,42 +3356,81 @@ export default function Tasks() {
                 />
 
                 <div className="sm:col-span-2 space-y-2">
-                  <label className="text-sm font-medium">Task Attachment</label>
-                  <div className="flex flex-col gap-3 p-4 border border-dashed rounded-lg bg-muted/30">
-                    {editTaskFilePreview ? (
-                      <div className="relative w-full h-40 rounded-md overflow-hidden border">
-                        <img src={editTaskFilePreview} alt="Preview" className="w-full h-full object-cover" />
-                        <Button 
-                          type="button" 
-                          variant="destructive" 
-                          size="icon" 
-                          className="absolute top-2 right-2 h-7 w-7 rounded-full shadow-lg"
-                          onClick={() => { setEditTaskFile(null); setEditTaskFilePreview(null); }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-border/60 rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => document.getElementById('edit-task-attachment-input-manager')?.click()}>
-                        <Paperclip className="h-8 w-8 mb-2 opacity-50" />
-                        <span className="text-sm">Click to upload or drag image</span>
-                        <span className="text-[10px] opacity-70">PNG, JPG, PDF (Max 10MB)</span>
+                  <label className="text-sm font-medium">Task Attachments</label>
+                  <div className="space-y-3">
+                    <button 
+                      type="button" 
+                      className="py-3 px-4 border-2 border-dashed border-border/60 rounded-lg text-sm text-muted-foreground hover:bg-muted/50 transition-all w-full flex flex-col items-center justify-center gap-2" 
+                      onClick={() => { const el = document.getElementById("edit-task-attachments-input-manager") as HTMLInputElement | null; el?.click(); }}
+                    >
+                      <PlusCircle className="w-6 h-6 opacity-50" />
+                      <span>Add Multiple Files / Images</span>
+                    </button>
+                    <input 
+                      id="edit-task-attachments-input-manager" 
+                      type="file" 
+                      accept="*" 
+                      multiple 
+                      className="hidden" 
+                      onChange={(e) => { 
+                        const files = Array.from(e.target.files ?? []); 
+                        setEditTaskFiles((prev) => [...prev, ...files]); 
+                        files.forEach((file) => { 
+                          const reader = new FileReader(); 
+                          reader.onload = () => { 
+                            const result = typeof reader.result === "string" ? reader.result : ""; 
+                            setEditTaskFilePreviews((prev) => [...prev, result]); 
+                          }; 
+                          if (file.type.startsWith("image/")) { 
+                            reader.readAsDataURL(file); 
+                          } else { 
+                            setEditTaskFilePreviews((prev) => [...prev, ""]); 
+                          } 
+                        }); 
+                      }} 
+                    />
+                    {editTaskFilePreviews.length > 0 && (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[250px] overflow-y-auto border border-border/40 rounded-xl p-3 bg-muted/10">
+                        {editTaskFilePreviews.map((url, idx) => {
+                          const isNewFile = idx >= (editTaskFilePreviews.length - editTaskFiles.length);
+                          const fileName = isNewFile 
+                            ? editTaskFiles[idx - (editTaskFilePreviews.length - editTaskFiles.length)].name 
+                            : (selectedTask?.attachments?.[idx]?.fileName || selectedTask?.attachment?.fileName || "Existing File");
+                          
+                          const isImage = url.startsWith("data:image/") || 
+                                         url.match(/\.(jpg|jpeg|png|gif|webp|svg)/i) ||
+                                         (idx < (selectedTask?.attachments?.length || 0) && selectedTask?.attachments?.[idx]?.mimeType?.startsWith("image/")) ||
+                                         (idx === 0 && selectedTask?.attachment?.mimeType?.startsWith("image/"));
+
+                          return (
+                            <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 aspect-square bg-background shadow-sm hover:shadow-md transition-all">
+                              {isImage && url ? (
+                                <img src={url} alt="Preview" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex flex-col items-center justify-center p-3 text-center bg-muted/5">
+                                  <FileText className="w-10 h-10 text-muted-foreground/30 mb-2" />
+                                  <span className="text-[11px] text-muted-foreground font-medium truncate w-full px-1">{fileName}</span>
+                                </div>
+                              )}
+                              <button 
+                                type="button" 
+                                onClick={() => { 
+                                  const isNew = idx >= (editTaskFilePreviews.length - editTaskFiles.length);
+                                  if (isNew) {
+                                    const newIdx = idx - (editTaskFilePreviews.length - editTaskFiles.length);
+                                    setEditTaskFiles(prev => prev.filter((_, i) => i !== newIdx));
+                                  }
+                                  setEditTaskFilePreviews((prev) => prev.filter((_, i) => i !== idx)); 
+                                }} 
+                                className="absolute top-1.5 right-1.5 bg-destructive text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-lg"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
-                    <input 
-                      id="edit-task-attachment-input-manager"
-                      type="file" 
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          setEditTaskFile(file);
-                          const reader = new FileReader();
-                          reader.onloadend = () => setEditTaskFilePreview(reader.result as string);
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                    />
                   </div>
                 </div>
               </div>

@@ -554,6 +554,8 @@ export default function Tasks() {
   const [editSelectedAssignees, setEditSelectedAssignees] = useState<string[]>([]);
   const [editTaskFile, setEditTaskFile] = useState<File | null>(null);
   const [editTaskFilePreview, setEditTaskFilePreview] = useState<string | null>(null);
+  const [editTaskFiles, setEditTaskFiles] = useState<File[]>([]);
+  const [editTaskFilePreviews, setEditTaskFilePreviews] = useState<string[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1560,6 +1562,8 @@ export default function Tasks() {
     setIsEditOpen(true);
     setEditTaskFile(null);
     setEditTaskFilePreview(task.attachment?.url || null);
+    setEditTaskFiles([]);
+    setEditTaskFilePreviews(task.attachments?.map(a => a.url) || (task.attachment?.url ? [task.attachment.url] : []));
   };
 
   const openDelete = (task: Task) => {
@@ -1721,24 +1725,28 @@ export default function Tasks() {
 
     const payload: Partial<Task> = { ...values, assignees: editSelectedAssignees };
 
-    if (editTaskFile) {
-      try {
-        const base64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(editTaskFile);
-        });
-        payload.attachment = {
-          fileName: editTaskFile.name,
-          url: base64,
-          mimeType: editTaskFile.type,
-          size: editTaskFile.size
-        };
-      } catch (err) {
-        console.error("Failed to process task attachment update:", err);
+    // Handle multiple attachments
+    const newAttachments = editTaskFiles.length > 0 ? await filesToAttachments(editTaskFiles) : [];
+    const existingAttachments = (selectedTask.attachments || [])
+      .filter(a => editTaskFilePreviews.includes(a.url));
+
+    // Support legacy single attachment
+    if (selectedTask.attachment?.url && editTaskFilePreviews.includes(selectedTask.attachment.url)) {
+      if (!existingAttachments.some(a => a.url === selectedTask.attachment?.url)) {
+        existingAttachments.push(selectedTask.attachment);
       }
-    } else if (editTaskFilePreview === null) {
+    }
+
+    const combinedAttachments = [...existingAttachments, ...newAttachments];
+    payload.attachments = combinedAttachments;
+    
+    // Maintain legacy field for compatibility
+    if (combinedAttachments.length > 0) {
+      payload.attachment = combinedAttachments[0];
+      payload.attachmentFileName = combinedAttachments[0].fileName;
+    } else {
       payload.attachment = { fileName: "", url: "", mimeType: "", size: 0 };
+      payload.attachmentFileName = "";
     }
 
     updateTaskMutation.mutate(
@@ -1748,6 +1756,8 @@ export default function Tasks() {
           setIsEditOpen(false);
           setEditTaskFile(null);
           setEditTaskFilePreview(null);
+          setEditTaskFiles([]);
+          setEditTaskFilePreviews([]);
           setEditSelectedAssignees([]);
           toast({
             title: "Task updated",
@@ -3142,61 +3152,92 @@ export default function Tasks() {
                 <FormField control={editForm.control} name="dueTime" render={({ field }) => (<FormItem><FormLabel>Due Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
               </div>
 
-              {/* Task Attachment Update */}
-              <div className="space-y-3 pt-2">
-                <FormLabel>Task Attachment / Logo</FormLabel>
-                <div className="flex items-center gap-4 p-3 rounded-lg bg-muted/30 border border-dashed border-border">
-                  {editTaskFilePreview ? (
-                    <div className="relative group w-16 h-16 rounded-md overflow-hidden border border-border bg-white">
-                      {editTaskFilePreview.startsWith("data:image/") || 
-                       editTaskFilePreview.match(/\.(jpg|jpeg|png|gif|webp|svg)/i) ||
-                       (selectedTask?.attachment?.mimeType?.startsWith("image/")) ? (
-                        <img src={editTaskFilePreview} alt="Preview" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-primary/5">
-                          <FileText className="w-8 h-8 text-primary/40" />
-                        </div>
-                      )}
-                      <button 
-                        type="button" 
-                        onClick={() => { setEditTaskFile(null); setEditTaskFilePreview(null); }}
-                        className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
-                      >
-                        <Trash2 className="w-4 h-4 text-white" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="w-16 h-16 rounded-md bg-muted/50 flex items-center justify-center text-muted-foreground/30 border border-border">
-                      <Paperclip className="w-6 h-6" />
+              <div className="space-y-1.5 pt-2">
+                <FormLabel>Task Attachments</FormLabel>
+                <div className="space-y-2">
+                  <button 
+                    type="button" 
+                    className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted w-full flex items-center justify-center gap-2" 
+                    onClick={() => { const el = document.getElementById("edit-task-attachments-input") as HTMLInputElement | null; el?.click(); }}
+                  >
+                    <Plus className="w-4 h-4" /> Add Files/Images
+                  </button>
+                  <input 
+                    id="edit-task-attachments-input" 
+                    type="file" 
+                    accept="*" 
+                    multiple 
+                    className="hidden" 
+                    onChange={(e) => { 
+                      const files = Array.from(e.target.files ?? []); 
+                      setEditTaskFiles((prev) => [...prev, ...files]); 
+                      files.forEach((file) => { 
+                        const reader = new FileReader(); 
+                        reader.onload = () => { 
+                          const result = typeof reader.result === "string" ? reader.result : ""; 
+                          setEditTaskFilePreviews((prev) => [...prev, result]); 
+                        }; 
+                        if (file.type.startsWith("image/")) { 
+                          reader.readAsDataURL(file); 
+                        } else { 
+                          // For non-images, we push a special placeholder or empty string
+                          setEditTaskFilePreviews((prev) => [...prev, ""]); 
+                        } 
+                      }); 
+                    }} 
+                  />
+                  {editTaskFilePreviews.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">
+                      {editTaskFilePreviews.map((url, idx) => {
+                        const isNewFile = idx >= (editTaskFilePreviews.length - editTaskFiles.length);
+                        const fileName = isNewFile 
+                          ? editTaskFiles[idx - (editTaskFilePreviews.length - editTaskFiles.length)].name 
+                          : (selectedTask?.attachments?.[idx]?.fileName || selectedTask?.attachment?.fileName || "Existing File");
+                        
+                        const isImage = url.startsWith("data:image/") || 
+                                       url.match(/\.(jpg|jpeg|png|gif|webp|svg)/i) ||
+                                       (idx < (selectedTask?.attachments?.length || 0) && selectedTask?.attachments?.[idx]?.mimeType?.startsWith("image/")) ||
+                                       (idx === 0 && selectedTask?.attachment?.mimeType?.startsWith("image/"));
+
+                        return (
+                          <div key={idx} className="relative group rounded-md overflow-hidden border border-border aspect-square bg-muted/20">
+                            {isImage && url ? (
+                              <img src={url} alt="Preview" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center">
+                                <FileText className="w-8 h-8 text-muted-foreground/40 mb-1" />
+                                <span className="text-[10px] text-muted-foreground truncate w-full px-1">{fileName}</span>
+                              </div>
+                            )}
+                            <button 
+                              type="button" 
+                              onClick={() => { 
+                                const isNew = idx >= (editTaskFilePreviews.length - editTaskFiles.length);
+                                if (isNew) {
+                                  const newIdx = idx - (editTaskFilePreviews.length - editTaskFiles.length);
+                                  setEditTaskFiles(prev => prev.filter((_, i) => i !== newIdx));
+                                }
+                                setEditTaskFilePreviews((prev) => prev.filter((_, i) => i !== idx)); 
+                              }} 
+                              className="absolute top-1 right-1 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs shadow-md"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
-                  
-                  <div className="flex-1">
-                    <p className="text-xs text-muted-foreground mb-2">Update task image or document (Max 16MB)</p>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <Input 
-                        type="file" 
-                        className="h-8 text-xs cursor-pointer flex-1"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            setEditTaskFile(file);
-                            const reader = new FileReader();
-                            reader.onloadend = () => setEditTaskFilePreview(reader.result as string);
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 text-xs bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 border-indigo-500/20"
-                        onClick={() => setIsEditTaskLogoPickerOpen(true)}
-                      >
-                        <FileText className="h-3.5 w-3.5 mr-1" /> Library
-                      </Button>
-                    </div>
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 border-indigo-500/20"
+                      onClick={() => setIsEditTaskLogoPickerOpen(true)}
+                    >
+                      <FileText className="h-3.5 w-3.5 mr-1" /> Pick from Library
+                    </Button>
                   </div>
                 </div>
               </div>
