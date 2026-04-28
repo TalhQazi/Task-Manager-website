@@ -653,27 +653,11 @@ export default function Settings() {
               </div>
 
               <div className="space-y-2">
-                <label className="block text-sm font-medium">Header Height</label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="range"
-                    min={80}
-                    max={300}
-                    value={headerSettings.height}
-                    onChange={(e) => setHeaderSettings(prev => ({ ...prev, height: parseInt(e.target.value) }))}
-                    className="flex-1"
-                  />
-                  <span className="text-sm w-16 text-right">{headerSettings.height}px</span>
-                </div>
-                <p className="text-xs text-muted-foreground">Range: 80px - 300px (default: 144px)</p>
-              </div>
-
-              <div className="space-y-2">
                 <label className="block text-sm font-medium">Preview</label>
                 <div
                   className="w-full rounded-lg overflow-hidden border relative"
                   style={{
-                    height: `${Math.min(headerSettings.height, 120)}px`,
+                    height: `120px`,
                     background: headerSettings.imageConfig.dataUrl
                       ? 'transparent'
                       : `linear-gradient(to right, ${headerSettings.colorConfig.from}, ${headerSettings.colorConfig.via}, ${headerSettings.colorConfig.to})`,
