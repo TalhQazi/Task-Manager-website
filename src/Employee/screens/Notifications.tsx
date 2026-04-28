@@ -16,9 +16,8 @@ import {
   CheckCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { listResource } from "@/lib/manger/api";
-import { markNotificationAsRead, markAllNotificationsAsRead, deleteNotification as deleteNotificationApi } from "../lib/api";
-
+import { markNotificationAsRead, markAllNotificationsAsRead, deleteNotification as deleteNotificationApi, listResource, deleteResource } from "../lib/api";
+import { toast } from "sonner";
 
 
 interface Notification {
@@ -217,7 +216,16 @@ useEffect(() => {
       // Reload notifications to get correct state
       loadNotifications();
     }
+    try {
+      await deleteResource("notifications", id);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      toast.success("Notification deleted");
+    } catch (err) {
+      console.error("Failed to delete notification:", err);
+      toast.error("Failed to delete notification");
+    }
   };
+
 
   const getTypeIcon = (type: string) => {
     switch (type) {

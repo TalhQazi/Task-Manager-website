@@ -47,11 +47,13 @@ export function StatCard({
   return (
     <div
       onClick={onClick}
-      className={cn(
-        "relative rounded-xl border-[2px] border-[#5a5a5a] bg-[#111]",
+      className={cn("relative rounded-xl border-[2px] border-[#5a5a5a] bg-[#111]",
         "shadow-[inset_0_0_20px_rgba(0,0,0,0.8),_0_4px_10px_rgba(0,0,0,0.5)]",
         "transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_15px_rgba(255,255,255,0.2)] cursor-pointer",
-        "overflow-hidden group"
+        "overflow-hidden group",
+        "rounded-xl sm:rounded-2xl p-4 sm:p-5 md:p-6 text-white shadow-soft animate-fade-in relative",
+        "transition-all duration-300 hover:scale-[1.02] hover:shadow-lg cursor-pointer",
+        variantClasses[variant]
       )}
     >
       {/* Dynamic Background Glow */}
@@ -84,6 +86,34 @@ export function StatCard({
           <p className="text-white text-2xl sm:text-3xl font-bold tracking-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
             {value}
           </p>
+          <p className={cn(
+            "text-xs sm:text-sm font-medium opacity-90 truncate",
+            "mb-1 sm:mb-2"
+          )}>
+            {title}
+          </p>
+          
+          <p className={cn(
+            "text-xl sm:text-2xl md:text-3xl font-bold animate-count-up",
+            "leading-tight sm:leading-none",
+            "break-words"
+          )}>
+            {value}
+          </p>
+          
+          {change && (
+            <p
+              className={cn(
+                "text-xs sm:text-sm mt-2 sm:mt-3 flex items-center gap-1",
+                "truncate",
+                changeType === "positive" && "opacity-100",
+                changeType === "negative" && "opacity-100",
+                changeType === "neutral" && "opacity-80"
+              )}
+            >
+              <span className="truncate">{change}</span>
+            </p>
+          )}
         </div>
 
         {/* Right Section - Icon inside metallic badge */}
@@ -104,6 +134,9 @@ export function StatCard({
           />
         </div>
       </div>
+
+      {/* Mobile Touch Feedback - Only visible on active tap */}
+      <div className="absolute inset-0 rounded-xl sm:rounded-2xl bg-white opacity-0 active:opacity-10 transition-opacity pointer-events-none" />
     </div>
   );
 }

@@ -667,6 +667,11 @@ export default function AsanaImport() {
                   {/* Visual Import Progress Chart */}
               {job.status !== "failed" && (
                 <div className="space-y-3">
+                  <h3 className="font-semibold text-sm flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                    Data Import Visualization
+                  </h3>
+
                   <h4 className="font-semibold text-sm flex items-center gap-2">
                     <BarChart3 className="h-4 w-4 text-muted-foreground" />
                     Data Import Visualization

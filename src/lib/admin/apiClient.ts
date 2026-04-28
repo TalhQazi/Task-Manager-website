@@ -7,40 +7,38 @@ type ApiErrorBody = {
 };
 
 export function _getApiBaseUrl() {
-  const raw = String(import.meta.env.VITE_API_URL || "https://task.se7eninc.com").trim();
+  const raw = String(import.meta.env.VITE_API_URL || "").trim();
   if (raw) return raw;
-  // Always use Vercel backend URL
-   return "https://task.se7eninc.com";
-  
+  if (typeof window !== "undefined") {
+    return window.location.origin;
+  }
+  return "http://localhost:5000";
+}
+
+export function toProxiedUrl(url: string) {
+  if (!url) return "";
+  if (url.startsWith("http")) return url;
+  const baseUrl = getApiBaseUrl();
+  return `${String(baseUrl).replace(/\/$/, "")}${url.startsWith("/") ? url : `/${url}`}`;
 }
 
 export function getApiBaseUrl() {
-  const apiBase = String(import.meta.env.VITE_API_URL || "https://task.se7eninc.com").trim();
+  const apiBase = String(import.meta.env.VITE_API_URL || "").trim();
 
-  if (!apiBase) {
-    throw new Error("VITE_API_URL is not set");
+  if (apiBase) {
+    return apiBase;
+  }
+  
+  // Fallback to current origin or localhost
+  if (typeof window !== "undefined") {
+    // If we're on localhost but no API URL is set, assume the API is on port 5000
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+      return "http://localhost:5000";
+    }
+    return window.location.origin;
   }
 
-  return apiBase;
-}
-
-/**
- * Convert an S3 URL to a backend-proxied URL to avoid CORS/OpaqueResponseBlocking issues.
- * If the URL is not an S3 URL (e.g. data: or already proxied), returns it unchanged.
- */
-export function toProxiedUrl(url: string | undefined | null): string | undefined {
-  if (!url) return undefined;
-  // Don't proxy data: URLs, already-proxied URLs, or non-S3 URLs
-  if (url.startsWith("data:") || url.includes("/api/s3-proxy/")) return url;
-  
-  // Match S3 URLs pattern: https://<bucket>.s3.<region>.amazonaws.com/<key>
-  const s3Match = url.match(/https:\/\/[^/]+\.s3\.[^/]+\.amazonaws\.com\/(.+)/);
-  if (!s3Match) return url;
-  
-  const s3Key = s3Match[1];
-  const baseUrl = getApiBaseUrl().replace(/\/$/, "");
-  const token = getAuthState().token;
-  return `${baseUrl}/api/s3-proxy/${s3Key}${token ? `?token=${token}` : ""}`;
+  return "http://localhost:5000";
 }
 
 async function parseJsonSafe(res: Response) {

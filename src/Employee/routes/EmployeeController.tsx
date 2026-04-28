@@ -59,7 +59,6 @@ function EmployeeController() {
           <Route path="/profile" element={<EmployeeProfile />} />
           <Route path="/notifications" element={<EmployeeNotifications />} />
           <Route path="/personal-notes" element={<EmployeePersonalNotes />} />
-
           <Route path="/scrum-records" element={<EmployeeScrumRecords />} />
           <Route path="/ui-customization" element={<EmployeeUICustomization />} />
 

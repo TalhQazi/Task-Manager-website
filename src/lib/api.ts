@@ -1,1 +1,1 @@
-export { apiFetch, listResource, toProxiedUrl } from "./manger/api";
+export { apiFetch, listResource } from "./manger/api";

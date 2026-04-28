@@ -6,7 +6,7 @@ import { ActiveEmployees } from "@/components/admin/dashboard/ActiveEmployees";
 import { TaskCharts } from "@/components/admin/dashboard/TaskCharts";
 import { DayAheadCard } from "@/components/admin/dashboard/DayAheadCard";
 import { WeekAheadCard } from "@/components/admin/dashboard/WeekAheadCard";
-import { Users, CheckSquare, AlertTriangle, Clock, Car, FileSearch, Globe, FolderRoot, Bug } from "lucide-react";
+import { Users, CheckSquare, AlertTriangle, Clock, Car, FileSearch, Globe, FolderRoot } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useNavigate } from "react-router-dom";
 
@@ -22,7 +22,6 @@ type DashboardSummary = {
   patentTotal: number;
   websiteTotal: number;
   projectTotal: number;
-  pendingBugs: number;
 };
 
 // Animation variants
@@ -91,7 +90,6 @@ const Dashboard = () => {
       totalPatents: summary.patentTotal,
       totalWebsites: summary.websiteTotal,
       totalProjects: summary.projectTotal,
-      pendingBugs: summary.pendingBugs,
     };
   }, [summary]);
 

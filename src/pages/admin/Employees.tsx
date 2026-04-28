@@ -648,13 +648,12 @@ const Employees = () => {
                   </DialogDescription>
                 </DialogHeader>
                 
-                <motion.form 
-                  id={ADD_EMPLOYEE_FORM_ID}
-                  onSubmit={addForm.handleSubmit(handleAddEmployee)}
+                <form 
                   className="space-y-4 sm:space-y-5"
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.2 }}
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    saveEditEmployee();
+                  }}
                 >
                   {/* First Name, Last Name & Email - Stack on mobile, row on tablet+ */}
                   <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
@@ -943,7 +942,7 @@ const Employees = () => {
                       </>
                     )}
                   </div>
-                </motion.form>
+                </form>
 
                 <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
                   <motion.div

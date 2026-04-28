@@ -60,7 +60,6 @@ import {
   AlertCircle,
   Grid,
   List,
-  Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch } from "@/lib/manger/api";
@@ -127,7 +126,7 @@ function normalizeAppliance(a: ApplianceApi): Appliance {
     name: String(a.name || ""),
     type: (String(a.type || "commercial") === "residential" ? "residential" : "commercial"),
     location: String(a.location || ""),
-    purchaseDate: String(a.purchaseDate === "-" ? "" : (a.purchaseDate || "")),
+    purchaseDate: String(a.purchaseDate || ""),
     warrantyUntil: warrantyDate,
     status: normalizedStatus,
     assignedTo: String(a.assignedTo || ""),
@@ -396,13 +395,6 @@ export default function Appliances() {
   const locations = locationsQuery.data ?? [];
   const employees = employeesQuery.data ?? [];
 
-  const resolveLocationName = (locationValue: string) => {
-    const key = String(locationValue || "").trim();
-    if (!key) return "—";
-    const match = locations.find((l) => String(l.id) === key);
-    return match?.name || key;
-  };
-
   useEffect(() => {
     const viewId = String(searchParams.get("view") || "").trim();
     if (!viewId) return;
@@ -558,7 +550,6 @@ export default function Appliances() {
 
   const onEditAppliance = async (values: CreateApplianceValues) => {
     if (!selectedAppliance) return;
-    if (updateApplianceMutation.isPending) return;
 
     let tagPhotoDataUrl = String(values.tagPhotoDataUrl || "").trim();
     if (editTagPhotoFile) {
@@ -596,7 +587,6 @@ export default function Appliances() {
 
   const confirmDelete = () => {
     if (!selectedAppliance) return;
-    if (deleteApplianceMutation.isPending) return;
     const toDelete = selectedAppliance;
 
     deleteApplianceMutation.mutate(toDelete.id, {
@@ -619,10 +609,9 @@ export default function Appliances() {
 
   const filteredAppliances = useMemo(() => {
     return appliances.filter((appliance) => {
-      const locationLabel = resolveLocationName(appliance.location);
       const matchesSearch =
         appliance.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        locationLabel.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        appliance.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
         String(appliance.assignedTo || "").toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus =
         statusFilter === "all" || appliance.status === statusFilter;
@@ -630,7 +619,7 @@ export default function Appliances() {
         typeFilter === "all" || appliance.type === typeFilter;
       return matchesSearch && matchesStatus && matchesType;
     });
-  }, [appliances, searchQuery, statusFilter, typeFilter, locations]);
+  }, [appliances, searchQuery, statusFilter, typeFilter]);
 
   const operationalCount = useMemo(() => appliances.filter((a) => a.status === "operational").length, [appliances]);
   const needsRepairCount = useMemo(() => appliances.filter((a) => a.status === "needs-repair").length, [appliances]);
@@ -914,7 +903,7 @@ export default function Appliances() {
                       >
                         <div className="flex items-center gap-1.5 text-muted-foreground">
                           <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
-                          <span className="truncate">{resolveLocationName(appliance.location)}</span>
+                          <span className="truncate">{appliance.location}</span>
                         </div>
                         <div className="flex items-center gap-1.5 text-muted-foreground">
                           <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
@@ -1010,7 +999,7 @@ export default function Appliances() {
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-1.5 text-muted-foreground">
                               <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
-                              <span className="truncate max-w-[150px]">{resolveLocationName(appliance.location)}</span>
+                              <span className="truncate max-w-[150px]">{appliance.location}</span>
                             </div>
                           </td>
                           <td className="px-4 py-3">
@@ -1335,7 +1324,7 @@ export default function Appliances() {
                 <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} className="w-full sm:w-auto">
                   Cancel
                 </Button>
-                <Button type="submit" className="w-full sm:w-auto">
+                <Button type="submit" className="gap-2 w-full sm:w-auto">
                   <Plus className="w-4 h-4" />
                   Add
                 </Button>
@@ -1428,7 +1417,7 @@ export default function Appliances() {
                   transition={{ delay: 0.2 }}
                 >
                   <p className="text-muted-foreground">Location</p>
-                  <p className="text-foreground">{resolveLocationName(selectedAppliance.location)}</p>
+                  <p className="text-foreground">{selectedAppliance.location}</p>
                 </motion.div>
                 <motion.div 
                   className="space-y-1"
@@ -1446,7 +1435,7 @@ export default function Appliances() {
                   transition={{ delay: 0.3 }}
                 >
                   <p className="text-muted-foreground">Purchase Date</p>
-                  <p className="text-foreground">{formatWarrantyDate(selectedAppliance.purchaseDate)}</p>
+                  <p className="text-foreground">{selectedAppliance.purchaseDate || "—"}</p>
                 </motion.div>
                 <motion.div 
                   className="space-y-1"
@@ -1721,43 +1710,17 @@ export default function Appliances() {
               </div>
 
               <DialogFooter className="flex-col sm:flex-row gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsEditOpen(false)}
-                  className="w-full sm:w-auto"
-                  disabled={updateApplianceMutation.isPending}
-                >
+                <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)} className="w-full sm:w-auto">
                   Cancel
                 </Button>
-                <Button
-                  type="submit"
-                  className="w-full sm:w-auto"
-                  disabled={updateApplianceMutation.isPending}
-                >
-                  {updateApplianceMutation.isPending ? (
-                    <span className="inline-flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Saving
-                    </span>
-                  ) : (
-                    "Save"
-                  )}
-                </Button>
+                <Button type="submit" className="w-full sm:w-auto">Save</Button>
               </DialogFooter>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
 
-      <AlertDialog
-        open={isDeleteOpen}
-        onOpenChange={(open) => {
-          if (deleteApplianceMutation.isPending) return;
-          setIsDeleteOpen(open);
-          if (!open) setSelectedAppliance(null);
-        }}
-      >
+      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent className="w-[95vw] sm:max-w-[425px]">
           <AlertDialogHeader>
             <AlertDialogTitle>Delete appliance?</AlertDialogTitle>
@@ -1766,26 +1729,8 @@ export default function Appliances() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
-            <AlertDialogCancel
-              className="w-full sm:w-auto"
-              disabled={deleteApplianceMutation.isPending}
-            >
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              className="w-full sm:w-auto"
-              disabled={deleteApplianceMutation.isPending}
-            >
-              {deleteApplianceMutation.isPending ? (
-                <span className="inline-flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Deleting
-                </span>
-              ) : (
-                "Delete"
-              )}
-            </AlertDialogAction>
+            <AlertDialogCancel className="w-full sm:w-auto">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} className="w-full sm:w-auto">Delete</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

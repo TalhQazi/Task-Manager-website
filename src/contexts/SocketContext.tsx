@@ -36,9 +36,8 @@ export function SocketProvider({ children }: SocketProviderProps) {
     const authRaw = localStorage.getItem("taskflow_auth");
     const empRaw = localStorage.getItem("employee_auth");
     if (!authRaw && !empRaw) return;
-
-
-    const socket = io("https://task.se7eninc.com", {
+    
+    const socket = io(API_BASE_URL, {
       path: "/api/socket.io/",
       withCredentials: true,
       transports: ["websocket", "polling"],

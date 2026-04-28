@@ -62,6 +62,47 @@
     --gradient-cyan: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
     --gradient-gold: linear-gradient(135deg, #ffd700 0%, #b8860b 100%);
     --gradient-majesty: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-card: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+
+    /* iMessage Specific Tokens */
+    --imessage-blue: 211 100% 50%; /* #007AFF */
+    --imessage-gray: 240 5% 91%;  /* #E5E5EA */
+    --imessage-blue-foreground: 0 0% 100%;
+    --imessage-gray-foreground: 0 0% 0%;
+  }
+
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+
+    --card: 222 47% 9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222 47% 9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 221 83% 53%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 217 33% 17%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 221 83% 53%;
   }
 
   * {
@@ -81,9 +122,14 @@
 
 /* Components Layer */
 @layer components {
-  .stat-card-gradient {
-    @apply rounded-xl p-3 text-white shadow-md transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5;
+  .stat-card {
+    @apply bg-card rounded-xl p-6 border border-border shadow-[var(--shadow-card)] transition-all duration-200 hover:shadow-[var(--shadow-md)];
   }
+
+  .stat-card-gradient {
+    @apply rounded-xl p-6 text-white shadow-[var(--shadow-md)] transition-all duration-200 hover:shadow-[var(--shadow-lg)] hover:-translate-y-0.5;
+  }
+
 
   /* Stat Card Gradients */
   .gradient-primary { background: var(--gradient-primary); }

@@ -13,8 +13,6 @@ import { Button } from "@/components/admin/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Badge } from "@/components/admin/ui/badge";
 import { Plus, Edit2, Trash2, ExternalLink, Lock } from "lucide-react";
-import { apiFetch } from "@/lib/admin/apiClient";
-import { useQuery } from "@tanstack/react-query";
 import {
   Table,
   TableBody,
@@ -23,6 +21,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/admin/ui/table";
+import { apiFetch } from "@/lib/admin/apiClient";
+import { useQuery } from "@tanstack/react-query";
 
 interface Website {
   _id: string;
@@ -295,68 +295,61 @@ export function ActiveWebsites() {
               </CardContent>
             </Card>
           ) : (
-            <div className="rounded-md border overflow-hidden mt-4">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/50">
-                    <TableHead className="w-12 font-bold">#</TableHead>
-                    <TableHead className="font-bold">Site Name</TableHead>
-                    <TableHead className="font-bold">URL</TableHead>
-                    <TableHead className="font-bold">Platform</TableHead>
-                    <TableHead className="font-bold">Hosting</TableHead>
-                    <TableHead className="font-bold">Status</TableHead>
-                    <TableHead className="text-right font-bold">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
+            <>
+              <div className="rounded-md border overflow-hidden mt-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="w-12 font-bold">#</TableHead>
+                      <TableHead className="font-bold">Website Name</TableHead>
+                      <TableHead className="font-bold">URL</TableHead>
+                      <TableHead className="font-bold">Type</TableHead>
+                      <TableHead className="font-bold">Platform</TableHead>
+                      <TableHead className="font-bold">Status</TableHead>
+                      <TableHead className="font-bold text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                   {websites.map((website, index) => (
-                    <TableRow key={website._id} className="hover:bg-muted/30 transition-colors">
-                      <TableCell className="font-mono text-xs text-muted-foreground">{index + 1}</TableCell>
-                      <TableCell className="font-medium text-sm">{website.siteName}</TableCell>
+                    <TableRow key={website._id}>
+                      <TableCell className="font-mono text-xs">{index + 1}</TableCell>
+                      <TableCell className="font-medium">{website.siteName}</TableCell>
                       <TableCell>
                         <a
                           href={website.url.startsWith("http") ? website.url : `https://${website.url}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs text-blue-600 hover:underline flex items-center gap-1"
+                          className="text-primary hover:underline flex items-center gap-1"
                         >
-                          {website.url.length > 30 ? website.url.slice(0, 30) + "..." : website.url}
+                          {website.url}
                           <ExternalLink className="h-3 w-3" />
                         </a>
                       </TableCell>
-                      <TableCell className="text-xs">{website.platform}</TableCell>
-                      <TableCell className="text-xs">{website.hostingProvider}</TableCell>
                       <TableCell>
-                        <Badge className={`${statusColors[website.status]} border-0 shadow-none font-bold text-[10px] uppercase`}>
+                        <Badge variant="outline">Active</Badge>
+                      </TableCell>
+                      <TableCell>{website.platform}</TableCell>
+                      <TableCell>
+                        <Badge className={statusColors[website.status]}>
                           {website.status}
                         </Badge>
                       </TableCell>
-
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
+                        <div className="flex justify-end gap-2">
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-8 w-8 text-blue-600"
                             onClick={() => handleEdit(website)}
                           >
-                            <Edit2 className="h-3.5 w-3.5" />
+                            <Edit2 className="h-4 w-4" />
                           </Button>
                           <Button
                             size="icon"
                             variant="ghost"
-                            className="h-8 w-8 text-amber-600"
-                            onClick={() => setShowCredentials(showCredentials === website._id ? null : website._id)}
-                          >
-                            <Lock className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-destructive"
+                            className="text-destructive"
                             onClick={() => handleDelete(website)}
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>
@@ -365,7 +358,8 @@ export function ActiveWebsites() {
                 </TableBody>
               </Table>
             </div>
-          )}
+          </>
+        )}
     </div>
   );
 }

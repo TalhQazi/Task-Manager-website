@@ -13,8 +13,6 @@ import { Button } from "@/components/admin/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Badge } from "@/components/admin/ui/badge";
 import { Plus, Edit2, Trash2, Rocket, Code, ExternalLink } from "lucide-react";
-import { apiFetch } from "@/lib/admin/apiClient";
-import { useQuery } from "@tanstack/react-query";
 import {
   Table,
   TableBody,
@@ -23,6 +21,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/admin/ui/table";
+import { apiFetch } from "@/lib/admin/apiClient";
+import { useQuery } from "@tanstack/react-query";
 
 interface FutureWebsite {
   _id: string;
@@ -321,75 +321,162 @@ export function FutureWebsites() {
             </p>
           </CardContent>
         </Card>
-      ) : (
-        <div className="rounded-md border overflow-hidden mt-4">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="w-12 font-bold">#</TableHead>
-                <TableHead className="font-bold">Project Name</TableHead>
-                <TableHead className="font-bold">Domain</TableHead>
-                <TableHead className="font-bold">Stage</TableHead>
-                <TableHead className="font-bold">Priority</TableHead>
-                <TableHead className="font-bold">Concept</TableHead>
-                <TableHead className="text-right font-bold">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {websites.map((website, index) => (
-                <TableRow key={website._id} className="hover:bg-muted/30 transition-colors text-sm">
-                  <TableCell className="font-mono text-xs text-muted-foreground">{index + 1}</TableCell>
-                  <TableCell className="font-medium">{website.siteName}</TableCell>
-                  <TableCell>
-                    <a
-                      href={website.url.startsWith("http") ? website.url : `https://${website.url}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1 font-mono"
-                    >
-                      {website.url}
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={`${stageColors[website.developmentStage]} border-0 shadow-none font-bold text-[10px] uppercase whitespace-nowrap`}>
-                      {website.developmentStage}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={`${priorityColors[website.priority]} border-0 shadow-none font-bold text-[10px] uppercase`}>
-                      {website.priority}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="max-w-xs truncate text-xs text-muted-foreground">
-                    {website.concept || "—"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-blue-600"
-                        onClick={() => handleEdit(website)}
+          ) : (
+            <>
+              <div className="rounded-md border overflow-hidden mt-4">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="bg-muted/50">
+                      <TableHead className="w-12 font-bold">#</TableHead>
+                      <TableHead className="font-bold">Project Name</TableHead>
+                      <TableHead className="font-bold">Domain</TableHead>
+                      <TableHead className="font-bold">Stage</TableHead>
+                      <TableHead className="font-bold">Priority</TableHead>
+                      <TableHead className="font-bold">Concept</TableHead>
+                      <TableHead className="text-right font-bold">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {websites.map((website, index) => (
+                      <TableRow
+                        key={website._id}
+                        className="hover:bg-muted/30 transition-colors text-sm"
                       >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-destructive"
-                        onClick={() => handleDelete(website)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+                        <TableCell className="font-mono text-xs text-muted-foreground">
+                          {index + 1}
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          {website.siteName}
+                        </TableCell>
+                        <TableCell>
+                          <a
+                            href={
+                              website.url.startsWith("http")
+                                ? website.url
+                                : `https://${website.url}`
+                            }
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1 font-mono"
+                          >
+                            {website.url}
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={`${
+                              stageColors[website.developmentStage]
+                            } border-0 shadow-none font-bold text-[10px] uppercase whitespace-nowrap`}
+                          >
+                            {website.developmentStage}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={`${
+                              priorityColors[website.priority]
+                            } border-0 shadow-none font-bold text-[10px] uppercase`}
+                          >
+                            {website.priority}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate text-xs text-muted-foreground">
+                          {website.concept || "—"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => handleEdit(website)}
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => handleDelete(website)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <motion.div
+                variants={containerVariants}
+                initial="hidden"
+                animate="visible"
+                className="grid gap-4 mt-6"
+              >
+                {websites.map((website) => (
+                  <motion.div key={website._id} variants={itemVariants}>
+                    <Card className="hover:shadow-md transition-shadow">
+                      <CardContent className="pt-6">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 space-y-3">
+                            <div className="flex items-center gap-2">
+                              <Code className="h-5 w-5 text-blue-600" />
+                              <h3 className="font-semibold text-lg">
+                                {website.siteName}
+                              </h3>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge className={stageColors[website.developmentStage]}>
+                                {website.developmentStage}
+                              </Badge>
+                              <Badge className={priorityColors[website.priority]}>
+                                {website.priority} Priority
+                              </Badge>
+                            </div>
+
+                            <p className="text-sm text-gray-600 font-mono">
+                              {website.url}
+                            </p>
+
+                            {website.concept && (
+                              <p className="text-sm text-gray-600">
+                                <strong>Concept:</strong> {website.concept}
+                              </p>
+                            )}
+
+                            {website.notes && (
+                              <p className="text-sm text-gray-600">
+                                <strong>Notes:</strong> {website.notes}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => handleEdit(website)}
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => handleDelete(website)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                ))}
+              </motion.div>
+            </>
+          )}
     </div>
   );
 }

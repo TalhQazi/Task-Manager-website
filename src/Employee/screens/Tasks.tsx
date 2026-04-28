@@ -88,9 +88,10 @@ import {
   Paperclip,
   Layers,
   Maximize2,
+  Trophy,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { io, Socket } from "socket.io-client";
+import { useSocket } from "@/contexts/SocketContext";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch, downloadTaskAttachment, toProxiedUrl, updateComment, deleteComment } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
@@ -127,6 +128,16 @@ interface Task {
     mimeType: string;
     size: number;
   }>;
+  reward?: {
+    isRewarded: boolean;
+    rewardedBy: string;
+    rewardedAt: string;
+    message: string;
+    animationStyle: string;
+  };
+  context: "HOUSE" | "OFFICE" | "SHOP" | "FIELD" | "OTHER";
+  priority_color: "red" | "yellow" | "green";
+  execution_rank?: number;
 }
 
 type CreateProjectTaskDraft = {
@@ -249,34 +260,31 @@ function normalizeTask(t: TaskApi): Task {
     attachmentNote: extra.attachmentNote,
     attachment: extra.attachment,
     attachments: Array.isArray((t as any).attachments) ? (t as any).attachments : undefined,
+    context: (t as any).context || "OTHER",
+    priority_color: (t as any).priority_color || "green",
+    execution_rank: (t as any).execution_rank,
   };
 }
 
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
-  const [src, setSrc] = useState<string | null | undefined>(undefined);
+  const [src, setSrc] = useState<string | null | undefined>(logoUrl !== undefined ? (logoUrl || null) : undefined);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    // If logoUrl is a real URL (S3 or data:), use it directly
-    if (logoUrl && logoUrl.length > 0) {
-      setSrc(toProxiedUrl(logoUrl) || logoUrl);
+    if (logoUrl) {
+      setSrc(logoUrl);
       setError(false);
       return;
     }
-    
-    // logoUrl is undefined or empty string — fetch from dedicated endpoint
-    // Empty string means the list API stripped a base64 value stored in MongoDB
     let cancelled = false;
-    setSrc(undefined);
-
     apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
-      .then(d => { 
+      .then(d => {
         if (!cancelled) {
-          setSrc(toProxiedUrl(d.logo?.url) || null);
+          setSrc(d.logo?.url || null);
           setError(false);
         }
       })
-      .catch(() => { 
+      .catch(() => {
         if (!cancelled) {
           setSrc(null);
           setError(true);
@@ -287,17 +295,16 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
 
   if (src && !error) {
     return (
-      <img 
-        src={src} 
-        alt={`${projectName} logo`} 
-        className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-border" 
-        crossOrigin="anonymous"
+      <img
+        src={src}
+        alt={`${projectName} logo`}
+        className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-border"
         onError={() => setError(true)}
       />
     );
   }
 
-  if (src === undefined) {
+  if (src === undefined && logoUrl === undefined) {
     return <div className="w-10 h-10 rounded-md bg-muted/40 animate-pulse flex-shrink-0" />;
   }
 
@@ -309,17 +316,11 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
 }
 
 function TaskAttachmentImg({ taskId, index, mimeType, fileName, fallbackUrl, onPreview }: { taskId: string; index: number; mimeType?: string; fileName?: string; fallbackUrl?: string; onPreview?: (url: string, name: string) => void }) {
-  const [src, setSrc] = useState<string | null>(toProxiedUrl(fallbackUrl) as string || null);
-
+  const [src, setSrc] = useState<string | null>(fallbackUrl || null);
   useEffect(() => {
-    // If fallbackUrl is a real URL (S3 or data:), use it directly
-    if (fallbackUrl && fallbackUrl.length > 0) {
-      setSrc(toProxiedUrl(fallbackUrl) || fallbackUrl);
-      return;
-    }
-    // fallbackUrl is undefined or empty string — fetch from dedicated endpoint
+    if (fallbackUrl) return;
     apiFetch<{ url: string }>(`/api/tasks/${taskId}/attachments/${index}`)
-      .then(d => setSrc(toProxiedUrl(d.url) as string || null))
+      .then(d => setSrc(d.url))
       .catch(() => setSrc(null));
   }, [taskId, index, fallbackUrl]);
 
@@ -338,18 +339,18 @@ function TaskAttachmentImg({ taskId, index, mimeType, fileName, fallbackUrl, onP
         <span className="text-[10px] text-white/40 truncate w-full px-2 font-medium">{fileName}</span>
       </div>
       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center gap-3 transition-opacity backdrop-blur-[1px] cursor-default">
-        <button 
+        <button
           onClick={(e) => { e.stopPropagation(); onPreview?.(src, fileName || "Attachment"); }}
           className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
           title="Preview"
         >
           <Maximize2 className="w-4 h-4" />
         </button>
-        <a 
-          href={src} 
-          download={fileName} 
-          aria-label="Download" 
-          onClick={(e) => e.stopPropagation()} 
+        <a
+          href={src}
+          download={fileName}
+          aria-label="Download"
+          onClick={(e) => e.stopPropagation()}
           className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
           title="Download"
         >
@@ -362,11 +363,11 @@ function TaskAttachmentImg({ taskId, index, mimeType, fileName, fallbackUrl, onP
 }
 
 function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fallbackUrl, onPreview }: { taskId: string; commentId: string; index: number; mimeType?: string; fileName?: string; fallbackUrl?: string; onPreview?: (url: string, name: string) => void }) {
-  const [src, setSrc] = useState<string | null>(toProxiedUrl(fallbackUrl) as string || null);
+  const [src, setSrc] = useState<string | null>(fallbackUrl || null);
   useEffect(() => {
     if (fallbackUrl) return;
     apiFetch<{ url: string }>(`/api/tasks/${taskId}/comments/${commentId}/attachments/${index}`)
-      .then(d => setSrc(toProxiedUrl(d.url) as string || null))
+      .then(d => setSrc(d.url))
       .catch(() => setSrc(null));
   }, [taskId, commentId, index, fallbackUrl]);
 
@@ -385,18 +386,18 @@ function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fa
         <span className="text-[10px] text-white/40 truncate w-full px-2 font-medium">{fileName}</span>
       </div>
       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center gap-3 transition-opacity backdrop-blur-[1px] cursor-default">
-        <button 
+        <button
           onClick={(e) => { e.stopPropagation(); onPreview?.(src, fileName || "Attachment"); }}
           className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
           title="Preview"
         >
           <Maximize2 className="w-4 h-4" />
         </button>
-        <a 
-          href={src} 
-          download={fileName} 
-          aria-label="Download" 
-          onClick={(e) => e.stopPropagation()} 
+        <a
+          href={src}
+          download={fileName}
+          aria-label="Download"
+          onClick={(e) => e.stopPropagation()}
           className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
           title="Download"
         >
@@ -462,6 +463,8 @@ const createTaskSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().min(1, "Description is required"),
   priority: z.enum(["low", "medium", "high"]),
+  priority_color: z.enum(["red", "yellow", "green"]).optional().default("green"),
+  context: z.enum(["HOUSE", "OFFICE", "SHOP", "FIELD", "OTHER"]).optional().default("OTHER"),
   status: z.enum(["pending", "in-progress", "completed", "overdue"]),
   dueDate: z.string().optional(),
   dueTime: z.string().optional(),
@@ -589,7 +592,7 @@ export default function Tasks() {
   const [projectComments, setProjectComments] = useState<any[]>([]);
   const [projectCommentsLoading, setProjectCommentsLoading] = useState(false);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
-  
+
   // Lightbox / File Preview State
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState<string>("");
@@ -600,6 +603,83 @@ export default function Tasks() {
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editCommentDraft, setEditCommentDraft] = useState("");
   const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+
+  // ── Top 10 Execution Engine ────────────────────────────────────────────────
+  type Top10Item = { id: string; rank: number; task: Task | null; task_id: string };
+  const [top10, setTop10] = useState<Top10Item[]>([]);
+  const [top10Loading, setTop10Loading] = useState(false);
+  const [top10ActionId, setTop10ActionId] = useState<string | null>(null); // taskId being added/removed
+
+  const top10Date = new Date().toISOString().split("T")[0];
+
+  const loadTop10 = async () => {
+    try {
+      setTop10Loading(true);
+      const res = await apiFetch<{ items: Top10Item[] }>(`/api/tasks/top10/list?date=${top10Date}`);
+      setTop10(Array.isArray(res.items) ? res.items : []);
+    } catch {
+      setTop10([]);
+    } finally {
+      setTop10Loading(false);
+    }
+  };
+
+  const addToTop10 = async (task: Task) => {
+    const currentRanks = top10.map(r => r.rank);
+    const nextRank = [1,2,3,4,5,6,7,8,9,10].find(r => !currentRanks.includes(r));
+    if (!nextRank) {
+      toast({ title: "Top 10 full", description: "Remove a task from Top 10 before adding another.", variant: "destructive" });
+      return;
+    }
+    try {
+      setTop10ActionId(task.id);
+      await apiFetch("/api/tasks/rank", { method: "POST", body: JSON.stringify({ taskId: task.id, rank: nextRank, date: top10Date }) });
+      await loadTop10();
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      toast({ title: `Added to Top 10`, description: `"${task.title}" ranked #${nextRank} for today.` });
+    } catch (e) {
+      toast({ title: "Failed", description: e instanceof Error ? e.message : "Something went wrong", variant: "destructive" });
+    } finally {
+      setTop10ActionId(null);
+    }
+  };
+
+  const removeFromTop10 = async (taskId: string) => {
+    try {
+      setTop10ActionId(taskId);
+      await apiFetch("/api/tasks/unrank", { method: "POST", body: JSON.stringify({ taskId, date: top10Date }) });
+      await loadTop10();
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      toast({ title: "Removed from Top 10" });
+    } catch (e) {
+      toast({ title: "Failed", description: e instanceof Error ? e.message : "Something went wrong", variant: "destructive" });
+    } finally {
+      setTop10ActionId(null);
+    }
+  };
+
+  const carryOverTop10 = async () => {
+    try {
+      await apiFetch("/api/tasks/carry-over", { method: "POST", body: "{}" });
+      await loadTop10();
+      toast({ title: "Carry-over complete", description: "Incomplete tasks from yesterday were carried over." });
+    } catch { /* silent */ }
+  };
+
+  // Load Top 10 on mount
+  useEffect(() => { void loadTop10(); void carryOverTop10(); }, []);
+
+  const isInTop10 = (taskId: string) => top10.some(r => String(r.task_id) === taskId || r.task?.id === taskId);
+  const getRankFor = (taskId: string) => top10.find(r => String(r.task_id) === taskId || r.task?.id === taskId)?.rank;
+
+  const contextColors: Record<string, string> = {
+    HOUSE: "bg-blue-100 text-blue-700 border-blue-200",
+    OFFICE: "bg-purple-100 text-purple-700 border-purple-200",
+    SHOP: "bg-amber-100 text-amber-700 border-amber-200",
+    FIELD: "bg-green-100 text-green-700 border-green-200",
+    OTHER: "bg-gray-100 text-gray-600 border-gray-200",
+  };
+  const contextIcons: Record<string, string> = { HOUSE: "🏠", OFFICE: "🏢", SHOP: "🛒", FIELD: "🌾", OTHER: "📌" };
   const chatContainerRef = useMemo(() => ({ current: null as HTMLDivElement | null }), []);
 
   // Fetch tasks with server-side pagination
@@ -677,10 +757,10 @@ export default function Tasks() {
       }
 
       const project = res.item;
-      const projectTasks: Task[] = Array.isArray(project.tasks) ? project.tasks : [];
+      const projectTasksList: Task[] = Array.isArray(project.tasks) ? project.tasks : [];
 
-      setSelectedProject({ ...project, tasks: projectTasks });
-      setTasks(projectTasks);
+      setSelectedProject({ ...project, tasks: projectTasksList });
+      setTasks(projectTasksList);
     } catch (err) {
       toast({ title: "Failed to load project", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });
       setSelectedProject(null);
@@ -693,7 +773,7 @@ export default function Tasks() {
   useEffect(() => {
     const viewId = String(searchParams.get("view") || "").trim();
     const searchVal = String(searchParams.get("search") || "").trim();
-    
+
     if (searchVal) {
       setSearchQuery(searchVal);
       const next = new URLSearchParams(searchParams);
@@ -731,10 +811,9 @@ export default function Tasks() {
     return employees.filter((e) => e.status === "active");
   }, [employees]);
 
-  // Resolve an assignee string (could be email or name) to display name
   const resolveAssigneeName = useMemo(() => {
     const byEmail = new Map(employees.map((e) => [e.email.toLowerCase(), e.name]));
-    const byName  = new Map(employees.map((e) => [e.name.toLowerCase(),  e.name]));
+    const byName = new Map(employees.map((e) => [e.name.toLowerCase(), e.name]));
     return (val: string): string => {
       const v = (val || "").trim();
       return byEmail.get(v.toLowerCase()) || byName.get(v.toLowerCase()) || v;
@@ -748,7 +827,6 @@ export default function Tasks() {
     }
   }, [isCreateOpen]);
 
-  // Admin-style form state
   const [formData, setFormData] = useState({
     title: "",
     description: "",
@@ -1026,7 +1104,6 @@ export default function Tasks() {
         attachments,
       };
 
-      // Only add projectId if not a direct task
       if (!isDirectTask && selectedProject) {
         taskPayload.projectId = selectedProject.id;
       }
@@ -1157,8 +1234,7 @@ export default function Tasks() {
 
       setCommentDraft("");
       setCommentAttachments([]);
-      
-      // Smooth scroll to bottom
+
       setTimeout(() => {
         if (chatContainerRef.current) {
           chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
@@ -1173,37 +1249,36 @@ export default function Tasks() {
   };
 
   // Socket.io for Real-time
+  const { socket: contextSocket } = useSocket();
   useEffect(() => {
-    const token = getAuthState().token;
-    if (!token) return;
+    if (!contextSocket) return;
 
-    const socket: Socket = io(import.meta.env.VITE_API_BASE_URL || "https://api.task.se7eninc.com", {
-      auth: { token },
-      transports: ["websocket"],
-    });
-
-    socket.on("connect", () => console.log("✅ Socket connected:", socket.id));
-    
-    socket.on("new-comment", (data: { taskId: string; comment: any }) => {
+    const handleNewComment = (data: { taskId: string; comment: any }) => {
       if (selectedTask && data.taskId === selectedTask.id) {
         setComments(prev => {
           if (prev.find(c => c.id === data.comment.id)) return prev;
           return [...prev, data.comment];
         });
       }
-    });
+    };
 
-    socket.on("new-project-comment", (data: { projectId: string; comment: any }) => {
+    const handleNewProjectComment = (data: { projectId: string; comment: any }) => {
       if (selectedProject && data.projectId === selectedProject.id) {
         setProjectComments(prev => {
           if (prev.find(c => c.id === data.comment.id)) return prev;
           return [...prev, data.comment];
         });
       }
-    });
+    };
 
-    return () => { socket.disconnect(); };
-  }, [selectedTask?.id, selectedProject?.id]);
+    contextSocket.on("new-comment", handleNewComment);
+    contextSocket.on("new-project-comment", handleNewProjectComment);
+
+    return () => {
+      contextSocket.off("new-comment", handleNewComment);
+      contextSocket.off("new-project-comment", handleNewProjectComment);
+    };
+  }, [contextSocket, selectedTask?.id, selectedProject?.id]);
 
   const updateStatus = async (next: Task["status"]) => {
     if (!selectedTask) return;
@@ -1219,7 +1294,6 @@ export default function Tasks() {
       setSelectedTask(normalized);
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
-      // Trigger TaskBlaster when task is marked as completed
       if (next === "completed" && previousStatus !== "completed") {
         const taskForBlaster = {
           id: normalized.id,
@@ -1400,7 +1474,6 @@ export default function Tasks() {
             description: "Task has been updated.",
           });
 
-          // Trigger TaskBlaster when task is marked as completed via edit
           if (values.status === "completed" && previousStatus !== "completed") {
             const taskForBlaster = {
               id: selectedTask.id,
@@ -1449,7 +1522,7 @@ export default function Tasks() {
   const sourceTasks = selectedProject ? selectedProject.tasks : tasks;
 
   const filteredTasks = useMemo(() => {
-    if (!selectedProject) return sourceTasks; // already filtered & paginated server-side
+    if (!selectedProject) return sourceTasks;
     return sourceTasks.filter((task) => {
       const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
       const matchesSearch =
@@ -1461,23 +1534,25 @@ export default function Tasks() {
     });
   }, [sourceTasks, searchQuery, statusFilter, priorityFilter, selectedProject]);
 
-  const filteredProjects = projects; // filtering handled server-side
-
+  const filteredProjects = projects;
   const paginatedProjects = filteredProjects;
   const projectTotalPages = projectsQuery.data?.totalPages || 1;
 
   const paginatedTasks = useMemo(() => {
-    if (!selectedProject) return filteredTasks; // already paginated server-side
+    if (!selectedProject) return filteredTasks;
     const start = (taskPage - 1) * PAGE_SIZE;
     return filteredTasks.slice(start, start + PAGE_SIZE);
   }, [filteredTasks, taskPage, selectedProject]);
+
   const taskTotalPages = selectedProject
     ? (Math.ceil(filteredTasks.length / PAGE_SIZE) || 1)
     : (tasksQuery.data?.totalPages || 1);
 
+  // ─── RETURN ────────────────────────────────────────────────────────────────
   return (
     <div className="px-2 sm:px-4 lg:px-6 space-y-6">
-      {/* Header */}
+
+      {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="page-header mb-0">
           <h1 className="page-title">Task Management</h1>
@@ -1486,22 +1561,27 @@ export default function Tasks() {
         <div className="flex flex-wrap gap-2">
           {selectedProject ? (
             <>
-              <Button variant="outline" onClick={() => {
-                setSelectedProject(null);
-                setTaskPage(1);
-              }}>
+              <Button variant="outline" onClick={() => { setSelectedProject(null); setTaskPage(1); }}>
                 Back to Projects
               </Button>
               <Button className="gap-2" onClick={() => setIsCreateTaskOpen(true)}>
-                <Plus className="w-4 h-4" />
-                Add Task
+                <Plus className="w-4 h-4" /> Add Task
               </Button>
             </>
-          ) : null}
+          ) : (
+            <>
+              <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
+                <Plus className="w-4 h-4" /> Create Project
+              </Button>
+              <Button className="gap-2" onClick={() => { setIsDirectTask(true); setIsCreateTaskOpen(true); }}>
+                <Plus className="w-4 h-4" /> Create Task
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Filters */}
+      {/* ── Filters ── */}
       <div className="flex flex-col sm:flex-row gap-4 mb-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -1514,7 +1594,7 @@ export default function Tasks() {
         </div>
         <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 sm:mx-0 sm:px-0 sm:pb-0">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px] sm:w-[140px]">
+            <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -1525,7 +1605,7 @@ export default function Tasks() {
             </SelectContent>
           </Select>
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-[140px] sm:w-[140px]">
+            <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Priority" />
             </SelectTrigger>
             <SelectContent>
@@ -1541,6 +1621,76 @@ export default function Tasks() {
         </div>
       </div>
 
+      {/* ── Today's Top 10 Section ── */}
+      <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-amber-500" />
+            <h2 className="font-black text-lg tracking-tight">Today's Top 10</h2>
+            <span className="text-xs text-muted-foreground font-medium bg-muted px-2 py-0.5 rounded-full">{top10.length}/10 tasks ranked</span>
+          </div>
+          <Button variant="outline" size="sm" className="h-7 text-[11px] gap-1.5 font-bold" onClick={() => void loadTop10()} disabled={top10Loading}>
+            <RefreshCw className={cn("w-3 h-3", top10Loading && "animate-spin")} /> Refresh
+          </Button>
+        </div>
+
+        {top10Loading && top10.length === 0 ? (
+          <div className="flex items-center justify-center h-20"><Loader2 className="w-5 h-5 animate-spin text-muted-foreground/40" /></div>
+        ) : top10.length === 0 ? (
+          <div className="border-2 border-dashed border-border/50 rounded-xl p-8 text-center">
+            <Trophy className="w-8 h-8 text-muted-foreground/20 mx-auto mb-2" />
+            <p className="text-sm font-bold text-muted-foreground/60">No tasks ranked yet</p>
+            <p className="text-xs text-muted-foreground/50 mt-1">Click "Add to Top 10" on any task below to start your execution list</p>
+          </div>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+            {top10
+              .sort((a, b) => a.rank - b.rank)
+              .map(item => (
+                <div
+                  key={item.id}
+                  className="relative rounded-xl border border-border bg-gradient-to-br from-amber-50/50 to-background p-3 flex flex-col gap-2 group shadow-sm hover:shadow-md transition-all"
+                >
+                  {/* Rank badge */}
+                  <div className="absolute -top-2 -left-2 w-7 h-7 bg-amber-500 text-white rounded-full flex items-center justify-center text-xs font-black shadow-lg border-2 border-background">#{item.rank}</div>
+
+                  {item.task ? (
+                    <>
+                      <div className="pt-2">
+                        <p className="font-bold text-[13px] truncate leading-tight line-clamp-2">{item.task.title}</p>
+                        <p className="text-[11px] text-muted-foreground truncate mt-0.5">{item.task.assignees?.join(", ") || "Unassigned"}</p>
+                      </div>
+                      <div className="flex items-center gap-1 flex-wrap mt-auto">
+                        <Badge className={cn("text-[9px] h-4 px-1.5 font-bold border", contextColors[item.task.context] || contextColors.OTHER)}>
+                          {contextIcons[item.task.context]}{item.task.context}
+                        </Badge>
+                        <Badge variant="outline" className="text-[9px] h-4 px-1.5 font-bold capitalize">{item.task.status}</Badge>
+                      </div>
+                      <button
+                        onClick={() => void removeFromTop10(item.task!.id)}
+                        disabled={top10ActionId === item.task.id}
+                        className="w-full mt-1 text-[10px] font-black uppercase text-destructive/70 hover:text-destructive hover:bg-destructive/10 py-1 px-2 rounded-lg transition-colors border border-transparent hover:border-destructive/20 flex items-center justify-center gap-1"
+                      >
+                        {top10ActionId === item.task.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
+                        Remove
+                      </button>
+                    </>
+                  ) : (
+                    <div className="pt-2 text-[11px] text-muted-foreground italic">Task unavailable</div>
+                  )}
+                </div>
+              ))}
+            {/* Empty slots */}
+            {Array.from({ length: Math.max(0, 5 - top10.length) }).map((_, i) => (
+              <div key={`empty-${i}`} className="rounded-xl border-2 border-dashed border-border/40 p-3 flex items-center justify-center min-h-[80px]">
+                <span className="text-[10px] text-muted-foreground/40 font-bold uppercase tracking-wider">Open Slot</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* ── Project banner (when a project is selected) ── */}
       {selectedProject ? (
         <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
           <div className="flex items-start gap-3">
@@ -1552,29 +1702,38 @@ export default function Tasks() {
             <div>
               <h2 className="font-semibold text-lg">Project: {selectedProject.name}</h2>
               <p className="text-sm text-muted-foreground">{selectedProject.description || "No description"}</p>
-              <p className="text-xs text-muted-foreground mt-1">{selectedProject.assignees && selectedProject.assignees.length > 0 ? selectedProject.assignees.map(resolveAssigneeName).join(", ") : "No assignees"}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {selectedProject.assignees && selectedProject.assignees.length > 0
+                  ? selectedProject.assignees.map(resolveAssigneeName).join(", ")
+                  : "No assignees"}
+              </p>
             </div>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground mt-3">
             <div className="flex items-center gap-3">
-               <span className="flex items-center gap-1"><Layers className="w-3.5 h-3.5" /> {(tasksQuery.data?.items.length ?? 0) > 0 ? tasksQuery.data?.items.length : (selectedProject.tasks?.length || 0)} tasks</span>
-               <Button 
-                 variant="outline" 
-                 size="sm" 
-                 className="h-7 text-[10px] font-black uppercase tracking-wider gap-1.5 hover:bg-primary/5 hover:text-primary transition-all rounded-full border-primary/20" 
-                 onClick={() => void loadProjectComments(selectedProject.id)}
-               >
-                 <TrendingUp className="w-3 h-3" /> Project activity
-               </Button>
+              <span className="flex items-center gap-1">
+                <Layers className="w-3.5 h-3.5" />
+                {(tasksQuery.data?.items.length ?? 0) > 0 ? tasksQuery.data?.items.length : (selectedProject.tasks?.length || 0)} tasks
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-[10px] font-black uppercase tracking-wider gap-1.5 hover:bg-primary/5 hover:text-primary transition-all rounded-full border-primary/20"
+                onClick={() => void loadProjectComments(selectedProject.id)}
+              >
+                <TrendingUp className="w-3 h-3" /> Project activity
+              </Button>
             </div>
             <div className="flex items-center gap-3">
-              <Select value={selectedProject.status || "No status"} onValueChange={(value) => {
-                updateProjectStatusMutation.mutate({ projectId: selectedProject.id, status: value }, {
-                  onSuccess: () => {
-                    setSelectedProject({...selectedProject, status: value});
-                  }
-                });
-              }}>
+              <Select
+                value={selectedProject.status || "No status"}
+                onValueChange={(value) => {
+                  updateProjectStatusMutation.mutate(
+                    { projectId: selectedProject.id, status: value },
+                    { onSuccess: () => setSelectedProject({ ...selectedProject, status: value }) }
+                  );
+                }}
+              >
                 <SelectTrigger className="w-[120px] h-8 font-bold text-[10px] uppercase">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
@@ -1591,7 +1750,8 @@ export default function Tasks() {
           </div>
         </div>
       ) : (
-        <>
+        <div className="space-y-6">
+          {/* Projects */}
           <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
             <h2 className="font-semibold text-lg mb-3">Projects</h2>
             {projectsQuery.isLoading ? (
@@ -1602,69 +1762,73 @@ export default function Tasks() {
               <p className="text-muted-foreground">No projects found. Create one to begin.</p>
             ) : (
               <>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {paginatedProjects.map((project, idx) => {
-                  const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0
-                    ? project.assignees.map(resolveAssigneeName)
-                    : [];
-                  const taskNum = project.taskCount ?? 0;
-                  const projectNumber = (projectPage - 1) * PAGE_SIZE + idx + 1;
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {paginatedProjects.map((project, idx) => {
+                    const assigneeList =
+                      Array.isArray(project.assignees) && project.assignees.length > 0
+                        ? project.assignees.map(resolveAssigneeName)
+                        : [];
+                    const taskNum = project.taskCount ?? 0;
+                    const projectNumber = (projectPage - 1) * PAGE_SIZE + idx + 1;
 
-                  return (
-                    <button
-                      key={project.id}
-                      onClick={() => void loadProject(project.id)}
-                      className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card"
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="flex-shrink-0 text-xs font-bold text-muted-foreground w-5 text-right">{projectNumber}.</span>
-                        <ProjectLogoImg projectId={project.id} projectName={project.name} logoUrl={project.logo?.url} />
-                        <div className="min-w-0">
-                          <p className="font-medium truncate">{project.name}</p>
-                          <p className="text-xs text-muted-foreground truncate">{project.description || "No description"}</p>
+                    return (
+                      <div
+                        key={project.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => void loadProject(project.id)}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") void loadProject(project.id); }}
+                        className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="flex-shrink-0 text-xs font-bold text-muted-foreground w-5 text-right">{projectNumber}.</span>
+                          <ProjectLogoImg projectId={project.id} projectName={project.name} logoUrl={project.logo?.url} />
+                          <div className="min-w-0">
+                            <p className="font-medium truncate">{project.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{project.description || "No description"}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                          <span className="truncate">{assigneeList.length > 0 ? assigneeList.join(", ") : "No assignees"}</span>
+                          <span className="ml-2 flex-shrink-0">{taskNum} task{taskNum === 1 ? "" : "s"}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs mt-auto pt-2 border-t border-dashed border-border/40">
+                          <Badge className="capitalize font-black text-[9px] px-1.5 h-4" variant="outline">
+                            {project.status || "No tasks"}
+                          </Badge>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedProject({ ...project, tasks: [] });
+                              void loadProjectComments(project.id);
+                            }}
+                            className="text-primary font-black text-[9px] uppercase tracking-widest hover:underline flex items-center gap-1 bg-primary/5 px-2 py-0.5 rounded-full"
+                          >
+                            <MessageSquare className="w-2.5 h-2.5" /> Activity
+                          </button>
+                          <span className="text-[10px] text-muted-foreground/60 font-bold">
+                            {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}
+                          </span>
                         </div>
                       </div>
-
-                      <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                        <span className="truncate">{assigneeList.length > 0 ? assigneeList.join(", ") : "No assignees"}</span>
-                        <span className="ml-2 flex-shrink-0">{taskNum} task{taskNum === 1 ? "" : "s"}</span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs mt-auto pt-2 border-t border-dashed border-border/40">
-                        <Badge className="capitalize font-black text-[9px] px-1.5 h-4" variant="outline">
-                          {project.status || "No tasks"}
-                        </Badge>
-                        <button 
-                          onClick={(e) => { 
-                            e.stopPropagation(); 
-                            setSelectedProject({ ...project, tasks: [] });
-                            void loadProjectComments(project.id); 
-                          }} 
-                          className="text-primary font-black text-[9px] uppercase tracking-widest hover:underline flex items-center gap-1 bg-primary/5 px-2 py-0.5 rounded-full"
-                        >
-                           <MessageSquare className="w-2.5 h-2.5" /> Activity
-                        </button>
-                        <span className="text-[10px] text-muted-foreground/60 font-bold">
-                          {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}
-                        </span>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-              <Pagination
-                currentPage={projectPage}
-                totalPages={projectTotalPages}
-                onPageChange={setProjectPage}
-                className="mt-4"
-              />
+                    );
+                  })}
+                </div>
+                <Pagination
+                  currentPage={projectPage}
+                  totalPages={projectTotalPages}
+                  onPageChange={setProjectPage}
+                  className="mt-4"
+                />
               </>
             )}
           </div>
 
-          {/* Tasks Section */}
+          {/* Standalone Tasks */}
           <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
-            <h2 className="font-semibold text-lg mb-3">Tasks</h2>
+            <h2 className="font-semibold text-lg mb-3">Other Tasks (Backlog)</h2>
             {tasksQuery.isLoading ? (
               <p className="text-muted-foreground">Loading tasks...</p>
             ) : tasksQuery.isError ? (
@@ -1674,16 +1838,15 @@ export default function Tasks() {
             ) : (
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {tasks.filter(t => !t.projectId).map((task) => {
-                  const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0
-                    ? task.assignees.map(resolveAssigneeName)
-                    : [];
-                  
+                  const assigneeList =
+                    Array.isArray(task.assignees) && task.assignees.length > 0
+                      ? task.assignees.map(resolveAssigneeName)
+                      : [];
+
                   return (
                     <button
                       key={task.id}
-                      onClick={() => {
-                        openView(task);
-                      }}
+                      onClick={() => openView(task)}
                       className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card"
                     >
                       <div className="mb-2">
@@ -1717,29 +1880,83 @@ export default function Tasks() {
 
                       <div className="flex items-center justify-between text-xs gap-2 flex-wrap">
                         <div className="flex gap-1">
-                          <Badge className="capitalize" variant="outline" style={{
-                            backgroundColor: task.priority === 'high' ? 'rgb(239, 68, 68)' : task.priority === 'medium' ? 'rgb(234, 179, 8)' : 'rgb(34, 197, 94)',
-                            color: 'white'
-                          }}>
+                          <Badge
+                            className="capitalize"
+                            variant="outline"
+                            style={{
+                              backgroundColor:
+                                task.priority === "high"
+                                  ? "rgb(239, 68, 68)"
+                                  : task.priority === "medium"
+                                    ? "rgb(234, 179, 8)"
+                                    : "rgb(34, 197, 94)",
+                              color: "white",
+                            }}
+                          >
                             {task.priority}
                           </Badge>
-                          <Badge className="capitalize" variant="outline">
-                            {task.status}
+                          <Badge className="capitalize" variant="outline">{task.status}</Badge>
+                          <Badge className={cn("text-[10px] h-5 px-2 font-bold border", contextColors[task.context] || contextColors.OTHER)}>
+                            {contextIcons[task.context]} {task.context}
                           </Badge>
                         </div>
-                        <span className="text-muted-foreground">
-                          {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground mr-1">
+                            {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}
+                          </span>
+                          {task.reward?.isRewarded && (
+                            <Badge variant="secondary" className="bg-[#f0fdf4] text-[#16a34a] border-[#bbf7d0] hover:bg-[#f0fdf4] h-6 text-[10px] sm:text-[11px] font-bold gap-1 px-2 rounded-full inline-flex whitespace-nowrap overflow-hidden">
+                              <CheckCircle2 className="w-3 h-3 fill-[#16a34a] shrink-0" />
+                              <span className="truncate">Rewarded</span>
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-3 pt-2 border-t border-dashed border-border/40">
+                        {isInTop10(task.id) ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-[10px] font-black uppercase tracking-wider w-full"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void removeFromTop10(task.id);
+                            }}
+                            disabled={top10ActionId === task.id}
+                          >
+                            {top10ActionId === task.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <X className="w-3 h-3 mr-1" />}
+                            Remove from Top 10{getRankFor(task.id) ? ` (#${getRankFor(task.id)})` : ""}
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-7 text-[10px] font-black uppercase tracking-wider w-full"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void addToTop10(task);
+                            }}
+                            disabled={top10ActionId === task.id}
+                          >
+                            {top10ActionId === task.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Trophy className="w-3 h-3 mr-1" />}
+                            Add to Top 10
+                          </Button>
+                        )}
                       </div>
                     </button>
                   );
                 })}
-              </div>
-            )}
+                </div>
+              )}
+            </div>
           </div>
-        </>
-      )}
+        )}
+      {/* ══════════════════════════════════════════════════
+          ALL DIALOGS live here, outside the ternary above
+      ══════════════════════════════════════════════════ */}
 
+      {/* Create Project Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1783,10 +2000,7 @@ export default function Tasks() {
                   <button
                     type="button"
                     className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted"
-                    onClick={() => {
-                      const el = document.getElementById("project-logo-input") as HTMLInputElement | null;
-                      el?.click();
-                    }}
+                    onClick={() => { (document.getElementById("project-logo-input") as HTMLInputElement | null)?.click(); }}
                   >
                     Upload Logo
                   </button>
@@ -1807,9 +2021,7 @@ export default function Tasks() {
                     setProjectLogoFile(file);
                     if (file) {
                       const reader = new FileReader();
-                      reader.onload = () => {
-                        setProjectLogoPreview(typeof reader.result === "string" ? reader.result : "");
-                      };
+                      reader.onload = () => setProjectLogoPreview(typeof reader.result === "string" ? reader.result : "");
                       reader.readAsDataURL(file);
                     } else {
                       setProjectLogoPreview("");
@@ -1824,10 +2036,7 @@ export default function Tasks() {
                   <button
                     type="button"
                     className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted w-full"
-                    onClick={() => {
-                      const el = document.getElementById("project-attachments-input") as HTMLInputElement | null;
-                      el?.click();
-                    }}
+                    onClick={() => { (document.getElementById("project-attachments-input") as HTMLInputElement | null)?.click(); }}
                   >
                     + Add Files/Images
                   </button>
@@ -1847,11 +2056,8 @@ export default function Tasks() {
                           const result = typeof reader.result === "string" ? reader.result : "";
                           setProjectAttachmentPreviews((prev) => [...prev, result]);
                         };
-                        if (file.type.startsWith("image/")) {
-                          reader.readAsDataURL(file);
-                        } else {
-                          setProjectAttachmentPreviews((prev) => [...prev, ""]);
-                        }
+                        if (file.type.startsWith("image/")) reader.readAsDataURL(file);
+                        else setProjectAttachmentPreviews((prev) => [...prev, ""]);
                       });
                     }}
                   />
@@ -1873,9 +2079,7 @@ export default function Tasks() {
                               setProjectAttachmentPreviews((prev) => prev.filter((_, i) => i !== idx));
                             }}
                             className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-                          >
-                            ✕
-                          </button>
+                          >✕</button>
                         </div>
                       ))}
                     </div>
@@ -1887,15 +2091,9 @@ export default function Tasks() {
                 <label className="text-sm font-medium">Assignees</label>
                 <Popover open={projectCreationAssigneesOpen} onOpenChange={setProjectCreationAssigneesOpen}>
                   <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="w-full justify-between h-10"
-                    >
+                    <Button type="button" variant="outline" className="w-full justify-between h-10">
                       <span className="truncate">
-                        {projectCreationAssignees.length > 0
-                          ? projectCreationAssignees.join(", ")
-                          : "Select assignees"}
+                        {projectCreationAssignees.length > 0 ? projectCreationAssignees.join(", ") : "Select assignees"}
                       </span>
                       <ChevronsUpDown className="h-4 w-4 opacity-50" />
                     </Button>
@@ -1919,18 +2117,9 @@ export default function Tasks() {
                                 setProjectCreationAssigneesOpen(false);
                               }}
                             >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  projectCreationAssignees.includes(employee.name)
-                                    ? "opacity-100"
-                                    : "opacity-0"
-                                )}
-                              />
+                              <Check className={cn("mr-2 h-4 w-4", projectCreationAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} />
                               <Avatar className="h-6 w-6 mr-2">
-                                <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                  {employee.initials}
-                                </AvatarFallback>
+                                <AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback>
                               </Avatar>
                               {employee.name}
                             </CommandItem>
@@ -1940,26 +2129,18 @@ export default function Tasks() {
                     </Command>
                   </PopoverContent>
                 </Popover>
-              
-              
               </div>
             </div>
 
-            {/* Tasks Section */}
+            {/* Tasks Section inside Create Project */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-sm font-medium">Project Tasks</label>
-                <Button 
-                  type="button" 
-                  size="sm" 
-                  onClick={() => setIsCreateTaskOpen(true)}
-                  className="gap-2"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add Task
+                <Button type="button" size="sm" onClick={() => setIsCreateTaskOpen(true)} className="gap-2">
+                  <Plus className="h-4 w-4" /> Add Task
                 </Button>
               </div>
-              
+
               {projectTasks.length > 0 ? (
                 <div className="space-y-2 max-h-[300px] overflow-y-auto border border-border rounded-md p-3">
                   {projectTasks.map((task, idx) => (
@@ -1976,9 +2157,7 @@ export default function Tasks() {
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => {
-                          setProjectTasks((prev) => prev.filter((_, i) => i !== idx));
-                        }}
+                        onClick={() => setProjectTasks((prev) => prev.filter((_, i) => i !== idx))}
                         className="h-8 w-8 p-0 flex-shrink-0"
                       >
                         <X className="h-4 w-4" />
@@ -1991,38 +2170,31 @@ export default function Tasks() {
                   No tasks added yet. Add at least one task to create the project.
                 </div>
               )}
-              {validationErrors.title && (
-                <p className="text-xs text-destructive">{validationErrors.title}</p>
-              )}
+              {validationErrors.title && <p className="text-xs text-destructive">{validationErrors.title}</p>}
             </div>
 
             <DialogFooter className="flex-col sm:flex-row gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={isCreating} className="w-full sm:w-auto">
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">
-                  {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Create Project
-                </Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+              <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={isCreating} className="w-full sm:w-auto">
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">
+                {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
+                Create Project
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-        <Dialog open={isCreateTaskOpen} onOpenChange={(open) => {
-          setIsCreateTaskOpen(open);
-          if (!open) setIsDirectTask(false);
-        }}>
-          <DialogContent className="w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{isDirectTask ? "Create Standalone Task" : "Create Task"}</DialogTitle>
-              <DialogDescription>
-                {isDirectTask 
-                  ? "Create a new standalone task without a project." 
-                  : "Create a new task under the selected project."}
-              </DialogDescription>
-            </DialogHeader>
-
+      {/* Create Task Dialog */}
+      <Dialog open={isCreateTaskOpen} onOpenChange={(open) => { setIsCreateTaskOpen(open); if (!open) setIsDirectTask(false); }}>
+        <DialogContent className="w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{isDirectTask ? "Create Standalone Task" : "Create Task"}</DialogTitle>
+            <DialogDescription>
+              {isDirectTask ? "Create a new standalone task without a project." : "Create a new task under the selected project."}
+            </DialogDescription>
+          </DialogHeader>
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -2116,272 +2288,214 @@ export default function Tasks() {
                       });
                     }}
                   />
-                  {attachmentFiles.length > 0 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">
-                      {attachmentFiles.map((file, idx) => (
-                        <div key={idx} className="relative group">
-                          {attachmentFilePreviews[idx] ? (
-                            <img src={attachmentFilePreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />
-                          ) : (
-                            <div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">
-                              📄 {file.name}
-                            </div>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAttachmentFiles((prev) => prev.filter((_, i) => i !== idx));
-                              setAttachmentFilePreviews((prev) => prev.filter((_, i) => i !== idx));
-                            }}
-                            className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </div>
 
-              <DialogFooter className="flex-col sm:flex-row gap-2">
-                <Button type="button" variant="outline" onClick={() => {
-                  setIsCreateTaskOpen(false);
-                  setIsDirectTask(false);
-                }} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button>
-                <Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">
-                  {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {isDirectTask ? "Create Task" : "Create Task"}
+              <div className="flex gap-2 pt-4">
+                <Button
+                  type="submit"
+                  disabled={isCreating}
+                  className="flex-1"
+                >
+                  {isCreating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  {isCreateOpen ? "Add Task" : "Create Task"}
                 </Button>
-              </DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsCreateTaskOpen(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+              </div>
             </form>
           </DialogContent>
         </Dialog>
 
-        <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
-          <DialogContent className="w-[98vw] sm:max-w-[95vw] lg:max-w-[1100px] h-[90vh] p-0 overflow-hidden flex flex-col gap-0 border-none shadow-2xl">
-            {selectedTask && (
-              <>
-                <DialogHeader className="p-4 sm:p-6 border-b bg-card flex-shrink-0">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="min-w-0 space-y-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="outline" className={cn("text-[10px] h-5 uppercase tracking-wider font-extrabold px-2 shadow-sm rounded-full", priorityClasses[selectedTask.priority])}>
-                          {selectedTask.priority} Priority
-                        </Badge>
-                        <span className="text-[10px] text-muted-foreground font-semibold tracking-tight">• {selectedTask.id.slice(-6).toUpperCase()}</span>
-                      </div>
-                      <DialogTitle className="text-xl sm:text-2xl font-black truncate leading-tight tracking-tight text-foreground">{selectedTask.title}</DialogTitle>
+      {/* View Task Dialog */}
+      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+        <DialogContent className="w-[98vw] sm:max-w-[95vw] lg:max-w-[1100px] h-[90vh] p-0 overflow-hidden flex flex-col gap-0 border-none shadow-2xl">
+          {selectedTask && (
+            <>
+              <DialogHeader className="p-4 sm:p-6 border-b bg-card flex-shrink-0">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge variant="outline" className={cn("text-[10px] h-5 uppercase tracking-wider font-extrabold px-2 shadow-sm rounded-full", priorityClasses[selectedTask.priority])}>
+                        {selectedTask.priority} Priority
+                      </Badge>
+                      <span className="text-[10px] text-muted-foreground font-semibold tracking-tight">• {selectedTask.id.slice(-6).toUpperCase()}</span>
                     </div>
+                    <DialogTitle className="text-xl sm:text-2xl font-black truncate leading-tight tracking-tight text-foreground">{selectedTask.title}</DialogTitle>
                   </div>
-                </DialogHeader>
+                </div>
+              </DialogHeader>
 
-                <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-background">
-                  <div className="flex-1 overflow-y-auto custom-scrollbar bg-background">
-                    <div className="p-4 sm:p-8 space-y-10 max-w-4xl mx-auto">
-                      <div className="space-y-4">
+              <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-background">
+                <div className="flex-1 overflow-y-auto custom-scrollbar bg-background">
+                  <div className="p-4 sm:p-8 space-y-10 max-w-4xl mx-auto">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-muted-foreground/80">
+                        <FileText className="w-4 h-4" />
+                        <h4 className="text-[12px] font-bold uppercase tracking-widest">Description</h4>
+                      </div>
+                      <div className="bg-muted/10 border border-border/40 rounded-2xl p-5 sm:p-6 shadow-sm">
+                        <p className="text-[15px] leading-relaxed text-foreground/90 whitespace-pre-wrap font-medium">
+                          {selectedTask.description || <span className="text-muted-foreground/50 italic">No description provided.</span>}
+                        </p>
+                      </div>
+                    </div>
+
+                    {(selectedTask.attachments?.length || selectedTask.attachment?.url || selectedProject?.attachments?.length) ? (
+                      <div className="space-y-5">
                         <div className="flex items-center gap-2 text-muted-foreground/80">
-                          <FileText className="w-4 h-4" />
-                          <h4 className="text-[12px] font-bold uppercase tracking-widest">Description</h4>
+                          <Paperclip className="w-4 h-4" />
+                          <h4 className="text-[12px] font-bold uppercase tracking-widest">Shared Assets</h4>
                         </div>
-                        <div className="bg-muted/10 border border-border/40 rounded-2xl p-5 sm:p-6 shadow-sm">
-                          <p className="text-[15px] leading-relaxed text-foreground/90 whitespace-pre-wrap font-medium">
-                            {selectedTask.description || <span className="text-muted-foreground/50 italic">No description provided.</span>}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                          {selectedTask.attachments?.map((att, idx) => (
+                            <div key={`task-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-border/60 bg-background shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-zoom-in" onClick={() => { if (att.url) { setPreviewUrl(att.url); setPreviewName(att.fileName || "Attachment"); } }}>
+                              <TaskAttachmentImg taskId={selectedTask.id} index={idx} mimeType={att.mimeType} fileName={att.fileName} fallbackUrl={att.url} onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }} />
+                              <div className="p-2.5 border-t text-[11px] font-bold truncate bg-card/50 backdrop-blur-sm text-muted-foreground">{att.fileName}</div>
+                              <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
+                                <button onClick={(e) => { e.stopPropagation(); setPreviewUrl(att.url); setPreviewName(att.fileName || "Attachment"); }} className="bg-primary text-primary-foreground p-2 rounded-full shadow-lg hover:scale-110 transition-transform" title="Preview"><Maximize2 className="h-4 w-4" /></button>
+                                <button onClick={(e) => { e.stopPropagation(); void downloadTaskAttachment(selectedTask.id, idx, att.fileName); }} className="bg-primary text-primary-foreground p-2 rounded-full shadow-lg hover:scale-110 transition-transform" title="Download"><Download className="h-4 w-4" /></button>
+                              </div>
+                            </div>
+                          ))}
+                          {selectedProject?.attachments?.map((att, idx) => (
+                            <div key={`proj-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-primary/20 bg-primary/5 shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-zoom-in" onClick={() => { if (att.url) { setPreviewUrl(att.url); setPreviewName(att.fileName || "Attachment"); } }}>
+                              <div className="absolute top-2 left-2 z-10"><Badge className="text-[8px] h-4 bg-primary text-white font-black border-none px-1.5 uppercase">Project</Badge></div>
+                              {(att.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(att.fileName || "")) && att.url ? (
+                                <img src={att.url} alt={att.fileName} className="w-full h-24 object-cover" />
+                              ) : (
+                                <div className="w-full h-24 flex items-center justify-center bg-muted/20"><FileText className="h-8 w-8 text-muted-foreground/40" /></div>
+                              )}
+                              <div className="p-2.5 border-t text-[11px] font-bold truncate bg-white/40 backdrop-blur-sm text-primary/70">{att.fileName}</div>
+                              <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 backdrop-blur-[2px]">
+                                <button onClick={(e) => { e.stopPropagation(); setPreviewUrl(att.url); setPreviewName(att.fileName || "Attachment"); }} className="p-2 bg-primary text-primary-foreground rounded-full shadow-lg hover:scale-110 transition-transform" title="Preview"><Maximize2 className="h-4 w-4" /></button>
+                                <a href={att.url} download={att.fileName} onClick={(e) => e.stopPropagation()} className="p-2 bg-primary text-primary-foreground rounded-full shadow-lg hover:scale-110 transition-transform" title="Download"><Download className="h-4 w-4" /></a>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        {selectedTask.attachmentNote && (
+                          <p className="text-[11px] font-medium text-muted-foreground bg-muted/20 p-3 rounded-lg border border-dashed border-border/60 flex items-start gap-2">
+                            <AlertCircle className="w-3.5 h-3.5 mt-0.5" /> {selectedTask.attachmentNote}
                           </p>
+                        )}
+                      </div>
+                    ) : null}
+
+                    {/* Activity Feed */}
+                    <div className="pt-6 border-t border-border/60">
+                      <div className="flex items-center justify-between mb-6">
+                        <h4 className="text-[13px] font-bold text-foreground/70 uppercase tracking-widest flex items-center gap-2">
+                          <TrendingUp className="w-4 h-4 text-primary" /> Activity Feed
+                        </h4>
+                        <div className="flex items-center gap-3">
+                          <label className="text-[10px] font-bold text-muted-foreground/60 uppercase flex items-center gap-1.5 cursor-pointer">
+                            <input type="checkbox" checked={autoRefreshEnabled} onChange={(e) => setAutoRefreshEnabled(e.target.checked)} className="rounded border-border/60 text-primary focus:ring-primary" /> Auto Update
+                          </label>
+                          <Button type="button" variant="ghost" size="sm" onClick={() => { if (selectedTask) void loadComments(selectedTask.id); }} disabled={commentsLoading} className="h-8 px-3 text-[11px] font-bold gap-1.5 hover:bg-muted/80 rounded-full transition-all">
+                            <RefreshCw className={cn("w-3 h-3", commentsLoading && "animate-spin")} /> Refresh
+                          </Button>
                         </div>
                       </div>
 
-                      {/* Attachments Deck */}
-                      {(selectedTask.attachments?.length || selectedTask.attachment?.url || selectedProject?.attachments?.length) ? (
-                        <div className="space-y-5">
-                          <div className="flex items-center gap-2 text-muted-foreground/80">
-                            <Paperclip className="w-4 h-4" />
-                            <h4 className="text-[12px] font-bold uppercase tracking-widest">Shared Assets</h4>
+                      <div className="space-y-8 lg:ml-4" ref={chatContainerRef}>
+                        {commentsLoading && comments.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center p-12 space-y-3">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
+                            <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Loading discussions...</p>
                           </div>
-                          
-                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                            {/* Task Specific Attachments */}
-                            {selectedTask.attachments?.map((att, idx) => (
-                              <div key={`task-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-border/60 bg-background shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-zoom-in" onClick={() => {
-                                if (att.url) {
-                                  setPreviewUrl(att.url);
-                                  setPreviewName(att.fileName || "Attachment");
-                                }
-                              }}>
-                                <TaskAttachmentImg taskId={selectedTask.id} index={idx} mimeType={att.mimeType} fileName={att.fileName} fallbackUrl={att.url} onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }} />
-                                <div className="p-2.5 border-t text-[11px] font-bold truncate bg-card/50 backdrop-blur-sm text-muted-foreground">{att.fileName}</div>
-                                <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
-                                  <button 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setPreviewUrl(att.url);
-                                      setPreviewName(att.fileName || "Attachment");
-                                    }} 
-                                    className="bg-primary text-primary-foreground p-2 rounded-full shadow-lg hover:scale-110 transition-transform"
-                                    title="Preview"
-                                  >
-                                    <Maximize2 className="h-4 w-4" />
-                                  </button>
-                                  <button 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      void downloadTaskAttachment(selectedTask.id, idx, att.fileName);
-                                    }} 
-                                    className="bg-primary text-primary-foreground p-2 rounded-full shadow-lg hover:scale-110 transition-transform"
-                                    title="Download"
-                                  >
-                                    <Download className="h-4 w-4" />
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-
-                            {/* Project Attachments */}
-                            {selectedProject?.attachments?.map((att, idx) => (
-                              <div key={`proj-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-primary/20 bg-primary/5 shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-zoom-in" onClick={() => {
-                                if (att.url) {
-                                  setPreviewUrl(att.url);
-                                  setPreviewName(att.fileName || "Attachment");
-                                }
-                              }}>
-                                <div className="absolute top-2 left-2 z-10"><Badge className="text-[8px] h-4 bg-primary text-white font-black border-none px-1.5 uppercase">Project</Badge></div>
-                                {(att.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(att.fileName || "")) && att.url ? (
-                                  <img src={att.url} alt={att.fileName} className="w-full h-24 object-cover" />
-                                ) : (
-                                  <div className="w-full h-24 flex items-center justify-center bg-muted/20"><FileText className="h-8 w-8 text-muted-foreground/40" /></div>
-                                )}
-                                <div className="p-2.5 border-t text-[11px] font-bold truncate bg-white/40 backdrop-blur-sm text-primary/70">{att.fileName}</div>
-                                <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 backdrop-blur-[2px]">
-                                  <button 
-                                    onClick={(e) => { e.stopPropagation(); setPreviewUrl(att.url); setPreviewName(att.fileName || "Attachment"); }}
-                                    className="p-2 bg-primary text-primary-foreground rounded-full shadow-lg hover:scale-110 transition-transform"
-                                    title="Preview"
-                                  >
-                                    <Maximize2 className="h-4 w-4" />
-                                  </button>
-                                  <a 
-                                    href={att.url} 
-                                    download={att.fileName}
-                                    onClick={(e) => e.stopPropagation()}
-                                    className="p-2 bg-primary text-primary-foreground rounded-full shadow-lg hover:scale-110 transition-transform"
-                                    title="Download"
-                                  >
-                                    <Download className="h-4 w-4" />
-                                  </a>
-                                </div>
-                              </div>
-                            ))}
+                        ) : comments.length === 0 ? (
+                          <div className="text-center p-12 border-2 border-dashed border-border/40 rounded-3xl bg-muted/5 flex flex-col items-center">
+                            <div className="w-14 h-14 bg-background rounded-full flex items-center justify-center shadow-inner mb-4 border border-border/50"><MessageSquare className="h-6 w-6 text-muted-foreground/30" /></div>
+                            <p className="text-sm font-bold text-foreground/60">No activity yet</p>
+                            <p className="text-[11px] text-muted-foreground/60 font-medium mt-1">Be the first to leave a comment or update</p>
                           </div>
-                          {selectedTask.attachmentNote && <p className="text-[11px] font-medium text-muted-foreground bg-muted/20 p-3 rounded-lg border border-dashed border-border/60 flex items-start gap-2"><AlertCircle className="w-3.5 h-3.5 mt-0.5" /> {selectedTask.attachmentNote}</p>}
-                        </div>
-                      ) : null}
-
-                      {/* Activity Feed */}
-                      <div className="pt-6 border-t border-border/60">
-                        <div className="flex items-center justify-between mb-6">
-                          <h4 className="text-[13px] font-bold text-foreground/70 uppercase tracking-widest flex items-center gap-2">
-                            <TrendingUp className="w-4 h-4 text-primary" /> Activity Feed
-                          </h4>
-                          <div className="flex items-center gap-3">
-                            <label className="text-[10px] font-bold text-muted-foreground/60 uppercase flex items-center gap-1.5 cursor-pointer">
-                              <input type="checkbox" checked={autoRefreshEnabled} onChange={(e) => setAutoRefreshEnabled(e.target.checked)} className="rounded border-border/60 text-primary focus:ring-primary" /> Auto Update
-                            </label>
-                            <Button type="button" variant="ghost" size="sm" onClick={() => { if (selectedTask) void loadComments(selectedTask.id); }} disabled={commentsLoading} className="h-8 px-3 text-[11px] font-bold gap-1.5 hover:bg-muted/80 rounded-full transition-all">
-                              <RefreshCw className={cn("w-3 h-3", commentsLoading && "animate-spin")} /> Refresh
-                            </Button>
-                          </div>
-                        </div>
-
-                        <div className="space-y-8 lg:ml-4" ref={chatContainerRef}>
-                          {commentsLoading && comments.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center p-12 space-y-3"><Loader2 className="h-8 w-8 animate-spin text-primary/40" /><p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Loading discussions...</p></div>
-                          ) : comments.length === 0 ? (
-                            <div className="text-center p-12 border-2 border-dashed border-border/40 rounded-3xl bg-muted/5 flex flex-col items-center">
-                              <div className="w-14 h-14 bg-background rounded-full flex items-center justify-center shadow-inner mb-4 border border-border/50"><MessageSquare className="h-6 w-6 text-muted-foreground/30" /></div>
-                              <p className="text-sm font-bold text-foreground/60">No activity yet</p>
-                              <p className="text-[11px] text-muted-foreground/60 font-medium mt-1">Be the first to leave a comment or update</p>
-                            </div>
-                          ) : (
-                            <div className="space-y-8 relative">
-                              <div className="absolute left-4.5 top-0 bottom-0 w-0.5 bg-gradient-to-b from-primary/10 via-primary/5 to-transparent"></div>
-                              {comments.map((c) => (
-                                <div key={c.id} className="flex gap-4 group relative">
-                                  <Avatar className="w-10 h-10 border-2 border-background shadow-md flex-shrink-0 z-10 overflow-hidden ring-4 ring-muted/10">
-                                    <AvatarFallback className="text-xs bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-black uppercase tracking-tighter">
-                                      {(c.authorFullName || c.authorUsername || "U").split(" ").map((n: string) => n ? n[0] : "").join("").toUpperCase()}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <div className="flex-1 space-y-2 min-w-0 bg-card p-4 rounded-2xl border border-border/60 ml-2 group-hover:border-primary/20 transition-all shadow-xs group-hover:shadow-md">
-                                    <div className="flex items-center justify-between gap-2 flex-wrap">
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-black text-[13px] text-foreground tracking-tight">{c.authorFullName || c.authorUsername}</span>
-                                        {c.authorRole && <Badge variant="secondary" className="text-[9px] h-4 font-black bg-muted/50 text-muted-foreground uppercase px-1 border-none">{c.authorRole}</Badge>}
-                                        <span className="text-[10px] text-muted-foreground/60 font-bold uppercase tracking-tight">{formatMessageTime(c.createdAt)}</span>
-                                      </div>
+                        ) : (
+                          <div className="space-y-8 relative">
+                            <div className="absolute left-4.5 top-0 bottom-0 w-0.5 bg-gradient-to-b from-primary/10 via-primary/5 to-transparent"></div>
+                            {comments.map((c) => (
+                              <div key={c.id} className="flex gap-4 group relative">
+                                <Avatar className="w-10 h-10 border-2 border-background shadow-md flex-shrink-0 z-10 overflow-hidden ring-4 ring-muted/10">
+                                  <AvatarFallback className="text-xs bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-black uppercase tracking-tighter">
+                                    {(c.authorFullName || c.authorUsername || "U").split(" ").map((n: string) => n ? n[0] : "").join("").toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 space-y-2 min-w-0 bg-card p-4 rounded-2xl border border-border/60 ml-2 group-hover:border-primary/20 transition-all shadow-xs group-hover:shadow-md">
+                                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-black text-[13px] text-foreground tracking-tight">{c.authorFullName || c.authorUsername}</span>
+                                      {c.authorRole && <Badge variant="secondary" className="text-[9px] h-4 font-black bg-muted/50 text-muted-foreground uppercase px-1 border-none">{c.authorRole}</Badge>}
+                                      <span className="text-[10px] text-muted-foreground/60 font-bold uppercase tracking-tight">{formatMessageTime(c.createdAt)}</span>
                                     </div>
-                                    <div className="text-[14px] leading-relaxed text-foreground/90 font-medium whitespace-pre-wrap break-words">
-                                      {renderMessageWithMentions(c.message)}
-                                    </div>
-                                    
-                                    {/* Comment Attachments */}
-                                    {c.attachments && c.attachments.length > 0 && (
-                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-3 border-t border-dashed border-border/50">
-                                        {c.attachments.map((att, attIdx) => (
-                                          <div key={attIdx} className="relative rounded-xl overflow-hidden border border-border/50 bg-background shadow-xs group/att aspect-square flex flex-col items-center justify-center cursor-pointer">
-                                            <CommentAttachmentImg 
-                                              taskId={selectedTask.id} 
-                                              commentId={c.id} 
-                                              index={attIdx} 
-                                              mimeType={att.mimeType} 
-                                              fileName={att.fileName} 
-                                              fallbackUrl={att.url} 
-                                              onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
-                                            />
-                                            <div className="p-1 px-2 text-[9px] w-full text-center font-bold text-muted-foreground/70 truncate border-t bg-muted/10">{att.fileName}</div>
-                                            <a href={att.url || "#"} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]"><Download className="h-5 w-5 text-white" /></a>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
                                   </div>
+                                  <div className="text-[14px] leading-relaxed text-foreground/90 font-medium whitespace-pre-wrap break-words">
+                                    {renderMessageWithMentions(c.message)}
+                                  </div>
+                                  
+                                  {/* Comment Attachments */}
+                                  {c.attachments && c.attachments.length > 0 && (
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4 pt-3 border-t border-dashed border-border/50">
+                                      {c.attachments.map((att, attIdx) => (
+                                        <div key={attIdx} className="relative rounded-xl overflow-hidden border border-border/50 bg-background shadow-xs group/att aspect-square flex flex-col items-center justify-center cursor-pointer">
+                                          <CommentAttachmentImg 
+                                            taskId={selectedTask.id} 
+                                            commentId={c.id} 
+                                            index={attIdx} 
+                                            mimeType={att.mimeType} 
+                                            fileName={att.fileName} 
+                                            fallbackUrl={att.url} 
+                                            onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
+                                          />
+                                          <div className="p-1 px-2 text-[9px] w-full text-center font-bold text-muted-foreground/70 truncate border-t bg-muted/10">{att.fileName}</div>
+                                          <a href={att.url || "#"} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]"><Download className="h-5 w-5 text-white" /></a>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Composer */}
+                      <div className="mt-10 ml-0 lg:ml-16 sticky bottom-0 z-20">
+                        <div className="relative rounded-3xl border-2 border-border/60 bg-background/80 backdrop-blur-xl overflow-visible focus-within:border-primary/40 focus-within:ring-8 focus-within:ring-primary/5 transition-all shadow-2xl">
+                          {commentAttachments.length > 0 && (
+                            <div className="p-3 border-b bg-muted/5 grid grid-cols-3 sm:grid-cols-6 gap-3 max-h-40 overflow-y-auto rounded-t-3xl border-dashed">
+                              {commentAttachments.map((f, i) => (
+                                <div key={i} className="relative rounded-xl border border-border/50 bg-background flex flex-col items-center justify-center p-2 text-center aspect-square group shadow-xs">
+                                  {f.type.startsWith("image/") ? <img src={URL.createObjectURL(f)} alt={f.name} className="w-full h-full object-cover rounded-md" /> : <FileText className="h-5 w-5 text-muted-foreground/60" />}
+                                  <span className="text-[9px] w-full mt-1.5 truncate font-bold text-muted-foreground/70 uppercase px-1">{f.name}</span>
+                                  <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-2 -right-2 bg-destructive text-white rounded-full w-5 h-5 flex items-center justify-center shadow-lg hover:scale-110 transition-transform text-[10px] font-black border-2 border-background">✕</button>
                                 </div>
                               ))}
                             </div>
                           )}
-                        </div>
-
-                        {/* Composer */}
-                        <div className="mt-10 ml-0 lg:ml-16 sticky bottom-0 z-20">
-                          <div className="relative rounded-3xl border-2 border-border/60 bg-background/80 backdrop-blur-xl overflow-visible focus-within:border-primary/40 focus-within:ring-8 focus-within:ring-primary/5 transition-all shadow-2xl">
-                            {commentAttachments.length > 0 && (
-                              <div className="p-3 border-b bg-muted/5 grid grid-cols-3 sm:grid-cols-6 gap-3 max-h-40 overflow-y-auto rounded-t-3xl border-dashed">
-                                {commentAttachments.map((f, i) => (
-                                  <div key={i} className="relative rounded-xl border border-border/50 bg-background flex flex-col items-center justify-center p-2 text-center aspect-square group shadow-xs">
-                                    {f.type.startsWith("image/") ? <img src={URL.createObjectURL(f)} alt={f.name} className="w-full h-full object-cover rounded-md" /> : <FileText className="h-5 w-5 text-muted-foreground/60" />}
-                                    <span className="text-[9px] w-full mt-1.5 truncate font-bold text-muted-foreground/70 uppercase px-1">{f.name}</span>
-                                    <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-2 -right-2 bg-destructive text-white rounded-full w-5 h-5 flex items-center justify-center shadow-lg hover:scale-110 transition-transform text-[10px] font-black border-2 border-background">✕</button>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            <textarea
-                              value={commentDraft}
-                              onChange={(e) => setCommentDraft(e.target.value)}
-                              placeholder="Type a message or share an update... @mention someone"
-                              className="w-full min-h-[100px] max-h-[350px] border-0 focus:ring-0 resize-y p-5 text-[15px] bg-transparent outline-none placeholder-muted-foreground/50 font-semibold"
-                              spellCheck="true"
-                              autoCorrect="on"
-                              autoComplete="on"
-                            />
-                            <div className="flex items-center justify-between p-3 pl-5 bg-muted/20 border-t border-border/40 rounded-b-[22px]">
-                              <button type="button" onClick={() => { const el = document.getElementById("task-comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground/70 hover:text-primary hover:bg-primary/10 rounded-xl transition-all flex items-center gap-2 group" title="Shared assets">
-                                <Paperclip className="w-4 h-4 group-hover:rotate-12 transition-transform" /> <span className="text-[12px] font-bold uppercase tracking-wider hidden sm:inline">Attach Files</span>
-                              </button>
-                              <input id="task-comment-attachment-input" type="file" multiple className="hidden" aria-label="Attach files to comment" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value = ''; }} />
-                              <Button type="button" onClick={() => void sendComment()} disabled={(!commentDraft.trim() && commentAttachments.length === 0) || isSendingComment} className="h-10 px-6 rounded-xl font-black uppercase tracking-widest text-[11px] shadow-lg hover:shadow-primary/20 transition-all border-none">
-                                {isSendingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send Message"}
-                              </Button>
-                            </div>
+                          <textarea
+                            value={commentDraft}
+                            onChange={(e) => setCommentDraft(e.target.value)}
+                            placeholder="Type a message or share an update... @mention someone"
+                            className="w-full min-h-[100px] max-h-[350px] border-0 focus:ring-0 resize-y p-5 text-[15px] bg-transparent outline-none placeholder-muted-foreground/50 font-semibold"
+                            spellCheck="true"
+                            autoCorrect="on"
+                            autoComplete="on"
+                          />
+                          <div className="flex items-center justify-between p-3 pl-5 bg-muted/20 border-t border-border/40 rounded-b-[22px]">
+                            <button type="button" onClick={() => { const el = document.getElementById("task-comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground/70 hover:text-primary hover:bg-primary/10 rounded-xl transition-all flex items-center gap-2 group" title="Shared assets">
+                              <Paperclip className="w-4 h-4 group-hover:rotate-12 transition-transform" /> <span className="text-[12px] font-bold uppercase tracking-wider hidden sm:inline">Attach Files</span>
+                            </button>
+                            <input id="task-comment-attachment-input" type="file" multiple className="hidden" aria-label="Attach files to comment" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value = ''; }} />
+                            <Button type="button" onClick={() => void sendComment()} disabled={(!commentDraft.trim() && commentAttachments.length === 0) || isSendingComment} className="h-10 px-6 rounded-xl font-black uppercase tracking-widest text-[11px] shadow-lg hover:shadow-primary/20 transition-all border-none">
+                              {isSendingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send Message"}
+                            </Button>
                           </div>
                         </div>
                       </div>
@@ -2432,10 +2546,24 @@ export default function Tasks() {
                             </SelectContent>
                           </Select>
                         </div>
+
+                        {selectedTask.reward?.isRewarded && (
+                          <div className="space-y-3">
+                            <label className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest flex items-center gap-2">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-[#16a34a]" /> Reward
+                            </label>
+                            <div className="bg-[#f0fdf4] border border-[#bbf7d0] rounded-xl p-4 shadow-sm">
+                              <div className="flex items-center gap-2 text-[#16a34a] font-bold">
+                                <Trophy className="w-4 h-4" /> Rewarded
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         <div className="space-y-3">
                           <label className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest flex items-center gap-2"><Calendar className="w-3.5 h-3.5 ml-0.5" /> Delivery Date</label>
                           <div className="flex flex-col gap-1.5 bg-background border border-border/60 rounded-xl p-4 shadow-xs">
-                            <span className="text-[14px] font-black text-foreground tracking-tight">{new Date(selectedTask.dueDate).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+                            <span className="text-[14px] font-black text-foreground tracking-tight">{new Date(selectedTask.dueDate).toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}</span>
                             {selectedTask.dueTime && <span className="text-[11px] text-primary/70 font-black uppercase tracking-widest">{selectedTask.dueTime}</span>}
                           </div>
                         </div>
@@ -2447,7 +2575,6 @@ export default function Tasks() {
                         )}
                       </div>
 
-                      {/* Task Collaborators */}
                       <div className="space-y-3 pt-6 border-t border-border/60">
                         <label className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest flex items-center gap-2">
                           <TrendingUp className="w-3.5 h-3.5" /> Collaborators
@@ -2463,154 +2590,148 @@ export default function Tasks() {
                     </div>
                   </div>
                 </div>
-              </>
-            )}
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
       {/* Project Discussion Dialog */}
       <Dialog open={isViewProjectOpen} onOpenChange={setIsViewProjectOpen}>
         <DialogContent className="w-[98vw] sm:max-w-[95vw] lg:max-w-[1000px] h-[85vh] p-0 overflow-hidden flex flex-col gap-0 border-none shadow-2xl">
-            {selectedProject && (
-              <>
-                <DialogHeader className="p-4 sm:p-6 border-b bg-card flex-shrink-0">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4 min-w-0">
-                      <Avatar className="h-12 w-12 border-2 border-primary/20 shadow-sm rounded-xl">
-                        <AvatarFallback className="bg-primary/10 text-primary font-black text-xs uppercase">
-                          {selectedProject.name.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-0.5">
-                          <Badge variant="outline" className="text-[10px] h-4.5 bg-primary/5 text-primary border-primary/20 font-black uppercase tracking-widest px-1.5">Project View</Badge>
-                          <span className="text-[10px] text-muted-foreground font-bold tracking-tight">• {selectedProject.id.slice(-6).toUpperCase()}</span>
-                        </div>
-                        <DialogTitle className="text-xl sm:text-2xl font-black truncate leading-tight tracking-tight text-foreground">{selectedProject.name}</DialogTitle>
+          {selectedProject && (
+            <>
+              <DialogHeader className="p-4 sm:p-6 border-b bg-card flex-shrink-0">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-4 min-w-0">
+                    <Avatar className="h-12 w-12 border-2 border-primary/20 shadow-sm rounded-xl">
+                      <AvatarFallback className="bg-primary/10 text-primary font-black text-xs uppercase">
+                        {selectedProject.name.slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <Badge variant="outline" className="text-[10px] bg-primary/5 text-primary border-primary/20 font-black uppercase tracking-widest px-1.5">Project View</Badge>
+                        <span className="text-[10px] text-muted-foreground font-bold tracking-tight">• {selectedProject.id.slice(-6).toUpperCase()}</span>
                       </div>
+                      <DialogTitle className="text-xl sm:text-2xl font-black truncate leading-tight tracking-tight text-foreground">{selectedProject.name}</DialogTitle>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => setIsViewProjectOpen(false)} className="rounded-full h-9 w-9 hover:bg-muted/80 transition-colors">
-                      <X className="h-4 w-4" />
-                    </Button>
                   </div>
-                </DialogHeader>
+                </div>
+              </DialogHeader>
 
-                <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-background">
-                  {/* Left: Feed */}
-                  <div className="flex-1 overflow-y-auto custom-scrollbar bg-card/10">
-                    <div className="p-4 sm:p-8 space-y-10 max-w-3xl mx-auto min-h-full flex flex-col">
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-2 text-primary">
-                          <TrendingUp className="w-4 h-4" />
-                          <h4 className="text-[12px] font-black uppercase tracking-[0.15em]">Project Activity Feed</h4>
-                        </div>
-                        
-                        <div className="flex-1 space-y-6">
-                          {projectCommentsLoading && projectComments.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center p-20 space-y-3">
-                              <Loader2 className="h-8 w-8 animate-spin text-primary/30" />
-                              <p className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-widest">Hydrating activity stream...</p>
-                            </div>
-                          ) : projectComments.length === 0 ? (
-                            <div className="text-center p-16 border-2 border-dashed border-border/40 rounded-[2.5rem] bg-muted/5 flex flex-col items-center">
-                              <div className="w-16 h-16 bg-background rounded-full flex items-center justify-center shadow-inner border border-border/50 mb-5 text-2xl">🌍</div>
-                              <p className="text-sm font-black text-foreground/80 uppercase tracking-wider">The project board is clean</p>
-                              <p className="text-[11px] text-muted-foreground font-medium mt-1">Status updates and team discussions will appear here.</p>
-                            </div>
-                          ) : (
-                            <div className="space-y-8 relative pb-10">
-                              <div className="absolute left-4.5 top-2 bottom-0 w-0.5 bg-gradient-to-b from-primary/10 via-primary/5 to-transparent"></div>
-                              {projectComments.map((c) => (
-                                <div key={c.id} className="flex gap-4 group relative">
-                                  <Avatar className="w-10 h-10 border-2 border-background shadow-md flex-shrink-0 z-10 overflow-hidden ring-4 ring-muted/10">
-                                    <AvatarFallback className="text-xs bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-black uppercase tracking-tighter">
-                                      {(c.authorFullName || c.authorUsername || "U").split(" ").map((n: string) => n ? n[0] : "").join("").toUpperCase()}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <div className="flex-1 space-y-2 min-w-0 bg-background/60 backdrop-blur-md p-4 rounded-2xl border border-border/40 ml-2 shadow-xs group-hover:shadow-md transition-all">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-black text-[13px] text-foreground tracking-tight">{c.authorFullName || c.authorUsername}</span>
-                                      {c.authorRole && <Badge variant="secondary" className="text-[9px] h-4 font-black bg-primary/10 text-primary uppercase px-1.5 border-none">{c.authorRole}</Badge>}
-                                      <span className="text-[10px] text-muted-foreground/50 font-bold uppercase tracking-tight ml-auto">{formatMessageTime(c.createdAt)}</span>
-                                    </div>
-                                    <div className="text-[14px] leading-relaxed text-foreground/80 font-medium whitespace-pre-wrap break-words">
-                                      {renderMessageWithMentions(c.message)}
-                                    </div>
-                                    {c.attachments && c.attachments.length > 0 && (
-                                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
-                                        {c.attachments.map((att: any, attIdx: number) => (
-                                          <div key={attIdx} className="relative rounded-lg overflow-hidden border border-border/40 bg-background shadow-xs group/att aspect-square flex flex-col items-center justify-center cursor-pointer">
-                                            {att.mimeType?.startsWith("image/") ? <img src={att.url} alt={att.fileName} className="w-full h-full object-cover" /> : <FileText className="h-6 w-6 text-muted-foreground/30" />}
-                                            <a href={att.url || "#"} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]" title="Download attachment"><Download className="h-4 w-4 text-white" /></a>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    )}
+              <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-background">
+                <div className="flex-1 overflow-y-auto custom-scrollbar bg-card/10">
+                  <div className="p-4 sm:p-8 space-y-10 max-w-3xl mx-auto min-h-full flex flex-col">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 text-primary">
+                        <TrendingUp className="w-4 h-4" />
+                        <h4 className="text-[12px] font-black uppercase tracking-[0.15em]">Project Activity Feed</h4>
+                      </div>
+
+                      <div className="flex-1 space-y-6">
+                        {projectCommentsLoading && projectComments.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center p-20 space-y-3">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary/30" />
+                            <p className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-widest">Hydrating activity stream...</p>
+                          </div>
+                        ) : projectComments.length === 0 ? (
+                          <div className="text-center p-16 border-2 border-dashed border-border/40 rounded-[2.5rem] bg-muted/5 flex flex-col items-center">
+                            <div className="w-16 h-16 bg-background rounded-full flex items-center justify-center shadow-inner border border-border/50 mb-5 text-2xl">🌍</div>
+                            <p className="text-sm font-black text-foreground/80 uppercase tracking-wider">The project board is clean</p>
+                            <p className="text-[11px] text-muted-foreground font-medium mt-1">Status updates and team discussions will appear here.</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-8 relative pb-10">
+                            <div className="absolute left-4.5 top-2 bottom-0 w-0.5 bg-gradient-to-b from-primary/10 via-primary/5 to-transparent"></div>
+                            {projectComments.map((c) => (
+                              <div key={c.id} className="flex gap-4 group relative">
+                                <Avatar className="w-10 h-10 border-2 border-background shadow-md flex-shrink-0 z-10 overflow-hidden ring-4 ring-muted/10">
+                                  <AvatarFallback className="text-xs bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-black uppercase tracking-tighter">
+                                    {(c.authorFullName || c.authorUsername || "U").split(" ").map((n: string) => n ? n[0] : "").join("").toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="flex-1 space-y-2 min-w-0 bg-background/60 backdrop-blur-md p-4 rounded-2xl border border-border/40 ml-2 shadow-xs group-hover:shadow-md transition-all">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-black text-[13px] text-foreground tracking-tight">{c.authorFullName || c.authorUsername}</span>
+                                    {c.authorRole && <Badge variant="secondary" className="text-[9px] h-4 font-black bg-primary/10 text-primary uppercase px-1.5 border-none">{c.authorRole}</Badge>}
+                                    <span className="text-[10px] text-muted-foreground/50 font-bold uppercase tracking-tight ml-auto">{formatMessageTime(c.createdAt)}</span>
                                   </div>
+                                  <div className="text-[14px] leading-relaxed text-foreground/80 font-medium whitespace-pre-wrap break-words">
+                                    {renderMessageWithMentions(c.message)}
+                                  </div>
+                                  {c.attachments && c.attachments.length > 0 && (
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
+                                      {c.attachments.map((att: any, attIdx: number) => (
+                                        <div key={attIdx} className="relative rounded-lg overflow-hidden border border-border/40 bg-background shadow-xs group/att aspect-square flex flex-col items-center justify-center cursor-pointer">
+                                          {att.mimeType?.startsWith("image/") ? <img src={att.url} alt={att.fileName} className="w-full h-full object-cover" /> : <FileText className="h-6 w-6 text-muted-foreground/30" />}
+                                          <a href={att.url || "#"} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]" title="Download attachment"><Download className="h-4 w-4 text-white" /></a>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Project Composer */}
+                      <div className="sticky bottom-4 z-20 mt-auto pt-6 px-4 pb-4">
+                        <div className="relative rounded-3xl border border-border/60 bg-white/60 dark:bg-black/40 backdrop-blur-2xl overflow-hidden focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/5 transition-all shadow-xl">
+                          {commentAttachments.length > 0 && (
+                            <div className="p-3 border-b bg-muted/5 grid grid-cols-6 gap-2">
+                              {commentAttachments.map((f, i) => (
+                                <div key={i} className="relative rounded-lg border border-border/50 bg-background p-1 aspect-square group">
+                                  {f.type.startsWith("image/") ? <img src={URL.createObjectURL(f)} alt={f.name} className="w-full h-full object-cover rounded" /> : <FileText className="h-4 w-4 mx-auto mt-1 text-muted-foreground" />}
+                                  <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1 -right-1 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center text-[7px] font-black border-2 border-background">✕</button>
                                 </div>
                               ))}
                             </div>
                           )}
-                        </div>
-
-                        {/* Composer */}
-                        <div className="sticky bottom-4 z-20 mt-auto pt-6 px-4 pb-4">
-                           <div className="relative rounded-3xl border border-border/60 bg-white/60 dark:bg-black/40 backdrop-blur-2xl overflow-hidden focus-within:border-primary/40 focus-within:ring-4 focus-within:ring-primary/5 transition-all shadow-xl">
-                            {commentAttachments.length > 0 && (
-                              <div className="p-3 border-b bg-muted/5 grid grid-cols-6 gap-2">
-                                {commentAttachments.map((f, i) => (
-                                  <div key={i} className="relative rounded-lg border border-border/50 bg-background p-1 aspect-square group">
-                                    {f.type.startsWith("image/") ? <img src={URL.createObjectURL(f)} alt={f.name} className="w-full h-full object-cover rounded" /> : <FileText className="h-4 w-4 mx-auto mt-1 text-muted-foreground" />}
-                                    <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1 -right-1 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center text-[7px] font-black border-2 border-background">✕</button>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                            <textarea
-                              value={commentDraft}
-                              onChange={(e) => setCommentDraft(e.target.value)}
-                              placeholder="Post a status update or broad comment to project members..."
-                              className="w-full min-h-[80px] border-0 focus:ring-0 resize-none p-5 text-[14px] bg-transparent outline-none placeholder-muted-foreground/40 font-bold"
-                            />
-                            <div className="flex items-center justify-between p-3 bg-muted/20 border-t border-border/40">
-                              <button type="button" onClick={() => { const el = document.getElementById("proj-comment-attachment-input-emp") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground/70 hover:text-primary transition-colors flex items-center gap-2 group">
-                                <Paperclip className="w-4 h-4" /> <span className="text-[11px] font-black uppercase tracking-wider">Add files</span>
-                              </button>
-                              <input id="proj-comment-attachment-input-emp" type="file" multiple className="hidden" aria-label="Attach files to project comment" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value=''; }} />
-                              <Button type="button" onClick={() => void sendComment(true)} disabled={(!commentDraft.trim() && commentAttachments.length === 0) || isSendingComment} className="h-9 px-5 rounded-xl font-black uppercase tracking-[0.1em] text-[10px] shadow-lg">
-                                {isSendingComment ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : null}
-                                Post Update
-                              </Button>
-                            </div>
-                           </div>
+                          <textarea
+                            value={commentDraft}
+                            onChange={(e) => setCommentDraft(e.target.value)}
+                            placeholder="Post a status update or broad comment to project members..."
+                            className="w-full min-h-[80px] border-0 focus:ring-0 resize-none p-5 text-[14px] bg-transparent outline-none placeholder-muted-foreground/40 font-bold"
+                          />
+                          <div className="flex items-center justify-between p-3 bg-muted/20 border-t border-border/40">
+                            <button type="button" onClick={() => { const el = document.getElementById("proj-comment-attachment-input-emp") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground/70 hover:text-primary transition-colors flex items-center gap-2 group">
+                              <Paperclip className="w-4 h-4" /> <span className="text-[11px] font-black uppercase tracking-wider">Add files</span>
+                            </button>
+                            <input id="proj-comment-attachment-input-emp" type="file" multiple className="hidden" aria-label="Attach files to project comment" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value=''; }} />
+                            <Button type="button" onClick={() => void sendComment(true)} disabled={(!commentDraft.trim() && commentAttachments.length === 0) || isSendingComment} className="h-9 px-5 rounded-xl font-black uppercase tracking-[0.1em] text-[10px] shadow-lg">
+                              {isSendingComment ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : null}
+                              Post Update
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* Right: Sidebar */}
+                  {/* Right Sidebar */}
                   <div className="w-full md:w-[320px] bg-muted/5 border-t md:border-t-0 md:border-l border-border/40 overflow-y-auto hidden md:block">
                     <div className="p-8 space-y-10">
                       <div className="space-y-4">
                         <label className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-[0.2em] block">Description</label>
                         <p className="text-[13px] font-semibold text-foreground/70 leading-relaxed italic">{selectedProject.description || "Project parameters undefined."}</p>
                       </div>
-
                       <div className="space-y-6">
                         <div className="space-y-3">
                           <label className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-[0.2em] block">Project Staff</label>
                           <div className="flex flex-col gap-2">
-                             {selectedProject.assignees?.map((a, idx) => (
-                               <div key={idx} className="flex items-center gap-3 bg-background border border-border/40 px-3 py-2 rounded-xl shadow-xs">
-                                 <Avatar className="h-6 w-6">
-                                   <AvatarFallback className="text-[9px] font-black bg-primary/10 text-primary">{a ? a[0].toUpperCase() : "U"}</AvatarFallback>
-                                 </Avatar>
-                                 <span className="text-[12px] font-bold text-foreground/70 truncate">{resolveAssigneeName(a)}</span>
-                               </div>
-                             ))}
+                            {selectedProject.assignees?.map((a, idx) => (
+                              <div key={idx} className="flex items-center gap-3 bg-background border border-border/40 px-3 py-2 rounded-xl shadow-xs">
+                                <Avatar className="h-6 w-6">
+                                  <AvatarFallback className="text-[9px] font-black bg-primary/10 text-primary">{a ? a[0].toUpperCase() : "U"}</AvatarFallback>
+                                </Avatar>
+                                <span className="text-[12px] font-bold text-foreground/70 truncate">{resolveAssigneeName(a)}</span>
+                              </div>
+                            ))}
                           </div>
                         </div>
-
                         <div className="space-y-3">
                           <label className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-[0.2em] block">Shared Resources</label>
                           <div className="grid grid-cols-2 gap-2">
@@ -2626,18 +2747,14 @@ export default function Tasks() {
                     </div>
                   </div>
                 </div>
-              </>
-            )}
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
-      <Dialog
-        open={isEditOpen}
-        onOpenChange={(open) => {
-          setIsEditOpen(open);
-          if (!open) setSelectedTask(null);
-        }}
-      >
+      {/* Edit Task Dialog */}
+      <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) setSelectedTask(null); }}>
         <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Task</DialogTitle>
@@ -2647,49 +2764,28 @@ export default function Tasks() {
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit(onEditTask)} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <FormField
-                  control={editForm.control}
-                  name="title"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Title</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Task title" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormField control={editForm.control} name="title" render={({ field }) => (
+                  <FormItem className="sm:col-span-2">
+                    <FormLabel>Title</FormLabel>
+                    <FormControl><Input placeholder="Task title" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
 
-                <FormField
-                  control={editForm.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem className="sm:col-span-2">
-                      <FormLabel>Description</FormLabel>
-                      <FormControl>
-                        <Textarea placeholder="Short description" className="min-h-[90px]" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormField control={editForm.control} name="description" render={({ field }) => (
+                  <FormItem className="sm:col-span-2">
+                    <FormLabel>Description</FormLabel>
+                    <FormControl><Textarea placeholder="Short description" className="min-h-[90px]" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
 
-                {/* Multi-Assignees Edit */}
                 <div className="sm:col-span-2 space-y-1.5">
                   <label className="text-sm font-medium">Assignees *</label>
                   <Popover open={editAssigneesOpen} onOpenChange={setEditAssigneesOpen}>
                     <PopoverTrigger asChild>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="w-full justify-between h-10"
-                      >
-                        <span className="truncate">
-                          {editSelectedAssignees.length > 0
-                            ? editSelectedAssignees.join(", ")
-                            : "Select assignees"}
-                        </span>
+                      <Button type="button" variant="outline" className="w-full justify-between h-10">
+                        <span className="truncate">{editSelectedAssignees.length > 0 ? editSelectedAssignees.join(", ") : "Select assignees"}</span>
                         <ChevronsUpDown className="h-4 w-4 opacity-50" />
                       </Button>
                     </PopoverTrigger>
@@ -2712,18 +2808,9 @@ export default function Tasks() {
                                   setEditAssigneesOpen(false);
                                 }}
                               >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    editSelectedAssignees.includes(employee.name)
-                                      ? "opacity-100"
-                                      : "opacity-0"
-                                  )}
-                                />
+                                <Check className={cn("mr-2 h-4 w-4", editSelectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} />
                                 <Avatar className="h-6 w-6 mr-2">
-                                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                    {employee.initials}
-                                  </AvatarFallback>
+                                  <AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback>
                                 </Avatar>
                                 {employee.name}
                               </CommandItem>
@@ -2733,144 +2820,105 @@ export default function Tasks() {
                       </Command>
                     </PopoverContent>
                   </Popover>
-                  {editSelectedAssignees.length === 0 && (
-                    <p className="text-xs text-destructive">At least one assignee is required</p>
-                  )}
+                  {editSelectedAssignees.length === 0 && <p className="text-xs text-destructive">At least one assignee is required</p>}
                 </div>
 
-                <FormField
-                  control={editForm.control}
-                  name="location"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Location</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g. Main Office" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormField control={editForm.control} name="location" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Location</FormLabel>
+                    <FormControl><Input placeholder="e.g. Main Office" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
 
-                <FormField
-                  control={editForm.control}
-                  name="priority"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Priority</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select priority" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="high">High</SelectItem>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="low">Low</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormField control={editForm.control} name="priority" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Priority</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Select priority" /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="low">Low</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
 
-                <FormField
-                  control={editForm.control}
-                  name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Status</FormLabel>
-                      <Select value={field.value} onValueChange={field.onChange}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select status" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="in-progress">In Progress</SelectItem>
-                          <SelectItem value="completed">Completed</SelectItem>
-                          <SelectItem value="overdue">Overdue</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormField control={editForm.control} name="status" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="in-progress">In Progress</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="overdue">Overdue</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
 
-                <FormField
-                  control={editForm.control}
-                  name="dueDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Due Date</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormField control={editForm.control} name="dueDate" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Due Date</FormLabel>
+                    <FormControl><Input type="date" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
 
-                <FormField
-                  control={editForm.control}
-                  name="dueTime"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Due Time</FormLabel>
-                      <FormControl>
-                        <Input type="time" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <FormField control={editForm.control} name="dueTime" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Due Time</FormLabel>
+                    <FormControl><Input type="time" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
               </div>
 
               <DialogFooter className="flex-col sm:flex-row gap-2">
                 <Button type="button" variant="outline" onClick={() => { setIsEditOpen(false); setEditSelectedAssignees([]); }} disabled={updateTaskMutation.isPending} className="w-full sm:w-auto">
                   Cancel
                 </Button>
-                <Button type="submit" disabled={updateTaskMutation.isPending} className="w-full sm:w-auto gap-2">{updateTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Save</Button>
+                <Button type="submit" disabled={updateTaskMutation.isPending} className="w-full sm:w-auto gap-2">
+                  {updateTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Save
+                </Button>
               </DialogFooter>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
 
+      {/* Delete Confirmation */}
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete task?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently remove the task.
-            </AlertDialogDescription>
+            <AlertDialogDescription>This action cannot be undone. This will permanently remove the task.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleteTaskMutation.isPending}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete} disabled={deleteTaskMutation.isPending} className="gap-2">{deleteTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Delete</AlertDialogAction>
+            <AlertDialogAction onClick={confirmDelete} disabled={deleteTaskMutation.isPending} className="gap-2">
+              {deleteTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Delete
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Task Cards Grid (only visible after project selected) */}
+      {/* Task Cards Grid (only visible when a project is selected) */}
       {selectedProject && (
         <div className="space-y-6">
           {tasksQuery.isLoading ? (
-            <div className="bg-card rounded-xl border border-border p-6 text-sm text-muted-foreground">
-              Loading tasks...
-            </div>
+            <div className="bg-card rounded-xl border border-border p-6 text-sm text-muted-foreground">Loading tasks...</div>
           ) : tasksQuery.isError ? (
             <div className="bg-card rounded-xl border border-border p-6 text-sm text-destructive">
-              {tasksQuery.error instanceof Error
-                ? tasksQuery.error.message
-                : "Failed to load tasks"}
+              {tasksQuery.error instanceof Error ? tasksQuery.error.message : "Failed to load tasks"}
             </div>
           ) : filteredTasks.length === 0 ? (
-            <div className="bg-card rounded-xl border border-border p-6 text-sm text-muted-foreground text-center">
-              No tasks found
-            </div>
+            <div className="bg-card rounded-xl border border-border p-6 text-sm text-muted-foreground text-center">No tasks found</div>
           ) : (
             <>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -2883,7 +2931,6 @@ export default function Tasks() {
                     className="bg-card rounded-xl border border-muted/50 hover:border-primary/50 transition-all hover:shadow-md overflow-hidden flex flex-col group cursor-pointer"
                     onClick={() => openView(task)}
                   >
-                    {/* Card Header with Title and Menu */}
                     <div className="p-4 border-b border-muted/30 flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-foreground line-clamp-1">
@@ -2903,26 +2950,16 @@ export default function Tasks() {
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openView(task); }}>
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handlePrintTask(task); }}>
-                            Print
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(task); }}>
-                            Edit
-                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openView(task); }}>View Details</DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handlePrintTask(task); }}>Print</DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(task); }}>Edit</DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }}>
-                            Delete
-                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }}>Delete</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </div>
 
-                    {/* Card Body */}
                     <div className="p-4 flex-1 space-y-3">
-                      {/* Description */}
                       <p className="text-sm text-muted-foreground line-clamp-2">{task.description}</p>
 
                       {/* Attachment Summary */}
@@ -2966,7 +3003,8 @@ export default function Tasks() {
                                 )}
                               </div>
                               <span className="text-sm text-foreground">
-                                {task.assignees.slice(0, 2).map(resolveAssigneeName).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}
+                                {task.assignees.slice(0, 2).map(resolveAssigneeName).join(", ")}
+                                {task.assignees.length > 2 ? ` +${task.assignees.length - 2}` : ""}
                               </span>
                             </>
                           ) : (
@@ -2974,25 +3012,45 @@ export default function Tasks() {
                           )}
                         </div>
                       </div>
-
-                      {/* Status & Priority Badges */}
                       <div className="flex gap-2 flex-wrap">
-                        <Badge
-                          variant="secondary"
-                          className={cn("text-xs", statusClasses[task.status])}
-                        >
-                          {task.status}
+                        <Badge variant="secondary" className={cn("text-xs", statusClasses[task.status])}>{task.status}</Badge>
+                        <Badge variant="outline" className={cn("text-xs border", priorityClasses[task.priority])}>{task.priority}</Badge>
+                        <Badge className={cn("text-xs border", contextColors[task.context] || contextColors.OTHER)}>
+                          {contextIcons[task.context]} {task.context}
                         </Badge>
-                        <Badge
-                          variant="outline"
-                          className={cn("text-xs border", priorityClasses[task.priority])}
-                        >
-                          {task.priority}
-                        </Badge>
+                        {isInTop10(task.id) ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-6 px-2 text-[10px] font-black uppercase tracking-wider"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void removeFromTop10(task.id);
+                            }}
+                            disabled={top10ActionId === task.id}
+                          >
+                            {top10ActionId === task.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <X className="w-3 h-3 mr-1" />}
+                            Remove #{getRankFor(task.id) || ""}
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-6 px-2 text-[10px] font-black uppercase tracking-wider"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void addToTop10(task);
+                            }}
+                            disabled={top10ActionId === task.id}
+                          >
+                            {top10ActionId === task.id ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Trophy className="w-3 h-3 mr-1" />}
+                            Add to Top 10
+                          </Button>
+                        )}
                       </div>
                     </div>
 
-                    {/* Card Footer with Dates and Location */}
                     <div className="p-4 border-t border-muted/30 bg-muted/10 space-y-2 text-sm">
                       <div className="flex items-center gap-2 text-muted-foreground">
                         <Calendar className="w-3.5 h-3.5" />
@@ -3029,8 +3087,8 @@ export default function Tasks() {
         <DialogContent className="max-w-[95vw] w-fit p-0 border-none bg-transparent shadow-none">
           <div className="relative group/preview-modal">
             <div className="absolute top-4 right-4 z-50 flex items-center gap-3 opacity-0 group-hover/preview-modal:opacity-100 transition-opacity">
-              <a 
-                href={previewUrl || ""} 
+              <a
+                href={previewUrl || ""}
                 download={previewName}
                 className="p-2 bg-black/50 hover:bg-black/70 backdrop-blur-md rounded-full text-white shadow-lg transition-all"
                 title="Download"
@@ -3048,10 +3106,10 @@ export default function Tasks() {
             </div>
             {previewUrl && (
               <div className="flex flex-col items-center">
-                <img 
-                  src={previewUrl} 
-                  alt={previewName} 
-                  className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl" 
+                <img
+                  src={previewUrl}
+                  alt={previewName}
+                  className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl"
                 />
                 <div className="mt-4 px-4 py-2 bg-black/50 backdrop-blur-md rounded-full text-white text-sm font-medium shadow-lg">
                   {previewName}
@@ -3061,8 +3119,7 @@ export default function Tasks() {
           </div>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }
-
-            

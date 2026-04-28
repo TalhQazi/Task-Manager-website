@@ -92,13 +92,17 @@ import {
   Maximize2,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
+
 import { apiFetch, downloadTaskAttachment, toProxiedUrl, getTopContributors, downloadViaUrl, updateComment, deleteComment } from "@/lib/manger/api";
+
 import { getAuthState } from "@/lib/auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSocket } from "@/contexts/SocketContext";
 import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import jsPDF from "jspdf";
 import { Pagination } from "@/components/Pagination";
+import { RewardEmployeeModal } from "@/components/manger/RewardEmployeeModal";
+import { Trophy } from "lucide-react";
 
 interface Task {
   id: string;
@@ -128,6 +132,17 @@ interface Task {
     mimeType: string;
     size: number;
   }>;
+  reward?: {
+    animationStyle: string;
+    message: string;
+    feedback: string;
+    rewardedBy: string;
+    rewardedAt: string;
+    isRewarded: boolean;
+  };
+  context: "HOUSE" | "OFFICE" | "SHOP" | "FIELD" | "OTHER";
+  priority_color: "red" | "yellow" | "green";
+  execution_rank?: number;
 }
 
 type CreateProjectTaskDraft = {
@@ -158,6 +173,7 @@ type CreateProjectPayload = {
   logo?: ProjectLogo;
   attachments?: Array<{ fileName: string; url: string; mimeType: string; size: number }>;
   tasks: Array<Omit<CreateProjectTaskDraft, "location">>;
+  defaultContext: "HOUSE" | "OFFICE" | "SHOP" | "FIELD" | "OTHER";
 };
 
 interface Employee {
@@ -220,6 +236,7 @@ interface Project {
     mimeType: string;
     size: number;
   }>;
+  defaultContext?: "HOUSE" | "OFFICE" | "SHOP" | "FIELD" | "OTHER";
 }
 
 interface ProjectWithTasks extends Project {
@@ -252,30 +269,28 @@ function normalizeTask(t: TaskApi): Task {
     attachmentNote: extra.attachmentNote,
     attachment: extra.attachment,
     attachments: Array.isArray((t as any).attachments) ? (t as any).attachments : undefined,
+    reward: (t as any).reward,
+    context: t.context || "OTHER",
+    priority_color: t.priority_color || "green",
+    execution_rank: t.execution_rank,
   };
 }
 
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
-  const [src, setSrc] = useState<string | null | undefined>(undefined);
+  const [src, setSrc] = useState<string | null | undefined>(logoUrl !== undefined ? (logoUrl || null) : undefined);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    // If logoUrl is a real URL (S3 or data:), use it directly
-    if (logoUrl && logoUrl.length > 0) {
-      setSrc(toProxiedUrl(logoUrl) || logoUrl);
+    if (logoUrl) {
+      setSrc(logoUrl);
       setError(false);
       return;
     }
-    
-    // logoUrl is undefined or empty string — fetch from dedicated endpoint
-    // Empty string means the list API stripped a base64 value stored in MongoDB
     let cancelled = false;
-    setSrc(undefined);
-
     apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
       .then(d => { 
         if (!cancelled) {
-          setSrc(toProxiedUrl(d.logo?.url) || null);
+          setSrc(d.logo?.url || null);
           setError(false);
         }
       })
@@ -294,13 +309,12 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
         src={src} 
         alt={`${projectName} logo`} 
         className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-border" 
-        crossOrigin="anonymous"
         onError={() => setError(true)}
       />
     );
   }
 
-  if (src === undefined) {
+  if (src === undefined && logoUrl === undefined) {
     return <div className="w-10 h-10 rounded-md bg-muted/40 animate-pulse flex-shrink-0" />;
   }
 
@@ -311,24 +325,15 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
   );
 }
 
-function TaskAttachmentImg({ taskId, attachmentUrl, onPreview }: { taskId: string; attachmentUrl?: string; onPreview?: (url: string, fileName: string) => void }) {
-  const [src, setSrc] = useState<string | null | undefined>(toProxiedUrl(attachmentUrl) || undefined);
-  
+function TaskAttachmentImg({ taskId, onPreview }: { taskId: string; onPreview?: (url: string, fileName: string) => void }) {
+  const [src, setSrc] = useState<string | null | undefined>(undefined);
   useEffect(() => {
-    // If attachmentUrl is a real URL (S3 or data:), use it directly
-    if (attachmentUrl && attachmentUrl.length > 0) {
-      setSrc(toProxiedUrl(attachmentUrl) || attachmentUrl);
-      return;
-    }
-
-    // attachmentUrl is undefined or empty string — fetch from dedicated endpoint
     let cancelled = false;
     apiFetch<{ attachment: { url: string } }>(`/api/tasks/${encodeURIComponent(taskId)}/attachment`)
-      .then(d => { if (!cancelled) setSrc(toProxiedUrl(d.attachment?.url) || null); })
+      .then(d => { if (!cancelled) setSrc(d.attachment?.url || null); })
       .catch(() => { if (!cancelled) setSrc(null); });
     return () => { cancelled = true; };
-  }, [taskId, attachmentUrl]);
-
+  }, [taskId]);
   if (src) return (
     <div className="w-full h-full relative group/task-att cursor-zoom-in" onClick={() => onPreview?.(src, "Task Attachment")}>
       <img src={src} alt="Task preview" className="w-full h-full object-cover" />
@@ -342,7 +347,7 @@ function TaskAttachmentImg({ taskId, attachmentUrl, onPreview }: { taskId: strin
 }
 
 function CommentAttachmentImg({ taskId, projectId, commentId, index, mimeType, fileName, fallbackUrl, onPreview }: { taskId?: string; projectId?: string; commentId: string; index: number; mimeType: string; fileName: string; fallbackUrl?: string; onPreview?: (url: string, name: string) => void }) {
-  const [src, setSrc] = useState<string | null | undefined>(toProxiedUrl(fallbackUrl) || undefined);
+  const [src, setSrc] = useState<string | null | undefined>(fallbackUrl || undefined);
   useEffect(() => {
     if (fallbackUrl) return; 
     let cancelled = false;
@@ -351,14 +356,14 @@ function CommentAttachmentImg({ taskId, projectId, commentId, index, mimeType, f
       : `/api/projects/${encodeURIComponent(projectId!)}/comments/${encodeURIComponent(commentId)}/attachments/${index}`;
       
     apiFetch<{ attachment: { url: string } }>(url)
-      .then(d => { if (!cancelled) setSrc(toProxiedUrl(d.attachment?.url) || null); })
+      .then(d => { if (!cancelled) setSrc(d.attachment?.url || null); })
       .catch(() => { if (!cancelled) setSrc(null); });
     return () => { cancelled = true; };
   }, [taskId, projectId, commentId, index, fallbackUrl]);
   
   if (src && mimeType?.startsWith("image/")) return (
-    <div className="w-full h-auto flex justify-center relative group/att cursor-zoom-in" onClick={() => onPreview?.(src, fileName)}>
-      <img src={src} alt={fileName} className="w-full h-auto max-h-[180px] object-contain rounded-lg" />
+    <div className="w-full h-full relative group/att cursor-zoom-in" onClick={() => onPreview?.(src, fileName)}>
+      <img src={src} alt={fileName} className="w-full h-full object-cover rounded-lg" />
       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-all duration-200 rounded-lg">
         <Maximize2 className="w-5 h-5 text-white" />
       </div>
@@ -460,6 +465,8 @@ const createTaskSchema = z.object({
   title: z.string().min(1, "Title is required"),
   description: z.string().min(1, "Description is required"),
   priority: z.enum(["low", "medium", "high"]),
+  priority_color: z.enum(["red", "yellow", "green"]).optional().default("green"),
+  context: z.enum(["HOUSE", "OFFICE", "SHOP", "FIELD", "OTHER"]).optional().default("OTHER"),
   status: z.enum(["pending", "in-progress", "completed", "overdue"]),
   dueDate: z.string().optional(),
   dueTime: z.string().optional(),
@@ -476,9 +483,11 @@ function TaskContributorsList({ taskId }: { taskId: string }) {
     name: string;
     email: string;
     role: string;
-    contributionType: string;
-    actions: string[];
-    addedAt: string;
+    contributionType?: string;
+    actions?: string[];
+    addedAt?: string;
+    avatar?: string;
+    stats?: any;
   }>>([]);
   const [loading, setLoading] = useState(true);
 
@@ -553,6 +562,7 @@ export default function Tasks() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
+  const [projectDefaultContext, setProjectDefaultContext] = useState<Task["context"]>("OTHER");
   const [projectLogoFile, setProjectLogoFile] = useState<File | null>(null);
   const [projectLogoPreview, setProjectLogoPreview] = useState<string>("");
   const [projectAttachmentFiles, setProjectAttachmentFiles] = useState<File[]>([]);
@@ -615,7 +625,7 @@ export default function Tasks() {
   const [isViewProjectOpen, setIsViewProjectOpen] = useState(false);
   const [projectComments, setProjectComments] = useState<TaskComment[]>([]);
   const [projectCommentsLoading, setProjectCommentsLoading] = useState(false);
-  
+
   // Top contributors state
   const [topContributors, setTopContributors] = useState<Array<{
     userId: string;
@@ -635,12 +645,16 @@ export default function Tasks() {
     }>;
   }>>([]);
   const [topContributorsLoading, setTopContributorsLoading] = useState(false);
+  const [isRewardOpen, setIsRewardOpen] = useState(false);
+  const [rewardTask, setRewardTask] = useState<Task | null>(null);
   
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const projectChatContainerRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
   const currentUsername = getAuthState().username || "";
+  const currentRole = String(getAuthState().role || "").toLowerCase();
+  const canGiveReward = ["manager", "admin", "super-admin"].includes(currentRole);
   const { socket, joinTask, leaveTask } = useSocket();
 
   // Lightbox / File Preview State
@@ -854,10 +868,12 @@ export default function Tasks() {
     location: "",
     attachmentFileName: "",
     attachmentNote: "",
+    context: "OTHER" as Task["context"],
+    priority_color: "green" as Task["priority_color"],
   });
 
   const updateTaskMutation = useMutation({
-    mutationFn: async ({ id, payload }: { id: string; payload: Partial<Task> }) => {
+    mutationFn: async ({ id, payload }: { id: string; payload: CreateTaskValues }) => {
       const res = await apiFetch<{ item: TaskApi }>(`/api/tasks/${id}`, {
         method: "PUT",
         body: JSON.stringify(payload),
@@ -972,6 +988,7 @@ export default function Tasks() {
   const resetProjectFlow = () => {
     setProjectName("");
     setProjectDescription("");
+    setProjectDefaultContext("OTHER");
     setProjectTasks([]);
     setProjectLogoFile(null);
     setProjectLogoPreview("");
@@ -988,6 +1005,8 @@ export default function Tasks() {
       location: "",
       attachmentFileName: "",
       attachmentNote: "",
+      context: "OTHER",
+      priority_color: "green",
     });
     setSelectedAssignees([]);
     setProjectCreationAssignees([]);
@@ -1046,6 +1065,8 @@ export default function Tasks() {
       location: "",
       attachmentFileName: "",
       attachmentNote: "",
+      context: "OTHER",
+      priority_color: "green",
     }));
     setSelectedAssignees([]);
     setAttachmentFile(null);
@@ -1098,6 +1119,7 @@ export default function Tasks() {
         logo: projectLogo,
         attachments: projectAttachments,
         tasks: tasksToCreate,
+        defaultContext: projectDefaultContext,
       };
 
       await apiFetch("/api/projects", {
@@ -1156,6 +1178,8 @@ export default function Tasks() {
         dueDate: formData.dueDate || nowDate,
         dueTime: formData.dueTime,
         location: formData.location,
+        context: formData.context,
+        priority_color: formData.priority_color,
         createdAt: nowDate,
         attachmentFileName: first?.fileName || "",
         attachmentNote: formData.attachmentNote,
@@ -1192,6 +1216,8 @@ export default function Tasks() {
         location: "",
         attachmentFileName: "",
         attachmentNote: "",
+        context: "OTHER",
+        priority_color: "green",
       });
       setSelectedAssignees([]);
       setAttachmentFile(null);
@@ -1414,8 +1440,6 @@ export default function Tasks() {
   const openEdit = (task: Task) => {
     setSelectedTask(task);
     setEditSelectedAssignees(task.assignees || []);
-    setEditTaskFile(null);
-    setEditTaskFilePreview(task.attachment?.url || null);
     editForm.reset({
       title: task.title,
       description: task.description,
@@ -1424,6 +1448,8 @@ export default function Tasks() {
       dueDate: task.dueDate,
       dueTime: task.dueTime || "",
       location: task.location || "",
+      context: task.context || "OTHER",
+      priority_color: task.priority_color || "green",
     });
     setIsEditOpen(true);
   };
@@ -1559,78 +1585,52 @@ export default function Tasks() {
     }
   };
 
-  const onEditTask = async (values: CreateTaskValues) => {
+  const onEditTask = (values: CreateTaskValues) => {
     if (!selectedTask) return;
     const previousStatus = selectedTask.status;
-    try {
-      let attachment = undefined;
-      if (editTaskFile) {
-        const base64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(editTaskFile);
-        });
-        attachment = {
-          fileName: editTaskFile.name,
-          url: base64,
-          mimeType: editTaskFile.type,
-          size: editTaskFile.size
-        };
-      } else if (editTaskFilePreview === null) {
-        attachment = { fileName: "", url: "", mimeType: "", size: 0 };
-      }
 
-      const payload: Partial<Task> = { ...values, assignees: editSelectedAssignees };
-      if (attachment !== undefined) {
-        (payload as any).attachment = attachment;
-      }
+    const payload = { ...values, assignees: editSelectedAssignees };
 
-      updateTaskMutation.mutate(
-        { id: selectedTask.id, payload },
-        {
-          onSuccess: (updatedTask) => {
-            setIsEditOpen(false);
-            setEditSelectedAssignees([]);
-            setEditTaskFile(null);
-            setEditTaskFilePreview(null);
-            // Update the selected task so the view modal shows fresh data immediately
-            setSelectedTask(updatedTask);
-            toast({
-              title: "Task updated",
-              description: "The task has been updated successfully.",
-            });
+    updateTaskMutation.mutate(
+      { id: selectedTask.id, payload },
+      {
+        onSuccess: (updatedTask) => {
+          setIsEditOpen(false);
+          setEditSelectedAssignees([]);
+          setEditTaskFile(null);
+          setEditTaskFilePreview(null);
+          // Update the selected task so the view modal shows fresh data immediately
+          setSelectedTask(updatedTask);
+          toast({
+            title: "Task updated",
+            description: "The task has been updated successfully.",
+          });
 
-            // Trigger TaskBlaster when task is marked as completed via edit
-            if (values.status === "completed" && previousStatus !== "completed") {
-              const taskForBlaster = {
-                id: selectedTask.id,
-                title: selectedTask.title,
-                priority: values.priority as any,
-                status: "completed",
-              };
-              const triggered = triggerBlaster(taskForBlaster);
-              if (triggered) {
-                incrementCompletedCount();
-              }
+          // Trigger TaskBlaster when task is marked as completed via edit
+          if (values.status === "completed" && previousStatus !== "completed") {
+            const taskForBlaster = {
+              id: selectedTask.id,
+              title: selectedTask.title,
+              priority: values.priority as any,
+              status: "completed",
+            };
+            const triggered = triggerBlaster(taskForBlaster);
+            if (triggered) {
+              incrementCompletedCount();
             }
-          },
-          onError: (err) => {
-            toast({
-              title: "Failed to update task",
-              description: err instanceof Error ? err.message : "Something went wrong",
-              variant: "destructive",
-            });
-          },
-        }
-      );
-    } catch (err) {
-      toast({
-        title: "Error preparing update",
-        description: "Failed to process attachment file",
-        variant: "destructive",
-      });
-    }
+          }
+        },
+        onError: (err) => {
+          toast({
+            title: "Failed to update task",
+            description: err instanceof Error ? err.message : "Something went wrong",
+            variant: "destructive",
+          });
+        },
+      }
+    );
   };
+
 
   const confirmDelete = () => {
     if (!selectedTask) return;
@@ -1652,6 +1652,12 @@ export default function Tasks() {
         });
       },
     });
+  };
+  
+  const handleReward = (task: Task) => {
+    if (!canGiveReward) return;
+    setRewardTask(task);
+    setIsRewardOpen(true);
   };
 
   // When a project is selected, tasks come from that project (client-side filtered)
@@ -2117,10 +2123,40 @@ export default function Tasks() {
                           }}>
                             {task.priority}
                           </Badge>
-                          <Badge variant="outline" className="text-xs capitalize">
+                          <Badge
+                            variant="secondary"
+                            className={cn("h-6 text-[10px] font-bold capitalize", statusClasses[task.status])}
+                          >
                             {task.status}
                           </Badge>
                         </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground mr-1 text-xs">
+                            {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-slate-50 pt-2.5">
+                        {task.reward?.isRewarded ? (
+                          <div className="flex items-center gap-1.5 text-[#16a34a] font-bold text-[11px] bg-[#f0fdf4] px-2.5 py-1 rounded-full border border-[rgb(187,247,208)]">
+                            <CheckCircle2 className="w-3.5 h-3.5 fill-[#16a34a]" /> Rewarded
+                          </div>
+                        ) : task.status === "completed" && canGiveReward ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2.5 text-[#3b82f6] hover:text-[#2563eb] hover:bg-[#eff6ff] gap-1.5 font-bold text-[11px] rounded-full transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleReward(task);
+                            }}
+                          >
+                            <Trophy className="w-3.5 h-3.5" /> Reward
+                          </Button>
+                        ) : (
+                          <div className="h-7" /> // Spacer to maintain card height
+                        )}
+
                       </div>
 
                       {/* Footer */}
@@ -2182,6 +2218,22 @@ export default function Tasks() {
                   spellCheck="true"
                   onChange={(e) => setProjectDescription(e.target.value)}
                 />
+              </div>
+
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Default Task Context *</label>
+                <Select value={projectDefaultContext} onValueChange={(v: Task["context"]) => setProjectDefaultContext(v)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Default Context" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="HOUSE">House</SelectItem>
+                    <SelectItem value="OFFICE">Office</SelectItem>
+                    <SelectItem value="SHOP">Shop</SelectItem>
+                    <SelectItem value="FIELD">Field</SelectItem>
+                    <SelectItem value="OTHER">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="sm:col-span-2 space-y-1.5">
@@ -2533,6 +2585,34 @@ export default function Tasks() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="sm:col-span-1 space-y-1.5">
+                  <label className="text-sm font-medium">Context *</label>
+                  <Select value={formData.context} onValueChange={(v: Task["context"]) => setFormData(prev => ({ ...prev, context: v }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Context" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="HOUSE">House</SelectItem>
+                      <SelectItem value="OFFICE">Office</SelectItem>
+                      <SelectItem value="SHOP">Shop</SelectItem>
+                      <SelectItem value="FIELD">Field</SelectItem>
+                      <SelectItem value="OTHER">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="sm:col-span-1 space-y-1.5">
+                  <label className="text-sm font-medium">Priority Color</label>
+                  <Select value={formData.priority_color} onValueChange={(v: Task["priority_color"]) => setFormData(prev => ({ ...prev, priority_color: v }))}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Priority Color" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="red">Red (Critical)</SelectItem>
+                      <SelectItem value="yellow">Yellow (Important)</SelectItem>
+                      <SelectItem value="green">Green (Normal)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -2853,11 +2933,11 @@ export default function Tasks() {
                                             
                                             {c.attachments && c.attachments.length > 0 && editingCommentId !== c.id && (
                                               <div className={cn(
-                                                "grid gap-2 mt-2 max-w-[140px] sm:max-w-[180px]",
+                                                "grid gap-2 mt-2",
                                                 c.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"
                                               )}>
                                                 {c.attachments.map((att, attIdx) => (
-                                                  <div key={attIdx} className="relative rounded-lg overflow-hidden border border-white/20 bg-black/10 min-w-[120px] max-w-full h-auto">
+                                                  <div key={attIdx} className="relative rounded-xl overflow-hidden border border-white/20 bg-black/10 min-w-[120px] max-w-full aspect-square sm:aspect-video">
                                                     <CommentAttachmentImg 
                                                       taskId={selectedTask!.id} 
                                                       commentId={c.id} 
@@ -3064,6 +3144,38 @@ export default function Tasks() {
                             </SelectContent>
                           </Select>
                         </div>
+                        
+                        {selectedTask.status === "completed" && (
+                          <div className="pt-2">
+                            {selectedTask.reward?.isRewarded ? (
+                              <div className="bg-[#f0fdf4] border border-[#bbf7d0] rounded-xl p-4 flex flex-col gap-2">
+                                <div className="flex items-center gap-2 text-[#16a34a] font-bold text-xs">
+                                  <Trophy className="w-4 h-4 fill-[#16a34a]" /> Rewarded
+                                </div>
+                                <p className="text-[12px] text-[#15803d] leading-relaxed font-medium">
+                                  {selectedTask.reward.message || "Excellent work on this task!"}
+                                </p>
+                                <div className="flex items-center justify-between mt-1">
+                                  <span className="text-[10px] text-[#16a34a]/60 uppercase font-black tracking-wider">REWARDED</span>
+                                  <span className="text-[10px] text-[#16a34a]/60 font-medium">
+                                    {new Date(selectedTask.reward.rewardedAt).toLocaleDateString()}
+                                  </span>
+                                </div>
+                              </div>
+                            ) : canGiveReward ? (
+                              <Button 
+                                variant="outline" 
+                                className="w-full gap-2.5 border-[#bbf7d0] bg-[#f0fdf4]/30 hover:bg-[#f0fdf4] hover:border-[#86efac] text-[#16a34a] font-bold h-11 transition-all shadow-sm rounded-xl"
+                                onClick={() => handleReward(selectedTask)}
+                              >
+                                <Trophy className="w-4 h-4" /> Reward Employee
+                              </Button>
+                            ) : (
+                              <p className="text-[11px] text-muted-foreground">Awaiting manager/admin reward action.</p>
+                            )}
+                          </div>
+                        )}
+
                         <div className="space-y-1.5">
                           <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5"><Calendar className="w-3 h-3" /> Due Date</label>
                           <div className="flex items-center gap-2 text-[13px] font-semibold text-foreground/70 bg-background border border-border/60 rounded-lg px-3 py-2">
@@ -3253,6 +3365,54 @@ export default function Tasks() {
 
                 <FormField
                   control={editForm.control}
+                  name="context"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Focus Context</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select context" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="HOUSE">HOUSE</SelectItem>
+                          <SelectItem value="OFFICE">OFFICE</SelectItem>
+                          <SelectItem value="SHOP">SHOP</SelectItem>
+                          <SelectItem value="FIELD">FIELD</SelectItem>
+                          <SelectItem value="OTHER">OTHER</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
+                  name="priority_color"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Priority Color</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select color" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="red"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500" /> Red (Urgent)</div></SelectItem>
+                          <SelectItem value="yellow"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-yellow-500" /> Yellow (Important)</div></SelectItem>
+                          <SelectItem value="green"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-500" /> Green (Normal)</div></SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={editForm.control}
                   name="status"
                   render={({ field }) => (
                     <FormItem>
@@ -3302,46 +3462,6 @@ export default function Tasks() {
                     </FormItem>
                   )}
                 />
-
-                <div className="sm:col-span-2 space-y-2">
-                  <label className="text-sm font-medium">Task Attachment</label>
-                  <div className="flex flex-col gap-3 p-4 border border-dashed rounded-lg bg-muted/30">
-                    {editTaskFilePreview ? (
-                      <div className="relative w-full h-40 rounded-md overflow-hidden border">
-                        <img src={editTaskFilePreview} alt="Preview" className="w-full h-full object-cover" />
-                        <Button 
-                          type="button" 
-                          variant="destructive" 
-                          size="icon" 
-                          className="absolute top-2 right-2 h-7 w-7 rounded-full shadow-lg"
-                          onClick={() => { setEditTaskFile(null); setEditTaskFilePreview(null); }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-border/60 rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => document.getElementById('edit-task-attachment-input-manager')?.click()}>
-                        <Paperclip className="h-8 w-8 mb-2 opacity-50" />
-                        <span className="text-sm">Click to upload or drag image</span>
-                        <span className="text-[10px] opacity-70">PNG, JPG, PDF (Max 10MB)</span>
-                      </div>
-                    )}
-                    <input 
-                      id="edit-task-attachment-input-manager"
-                      type="file" 
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          setEditTaskFile(file);
-                          const reader = new FileReader();
-                          reader.onloadend = () => setEditTaskFilePreview(reader.result as string);
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                    />
-                  </div>
-                </div>
               </div>
 
               <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -3702,9 +3822,9 @@ export default function Tasks() {
                                               </div>
                                               
                                               {c.attachments && c.attachments.length > 0 && (
-                                                <div className="grid grid-cols-1 gap-2 mt-2 max-w-[140px] sm:max-w-[180px]">
+                                                <div className="grid grid-cols-1 gap-2 mt-2">
                                                   {c.attachments.map((att, attIdx) => (
-                                                    <div key={attIdx} className="relative rounded-lg overflow-hidden border border-border bg-background/10 group/att h-auto">
+                                                    <div key={attIdx} className="relative rounded-lg overflow-hidden border border-border bg-background/10 group/att">
                                                       <CommentAttachmentImg 
                                                         projectId={selectedProject.id} 
                                                         commentId={c.id} 
@@ -4053,6 +4173,31 @@ export default function Tasks() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <RewardEmployeeModal
+        isOpen={isRewardOpen}
+        onClose={() => setIsRewardOpen(false)}
+        taskTitle={rewardTask?.title || ""}
+        onReward={async (rewardData) => {
+          if (!rewardTask) return;
+          try {
+            await apiFetch(`/api/tasks/${rewardTask.id}/reward`, {
+              method: "POST",
+              body: JSON.stringify(rewardData),
+            });
+            toast({
+              title: "Reward granted!",
+              description: `Successfully rewarded ${rewardTask.assignees?.join(", ") || "employee"}`,
+            });
+            await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+          } catch (e) {
+            toast({
+              title: "Failed to grant reward",
+              description: e instanceof Error ? e.message : "Something went wrong",
+              variant: "destructive"
+            });
+          }
+        }}
+      />
     </div>
   );
 }

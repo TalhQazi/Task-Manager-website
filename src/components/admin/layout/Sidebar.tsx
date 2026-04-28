@@ -70,7 +70,6 @@ const navItemsBase: NavItem[] = [
       { icon: Calendar, label: "Scheduling", path: "/admin/scheduling" },
       { icon: Bell, label: "Notifications", path: "/admin/notifications" },
       { icon: Clock, label: "Time Tracking", path: "/admin/time-tracking" },
-    
     ],
   },
   { icon: Landmark, label: "Companies", path: "/admin/companies" },
@@ -302,7 +301,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
           />
         </div>
       </div>
-      <nav className="flex-1 flex flex-col gap-1 px-2 py-2 overflow-y-auto overflow-x-hidden no-scrollbar">
+      <nav className="flex-1 flex flex-col gap-1 px-2 py-4 overflow-y-auto overflow-x-hidden no-scrollbar">
         {navItems.map((item) => renderNavItem(item))}
       </nav>
     </aside>
