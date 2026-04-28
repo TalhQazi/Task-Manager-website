@@ -141,13 +141,14 @@ export function Header({ onMenuClick }: HeaderProps) {
   });
 
   // Listen for custom event from Settings page
+  const queryClient = useQueryClient();
   useEffect(() => {
     const handleUpdate = () => {
-      headerSettingsQuery.refetch();
+      queryClient.invalidateQueries({ queryKey: ["header-settings"] });
     };
     window.addEventListener("header-settings-updated", handleUpdate);
     return () => window.removeEventListener("header-settings-updated", handleUpdate);
-  }, [headerSettingsQuery]);
+  }, [queryClient]);
 
   const headerSettings = headerSettingsQuery.data?.item;
   const showImage = headerSettings?.backgroundType === "image";
@@ -394,6 +395,7 @@ export function Header({ onMenuClick }: HeaderProps) {
       }}
     >
       <div 
+        key={`header-bg-${headerImageUrl || 'none'}-${headerSettings?.updatedAt || headerSettings?.height || '0'}`}
         className="w-full h-full relative overflow-hidden group"
         style={bgStyle}
       >
