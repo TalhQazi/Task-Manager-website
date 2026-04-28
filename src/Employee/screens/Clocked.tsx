@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/table";
 import { Clock, LogIn, LogOut, Timer, Calendar, History, ClipboardList, AlertCircle, AlertTriangle } from "lucide-react";
 import { getTodayTimeEntry, clockIn, submitScrumAndClockOut, getEmployeeTimeEntryHistory, getEmployeeProfile, submitEODReport, getOnboardingStatus } from "../lib/api";
+import { Clock, LogIn, LogOut, Timer, Calendar } from "lucide-react";
+import { getTodayTimeEntry, clockIn, clockOut, getEmployeeProfile } from "../lib/api";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
@@ -34,17 +36,6 @@ interface TimeEntry {
   clockOutAt: string | null;
   totalHours: number;
   status: string;
-  scrum?: string | null;
-}
-
-interface HistoryEntry {
-  id: string;
-  date: string;
-  clockIn: string;
-  clockOut: string;
-  totalHours: number;
-  status: string;
-  scrum?: string | null;
 }
 
 export default function EmployeeClocked() {
@@ -64,7 +55,6 @@ export default function EmployeeClocked() {
   });
   const [validationError, setValidationError] = useState("");
   const [onboardingStatus, setOnboardingStatus] = useState<string>("not_started");
-
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -91,22 +81,6 @@ export default function EmployeeClocked() {
     loadData();
   }, []);
 
-  // Load history when component mounts
-  useEffect(() => {
-    const loadHistory = async () => {
-      setHistoryLoading(true);
-      try {
-        const res = await getEmployeeTimeEntryHistory();
-        setHistory(res.items || []);
-      } catch (err) {
-        console.error("Failed to load history:", err);
-      } finally {
-        setHistoryLoading(false);
-      }
-    };
-    loadHistory();
-  }, []);
-
   const handleClockIn = async () => {
     setActionLoading(true);
     try {
@@ -119,7 +93,6 @@ export default function EmployeeClocked() {
       setActionLoading(false);
     }
   };
-
   const handleClockOutClick = () => {
     // Show scrum modal before clocking out
     setShowScrumModal(true);
@@ -171,9 +144,22 @@ export default function EmployeeClocked() {
       const historyRes = await getEmployeeTimeEntryHistory();
       setHistory(historyRes.items || []);
     } catch (err: any) {
-      toast.error(err.message || "Failed to clock out");
+      toast.error(err.message || "Failed to submit EOD report and clock out");
     } finally {
       setScrumSubmitting(false);
+    }
+  };
+
+  const handleClockOut = async () => {
+    setActionLoading(true);
+    try {
+      const res = await clockOut();
+      setTimeEntry(res.item as TimeEntry);
+      toast.success("Clocked out successfully");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to clock out");
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -215,7 +201,7 @@ export default function EmployeeClocked() {
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Attendance</h1>
+          <h1 className="text-2xl font-bold">Time Clock</h1>
         </div>
         <Card>
           <CardContent className="p-8 text-center">
@@ -231,7 +217,7 @@ export default function EmployeeClocked() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Attendance</h1>
+        <h1 className="text-2xl font-bold">Time Clock</h1>
         <div className="text-right">
           <p className="text-3xl font-bold text-[#133767]">{formatTime(currentTime)}</p>
           <p className="text-sm text-muted-foreground">{formatDate(currentTime)}</p>
@@ -377,7 +363,7 @@ export default function EmployeeClocked() {
             <Button
               size="lg"
               className="flex-1 bg-blue-600 hover:bg-blue-700"
-              onClick={handleClockOutClick}
+              onClick={handleClockOut}
               disabled={!!(!isClockedIn || actionLoading)}
             >
               <LogOut className="h-5 w-5 mr-2" />
@@ -392,71 +378,18 @@ export default function EmployeeClocked() {
         </CardContent>
       </Card>
 
-      {/* History Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <History className="h-5 w-5" />
-            Attendance History
-          </CardTitle>
-          <CardDescription>Your check-in and check-out records</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {historyLoading ? (
-            <div className="text-center py-8">
-              <Clock className="h-8 w-8 mx-auto mb-2 text-gray-300 animate-pulse" />
-              <p className="text-muted-foreground">Loading history...</p>
+      {/* History Note */}
+      <Card className="bg-gray-50">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <Calendar className="h-5 w-5 text-gray-500 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-gray-700">Time Entry History</p>
+              <p className="text-sm text-muted-foreground">
+                View your complete time entry history in the admin panel or contact your manager for past records.
+              </p>
             </div>
-          ) : history.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <Calendar className="h-12 w-12 mx-auto mb-3 opacity-30" />
-              <p>No attendance records yet</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Clock In</TableHead>
-                    <TableHead>Clock Out</TableHead>
-                    <TableHead>Total Hours</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {history.map((entry) => (
-                    <TableRow key={entry.id}>
-                      <TableCell className="font-medium">
-                        {new Date(entry.date).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
-                      </TableCell>
-                      <TableCell>{entry.clockIn || "--:--"}</TableCell>
-                      <TableCell>{entry.clockOut || "--:--"}</TableCell>
-                      <TableCell>{entry.totalHours?.toFixed(2) || "--"}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={
-                            entry.status === "completed"
-                              ? "border-green-500 text-green-700 bg-green-50"
-                              : entry.status === "active"
-                              ? "border-green-500 text-green-700 bg-green-50"
-                              : "border-gray-500 text-gray-700 bg-gray-50"
-                          }
-                        >
-                          {entry.status === "completed" ? "Complete" : entry.status}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          </div>
         </CardContent>
       </Card>
 

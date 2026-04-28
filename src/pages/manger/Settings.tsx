@@ -1,8 +1,9 @@
 import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
-import { User, Shield, Save, Camera } from "lucide-react";
-import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
+import { Switch } from "@/components/manger/ui/switch";
+import { User, Shield, Save, Camera, Trophy, BellRing, Volume2, Smartphone } from "lucide-react";
+import { apiFetch } from "@/lib/manger/api";
 import { toast } from "@/components/manger/ui/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -31,6 +32,12 @@ type SettingsItem = {
   };
   language?: string;
   timezone?: string;
+  rewards?: {
+    enabled?: boolean;
+    animations?: boolean;
+    sounds?: boolean;
+    haptics?: boolean;
+  };
 };
 
 export default function Settings() {
@@ -105,7 +112,7 @@ export default function Settings() {
       const item = settingsQuery.data.item;
       setDraft({
         ...item,
-        avatarUrl: item.avatarDataUrl || (item.avatarUrl ? toProxiedUrl(item.avatarUrl) : "") || "",
+        avatarUrl: item.avatarDataUrl || item.avatarUrl || "",
       });
     }
   }, [settingsQuery.data, draft]);
@@ -146,6 +153,26 @@ export default function Settings() {
         ...(p || {}),
         notifications: {
           ...((p && p.notifications) || {}),
+          [key]: value,
+        },
+      };
+
+      saveMutation.mutate(next, {
+        onSuccess: () => {
+          void queryClient.invalidateQueries({ queryKey: ["settings"] });
+        },
+      });
+
+      return next;
+    });
+  };
+
+  const setRewardPref = (key: string, value: boolean) => {
+    setDraft((p: any) => {
+      const next = {
+        ...(p || {}),
+        rewards: {
+          ...((p && p.rewards) || {}),
           [key]: value,
         },
       };
@@ -277,7 +304,7 @@ export default function Settings() {
           setAvatarUploadMessage("Image uploaded successfully.");
           toast({ title: "Uploaded", description: "Profile picture updated successfully." });
           if (newAvatarUrl) {
-            setDraft((p: any) => ({ ...p, avatarUrl: toProxiedUrl(newAvatarUrl) || newAvatarUrl }));
+            setDraft((p: any) => ({ ...p, avatarUrl: newAvatarUrl }));
           }
           setIsCropOpen(false);
           setPendingImageSrc("");
@@ -445,7 +472,7 @@ export default function Settings() {
           <div className="relative">
             <Avatar className="h-20 w-20 border-2 border-border">
               {draft?.avatarUrl ? (
-                <AvatarImage src={draft.avatarUrl} alt={draft?.fullName || "User"} className="object-cover" crossOrigin="anonymous" />
+                <AvatarImage src={draft.avatarUrl} alt={draft?.fullName || "User"} className="object-cover" />
               ) : (
                 <AvatarFallback className="text-2xl bg-primary/10 text-primary">
                   {initials}
@@ -526,6 +553,89 @@ export default function Settings() {
               Role
             </label>
             <Input value={draft?.role ?? ""} disabled />
+          </div>
+        </div>
+      </div>
+
+      {/* Reward Settings */}
+      <div className="bg-card rounded-xl border border-border shadow-card p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 rounded-lg bg-yellow-500/10">
+            <Trophy className="w-5 h-5 text-yellow-600" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-foreground">Productivity & Rewards</h3>
+            <p className="text-sm text-muted-foreground">
+              Configure how you receive task completion rewards
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Trophy className="w-4 h-4 text-muted-foreground" />
+                <p className="text-sm font-medium leading-none">Enable Rewards</p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Receive visual and sensory feedback when a task is rewarded
+              </p>
+            </div>
+            <Switch
+              checked={draft?.rewards?.enabled ?? true}
+              onCheckedChange={(v) => setRewardPref("enabled", v)}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-border/50">
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <BellRing className="w-4 h-4 text-muted-foreground" />
+                  <p className="text-xs font-medium">Animations</p>
+                </div>
+                <p className="text-[10px] text-muted-foreground line-clamp-1">Visual celebratory effects</p>
+              </div>
+              <Switch
+                size="sm"
+                checked={draft?.rewards?.animations ?? true}
+                onCheckedChange={(v) => setRewardPref("animations", v)}
+                disabled={!(draft?.rewards?.enabled ?? true)}
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Volume2 className="w-4 h-4 text-muted-foreground" />
+                  <p className="text-xs font-medium">Sounds</p>
+                </div>
+                <p className="text-[10px] text-muted-foreground line-clamp-1">Subtle harmonic audio cues</p>
+              </div>
+              <Switch
+                size="sm"
+                checked={draft?.rewards?.sounds ?? false}
+                onCheckedChange={(v) => setRewardPref("sounds", v)}
+                disabled={!(draft?.rewards?.enabled ?? true)}
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <Smartphone className="w-4 h-4 text-muted-foreground" />
+                  <p className="text-xs font-medium">Haptics</p>
+                </div>
+                <p className="text-[10px] text-muted-foreground line-clamp-1">Tactile vibration feedback</p>
+              </div>
+              <Switch
+                size="sm"
+                checked={draft?.rewards?.haptics ?? true}
+                onCheckedChange={(v) => setRewardPref("haptics", v)}
+                disabled={!(draft?.rewards?.enabled ?? true)}
+              />
+            </div>
           </div>
         </div>
       </div>

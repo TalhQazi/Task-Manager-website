@@ -942,7 +942,7 @@ const Employees = () => {
                       </>
                     )}
                   </div>
-                </motion.form>
+                </form>
 
                 <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
                   <motion.div

@@ -13,14 +13,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/admin/ui/table";
-import {
   AlertCircle,
   FileText,
   Plus,
@@ -29,6 +21,15 @@ import {
   Clock,
 } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
+
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/admin/ui/table";
 
 interface PendingPatent {
   _id?: string;
@@ -486,7 +487,8 @@ export function PendingPatents() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredPatents.map((patent, index) => (
+                filteredPatents.map((patent, index) => {
+                  return (
                   <TableRow key={patent._id} className="hover:bg-muted/30 transition-colors text-sm">
                     <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
                     <TableCell className="font-medium">{patent.patentName}</TableCell>
@@ -512,7 +514,7 @@ export function PendingPatents() {
                             filingDate: new Date().toISOString().split("T")[0],
                             applicationNumber: "",
                             filingType: "Provisional",
-                          });
+                          })
                           setIsFileDialogOpen(true);
                         }}
                       >
@@ -538,11 +540,13 @@ export function PendingPatents() {
                       </Button>
                     </div>
                   </TableCell>
-                </TableRow>
-              )))}
+                  </TableRow>
+                  );
+                })
+              )}
             </TableBody>
           </Table>
-        </div>
+          </div>
         </div>
       )}
     </div>

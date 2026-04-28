@@ -6,12 +6,6 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 
 import { io } from "socket.io-client";
 
@@ -27,13 +21,17 @@ import {
   Download,
 } from "lucide-react";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   getEmployeeConversations,
   getConversation,
   sendMessage,
   markMessagesAsRead,
   getEmployeeProfile,
-  uploadMessageAttachment,
-  toProxiedUrl,
 } from "../lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -65,7 +63,6 @@ interface Message {
   timestamp: string;
   type: string;
   status: string;
-  attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number };
 }
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
@@ -79,11 +76,10 @@ export default function EmployeeMessages() {
   const [messageInput, setMessageInput] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [preview, setPreview] = useState<{ url: string; fileName: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const messageInputRef = useRef<HTMLTextAreaElement>(null);
+  const [preview, setPreview] = useState<{ url: string; fileName: string } | null>(null);
+  const [uploading, setUploading] = useState(false);
   
   const socketRef = useRef<ReturnType<typeof io> | null>(null);
 
@@ -109,47 +105,44 @@ export default function EmployeeMessages() {
 
 
   useEffect(() => {
-  socketRef.current = io("https://task.se7eninc.com", {
- //socketRef.current = io("http://192.168.31.13:5000", {
-  socketRef.current = io(API_BASE_URL, {
-    path: "/api/socket.io",
-    transports: ["websocket"],
-  });
+    socketRef.current = io(API_BASE_URL, {
+      path: "/api/socket.io/",
+      transports: ["websocket", "polling"],
+    });
 
   socketRef.current.on("connect", () => {
     console.log("✅ Employee connected",employeeName);
   });
 
-  socketRef.current.on("new-message", (data: { id?: string; _id?: string; sender: string; recipient: string; content: string; timestamp: string; type: string; status: string; attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number } }) => {
-    console.log("📩 Incoming:", data);
+      socketRef.current.on("new-message", (data: { id: string; _id?: string; sender: string; recipient: string; content: string; timestamp: string; type: string; status: string; attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number } }) => {
+        console.log("📩 Incoming:", data);
 
-    if (
-      data.sender === employeeName ||
-      data.recipient === employeeName
-    ) {
-      const normalized: Message = {
-        id: String(data?.id || data?._id || ""),
-        sender: String(data?.sender || ""),
-        recipient: String(data?.recipient || ""),
-        content: String(data?.content || ""),
-        timestamp: String(data?.timestamp || new Date().toISOString()),
-        type: String(data?.type || "direct"),
-        status: String(data?.status || "sent"),
-        attachment: data?.attachment,
-      };
-
-      if (!normalized.id) return;
-
-      setMessages((prev) => {
-        const alreadyExists = prev.some((m) => m.id === normalized.id);
-        if (alreadyExists) return prev;
-        return [...prev, normalized];
+        if (
+          data.sender === employeeName ||
+          data.recipient === employeeName
+        ) {
+          setMessages((prev) => {
+            const alreadyExists = prev.find((m) => m.id === data.id);
+            if (alreadyExists) return prev;
+            
+            const msg: Message = {
+              id: data.id,
+              sender: data.sender,
+              recipient: data.recipient,
+              content: data.content,
+              timestamp: data.timestamp,
+              type: data.type,
+              status: data.status,
+            };
+            return [...prev, msg];
+          });
+        }
       });
-    }
-  });
 
-  return () => socketRef.current.disconnect();
-}, [employeeName]);
+      return () => {
+        socketRef.current?.disconnect();
+      };
+    }, [employeeName]);
 
   // Load messages when conversation is selected
   useEffect(() => {
@@ -199,13 +192,7 @@ export default function EmployeeMessages() {
       };
 
       const res = await sendMessage(newMessage);
-      setMessages((prev) => {
-        const next = res.item;
-        const id = String(next?.id || (next as unknown as { _id?: string })?._id || "");
-        if (!id) return prev;
-        if (prev.some((m) => m.id === id)) return prev;
-        return [...prev, { ...next, id }];
-      });
+      //setMessages((prev) => [...prev, res.item]);
       setMessageInput("");
 
       // Update last message in conversations list
@@ -224,65 +211,6 @@ export default function EmployeeMessages() {
     }
   };
 
-  const downloadAttachment = async (url: string, fileName: string) => {
-    const safeUrl = toProxiedUrl(url) || url;
-    const res = await fetch(safeUrl);
-    if (!res.ok) throw new Error(`Download failed (${res.status})`);
-    const blob = await res.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = objectUrl;
-    a.download = fileName || "attachment";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(objectUrl);
-  };
-
-  const handleFileSelected = async (file: File | null) => {
-    if (!file || !selectedConversation || !employeeName) return;
-
-    setUploading(true);
-    try {
-      const up = await uploadMessageAttachment(file);
-      const attachment = up.attachment;
-
-      const payload = {
-        sender: employeeName,
-        recipient: selectedConversation.employee.name,
-        content: messageInput.trim(),
-        timestamp: new Date().toISOString(),
-        type: "direct" as const,
-        status: "sent",
-        attachment,
-      };
-
-      const res = await sendMessage(payload);
-      setMessages((prev) => {
-        const next = res.item;
-        const id = String(next?.id || (next as unknown as { _id?: string })?._id || "");
-        if (!id) return prev;
-        if (prev.some((m) => m.id === id)) return prev;
-        return [...prev, { ...next, id }];
-      });
-      setMessageInput("");
-
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.employee.id === selectedConversation.employee.id
-            ? { ...c, lastMessage: res.item }
-            : c
-        )
-      );
-    } catch (err) {
-      console.error("Failed to send attachment:", err);
-      toast.error(err instanceof Error ? err.message : "Failed to send attachment");
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
@@ -290,13 +218,29 @@ export default function EmployeeMessages() {
     }
   };
 
-  useEffect(() => {
-    const el = messageInputRef.current;
-    if (!el) return;
-    el.style.height = "0px";
-    const next = Math.min(el.scrollHeight, 160);
-    el.style.height = `${Math.max(next, 40)}px`;
-  }, [messageInput]);
+  const handleFileSelected = async (file: File | null) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      // Dummy upload logic for now
+      toast.success(`File ${file.name} ready to send`);
+    } catch (err) {
+      toast.error("Failed to upload file");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const downloadAttachment = (url: string, fileName: string) => {
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const toProxiedUrl = (url: string) => url;
 
   const filteredConversations = conversations.filter((c) =>
     c.employee.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -330,37 +274,7 @@ export default function EmployeeMessages() {
   // Mobile view: Show either conversation list or chat
   if (selectedConversation) {
     return (
-      <>
-        {preview ? (
-          <Dialog open={Boolean(preview)} onOpenChange={(o) => (!o ? setPreview(null) : null)}>
-            <DialogContent className="max-w-3xl">
-              <DialogHeader>
-                <DialogTitle className="flex items-center justify-between gap-2">
-                  <span className="truncate">{preview.fileName}</span>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    onClick={() => downloadAttachment(preview.url, preview.fileName)}
-                  >
-                    <Download className="h-4 w-4" />
-                    Download
-                  </Button>
-                </DialogTitle>
-              </DialogHeader>
-              <div className="w-full">
-                <img
-                  src={toProxiedUrl(preview.url) || preview.url}
-                  alt={preview.fileName}
-                  className="w-full max-h-[70vh] object-contain rounded-md"
-                />
-              </div>
-            </DialogContent>
-          </Dialog>
-        ) : null}
-
-        <div className="h-[calc(100vh-12rem)] flex flex-col">
+      <div className="h-[calc(100vh-12rem)] flex flex-col">
         {/* Chat Header */}
         <Card className="mb-4 border-b-2 border-[#133767]/10">
           <CardContent className="p-4">
@@ -416,10 +330,6 @@ export default function EmployeeMessages() {
               ) : (
                 messages.map((msg) => {
                   const isSentByMe = msg.sender === employeeName;
-                  const attachmentUrl = msg.attachment?.url || "";
-                  const attachmentName = msg.attachment?.fileName || "attachment";
-                  const attachmentMime = msg.attachment?.mimeType || "";
-                  const isImage = attachmentMime.startsWith("image/");
                   return (
                     <div
                       key={msg.id}
@@ -431,41 +341,13 @@ export default function EmployeeMessages() {
                       <div
                         className={cn(
                           "max-w-[70%] min-w-0 rounded-2xl p-3 shadow-sm",
+                          "max-w-[70%] rounded-lg p-3",
                           isSentByMe
                             ? "bg-[#133767] text-white rounded-br-sm"
                             : "bg-white border border-gray-200 text-gray-900 rounded-bl-sm"
                         )}
                       >
-                        {attachmentUrl ? (
-                          isImage ? (
-                            <button
-                              type="button"
-                              className="block"
-                              onClick={() => setPreview({ url: attachmentUrl, fileName: attachmentName })}
-                            >
-                              <img
-                                src={toProxiedUrl(attachmentUrl) || attachmentUrl}
-                                alt={attachmentName}
-                                className="max-w-[160px] max-h-[160px] rounded-md object-cover"
-                              />
-                            </button>
-                          ) : (
-                            <button
-                              type="button"
-                              className={cn(
-                                "text-sm underline break-all",
-                                isSentByMe ? "text-white" : "text-gray-900",
-                              )}
-                              onClick={() => downloadAttachment(attachmentUrl, attachmentName)}
-                            >
-                              {attachmentName}
-                            </button>
-                          )
-                        ) : null}
-
-                        {msg.content?.trim() ? (
-                          <p className="text-sm whitespace-pre-wrap break-all">{msg.content}</p>
-                        ) : null}
+                        <p className="text-sm">{msg.content}</p>
                         <div
                           className={cn(
                             "flex items-center gap-1 mt-1 text-xs",
@@ -513,24 +395,16 @@ export default function EmployeeMessages() {
               >
                 <Paperclip className="h-4 w-4" />
               </Button>
-              <textarea
-                ref={messageInputRef}
+              <Input
                 placeholder="Type a message..."
                 value={messageInput}
                 onChange={(e) => setMessageInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                rows={1}
-                className={cn(
-                  "flex-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm",
-                  "ring-offset-background placeholder:text-muted-foreground",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                  "disabled:cursor-not-allowed disabled:opacity-50",
-                  "resize-none overflow-y-auto leading-5"
-                )}
+                className="flex-1"
               />
               <Button
                 onClick={handleSendMessage}
-                disabled={!messageInput.trim() || sending || uploading}
+                disabled={!messageInput.trim() || sending}
                 className="bg-[#133767] hover:bg-[#1a4585]"
               >
                 <Send className="h-4 w-4" />
@@ -538,11 +412,11 @@ export default function EmployeeMessages() {
             </div>
           </div>
         </Card>
-        </div>
-      </>
+      </div>
     );
   }
 
+  // Conversation List View
   return (
     <>
       {preview ? (
@@ -660,3 +534,4 @@ export default function EmployeeMessages() {
     </>
   );
 }
+

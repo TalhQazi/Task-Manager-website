@@ -30,6 +30,10 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
+  Trophy,
+  Volume2,
+  Smartphone,
+  Sparkles,
 } from "lucide-react";
 
 import { getEmployeeProfile, employeeApiFetch, updateBankInfo, updateTaxInfo, toProxiedUrl } from "../lib/api";
@@ -37,6 +41,7 @@ import { getEmployeeProfile, employeeApiFetch, updateBankInfo, updateTaxInfo, to
 
 interface EmployeeProfileData {
   id: string;
+  _id?: string;
   name: string;
   email: string;
   phone?: string;
@@ -48,7 +53,6 @@ interface EmployeeProfileData {
   department?: string;
   joinDate?: string;
   employeeId?: string;
-
   bankInfo?: {
     accountName?: string;
     accountNumber?: string;
@@ -62,7 +66,14 @@ interface EmployeeProfileData {
     tds?: string | number;
     regime?: string;
   };
+  rewards?: {
+    enabled: boolean;
+    animations: boolean;
+    sounds: boolean;
+    haptics: boolean;
+  };
 }
+
 
 export default function EmployeeProfile() {
   const [profile, setProfile] = useState<EmployeeProfileData | null>(null);
@@ -74,17 +85,17 @@ export default function EmployeeProfile() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [bank, setBank] = useState({
-  accountName: "",
-  accountNumber: "",
-  ifsc: "",
-  bankName: "",
-});
+    accountName: "",
+    accountNumber: "",
+    ifsc: "",
+    bankName: "",
+  });
 
-const [tax, setTax] = useState({
-  pan: "",
-  tds: "",
-  regime: "",
-});
+  const [tax, setTax] = useState({
+    pan: "",
+    tds: "" as string | number,
+    regime: "",
+  });
 
 const [uploading, setUploading] = useState(false);
 
@@ -137,6 +148,12 @@ const [uploading, setUploading] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
   const [taskReminders, setTaskReminders] = useState(true);
+  
+  // Reward preferences
+  const [rewardsEnabled, setRewardsEnabled] = useState(true);
+  const [rewardAnimations, setRewardAnimations] = useState(true);
+  const [rewardSounds, setRewardSounds] = useState(false);
+  const [rewardHaptics, setRewardHaptics] = useState(true);
 
   const hasBankInfo =
   !!profile?.bankInfo &&
@@ -161,18 +178,26 @@ const hasTaxInfo =
       setProfile(res.item);
       setEditedProfile(res.item);
       setEditedWorkInfo(res.item);
-      setBank(res.item.bankInfo || {
-      accountName: "",
-      accountNumber: "",
-      ifsc: "",
-      bankName: "",
-    });
+      setBank({
+        accountName: res.item.bankInfo?.accountName || "",
+        accountNumber: res.item.bankInfo?.accountNumber || "",
+        ifsc: res.item.bankInfo?.ifsc || "",
+        bankName: res.item.bankInfo?.bankName || "",
+      });
 
-    setTax(res.item.taxSettings || {
-      pan: "",
-      tds: "",
-      regime: "",
-    });
+      setTax({
+        pan: res.item.taxSettings?.pan || "",
+        tds: res.item.taxSettings?.tds || "",
+        regime: res.item.taxSettings?.regime || "",
+      });
+      
+      // Sync notification and reward states
+      if (res.item.rewards) {
+        setRewardsEnabled(res.item.rewards.enabled ?? true);
+        setRewardAnimations(res.item.rewards.animations ?? true);
+        setRewardSounds(res.item.rewards.sounds ?? false);
+        setRewardHaptics(res.item.rewards.haptics ?? true);
+      }
     } catch (err) {
       console.error("Failed to load profile:", err);
       toast.error("Failed to load profile");
@@ -245,9 +270,8 @@ const hasTaxInfo =
         });
 
         const nextUrl = String(res?.item?.avatarUrl || res?.item?.avatarDataUrl || base64String);
-        const proxiedUrl = toProxiedUrl(nextUrl) || nextUrl;
-        setEditedProfile({ ...editedProfile!, avatarUrl: proxiedUrl });
-        setProfile({ ...profile, avatarUrl: proxiedUrl });
+        setEditedProfile({ ...editedProfile!, avatarUrl: nextUrl });
+        setProfile({ ...profile, avatarUrl: nextUrl });
         toast.success("Profile image updated");
         setUploadingImage(false);
       };
@@ -269,7 +293,7 @@ const hasTaxInfo =
   const loadOnboardingData = async () => {
     try {
       setLoadingOnboarding(true);
-      const res = await employeeApiFetch("/api/onboarding/me");
+      const res = await employeeApiFetch<{ item: any }>("/api/onboarding/me");
       setOnboardingData(res.item);
       if (res.item) {
         setPrimaryIdType(res.item.identityVerification?.primaryId?.idType || "");
@@ -592,6 +616,12 @@ const hasTaxInfo =
           emailNotifications,
           pushNotifications,
           taskReminders,
+          rewards: {
+            enabled: rewardsEnabled,
+            animations: rewardAnimations,
+            sounds: rewardSounds,
+            haptics: rewardHaptics,
+          },
         }),
       });
       toast.success("Notification preferences saved");
@@ -697,7 +727,7 @@ const hasTaxInfo =
             {/* Avatar */}
             <div className="relative">
               <Avatar className="h-24 w-24 border-4 border-[#133767]/20">
-                <AvatarImage src={toProxiedUrl(profile.avatarUrl)} alt={profile.name} crossOrigin="anonymous" />
+                <AvatarImage src={profile.avatarUrl} alt={profile.name} />
                 <AvatarFallback className="bg-gradient-to-br from-[#133767] to-blue-500 text-white text-2xl font-bold">
                   {initials}
                 </AvatarFallback>
@@ -1384,12 +1414,12 @@ const hasTaxInfo =
               <Button
                 className="w-full bg-[#133767] hover:bg-[#1a4585]"
                 disabled={
-                  !onboardingData?.basicInfo?.completed ||
-                  !onboardingData?.identityVerification?.primaryId?.status === "submitted" ||
-                  !onboardingData?.identityVerification?.secondaryId?.status === "submitted" ||
-                  !onboardingData?.w4Form?.status === "submitted" ||
-                  !onboardingData?.employeeHandbook?.status === "submitted" ||
-                  !onboardingData?.digitalSignature?.status === "submitted" ||
+                   !onboardingData?.basicInfo?.completed ||
+                   onboardingData?.identityVerification?.primaryId?.status !== "submitted" ||
+                   onboardingData?.identityVerification?.secondaryId?.status !== "submitted" ||
+                   onboardingData?.w4Form?.status !== "submitted" ||
+                   onboardingData?.employeeHandbook?.status !== "submitted" ||
+                   onboardingData?.digitalSignature?.status !== "submitted" ||
                   onboardingData?.overallStatus === "submitted" ||
                   onboardingData?.overallStatus === "approved"
                 }
@@ -1578,6 +1608,68 @@ const hasTaxInfo =
                   onCheckedChange={setTaskReminders}
                 />
               </div>
+              
+              <Separator />
+
+              <div className="pt-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <Trophy className="h-5 w-5 text-yellow-600" />
+                  <h3 className="font-semibold">Productivity & Rewards</h3>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="rewardsEnabled">Enable Reward Animations</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Show visual celebrations when you complete tasks
+                      </p>
+                    </div>
+                    <Switch
+                      id="rewardsEnabled"
+                      checked={rewardsEnabled}
+                      onCheckedChange={setRewardsEnabled}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pl-4 border-l-2 border-yellow-100">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Animations</span>
+                      </div>
+                       <Switch
+                         checked={rewardAnimations}
+                         onCheckedChange={setRewardAnimations}
+                         disabled={!rewardsEnabled}
+                       />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Volume2 className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Sounds</span>
+                      </div>
+                       <Switch
+                         checked={rewardSounds}
+                         onCheckedChange={setRewardSounds}
+                         disabled={!rewardsEnabled}
+                       />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Smartphone className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Haptics</span>
+                      </div>
+                       <Switch
+                         checked={rewardHaptics}
+                         onCheckedChange={setRewardHaptics}
+                         disabled={!rewardsEnabled}
+                       />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <Button
                 onClick={handleSaveNotifications}
                 className="bg-[#133767] hover:bg-[#1a4585]"

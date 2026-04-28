@@ -16,13 +16,8 @@ import {
   CheckCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-<<<<<<< Updated upstream
-import { listResource } from "@/lib/manger/api";
-import { markNotificationAsRead, markAllNotificationsAsRead, deleteNotification as deleteNotificationApi } from "../lib/api";
-=======
-import { listResource, deleteResource } from "@/lib/manger/api";
->>>>>>> Stashed changes
-
+import { markNotificationAsRead, markAllNotificationsAsRead, deleteNotification as deleteNotificationApi, listResource, deleteResource } from "../lib/api";
+import { toast } from "sonner";
 
 
 interface Notification {
@@ -211,7 +206,6 @@ useEffect(() => {
   };
 
   const deleteNotification = async (id: string) => {
-<<<<<<< Updated upstream
     // Optimistic update - update UI immediately
     setNotifications((prev) => prev.filter((n) => n.id !== id));
 
@@ -221,7 +215,7 @@ useEffect(() => {
       console.error("Failed to delete notification:", err);
       // Reload notifications to get correct state
       loadNotifications();
-=======
+    }
     try {
       await deleteResource("notifications", id);
       setNotifications((prev) => prev.filter((n) => n.id !== id));
@@ -229,9 +223,9 @@ useEffect(() => {
     } catch (err) {
       console.error("Failed to delete notification:", err);
       toast.error("Failed to delete notification");
->>>>>>> Stashed changes
     }
   };
+
 
   const getTypeIcon = (type: string) => {
     switch (type) {

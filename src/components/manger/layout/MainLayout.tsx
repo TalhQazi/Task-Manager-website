@@ -25,7 +25,7 @@ import {
 import { Input } from "@/components/manger/ui/input";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
+import { apiFetch } from "@/lib/manger/api";
 import { getAuthState, clearAuthState } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { FounderMessageBar } from "@/components/FounderMessageBar";
@@ -262,7 +262,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   const settings = settingsQuery.data?.item;
   const fullName = (settings?.fullName || auth.username || "Manager").trim();
   const email = (settings?.email || "").trim();
-  const avatarUrl = toProxiedUrl((settings as any)?.avatarDataUrl || (settings as any)?.avatarUrl as string | undefined);
+  const avatarUrl = (settings as any)?.avatarDataUrl || (settings as any)?.avatarUrl as string | undefined;
   const initials =
     fullName
       .split(" ")
@@ -357,6 +357,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                     <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/[0.14] transition-all" aria-label="Open navigation" onClick={() => setMobileSidebarOpen(true)}><Menu className="h-5 w-5 text-white" /></button>
                   </div>
 
+                  {/* Messages Dropdown */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
@@ -374,22 +375,20 @@ export function MainLayout({ children }: MainLayoutProps) {
                       {messagesQuery.data?.length === 0 ? (
                         <div className="p-4 text-center text-xs text-muted-foreground">No messages</div>
                       ) : (
-                        messagesQuery.data?.map(c => (
-                          <DropdownMenuItem key={c.employee?.id} onClick={() => navigate("/manager/messages")}>
-                            <div className="flex flex-col gap-0.5">
-                              <span className="font-medium text-xs">{c.employee?.name}</span>
-                              <span className="text-[10px] text-muted-foreground truncate">{c.lastMessage?.content}</span>
-                            </div>
+                        messagesQuery.data?.map((msg) => (
+                          <DropdownMenuItem key={msg.id}>
+                            {msg.content}
                           </DropdownMenuItem>
                         ))
                       )}
                     </DropdownMenuContent>
                   </DropdownMenu>
 
+                  {/* Notifications Dropdown */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
-                        <Bell className="h-4.5 w-4.5" />
+                        <Bell className="h-5 w-5" />
                         {unreadCount > 0 && (
                           <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[9px] border-black">
                             {unreadCount > 9 ? "9+" : unreadCount}
@@ -410,6 +409,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                     </DropdownMenuContent>
                   </DropdownMenu>
 
+                  {/* Bug Report Button */}
                   <button 
                     onClick={() => { resetReport(); setReportOpen(true); }}
                     className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white"
@@ -418,6 +418,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                     <Bug className="h-4.5 w-4.5" />
                   </button>
 
+                  {/* Logout Button */}
                   <button 
                     onClick={() => { clearAuthState(); navigate("/login"); }}
                     className="p-2 rounded-lg bg-black/20 hover:bg-red-500/20 backdrop-blur-sm transition-colors text-red-400/70 hover:text-red-400"
@@ -428,6 +429,11 @@ export function MainLayout({ children }: MainLayoutProps) {
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Founder Message Bar at the very bottom of the fixed header */}
+          <div className="mt-auto pointer-events-auto w-full z-40 bg-metallic-gold/90 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
+            <FounderMessageBar />
           </div>
         </div>
       </header>

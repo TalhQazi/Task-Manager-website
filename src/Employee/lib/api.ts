@@ -1,19 +1,33 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || "https://task.se7eninc.com";
 
+export function toProxiedUrl(url: string) {
+  if (!url) return "";
+  if (url.startsWith("http")) return url;
+  return `${API_BASE_URL}${url.startsWith("/") ? url : `/${url}`}`;
+}
+
+export async function listResource<T>(resource: string): Promise<T[]> {
+  const res = await employeeApiFetch<{ items: T[] }>(`/api/${resource}`);
+  return res.items || [];
+}
+
+export async function deleteResource(resource: string, id: string): Promise<void> {
+  await employeeApiFetch(`/api/${resource}/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
 export async function employeeApiFetch<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
-
    const isFormData = options.body instanceof FormData;
 
   const headers: Record<string, string> = {
     ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...((options.headers as Record<string, string>) || {}),
   };
-
-  
 
   const authRaw = localStorage.getItem("employee_auth");
   if (authRaw) {
@@ -51,37 +65,6 @@ export async function employeeApiFetch<T>(
   return response.json() as Promise<T>;
 }
 
-/**
- * Transforms a direct S3 URL into a backend-proxied URL to avoid CORS/OpaqueResponseBlocking issues.
- * If the URL is already a data URL or doesn't match the S3 pattern, it's returned as-is.
- */
-export function toProxiedUrl(url: string | undefined): string {
-  if (!url) return "";
-  if (url.startsWith("data:")) return url;
-
-  // Pattern for S3 URLs: https://<bucket>.s3.<region>.amazonaws.com/<key>
-  const s3Pattern = /^https:\/\/([\w.-]+)\.s3\.([\w.-]+)\.amazonaws\.com\/(.+)$/;
-  const match = url.match(s3Pattern);
-
-  if (match) {
-    const key = match[3];
-    let token = "";
-    const authRaw = localStorage.getItem("employee_auth");
-    if (authRaw) {
-      try {
-        const parsed = JSON.parse(authRaw);
-        token = parsed.token || "";
-      } catch (e) {
-        void e;
-      }
-    }
-    return `${API_BASE_URL}/api/s3-proxy/${key}${token ? `?token=${token}` : ""}`;
-  }
-
-  // Fallback for cases where it's already a relative path or other non-S3 URL
-  return url;
-}
-
 // Employee specific API functions
 export async function employeeLogin(username: string, password: string) {
   const res = await employeeApiFetch<{ token: string; user: { username: string; role: string } }>(
@@ -95,7 +78,40 @@ export async function employeeLogin(username: string, password: string) {
 }
 
 export async function getEmployeeProfile() {
-  return employeeApiFetch<{ item: { id: string; name: string; email: string; role: string; phone?: string; company?: string; location?: string; status?: string } }>("/api/employees/me");
+  return employeeApiFetch<{
+    item: {
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+      phone?: string;
+      company?: string;
+      location?: string;
+      status?: string;
+      avatarUrl?: string;
+      jobTitle?: string;
+      department?: string;
+      joinDate?: string;
+      employeeId?: string;
+      bankInfo?: {
+        accountName?: string;
+        accountNumber?: string;
+        ifsc?: string;
+        bankName?: string;
+      };
+      taxSettings?: {
+        pan?: string;
+        tds?: string | number;
+        regime?: string;
+      };
+      rewards?: {
+        enabled: boolean;
+        animations: boolean;
+        sounds: boolean;
+        haptics: boolean;
+      };
+    };
+  }>("/api/employees/me");
 }
 
 export async function getEmployeeTasks() {
@@ -232,7 +248,7 @@ export async function getTaskById(taskId: string) {
 }
 
 export async function updateTaskStatus(taskId: string, status: string) {
-  return employeeApiFetch<{ item: unknown }>(`/api/tasks/${encodeURIComponent(taskId)}/status`, {
+  return employeeApiFetch<{ item: any }>(`/api/tasks/${encodeURIComponent(taskId)}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
   });
@@ -343,7 +359,6 @@ export async function getConversation(user1: string, user2: string) {
       timestamp: string;
       type: string;
       status: string;
-      attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number };
     }>;
   }>(`/api/messages/conversation/${encodeURIComponent(user1)}/${encodeURIComponent(user2)}`);
 }
@@ -355,24 +370,12 @@ export async function sendMessage(data: {
   timestamp: string;
   type: "direct";
   status?: string;
-  attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number };
 }) {
   return employeeApiFetch<{
-    item: { id: string; sender: string; recipient: string; content: string; timestamp: string; type: string; status: string; attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number } };
+    item: { id: string; sender: string; recipient: string; content: string; timestamp: string; type: string; status: string };
   }>("/api/messages", {
     method: "POST",
     body: JSON.stringify(data),
-  });
-}
-
-export async function uploadMessageAttachment(file: File) {
-  const fd = new FormData();
-  fd.append("file", file);
-  return employeeApiFetch<{
-    attachment: { fileName: string; url: string; mimeType: string; size: number };
-  }>("/api/messages/upload", {
-    method: "POST",
-    body: fd,
   });
 }
 
@@ -389,14 +392,14 @@ export async function getPersonalNotes() {
 }
 
 export async function createPersonalNote(payload: { title: string; content: string; color?: string; isPinned?: boolean }) {
-  return employeeApiFetch<{ item: unknown }>("/api/notes", {
+  return employeeApiFetch<{ item: any }>("/api/notes", {
     method: "POST",
     body: JSON.stringify(payload)
   });
 }
 
-export async function updatePersonalNote(id: string, payload: unknown) {
-  return employeeApiFetch<{ item: unknown }>(`/api/notes/${encodeURIComponent(id)}`, {
+export async function updatePersonalNote(id: string, payload: any) {
+  return employeeApiFetch<{ item: any }>(`/api/notes/${encodeURIComponent(id)}`, {
     method: "PATCH",
     body: JSON.stringify(payload)
   });

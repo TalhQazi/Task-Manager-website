@@ -7,8 +7,6 @@ import { apiFetch } from "@/lib/manger/api";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-const LAST_TIME_TRACKING_EMPLOYEE_KEY = "tm:lastTimeTrackingEmployee";
-
 interface TimeEntry {
   id: string;
   employee: string;
@@ -41,28 +39,6 @@ function normalizeEntry(e: TimeEntryApi): TimeEntry {
   };
 }
 
-function formatClockTime(value: string): string {
-  const raw = String(value || "").trim();
-  if (!raw) return "—";
-
-  const hhmm = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(raw);
-  if (hhmm) {
-    const hour = Number(hhmm[1]);
-    const minute = hhmm[2];
-    if (!Number.isFinite(hour) || hour < 0 || hour > 23) return raw;
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const h12 = hour % 12 === 0 ? 12 : hour % 12;
-    return `${String(h12).padStart(2, "0")}:${minute} ${ampm}`;
-  }
-
-  const d = new Date(raw);
-  if (Number.isFinite(d.getTime())) {
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-  }
-
-  return raw;
-}
-
 const statusStyles = {
   complete: "bg-success/10 text-success",
   incomplete: "bg-warning/10 text-warning",
@@ -82,18 +58,6 @@ export default function TimeTracking() {
   });
 
   const timeEntries = entriesQuery.data ?? [];
-
-  useEffect(() => {
-    if (entriesQuery.isLoading || entriesQuery.isError) return;
-    const lastEmployee = sessionStorage.getItem(LAST_TIME_TRACKING_EMPLOYEE_KEY);
-    if (!lastEmployee) return;
-    sessionStorage.removeItem(LAST_TIME_TRACKING_EMPLOYEE_KEY);
-
-    const el = document.querySelector<HTMLTableRowElement>(
-      `tr[data-employee="${CSS.escape(lastEmployee)}"]`,
-    );
-    el?.scrollIntoView({ behavior: "smooth", block: "center" });
-  }, [entriesQuery.isLoading, entriesQuery.isError, timeEntries.length]);
 
   useEffect(() => {
     const viewId = String(searchParams.get("view") || "").trim();
@@ -224,15 +188,10 @@ export default function TimeTracking() {
                   style={{ animationDelay: `${index * 30}ms` }}
                   role="button"
                   tabIndex={0}
-                  data-employee={entry.employee}
-                  onClick={() => {
-                    sessionStorage.setItem(LAST_TIME_TRACKING_EMPLOYEE_KEY, entry.employee);
-                    navigate(`history/${encodeURIComponent(entry.employee)}`);
-                  }}
+                  onClick={() => navigate(`history/${encodeURIComponent(entry.employee)}`)}
                   onKeyDown={(ev) => {
                     if (ev.key === "Enter" || ev.key === " ") {
                       ev.preventDefault();
-                      sessionStorage.setItem(LAST_TIME_TRACKING_EMPLOYEE_KEY, entry.employee);
                       navigate(`history/${encodeURIComponent(entry.employee)}`);
                     }
                   }}
@@ -255,12 +214,12 @@ export default function TimeTracking() {
                   </td>
                   <td>
                     <span className="font-medium text-foreground whitespace-nowrap">
-                      {formatClockTime(entry.clockIn)}
+                      {entry.clockIn}
                     </span>
                   </td>
                   <td>
                     <span className="font-medium text-foreground whitespace-nowrap">
-                      {formatClockTime(entry.clockOut)}
+                      {entry.clockOut}
                     </span>
                   </td>
                   <td>

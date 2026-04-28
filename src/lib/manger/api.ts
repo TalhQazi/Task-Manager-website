@@ -102,6 +102,9 @@ export function toProxiedUrl(url: string | undefined | null): string | undefined
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
   const token = getStoredToken();
   return `${baseUrl}/api/s3-proxy/${s3Key}${token ? `?token=${token}` : ""}`;
+  const raw = String(import.meta.env.VITE_API_URL || "").trim();
+  if (raw) return raw;
+  return "http://localhost:5000";
 }
 
 function getStoredToken(): string | null {

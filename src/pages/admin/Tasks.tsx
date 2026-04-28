@@ -89,9 +89,13 @@ import {
   MessageSquare,
   Download,
   Maximize2,
+  Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/admin/utils";
 import { apiFetch, downloadTaskAttachment, toProxiedUrl, downloadViaUrl } from "@/lib/admin/apiClient";
+
+import { RewardEmployeeModal } from "@/components/manger/RewardEmployeeModal";
+import { apiFetch, downloadTaskAttachment } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import jsPDF from "jspdf";
@@ -101,27 +105,198 @@ import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import AssetLibraryPicker from "@/components/admin/AssetLibraryPicker";
 import { TaskContributors } from "@/components/admin/tasks/TaskContributors";
 
+// Types
+interface Task {
+  id: string;
+  title: string;
+  description: string;
+  assignees: string[];
+  assignee?: string;
+  priority: "low" | "medium" | "high";
+  status: "pending" | "in-progress" | "completed" | "overdue";
+  dueDate: string;
+  dueTime?: string;
+  location?: string;
+  createdAt: string;
+  projectId?: string;
+  attachmentFileName?: string;
+  attachmentNote?: string;
+  attachment?: {
+    fileName: string;
+    url: string;
+    mimeType: string;
+    size: number;
+  };
+  attachments?: Array<{
+    fileName: string;
+    url: string;
+    mimeType: string;
+    size: number;
+  }>;
+  reward?: {
+    isRewarded: boolean;
+    animationStyle?: string;
+    message?: string;
+    rewardedBy?: string;
+    rewardedAt?: string;
+  };
+  context: "HOUSE" | "OFFICE" | "SHOP" | "FIELD" | "OTHER";
+  priority_color: "red" | "yellow" | "green";
+  execution_rank?: number;
+}
+
+interface Project {
+  id: string;
+  name: string;
+  description?: string;
+  createdByUsername?: string;
+  createdAt?: string;
+  assignees?: string[];
+  logo?: {
+    fileName?: string;
+    url?: string;
+    mimeType?: string;
+    size?: number;
+  };
+  taskCount?: number;
+  status?: string;
+  attachments?: Array<{
+    fileName: string;
+    url: string;
+    mimeType: string;
+    size: number;
+  }>;
+  defaultContext?: "HOUSE" | "OFFICE" | "SHOP" | "FIELD" | "OTHER";
+}
+
+interface ProjectWithTasks extends Project {
+  tasks: Task[];
+}
+
+interface Employee {
+  id: string;
+  name: string;
+  initials: string;
+  email: string;
+  avatarUrl?: string;
+  avatarDataUrl?: string;
+  status: "active" | "inactive" | "on-leave";
+}
+
+interface TaskComment {
+  id: string;
+  taskId: string;
+  message: string;
+  authorUsername: string;
+  authorFullName?: string;
+  authorAvatar?: string;
+  authorRole?: string;
+  createdAt: string;
+  attachments?: Array<{
+    fileName: string;
+    url: string;
+    mimeType: string;
+    size: number;
+    uploadedAt?: string;
+  }>;
+}
+
+type TaskApi = Omit<Task, "id"> & {
+  _id: string;
+};
+
+// Helper functions
+function normalizeTask(t: any): Task {
+  const legacyAssignee = typeof t.assignee === "string" ? t.assignee.trim() : "";
+  const assignees = Array.isArray(t.assignees)
+    ? t.assignees.filter((s: any) => typeof s === "string" && s.trim())
+    : legacyAssignee
+      ? [legacyAssignee]
+      : [];
+  return {
+    id: t._id || t.id,
+    title: t.title,
+    description: t.description,
+    assignees,
+    priority: t.priority,
+    status: t.status,
+    dueDate: t.dueDate,
+    dueTime: t.dueTime,
+    location: t.location,
+    createdAt: t.createdAt,
+    attachmentFileName: t.attachmentFileName,
+    attachmentNote: t.attachmentNote,
+    attachment: t.attachment,
+    attachments: t.attachments,
+    reward: t.reward,
+    context: t.context || "OTHER",
+    priority_color: t.priority_color || "green",
+    execution_rank: t.execution_rank,
+  };
+}
+
+function renderMessageWithMentions(text: string) {
+  if (!text) return null;
+  const parts = text.split(/(@\S+)/g);
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith("@")) {
+          return (
+            <span key={i} className="text-primary font-medium bg-primary/10 px-1 py-0.5 rounded cursor-pointer hover:bg-primary/20 transition-colors">
+              {part}
+            </span>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </>
+  );
+}
+
+const priorityClasses = {
+  high: "bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive border-destructive/20",
+  medium: "bg-gradient-to-r from-yellow-500/20 to-amber-500/10 text-yellow-600 border-yellow-500/20",
+  low: "bg-gradient-to-r from-green-500/20 to-emerald-500/10 text-green-600 border-green-500/20",
+};
+
+const statusClasses = {
+  pending: "bg-gradient-to-r from-blue-500/20 to-blue-400/10 text-blue-600 border-blue-500/20",
+  "in-progress": "bg-gradient-to-r from-amber-500/20 to-yellow-400/10 text-amber-600 border-amber-500/20",
+  completed: "bg-gradient-to-r from-green-500/20 to-emerald-400/10 text-green-600 border-green-500/20",
+  overdue: "bg-gradient-to-r from-red-500/20 to-rose-400/10 text-red-600 border-red-500/20",
+};
+
+const createTaskSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().min(1, "Description is required"),
+  priority: z.enum(["low", "medium", "high"]),
+  priority_color: z.enum(["red", "yellow", "green"]).optional().default("green"),
+  context: z.enum(["HOUSE", "OFFICE", "SHOP", "FIELD", "OTHER"]),
+  status: z.enum(["pending", "in-progress", "completed", "overdue"]),
+  dueDate: z.string().optional(),
+  dueTime: z.string().optional(),
+  location: z.string().optional(),
+});
+
+type CreateTaskValues = z.infer<typeof createTaskSchema>;
+
+// Logo Component
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
-  const [src, setSrc] = useState<string | null | undefined>(undefined);
+  const [src, setSrc] = useState<string | null | undefined>(logoUrl !== undefined ? (logoUrl || null) : undefined);
   const [error, setError] = useState(false);
 
   useEffect(() => {
-    // If logoUrl is a real URL (S3 or data:), use it directly
-    if (logoUrl && logoUrl.length > 0) {
-      setSrc(toProxiedUrl(logoUrl) || logoUrl);
+    if (logoUrl) {
+      setSrc(logoUrl);
       setError(false);
       return;
     }
-    
-    // logoUrl is undefined or empty string — fetch from dedicated endpoint
-    // Empty string means the list API stripped a base64 value stored in MongoDB
     let cancelled = false;
-    setSrc(undefined);
-
     apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
       .then(d => { 
         if (!cancelled) {
-          setSrc(toProxiedUrl(d.logo?.url) || null);
+          setSrc(d.logo?.url || null);
           setError(false);
         }
       })
@@ -140,13 +315,12 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
         src={src} 
         alt={`${projectName} logo`} 
         className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-border" 
-        crossOrigin="anonymous"
         onError={() => setError(true)}
       />
     );
   }
 
-  if (src === undefined) {
+  if (src === undefined && logoUrl === undefined) {
     return <div className="w-10 h-10 rounded-md bg-muted/40 animate-pulse flex-shrink-0" />;
   }
 
@@ -157,24 +331,17 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
   );
 }
 
-function TaskAttachmentImg({ taskId, attachmentUrl, onPreview }: { taskId: string; attachmentUrl?: string; onPreview?: (url: string, fileName: string) => void }) {
-  const [src, setSrc] = useState<string | null | undefined>(toProxiedUrl(attachmentUrl) || undefined);
-  
+// Attachment Components
+function TaskAttachmentImg({ taskId, onPreview }: { taskId: string; onPreview?: (url: string, fileName: string) => void }) {
+  const [src, setSrc] = useState<string | null | undefined>(undefined);
   useEffect(() => {
-    // If attachmentUrl is a real URL (S3 or data:), use it directly
-    if (attachmentUrl && attachmentUrl.length > 0) {
-      setSrc(toProxiedUrl(attachmentUrl) || attachmentUrl);
-      return;
-    }
-    
-    // attachmentUrl is undefined or empty string — fetch from dedicated endpoint
     let cancelled = false;
     apiFetch<{ attachment: { url: string } }>(`/api/tasks/${encodeURIComponent(taskId)}/attachment`)
-      .then(d => { if (!cancelled) setSrc(toProxiedUrl(d.attachment?.url) || null); })
+      .then(d => { if (!cancelled) setSrc(d.attachment?.url || null); })
       .catch(() => { if (!cancelled) setSrc(null); });
     return () => { cancelled = true; };
-  }, [taskId, attachmentUrl]);
-
+  }, [taskId]);
+  
   if (src) return (
     <div className="w-full h-full relative group/task-att cursor-zoom-in" onClick={() => onPreview?.(src, "Task Attachment")}>
       <img src={src} alt="Task preview" className="w-full h-full object-cover" />
@@ -188,19 +355,19 @@ function TaskAttachmentImg({ taskId, attachmentUrl, onPreview }: { taskId: strin
 }
 
 function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fallbackUrl, onPreview }: { taskId: string; commentId: string; index: number; mimeType: string; fileName: string; fallbackUrl?: string; onPreview?: (url: string, name: string) => void }) {
-  const [src, setSrc] = useState<string | null | undefined>(toProxiedUrl(fallbackUrl) || undefined);
+  const [src, setSrc] = useState<string | null | undefined>(fallbackUrl || undefined);
   useEffect(() => {
     if (fallbackUrl) return; 
     let cancelled = false;
     apiFetch<{ attachment: { url: string } }>(`/api/tasks/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}/attachments/${index}`)
-      .then(d => { if (!cancelled) setSrc(toProxiedUrl(d.attachment?.url) || null); })
+      .then(d => { if (!cancelled) setSrc(d.attachment?.url || null); })
       .catch(() => { if (!cancelled) setSrc(null); });
     return () => { cancelled = true; };
   }, [taskId, commentId, index, fallbackUrl]);
   
   if (src && mimeType?.startsWith("image/")) return (
-    <div className="w-full h-auto flex justify-center relative group/att cursor-zoom-in" onClick={() => onPreview?.(src, fileName)}>
-      <img src={src} alt={fileName} className="w-full h-auto max-h-[180px] object-contain rounded-lg" />
+    <div className="w-full h-full relative group/att cursor-zoom-in" onClick={() => onPreview?.(src, fileName)}>
+      <img src={src} alt={fileName} className="w-full h-full object-cover rounded-lg" />
       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-all duration-200 rounded-lg">
         <Maximize2 className="w-5 h-5 text-white" />
       </div>
@@ -400,108 +567,7 @@ interface ProjectWithTasks extends Project {
   status?: string;
 }
 
-function normalizeTask(t: any): Task {
-  const legacyAssignee = typeof t.assignee === "string" ? t.assignee.trim() : "";
-  const assignees = Array.isArray(t.assignees)
-    ? t.assignees.filter((s: any) => typeof s === "string" && s.trim())
-    : legacyAssignee
-      ? [legacyAssignee]
-      : [];
-  const extra = t as TaskApiAttachmentFields;
-  return {
-    id: t._id || t.id,
-    taskNumber: t.taskNumber,
-    title: t.title,
-    description: t.description,
-    assignees,
-    priority: t.priority,
-    status: t.status,
-    dueDate: t.dueDate,
-    dueTime: t.dueTime,
-    location: t.location,
-    createdAt: t.createdAt,
-    attachmentFileName: extra.attachmentFileName,
-    attachmentNote: extra.attachmentNote,
-    attachment: extra.attachment,
-    attachments: Array.isArray((t as any).attachments) ? (t as any).attachments : undefined,
-  };
-}
-
-function renderMessageWithMentions(text: string) {
-  if (!text) return null;
-  // Split by mentions that start with @ and don't contain spaces
-  const parts = text.split(/(@\S+)/g);
-  return (
-    <>
-      {parts.map((part, i) => {
-        if (part.startsWith("@")) {
-          return (
-            <span key={i} className="text-primary font-medium bg-primary/10 px-1 py-0.5 rounded cursor-pointer hover:bg-primary/20 transition-colors">
-              {part}
-            </span>
-          );
-        }
-        return <span key={i}>{part}</span>;
-      })}
-    </>
-  );
-}
-
-async function filesToAttachments(files: File[]) {
-  const results = await Promise.all(
-    files.map(
-      (file) =>
-        new Promise<{
-          fileName: string;
-          url: string;
-          mimeType: string;
-          size: number;
-        }>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onerror = () => reject(new Error("Failed to read file"));
-          reader.onload = () => {
-            const url = typeof reader.result === "string" ? reader.result : "";
-            resolve({
-              fileName: file.name,
-              url,
-              mimeType: file.type,
-              size: file.size,
-            });
-          };
-          reader.readAsDataURL(file);
-        }),
-    ),
-  );
-
-  return results;
-}
-
-const priorityClasses = {
-  high: "bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive border-destructive/20",
-  medium: "bg-gradient-to-r from-yellow-500/20 to-amber-500/10 text-yellow-600 border-yellow-500/20",
-  low: "bg-gradient-to-r from-green-500/20 to-emerald-500/10 text-green-600 border-green-500/20",
-};
-
-const statusClasses = {
-  pending: "bg-gradient-to-r from-blue-500/20 to-blue-400/10 text-blue-600 border-blue-500/20",
-  "in-progress": "bg-gradient-to-r from-amber-500/20 to-yellow-400/10 text-amber-600 border-amber-500/20",
-  completed: "bg-gradient-to-r from-green-500/20 to-emerald-400/10 text-green-600 border-green-500/20",
-  overdue: "bg-gradient-to-r from-red-500/20 to-rose-400/10 text-red-600 border-red-500/20",
-};
-
-const createTaskSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  description: z.string().min(1, "Description is required"),
-  priority: z.enum(["low", "medium", "high"]),
-  status: z.enum(["pending", "in-progress", "completed", "overdue"]),
-  dueDate: z.string().optional(),
-  dueTime: z.string().optional(),
-  location: z.string().optional(),
-  assignees: z.array(z.string()).optional().default([]),
-});
-
-type CreateTaskValues = z.infer<typeof createTaskSchema>;
-
+// Main Component
 export default function Tasks() {
   const { socket, joinTask, leaveTask } = useSocket();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -521,7 +587,7 @@ export default function Tasks() {
   const [projectLogoPreview, setProjectLogoPreview] = useState<string>("");
   const [projectAttachmentFiles, setProjectAttachmentFiles] = useState<File[]>([]);
   const [projectAttachmentPreviews, setProjectAttachmentPreviews] = useState<string[]>([]);
-  const [projectTasks, setProjectTasks] = useState<CreateProjectTaskDraft[]>([]);
+  const [projectTasks, setProjectTasks] = useState<any[]>([]);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -534,6 +600,7 @@ export default function Tasks() {
   const [validationErrors, setValidationErrors] = useState<{ projectName?: string; title?: string; description?: string }>({});
   const [assigneesOpen, setAssigneesOpen] = useState(false);
   const [editAssigneesOpen, setEditAssigneesOpen] = useState(false);
+  const [projectDefaultContext, setProjectDefaultContext] = useState<Task["context"]>("OTHER");
   const [projectCreationAssignees, setProjectCreationAssignees] = useState<string[]>([]);
   const [projectCreationAssigneesOpen, setProjectCreationAssigneesOpen] = useState(false);
 
@@ -544,8 +611,6 @@ export default function Tasks() {
   const [isLoadingProject, setIsLoadingProject] = useState(false);
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
   const [editSelectedAssignees, setEditSelectedAssignees] = useState<string[]>([]);
-  const [editTaskFile, setEditTaskFile] = useState<File | null>(null);
-  const [editTaskFilePreview, setEditTaskFilePreview] = useState<string | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -564,7 +629,9 @@ export default function Tasks() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Project edit/delete states
+  const [isRewardOpen, setIsRewardOpen] = useState(false);
+  const [rewardingTask, setRewardingTask] = useState<Task | null>(null);
+
   const [isEditProjectOpen, setIsEditProjectOpen] = useState(false);
   const [isDeleteProjectOpen, setIsDeleteProjectOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
@@ -576,7 +643,6 @@ export default function Tasks() {
   const [isEditingProject, setIsEditingProject] = useState(false);
   const [isDeletingProject, setIsDeletingProject] = useState(false);
 
-  // Reassign states
   const [isReassignTaskOpen, setIsReassignTaskOpen] = useState(false);
   const [isReassignProjectOpen, setIsReassignProjectOpen] = useState(false);
   const [reassigningTask, setReassigningTask] = useState<Task | null>(null);
@@ -587,16 +653,29 @@ export default function Tasks() {
   const [isReassigningProject, setIsReassigningProject] = useState(false);
   const [reassignTaskOpen, setReassignTaskOpen] = useState(false);
   const [reassignProjectOpen, setReassignProjectOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    title: "",
+    description: "",
+    priority: "medium" as Task["priority"],
+    status: "pending" as Task["status"],
+    dueDate: "",
+    dueTime: "",
+    location: "",
+    attachmentFileName: "",
+    attachmentNote: "",
+    context: "OTHER" as Task["context"],
+    priority_color: "green" as Task["priority_color"],
+  });
 
   const queryClient = useQueryClient();
 
   const currentUsername = getAuthState().username || "";
   const currentRole = getAuthState().role || "";
   const isAdminRole = currentRole === "admin" || currentRole === "super-admin";
+  const canGiveReward = ["manager", "admin", "super-admin"].includes(String(currentRole).toLowerCase());
   const [archivingCommentId, setArchivingCommentId] = useState<string | null>(null);
   const [archivingAttachment, setArchivingAttachment] = useState<number | null>(null);
   
-  // Lightbox / File Preview State
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState<string>("");
 
@@ -631,7 +710,6 @@ export default function Tasks() {
         search: searchQuery,
         status: statusFilter,
         priority: priorityFilter,
-        projectId: "none",
       });
       const res = await apiFetch<{ items: TaskApi[], totalPages: number, total: number }>(`/api/tasks?${params.toString()}`);
       return {
@@ -643,7 +721,6 @@ export default function Tasks() {
     placeholderData: (previousData) => previousData,
   });
 
-  // Fetch projects with server-side pagination
   const projectsQuery = useQuery({
     queryKey: ["projects", projectPage, searchQuery],
     queryFn: async () => {
@@ -679,9 +756,7 @@ export default function Tasks() {
     try {
       setIsLoadingProject(true);
       if (partialProject) {
-        // Only reset tasks if we are switching to a completely different project
-        const currentTasks = selectedProject?.id === projectId ? selectedProject.tasks : [];
-        setSelectedProject({ ...partialProject, tasks: currentTasks } as any);
+        setSelectedProject({ ...partialProject, tasks: [] } as any);
       }
       setApiError(null);
 
@@ -705,7 +780,6 @@ export default function Tasks() {
       if (!partialProject) {
         setSelectedProject(null);
       }
-      setTasks([]);
     } finally {
       setIsLoadingProject(false);
     }
@@ -735,7 +809,6 @@ export default function Tasks() {
     setSearchParams(next, { replace: true });
   }, [tasks, searchParams, setSearchParams, isViewOpen, isEditOpen, isDeleteOpen, isCreateOpen]);
 
-  // Fetch employees/users for mentions and assignees
   useEffect(() => {
     const loadEmployees = async () => {
       try {
@@ -755,7 +828,6 @@ export default function Tasks() {
             .substring(0, 2)
         }));
 
-        // Ensure current user is in the list of assignees for selection
         const auth = getAuthState();
         const myUsername = auth.username || "";
         if (myUsername && !list.find(e => e.name.toLowerCase() === myUsername.toLowerCase() || e.email.toLowerCase() === myUsername.toLowerCase())) {
@@ -792,21 +864,8 @@ export default function Tasks() {
     }
   }, [isCreateOpen]);
 
-  // Admin-style form state
-  const [formData, setFormData] = useState({
-    title: "",
-    description: "",
-    priority: "medium" as Task["priority"],
-    status: "pending" as Task["status"],
-    dueDate: "",
-    dueTime: "",
-    location: "",
-    attachmentFileName: "",
-    attachmentNote: "",
-  });
-
   const updateTaskMutation = useMutation({
-    mutationFn: async ({ id, payload }: { id: string; payload: Partial<Task> }) => {
+    mutationFn: async ({ id, payload }: { id: string; payload: CreateTaskValues & { assignees?: string[] } }) => {
       const res = await apiFetch<{ item: TaskApi }>(`/api/tasks/${id}`, {
         method: "PUT",
         body: JSON.stringify(payload),
@@ -853,7 +912,7 @@ export default function Tasks() {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["projects"] });
       if (selectedProject) {
-        setSelectedProject({ ...selectedProject, status: selectedProject.status });
+        setSelectedProject({ ...selectedProject });
       }
     },
   });
@@ -872,9 +931,6 @@ export default function Tasks() {
         setSelectedProject({ ...selectedProject, ...updated });
       }
     },
-    onError: (err) => {
-      console.error("Project update error details:", err);
-    }
   });
 
   const deleteProjectMutation = useMutation({
@@ -892,7 +948,6 @@ export default function Tasks() {
     },
   });
 
-  // Reassign mutations - optimized to not refetch all data
   const reassignTaskMutation = useMutation({
     mutationFn: async ({ id, assignees }: { id: string; assignees: string[] }) => {
       const res = await apiFetch<{ item: TaskApi }>(`/api/tasks/${id}/reassign`, {
@@ -907,6 +962,10 @@ export default function Tasks() {
       queryClient.invalidateQueries({ queryKey: ["projects"] });
 
       // Synchronize state immediately
+      queryClient.setQueryData<Task[]>(["tasks"], (old) => {
+        if (!old) return old;
+        return old.map((t) => (t.id === updatedTask.id ? updatedTask : t));
+      });
       if (selectedTask?.id === updatedTask.id) {
         setSelectedTask(updatedTask);
       }
@@ -930,7 +989,6 @@ export default function Tasks() {
       return res.item;
     },
     onSuccess: (updatedProject) => {
-      // Update cache directly instead of refetching
       queryClient.setQueryData<Project[]>(["projects"], (old) => {
         if (!old) return old;
         return old.map((p) => (p.id === updatedProject.id ? updatedProject : p));
@@ -942,7 +1000,38 @@ export default function Tasks() {
     },
   });
 
-  // Reassign handlers
+  const createProjectMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      const res = await apiFetch<{ item: Project }>("/api/projects", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      return res.item;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+  });
+
+  const createTaskMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      const res = await apiFetch<{ item: TaskApi }>("/api/tasks", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      return normalizeTask(res.item);
+    },
+    onSuccess: (newTask) => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      if (newTask.projectId) {
+        queryClient.invalidateQueries({ queryKey: ["projects"] });
+        if (selectedProject?.id === newTask.projectId) {
+          void loadProject(newTask.projectId);
+        }
+      }
+    },
+  });
+
   const handleReassignTask = async () => {
     if (!reassigningTask) return;
     setIsReassigningTask(true);
@@ -993,6 +1082,8 @@ export default function Tasks() {
       dueDate: "",
       dueTime: "",
       location: "",
+      context: "OTHER",
+      priority_color: "green",
     },
   });
 
@@ -1006,6 +1097,8 @@ export default function Tasks() {
       dueDate: "",
       dueTime: "",
       location: "",
+      context: "OTHER",
+      priority_color: "green",
     },
   });
 
@@ -1279,6 +1372,7 @@ export default function Tasks() {
       });
     }
   };
+  const { triggerBlaster, incrementCompletedCount } = useTaskBlasterContext();
 
   const openView = (task: Task) => {
     setSearchQuery(""); // Clear search bar when viewing a task
@@ -1297,7 +1391,6 @@ export default function Tasks() {
       const res = await apiFetch<{ items: TaskComment[] }>(`/api/tasks/${encodeURIComponent(taskId)}/comments?_t=${Date.now()}`);
       const newComments = Array.isArray(res.items) ? res.items : [];
       setComments(newComments);
-      // Auto scroll to bottom if new messages arrived and chat is open
       setTimeout(() => {
         if (chatContainerRef.current && isViewOpen) {
           chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
@@ -1311,6 +1404,25 @@ export default function Tasks() {
     }
   };
 
+  useEffect(() => {
+    if (isViewOpen && selectedTask && autoRefreshEnabled) {
+      if (autoRefreshIntervalRef.current) {
+        clearInterval(autoRefreshIntervalRef.current);
+      }
+      autoRefreshIntervalRef.current = setInterval(() => {
+        if (selectedTask && isViewOpen) {
+          loadComments(selectedTask.id, true);
+        }
+      }, 5000);
+    }
+
+    return () => {
+      if (autoRefreshIntervalRef.current) {
+        clearInterval(autoRefreshIntervalRef.current);
+        autoRefreshIntervalRef.current = null;
+      }
+    };
+  }, [isViewOpen, selectedTask, autoRefreshEnabled]);
   const sendComment = async () => {
     if (!selectedTask || isSendingComment) return;
     const msg = commentDraft.trim();
@@ -1320,7 +1432,6 @@ export default function Tasks() {
       setIsSendingComment(true);
       setCommentError(null);
 
-      // Process attachments into base64 data URLs
       const processedAttachments = await Promise.all(
         commentAttachments.map(
           (file) =>
@@ -1346,8 +1457,7 @@ export default function Tasks() {
       });
       setComments((prev) => [...prev, res.item]);
       setCommentDraft("");
-      setCommentAttachments([]); // Clear attachments
-      // Scroll to bottom after sending
+      setCommentAttachments([]);
       setTimeout(() => {
         if (chatContainerRef.current) {
           chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
@@ -1378,7 +1488,6 @@ export default function Tasks() {
     }, 3000);
   };
 
-  // Socket logic for live messages
   useEffect(() => {
     if (isViewOpen && selectedTask && socket) {
       joinTask(selectedTask.id);
@@ -1389,7 +1498,6 @@ export default function Tasks() {
           return [...prev, comment];
         });
 
-        // Auto scroll to bottom smoothly
         setTimeout(() => {
           if (chatContainerRef.current) {
             chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
@@ -1415,7 +1523,7 @@ export default function Tasks() {
         leaveTask(selectedTask.id);
       };
     }
-  }, [isViewOpen, selectedTask?.id, socket, joinTask, leaveTask]);
+  }, [isViewOpen, selectedTask?.id, socket, joinTask, leaveTask, currentUsername]);
 
   const archiveComment = async (commentId: string) => {
     if (!selectedTask) return;
@@ -1464,8 +1572,6 @@ export default function Tasks() {
     }
   };
 
-  const { triggerBlaster, incrementCompletedCount } = useTaskBlasterContext();
-
   const updateStatus = async (next: Task["status"]) => {
     if (!selectedTask) return;
     const previousStatus = selectedTask.status;
@@ -1480,7 +1586,6 @@ export default function Tasks() {
       setSelectedTask(normalized);
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
-      // Trigger TaskBlaster when task is marked as completed
       if (next === "completed" && previousStatus !== "completed") {
         const taskForBlaster = {
           id: normalized.id,
@@ -1500,6 +1605,33 @@ export default function Tasks() {
     }
   };
 
+  const handleReward = (task: Task) => {
+    if (!canGiveReward) return;
+    setRewardingTask(task);
+    setIsRewardOpen(true);
+  };
+
+  const onGrantReward = async (rewardData: any) => {
+    if (!rewardingTask) return;
+    try {
+      await apiFetch(`/api/tasks/${rewardingTask.id}/reward`, {
+        method: "POST",
+        body: JSON.stringify(rewardData),
+      });
+      toast({
+        title: "Reward granted!",
+        description: `Successfully rewarded ${rewardingTask.assignees?.join(", ") || "employee"}`,
+      });
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    } catch (e) {
+      toast({
+        title: "Failed to grant reward",
+        description: e instanceof Error ? e.message : "Something went wrong",
+        variant: "destructive"
+      });
+    }
+  };
+
   const openEdit = (task: Task) => {
     setSearchQuery(""); // Clear search bar when editing a task
     setSelectedTask(task);
@@ -1512,10 +1644,10 @@ export default function Tasks() {
       dueDate: task.dueDate,
       dueTime: task.dueTime || "",
       location: task.location || "",
+      context: task.context || "OTHER",
+      priority_color: task.priority_color || "green",
     });
     setIsEditOpen(true);
-    setEditTaskFile(null);
-    setEditTaskFilePreview(task.attachment?.url || null);
   };
 
   const openDelete = (task: Task) => {
@@ -1671,46 +1803,21 @@ export default function Tasks() {
     }
   };
 
-  const onEditTask = async (values: CreateTaskValues) => {
+  const onEditTask = (values: CreateTaskValues) => {
     if (!selectedTask) return;
     const previousStatus = selectedTask.status;
 
-    const payload: Partial<Task> = { ...values, assignees: editSelectedAssignees };
-
-    if (editTaskFile) {
-      try {
-        const base64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(editTaskFile);
-        });
-        payload.attachment = {
-          fileName: editTaskFile.name,
-          url: base64,
-          mimeType: editTaskFile.type,
-          size: editTaskFile.size
-        };
-      } catch (err) {
-        console.error("Failed to process task attachment update:", err);
-      }
-    } else if (editTaskFilePreview === null) {
-      payload.attachment = { fileName: "", url: "", mimeType: "", size: 0 };
-    }
-
     updateTaskMutation.mutate(
-      { id: selectedTask.id, payload },
+      { id: selectedTask.id, payload: { ...values, assignees: editSelectedAssignees } },
       {
         onSuccess: () => {
           setIsEditOpen(false);
-          setEditTaskFile(null);
-          setEditTaskFilePreview(null);
           setEditSelectedAssignees([]);
           toast({
             title: "Task updated",
             description: "Task has been updated.",
           });
 
-          // Trigger TaskBlaster when task is marked as completed via edit
           if (values.status === "completed" && previousStatus !== "completed") {
             const taskForBlaster = {
               id: selectedTask.id,
@@ -1725,7 +1832,6 @@ export default function Tasks() {
           }
         },
         onError: (err) => {
-          console.error("Task update error:", err);
           toast({
             title: "Failed to update task",
             description: err instanceof Error ? err.message : "Something went wrong",
@@ -1791,12 +1897,14 @@ export default function Tasks() {
       const assignees = (p.assignees || []).join(" ").toLowerCase();
       const status = (p.status || "").toLowerCase();
 
-      // Status Filter
       if (sFilter !== "all" && status !== sFilter) {
         return false;
       }
 
-      // If the main search bar has text, it must match either name, desc, or assignees
+      if (qProject && !name.includes(qProject) && !desc.includes(qProject) && !assignees.includes(qProject)) {
+        return false;
+      }
+
       if (qMain && !name.includes(qMain) && !desc.includes(qMain) && !assignees.includes(qMain)) {
         return false;
       }
@@ -1815,12 +1923,9 @@ export default function Tasks() {
     });
   }, [tasks, searchQuery]);
 
-  // Project & Task counts from server data
   const projectTotalPages = projectsQuery.data?.totalPages || 1;
   const taskTotalPages = tasksQuery.data?.totalPages || 1;
-  const projectTaskTotalPages = 1; // Handled within selective project view currently
 
-  // Format time for messages
   const formatMessageTime = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -1924,7 +2029,7 @@ export default function Tasks() {
         </div>
       </div>
 
-      {/* Project/Tasks sections - same as before, omitted for brevity but all code remains */}
+      {/* Project/Tasks sections */}
       {selectedProject ? (
         <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
           <div className="flex flex-col sm:flex-row sm:items-start gap-3">
@@ -2082,7 +2187,7 @@ export default function Tasks() {
             {projectsQuery.isLoading ? (
               <p className="text-muted-foreground">Loading projects...</p>
             ) : projectsQuery.isError ? (
-              <p className="text-destructive">{(() => { const msg = projectsQuery.error instanceof Error ? projectsQuery.error.message : "Failed to load projects"; return msg.startsWith("<") ? "Server error: failed to load projects. The server may be temporarily unavailable (504 Gateway Timeout). Please try again later." : msg; })()}</p>
+              <p className="text-destructive">Failed to load projects</p>
             ) : projectsQuery.data?.items.length === 0 ? (
               <p className="text-muted-foreground">{searchQuery ? "No projects match your search." : "No projects found. Create one to begin."}</p>
             ) : (
@@ -2091,7 +2196,6 @@ export default function Tasks() {
                   {projectsQuery.data?.items.map((project, idx) => {
                     const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0 ? project.assignees : [];
                     const taskNum = project.taskCount ?? 0;
-                    const projectLetter = String.fromCharCode(65 + (idx % 26));
                     const projectNumber = (projectPage - 1) * PAGE_SIZE + idx + 1;
                     return (
                       <div
@@ -2123,7 +2227,6 @@ export default function Tasks() {
                           </div>
                         </button>
 
-                        {/* Three dots menu */}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -2207,9 +2310,8 @@ export default function Tasks() {
             ) : (
               <>
                 <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {filteredStandaloneTasks.map((task, idx) => {
+                  {tasks.map((task, idx) => {
                     const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0 ? task.assignees : [];
-                    const taskLetter = String.fromCharCode(65 + (idx % 26));
                     const taskNumber = (taskPage - 1) * PAGE_SIZE + idx + 1;
                     return (
                       <div
@@ -2234,6 +2336,7 @@ export default function Tasks() {
                                 attachmentUrl={task.attachment?.url} 
                                 onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
                               />
+                              <TaskAttachmentImg taskId={task.id} />
                             </div>
                           )}
                           <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
@@ -2265,25 +2368,50 @@ export default function Tasks() {
                                 variant="outline"
                               >
                                 <span className="relative z-10">{task.status}</span>
-                                {task.status === 'completed' && (
-                                  <>
-                                    {/* Neon pulse ring - 600ms */}
-                                    <span className="absolute inset-0 rounded-full animate-pulse-ring" />
-                                    {/* Electric streak - 300ms */}
-                                    <span className="absolute inset-0 animate-electric-streak" />
-                                    {/* Particle shimmer - <1s */}
-                                    <span className="absolute inset-0 animate-particle-shimmer" />
-                                  </>
-                                )}
                               </Badge>
                             </div>
-                            <span className="text-muted-foreground text-xs whitespace-nowrap">
-                              {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}
-                            </span>
+                            <div className="flex gap-1 items-center">
+                              <Badge 
+                                variant="secondary" 
+                                className={cn(
+                                  "text-[10px] h-5 px-1.5 font-bold border",
+                                  task.context === "HOUSE" && "bg-blue-100/20 text-blue-600 border-blue-200/50",
+                                  task.context === "OFFICE" && "bg-green-100/20 text-green-600 border-green-200/50",
+                                  task.context === "SHOP" && "bg-yellow-100/20 text-yellow-600 border-yellow-200/50",
+                                  task.context === "FIELD" && "bg-orange-100/20 text-orange-600 border-orange-200/50",
+                                  task.context === "OTHER" && "bg-slate-100 text-slate-600 border-slate-200"
+                                )}
+                              >
+                                {task.context}
+                              </Badge>
+                              <span className="text-muted-foreground text-xs whitespace-nowrap">
+                                {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "—"}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-slate-50 pt-2.5">
+                            {task.reward?.isRewarded ? (
+                              <div className="flex items-center gap-1.5 text-[#16a34a] font-bold text-[11px] bg-[#f0fdf4] px-2.5 py-1 rounded-full border border-[rgb(187,247,208)]">
+                                <CheckCircle2 className="w-3.5 h-3.5 fill-[#16a34a]" /> Rewarded
+                              </div>
+                            ) : task.status === "completed" && canGiveReward ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2.5 text-[#3b82f6] hover:text-[#2563eb] hover:bg-[#eff6ff] gap-1.5 font-bold text-[11px] rounded-full transition-colors"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleReward(task);
+                                }}
+                              >
+                                <Trophy className="w-3.5 h-3.5" /> Reward
+                              </Button>
+                            ) : (
+                              <div className="h-7" />
+                            )}
                           </div>
                         </button>
 
-                        {/* Three dots menu */}
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -2359,20 +2487,18 @@ export default function Tasks() {
         </>
       )}
 
-      {/* Create Project Dialog - same as before */}
+      {/* Create Project Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto rounded-lg">
           <DialogHeader>
             <DialogTitle>Create Project</DialogTitle>
             <DialogDescription>Create a project and assign it.</DialogDescription>
           </DialogHeader>
-          <form onSubmit={(e) => { e.preventDefault(); void handleCreateProject(); }} className="space-y-4">
-            {/* ... form fields remain same ... */}
+          <form onSubmit={handleCreateProject} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Name *</label>
-                <Input placeholder="Project name" value={projectName} onChange={(e) => { setProjectName(e.target.value); if (validationErrors.projectName) { setValidationErrors({ ...validationErrors, projectName: undefined }); } }} className={validationErrors.projectName ? "border-destructive ring-1 ring-destructive" : ""} />
-                {validationErrors.projectName && <p className="text-xs text-destructive">{validationErrors.projectName}</p>}
+                <Input placeholder="Project name" value={projectName} onChange={(e) => setProjectName(e.target.value)} />
               </div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Description</label>
@@ -2404,14 +2530,46 @@ export default function Tasks() {
                   {projectLogoPreview ? <img src={projectLogoPreview} alt="Project Logo" className="w-10 h-10 rounded-md object-cover" /> : <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">No logo</div>}
                 </div>
                 <input id="project-logo-input" type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0] ?? null; setProjectLogoFile(file); if (file) { const reader = new FileReader(); reader.onload = () => { setProjectLogoPreview(typeof reader.result === "string" ? reader.result : ""); }; reader.readAsDataURL(file); } else { setProjectLogoPreview(""); } }} />
+                <label className="text-sm font-medium">Default Task Context *</label>
+                <Select value={projectDefaultContext} onValueChange={(v) => setProjectDefaultContext(v as any)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select default context" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="HOUSE">HOUSE</SelectItem>
+                    <SelectItem value="OFFICE">OFFICE</SelectItem>
+                    <SelectItem value="SHOP">SHOP</SelectItem>
+                    <SelectItem value="FIELD">FIELD</SelectItem>
+                    <SelectItem value="OTHER">OTHER</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-[10px] text-muted-foreground mt-1">New tasks in this project will inherit this context by default.</p>
+              </div>
+            </div>
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+              <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} className="w-full sm:w-auto">Cancel</Button>
+              <Button type="submit" className="w-full sm:w-auto">Create Project</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Task Dialog */}
+      <Dialog open={isCreateTaskOpen} onOpenChange={(open) => { setIsCreateTaskOpen(open); if (!open) setIsDirectTask(false); }}>
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto rounded-lg">
+          <DialogHeader>
+            <DialogTitle>{isDirectTask ? "Create Standalone Task" : "Create Task"}</DialogTitle>
+            <DialogDescription>{isDirectTask ? "Create a new standalone task without a project." : "Create a new task under the selected project."}</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreateTask} className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Task Title *</label>
+                <Input value={formData.title} onChange={(e) => setFormData((prev) => ({ ...prev, title: e.target.value }))} />
               </div>
               <div className="sm:col-span-2 space-y-1.5">
-                <label className="text-sm font-medium">Project Attachments</label>
-                <div className="space-y-2">
-                  <button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted w-full" onClick={() => { const el = document.getElementById("project-attachments-input") as HTMLInputElement | null; el?.click(); }}>+ Add Files/Images</button>
-                  <input id="project-attachments-input" type="file" accept="*" multiple className="hidden" onChange={(e) => { const files = Array.from(e.target.files ?? []); setProjectAttachmentFiles((prev) => [...prev, ...files]); files.forEach((file) => { const reader = new FileReader(); reader.onload = () => { const result = typeof reader.result === "string" ? reader.result : ""; setProjectAttachmentPreviews((prev) => [...prev, result]); }; if (file.type.startsWith("image/")) { reader.readAsDataURL(file); } else { setProjectAttachmentPreviews((prev) => [...prev, ""]); } }); }} />
-                  {projectAttachmentFiles.length > 0 && (<div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">{projectAttachmentFiles.map((file, idx) => (<div key={idx} className="relative group">{projectAttachmentPreviews[idx] ? (<img src={projectAttachmentPreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />) : (<div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">📄 {file.name}</div>)}<button type="button" onClick={() => { setProjectAttachmentFiles((prev) => prev.filter((_, i) => i !== idx)); setProjectAttachmentPreviews((prev) => prev.filter((_, i) => i !== idx)); }} className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs">✕</button></div>))}</div>)}
-                </div>
+                <label className="text-sm font-medium">Task Description *</label>
+                <Textarea value={formData.description} onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))} />
               </div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Assignees</label>
@@ -2457,13 +2615,29 @@ export default function Tasks() {
                   </PopoverContent>
                 </Popover>
               </div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Focus Context *</label>
+                <Select 
+                  value={formData.context} 
+                  onValueChange={(v) => setFormData((prev) => ({ ...prev, context: v as any }))}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select context" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="HOUSE">HOUSE</SelectItem>
+                    <SelectItem value="OFFICE">OFFICE</SelectItem>
+                    <SelectItem value="SHOP">SHOP</SelectItem>
+                    <SelectItem value="FIELD">FIELD</SelectItem>
+                    <SelectItem value="OTHER">OTHER</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2"><label className="text-sm font-medium">Project Tasks</label><Button type="button" size="sm" onClick={() => setIsCreateTaskOpen(true)} className="gap-2"><Plus className="h-4 w-4" />Add Task</Button></div>
-              {projectTasks.length > 0 ? (<div className="space-y-2 max-h-[300px] overflow-y-auto border border-border rounded-md p-3">{projectTasks.map((task, idx) => (<div key={idx} className="flex flex-col sm:flex-row sm:items-start gap-3 p-2 bg-muted/50 rounded-md"><div className="flex-1 min-w-0"><p className="font-medium text-sm truncate">{task.title || `Task ${idx + 1}`}</p><p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p><div className="flex gap-2 mt-1 flex-wrap text-xs"><span className="px-2 py-0.5 bg-muted rounded capitalize">{task.priority}</span><span className="px-2 py-0.5 bg-muted rounded capitalize">{task.status}</span></div></div><Button type="button" variant="ghost" size="sm" onClick={() => { setProjectTasks((prev) => prev.filter((_, i) => i !== idx)); }} className="h-8 w-8 p-0 flex-shrink-0 self-start"><X className="h-4 w-4" /></Button></div>))}</div>) : (<div className="border border-dashed border-border rounded-md p-4 text-center text-sm text-muted-foreground">No tasks added yet. Add at least one task to create the project.</div>)}
-              {validationErrors.title && <p className="text-xs text-destructive">{validationErrors.title}</p>}
-            </div>
-            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end"><Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button><Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">{isCreating && <Loader2 className="h-4 w-4 animate-spin" />}Create Project</Button></DialogFooter>
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+              <Button type="button" variant="outline" onClick={() => { setIsCreateTaskOpen(false); setIsDirectTask(false); }} className="w-full sm:w-auto">Cancel</Button>
+              <Button type="submit" className="w-full sm:w-auto">Create Task</Button>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
@@ -2536,8 +2710,6 @@ export default function Tasks() {
                     {selectedTask.status === "completed" ? <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> : selectedTask.status === "overdue" ? <AlertTriangle className="w-3.5 h-3.5 mr-1.5" /> : <Clock className="w-3.5 h-3.5 mr-1.5" />}
                     {selectedTask.status}
                   </Badge>
-                </div>
-                {/* We leave space for standard dialog close X button, so add marginRight */}
                 <div className="flex items-center gap-1.5 mr-10">
                   {taskViewEdited && (
                     <Button 
@@ -2565,23 +2737,10 @@ export default function Tasks() {
                   <Button variant="ghost" size="sm" onClick={() => void handlePrintTask(selectedTask)} title="Print Task"><Printer className="w-4 h-4 mr-1.5 hidden sm:block" /> Print</Button>
                   <Button variant="ghost" size="sm" onClick={() => { setIsViewOpen(false); openEdit(selectedTask); }} title="Edit Task"><Edit className="w-4 h-4 mr-1.5 hidden sm:block" /> Edit</Button>
                 </div>
-
-                {/* Close button - top right */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute top-2 right-2 h-8 w-8 rounded-full p-0 hover:bg-muted"
-                  onClick={() => setIsViewOpen(false)}
-                  title="Close"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                </div>
               </div>
 
-              {/* 2-Pane Body */}
               <div className="flex-1 flex flex-col md:flex-row shadow-inner overflow-hidden relative bg-background">
-
-                {/* Left Pane: Title, Description, Attachments, Comments Feed */}
                 <div className="flex-1 overflow-y-auto w-full md:w-2/3 p-5 sm:p-8 space-y-8 scroll-smooth pb-24">
                   {/* Task Title */}
                   <div className="group/title relative">
@@ -2595,37 +2754,10 @@ export default function Tasks() {
                       placeholder="Task Title"
                       spellCheck="true"
                     />
+                  <div>
+                    <h2 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight break-words">{selectedTask.title}</h2>
                   </div>
 
-                  {/* Mobile Status - Only visible on mobile */}
-                  <div className="md:hidden space-y-1.5">
-                    <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">Status</label>
-                    <Select value={selectedTask.status} onValueChange={async (v) => { await updateStatus(v as Task["status"]); }} disabled={statusSaving}>
-                      <SelectTrigger className={cn("h-9 font-medium text-xs bg-background border-border/60", statusClasses[selectedTask.status])}>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {["pending","in-progress","completed","overdue"].map((s) => (
-                          <SelectItem key={s} value={s} className="text-xs">
-                            <span className="flex items-center gap-2">
-                              <span className={cn("inline-block w-2 h-2 rounded-full", {
-                                "bg-slate-400": s === "pending",
-                                "bg-amber-500": s === "in-progress",
-                                "bg-emerald-600": s === "completed",
-                                "bg-red-500": s === "overdue",
-                              })} />
-                              {s === "pending" && "Pending"}
-                              {s === "in-progress" && "In Progress"}
-                              {s === "completed" && "Completed"}
-                              {s === "overdue" && "Overdue"}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Task Description */}
                   <div className="space-y-2">
                     <h4 className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><FileText className="w-4 h-4" /> Description</h4>
                     <Textarea
@@ -2707,33 +2839,22 @@ export default function Tasks() {
                   )}
 
                   {/* Activity Thread */}
+                    <h4 className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                      <FileText className="w-4 h-4" /> Description
+                    </h4>
+                    <div className="text-[15px] leading-relaxed text-foreground/90 whitespace-pre-wrap break-words border border-border/60 rounded-xl p-4 sm:p-5 bg-muted/10 shadow-sm min-h-[100px]">
+                      {selectedTask.description ? selectedTask.description : <span className="text-muted-foreground italic">No description provided.</span>}
+                    </div>
+                  </div>
                   <div className="pt-4 border-t border-border/60">
                     <div className="flex items-center justify-between mb-5">
                       <h4 className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
                         <MessageSquare className="w-4 h-4" /> Activity Feed
                       </h4>
-                      <div className="flex items-center gap-2">
-                        <Button type="button" variant="ghost" size="sm" onClick={() => { if (selectedTask) void loadComments(selectedTask.id); }} disabled={commentsLoading} className="h-7 px-2 text-[11px] gap-1 hover:bg-muted/50">
-                          <RefreshCw className={cn("w-3 h-3", commentsLoading && "animate-spin")} /> Refresh
-                        </Button>
-                        <Button type="button" variant={autoRefreshEnabled ? "secondary" : "ghost"} size="sm" onClick={() => setAutoRefreshEnabled(!autoRefreshEnabled)} className="h-7 px-2 text-[11px] gap-1 hover:bg-muted/50 rounded-full">
-                          <Clock className="w-3 h-3" /> Auto Update {autoRefreshEnabled ? "On" : "Off"}
-                        </Button>
-                      </div>
                     </div>
 
-                    {commentError && (
-                      <div className="text-sm text-destructive bg-destructive/10 p-3 rounded-lg border border-destructive/20 mb-4 flex items-center gap-2 max-w-fit">
-                        <AlertTriangle className="h-4 w-4" /> {commentError}
-                      </div>
-                    )}
-
-                    {/* Feed Display */}
                     <div className="flex flex-col h-full max-h-[600px] bg-muted/5 rounded-2xl border border-border/40 overflow-hidden">
-                      <div 
-                        ref={chatContainerRef} 
-                        className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth custom-scrollbar"
-                      >
+                      <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth custom-scrollbar">
                         {commentsLoading && comments.length === 0 ? (
                           <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
                         ) : comments.length === 0 ? (
@@ -2750,24 +2871,9 @@ export default function Tasks() {
                               const showSenderName = !isMe && !isSameAuthor;
                               
                               return (
-                                <div 
-                                  key={c.id} 
-                                  className={cn(
-                                    "flex flex-col group",
-                                    isMe ? "items-end" : "items-start",
-                                    !isSameAuthor && idx !== 0 ? "mt-4" : "mt-0"
-                                  )}
-                                >
-                                  {showSenderName && (
-                                    <span className="chat-sender-name ml-10">
-                                      {c.authorFullName || c.authorUsername}
-                                    </span>
-                                  )}
-                                  
-                                  <div className={cn(
-                                    "flex items-end gap-2 max-w-[85%] w-fit",
-                                    isMe ? "flex-row-reverse" : "flex-row"
-                                  )}>
+                                <div key={c.id} className={cn("flex flex-col group", isMe ? "items-end" : "items-start", !isSameAuthor && idx !== 0 ? "mt-4" : "mt-0")}>
+                                  {showSenderName && (<span className="chat-sender-name ml-10">{c.authorFullName || c.authorUsername}</span>)}
+                                  <div className={cn("flex items-end gap-2 max-w-[85%] w-fit", isMe ? "flex-row-reverse" : "flex-row")}>
                                     {!isMe && (
                                       <div className="w-8 flex-shrink-0">
                                         {!isSameAuthor ? (
@@ -2783,45 +2889,13 @@ export default function Tasks() {
                                         ) : null}
                                       </div>
                                     )}
-                                    
-                                    <div className={cn(
-                                      "flex flex-col group/bubble relative min-w-0",
-                                      isMe ? "items-end" : "items-start"
-                                    )}>
-                                      <div className={cn(
-                                        "chat-bubble",
-                                        isMe ? "chat-bubble-me" : "chat-bubble-others"
-                                      )}>
+                                    <div className={cn("flex flex-col group/bubble relative min-w-0", isMe ? "items-end" : "items-start")}>
+                                      <div className={cn("chat-bubble", isMe ? "chat-bubble-me" : "chat-bubble-others")}>
                                         <div className="whitespace-pre-wrap break-words overflow-hidden leading-snug">
                                           {renderMessageWithMentions(c.message)}
                                         </div>
-                                        
-                                        {c.attachments && c.attachments.length > 0 && (
-                                          <div className={cn(
-                                            "grid gap-2 mt-2 max-w-[140px] sm:max-w-[180px]",
-                                            c.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"
-                                          )}>
-                                            {c.attachments.map((att, attIdx) => (
-                                              <div key={attIdx} className="relative rounded-xl overflow-hidden border border-white/20 bg-black/10 min-w-[120px] max-w-full h-auto">
-                                                <CommentAttachmentImg 
-                                                  taskId={selectedTask.id} 
-                                                  commentId={c.id} 
-                                                  index={attIdx} 
-                                                  mimeType={att.mimeType} 
-                                                  fileName={att.fileName} 
-                                                  fallbackUrl={att.url} 
-                                                  onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
-                                                />
-                                              </div>
-                                            ))}
-                                          </div>
-                                        )}
                                       </div>
-                                      
-                                      <div className={cn(
-                                        "chat-timestamp",
-                                        isMe ? "text-right mr-1" : "text-left ml-1"
-                                      )}>
+                                      <div className={cn("chat-timestamp", isMe ? "text-right mr-1" : "text-left ml-1")}>
                                         {formatMessageTime(c.createdAt)}
                                       </div>
                                     </div>
@@ -2843,69 +2917,17 @@ export default function Tasks() {
                                         {archivingCommentId === c.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}
                                       </button>
                                     )}
+                                    {isMe && (<div className="flex flex-col justify-end pb-5 opacity-40"><CheckCircle2 className="w-3 h-3 text-blue-500" /></div>)}
                                   </div>
                                 </div>
                               );
                             })}
-                            
-                            {othersTyping.length > 0 && (
-                              <div className="flex items-center gap-2 max-w-[85%] self-start pt-2">
-                                <div className="typing-indicator">
-                                  <div className="typing-dot" />
-                                  <div className="typing-dot" />
-                                  <div className="typing-dot" />
-                                </div>
-                                <span className="text-[10px] text-muted-foreground/60 italic font-medium">
-                                  {othersTyping.join(", ")} {othersTyping.length === 1 ? "is" : "are"} typing...
-                                </span>
-                              </div>
-                            )}
                           </div>
                         )}
                       </div>
                     </div>
 
-                    {/* Composer Box */}
                     <div className="mt-6 ml-0 lg:ml-14 relative rounded-2xl border-2 border-border/60 bg-background overflow-visible focus-within:border-primary/50 focus-within:ring-4 focus-within:ring-primary/10 transition-all shadow-sm group">
-                      {/* Mention Dropdown */}
-                      {(() => {
-                        const match = commentDraft.match(/@([a-zA-Z0-9 ]*)$/);
-                        if (!match) return null;
-                        const filterTerm = match[1].toLowerCase();
-                        
-                        const results = employees.filter(e => e.name.toLowerCase().includes(filterTerm)).slice(0, 10);
-                        if (results.length === 0) return null;
-                        return (
-                          <div className="absolute bottom-[calc(100%+4px)] left-0 w-64 bg-background border border-border shadow-md rounded-lg z-50 overflow-hidden max-h-60 overflow-y-auto">
-                            <div className="px-2 py-1.5 border-b bg-muted/40 text-xs font-bold text-muted-foreground uppercase tracking-wide">Mentions</div>
-                            {results.map(e => (
-                              <button key={e.id} type="button" className="w-full text-left px-3 py-2 text-sm hover:bg-muted font-medium flex items-center gap-2 transition-colors border-b last:border-b-0 border-border/50" onClick={() => {
-                                const newDraft = commentDraft.replace(/@([a-zA-Z0-9 ]*)$/, `@${e.name} `);
-                                setCommentDraft(newDraft);
-                              }}>
-                                <Avatar className="h-6 w-6">
-                                  {e.avatarDataUrl || e.avatarUrl ? (
-                                    <img src={e.avatarDataUrl || e.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
-                                  ) : (
-                                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary">{e.initials}</AvatarFallback>
-                                  )}
-                                </Avatar>
-                                <span className="truncate">{e.name}</span>
-                              </button>
-                            ))}
-                          </div>
-                        );
-                      })()}
-                      {commentAttachments.length > 0 && (
-                        <div className="p-2 border-b bg-muted/10 grid grid-cols-3 sm:grid-cols-5 gap-2 max-h-32 overflow-y-auto">
-                          {commentAttachments.map((f, i) => (
-                            <div key={i} className="relative rounded-md border border-border/50 bg-background flex flex-col items-center justify-center p-2 text-center h-16 group/rem">
-                              <span className="text-[10px] w-full mt-1 truncate font-medium text-muted-foreground">{f.name}</span>
-                              <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover/rem:opacity-100 transition-opacity text-[9px] shadow-sm ring-2 ring-background">✕</button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
                       <textarea
                         value={commentDraft}
                         onChange={handleTypingIndicator}
@@ -2923,11 +2945,7 @@ export default function Tasks() {
                       />
                       <div className="flex items-center justify-between p-2 pl-3 bg-muted/20 border-t border-border/40">
                         <div className="flex items-center gap-1">
-                          <button type="button" onClick={() => { const el = document.getElementById("comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-primary/20" title="Attach file">
-                            <Paperclip className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Attach</span>
-                          </button>
                           <span className="text-[11px] text-muted-foreground/60 px-3 hidden sm:inline-block font-medium border-l ml-1 border-border/50">Pro tip: Ctrl+Enter to send.</span>
-                          <input id="comment-attachment-input" type="file" multiple className="hidden" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value = ''; }} />
                         </div>
                         <Button type="button" onClick={() => void sendComment()} disabled={(!commentDraft.trim() && commentAttachments.length === 0) || isSendingComment} size="sm" className="h-9 px-5 rounded-lg font-bold shadow hover:shadow-md transition-all gap-1.5 flex items-center">
                           {isSendingComment && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
@@ -2938,14 +2956,14 @@ export default function Tasks() {
                   </div>
                 </div>
 
-                {/* Right Pane: Properties Sidebar */}
                 <div className="w-full md:w-[320px] lg:w-[360px] bg-muted/10 shrink-0 border-t md:border-t-0 md:border-l border-border/50 overflow-y-auto hidden md:block">
                   <div className="p-6 space-y-7">
                     <h3 className="text-sm font-bold text-foreground flex items-center gap-2 pb-2 border-b">Properties</h3>
 
-                    {/* Assignees */}
                     <div className="space-y-2">
-                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Assignees</label>
+                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5" /> Assignees
+                      </label>
                       <div className="flex flex-col gap-2">
                         {selectedTask.assignees && selectedTask.assignees.length > 0 ? (
                           selectedTask.assignees.map((assignee, idx) => {
@@ -2977,56 +2995,68 @@ export default function Tasks() {
                       </div>
                     </div>
 
-                    {/* Due Date */}
                     <div className="space-y-2">
-                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Due Date</label>
-                      <div className={cn("text-sm font-semibold p-2.5 rounded-lg border", selectedTask.dueDate && new Date(selectedTask.dueDate) < new Date() && selectedTask.status !== "completed" ? "border-red-200 bg-red-50 text-red-700" : "border-border/60 bg-background text-foreground")}>
-                        {selectedTask.dueDate ? new Date(selectedTask.dueDate).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' }) : "No due date"}
+                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5" /> Due Date
+                      </label>
+                      <div className={cn("text-sm font-semibold p-2.5 rounded-lg border", 
+                        selectedTask.dueDate && new Date(selectedTask.dueDate) < new Date() && selectedTask.status !== "completed" ? 
+                        "border-red-200 bg-red-50 text-red-700" : "border-border/60 bg-background text-foreground")}>
+                        {selectedTask.dueDate ? new Date(selectedTask.dueDate).toLocaleDateString() : "No due date"}
                       </div>
                     </div>
 
-                    {/* Status Select */}
                     <div className="space-y-2">
-                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5" /> Status</label>
+                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Status
+                      </label>
                       <Select value={selectedTask.status} onValueChange={(v) => { void updateStatus(v as Task["status"]); }} disabled={statusSaving}>
-                        <SelectTrigger className="w-full h-10 border-border/60 bg-background font-semibold"><SelectValue placeholder="Select status" /></SelectTrigger>
-                        <SelectContent className="font-medium"><SelectItem value="pending">Pending</SelectItem><SelectItem value="in-progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem><SelectItem value="overdue">Overdue</SelectItem></SelectContent>
+                        <SelectTrigger className="w-full h-10 border-border/60 bg-background font-semibold">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent className="font-medium">
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="in-progress">In Progress</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value="overdue">Overdue</SelectItem>
+                        </SelectContent>
                       </Select>
                     </div>
 
-                    {/* Priority */}
+                    {selectedTask.status === "completed" && !selectedTask.reward?.isRewarded && canGiveReward && (
+                      <Button variant="outline" className="w-full gap-2.5 border-[#bbf7d0] bg-[#f0fdf4]/30 hover:bg-[#f0fdf4] hover:border-[#86efac] text-[#16a34a] font-bold h-11 transition-all shadow-sm rounded-xl" onClick={() => handleReward(selectedTask)}>
+                        <Trophy className="w-4 h-4" />
+                        Reward Employee
+                      </Button>
+                    )}
+
                     <div className="space-y-2">
-                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><AlertCircle className="w-3.5 h-3.5" /> Priority</label>
+                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                        <AlertCircle className="w-3.5 h-3.5" /> Priority
+                      </label>
                       <div>
-                        <Badge className={cn("capitalize px-3 py-1 font-bold text-[12px] rounded-md shadow-none", priorityClasses[selectedTask.priority])}>{selectedTask.priority}</Badge>
+                        <Badge className={cn("capitalize px-3 py-1 font-bold text-[12px] rounded-md shadow-none", priorityClasses[selectedTask.priority])}>
+                          {selectedTask.priority}
+                        </Badge>
                       </div>
                     </div>
 
-                    {/* Location */}
-                    <div className="space-y-2 pt-2 border-t border-border/40">
-                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> Location / Project</label>
-                      <p className="text-[13px] font-medium text-foreground bg-muted/20 p-2.5 rounded-lg border border-transparent hover:border-border transition-colors">{selectedTask.location || "Organizational Task"}</p>
-                    </div>
-
-                    {/* Created */}
                     <div className="pt-4 border-t border-border/40 text-xs text-muted-foreground font-medium flex justify-between items-center">
                       <span>Created</span>
                       <span className="text-foreground/80">{new Date(selectedTask.createdAt).toLocaleDateString()}</span>
                     </div>
-
                     {/* Task Contributors */}
                     {selectedTask && <TaskContributors taskId={selectedTask.id} />}
 
                   </div>
                 </div>
-
               </div>
             </>
           )}
         </DialogContent>
       </Dialog>
 
-
+      {/* Edit Task Dialog */}
       <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) setSelectedTask(null); }}>
         <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto rounded-lg">
           <DialogHeader><DialogTitle>Edit Task</DialogTitle><DialogDescription>Update task details.</DialogDescription></DialogHeader>
@@ -3100,15 +3130,103 @@ export default function Tasks() {
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end"><Button type="button" variant="outline" onClick={() => { setIsEditOpen(false); setEditSelectedAssignees([]); }} disabled={updateTaskMutation.isPending} className="w-full sm:w-auto">Cancel</Button><Button type="submit" disabled={updateTaskMutation.isPending} className="w-full sm:w-auto gap-2">{updateTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Save</Button></DialogFooter>
+                <FormField control={editForm.control} name="title" render={({ field }) => (
+                  <FormItem className="sm:col-span-2"><FormLabel>Title</FormLabel><FormControl><Input placeholder="Task title" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={editForm.control} name="description" render={({ field }) => (
+                  <FormItem className="sm:col-span-2"><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Short description" className="min-h-[90px]" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="text-sm font-medium">Assignees *</label>
+                  <Popover open={editAssigneesOpen} onOpenChange={setEditAssigneesOpen}>
+                    <PopoverTrigger asChild>
+                      <Button type="button" variant="outline" className="w-full justify-between h-10">
+                        <span className="truncate">{editSelectedAssignees.length > 0 ? editSelectedAssignees.join(", ") : "Select assignees"}</span>
+                        <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Search employees..." />
+                        <CommandList>
+                          <CommandEmpty>No employee found.</CommandEmpty>
+                          <CommandGroup>
+                            {activeEmployees.map((employee) => (
+                              <CommandItem key={employee.id} value={employee.name} onSelect={() => {
+                                setEditSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]);
+                              }}>
+                                <Check className={cn("mr-2 h-4 w-4", editSelectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} />
+                                <Avatar className="h-6 w-6 mr-2">
+                                  <AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback>
+                                </Avatar>
+                                {employee.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                  {editSelectedAssignees.length === 0 && <p className="text-xs text-destructive">At least one assignee is required</p>}
+
+                </div>
+                <FormField control={editForm.control} name="priority" render={({ field }) => (
+                  <FormItem><FormLabel>Priority</FormLabel><Select value={field.value} onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue placeholder="Select priority" /></SelectTrigger></FormControl><SelectContent><SelectItem value="high">High</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="low">Low</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                )} />
+                <FormField control={editForm.control} name="status" render={({ field }) => (
+                  <FormItem><FormLabel>Status</FormLabel><Select value={field.value} onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger></FormControl><SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="in-progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem><SelectItem value="overdue">Overdue</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                )} />
+                <FormField control={editForm.control} name="dueDate" render={({ field }) => (
+                  <FormItem><FormLabel>Due Date</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={editForm.control} name="context" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Focus Context</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger><SelectValue placeholder="Select context" /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="HOUSE">HOUSE</SelectItem>
+                        <SelectItem value="OFFICE">OFFICE</SelectItem>
+                        <SelectItem value="SHOP">SHOP</SelectItem>
+                        <SelectItem value="FIELD">FIELD</SelectItem>
+                        <SelectItem value="OTHER">OTHER</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={editForm.control} name="priority_color" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Priority Color</FormLabel>
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <FormControl>
+                        <SelectTrigger><SelectValue placeholder="Select color" /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="red"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-red-500" /> Red (Urgent)</div></SelectItem>
+                        <SelectItem value="yellow"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-yellow-500" /> Yellow (Important)</div></SelectItem>
+                        <SelectItem value="green"><div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-green-500" /> Green (Normal)</div></SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+              </div>
+              <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+                <Button type="button" variant="outline" onClick={() => { setIsEditOpen(false); setEditSelectedAssignees([]); }} disabled={updateTaskMutation.isPending} className="w-full sm:w-auto">Cancel</Button>
+                <Button type="submit" disabled={updateTaskMutation.isPending} className="w-full sm:w-auto gap-2">
+                  {updateTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Save
+                </Button>
+              </DialogFooter>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
 
-
+      {/* Delete Task AlertDialog */}
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent className="w-[95vw] max-w-[95vw] sm:max-w-md rounded-lg">
           <AlertDialogHeader><AlertDialogTitle>Archive task?</AlertDialogTitle><AlertDialogDescription>This will move the task and its comments to the archive. You can restore it later from the Archive Data page.</AlertDialogDescription></AlertDialogHeader>
@@ -3369,49 +3487,14 @@ export default function Tasks() {
       <AlertDialog open={isDeleteProjectOpen} onOpenChange={setIsDeleteProjectOpen}>
         <AlertDialogContent className="w-[95vw] max-w-[95vw] sm:max-w-md rounded-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Project?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete the project "{editingProject?.name}" and all its associated tasks. This action cannot be undone.
-            </AlertDialogDescription>
+            <AlertDialogTitle>Archive task?</AlertDialogTitle>
+            <AlertDialogDescription>This will move the task and its comments to the archive. You can restore it later from the Archive Data page.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
-            <AlertDialogCancel
-              disabled={isDeletingProject}
-              className="w-full sm:w-auto"
-              onClick={() => {
-                setIsDeleteProjectOpen(false);
-                setEditingProject(null);
-              }}
-            >
-              Cancel
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                if (!editingProject) return;
-                setIsDeletingProject(true);
-                deleteProjectMutation.mutate(editingProject.id, {
-                  onSuccess: () => {
-                    setIsDeleteProjectOpen(false);
-                    setEditingProject(null);
-                    setIsDeletingProject(false);
-                    toast({ title: "Project deleted", description: "Project and its tasks have been deleted." });
-                  },
-                  onError: (err) => {
-                    setIsDeletingProject(false);
-                    toast({
-                      title: "Failed to delete project",
-                      description: err instanceof Error ? err.message : "Something went wrong",
-                      variant: "destructive",
-                    });
-                  },
-                });
-              }}
-              disabled={isDeletingProject}
-              className="gap-2 bg-destructive hover:bg-destructive/90 w-full sm:w-auto"
-            >
-              {isDeletingProject && <Loader2 className="h-4 w-4 animate-spin" />}
-              <Trash2 className="h-4 w-4" />
-              Delete
+            <AlertDialogCancel disabled={deleteTaskMutation.isPending} className="w-full sm:w-auto">Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete} disabled={deleteTaskMutation.isPending} className="gap-2 bg-amber-600 hover:bg-amber-700 w-full sm:w-auto">
+              {deleteTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+              <Archive className="h-4 w-4" />Archive
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -3422,9 +3505,7 @@ export default function Tasks() {
         <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto rounded-lg">
           <DialogHeader>
             <DialogTitle>Reassign Task</DialogTitle>
-            <DialogDescription>
-              Change the assignees for task "{reassigningTask?.title}".
-            </DialogDescription>
+            <DialogDescription>Change the assignees for task "{reassigningTask?.title}".</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -3476,6 +3557,25 @@ export default function Tasks() {
                         </CommandGroup>
                       </CommandList>
                     </div>
+                    <CommandList>
+                      <CommandEmpty>No employee found.</CommandEmpty>
+                      <CommandGroup>
+                        {activeEmployees.map((employee) => (
+                          <CommandItem key={employee.id} value={employee.name} onSelect={() => {
+                            setReassignTaskAssignees((prev) =>
+                              prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]
+                            );
+                            setReassignTaskOpen(false);
+                          }}>
+                            <Check className={cn("mr-2 h-4 w-4", reassignTaskAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} />
+                            <Avatar className="h-6 w-6 mr-2">
+                              <AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback>
+                            </Avatar>
+                            {employee.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
                   </Command>
                 </PopoverContent>
               </Popover>
@@ -3514,9 +3614,7 @@ export default function Tasks() {
         <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto rounded-lg">
           <DialogHeader>
             <DialogTitle>Reassign Project</DialogTitle>
-            <DialogDescription>
-              Change the assignees for project "{reassigningProject?.name}".
-            </DialogDescription>
+            <DialogDescription>Change the assignees for project "{reassigningProject?.name}".</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -3568,6 +3666,25 @@ export default function Tasks() {
                         </CommandGroup>
                       </CommandList>
                     </div>
+                    <CommandList>
+                      <CommandEmpty>No employee found.</CommandEmpty>
+                      <CommandGroup>
+                        {activeEmployees.map((employee) => (
+                          <CommandItem key={employee.id} value={employee.name} onSelect={() => {
+                            setReassignProjectAssignees((prev) =>
+                              prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]
+                            );
+                            setReassignProjectOpen(false);
+                          }}>
+                            <Check className={cn("mr-2 h-4 w-4", reassignProjectAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} />
+                            <Avatar className="h-6 w-6 mr-2">
+                              <AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback>
+                            </Avatar>
+                            {employee.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
                   </Command>
                 </PopoverContent>
               </Popover>
@@ -3844,6 +3961,15 @@ export default function Tasks() {
           overscroll-behavior: contain;
         }
       `}</style>
+      {/* Reward Modal */}
+      {rewardingTask && (
+        <RewardEmployeeModal
+          isOpen={isRewardOpen}
+          onClose={() => setIsRewardOpen(false)}
+          onReward={onGrantReward}
+          taskTitle={rewardingTask.title}
+        />
+      )}
     </div>
   );
 }
