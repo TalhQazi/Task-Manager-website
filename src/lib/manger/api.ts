@@ -69,10 +69,20 @@ export async function deleteResource(resource: CrudResource, id: string) {
 }
 
 function getApiBaseUrl(): string {
-  const raw = String(import.meta.env.VITE_API_URL || "").trim();
-  if (raw) return raw;
-   return "https://task.se7eninc.com";
-  //return "http://localhost:5000";
+  const apiBase = String(import.meta.env.VITE_API_URL || "").trim();
+
+  if (apiBase) {
+    return apiBase;
+  }
+  
+  if (typeof window !== "undefined") {
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+      return "http://localhost:5000";
+    }
+    return window.location.origin;
+  }
+
+  return "http://localhost:5000";
 }
 
 /**
