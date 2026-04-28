@@ -803,6 +803,17 @@ export default function Tasks() {
   };
 
   useEffect(() => {
+    const projectId = String(searchParams.get("project") || "").trim();
+    if (!projectId) return;
+
+    void loadProject(projectId);
+
+    const next = new URLSearchParams(searchParams);
+    next.delete("project");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
+  useEffect(() => {
     const viewId = String(searchParams.get("view") || "").trim();
     const searchVal = String(searchParams.get("search") || "").trim();
     

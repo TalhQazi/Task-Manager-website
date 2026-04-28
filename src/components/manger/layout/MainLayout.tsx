@@ -29,6 +29,7 @@ import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
 import { getAuthState, clearAuthState } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { FounderMessageBar } from "@/components/FounderMessageBar";
+import { applyFullTheme, themeDefaults } from "@/lib/manger/theme";
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -138,11 +139,24 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   const hasImageBackground = headerSettings?.backgroundType === 'image' && headerSettings.imageConfig?.dataUrl;
 
+  // Apply user UI preferences on load - same as EmployeeLayout (full applyThemeToDOM)
+  useEffect(() => {
+    apiFetch<{item: { theme?: string; cardStyle?: string; customColors?: { textColor?: string } }}>("/api/ui-preferences").then(res => {
+      const theme = res?.item?.theme || "dark-minimal";
+      const cardStyle = res?.item?.cardStyle || "glass";
+      const textColor = res?.item?.customColors?.textColor;
+      applyFullTheme(theme, textColor || themeDefaults[theme], cardStyle);
+    }).catch(() => {
+      // Fallback to dark-minimal
+      applyFullTheme("dark-minimal");
+    });
+  }, []);
+
   // System notifications (broadcasts only)
   const notificationsQuery = useQuery({
     queryKey: ["manager-notifications"],
     queryFn: async () => {
-      const res = await apiFetch<{ items?: MessageApi[] } | MessageApi[]>("/api/messages?type=broadcast");
+      const res = await apiFetch<{ items?: MessageApi[] } | MessageApi[]>("/api/notifications?type=broadcast");
       const items = Array.isArray(res) ? res : Array.isArray(res?.items) ? res.items : [];
       return items
         .map((m: any) => ({
@@ -167,7 +181,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   const notifications = (notificationsQuery.data || [])
     .slice()
-    .sort((a, b) => String(b.timestamp || "").localeCompare(String(a.timestamp || "")))
+    .sort((a, b) => String(b.timestamp || b.createdAt || "").localeCompare(String(a.timestamp || a.createdAt || "")))
     .slice(0, 4);
 
   const unreadCount = (notificationsQuery.data || []).filter((n) => n.status !== "read").length;
@@ -252,7 +266,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   const markRead = async (id: string) => {
     try {
-      await apiFetch(`/api/messages/${id}/mark-read`, { method: "POST" });
+      await apiFetch(`/api/notifications/${id}/mark-read`, { method: "POST" });
       await notificationsQuery.refetch();
     } catch {
       // ignore errors
@@ -273,7 +287,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       .toUpperCase() || "M";
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--tb-dashboard-bg)" }}>
+    <div className="min-h-screen tb-manager-panel" style={{ background: "var(--tb-dashboard-bg)" }}>
       {/* Top header with dynamic background from admin settings - FULL WIDTH */}
       <header 
         className="fixed top-0 left-0 right-0 z-50 shadow-floating"
@@ -400,12 +414,34 @@ export function MainLayout({ children }: MainLayoutProps) {
                     <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
                       <DropdownMenuLabel className="text-xs">Notifications</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      {notificationsQuery.data?.length === 0 ? (
+                      {notificationsQuery.isLoading ? (
+                        <div className="p-4 text-center text-xs text-muted-foreground">Loading...</div>
+                      ) : (notificationsQuery.data || []).length === 0 ? (
                         <div className="p-4 text-center text-xs text-muted-foreground">No notifications</div>
                       ) : (
-                        notificationsQuery.data?.slice(0, 5).map(n => (
-                          <DropdownMenuItem key={n.id} className="text-xs">{n.content}</DropdownMenuItem>
+                        (notificationsQuery.data || []).slice(0, 5).map((n) => (
+                          <DropdownMenuItem
+                            key={n.id}
+                            className="text-xs"
+                            onClick={() => {
+                              void markRead(String(n.id));
+                              navigate(resolveNotificationLink(n));
+                            }}
+                          >
+                            {n.content}
+                          </DropdownMenuItem>
                         ))
+                      )}
+                      {(notificationsQuery.data || []).length > 0 && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-xs text-center justify-center"
+                            onClick={() => navigate("/manager/notifications")}
+                          >
+                            View All Notifications
+                          </DropdownMenuItem>
+                        </>
                       )}
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -526,9 +562,9 @@ export function MainLayout({ children }: MainLayoutProps) {
         <div className="hidden md:block">
           <Sidebar />
         </div>
-        <main 
+        <main
           className="flex-1 min-h-screen md:ml-56 lg:ml-64"
-          style={{ paddingTop: '300px' }}
+          style={{ paddingTop: '300px', background: 'var(--tb-dashboard-bg)' }}
         >
           <div className="w-full px-4 py-4 sm:py-8 animate-fade-in">
             {children}

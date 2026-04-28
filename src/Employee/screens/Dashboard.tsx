@@ -3,9 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getEmployeeDashboard, getEmployeeProfile, getOnboardingStatus } from "../lib/api";
-import { CheckCircle, Clock, AlertCircle, MessageSquare, Calendar, Timer, ListTodo, AlertTriangle } from "lucide-react";
+import { CheckCircle, Clock, AlertCircle, MessageSquare, Calendar, Timer, ListTodo, AlertTriangle, DollarSign, CheckSquare2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { cn } from "@/lib/utils";
+import { EmployeeStatCard } from "../components/StatCard";
 
 
 interface DashboardData {
@@ -197,25 +199,56 @@ export default function EmployeeDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Welcome Banner */}
-      <div className="bg-gradient-to-r from-[#133767] to-blue-600 rounded-lg p-6 text-white shadow-lg">
-        <div className="flex items-center justify-between">
+      {/* Welcome Banner - Admin Style */}
+      <div
+        className="relative rounded-xl border-[2px] border-[#5a5a5a] bg-[#111] overflow-hidden group cursor-default shadow-[inset_0_0_20px_rgba(0,0,0,0.8),_0_4px_10px_rgba(0,0,0,0.5)]"
+      >
+        {/* Dynamic Background Glow - Blue */}
+        <div
+          className="absolute inset-0 opacity-50 mix-blend-screen"
+          style={{
+            background: `radial-gradient(circle at 70% 120%, rgba(59, 130, 246, 0.5) 0%, transparent 70%)`
+          }}
+        />
+        {/* Horizontal Light Streak */}
+        <div
+          className="absolute inset-0 opacity-20 mix-blend-overlay"
+          style={{
+            background: `linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.8) 50%, transparent 100%)`,
+            height: '1px',
+            top: '50%'
+          }}
+        />
+        {/* Inner Bevel */}
+        <div className="absolute inset-[2px] rounded-lg border border-white/10 pointer-events-none" />
+
+        <div className="relative p-6 flex items-center justify-between z-10">
           <div>
-            <h1 className="text-2xl font-bold mb-2">
+            <h1 className="text-2xl font-bold mb-2 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
               Welcome{employeeName ? `, ${employeeName}` : " to Employee Portal"}
             </h1>
-            <p className="text-blue-100">View your tasks and manage your work efficiently.</p>
+            <p className="text-[#d0d0d0] text-sm drop-shadow-md">View your tasks and manage your work efficiently.</p>
           </div>
           {isClockedIn ? (
-            <Badge className="bg-green-500 text-white border-0">
-              <Clock className="h-3 w-3 mr-1" />
-              Clocked In
-            </Badge>
+            <div className={cn(
+              "relative flex items-center justify-center",
+              "h-10 px-4 rounded-lg border-2 border-[#666] bg-gradient-to-br from-[#444] to-[#111]",
+              "shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),_0_4px_8px_rgba(0,0,0,0.8)]"
+            )}>
+              <div className="absolute inset-[2px] rounded-md border border-black/80" />
+              <Clock className="h-4 w-4 mr-2 text-green-400" style={{ filter: 'drop-shadow(0 0 6px rgba(16, 185, 129, 0.8))' }} />
+              <span className="text-green-400 text-sm font-semibold">Clocked In</span>
+            </div>
           ) : data?.clock?.clockOut ? (
-            <Badge variant="secondary" className="bg-white/20 text-white border-0">
-              <CheckCircle className="h-3 w-3 mr-1" />
-              Shift Complete
-            </Badge>
+            <div className={cn(
+              "relative flex items-center justify-center",
+              "h-10 px-4 rounded-lg border-2 border-[#666] bg-gradient-to-br from-[#444] to-[#111]",
+              "shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),_0_4px_8px_rgba(0,0,0,0.8)]"
+            )}>
+              <div className="absolute inset-[2px] rounded-md border border-black/80" />
+              <CheckCircle className="h-4 w-4 mr-2 text-amber-400" style={{ filter: 'drop-shadow(0 0 6px rgba(251, 191, 36, 0.8))' }} />
+              <span className="text-amber-400 text-sm font-semibold">Shift Complete</span>
+            </div>
           ) : null}
         </div>
       </div>
@@ -250,51 +283,25 @@ export default function EmployeeDashboard() {
 
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-  {/* Earnings */}
-  <Card>
-    <CardContent className="p-5 flex items-center justify-between">
-      <div>
-        <p className="text-sm text-muted-foreground">Current Earnings</p>
-        <p className="text-2xl font-bold text-green-600">
-          ${data?.earnings || 0}
-        </p>
+        <EmployeeStatCard
+          title="Current Earnings"
+          value={`$${data?.earnings || 0}`}
+          icon={DollarSign}
+          variant="green"
+        />
+        <EmployeeStatCard
+          title="Hours Worked"
+          value={`${data?.hoursWorked || 0} hrs`}
+          icon={Clock}
+          variant="blue"
+        />
+        <EmployeeStatCard
+          title="Pending Tasks"
+          value={data?.tasks?.pending || 0}
+          icon={CheckSquare2}
+          variant="orange"
+        />
       </div>
-      <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
-        💰
-      </div>
-    </CardContent>
-  </Card>
-
-  {/* Hours */}
-  <Card>
-    <CardContent className="p-5 flex items-center justify-between">
-      <div>
-        <p className="text-sm text-muted-foreground">Hours Worked</p>
-        <p className="text-2xl font-bold text-blue-600">
-          {data?.hoursWorked || 0} hrs
-        </p>
-      </div>
-      <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-        ⏱️
-      </div>
-    </CardContent>
-  </Card>
-
-  {/* Pending Tasks (NEW) */}
-  <Card>
-    <CardContent className="p-5 flex items-center justify-between">
-      <div>
-        <p className="text-sm text-muted-foreground">Pending Tasks</p>
-        <p className="text-2xl font-bold text-orange-600">
-          {data?.tasks?.pending || 0}
-        </p>
-      </div>
-      <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
-        📋
-      </div>
-    </CardContent>
-  </Card>
-</div>
 
 
 <div className="space-y-2">
