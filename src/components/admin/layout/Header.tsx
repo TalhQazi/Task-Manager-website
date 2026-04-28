@@ -137,16 +137,33 @@ export function Header({ onMenuClick }: HeaderProps) {
         return null;
       }
     },
-    staleTime: 60000,
+    staleTime: 0, // Always fresh for real-time updates
   });
 
+  // Listen for custom event from Settings page
+  useEffect(() => {
+    const handleUpdate = () => {
+      headerSettingsQuery.refetch();
+    };
+    window.addEventListener("header-settings-updated", handleUpdate);
+    return () => window.removeEventListener("header-settings-updated", handleUpdate);
+  }, [headerSettingsQuery]);
+
   const headerSettings = headerSettingsQuery.data?.item;
-  const headerImageUrlRaw = headerSettings?.imageConfig?.url || headerSettings?.imageConfig?.dataUrl;
+  const showImage = headerSettings?.backgroundType === "image";
+  const headerImageUrlRaw = showImage ? (headerSettings?.imageConfig?.url || headerSettings?.imageConfig?.dataUrl) : null;
   const headerImageUrl = headerImageUrlRaw ? toProxiedUrl(headerImageUrlRaw) : null;
 
-  // Banner header height
-  const headerHeight = 300;
-  
+  // Banner header height from settings or default
+  const headerHeight = headerSettings?.height || 144;
+
+  // Broadcast height change to layout
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("header-height-changed", { 
+      detail: { height: headerHeight } 
+    }));
+  }, [headerHeight]);
+
   // Dynamic background style based on settings
   const bgStyle = useMemo(() => {
     const baseStyle: any = {
@@ -154,13 +171,14 @@ export function Header({ onMenuClick }: HeaderProps) {
       backgroundColor: '#133767'
     };
 
-    if (headerImageUrl) {
+    if (headerImageUrl && showImage) {
       baseStyle.backgroundImage = `url("${headerImageUrl}")`;
       baseStyle.backgroundSize = headerSettings?.imageConfig?.size || 'cover';
       baseStyle.backgroundPosition = headerSettings?.imageConfig?.position || 'center';
       baseStyle.backgroundRepeat = headerSettings?.imageConfig?.repeat || 'no-repeat';
     } else {
-      baseStyle.background = 'linear-gradient(to right, #133767, #133767, #133767)';
+      const { from = '#133767', via = '#133767', to = '#133767' } = headerSettings?.colorConfig || {};
+      baseStyle.background = `linear-gradient(to right, ${from}, ${via}, ${to})`;
     }
 
     return baseStyle;
