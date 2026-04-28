@@ -155,8 +155,8 @@ export function Header({ onMenuClick }: HeaderProps) {
   const headerImageUrlRaw = showImage ? (headerSettings?.imageConfig?.url || headerSettings?.imageConfig?.dataUrl) : null;
   const headerImageUrl = headerImageUrlRaw ? toProxiedUrl(headerImageUrlRaw) : null;
 
-  // Banner header height (static 144px)
-  const headerHeight = 144;
+  // Banner header height (static 300px)
+  const headerHeight = 300;
 
   // Dynamic background style based on settings
   const bgStyle = useMemo(() => {

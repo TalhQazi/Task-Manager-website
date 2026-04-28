@@ -9,7 +9,7 @@ import { ReleaseNotes } from "@/components/admin/ReleaseNotes";
 
 
 // Context to share header height across components
-const HeaderHeightContext = createContext<number>(144);
+const HeaderHeightContext = createContext<number>(300);
 
 export function useHeaderHeight() {
   return useContext(HeaderHeightContext);
@@ -22,7 +22,7 @@ interface AdminLayoutProps {
 export function AdminLayout({ children }: AdminLayoutProps) {
   const location = useLocation();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const [headerHeight, setHeaderHeight] = useState(144);
+  const [headerHeight, setHeaderHeight] = useState(300);
   const [pageKey, setPageKey] = useState(0);
 
 
