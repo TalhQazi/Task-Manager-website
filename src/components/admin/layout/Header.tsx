@@ -189,7 +189,6 @@ export function Header({ onMenuClick }: HeaderProps) {
   const [headerModalOpen, setHeaderModalOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [isHeaderPickerOpen, setIsHeaderPickerOpen] = useState(false);
-  const queryClient = useQueryClient();
 
   const handleHeaderImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
