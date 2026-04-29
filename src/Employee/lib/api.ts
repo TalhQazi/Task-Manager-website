@@ -355,8 +355,77 @@ export async function getTodayTimeEntry() {
 
 export async function clockIn() {
   return employeeApiFetch<{
-    item: { id: string; date: string; clockIn: string; clockOut: string; status: string };
+    item: {
+      id: string;
+      date: string;
+      clockIn: string;
+      clockOut: string;
+      status: string;
+      lateFlag?: null | {
+        attendanceEventId: string;
+        minutesLate: number;
+        level: number;
+        requiresExplanation: boolean;
+      };
+    };
   }>("/api/employees/me/clock-in", { method: "POST" });
+}
+
+// Attendance Accountability
+export async function getPendingAttendanceEvents() {
+  return employeeApiFetch<{
+    items: Array<{
+      id?: string;
+      _id?: string;
+      type: "call_out" | "late_arrival" | "missed_clock_in" | "late_call_out";
+      date: string;
+      shiftStart?: string;
+      shiftEnd?: string;
+      timezone?: string;
+      level?: number;
+      minutesLate?: number;
+      status: "open" | "reviewed" | "archived";
+      explanation?: { reason?: string; comments?: string; submittedAt?: string };
+      createdAt?: string;
+    }>;
+  }>("/api/attendance/me/pending");
+}
+
+export async function submitLateExplanation(eventId: string, payload: {
+  reason: string;
+  comments?: string;
+  attachments?: Array<{ fileName: string; url: string; mimeType: string; size: number }>;
+}) {
+  return employeeApiFetch<{ item: unknown }>(`/api/attendance/late/${encodeURIComponent(eventId)}/explain`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function uploadAttendanceAttachment(file: File) {
+  const fd = new FormData();
+  fd.append("file", file);
+  return employeeApiFetch<{
+    attachment: { fileName: string; url: string; mimeType: string; size: number };
+  }>("/api/attendance/upload", {
+    method: "POST",
+    body: fd,
+  });
+}
+
+export async function createCallOut(payload: {
+  date: string;
+  shiftStart?: string;
+  shiftEnd?: string;
+  timezone?: string;
+  reasonCode: string;
+  reasonText?: string;
+  attachments?: Array<{ fileName: string; url: string; mimeType: string; size: number }>;
+}) {
+  return employeeApiFetch<{ item: unknown }>("/api/attendance/call-outs", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function clockOut() {

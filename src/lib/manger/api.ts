@@ -316,3 +316,52 @@ export async function getEODStatus(date?: string) {
     }>;
   }>(`/api/manager/eod-status${qs}`);
 }
+
+export async function listAttendanceEvents(params?: {
+  status?: string;
+  type?: string;
+  employeeName?: string;
+  userId?: string;
+}) {
+  const qs = new URLSearchParams();
+  if (params?.status) qs.set("status", params.status);
+  if (params?.type) qs.set("type", params.type);
+  if (params?.employeeName) qs.set("employeeName", params.employeeName);
+  if (params?.userId) qs.set("userId", params.userId);
+  const queryString = qs.toString();
+
+  return apiFetch<{
+    items: Array<{
+      id: string;
+      userId: string;
+      employeeId: string;
+      employeeName: string;
+      type: string;
+      level?: number;
+      date: string;
+      status: "open" | "reviewed" | "archived";
+      minutesLate?: number;
+      reasonCode?: string;
+      reasonText?: string;
+      explanation?: {
+        reason?: string;
+        comments?: string;
+        submittedAt?: string;
+      };
+      attachments?: Array<{ fileName: string; url: string; mimeType: string; size: number }>;
+      managerNotes?: string;
+      createdAt?: string;
+      reviewedAt?: string;
+    }>;
+  }>(`/api/attendance/all${queryString ? `?${queryString}` : ""}`);
+}
+
+export async function reviewAttendanceEvent(
+  id: string,
+  payload: { status?: "open" | "reviewed" | "archived"; managerNotes?: string },
+) {
+  return apiFetch<{ item: unknown }>(`/api/attendance/${encodeURIComponent(id)}/review`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}

@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { Button } from "@/components/manger/ui/button";
 import { Badge } from "@/components/manger/ui/badge";
 import { Download, Clock, Calendar } from "lucide-react";
+import { StatCard } from "@/components/admin/dashboard/StatCard";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch } from "@/lib/manger/api";
 import { useQuery } from "@tanstack/react-query";
@@ -139,56 +140,30 @@ export default function TimeTracking() {
 
       {/* Stats Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="stat-card">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Clock className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Total Hours Today</p>
-              <p className="text-2xl font-bold text-foreground">
-                {totalHours.toFixed(1)}h
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-success/10">
-              <Clock className="w-5 h-5 text-success" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Average Hours</p>
-              <p className="text-2xl font-bold text-foreground">{avgHours}h</p>
-            </div>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-warning/10">
-              <Clock className="w-5 h-5 text-warning" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Incomplete</p>
-              <p className="text-2xl font-bold text-foreground">
-                {timeEntries.filter((e) => e.status === "incomplete").length}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="stat-card">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-info/10">
-              <Clock className="w-5 h-5 text-info" />
-            </div>
-            <div>
-              <p className="text-sm text-muted-foreground">Overtime</p>
-              <p className="text-2xl font-bold text-foreground">
-                {timeEntries.filter((e) => e.status === "overtime").length}
-              </p>
-            </div>
-          </div>
-        </div>
+        <StatCard
+          title="Total Hours Today"
+          value={`${totalHours.toFixed(1)}h`}
+          icon={Clock}
+          variant="blue"
+        />
+        <StatCard
+          title="Average Hours"
+          value={`${avgHours}h`}
+          icon={Clock}
+          variant="green"
+        />
+        <StatCard
+          title="Incomplete"
+          value={timeEntries.filter((e) => e.status === "incomplete").length}
+          icon={Clock}
+          variant="orange"
+        />
+        <StatCard
+          title="Overtime"
+          value={timeEntries.filter((e) => e.status === "overtime").length}
+          icon={Clock}
+          variant="gold"
+        />
       </div>
 
       {/* Time Entries Table */}
@@ -205,22 +180,22 @@ export default function TimeTracking() {
         <div className="overflow-x-auto">
           <table className="data-table w-full min-w-[900px]">
             <thead>
-              <tr>
-                <th>Employee</th>
-                <th>Date</th>
-                <th>Clock In</th>
-                <th>Clock Out</th>
-                <th>Break</th>
-                <th>Total Hours</th>
-                <th>Status</th>
-                <th>Location</th>
+              <tr className="bg-muted/50 border-b border-border">
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Employee</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Date</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Clock In</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Clock Out</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Break</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Hours</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider">Location</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-border">
               {filteredEntries.map((entry, index) => (
                 <tr
                   key={entry.id}
-                  className="animate-fade-in"
+                  className="animate-fade-in hover:bg-muted/30 transition-colors"
                   style={{ animationDelay: `${index * 30}ms` }}
                   role="button"
                   tabIndex={0}
@@ -237,9 +212,9 @@ export default function TimeTracking() {
                     }
                   }}
                 >
-                  <td>
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-medium">
+                      <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-medium border border-primary/20">
                         {entry.avatar}
                       </div>
                       <span className="font-medium text-foreground">
@@ -247,26 +222,26 @@ export default function TimeTracking() {
                       </span>
                     </div>
                   </td>
-                  <td>
+                  <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5 text-muted-foreground whitespace-nowrap">
                       <Calendar className="w-3.5 h-3.5" />
                       <span>{new Date(entry.date).toLocaleDateString()}</span>
                     </div>
                   </td>
-                  <td>
+                  <td className="px-4 py-3">
                     <span className="font-medium text-foreground whitespace-nowrap">
                       {formatClockTime(entry.clockIn)}
                     </span>
                   </td>
-                  <td>
+                  <td className="px-4 py-3">
                     <span className="font-medium text-foreground whitespace-nowrap">
                       {formatClockTime(entry.clockOut)}
                     </span>
                   </td>
-                  <td>
+                  <td className="px-4 py-3">
                     <span className="text-muted-foreground whitespace-nowrap">{entry.breakTime}</span>
                   </td>
-                  <td>
+                  <td className="px-4 py-3">
                     <span
                       className={cn(
                         "font-semibold whitespace-nowrap",
@@ -276,15 +251,15 @@ export default function TimeTracking() {
                       {entry.totalHours}h
                     </span>
                   </td>
-                  <td>
+                  <td className="px-4 py-3">
                     <Badge
                       variant="secondary"
-                      className={cn("text-xs capitalize whitespace-nowrap", statusStyles[entry.status])}
+                      className={cn("text-[10px] px-1.5 py-0 h-5 leading-none capitalize whitespace-nowrap", statusStyles[entry.status])}
                     >
                       {entry.status}
                     </Badge>
                   </td>
-                  <td>
+                  <td className="px-4 py-3">
                     <span className="text-muted-foreground whitespace-nowrap">{entry.location}</span>
                   </td>
                 </tr>

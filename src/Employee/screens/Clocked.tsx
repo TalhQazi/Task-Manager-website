@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
@@ -31,7 +32,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Clock, LogIn, LogOut, Timer, Calendar, History, ClipboardList, AlertCircle, AlertTriangle, Mic, MicOff, Type } from "lucide-react";
-import { getTodayTimeEntry, clockIn, submitScrumAndClockOut, getEmployeeTimeEntryHistory, getEmployeeProfile, submitEODReport, getOnboardingStatus } from "../lib/api";
+import { getTodayTimeEntry, clockIn, submitScrumAndClockOut, getEmployeeTimeEntryHistory, getEmployeeProfile, submitEODReport, getOnboardingStatus, getPendingAttendanceEvents, submitLateExplanation, createCallOut, uploadAttendanceAttachment } from "../lib/api";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
 
@@ -79,6 +80,21 @@ export default function EmployeeClocked() {
   const [transcription, setTranscription] = useState("");
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
 
+  const [lateEventId, setLateEventId] = useState<string | null>(null);
+  const [lateReason, setLateReason] = useState("");
+  const [lateComments, setLateComments] = useState("");
+  const [lateAttachments, setLateAttachments] = useState<Array<{ fileName: string; url: string; mimeType: string; size: number }>>([]);
+  const [lateUploading, setLateUploading] = useState(false);
+  const [lateSubmitting, setLateSubmitting] = useState(false);
+
+  const [showCallOutModal, setShowCallOutModal] = useState(false);
+  const [callOutDate, setCallOutDate] = useState("");
+  const [callOutReasonCode, setCallOutReasonCode] = useState("sick");
+  const [callOutReasonText, setCallOutReasonText] = useState("");
+  const [callOutAttachment, setCallOutAttachment] = useState<{ fileName: string; url: string; mimeType: string; size: number } | null>(null);
+  const [callOutUploading, setCallOutUploading] = useState(false);
+  const [callOutSubmitting, setCallOutSubmitting] = useState(false);
+
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -87,14 +103,21 @@ export default function EmployeeClocked() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [entryRes, profileRes, onboardingRes] = await Promise.all([
+        const [entryRes, profileRes, onboardingRes, pendingAttendance] = await Promise.all([
           getTodayTimeEntry(),
           getEmployeeProfile(),
           getOnboardingStatus().catch(() => ({ item: { overallStatus: "not_started" } })),
+          getPendingAttendanceEvents().catch(() => ({ items: [] })),
         ]);
         setTimeEntry(entryRes.item);
         setEmployeeName(profileRes.item.name);
         setOnboardingStatus(onboardingRes.item.overallStatus);
+
+        const pendingLate = (pendingAttendance.items || []).find((e) => e.type === "late_arrival" && (!e.explanation?.submittedAt));
+        const pendingId = String(pendingLate?.id || pendingLate?._id || "").trim();
+        if (pendingId) {
+          setLateEventId(pendingId);
+        }
       } catch (err) {
         console.error("Failed to load time entry:", err);
         toast.error("Failed to load time entry data");
@@ -102,7 +125,16 @@ export default function EmployeeClocked() {
         setLoading(false);
       }
     };
+
     loadData();
+  }, []);
+
+  useEffect(() => {
+    const today = new Date();
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, "0");
+    const dd = String(today.getDate()).padStart(2, "0");
+    setCallOutDate(`${yyyy}-${mm}-${dd}`);
   }, []);
 
   // Load history when component mounts
@@ -126,11 +158,71 @@ export default function EmployeeClocked() {
     try {
       const res = await clockIn();
       setTimeEntry(res.item as TimeEntry);
+      const lf = res.item.lateFlag;
+      if (lf?.requiresExplanation && lf?.attendanceEventId) {
+        setLateEventId(String(lf.attendanceEventId));
+        toast.error("You are marked late. Please submit an explanation to continue.");
+      }
       toast.success("Clocked in successfully");
     } catch (err: any) {
       toast.error(err.message || "Failed to clock in");
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const submitLate = async () => {
+    if (!lateEventId) return;
+    if (!lateReason.trim()) {
+      toast.error("Reason for lateness is required");
+      return;
+    }
+
+    setLateSubmitting(true);
+    try {
+      await submitLateExplanation(lateEventId, {
+        reason: lateReason.trim(),
+        comments: lateComments.trim(),
+        attachments: lateAttachments,
+      });
+      toast.success("Late explanation submitted");
+      setLateEventId(null);
+      setLateReason("");
+      setLateComments("");
+      setLateAttachments([]);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to submit late explanation");
+    } finally {
+      setLateSubmitting(false);
+    }
+  };
+
+  const submitCallOut = async () => {
+    if (!callOutDate) {
+      toast.error("Date of absence is required");
+      return;
+    }
+    if (!String(callOutReasonCode || "").trim()) {
+      toast.error("Reason is required");
+      return;
+    }
+
+    setCallOutSubmitting(true);
+    try {
+      await createCallOut({
+        date: callOutDate,
+        reasonCode: callOutReasonCode,
+        reasonText: callOutReasonText,
+        attachments: callOutAttachment ? [callOutAttachment] : [],
+      });
+      toast.success("Call-out submitted");
+      setShowCallOutModal(false);
+      setCallOutReasonText("");
+      setCallOutAttachment(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to submit call-out");
+    } finally {
+      setCallOutSubmitting(false);
     }
   };
 
@@ -470,6 +562,11 @@ export default function EmployeeClocked() {
               {actionLoading && isClockedIn ? "Processing..." : "Clock Out"}
             </Button>
           </div>
+          <div className="mt-4 flex justify-end">
+            <Button variant="outline" onClick={() => setShowCallOutModal(true)}>
+              Call Out
+            </Button>
+          </div>
           {isClockedOut && (
             <p className="text-sm text-muted-foreground text-center mt-4">
               You have completed your shift for today. Total hours: {timeEntry?.totalHours?.toFixed(2) || "--"}
@@ -687,6 +784,128 @@ export default function EmployeeClocked() {
               className="bg-[#133767] hover:bg-[#0d2654]"
             >
               {scrumSubmitting ? "Submitting..." : "Submit & Clock Out"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Late Explanation Modal (blocking) */}
+      <Dialog open={Boolean(lateEventId)} onOpenChange={(open) => {
+        if (!open) return;
+      }}>
+        <DialogContent className="sm:max-w-lg" onInteractOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-red-600" />
+              Late Explanation Required
+            </DialogTitle>
+            <DialogDescription>
+              You were flagged for a late arrival. Please submit an explanation to continue.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Reason for lateness</label>
+              <Textarea
+                value={lateReason}
+                onChange={(e) => setLateReason(e.target.value)}
+                placeholder="Enter reason..."
+                disabled={lateSubmitting}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Additional comments (optional)</label>
+              <Textarea
+                value={lateComments}
+                onChange={(e) => setLateComments(e.target.value)}
+                placeholder="Additional comments..."
+                disabled={lateSubmitting}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button onClick={() => void submitLate()} disabled={lateSubmitting}>
+              {lateSubmitting ? "Submitting..." : "Submit Explanation"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Call-Out Modal */}
+      <Dialog open={showCallOutModal} onOpenChange={setShowCallOutModal}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Call Out</DialogTitle>
+            <DialogDescription>
+              Report an absence so it’s permanently recorded.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Date of absence</label>
+              <Input type="date" value={callOutDate} onChange={(e) => setCallOutDate(e.target.value)} />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Reason</label>
+              <select
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                value={callOutReasonCode}
+                onChange={(e) => setCallOutReasonCode(e.target.value)}
+                aria-label="Call out reason"
+              >
+                <option value="sick">Sick</option>
+                <option value="family_emergency">Family Emergency</option>
+                <option value="transportation">Transportation</option>
+                <option value="personal">Personal</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Optional note</label>
+              <Textarea
+                value={callOutReasonText}
+                onChange={(e) => setCallOutReasonText(e.target.value)}
+                placeholder="Additional details..."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Attachment (optional)</label>
+              <Input
+                type="file"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  setCallOutUploading(true);
+                  try {
+                    const res = await uploadAttendanceAttachment(f);
+                    setCallOutAttachment(res.attachment);
+                    toast.success("Attachment uploaded");
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : "Upload failed");
+                  } finally {
+                    setCallOutUploading(false);
+                  }
+                }}
+                disabled={callOutUploading}
+              />
+              {callOutAttachment ? (
+                <div className="text-sm text-muted-foreground">Attached: {callOutAttachment.fileName}</div>
+              ) : null}
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2">
+            <Button variant="outline" onClick={() => setShowCallOutModal(false)} disabled={callOutSubmitting}>
+              Cancel
+            </Button>
+            <Button onClick={() => void submitCallOut()} disabled={callOutSubmitting || callOutUploading}>
+              {callOutSubmitting ? "Submitting..." : "Submit Call Out"}
             </Button>
           </DialogFooter>
         </DialogContent>
