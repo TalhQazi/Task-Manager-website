@@ -1,5 +1,28 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || "https://task.se7eninc.com";
 
+/**
+ * Attempt to refresh the access token using the HttpOnly refresh cookie.
+ * Returns true if refresh succeeded, false otherwise.
+ */
+let refreshPromise: Promise<boolean> | null = null;
+async function refreshAccessToken(): Promise<boolean> {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
+      });
+      return res.ok;
+    } catch {
+      return false;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+  return refreshPromise;
+}
+
 export async function employeeApiFetch<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -13,8 +36,7 @@ export async function employeeApiFetch<T>(
     ...((options.headers as Record<string, string>) || {}),
   };
 
-  
-
+  // Fallback: also send Bearer token from localStorage during transition period
   const authRaw = localStorage.getItem("employee_auth");
   if (authRaw) {
     try {
@@ -27,8 +49,6 @@ export async function employeeApiFetch<T>(
     }
   }
 
-  console.log("[employeeApiFetch] Request:", endpoint, "URL:", url);
-
   if (!headers["Authorization"]) {
     const token = localStorage.getItem("token");
     if (token) {
@@ -36,11 +56,23 @@ export async function employeeApiFetch<T>(
     }
   }
 
-
-  const response = await fetch(url, {
+  let response = await fetch(url, {
     ...options,
     headers,
+    credentials: "include",
   });
+
+  // If 401, attempt a silent token refresh and retry once
+  if (response.status === 401) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      response = await fetch(url, {
+        ...options,
+        headers,
+        credentials: "include",
+      });
+    }
+  }
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
@@ -102,6 +134,7 @@ export function toProxiedUrl(url: string | undefined): string {
 
   if (match) {
     const key = match[3];
+    // Fallback token for backward compatibility during transition
     let token = "";
     const authRaw = localStorage.getItem("employee_auth");
     if (authRaw) {
@@ -465,6 +498,7 @@ export async function downloadViaUrl(url: string, fileName: string): Promise<voi
   
   const res = await fetch(url, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
+    credentials: "include",
   });
   
   if (!res.ok) {

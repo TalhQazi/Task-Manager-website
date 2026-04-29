@@ -112,6 +112,31 @@ function getStoredToken(): string | null {
   }
 }
 
+/**
+ * Attempt to refresh the access token using the HttpOnly refresh cookie.
+ * Returns true if refresh succeeded, false otherwise.
+ */
+let refreshPromise: Promise<boolean> | null = null;
+async function refreshAccessToken(): Promise<boolean> {
+  // Deduplicate concurrent refresh calls
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    try {
+      const baseUrl = getApiBaseUrl().replace(/\/$/, "");
+      const res = await fetch(`${baseUrl}/api/auth/refresh`, {
+        method: "POST",
+        credentials: "include",
+      });
+      return res.ok;
+    } catch {
+      return false;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+  return refreshPromise;
+}
+
 
 
 
@@ -138,10 +163,23 @@ export async function apiFetch<T>(
     headers["Content-Type"] = headers["Content-Type"] || "application/json";
   }
 
-  const res = await fetch(url, {
+  let res = await fetch(url, {
     ...options,
     headers,
+    credentials: "include",
   });
+
+  // If 401, attempt a silent token refresh and retry once
+  if (res.status === 401) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      res = await fetch(url, {
+        ...options,
+        headers,
+        credentials: "include",
+      });
+    }
+  }
 
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
@@ -213,6 +251,7 @@ export async function downloadTaskAttachment(
   
   const res = await fetch(url, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
+    credentials: "include",
   });
   
   if (!res.ok) {
@@ -237,8 +276,10 @@ export async function downloadViaUrl(url: string, fileName: string): Promise<voi
   const token = getStoredToken();
   
   // Use fetch to get the blob with headers
+  const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
   const res = await fetch(url, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers,
+    credentials: "include",
   });
   
   if (!res.ok) {

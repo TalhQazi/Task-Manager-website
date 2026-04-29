@@ -14,13 +14,21 @@ type LoginApiResponse = {
   };
 };
 
-export async function login(username: string, password: string): Promise<LoginResult> {
+type MfaRequiredError = {
+  error: {
+    message: string;
+    code: string;
+  };
+};
+
+export async function login(username: string, password: string, mfaCode?: string): Promise<LoginResult> {
   const res = await apiFetch<LoginApiResponse>("/api/auth/login", {
     method: "POST",
     body: JSON.stringify({
       username: username.trim(),
       email: username.trim(),
       password,
+      ...(mfaCode ? { mfaCode } : {}),
     }),
   });
 
