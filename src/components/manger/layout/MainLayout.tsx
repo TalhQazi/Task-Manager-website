@@ -276,9 +276,9 @@ export function MainLayout({ children }: MainLayoutProps) {
     <div className="min-h-screen" style={{ background: "var(--tb-dashboard-bg)" }}>
       {/* Top header with dynamic background from admin settings - FULL WIDTH */}
       <header 
-        className="fixed top-0 left-0 right-0 z-50 shadow-floating"
+        className="fixed top-0 left-0 right-0 z-50 shadow-floating h-[300px] sm:h-[220px] md:h-[300px]"
         style={{ 
-          height: '300px',
+         // height: '300px',
           left: '0',
         }}
       >
@@ -348,11 +348,11 @@ export function MainLayout({ children }: MainLayoutProps) {
                     <DropdownMenuItem onClick={() => navigate("/manager/settings")}>
                       <Settings className="mr-2 h-4 w-4" /> System Preferences
                     </DropdownMenuItem>
-                  </DropdownMenuContent>
+                  </DropdownMenuContent> 
                 </DropdownMenu>
 
                 {/* Quick Actions Bar (Bottom) */}
-                <div className="flex items-center justify-start gap-4">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                   <div className="md:hidden">
                     <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/[0.14] transition-all" aria-label="Open navigation" onClick={() => setMobileSidebarOpen(true)}><Menu className="h-5 w-5 text-white" /></button>
                   </div>
