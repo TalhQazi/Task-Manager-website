@@ -7,10 +7,7 @@ import { TaskCharts } from "@/components/manger/dashboard/TaskCharts";
 import { DayAheadCard } from "@/components/admin/dashboard/DayAheadCard";
 import { WeekAheadCard } from "@/components/admin/dashboard/WeekAheadCard";
 
-import { Users, CheckSquare, FolderRoot, Car, MapPin, AlertTriangle, Clock } from "lucide-react";
-import { apiFetch } from "@/lib/manger/api";
-
-import { Users, CheckSquare, FolderRoot, Car, MapPin, Sparkles, TrendingUp, AlertTriangle, ClipboardList } from "lucide-react";
+import { Users, CheckSquare, FolderRoot, Car, MapPin, AlertTriangle, Clock, Sparkles, TrendingUp, ClipboardList } from "lucide-react";
 import { apiFetch, getEODStatus } from "@/lib/manger/api";
 
 import { useNavigate } from "react-router-dom";
@@ -70,9 +67,6 @@ const Dashboard = () => {
         setLoading(true);
         setApiError(null);
 
-        const data = await apiFetch<DashboardSummary>("/api/dashboard/summary");
-        if (!mounted) return;
-        setSummary(data);
 
         const [data, onboardingRes, eodRes] = await Promise.all([
           apiFetch<DashboardSummary>("/api/dashboard/summary").catch(() => null),
@@ -145,15 +139,6 @@ const Dashboard = () => {
         >
           {metrics && [
 
-            { title: "Active Employee", value: metrics.totalEmployees, icon: Users, variant: "dark-grey" as const, changeType: "positive" as const, onClick: () => navigate("/manager/employees") },
-            { title: "Active Tasks", value: metrics.activeTasks, icon: CheckSquare, variant: "green" as const, changeType: "neutral" as const, onClick: () => navigate("/manager/tasks") },
-            { title: "Active Projects", value: metrics.totalProjects, icon: FolderRoot, variant: "purple" as const, changeType: "positive" as const, onClick: () => navigate("/manager/tasks") },
-            { title: "Total Vehicles", value: metrics.totalVehicles, icon: Car, variant: "orange" as const, changeType: "positive" as const, onClick: () => navigate("/manager/vehicles") },
-            { title: "Total Locations", value: metrics.totalLocations, icon: MapPin, variant: "teal" as const, changeType: "positive" as const, onClick: () => navigate("/manager/locations") },
-            { title: "Due Today", value: metrics.dueToday, icon: Clock, variant: "amber" as const, changeType: "neutral" as const, onClick: () => navigate("/manager/tasks") },
-            { title: "Overdue Tasks", value: metrics.overdueTasks, icon: AlertTriangle, variant: "red" as const, changeType: "positive" as const, onClick: () => navigate("/manager/tasks") },
-            { title: "Clocked In", value: metrics.clockedInEmployees, icon: Clock, variant: "gold" as const, changeType: "neutral" as const, onClick: () => navigate("/manager/time-tracking") },
-            { title: "Hours Logged", value: metrics.hoursLoggedToday, icon: Clock, variant: "info" as const, changeType: "neutral" as const, onClick: () => navigate("/manager/time-tracking") },
 
             { 
               title: "Total Employees", 
