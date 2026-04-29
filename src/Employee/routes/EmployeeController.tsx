@@ -20,6 +20,7 @@ const EmployeePersonalNotes = lazy(() => import("../screens/PersonalNotes"));
 const EmployeeScrumRecords = lazy(() => import("../screens/ScrumRecords"));
 const EmployeeAssetLibrary = lazy(() => import("../screens/AssetLibrary"));
 const EmployeeUICustomization = lazy(() => import("../screens/UICustomization"));
+const EmployeeLeaveRequests = lazy(() => import("../screens/LeaveRequests"));
 
 function PageLoader() {
   return (
@@ -67,6 +68,7 @@ function EmployeeController() {
           <Route path="/taxDocs" element={<TaxDocs />} />
           <Route path="/timeLogs" element={<TimeLogs />} />
           <Route path="/documents" element={<Documents />} />
+          <Route path="/leave-requests" element={<EmployeeLeaveRequests />} />
 
         </Route>
         <Route path="*" element={<Navigate to="/employee" replace />} />

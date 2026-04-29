@@ -47,6 +47,7 @@ const navItemsBase: NavItem[] = [
   { icon: DollarSign, label: "Payroll", path: "/manager/payroll" },
   { icon: User, label: "Profile", path: "/manager/profile" },
   { icon: ClipboardCheck, label: "EOD Reports", path: "/manager/eod-reports" },
+  { icon: Calendar, label: "Leave Requests", path: "/manager/leave-requests" },
   { icon: Car, label: "Vehicles", path: "/manager/vehicles" },
   { icon: Wrench, label: "Appliances", path: "/manager/appliances" },
   { icon: MapPin, label: "Locations", path: "/manager/locations" },

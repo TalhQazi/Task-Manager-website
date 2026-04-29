@@ -37,6 +37,9 @@ import {
   User,
   MoreHorizontal,
   Eye,
+  Mic,
+  CheckSquare,
+  Link,
 } from "lucide-react";
 import { getEODReports, getEODStatus } from "@/lib/manger/api";
 import { toast } from "sonner";
@@ -53,6 +56,11 @@ interface EODReport {
   clockIn?: string;
   clockOut?: string;
   totalHours?: number;
+  transcription?: string;
+  aiSummary?: string;
+  productivityScore?: number;
+  flags?: { missing?: boolean; lowOutput?: boolean };
+  taggedTasks?: Array<{ _id: string; title: string; taskId?: string }>;
 }
 
 interface EODStatus {
@@ -255,7 +263,7 @@ export default function ManagerEODReports() {
         </CardContent>
       </Card>
 
-      {/* Status Dashboard View */}
+      {/* Status Dashboard View - Grid with Green/Yellow/Red cards */}
       {viewMode === "status" && (
         <Card className="shadow-soft border-0 sm:border">
           <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
@@ -278,74 +286,91 @@ export default function ManagerEODReports() {
                 <p className="text-sm mt-1">Try adjusting your filters</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs md:text-sm">Employee</TableHead>
-                      <TableHead className="text-xs md:text-sm">Status</TableHead>
-                      <TableHead className="text-xs md:text-sm">Clock In</TableHead>
-                      <TableHead className="text-xs md:text-sm">Clock Out</TableHead>
-                      <TableHead className="text-xs md:text-sm">Report Time</TableHead>
-                      <TableHead className="text-right text-xs md:text-sm">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredStatus.map((status) => (
-                      <TableRow key={status.employeeId} className="hover:bg-muted/30">
-                        <TableCell className="text-sm md:text-base font-medium">
-                          <div className="flex items-center gap-2">
-                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                              <User className="h-4 w-4 text-primary" />
-                            </div>
-                            {status.employeeName}
-                          </div>
-                        </TableCell>
-                        <TableCell>{getStatusBadge(status.status)}</TableCell>
-                        <TableCell className="text-sm md:text-base text-muted-foreground">
-                          {status.clockIn || "—"}
-                        </TableCell>
-                        <TableCell className="text-sm md:text-base text-muted-foreground">
-                          {status.clockOut || "—"}
-                        </TableCell>
-                        <TableCell className="text-sm md:text-base text-muted-foreground">
-                          {status.reportSubmittedAt
-                            ? new Date(status.reportSubmittedAt).toLocaleTimeString([], {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })
-                            : "—"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {status.status !== "not_clocked_in" && (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    const report = reports.find((r) => r.employeeName === status.employeeName);
-                                    if (report) {
-                                      setSelectedReport(report);
-                                    } else {
-                                      toast.error("No report found for this employee");
-                                    }
-                                  }}
-                                >
-                                  <Eye className="mr-2 h-4 w-4" />
-                                  View Report
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {filteredStatus.map((status) => {
+                  const isGreen = status.status === "submitted";
+                  const isYellow = status.status === "late";
+                  const isRed = status.status === "missing";
+                  const isGray = status.status === "not_clocked_in";
+
+                  return (
+                    <div
+                      key={status.employeeId}
+                      onClick={() => {
+                        const report = reports.find((r) => r.employeeName === status.employeeName);
+                        if (report) {
+                          setSelectedReport(report);
+                        } else if (status.status !== "not_clocked_in") {
+                          toast.error("No report found for this employee");
+                        }
+                      }}
+                      className={`
+                        relative p-4 rounded-xl border-2 cursor-pointer transition-all hover:shadow-lg
+                        ${isGreen ? "bg-green-50 border-green-500 hover:bg-green-100" : ""}
+                        ${isYellow ? "bg-yellow-50 border-yellow-500 hover:bg-yellow-100" : ""}
+                        ${isRed ? "bg-red-50 border-red-500 hover:bg-red-100" : ""}
+                        ${isGray ? "bg-gray-50 border-gray-300 hover:bg-gray-100 cursor-default" : ""}
+                      `}
+                    >
+                      {/* Status Indicator Circle */}
+                      <div className={`
+                        absolute top-3 right-3 h-3 w-3 rounded-full
+                        ${isGreen ? "bg-green-500" : ""}
+                        ${isYellow ? "bg-yellow-500" : ""}
+                        ${isRed ? "bg-red-500" : ""}
+                        ${isGray ? "bg-gray-400" : ""}
+                      `} />
+
+                      {/* Employee Info */}
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className={`
+                          h-10 w-10 rounded-full flex items-center justify-center
+                          ${isGreen ? "bg-green-200 text-green-700" : ""}
+                          ${isYellow ? "bg-yellow-200 text-yellow-700" : ""}
+                          ${isRed ? "bg-red-200 text-red-700" : ""}
+                          ${isGray ? "bg-gray-200 text-gray-600" : ""}
+                        `}>
+                          <User className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm truncate">{status.employeeName}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {status.clockIn ? `In: ${status.clockIn}` : "Not clocked in"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Status Badge */}
+                      <div className="mb-2">
+                        {getStatusBadge(status.status)}
+                      </div>
+
+                      {/* Clock Out */}
+                      {status.clockOut && (
+                        <p className="text-xs text-muted-foreground">
+                          Out: {status.clockOut}
+                        </p>
+                      )}
+
+                      {/* Report Time */}
+                      {status.reportSubmittedAt && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Report: {new Date(status.reportSubmittedAt).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      )}
+
+                      {/* Drilldown Hint */}
+                      {!isGray && (
+                        <div className="mt-3 pt-2 border-t border-current opacity-50">
+                          <p className="text-xs text-center">Click to view details</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </CardContent>
@@ -470,7 +495,91 @@ export default function ManagerEODReports() {
                   <p className="text-xs text-muted-foreground">Status</p>
                   <div className="mt-1">{getStatusBadge(selectedReport.status)}</div>
                 </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Input Type</p>
+                  <p className="text-sm font-medium capitalize">{selectedReport.inputType}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Productivity Score</p>
+                  <p className="text-sm font-medium">
+                    {selectedReport.productivityScore !== undefined ? `${selectedReport.productivityScore}/10` : "—"}
+                  </p>
+                </div>
               </div>
+
+              {/* AI Summary */}
+              {selectedReport.aiSummary && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <ClipboardList className="h-4 w-4 text-purple-600" />
+                    AI Summary
+                  </label>
+                  <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                      {selectedReport.aiSummary}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* AI Linked Tasks */}
+              {selectedReport.taggedTasks && selectedReport.taggedTasks.length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <Link className="h-4 w-4 text-indigo-600" />
+                    AI-Linked Tasks
+                  </label>
+                  <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                    <div className="space-y-2">
+                      {selectedReport.taggedTasks.map((task) => (
+                        <div key={task._id} className="flex items-center gap-2">
+                          <CheckSquare className="h-4 w-4 text-indigo-600" />
+                          <span className="text-sm font-medium text-indigo-900">
+                            {task.taskId ? `[${task.taskId}] ` : ""}{task.title}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Flags */}
+              {selectedReport.flags && (selectedReport.flags.missing || selectedReport.flags.lowOutput) && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <AlertCircle className="h-4 w-4 text-orange-600" />
+                    Flags
+                  </label>
+                  <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                    <div className="flex flex-wrap gap-2">
+                      {selectedReport.flags.missing && (
+                        <Badge variant="destructive">Missing Report</Badge>
+                      )}
+                      {selectedReport.flags.lowOutput && (
+                        <Badge variant="outline" className="border-orange-500 text-orange-700 bg-orange-100">
+                          Low Output
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Transcription (Voice Input) */}
+              {selectedReport.transcription && selectedReport.inputType === "voice" && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <Mic className="h-4 w-4 text-blue-600" />
+                    Voice Transcription
+                  </label>
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                      {selectedReport.transcription}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* EOD Content */}
               <div className="space-y-4">
