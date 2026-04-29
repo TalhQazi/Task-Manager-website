@@ -203,6 +203,7 @@ export function Header({ onMenuClick }: HeaderProps) {
           }
         });
         queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+        window.dispatchEvent(new CustomEvent("header-settings-updated"));
         setHeaderModalOpen(false);
       };
       reader.readAsDataURL(file);
@@ -217,6 +218,7 @@ export function Header({ onMenuClick }: HeaderProps) {
     try {
       await apiFetch("/api/header-settings/reset", { method: "POST" });
       queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+      window.dispatchEvent(new CustomEvent("header-settings-updated"));
       setHeaderModalOpen(false);
     } catch (error) {
       console.error("Failed to reset header:", error);
@@ -694,6 +696,7 @@ export function Header({ onMenuClick }: HeaderProps) {
               }
             });
             queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+            window.dispatchEvent(new CustomEvent("header-settings-updated"));
             setIsHeaderPickerOpen(false);
             setHeaderModalOpen(false);
           } catch (error) {

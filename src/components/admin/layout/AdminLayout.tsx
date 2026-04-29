@@ -26,6 +26,8 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const [pageKey, setPageKey] = useState(0);
 
 
+  const [headerKey, setHeaderKey] = useState(0);
+
   // Apply user UI preferences on load
   useEffect(() => {
     import("@/lib/admin/apiClient").then(({ apiFetch }) => {
@@ -63,6 +65,15 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     setPageKey(prev => prev + 1);
   }, [location.pathname]);
 
+  // Listen for header settings updates to force re-render
+  useEffect(() => {
+    const handleUpdate = () => {
+      setHeaderKey(prev => prev + 1);
+    };
+    window.addEventListener("header-settings-updated", handleUpdate);
+    return () => window.removeEventListener("header-settings-updated", handleUpdate);
+  }, []);
+
   return (
     <HeaderHeightContext.Provider value={headerHeight}>
       <div 
@@ -73,7 +84,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           backgroundColor: 'var(--tb-dashboard-bg)'
         } as React.CSSProperties}
       >
-        <Header onMenuClick={() => setMobileSidebarOpen(true)} />
+        <Header key={headerKey} onMenuClick={() => setMobileSidebarOpen(true)} />
         
 
         <div className="flex flex-1 items-start relative w-full overflow-y-auto overflow-x-hidden">
