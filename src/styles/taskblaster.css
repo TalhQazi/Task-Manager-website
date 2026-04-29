@@ -234,6 +234,39 @@ body[class*="tb-theme-"] .recharts-surface {
   border: 1px solid #ffffff !important;
 }
 
+/* Metallic Card Style - Override theme card colors */
+body[class*="tb-theme-"][data-tb-card-style="metallic"] main .rounded-xl:not(.stat-card-gradient),
+body[class*="tb-theme-"][data-tb-card-style="metallic"] main .card {
+  background-color: var(--tb-dashboard-card-bg) !important;
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.06) 100%) !important;
+  border: 1px solid rgba(203, 213, 225, 0.35) !important;
+}
+
+/* Glass Card Style - Ensure it works with all themes */
+body[class*="tb-theme-"][data-tb-card-style="glass"] main .rounded-xl:not(.stat-card-gradient),
+body[class*="tb-theme-"][data-tb-card-style="glass"] main .card {
+  background: var(--tb-dashboard-card-bg) !important;
+  backdrop-filter: blur(10px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Neon Card Style */
+body[class*="tb-theme-"][data-tb-card-style="neon"] main .rounded-xl:not(.stat-card-gradient),
+body[class*="tb-theme-"][data-tb-card-style="neon"] main .rounded-lg:not(.stat-card-gradient),
+body[class*="tb-theme-"][data-tb-card-style="neon"] main .card,
+body[class*="tb-theme-"][data-tb-card-style="neon"] main [class*="bg-card"] {
+  background-color: var(--tb-dashboard-card-bg) !important;
+  border: 1px solid var(--tb-accent, #8b5cf6) !important;
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.3) !important;
+}
+
+/* Flat Card Style - Use theme colors */
+body[class*="tb-theme-"][data-tb-card-style="flat"] main .rounded-xl:not(.stat-card-gradient),
+body[class*="tb-theme-"][data-tb-card-style="flat"] main .card {
+  background: var(--tb-dashboard-card-bg) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
 .animate-fade-in {
   animation: fadeIn 0.4s ease-out forwards;
 }
@@ -264,4 +297,108 @@ body[class*="tb-theme-"] .recharts-default-tooltip {
 /* Ensure active buttons in Theme Engine are readable */
 .bg-primary.text-white {
   color: white !important;
+}
+
+body[class*="tb-theme-"] .tb-employee-panel main [class*="bg-gray-50"],
+body[class*="tb-theme-"] .tb-employee-panel main [class*="bg-gray-100"],
+body[class*="tb-theme-"] .tb-employee-panel main [class*="bg-blue-50"],
+body[class*="tb-theme-"] .tb-employee-panel main [class*="bg-green-50"],
+body[class*="tb-theme-"] .tb-employee-panel main [class*="bg-orange-50"],
+body[class*="tb-theme-"] .tb-employee-panel main [class*="bg-red-50"] {
+  background-color: transparent !important;
+}
+
+/* Manager panel - force hardcoded gray/white backgrounds to be transparent */
+body[class*="tb-theme-"] .tb-manager-panel [class*="bg-gray-50"],
+body[class*="tb-theme-"] .tb-manager-panel [class*="bg-gray-100"],
+body[class*="tb-theme-"] .tb-manager-panel [class*="bg-gray-200"],
+body[class*="tb-theme-"] .tb-manager-panel [class*="bg-blue-50"],
+body[class*="tb-theme-"] .tb-manager-panel [class*="bg-green-50"],
+body[class*="tb-theme-"] .tb-manager-panel [class*="bg-orange-50"],
+body[class*="tb-theme-"] .tb-manager-panel [class*="bg-red-50"] {
+  background-color: transparent !important;
+}
+
+body[class*="tb-theme-"] .tb-manager-panel [class*="bg-white"]:not([class*="bg-opacity"]):not(img),
+body[class*="tb-theme-"] .tb-manager-panel .bg-white\/60,
+body[class*="tb-theme-"] .tb-manager-panel .bg-white\/90 {
+  background-color: transparent !important;
+}
+
+/* Manager panel - text colors follow theme */
+body[class*="tb-theme-"] .tb-manager-panel [class*="text-gray-900"],
+body[class*="tb-theme-"] .tb-manager-panel [class*="text-gray-800"],
+body[class*="tb-theme-"] .tb-manager-panel [class*="text-gray-700"],
+body[class*="tb-theme-"] .tb-manager-panel [class*="text-gray-600"] {
+  color: var(--tb-dashboard-text-color) !important;
+}
+
+body[class*="tb-theme-"] .tb-manager-panel [class*="text-gray-500"],
+body[class*="tb-theme-"] .tb-manager-panel [class*="text-gray-400"] {
+  color: var(--muted-foreground) !important;
+}
+
+/* Manager panel - card styles */
+body[class*="tb-theme-"] .tb-manager-panel .stat-card,
+body[class*="tb-theme-"] .tb-manager-panel .stat-card[class*="bg-"] {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+body[class*="tb-theme-"] .tb-manager-panel .stat-card > div[class*="bg-"] {
+  background-color: transparent !important;
+}
+
+/* Manager panel - stat-card glow effects above card background */
+body[class*="tb-theme-"] .tb-manager-panel .stat-card > div[class*="absolute"] {
+  z-index: 1 !important;
+}
+
+body[class*="tb-theme-"] .tb-manager-panel .stat-card > div[class*="relative"] {
+  z-index: 10 !important;
+}
+
+body[data-tb-card-style="glass"] .tb-manager-panel .bg-card,
+body[data-tb-card-style="glass"] .tb-manager-panel [class*="rounded-lg"]:not(.stat-card),
+body[data-tb-card-style="glass"] .tb-manager-panel [class*="rounded-xl"]:not(.stat-card) {
+  background: var(--tb-dashboard-card-bg) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+body[data-tb-card-style="metallic"] .tb-manager-panel .bg-card,
+body[data-tb-card-style="metallic"] .tb-manager-panel [class*="rounded-lg"]:not(.stat-card),
+body[data-tb-card-style="metallic"] .tb-manager-panel [class*="rounded-xl"]:not(.stat-card) {
+  background: linear-gradient(145deg, #2a2a2a, #1a1a1a) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+body[data-tb-card-style="neon"] .tb-manager-panel .bg-card,
+body[data-tb-card-style="neon"] .tb-manager-panel [class*="rounded-lg"]:not(.stat-card),
+body[data-tb-card-style="neon"] .tb-manager-panel [class*="rounded-xl"]:not(.stat-card) {
+  background: var(--tb-dashboard-card-bg) !important;
+  box-shadow: 0 0 20px var(--tb-primary), 0 0 40px var(--tb-secondary);
+  border: 1px solid var(--tb-primary);
+}
+
+/* Manager panel - stat cards must NOT inherit theme/card-style colors */
+body[class*="tb-theme-"] .tb-manager-panel .manager-stat-card-wrapper > div {
+  background-color: #111 !important;
+  background: #111 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+
+body[class*="tb-theme-"] .tb-manager-panel .manager-stat-card-wrapper > div [class*="bg-"] {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+body[class*="tb-theme-"] .tb-manager-panel [class*="from-card"],
+body[class*="tb-theme-"] .tb-manager-panel [class*="via-card"],
+body[class*="tb-theme-"] .tb-manager-panel [class*="to-card"] {
+  --tw-gradient-from: var(--tb-dashboard-card-bg) !important;
+  --tw-gradient-to: var(--tb-dashboard-card-bg) !important;
+  --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
 }

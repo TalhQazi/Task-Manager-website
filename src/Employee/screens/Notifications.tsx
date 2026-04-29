@@ -235,13 +235,13 @@ useEffect(() => {
   const getTypeColor = (type: string) => {
     switch (type) {
       case "success":
-        return "bg-green-50 border-green-200";
+        return "bg-green-500/10 border-green-500/30";
       case "warning":
-        return "bg-orange-50 border-orange-200";
+        return "bg-orange-500/10 border-orange-500/30";
       case "task":
-        return "bg-blue-50 border-blue-200";
+        return "bg-blue-500/10 border-blue-500/30";
       default:
-        return "bg-gray-50 border-gray-200";
+        return "bg-white/[0.03] border-white/10";
     }
   };
 
@@ -416,12 +416,12 @@ function NotificationList({
   }
 
   return (
-    <div className="divide-y divide-gray-100">
+    <div className="divide-y divide-white/10">
       {notifications.map((notification) => (
         <div
           key={notification.id}
           className={cn(
-            "p-4 hover:bg-gray-50 transition-colors group",
+            "p-4 hover:bg-white/[0.04] transition-colors group",
             !notification.read && getTypeColor(notification.type)
           )}
         >
@@ -432,18 +432,18 @@ function NotificationList({
                 <div>
                   <h3
                     className={cn(
-                      "font-semibold text-gray-900",
+                      "font-semibold text-[color:var(--tb-dashboard-text-color)]",
                       !notification.read && "text-[#133767]"
                     )}
                   >
                     {notification.title}
                   </h3>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-sm mt-1 opacity-70 text-[color:var(--tb-dashboard-text-color)]">
                     {notification.message}
                   </p>
                   <div className="flex items-center gap-2 mt-2">
                     <Clock className="h-3 w-3 text-gray-400" />
-                    <span className="text-xs text-gray-400">
+                    <span className="text-xs opacity-60 text-[color:var(--tb-dashboard-text-color)]">
                       {formatTime(notification.timestamp)}
                     </span>
                     {!notification.read && (
