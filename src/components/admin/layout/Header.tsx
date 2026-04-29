@@ -188,30 +188,30 @@ export function Header({ onMenuClick }: HeaderProps) {
     if (!file) return;
 
     setUploading(true);
-    try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      try {
         const base64String = reader.result as string;
         await apiFetch("/api/header-settings", {
           method: "PUT",
-          body: {
+          body: JSON.stringify({
             backgroundType: "image",
             imageConfig: {
               dataUrl: base64String,
               url: base64String
             }
-          }
+          })
         });
         queryClient.invalidateQueries({ queryKey: ["header-settings"] });
         window.dispatchEvent(new CustomEvent("header-settings-updated"));
         setHeaderModalOpen(false);
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      console.error("Failed to upload header image:", error);
-    } finally {
-      setUploading(false);
-    }
+      } catch (error) {
+        console.error("Failed to upload header image:", error);
+      } finally {
+        setUploading(false);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleResetHeader = async () => {
@@ -687,13 +687,13 @@ export function Header({ onMenuClick }: HeaderProps) {
           try {
             await apiFetch("/api/header-settings", {
               method: "PUT",
-              body: {
+              body: JSON.stringify({
                 backgroundType: "image",
                 imageConfig: {
                   url: url,
                   dataUrl: url
                 }
-              }
+              })
             });
             queryClient.invalidateQueries({ queryKey: ["header-settings"] });
             window.dispatchEvent(new CustomEvent("header-settings-updated"));
