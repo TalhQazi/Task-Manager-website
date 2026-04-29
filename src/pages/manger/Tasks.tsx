@@ -100,6 +100,8 @@ import { useSocket } from "@/contexts/SocketContext";
 import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import jsPDF from "jspdf";
 import { Pagination } from "@/components/Pagination";
+import { useGlobalTimer } from "@/hooks/useGlobalTimer";
+import { getRemainingTime, getTimerState } from "@/lib/manger/time";
 
 interface Task {
   id: string;
@@ -451,6 +453,7 @@ const formatMessageTime = (dateString: string) => {
   return date.toLocaleDateString();
 };
 
+
 const priorityClasses = {
   high: "bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive border-destructive/20",
   medium: "bg-gradient-to-r from-yellow-500/20 to-amber-500/10 text-yellow-600 border-yellow-500/20",
@@ -626,6 +629,7 @@ export default function Tasks() {
   const [projectComments, setProjectComments] = useState<TaskComment[]>([]);
   const [projectCommentsLoading, setProjectCommentsLoading] = useState(false);
   
+  const now = useGlobalTimer();
   // Top contributors state
   const [topContributors, setTopContributors] = useState<Array<{
     userId: string;
@@ -1739,7 +1743,7 @@ export default function Tasks() {
     : (tasksQuery.data?.totalPages || 1);
 
   return (
-    <div className="px-2 sm:px-4 lg:px-6 space-y-6">
+    <div className="px-2 sm:px-4 lg:px-6 space-y-6"> 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="page-header mb-0">
@@ -2061,136 +2065,94 @@ export default function Tasks() {
               <p className="text-muted-foreground">No standalone tasks found. Create one to begin.</p>
             ) : (
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {paginatedTasks.map((task, index) => {
-                  const letterIndex = String.fromCharCode(65 + (index % 26));
-                  const displayNumber = (taskPage - 1) * PAGE_SIZE + index + 1;
-                  const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0
-                    ? task.assignees.map(resolveAssigneeName)
-                    : [];
-                  
-                  return (
-                    <motion.div
-                      key={task.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="bg-card rounded-xl border border-muted/50 hover:border-primary/50 transition-all hover:shadow-md overflow-hidden flex flex-col group cursor-pointer"
-                      onClick={() => openView(task)}
-                    >
-                      {/* Card Header with Title and Menu */}
-                      <div className="p-4 border-b border-muted/30 flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-foreground line-clamp-1">
-                            <span className="text-primary mr-1.5">{task.taskNumber || displayNumber}.</span>
-                            {task.title}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1 capitalize">{task.priority} priority</p>
-                        </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              className="p-1 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100"
-                              aria-label="Task actions"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openView(task); }}>
-                              View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handlePrintTask(task); }}>
-                              Print
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(task); }}>
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }}>
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+               {paginatedTasks.map((task, index) => {
+  const timer = task.dueDate
+    ? getRemainingTime(task.dueDate, now)
+    : null;
 
-                      {/* Card Body */}
-                      <div className="p-4 flex-1 space-y-3">
-                        {/* Description */}
-                        <p className="text-sm text-muted-foreground line-clamp-2">{task.description}</p>
+  const state = timer ? getTimerState(timer.totalMs) : null;
 
-                        {/* Attachment Summary */}
-                        {task.attachments && task.attachments.length > 0 && (
-                          <div className="flex items-center gap-1.5 py-1 px-2 bg-primary/5 border border-primary/10 rounded-md w-fit">
-                            <Paperclip className="h-3 w-3 text-primary" />
-                            <span className="text-[10px] font-bold text-primary uppercase tracking-tight">
-                              {(() => {
-                                const docs = task.attachments.filter(a => !a.mimeType?.startsWith("image/")).length;
-                                const imgs = task.attachments.filter(a => a.mimeType?.startsWith("image/")).length;
-                                const parts = [];
-                                if (docs > 0) parts.push(`${docs} document${docs > 1 ? "s" : ""}`);
-                                if (imgs > 0) parts.push(`${imgs} image${imgs > 1 ? "s" : ""}`);
-                                return parts.join(", ");
-                              })()}
-                            </span>
-                          </div>
-                        )}
+  return (
+    <motion.div
+      key={task.id}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05 }}
+      className="bg-card rounded-xl border border-muted/50 hover:border-primary/50 transition-all hover:shadow-md overflow-hidden flex flex-col group cursor-pointer"
+      onClick={() => openView(task)}
+    >
+      {/* Card Header */}
+      <div className="p-4 border-b border-muted/30 flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-foreground line-clamp-1">
+            <span className="text-primary mr-1.5">
+              {task.taskNumber || ((taskPage - 1) * PAGE_SIZE + index + 1)}.
+            </span>
+            {task.title}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1 capitalize">
+            {task.priority} priority
+          </p>
+        </div>
+      </div>
 
-                        {/* Assignees */}
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-2">Assigned to</p>
-                          <div className="flex items-center gap-2">
-                            {task.assignees && task.assignees.length > 0 ? (
-                              <>
-                                <div className="flex -space-x-2">
-                                  {task.assignees.slice(0, 3).map((assignee, idx) => {
-                                    const displayName = resolveAssigneeName(assignee);
-                                    return (
-                                      <Avatar key={idx} className="w-7 h-7 border-2 border-background">
-                                        <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
-                                          {displayName.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                    );
-                                  })}
-                                </div>
-                                <span className="text-xs text-muted-foreground">
-                                  {task.assignees.length > 3 ? `+${task.assignees.length - 3} more` : assigneeList.slice(0, 3).join(", ")}
-                                </span>
-                              </>
-                            ) : (
-                              <span className="text-xs text-muted-foreground italic">Unassigned</span>
-                            )}
-                          </div>
-                        </div>
+      {/* Card Body */}
+      <div className="p-4 flex-1 space-y-3">
 
-                        {/* Badges */}
-                        <div className="flex items-center gap-2 pt-2">
-                          <Badge variant="outline" className="text-xs capitalize" style={{
-                            backgroundColor: task.priority === 'high' ? 'rgba(239, 68, 68, 0.1)' : task.priority === 'medium' ? 'rgba(234, 179, 8, 0.1)' : 'rgba(34, 197, 94, 0.1)',
-                            color: task.priority === 'high' ? 'rgb(239, 68, 68)' : task.priority === 'medium' ? 'rgb(234, 179, 8)' : 'rgb(34, 197, 94)',
-                            borderColor: task.priority === 'high' ? 'rgba(239, 68, 68, 0.3)' : task.priority === 'medium' ? 'rgba(234, 179, 8, 0.3)' : 'rgba(34, 197, 94, 0.3)'
-                          }}>
-                            {task.priority}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs capitalize">
-                            {task.status}
-                          </Badge>
-                        </div>
-                      </div>
+        {/* ✅ TIMER ADDED HERE */}
+        {timer && (
+          <div
+            className={`text-xs font-mono font-bold ${
+              state === "normal"
+                ? "text-green-600"
+                : state === "warning"
+                ? "text-yellow-500"
+                : state === "critical"
+                ? "text-red-500"
+                : "text-red-600 animate-pulse"
+            }`}
+          >
+            ⏱ {timer.formatted}
+          </div>
+        )}
 
-                      {/* Footer */}
-                      <div className="px-4 py-3 border-t border-muted/30 bg-muted/10">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">{letterIndex}-{task.id.slice(-4).toUpperCase()}</span>
-                          <span className="text-muted-foreground">
-                            {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No due date"}
-                          </span>
-                        </div>
-                      </div>
-                    </motion.div>
-                  );
-                })}
+        {/* Description */}
+        <p className="text-sm text-muted-foreground line-clamp-2">
+          {task.description}
+        </p>
+
+        {/* Status & Priority */}
+        <div className="flex gap-2 flex-wrap">
+          <Badge
+            variant="secondary"
+            className={cn("text-xs", statusClasses[task.status])}
+          >
+            {task.status}
+          </Badge>
+          <Badge
+            variant="outline"
+            className={cn("text-xs border", priorityClasses[task.priority])}
+          >
+            {task.priority}
+          </Badge>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="p-4 border-t border-muted/30 bg-muted/10 space-y-2 text-sm">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Calendar className="w-3.5 h-3.5" />
+          <span className="text-xs">
+            Due:{" "}
+            {task.dueDate
+              ? new Date(task.dueDate).toLocaleDateString()
+              : "—"}
+          </span>
+        </div>
+      </div>
+    </motion.div>
+  );
+})}
               </div>
             )}
           </div>
@@ -3648,6 +3610,25 @@ export default function Tasks() {
                         </div>
                       )}
                     </div>
+
+                    {/* Status Indicator */}
+                   {task.dueDate && task.timer_enabled !== false && (() => {
+              const { formatted, totalMs, isOverdue } = getRemainingTime(task.dueDate, now);
+              const state = getTimerState(totalMs);
+
+              return (
+                <div className={cn(
+                  "flex items-center gap-2 text-xs font-mono font-semibold px-2 py-1 rounded-md w-fit",
+                  state === "normal" && "bg-green-500/10 text-green-600",
+                  state === "warning" && "bg-yellow-500/10 text-yellow-600",
+                  state === "critical" && "bg-red-500/10 text-red-600",
+                  state === "overdue" && "bg-red-600/10 text-red-700 animate-pulse"
+                )}>
+                  <Clock className="w-3.5 h-3.5" />
+                  {formatted}
+                </div>
+              );
+            })()}
                   </motion.div>
                 ))}
               </div>
