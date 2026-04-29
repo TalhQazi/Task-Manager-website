@@ -1,3 +1,4 @@
+
 /* 1️⃣ Import fonts first */
 @import "./styles/taskblaster.css";
 
@@ -8,6 +9,16 @@
 
 /* 3️⃣ Custom base layer */
 @layer base {
+   html {
+    overflow-x: hidden;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    overflow-x: hidden;
+    font-family: 'Plus Jakarta Sans', 'DM Sans', sans-serif;
+  }
   :root {
     --background: 210 20% 98%;
     --foreground: 222 47% 11%;

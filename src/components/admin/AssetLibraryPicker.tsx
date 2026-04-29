@@ -71,6 +71,7 @@ export default function AssetLibraryPicker({ open, onOpenChange, onSelect, image
     if (selectedFolderId) params.set("folderId", selectedFolderId);
     if (imagesOnly) params.set("type", "image");
     if (search.trim()) params.set("q", search.trim());
+    params.set("sort", "az");
     params.set("limit", "60");
 
     (async () => {

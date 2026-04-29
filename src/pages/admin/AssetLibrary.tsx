@@ -138,7 +138,7 @@ export default function AssetLibrary() {
   const [search, setSearch] = useState("");
   const [activeTab, setActiveTab] = useState<"assets" | "brand-kits">("assets");
   const [typeFilter, setTypeFilter] = useState<"" | "image" | "pdf">("");
-  const [sort, setSort] = useState<"newest" | "oldest" | "az" | "za" | "size-asc" | "size-desc">("newest");
+  const [sort, setSort] = useState<"newest" | "oldest" | "az" | "za" | "size-asc" | "size-desc">("az");
   const [page, setPage] = useState(1);
   const limit = 25;
 

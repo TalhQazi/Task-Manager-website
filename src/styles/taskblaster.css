@@ -119,10 +119,60 @@ body[class*="tb-theme-"] div:not([class*="bg-"]):not([class*="btn"]):not([class*
   --tb-sidebar-bg: #000000;
   --border: 0 0% 100%;
   --muted-foreground: 0 0% 100%;
-  --chart-2: 120 100% 50%;
-  --chart-3: 0 100% 50%;
+  --chart-1: 180 100% 50%; /* Cyan */
+  --chart-2: 120 100% 50%; /* Lime */
+  --chart-3: 60 100% 50%;  /* Yellow */
+  --chart-4: 300 100% 50%; /* Magenta */
+  --chart-5: 0 100% 50%;   /* Red */
+  --primary: 0 0% 100%;
+  --primary-foreground: 0 0% 0%;
+  --success: 120 100% 50%;
+  --success-foreground: 0 0% 0%;
+  --warning: 60 100% 50%;
+  --warning-foreground: 0 0% 0%;
+  --destructive: 0 100% 50%;
+  --destructive-foreground: 0 0% 0%;
+  --accent: 180 100% 50%;
+  --accent-foreground: 0 0% 0%;
+  --muted: 0 0% 20%;
   border-color: #ffffff !important;
 }
+
+/* High Contrast Utility Overrides */
+.tb-theme-high-contrast .text-slate-900,
+.tb-theme-high-contrast .text-slate-800,
+.tb-theme-high-contrast .text-slate-700,
+.tb-theme-high-contrast .text-gray-900,
+.tb-theme-high-contrast .text-gray-800 {
+  color: #ffffff !important;
+}
+
+.tb-theme-high-contrast [class*="bg-"][class*="/10"],
+.tb-theme-high-contrast [class*="bg-"][class*="/20"] {
+  background-color: rgba(255, 255, 255, 0.15) !important;
+  border: 1px solid #ffffff !important;
+}
+
+.tb-theme-high-contrast .badge,
+.tb-theme-high-contrast [class*="badge"] {
+  background-color: transparent !important;
+  border: 2px solid currentColor !important;
+  color: #ffffff !important;
+  font-weight: 900 !important;
+}
+
+.tb-theme-high-contrast .text-success { color: #00ff00 !important; }
+.tb-theme-high-contrast .text-warning { color: #ffff00 !important; }
+.tb-theme-high-contrast .text-destructive { color: #ff0000 !important; }
+.tb-theme-high-contrast .text-primary { color: #00ffff !important; }
+.tb-theme-high-contrast .text-[#6366f1] { color: #ffffff !important; }
+
+.tb-theme-high-contrast [class*="Avatar"],
+.tb-theme-high-contrast .rounded-full {
+  border: 1px solid #ffffff !important;
+}
+
+
 
 .tb-theme-energy-mode {
   --background: 40 100% 10%;

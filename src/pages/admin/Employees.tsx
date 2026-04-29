@@ -1008,9 +1008,9 @@ const Employees = () => {
           variants={containerVariants}
         >
           {[
-            { label: "Total Employees", value: employeesList.length, icon: Users, color: "primary" },
             { label: "Active", value: employeesList.filter(e => e.status === "active").length, icon: Clock, color: "success" },
             { label: "On Leave", value: employeesList.filter(e => e.status === "on-leave").length, icon: Calendar, color: "warning" },
+            { label: "Total Employees", value: employeesList.length, icon: Users, color: "primary" },
             { label: "Inactive", value: employeesList.filter(e => e.status === "inactive").length, icon: Power, color: "muted" },
           ].map((item, index) => (
             <motion.div

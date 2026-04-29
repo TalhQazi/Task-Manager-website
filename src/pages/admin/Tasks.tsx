@@ -89,6 +89,7 @@ import {
   MessageSquare,
   Download,
   Maximize2,
+  Smile,
 } from "lucide-react";
 import { cn } from "@/lib/admin/utils";
 import { apiFetch, downloadTaskAttachment, toProxiedUrl, downloadViaUrl } from "@/lib/admin/apiClient";
@@ -100,6 +101,7 @@ import { Pagination } from "@/components/Pagination";
 import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import AssetLibraryPicker from "@/components/admin/AssetLibraryPicker";
 import { TaskContributors } from "@/components/admin/tasks/TaskContributors";
+import DropboxFilePicker, { type DropboxSelectedFile, formatBytes, DropboxIcon } from "@/components/admin/DropboxFilePicker";
 
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
   const [src, setSrc] = useState<string | null | undefined>(undefined);
@@ -277,6 +279,7 @@ interface Task {
   projectId?: string;
   attachmentFileName?: string;
   attachmentNote?: string;
+  dropboxAttachmentCount?: number;
   attachment?: {
     fileName: string;
     url: string;
@@ -356,6 +359,13 @@ type TaskComment = {
     size: number;
     uploadedAt?: string;
   }>;
+  reactions?: Array<{
+    emoji: string;
+    userId: string;
+    username: string;
+    fullName?: string;
+    createdAt?: string;
+  }>;
 };
 
 type TaskApi = Omit<Task, "id"> & {
@@ -424,6 +434,7 @@ function normalizeTask(t: any): Task {
     attachmentNote: extra.attachmentNote,
     attachment: extra.attachment,
     attachments: Array.isArray((t as any).attachments) ? (t as any).attachments : undefined,
+    dropboxAttachmentCount: t.dropboxAttachmentCount,
   };
 }
 
@@ -546,6 +557,8 @@ export default function Tasks() {
   const [editSelectedAssignees, setEditSelectedAssignees] = useState<string[]>([]);
   const [editTaskFile, setEditTaskFile] = useState<File | null>(null);
   const [editTaskFilePreview, setEditTaskFilePreview] = useState<string | null>(null);
+  const [editTaskFiles, setEditTaskFiles] = useState<File[]>([]);
+  const [editTaskFilePreviews, setEditTaskFilePreviews] = useState<string[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -595,6 +608,13 @@ export default function Tasks() {
   const isAdminRole = currentRole === "admin" || currentRole === "super-admin";
   const [archivingCommentId, setArchivingCommentId] = useState<string | null>(null);
   const [archivingAttachment, setArchivingAttachment] = useState<number | null>(null);
+
+  // Dropbox integration state
+  const [isDropboxPickerOpen, setIsDropboxPickerOpen] = useState(false);
+  const [dropboxSelectedFiles, setDropboxSelectedFiles] = useState<DropboxSelectedFile[]>([]);
+  const [viewDropboxAttachments, setViewDropboxAttachments] = useState<Array<{ id: string; file_name: string; file_type: string; file_size: number; dropbox_path: string; temporary_link: string; created_at: string }>>([]);
+  const [loadingDropboxAttachments, setLoadingDropboxAttachments] = useState(false);
+  const [dropboxAttachmentsError, setDropboxAttachmentsError] = useState<string | null>(null);
   
   // Lightbox / File Preview State
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -699,13 +719,11 @@ export default function Tasks() {
       setProjectViewName(project.name);
       setProjectViewDesc(project.description || "");
       setProjectViewEdited(false);
-      setTasks(projectTasks);
     } catch (err) {
       toast({ title: "Failed to load project", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });
       if (!partialProject) {
         setSelectedProject(null);
       }
-      setTasks([]);
     } finally {
       setIsLoadingProject(false);
     }
@@ -1229,6 +1247,8 @@ export default function Tasks() {
         attachmentNote: formData.attachmentNote,
         attachment,
         attachments,
+        // Dropbox attachment references (source == "DROPBOX")
+        dropboxAttachments: dropboxSelectedFiles,
       };
 
       if (!isDirectTask && selectedProject) {
@@ -1264,6 +1284,7 @@ export default function Tasks() {
       setAttachmentFile(null);
       setAttachmentFiles([]);
       setAttachmentFilePreviews([]);
+      setDropboxSelectedFiles([]);
       setValidationErrors({});
 
       toast({
@@ -1288,6 +1309,41 @@ export default function Tasks() {
     setTaskViewEdited(false);
     setIsViewOpen(true);
     void loadComments(task.id);
+    void loadDropboxAttachments(task.id);
+  };
+
+  // Load Dropbox attachments for a specific task
+  const loadDropboxAttachments = async (taskId: string) => {
+    try {
+      setLoadingDropboxAttachments(true);
+      setDropboxAttachmentsError(null);
+      const res = await apiFetch<{ items: Array<{ id: string; file_name: string; file_type: string; file_size: number; dropbox_path: string; temporary_link: string; created_at: string }> }>(
+        `/api/tasks/${encodeURIComponent(taskId)}/dropbox-attachments`
+      );
+      setViewDropboxAttachments(res.items || []);
+    } catch (err) {
+      setViewDropboxAttachments([]);
+      setDropboxAttachmentsError(err instanceof Error ? err.message : "Failed to load Dropbox files");
+    } finally {
+      setLoadingDropboxAttachments(false);
+    }
+  };
+
+  // Open a Dropbox file via a fresh temporary link
+  const openDropboxFile = async (dropboxPath: string) => {
+    try {
+      const res = await apiFetch<{ link: string }>("/api/dropbox/files/temporary-link", {
+        method: "POST",
+        body: JSON.stringify({ path: dropboxPath }),
+      });
+      if (res.link) {
+        window.open(res.link, "_blank", "noopener,noreferrer");
+      } else {
+        toast({ title: "Link unavailable", description: "Could not generate a viewing link for this file.", variant: "destructive" });
+      }
+    } catch (err) {
+      toast({ title: "Failed to open file", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });
+    }
   };
 
   const loadComments = async (taskId: string, silent: boolean = false) => {
@@ -1408,14 +1464,50 @@ export default function Tasks() {
       };
 
       socket.on("user-typing", handleTyping);
+      
+      const handleReactionUpdated = ({ commentId, reactions }: { commentId: string; reactions: any[] }) => {
+        setComments((prev) => prev.map(c => c.id === commentId ? { ...c, reactions } : c));
+      };
+
+      socket.on("comment-reaction-updated", handleReactionUpdated);
 
       return () => {
         socket.off("new-comment", handleNewComment);
         socket.off("user-typing", handleTyping);
+        socket.off("comment-reaction-updated", handleReactionUpdated);
         leaveTask(selectedTask.id);
       };
     }
   }, [isViewOpen, selectedTask?.id, socket, joinTask, leaveTask]);
+
+  const toggleReaction = async (commentId: string, emoji: string) => {
+    if (!selectedTask) return;
+    try {
+      // Optimistic update
+      setComments((prev) => 
+        prev.map(c => {
+          if (c.id !== commentId) return c;
+          const auth = getAuthState();
+          const userId = String(auth.sub || auth.id || "");
+          const existing = (c.reactions || []).find(r => r.emoji === emoji && r.userId === userId);
+          let newReactions;
+          if (existing) {
+            newReactions = (c.reactions || []).filter(r => !(r.emoji === emoji && r.userId === userId));
+          } else {
+            newReactions = [...(c.reactions || []), { emoji, userId, username: auth.username || "", fullName: "" }];
+          }
+          return { ...c, reactions: newReactions };
+        })
+      );
+
+      await apiFetch(`/api/tasks/${encodeURIComponent(selectedTask.id)}/comments/${encodeURIComponent(commentId)}/reactions`, {
+        method: "POST",
+        body: JSON.stringify({ emoji }),
+      });
+    } catch (e) {
+      console.error("Failed to toggle reaction:", e);
+    }
+  };
 
   const archiveComment = async (commentId: string) => {
     if (!selectedTask) return;
@@ -1516,6 +1608,8 @@ export default function Tasks() {
     setIsEditOpen(true);
     setEditTaskFile(null);
     setEditTaskFilePreview(task.attachment?.url || null);
+    setEditTaskFiles([]);
+    setEditTaskFilePreviews(task.attachments?.map(a => a.url) || (task.attachment?.url ? [task.attachment.url] : []));
   };
 
   const openDelete = (task: Task) => {
@@ -1677,24 +1771,28 @@ export default function Tasks() {
 
     const payload: Partial<Task> = { ...values, assignees: editSelectedAssignees };
 
-    if (editTaskFile) {
-      try {
-        const base64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(editTaskFile);
-        });
-        payload.attachment = {
-          fileName: editTaskFile.name,
-          url: base64,
-          mimeType: editTaskFile.type,
-          size: editTaskFile.size
-        };
-      } catch (err) {
-        console.error("Failed to process task attachment update:", err);
+    // Handle multiple attachments
+    const newAttachments = editTaskFiles.length > 0 ? await filesToAttachments(editTaskFiles) : [];
+    const existingAttachments = (selectedTask.attachments || [])
+      .filter(a => editTaskFilePreviews.includes(a.url));
+
+    // Support legacy single attachment
+    if (selectedTask.attachment?.url && editTaskFilePreviews.includes(selectedTask.attachment.url)) {
+      if (!existingAttachments.some(a => a.url === selectedTask.attachment?.url)) {
+        existingAttachments.push(selectedTask.attachment);
       }
-    } else if (editTaskFilePreview === null) {
+    }
+
+    const combinedAttachments = [...existingAttachments, ...newAttachments];
+    payload.attachments = combinedAttachments;
+    
+    // Maintain legacy field for compatibility
+    if (combinedAttachments.length > 0) {
+      payload.attachment = combinedAttachments[0];
+      payload.attachmentFileName = combinedAttachments[0].fileName;
+    } else {
       payload.attachment = { fileName: "", url: "", mimeType: "", size: 0 };
+      payload.attachmentFileName = "";
     }
 
     updateTaskMutation.mutate(
@@ -1704,6 +1802,8 @@ export default function Tasks() {
           setIsEditOpen(false);
           setEditTaskFile(null);
           setEditTaskFilePreview(null);
+          setEditTaskFiles([]);
+          setEditTaskFilePreviews([]);
           setEditSelectedAssignees([]);
           toast({
             title: "Task updated",
@@ -1757,7 +1857,7 @@ export default function Tasks() {
     });
   };
 
-  const sourceTasks = selectedProject ? selectedProject.tasks : tasks;
+  const sourceTasks = selectedProject ? selectedProject.tasks : (tasksQuery.data?.items || []);
 
   const filteredTasks = useMemo(() => {
     return sourceTasks.filter((task) => {
@@ -1806,14 +1906,14 @@ export default function Tasks() {
   }, [projects, searchQuery, statusFilter]);
 
   const filteredStandaloneTasks = useMemo(() => {
-    const standalone = tasks.filter((t) => !t.projectId);
+    const standalone = tasksQuery.data?.items || [];
     if (!searchQuery.trim()) return standalone;
     const q = searchQuery.toLowerCase();
     return standalone.filter((task) => {
       const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
       return task.title.toLowerCase().includes(q) || assigneesText.toLowerCase().includes(q);
     });
-  }, [tasks, searchQuery]);
+  }, [tasksQuery.data, searchQuery]);
 
   // Project & Task counts from server data
   const projectTotalPages = projectsQuery.data?.totalPages || 1;
@@ -1847,7 +1947,14 @@ export default function Tasks() {
         <div className="flex flex-wrap gap-2 sm:gap-3">
           {selectedProject ? (
             <>
-              <Button variant="outline" size="sm" onClick={() => { setSelectedProject(null); setSearchQuery(""); }} className="h-9 text-sm">
+              <Button variant="outline" size="sm" onClick={() => { 
+                setSelectedProject(null); 
+                setSearchQuery(""); 
+                // Explicitly clear filters if needed
+                setStatusFilter("all");
+                setPriorityFilter("all");
+                setTaskPage(1);
+              }} className="h-9 text-sm">
                 Back to Projects
               </Button>
               <Button size="sm" className="gap-2 h-9 text-sm" onClick={() => {
@@ -2236,6 +2343,15 @@ export default function Tasks() {
                               />
                             </div>
                           )}
+                          {/* Attachment indicators */}
+                          {(task.dropboxAttachmentCount && task.dropboxAttachmentCount > 0) ? (
+                            <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                              <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-tight bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded w-fit border border-blue-500/20">
+                                <DropboxIcon size={9} />
+                                {task.dropboxAttachmentCount} file{task.dropboxAttachmentCount > 1 ? "s" : ""}
+                              </div>
+                            </div>
+                          ) : null}
                           <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
                             <span className="truncate flex-1 mr-2">
                               <Users className="w-3 h-3 inline mr-1" />
@@ -2500,7 +2616,7 @@ export default function Tasks() {
               <div className="sm:col-span-1 space-y-1.5"><label className="text-sm font-medium">Priority</label><Select value={formData.priority} onValueChange={(value) => setFormData((prev) => ({ ...prev, priority: value as Task['priority'] }))}><SelectTrigger><SelectValue placeholder="Priority" /></SelectTrigger><SelectContent><SelectItem value="high">High</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="low">Low</SelectItem></SelectContent></Select></div>
               <div className="sm:col-span-1 space-y-1.5"><label className="text-sm font-medium">Status</label><Select value={formData.status} onValueChange={(value) => setFormData((prev) => ({ ...prev, status: value as Task['status'] }))}><SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="in-progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem><SelectItem value="overdue">Overdue</SelectItem></SelectContent></Select></div>
             </div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Task Attachments</label><div className="space-y-2"><button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted w-full" onClick={() => { const el = document.getElementById("task-attachments-input") as HTMLInputElement | null; el?.click(); }}>+ Add Files/Images</button><input id="task-attachments-input" type="file" accept="*" multiple className="hidden" onChange={(e) => { const files = Array.from(e.target.files ?? []); setAttachmentFiles((prev) => [...prev, ...files]); files.forEach((file) => { const reader = new FileReader(); reader.onload = () => { const result = typeof reader.result === "string" ? reader.result : ""; setAttachmentFilePreviews((prev) => [...prev, result]); }; if (file.type.startsWith("image/")) { reader.readAsDataURL(file); } else { setAttachmentFilePreviews((prev) => [...prev, ""]); } }); }} />{attachmentFiles.length > 0 && (<div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">{attachmentFiles.map((file, idx) => (<div key={idx} className="relative group">{attachmentFilePreviews[idx] ? (<img src={attachmentFilePreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />) : (<div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">📄 {file.name}</div>)}<button type="button" onClick={() => { setAttachmentFiles((prev) => prev.filter((_, i) => i !== idx)); setAttachmentFilePreviews((prev) => prev.filter((_, i) => i !== idx)); }} className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs">✕</button></div>))}</div>)}</div></div>
+            <div className="space-y-1.5"><label className="text-sm font-medium">Task Attachments</label><div className="space-y-2"><div className="flex gap-2"><button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1" onClick={() => { const el = document.getElementById("task-attachments-input") as HTMLInputElement | null; el?.click(); }}>+ Add Files/Images</button>{currentRole === "super-admin" && (<button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1 flex items-center justify-center gap-2" onClick={() => setIsDropboxPickerOpen(true)}><DropboxIcon size={14} />Dropbox</button>)}</div><input id="task-attachments-input" type="file" accept="*" multiple className="hidden" onChange={(e) => { const files = Array.from(e.target.files ?? []); setAttachmentFiles((prev) => [...prev, ...files]); files.forEach((file) => { const reader = new FileReader(); reader.onload = () => { const result = typeof reader.result === "string" ? reader.result : ""; setAttachmentFilePreviews((prev) => [...prev, result]); }; if (file.type.startsWith("image/")) { reader.readAsDataURL(file); } else { setAttachmentFilePreviews((prev) => [...prev, ""]); } }); }} />{attachmentFiles.length > 0 && (<div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">{attachmentFiles.map((file, idx) => (<div key={idx} className="relative group">{attachmentFilePreviews[idx] ? (<img src={attachmentFilePreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />) : (<div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">📄 {file.name}</div>)}<button type="button" onClick={() => { setAttachmentFiles((prev) => prev.filter((_, i) => i !== idx)); setAttachmentFilePreviews((prev) => prev.filter((_, i) => i !== idx)); }} className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs">✕</button></div>))}</div>)}{dropboxSelectedFiles.length > 0 && (<div className="border border-border rounded-md p-2 space-y-1.5 bg-muted/30"><p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><DropboxIcon size={12} />Dropbox Files (External)</p>{dropboxSelectedFiles.map((dbf, idx) => (<div key={idx} className="flex items-center gap-2 bg-background rounded-md px-2.5 py-1.5 border border-border text-sm"><FileText className="w-4 h-4 text-blue-400 flex-shrink-0" /><span className="flex-1 truncate text-foreground">{dbf.file_name}</span><span className="text-xs text-muted-foreground">{dbf.file_size > 0 ? formatBytes(dbf.file_size) : ""}</span><button type="button" onClick={() => setDropboxSelectedFiles((prev) => prev.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive transition-colors">✕</button></div>))}</div>)}</div></div>
             <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end"><Button type="button" variant="outline" onClick={() => { setIsCreateTaskOpen(false); setIsDirectTask(false); }} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button><Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">{isCreating && <Loader2 className="h-4 w-4 animate-spin" />}{isDirectTask ? "Create Task" : "Create Task"}</Button></DialogFooter>
           </form>
         </DialogContent>
@@ -2706,6 +2822,54 @@ export default function Tasks() {
                     </div>
                   )}
 
+                  {/* Dropbox (External) Attachments */}
+                  {viewDropboxAttachments.length > 0 && (
+                    <div className="space-y-3 pt-2">
+                      <h4 className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
+                        <DropboxIcon size={14} className="flex-shrink-0" />
+                        Dropbox Files
+                      </h4>
+                      <div className="space-y-2 bg-muted/20 border border-border/50 rounded-xl p-3">
+                        {viewDropboxAttachments.map((dbAtt) => (
+                          <button
+                            key={dbAtt.id}
+                            type="button"
+                            onClick={() => void openDropboxFile(dbAtt.dropbox_path)}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 bg-background rounded-lg border border-border/60 hover:border-primary/30 hover:bg-muted/50 transition-all text-left group"
+                            aria-label={`Open ${dbAtt.file_name} from Dropbox`}
+                            title={dbAtt.file_name}
+                          >
+                            <div className="w-9 h-9 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                              <FileText className="w-4 h-4 text-blue-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-foreground truncate group-hover:text-primary transition-colors">{dbAtt.file_name}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-semibold uppercase">External File</span>
+                                {dbAtt.file_size > 0 && <span className="text-[10px] text-muted-foreground">{formatBytes(dbAtt.file_size)}</span>}
+                                {dbAtt.file_type && <span className="text-[10px] text-muted-foreground">{dbAtt.file_type.split('/').pop()?.toUpperCase()}</span>}
+                              </div>
+                            </div>
+                            <DropboxIcon size={12} className="flex-shrink-0 opacity-40 group-hover:opacity-100 transition-opacity" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {/* Dropbox loading state */}
+                  {loadingDropboxAttachments && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2" role="status">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Loading Dropbox attachments...
+                    </div>
+                  )}
+                  {/* Dropbox error state — shows when fetch fails */}
+                  {dropboxAttachmentsError && !loadingDropboxAttachments && viewDropboxAttachments.length === 0 && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground pt-2">
+                      <DropboxIcon size={12} className="opacity-40" />
+                      <span className="text-destructive/70">Couldn't load external files</span>
+                    </div>
+                  )}
+
                   {/* Activity Thread */}
                   <div className="pt-4 border-t border-border/60">
                     <div className="flex items-center justify-between mb-5">
@@ -2788,6 +2952,30 @@ export default function Tasks() {
                                       "flex flex-col group/bubble relative min-w-0",
                                       isMe ? "items-end" : "items-start"
                                     )}>
+                                      {/* Reaction Trigger */}
+                                      <div className={cn(
+                                        "absolute -top-4 opacity-0 group-hover/bubble:opacity-100 transition-opacity flex items-center gap-1 bg-background border border-border shadow-sm rounded-full px-1.5 py-0.5 z-20",
+                                        isMe ? "right-0" : "left-0"
+                                      )}>
+                                        <Popover>
+                                          <PopoverTrigger asChild>
+                                            <button className="p-1 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground">
+                                              <Smile className="w-3.5 h-3.5" />
+                                            </button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-fit p-1.5 grid grid-cols-4 gap-1" align={isMe ? "end" : "start"}>
+                                            {["👍", "❤️", "🔥", "🚀", "👏", "🎉", "😮", "🙏"].map(emoji => (
+                                              <button
+                                                key={emoji}
+                                                onClick={() => { toggleReaction(c.id, emoji); }}
+                                                className="p-1.5 hover:bg-muted rounded text-lg transition-transform hover:scale-125"
+                                              >
+                                                {emoji}
+                                              </button>
+                                            ))}
+                                          </PopoverContent>
+                                        </Popover>
+                                      </div>
                                       <div className={cn(
                                         "chat-bubble",
                                         isMe ? "chat-bubble-me" : "chat-bubble-others"
@@ -2817,7 +3005,38 @@ export default function Tasks() {
                                           </div>
                                         )}
                                       </div>
-                                      
+
+                                      {/* Reactions Display */}
+                                      {c.reactions && c.reactions.length > 0 && (
+                                        <div className="flex flex-wrap gap-1 mt-1 px-1">
+                                          {Object.entries(
+                                            c.reactions.reduce((acc, r) => {
+                                              acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+                                              return acc;
+                                            }, {} as Record<string, number>)
+                                          ).map(([emoji, count]) => {
+                                            const auth = getAuthState();
+                                            const userId = String(auth.sub || auth.id || "");
+                                            const hasReacted = c.reactions?.some(r => r.emoji === emoji && r.userId === userId);
+                                            return (
+                                              <button
+                                                key={emoji}
+                                                onClick={() => toggleReaction(c.id, emoji)}
+                                                className={cn(
+                                                  "flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] border transition-all",
+                                                  hasReacted 
+                                                    ? "bg-primary/20 border-primary/40 text-primary" 
+                                                    : "bg-muted/30 border-border/40 text-muted-foreground hover:bg-muted/50"
+                                                )}
+                                              >
+                                                <span>{emoji}</span>
+                                                <span className="font-bold">{count}</span>
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+
                                       <div className={cn(
                                         "chat-timestamp",
                                         isMe ? "text-right mr-1" : "text-left ml-1"
@@ -3043,61 +3262,92 @@ export default function Tasks() {
                 <FormField control={editForm.control} name="dueTime" render={({ field }) => (<FormItem><FormLabel>Due Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
               </div>
 
-              {/* Task Attachment Update */}
-              <div className="space-y-3 pt-2">
-                <FormLabel>Task Attachment / Logo</FormLabel>
-                <div className="flex items-center gap-4 p-3 rounded-lg bg-muted/30 border border-dashed border-border">
-                  {editTaskFilePreview ? (
-                    <div className="relative group w-16 h-16 rounded-md overflow-hidden border border-border bg-white">
-                      {editTaskFilePreview.startsWith("data:image/") || 
-                       editTaskFilePreview.match(/\.(jpg|jpeg|png|gif|webp|svg)/i) ||
-                       (selectedTask?.attachment?.mimeType?.startsWith("image/")) ? (
-                        <img src={editTaskFilePreview} alt="Preview" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-primary/5">
-                          <FileText className="w-8 h-8 text-primary/40" />
-                        </div>
-                      )}
-                      <button 
-                        type="button" 
-                        onClick={() => { setEditTaskFile(null); setEditTaskFilePreview(null); }}
-                        className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
-                      >
-                        <Trash2 className="w-4 h-4 text-white" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="w-16 h-16 rounded-md bg-muted/50 flex items-center justify-center text-muted-foreground/30 border border-border">
-                      <Paperclip className="w-6 h-6" />
+              <div className="space-y-1.5 pt-2">
+                <FormLabel>Task Attachments</FormLabel>
+                <div className="space-y-2">
+                  <button 
+                    type="button" 
+                    className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted w-full flex items-center justify-center gap-2" 
+                    onClick={() => { const el = document.getElementById("edit-task-attachments-input") as HTMLInputElement | null; el?.click(); }}
+                  >
+                    <Plus className="w-4 h-4" /> Add Files/Images
+                  </button>
+                  <input 
+                    id="edit-task-attachments-input" 
+                    type="file" 
+                    accept="*" 
+                    multiple 
+                    className="hidden" 
+                    onChange={(e) => { 
+                      const files = Array.from(e.target.files ?? []); 
+                      setEditTaskFiles((prev) => [...prev, ...files]); 
+                      files.forEach((file) => { 
+                        const reader = new FileReader(); 
+                        reader.onload = () => { 
+                          const result = typeof reader.result === "string" ? reader.result : ""; 
+                          setEditTaskFilePreviews((prev) => [...prev, result]); 
+                        }; 
+                        if (file.type.startsWith("image/")) { 
+                          reader.readAsDataURL(file); 
+                        } else { 
+                          // For non-images, we push a special placeholder or empty string
+                          setEditTaskFilePreviews((prev) => [...prev, ""]); 
+                        } 
+                      }); 
+                    }} 
+                  />
+                  {editTaskFilePreviews.length > 0 && (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">
+                      {editTaskFilePreviews.map((url, idx) => {
+                        const isNewFile = idx >= (editTaskFilePreviews.length - editTaskFiles.length);
+                        const fileName = isNewFile 
+                          ? editTaskFiles[idx - (editTaskFilePreviews.length - editTaskFiles.length)].name 
+                          : (selectedTask?.attachments?.[idx]?.fileName || selectedTask?.attachment?.fileName || "Existing File");
+                        
+                        const isImage = url.startsWith("data:image/") || 
+                                       url.match(/\.(jpg|jpeg|png|gif|webp|svg)/i) ||
+                                       (idx < (selectedTask?.attachments?.length || 0) && selectedTask?.attachments?.[idx]?.mimeType?.startsWith("image/")) ||
+                                       (idx === 0 && selectedTask?.attachment?.mimeType?.startsWith("image/"));
+
+                        return (
+                          <div key={idx} className="relative group rounded-md overflow-hidden border border-border aspect-square bg-muted/20">
+                            {isImage && url ? (
+                              <img src={url} alt="Preview" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center">
+                                <FileText className="w-8 h-8 text-muted-foreground/40 mb-1" />
+                                <span className="text-[10px] text-muted-foreground truncate w-full px-1">{fileName}</span>
+                              </div>
+                            )}
+                            <button 
+                              type="button" 
+                              onClick={() => { 
+                                const isNew = idx >= (editTaskFilePreviews.length - editTaskFiles.length);
+                                if (isNew) {
+                                  const newIdx = idx - (editTaskFilePreviews.length - editTaskFiles.length);
+                                  setEditTaskFiles(prev => prev.filter((_, i) => i !== newIdx));
+                                }
+                                setEditTaskFilePreviews((prev) => prev.filter((_, i) => i !== idx)); 
+                              }} 
+                              className="absolute top-1 right-1 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs shadow-md"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
-                  
-                  <div className="flex-1">
-                    <p className="text-xs text-muted-foreground mb-2">Update task image or document (Max 16MB)</p>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <Input 
-                        type="file" 
-                        className="h-8 text-xs cursor-pointer flex-1"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            setEditTaskFile(file);
-                            const reader = new FileReader();
-                            reader.onloadend = () => setEditTaskFilePreview(reader.result as string);
-                            reader.readAsDataURL(file);
-                          }
-                        }}
-                      />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 text-xs bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 border-indigo-500/20"
-                        onClick={() => setIsEditTaskLogoPickerOpen(true)}
-                      >
-                        <FileText className="h-3.5 w-3.5 mr-1" /> Library
-                      </Button>
-                    </div>
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 border-indigo-500/20"
+                      onClick={() => setIsEditTaskLogoPickerOpen(true)}
+                    >
+                      <FileText className="h-3.5 w-3.5 mr-1" /> Pick from Library
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -3646,17 +3896,12 @@ export default function Tasks() {
                             />
                           </div>
                         )}
-                        {(task.attachments && task.attachments.length > 0) && (
-                          <div className="flex items-center gap-1.5 text-[11px] font-bold text-muted-foreground uppercase tracking-tight bg-muted/30 px-2 py-1 rounded-md w-fit">
-                            <Paperclip className="w-3 h-3" />
-                            {(() => {
-                              const docs = task.attachments.filter(a => !a.mimeType?.startsWith("image/")).length;
-                              const imgs = task.attachments.filter(a => a.mimeType?.startsWith("image/")).length;
-                              const parts = [];
-                              if (docs > 0) parts.push(`${docs} document${docs > 1 ? "s" : ""}`);
-                              if (imgs > 0) parts.push(`${imgs} image${imgs > 1 ? "s" : ""}`);
-                              return parts.join(", ");
-                            })()}
+                        {(task.dropboxAttachmentCount !== undefined && task.dropboxAttachmentCount > 0) && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-tight bg-blue-500/10 text-blue-400 px-2 py-1 rounded-md w-fit border border-blue-500/20">
+                              <DropboxIcon size={10} />
+                              {task.dropboxAttachmentCount} file{task.dropboxAttachmentCount > 1 ? "s" : ""}
+                            </div>
                           </div>
                         )}
                         <div className="space-y-2">
@@ -3844,6 +4089,14 @@ export default function Tasks() {
           overscroll-behavior: contain;
         }
       `}</style>
+
+      {/* Dropbox File Picker Modal */}
+      <DropboxFilePicker
+        open={isDropboxPickerOpen}
+        onOpenChange={setIsDropboxPickerOpen}
+        onSelect={(files) => setDropboxSelectedFiles((prev) => [...prev, ...files])}
+        multiple={true}
+      />
     </div>
   );
 }

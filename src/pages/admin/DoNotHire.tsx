@@ -123,8 +123,8 @@ const normalizeDoNotHireItem = (item: BackendDoNotHire, employeesById: Map<strin
   return {
     id,
     name,
-    phone: String(item.phone || "").trim() || undefined,
-    email: String(item.email || "").trim() || undefined,
+    phone: (item.phone && item.phone !== "null") ? String(item.phone).trim() : undefined,
+    email: (item.email && item.email !== "null") ? String(item.email).trim() : undefined,
     employeeId,
     reason: String(item.reason || ""),
     incidentNotes: String(item.incidentNotes || item.notes || ""),
@@ -613,7 +613,7 @@ export default function DoNotHire() {
               <>
                 {/* Mobile View - Cards */}
                 <div className="block sm:hidden space-y-3 p-4">
-                  {filtered.map((i) => (
+                  {filtered.map((i, idx) => (
                     <div key={i.id} className="bg-white rounded-lg border p-4 space-y-3">
                       {/* Header with Icon and Name */}
                       <div className="flex items-start justify-between">
@@ -622,7 +622,10 @@ export default function DoNotHire() {
                             <UserX className="h-5 w-5 text-muted-foreground" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="font-medium text-sm truncate">{i.name}</p>
+                            <p className="font-medium text-sm truncate">
+                              <span className="text-primary mr-1">{idx + 1}.</span>
+                              {i.name}
+                            </p>
                           </div>
                         </div>
                         <DropdownMenu>
@@ -690,6 +693,7 @@ export default function DoNotHire() {
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-12 text-xs md:text-sm">#</TableHead>
                         <TableHead className="text-xs md:text-sm w-[30%]">Profile</TableHead>
                         <TableHead className="text-xs md:text-sm w-[25%]">Reason</TableHead>
                         <TableHead className="text-xs md:text-sm w-[15%]">Status</TableHead>
@@ -698,8 +702,9 @@ export default function DoNotHire() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filtered.map((i) => (
+                      {filtered.map((i, idx) => (
                         <TableRow key={i.id} className="hover:bg-muted/30">
+                          <TableCell className="text-xs md:text-sm font-bold text-primary/70">{idx + 1}.</TableCell>
                           <TableCell>
                             <div className="flex items-center gap-3">
                               <div className="h-9 w-9 md:h-10 md:w-10 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">

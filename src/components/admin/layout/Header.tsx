@@ -137,16 +137,27 @@ export function Header({ onMenuClick }: HeaderProps) {
         return null;
       }
     },
-    staleTime: 60000,
+    staleTime: 0, // Always fresh for real-time updates
   });
 
+  // Listen for custom event from Settings page
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    const handleUpdate = () => {
+      queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+    };
+    window.addEventListener("header-settings-updated", handleUpdate);
+    return () => window.removeEventListener("header-settings-updated", handleUpdate);
+  }, [queryClient]);
+
   const headerSettings = headerSettingsQuery.data?.item;
-  const headerImageUrlRaw = headerSettings?.imageConfig?.url || headerSettings?.imageConfig?.dataUrl;
+  const showImage = headerSettings?.backgroundType === "image";
+  const headerImageUrlRaw = showImage ? (headerSettings?.imageConfig?.url || headerSettings?.imageConfig?.dataUrl) : null;
   const headerImageUrl = headerImageUrlRaw ? toProxiedUrl(headerImageUrlRaw) : null;
 
-  // Banner header height
+  // Banner header height (static 300px)
   const headerHeight = 300;
-  
+
   // Dynamic background style based on settings
   const bgStyle = useMemo(() => {
     const baseStyle: any = {
@@ -154,13 +165,14 @@ export function Header({ onMenuClick }: HeaderProps) {
       backgroundColor: '#133767'
     };
 
-    if (headerImageUrl) {
+    if (headerImageUrl && showImage) {
       baseStyle.backgroundImage = `url("${headerImageUrl}")`;
       baseStyle.backgroundSize = headerSettings?.imageConfig?.size || 'cover';
       baseStyle.backgroundPosition = headerSettings?.imageConfig?.position || 'center';
       baseStyle.backgroundRepeat = headerSettings?.imageConfig?.repeat || 'no-repeat';
     } else {
-      baseStyle.background = 'linear-gradient(to right, #133767, #133767, #133767)';
+      const { from = '#133767', via = '#133767', to = '#133767' } = headerSettings?.colorConfig || {};
+      baseStyle.background = `linear-gradient(to right, ${from}, ${via}, ${to})`;
     }
 
     return baseStyle;
@@ -170,42 +182,43 @@ export function Header({ onMenuClick }: HeaderProps) {
   const [headerModalOpen, setHeaderModalOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [isHeaderPickerOpen, setIsHeaderPickerOpen] = useState(false);
-  const queryClient = useQueryClient();
 
   const handleHeaderImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploading(true);
-    try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      try {
         const base64String = reader.result as string;
         await apiFetch("/api/header-settings", {
           method: "PUT",
-          body: {
+          body: JSON.stringify({
             backgroundType: "image",
             imageConfig: {
               dataUrl: base64String,
               url: base64String
             }
-          }
+          })
         });
         queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+        window.dispatchEvent(new CustomEvent("header-settings-updated"));
         setHeaderModalOpen(false);
-      };
-      reader.readAsDataURL(file);
-    } catch (error) {
-      console.error("Failed to upload header image:", error);
-    } finally {
-      setUploading(false);
-    }
+      } catch (error) {
+        console.error("Failed to upload header image:", error);
+      } finally {
+        setUploading(false);
+      }
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleResetHeader = async () => {
     try {
       await apiFetch("/api/header-settings/reset", { method: "POST" });
       queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+      window.dispatchEvent(new CustomEvent("header-settings-updated"));
       setHeaderModalOpen(false);
     } catch (error) {
       console.error("Failed to reset header:", error);
@@ -376,6 +389,7 @@ export function Header({ onMenuClick }: HeaderProps) {
       }}
     >
       <div 
+        key={`header-bg-${headerImageUrl || 'none'}-${headerSettings?.updatedAt || headerSettings?.height || '0'}`}
         className="w-full h-full relative overflow-hidden group"
         style={bgStyle}
       >
@@ -673,15 +687,16 @@ export function Header({ onMenuClick }: HeaderProps) {
           try {
             await apiFetch("/api/header-settings", {
               method: "PUT",
-              body: {
+              body: JSON.stringify({
                 backgroundType: "image",
                 imageConfig: {
                   url: url,
                   dataUrl: url
                 }
-              }
+              })
             });
             queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+            window.dispatchEvent(new CustomEvent("header-settings-updated"));
             setIsHeaderPickerOpen(false);
             setHeaderModalOpen(false);
           } catch (error) {

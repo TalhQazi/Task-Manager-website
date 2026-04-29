@@ -1,5 +1,15 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+
+// Type declaration for Web Speech API
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
+
+type SpeechRecognition = typeof window.SpeechRecognition | typeof window.webkitSpeechRecognition;
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -20,7 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Clock, LogIn, LogOut, Timer, Calendar, History, ClipboardList, AlertCircle, AlertTriangle } from "lucide-react";
+import { Clock, LogIn, LogOut, Timer, Calendar, History, ClipboardList, AlertCircle, AlertTriangle, Mic, MicOff, Type } from "lucide-react";
 import { getTodayTimeEntry, clockIn, submitScrumAndClockOut, getEmployeeTimeEntryHistory, getEmployeeProfile, submitEODReport, getOnboardingStatus } from "../lib/api";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
@@ -64,6 +74,10 @@ export default function EmployeeClocked() {
   });
   const [validationError, setValidationError] = useState("");
   const [onboardingStatus, setOnboardingStatus] = useState<string>("not_started");
+  const [inputType, setInputType] = useState<"text" | "voice">("text");
+  const [isRecording, setIsRecording] = useState(false);
+  const [transcription, setTranscription] = useState("");
+  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -123,6 +137,10 @@ export default function EmployeeClocked() {
   const handleClockOutClick = () => {
     // Show scrum modal before clocking out
     setShowScrumModal(true);
+    // Reset voice state
+    setInputType("text");
+    setTranscription("");
+    setIsRecording(false);
   };
 
   const handleScrumSubmit = async () => {
@@ -142,11 +160,13 @@ export default function EmployeeClocked() {
     setScrumSubmitting(true);
 
     try {
-      // Submit EOD report first
+      // Submit EOD report first with inputType and transcription
       await submitEODReport({
+        inputType,
         tasksCompleted: eodData.tasksCompleted.trim(),
         issuesBlockers: eodData.issuesBlockers.trim(),
         notes: eodData.notes.trim(),
+        transcription: inputType === "voice" ? transcription.trim() : undefined,
       });
 
       // Then clock out with scrum (for backward compatibility)
@@ -210,6 +230,72 @@ export default function EmployeeClocked() {
   const isClockedIn = timeEntry?.clockIn && !timeEntry?.clockOut;
   const isClockedOut = timeEntry?.clockIn && timeEntry?.clockOut;
   const isOnboardingApproved = onboardingStatus === "approved";
+
+  // Voice recognition functions
+  const startVoiceRecording = () => {
+    if (!("SpeechRecognition" in window) && !("webkitSpeechRecognition" in window)) {
+      toast.error("Voice recognition is not supported in your browser");
+      return;
+    }
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognitionInstance = new SpeechRecognition();
+    recognitionInstance.continuous = true;
+    recognitionInstance.interimResults = true;
+    recognitionInstance.lang = "en-US";
+
+    recognitionInstance.onresult = (event: any) => {
+      let interimTranscript = "";
+      let finalTranscript = "";
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      setTranscription(finalTranscript || interimTranscript);
+      if (finalTranscript) {
+        setEodData({ ...eodData, tasksCompleted: finalTranscript });
+      }
+    };
+
+    recognitionInstance.onerror = (event: any) => {
+      console.error("Speech recognition error:", event.error);
+      toast.error("Voice recognition error: " + event.error);
+      setIsRecording(false);
+    };
+
+    recognitionInstance.onend = () => {
+      if (isRecording) {
+        setIsRecording(false);
+      }
+    };
+
+    setRecognition(recognitionInstance);
+    recognitionInstance.start();
+    setIsRecording(true);
+    toast.success("Voice recording started");
+  };
+
+  const stopVoiceRecording = () => {
+    if (recognition) {
+      recognition.stop();
+      setIsRecording(false);
+      toast.success("Voice recording stopped");
+    }
+  };
+
+  const toggleVoiceRecording = () => {
+    if (isRecording) {
+      stopVoiceRecording();
+    } else {
+      startVoiceRecording();
+    }
+  };
 
   if (loading) {
     return (
@@ -474,21 +560,77 @@ export default function EmployeeClocked() {
           </DialogHeader>
 
           <div className="py-4 space-y-4">
+            {/* Input Type Toggle */}
+            <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
+              <Button
+                type="button"
+                variant={inputType === "text" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setInputType("text")}
+                disabled={scrumSubmitting || isRecording}
+                className="flex-1"
+              >
+                <Type className="h-4 w-4 mr-2" />
+                Text
+              </Button>
+              <Button
+                type="button"
+                variant={inputType === "voice" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setInputType("voice")}
+                disabled={scrumSubmitting || isRecording}
+                className="flex-1"
+              >
+                <Mic className="h-4 w-4 mr-2" />
+                Voice
+              </Button>
+            </div>
+
             {/* Tasks Completed - Mandatory */}
             <div className="space-y-2">
               <label className="text-sm font-medium flex items-center gap-1">
                 Tasks Completed <span className="text-red-500">*</span>
               </label>
-              <Textarea
-                placeholder="Describe the tasks you completed today..."
-                value={eodData.tasksCompleted}
-                onChange={(e) => setEodData({ ...eodData, tasksCompleted: e.target.value })}
-                className="w-full min-h-[100px]"
-                disabled={scrumSubmitting}
-              />
+              <div className="flex gap-2">
+                <Textarea
+                  placeholder={
+                    inputType === "voice"
+                      ? "Click the microphone button to start speaking..."
+                      : "Describe the tasks you completed today..."
+                  }
+                  value={eodData.tasksCompleted}
+                  onChange={(e) => setEodData({ ...eodData, tasksCompleted: e.target.value })}
+                  className="w-full min-h-[100px]"
+                  disabled={scrumSubmitting || isRecording}
+                />
+                {inputType === "voice" && (
+                  <Button
+                    type="button"
+                    variant={isRecording ? "destructive" : "default"}
+                    size="icon"
+                    onClick={toggleVoiceRecording}
+                    disabled={scrumSubmitting}
+                    className="self-start"
+                  >
+                    {isRecording ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                  </Button>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
                 Minimum 10 characters required
               </p>
+              {isRecording && (
+                <div className="flex items-center gap-2 text-sm text-red-600 animate-pulse">
+                  <div className="h-2 w-2 bg-red-600 rounded-full animate-bounce" />
+                  Recording in progress...
+                </div>
+              )}
+              {inputType === "voice" && transcription && !isRecording && (
+                <div className="p-2 bg-blue-50 border border-blue-200 rounded-md">
+                  <p className="text-xs text-blue-700 font-medium mb-1">Transcription:</p>
+                  <p className="text-sm text-blue-900">{transcription}</p>
+                </div>
+              )}
             </div>
 
             {/* Issues/Blockers - Optional */}

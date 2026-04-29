@@ -6,8 +6,13 @@ import { ActiveEmployees } from "@/components/admin/dashboard/ActiveEmployees";
 import { TaskCharts } from "@/components/manger/dashboard/TaskCharts";
 import { DayAheadCard } from "@/components/admin/dashboard/DayAheadCard";
 import { WeekAheadCard } from "@/components/admin/dashboard/WeekAheadCard";
+
 import { Users, CheckSquare, FolderRoot, Car, MapPin, AlertTriangle, Clock } from "lucide-react";
 import { apiFetch } from "@/lib/manger/api";
+
+import { Users, CheckSquare, FolderRoot, Car, MapPin, Sparkles, TrendingUp, AlertTriangle, ClipboardList } from "lucide-react";
+import { apiFetch, getEODStatus } from "@/lib/manger/api";
+
 import { useNavigate } from "react-router-dom";
 
 type DashboardSummary = {
@@ -54,15 +59,42 @@ const Dashboard = () => {
   const [apiError, setApiError] = useState<string | null>(null);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
 
+  const [onboardingStatus, setOnboardingStatus] = useState<string>("not_started");
+  const [eodStats, setEodStats] = useState({ submitted: 0, late: 0, missing: 0, total: 0 });
+    
+
   useEffect(() => {
     let mounted = true;
     const load = async () => {
       try {
         setLoading(true);
         setApiError(null);
+
         const data = await apiFetch<DashboardSummary>("/api/dashboard/summary");
         if (!mounted) return;
         setSummary(data);
+
+        const [data, onboardingRes, eodRes] = await Promise.all([
+          apiFetch<DashboardSummary>("/api/dashboard/summary").catch(() => null),
+          apiFetch<{ item: { overallStatus: string } }>("/api/onboarding/me").catch(() => ({ item: { overallStatus: "not_started" } })),
+          getEODStatus().catch(() => ({ items: [] })),
+        ]);
+        if (!mounted) return;
+        if (data) setSummary(data);
+        setOnboardingStatus(onboardingRes.item.overallStatus);
+        
+        // Calculate EOD stats
+        const eodItems = eodRes.items || [];
+        const submitted = eodItems.filter((i: any) => i.status === "submitted").length;
+        const late = eodItems.filter((i: any) => i.status === "late").length;
+        const missing = eodItems.filter((i: any) => i.status === "missing").length;
+        setEodStats({
+          submitted,
+          late,
+          missing,
+          total: eodItems.length,
+        });
+
       } catch (e) {
         if (mounted) setApiError(e instanceof Error ? e.message : "Failed to load dashboard");
       } finally {
@@ -112,6 +144,7 @@ const Dashboard = () => {
           variants={containerVariants}
         >
           {metrics && [
+
             { title: "Active Employee", value: metrics.totalEmployees, icon: Users, variant: "dark-grey" as const, changeType: "positive" as const, onClick: () => navigate("/manager/employees") },
             { title: "Active Tasks", value: metrics.activeTasks, icon: CheckSquare, variant: "green" as const, changeType: "neutral" as const, onClick: () => navigate("/manager/tasks") },
             { title: "Active Projects", value: metrics.totalProjects, icon: FolderRoot, variant: "purple" as const, changeType: "positive" as const, onClick: () => navigate("/manager/tasks") },
@@ -121,6 +154,79 @@ const Dashboard = () => {
             { title: "Overdue Tasks", value: metrics.overdueTasks, icon: AlertTriangle, variant: "red" as const, changeType: "positive" as const, onClick: () => navigate("/manager/tasks") },
             { title: "Clocked In", value: metrics.clockedInEmployees, icon: Clock, variant: "gold" as const, changeType: "neutral" as const, onClick: () => navigate("/manager/time-tracking") },
             { title: "Hours Logged", value: metrics.hoursLoggedToday, icon: Clock, variant: "info" as const, changeType: "neutral" as const, onClick: () => navigate("/manager/time-tracking") },
+
+            { 
+              title: "Total Employees", 
+              value: metrics.totalEmployees, 
+              icon: Users, 
+              variant: "cyan" as const, 
+              changeType: "positive" as const, 
+              onClick: () => navigate("/manager/employees"),
+              description: "Active workforce"
+            },
+            { 
+              title: "Active Tasks", 
+              value: metrics.activeTasks, 
+              icon: CheckSquare, 
+              variant: "success" as const, 
+              changeType: "neutral" as const, 
+              onClick: () => navigate("/manager/tasks"),
+              description: "In progress"
+            },
+            { 
+              title: "Active Projects", 
+              value: metrics.totalProjects, 
+              icon: FolderRoot, 
+              variant: "purple" as const, 
+              changeType: "positive" as const, 
+              onClick: () => navigate("/manager/tasks"),
+              description: "Ongoing initiatives"
+            },
+            { 
+              title: "Total Vehicles", 
+              value: metrics.totalVehicles, 
+              icon: Car, 
+              variant: "orange" as const, 
+              changeType: "positive" as const, 
+              onClick: () => navigate("/manager/vehicles"),
+              description: "Fleet size"
+            },
+            { 
+              title: "Total Locations", 
+              value: metrics.totalLocations, 
+              icon: MapPin, 
+              variant: "teal" as const, 
+              changeType: "positive" as const, 
+              onClick: () => navigate("/manager/locations"),
+              description: "Service areas"
+            },
+            { 
+              title: "EOD Submitted", 
+              value: eodStats.submitted, 
+              icon: ClipboardList, 
+              variant: "success" as const, 
+              changeType: "positive" as const, 
+              onClick: () => navigate("/manager/eod-reports"),
+              description: `${eodStats.total > 0 ? Math.round((eodStats.submitted / eodStats.total) * 100) : 0}% compliance`
+            },
+            { 
+              title: "EOD Late", 
+              value: eodStats.late, 
+              icon: ClipboardList, 
+              variant: "warning" as const, 
+              changeType: "neutral" as const, 
+              onClick: () => navigate("/manager/eod-reports"),
+              description: "Needs attention"
+            },
+            { 
+              title: "EOD Missing", 
+              value: eodStats.missing, 
+              icon: ClipboardList, 
+              variant: "danger" as const, 
+              changeType: "negative" as const, 
+              onClick: () => navigate("/manager/eod-reports"),
+              description: "Action required"
+            },
           ].map((stat) => (
             <motion.div
               key={stat.title}

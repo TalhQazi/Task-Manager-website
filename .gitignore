@@ -1,14 +1,10 @@
 node_modules
+.env
 .env.local
+.env.*
 .sixth
 .vscode
 dist
 dist-ssr
 *.local
-.env
-.env.*
-.sixth
-.vscode
 .DS_Store
-.DS_Store
-.env.local

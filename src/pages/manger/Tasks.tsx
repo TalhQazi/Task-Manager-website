@@ -90,6 +90,7 @@ import {
   PlusCircle,
   TrendingUp,
   Maximize2,
+  Smile,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch, downloadTaskAttachment, toProxiedUrl, getTopContributors, downloadViaUrl, updateComment, deleteComment } from "@/lib/manger/api";
@@ -99,6 +100,8 @@ import { useSocket } from "@/contexts/SocketContext";
 import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import jsPDF from "jspdf";
 import { Pagination } from "@/components/Pagination";
+import { useGlobalTimer } from "@/hooks/useGlobalTimer";
+import { getRemainingTime, getTimerState } from "@/lib/manger/time";
 
 interface Task {
   id: string;
@@ -183,6 +186,13 @@ type TaskComment = {
     mimeType: string;
     size: number;
     uploadedAt?: string;
+  }>;
+  reactions?: Array<{
+    emoji: string;
+    userId: string;
+    username: string;
+    fullName?: string;
+    createdAt?: string;
   }>;
   createdAt: string;
 };
@@ -443,6 +453,7 @@ const formatMessageTime = (dateString: string) => {
   return date.toLocaleDateString();
 };
 
+
 const priorityClasses = {
   high: "bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive border-destructive/20",
   medium: "bg-gradient-to-r from-yellow-500/20 to-amber-500/10 text-yellow-600 border-yellow-500/20",
@@ -569,6 +580,8 @@ export default function Tasks() {
   const [isCreating, setIsCreating] = useState(false);
   const [editTaskFile, setEditTaskFile] = useState<File | null>(null);
   const [editTaskFilePreview, setEditTaskFilePreview] = useState<string | null>(null);
+  const [editTaskFiles, setEditTaskFiles] = useState<File[]>([]);
+  const [editTaskFilePreviews, setEditTaskFilePreviews] = useState<string[]>([]);
   // Project edit state
   const [isEditProjectOpen, setIsEditProjectOpen] = useState(false);
   const [isDeleteProjectOpen, setIsDeleteProjectOpen] = useState(false);
@@ -616,6 +629,7 @@ export default function Tasks() {
   const [projectComments, setProjectComments] = useState<TaskComment[]>([]);
   const [projectCommentsLoading, setProjectCommentsLoading] = useState(false);
   
+  const now = useGlobalTimer();
   // Top contributors state
   const [topContributors, setTopContributors] = useState<Array<{
     userId: string;
@@ -754,9 +768,16 @@ export default function Tasks() {
 
     socket.on("typing", handleTyping);
 
+    const handleReactionUpdated = ({ commentId, reactions }: { commentId: string; reactions: any[] }) => {
+      setComments((prev) => prev.map(c => c.id === commentId ? { ...c, reactions } : c));
+    };
+
+    socket.on("comment-reaction-updated", handleReactionUpdated);
+
     return () => {
       socket.off("new-comment", handleNewComment);
       socket.off("typing", handleTyping);
+      socket.off("comment-reaction-updated", handleReactionUpdated);
       leaveTask(selectedTask.id);
     };
   }, [socket, selectedTask?.id]);
@@ -775,11 +796,9 @@ export default function Tasks() {
       const projectTasks: Task[] = Array.isArray(project.tasks) ? project.tasks : [];
 
       setSelectedProject({ ...project, tasks: projectTasks });
-      setTasks(projectTasks);
     } catch (err) {
       toast({ title: "Failed to load project", description: err instanceof Error ? err.message : "Something went wrong", variant: "destructive" });
       setSelectedProject(null);
-      setTasks([]);
     } finally {
       setIsLoadingProject(false);
     }
@@ -1332,6 +1351,35 @@ export default function Tasks() {
     }
   };
 
+  const toggleReaction = async (commentId: string, emoji: string) => {
+    if (!selectedTask) return;
+    try {
+      // Optimistic update
+      setComments((prev) => 
+        prev.map(c => {
+          if (c.id !== commentId) return c;
+          const auth = getAuthState();
+          const userId = String(auth.sub || auth.id || "");
+          const existing = (c.reactions || []).find(r => r.emoji === emoji && r.userId === userId);
+          let newReactions;
+          if (existing) {
+            newReactions = (c.reactions || []).filter(r => !(r.emoji === emoji && r.userId === userId));
+          } else {
+            newReactions = [...(c.reactions || []), { emoji, userId, username: auth.username || "", fullName: "" }];
+          }
+          return { ...c, reactions: newReactions };
+        })
+      );
+
+      await apiFetch(`/api/tasks/${encodeURIComponent(selectedTask.id)}/comments/${encodeURIComponent(commentId)}/reactions`, {
+        method: "POST",
+        body: JSON.stringify({ emoji }),
+      });
+    } catch (e) {
+      console.error("Failed to toggle reaction:", e);
+    }
+  };
+
   const handleTypingIndicator = (e: React.ChangeEvent<HTMLTextAreaElement>, isProject: boolean = false) => {
     setCommentDraft(e.target.value);
     
@@ -1427,6 +1475,8 @@ export default function Tasks() {
     setEditSelectedAssignees(task.assignees || []);
     setEditTaskFile(null);
     setEditTaskFilePreview(task.attachment?.url || null);
+    setEditTaskFiles([]);
+    setEditTaskFilePreviews(task.attachments?.map(a => a.url) || (task.attachment?.url ? [task.attachment.url] : []));
     editForm.reset({
       title: task.title,
       description: task.description,
@@ -1574,26 +1624,28 @@ export default function Tasks() {
     if (!selectedTask) return;
     const previousStatus = selectedTask.status;
     try {
-      let attachment = undefined;
-      if (editTaskFile) {
-        const base64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(editTaskFile);
-        });
-        attachment = {
-          fileName: editTaskFile.name,
-          url: base64,
-          mimeType: editTaskFile.type,
-          size: editTaskFile.size
-        };
-      } else if (editTaskFilePreview === null) {
-        attachment = { fileName: "", url: "", mimeType: "", size: 0 };
+      // Handle multiple attachments
+      const newAttachments = editTaskFiles.length > 0 ? await filesToAttachments(editTaskFiles) : [];
+      const existingAttachments = (selectedTask.attachments || [])
+        .filter(a => editTaskFilePreviews.includes(a.url));
+
+      // Support legacy single attachment
+      if (selectedTask.attachment?.url && editTaskFilePreviews.includes(selectedTask.attachment.url)) {
+        if (!existingAttachments.some(a => a.url === selectedTask.attachment?.url)) {
+          existingAttachments.push(selectedTask.attachment);
+        }
       }
 
+      const combinedAttachments = [...existingAttachments, ...newAttachments];
       const payload: Partial<Task> = { ...values, assignees: editSelectedAssignees };
-      if (attachment !== undefined) {
-        (payload as any).attachment = attachment;
+      (payload as any).attachments = combinedAttachments;
+
+      if (combinedAttachments.length > 0) {
+        (payload as any).attachment = combinedAttachments[0];
+        (payload as any).attachmentFileName = combinedAttachments[0].fileName;
+      } else {
+        (payload as any).attachment = { fileName: "", url: "", mimeType: "", size: 0 };
+        (payload as any).attachmentFileName = "";
       }
 
       updateTaskMutation.mutate(
@@ -1604,6 +1656,8 @@ export default function Tasks() {
             setEditSelectedAssignees([]);
             setEditTaskFile(null);
             setEditTaskFilePreview(null);
+            setEditTaskFiles([]);
+            setEditTaskFilePreviews([]);
             // Update the selected task so the view modal shows fresh data immediately
             setSelectedTask(updatedTask);
             toast({
@@ -1667,7 +1721,7 @@ export default function Tasks() {
 
   // When a project is selected, tasks come from that project (client-side filtered)
   // Otherwise tasks come from the server-paginated query
-  const sourceTasks = selectedProject ? selectedProject.tasks : tasks;
+  const sourceTasks = selectedProject ? selectedProject.tasks : (tasksQuery.data?.items || []);
 
   const filteredTasks = useMemo(() => {
     if (!selectedProject) return sourceTasks; // already filtered server-side
@@ -1700,7 +1754,7 @@ export default function Tasks() {
     : (tasksQuery.data?.totalPages || 1);
 
   return (
-    <div className="px-2 sm:px-4 lg:px-6 space-y-6">
+    <div className="px-2 sm:px-4 lg:px-6 space-y-6"> 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="page-header mb-0">
@@ -1710,7 +1764,13 @@ export default function Tasks() {
         <div className="flex flex-wrap gap-2">
           {selectedProject ? (
             <>
-              <Button variant="outline" onClick={() => setSelectedProject(null)}>
+              <Button variant="outline" onClick={() => {
+                setSelectedProject(null);
+                setSearchQuery("");
+                setStatusFilter("all");
+                setPriorityFilter("all");
+                setTaskPage(1);
+              }}>
                 Back to Projects
               </Button>
               <Button className="gap-2" onClick={() => setIsCreateTaskOpen(true)}>
@@ -2012,140 +2072,98 @@ export default function Tasks() {
               <p className="text-muted-foreground">Loading tasks...</p>
             ) : tasksQuery.isError ? (
               <p className="text-destructive">Failed to load tasks</p>
-            ) : tasks.filter(t => !t.projectId).length === 0 ? (
+            ) : paginatedTasks.length === 0 ? (
               <p className="text-muted-foreground">No standalone tasks found. Create one to begin.</p>
             ) : (
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                {tasks.filter(t => !t.projectId).map((task, index) => {
-                  const letterIndex = String.fromCharCode(65 + (index % 26));
-                  const displayNumber = (taskPage - 1) * PAGE_SIZE + index + 1;
-                  const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0
-                    ? task.assignees.map(resolveAssigneeName)
-                    : [];
-                  
-                  return (
-                    <motion.div
-                      key={task.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      className="bg-card rounded-xl border border-muted/50 hover:border-primary/50 transition-all hover:shadow-md overflow-hidden flex flex-col group cursor-pointer"
-                      onClick={() => openView(task)}
-                    >
-                      {/* Card Header with Title and Menu */}
-                      <div className="p-4 border-b border-muted/30 flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-foreground line-clamp-1">
-                            <span className="text-primary mr-1.5">{task.taskNumber || displayNumber}.</span>
-                            {task.title}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1 capitalize">{task.priority} priority</p>
-                        </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              className="p-1 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100"
-                              aria-label="Task actions"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openView(task); }}>
-                              View Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handlePrintTask(task); }}>
-                              Print
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(task); }}>
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }}>
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+               {paginatedTasks.map((task, index) => {
+  const timer = task.dueDate
+    ? getRemainingTime(task.dueDate, now)
+    : null;
 
-                      {/* Card Body */}
-                      <div className="p-4 flex-1 space-y-3">
-                        {/* Description */}
-                        <p className="text-sm text-muted-foreground line-clamp-2">{task.description}</p>
+  const state = timer ? getTimerState(timer.totalMs) : null;
 
-                        {/* Attachment Summary */}
-                        {task.attachments && task.attachments.length > 0 && (
-                          <div className="flex items-center gap-1.5 py-1 px-2 bg-primary/5 border border-primary/10 rounded-md w-fit">
-                            <Paperclip className="h-3 w-3 text-primary" />
-                            <span className="text-[10px] font-bold text-primary uppercase tracking-tight">
-                              {(() => {
-                                const docs = task.attachments.filter(a => !a.mimeType?.startsWith("image/")).length;
-                                const imgs = task.attachments.filter(a => a.mimeType?.startsWith("image/")).length;
-                                const parts = [];
-                                if (docs > 0) parts.push(`${docs} document${docs > 1 ? "s" : ""}`);
-                                if (imgs > 0) parts.push(`${imgs} image${imgs > 1 ? "s" : ""}`);
-                                return parts.join(", ");
-                              })()}
-                            </span>
-                          </div>
-                        )}
+  return (
+    <motion.div
+      key={task.id}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.05 }}
+      className="bg-card rounded-xl border border-muted/50 hover:border-primary/50 transition-all hover:shadow-md overflow-hidden flex flex-col group cursor-pointer"
+      onClick={() => openView(task)}
+    >
+      {/* Card Header */}
+      <div className="p-4 border-b border-muted/30 flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-foreground line-clamp-1">
+            <span className="text-primary mr-1.5">
+              {task.taskNumber || ((taskPage - 1) * PAGE_SIZE + index + 1)}.
+            </span>
+            {task.title}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1 capitalize">
+            {task.priority} priority
+          </p>
+        </div>
+      </div>
 
-                        {/* Assignees */}
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-2">Assigned to</p>
-                          <div className="flex items-center gap-2">
-                            {task.assignees && task.assignees.length > 0 ? (
-                              <>
-                                <div className="flex -space-x-2">
-                                  {task.assignees.slice(0, 3).map((assignee, idx) => {
-                                    const displayName = resolveAssigneeName(assignee);
-                                    return (
-                                      <Avatar key={idx} className="w-7 h-7 border-2 border-background">
-                                        <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
-                                          {displayName.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                    );
-                                  })}
-                                </div>
-                                <span className="text-xs text-muted-foreground">
-                                  {task.assignees.length > 3 ? `+${task.assignees.length - 3} more` : assigneeList.slice(0, 3).join(", ")}
-                                </span>
-                              </>
-                            ) : (
-                              <span className="text-xs text-muted-foreground italic">Unassigned</span>
-                            )}
-                          </div>
-                        </div>
+      {/* Card Body */}
+      <div className="p-4 flex-1 space-y-3">
 
-                        {/* Badges */}
-                        <div className="flex items-center gap-2 pt-2">
-                          <Badge variant="outline" className="text-xs capitalize" style={{
-                            backgroundColor: task.priority === 'high' ? 'rgba(239, 68, 68, 0.1)' : task.priority === 'medium' ? 'rgba(234, 179, 8, 0.1)' : 'rgba(34, 197, 94, 0.1)',
-                            color: task.priority === 'high' ? 'rgb(239, 68, 68)' : task.priority === 'medium' ? 'rgb(234, 179, 8)' : 'rgb(34, 197, 94)',
-                            borderColor: task.priority === 'high' ? 'rgba(239, 68, 68, 0.3)' : task.priority === 'medium' ? 'rgba(234, 179, 8, 0.3)' : 'rgba(34, 197, 94, 0.3)'
-                          }}>
-                            {task.priority}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs capitalize">
-                            {task.status}
-                          </Badge>
-                        </div>
-                      </div>
+        {/* ✅ TIMER ADDED HERE */}
+        {timer && (
+          <div
+            className={`text-xs font-mono font-bold ${
+              state === "normal"
+                ? "text-green-600"
+                : state === "warning"
+                ? "text-yellow-500"
+                : state === "critical"
+                ? "text-red-500"
+                : "text-red-600 animate-pulse"
+            }`}
+          >
+            ⏱ {timer.formatted}
+          </div>
+        )}
 
-                      {/* Footer */}
-                      <div className="px-4 py-3 border-t border-muted/30 bg-muted/10">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-muted-foreground">{letterIndex}-{task.id.slice(-4).toUpperCase()}</span>
-                          <span className="text-muted-foreground">
-                            {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "No due date"}
-                          </span>
-                        </div>
-                      </div>
-                    </motion.div>
-                  );
-                })}
+        {/* Description */}
+        <p className="text-sm text-muted-foreground line-clamp-2">
+          {task.description}
+        </p>
+
+        {/* Status & Priority */}
+        <div className="flex gap-2 flex-wrap">
+          <Badge
+            variant="secondary"
+            className={cn("text-xs", statusClasses[task.status])}
+          >
+            {task.status}
+          </Badge>
+          <Badge
+            variant="outline"
+            className={cn("text-xs border", priorityClasses[task.priority])}
+          >
+            {task.priority}
+          </Badge>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <div className="p-4 border-t border-muted/30 bg-muted/10 space-y-2 text-sm">
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Calendar className="w-3.5 h-3.5" />
+          <span className="text-xs">
+            Due:{" "}
+            {task.dueDate
+              ? new Date(task.dueDate).toLocaleDateString()
+              : "—"}
+          </span>
+        </div>
+      </div>
+    </motion.div>
+  );
+})}
               </div>
             )}
           </div>
@@ -3315,42 +3333,81 @@ export default function Tasks() {
                 />
 
                 <div className="sm:col-span-2 space-y-2">
-                  <label className="text-sm font-medium">Task Attachment</label>
-                  <div className="flex flex-col gap-3 p-4 border border-dashed rounded-lg bg-muted/30">
-                    {editTaskFilePreview ? (
-                      <div className="relative w-full h-40 rounded-md overflow-hidden border">
-                        <img src={editTaskFilePreview} alt="Preview" className="w-full h-full object-cover" />
-                        <Button 
-                          type="button" 
-                          variant="destructive" 
-                          size="icon" 
-                          className="absolute top-2 right-2 h-7 w-7 rounded-full shadow-lg"
-                          onClick={() => { setEditTaskFile(null); setEditTaskFilePreview(null); }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-border/60 rounded-lg text-muted-foreground hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => document.getElementById('edit-task-attachment-input-manager')?.click()}>
-                        <Paperclip className="h-8 w-8 mb-2 opacity-50" />
-                        <span className="text-sm">Click to upload or drag image</span>
-                        <span className="text-[10px] opacity-70">PNG, JPG, PDF (Max 10MB)</span>
+                  <label className="text-sm font-medium">Task Attachments</label>
+                  <div className="space-y-3">
+                    <button 
+                      type="button" 
+                      className="py-3 px-4 border-2 border-dashed border-border/60 rounded-lg text-sm text-muted-foreground hover:bg-muted/50 transition-all w-full flex flex-col items-center justify-center gap-2" 
+                      onClick={() => { const el = document.getElementById("edit-task-attachments-input-manager") as HTMLInputElement | null; el?.click(); }}
+                    >
+                      <PlusCircle className="w-6 h-6 opacity-50" />
+                      <span>Add Multiple Files / Images</span>
+                    </button>
+                    <input 
+                      id="edit-task-attachments-input-manager" 
+                      type="file" 
+                      accept="*" 
+                      multiple 
+                      className="hidden" 
+                      onChange={(e) => { 
+                        const files = Array.from(e.target.files ?? []); 
+                        setEditTaskFiles((prev) => [...prev, ...files]); 
+                        files.forEach((file) => { 
+                          const reader = new FileReader(); 
+                          reader.onload = () => { 
+                            const result = typeof reader.result === "string" ? reader.result : ""; 
+                            setEditTaskFilePreviews((prev) => [...prev, result]); 
+                          }; 
+                          if (file.type.startsWith("image/")) { 
+                            reader.readAsDataURL(file); 
+                          } else { 
+                            setEditTaskFilePreviews((prev) => [...prev, ""]); 
+                          } 
+                        }); 
+                      }} 
+                    />
+                    {editTaskFilePreviews.length > 0 && (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[250px] overflow-y-auto border border-border/40 rounded-xl p-3 bg-muted/10">
+                        {editTaskFilePreviews.map((url, idx) => {
+                          const isNewFile = idx >= (editTaskFilePreviews.length - editTaskFiles.length);
+                          const fileName = isNewFile 
+                            ? editTaskFiles[idx - (editTaskFilePreviews.length - editTaskFiles.length)].name 
+                            : (selectedTask?.attachments?.[idx]?.fileName || selectedTask?.attachment?.fileName || "Existing File");
+                          
+                          const isImage = url.startsWith("data:image/") || 
+                                         url.match(/\.(jpg|jpeg|png|gif|webp|svg)/i) ||
+                                         (idx < (selectedTask?.attachments?.length || 0) && selectedTask?.attachments?.[idx]?.mimeType?.startsWith("image/")) ||
+                                         (idx === 0 && selectedTask?.attachment?.mimeType?.startsWith("image/"));
+
+                          return (
+                            <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 aspect-square bg-background shadow-sm hover:shadow-md transition-all">
+                              {isImage && url ? (
+                                <img src={url} alt="Preview" className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex flex-col items-center justify-center p-3 text-center bg-muted/5">
+                                  <FileText className="w-10 h-10 text-muted-foreground/30 mb-2" />
+                                  <span className="text-[11px] text-muted-foreground font-medium truncate w-full px-1">{fileName}</span>
+                                </div>
+                              )}
+                              <button 
+                                type="button" 
+                                onClick={() => { 
+                                  const isNew = idx >= (editTaskFilePreviews.length - editTaskFiles.length);
+                                  if (isNew) {
+                                    const newIdx = idx - (editTaskFilePreviews.length - editTaskFiles.length);
+                                    setEditTaskFiles(prev => prev.filter((_, i) => i !== newIdx));
+                                  }
+                                  setEditTaskFilePreviews((prev) => prev.filter((_, i) => i !== idx)); 
+                                }} 
+                                className="absolute top-1.5 right-1.5 bg-destructive text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-lg"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
-                    <input 
-                      id="edit-task-attachment-input-manager"
-                      type="file" 
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          setEditTaskFile(file);
-                          const reader = new FileReader();
-                          reader.onloadend = () => setEditTaskFilePreview(reader.result as string);
-                          reader.readAsDataURL(file);
-                        }
-                      }}
-                    />
                   </div>
                 </div>
               </div>
@@ -3564,6 +3621,25 @@ export default function Tasks() {
                         </div>
                       )}
                     </div>
+
+                    {/* Status Indicator */}
+                   {task.dueDate && task.timer_enabled !== false && (() => {
+              const { formatted, totalMs, isOverdue } = getRemainingTime(task.dueDate, now);
+              const state = getTimerState(totalMs);
+
+              return (
+                <div className={cn(
+                  "flex items-center gap-2 text-xs font-mono font-semibold px-2 py-1 rounded-md w-fit",
+                  state === "normal" && "bg-green-500/10 text-green-600",
+                  state === "warning" && "bg-yellow-500/10 text-yellow-600",
+                  state === "critical" && "bg-red-500/10 text-red-600",
+                  state === "overdue" && "bg-red-600/10 text-red-700 animate-pulse"
+                )}>
+                  <Clock className="w-3.5 h-3.5" />
+                  {formatted}
+                </div>
+              );
+            })()}
                   </motion.div>
                 ))}
               </div>

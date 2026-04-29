@@ -34,6 +34,7 @@ import {
   FileText,
   Bug,
   Palette,
+  CalendarCheck,
 } from "lucide-react";
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -58,6 +59,7 @@ const navItemsBase: NavItem[] = [
   { icon: UserCircle, label: "Employee Directory", path: "/admin/employees" },
   { icon: Wallet, label: "Payroll", path: "/admin/payroll" },
    { icon: ClipboardList, label: "EOD Reports", path: "/admin/eod-reports" },
+  { icon: CalendarCheck, label: "Leave Requests", path: "/admin/leave-requests" },
   { icon: History, label: "Task History", path: "/admin/task-history" },
   {
     icon: Layers,
