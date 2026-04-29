@@ -38,6 +38,7 @@ const ArchiveData = lazy(() => import("@/pages/admin/ArchiveData"));
 const FounderMessages = lazy(() => import("@/pages/admin/FounderMessages"));
 const AssetLibrary = lazy(() => import("@/pages/admin/AssetLibrary"));
 const EODReports = lazy(() => import("@/pages/admin/EODReports"));
+const LeaveRequests = lazy(() => import("@/pages/admin/LeaveRequests"));
 const EmployeeEODHistory = lazy(() => import("@/pages/admin/EmployeeEODHistory"));
 const SignaCore = lazy(() => import("@/pages/admin/SignaCore"));
 const UphMaintenance = lazy(() => import("@/pages/admin/UphMaintenance"));
@@ -102,6 +103,7 @@ export default function AdminRoutes() {
       { path: "founder-messages", element: <FounderMessages /> },
       { path: "eod-reports", element: <EODReports /> },
       { path: "eod-reports/:employeeName", element: <EmployeeEODHistory /> },
+      { path: "leave-requests", element: <LeaveRequests /> },
       { path: "contributors", element: <Contributors /> },
 
       { path: "bug-reports", element: <BugReport /> },

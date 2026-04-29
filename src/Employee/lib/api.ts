@@ -51,6 +51,43 @@ export async function employeeApiFetch<T>(
   return response.json() as Promise<T>;
 }
 
+// Leave Requests (PTO)
+export async function getMyLeaveRequests() {
+  return employeeApiFetch<{
+    items: Array<{
+      id?: string;
+      _id?: string;
+      employeeName: string;
+      type: "pto" | "vacation" | "sick" | "holiday" | "unpaid" | "other";
+      startDate: string;
+      endDate: string;
+      status: "pending" | "approved" | "rejected";
+      reason?: string;
+      exemptFromEOD?: boolean;
+      createdAt?: string;
+    }>;
+  }>("/api/leave-requests/me");
+}
+
+export async function createLeaveRequest(payload: {
+  type: "pto" | "vacation" | "sick" | "holiday" | "unpaid" | "other";
+  startDate: string;
+  endDate: string;
+  reason?: string;
+  exemptFromEOD?: boolean;
+}) {
+  return employeeApiFetch<{ item: unknown }>("/api/leave-requests", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteLeaveRequest(id: string) {
+  return employeeApiFetch<{ success: boolean }>(`/api/leave-requests/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
 /**
  * Transforms a direct S3 URL into a backend-proxied URL to avoid CORS/OpaqueResponseBlocking issues.
  * If the URL is already a data URL or doesn't match the S3 pattern, it's returned as-is.
@@ -153,9 +190,11 @@ export async function submitScrumAndClockOut(scrum: string) {
 
 // Submit EOD report with structured data
 export async function submitEODReport(data: {
+  inputType?: "text" | "voice";
   tasksCompleted: string;
   issuesBlockers?: string;
   notes?: string;
+  transcription?: string;
 }) {
   return employeeApiFetch<{
     item: {
@@ -166,6 +205,10 @@ export async function submitEODReport(data: {
       inputType: string;
       status: string;
       createdAt: string;
+      transcription?: string;
+      aiSummary?: string;
+      productivityScore?: number;
+      flags?: { missing?: boolean; lowOutput?: boolean };
     };
   }>("/api/employees/me/eod-report", {
     method: "POST",
