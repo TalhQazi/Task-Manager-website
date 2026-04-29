@@ -7,12 +7,8 @@ import { TaskCharts } from "@/components/manger/dashboard/TaskCharts";
 import { DayAheadCard } from "@/components/admin/dashboard/DayAheadCard";
 import { WeekAheadCard } from "@/components/admin/dashboard/WeekAheadCard";
 
-import { Users, CheckSquare, FolderRoot, Car, MapPin, AlertTriangle, Clock } from "lucide-react";
-import { apiFetch } from "@/lib/manger/api";
-
-import { Users, CheckSquare, FolderRoot, Car, MapPin, Sparkles, TrendingUp, AlertTriangle, ClipboardList } from "lucide-react";
+import { Users, CheckSquare, FolderRoot, Car, MapPin, AlertTriangle, Clock, ClipboardList } from "lucide-react";
 import { apiFetch, getEODStatus } from "@/lib/manger/api";
-
 import { useNavigate } from "react-router-dom";
 
 type DashboardSummary = {
@@ -70,17 +66,13 @@ const Dashboard = () => {
         setLoading(true);
         setApiError(null);
 
-        const data = await apiFetch<DashboardSummary>("/api/dashboard/summary");
-        if (!mounted) return;
-        setSummary(data);
-
-        const [data, onboardingRes, eodRes] = await Promise.all([
+        const [summaryData, onboardingRes, eodRes] = await Promise.all([
           apiFetch<DashboardSummary>("/api/dashboard/summary").catch(() => null),
           apiFetch<{ item: { overallStatus: string } }>("/api/onboarding/me").catch(() => ({ item: { overallStatus: "not_started" } })),
           getEODStatus().catch(() => ({ items: [] })),
         ]);
         if (!mounted) return;
-        if (data) setSummary(data);
+        if (summaryData) setSummary(summaryData);
         setOnboardingStatus(onboardingRes.item.overallStatus);
         
         // Calculate EOD stats
