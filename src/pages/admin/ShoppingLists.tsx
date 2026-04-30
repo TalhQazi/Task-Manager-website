@@ -400,7 +400,7 @@ function CreateListModal({ isOpen, onClose, companies, locations, employees, ven
               </SelectTrigger>
               <SelectContent className="bg-[#161B22] border-white/10 text-white">
                 {vendors?.map((v: any) => (
-                  <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                  <SelectItem key={v._id || v.id} value={v._id || v.id}>{v.name}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -487,7 +487,10 @@ function ListDetailModal({ isOpen, onClose, list, vendors }: { isOpen: boolean, 
     let items = [...(listWithItems?.items || [])];
     
     if (vendorFilter !== "all") {
-      items = items.filter((item: any) => item.vendorId?.id === vendorFilter || item.vendorId === vendorFilter);
+      items = items.filter((item: any) => {
+        const itemVendorId = item.vendorId?._id || item.vendorId?.id || item.vendorId;
+        return itemVendorId === vendorFilter;
+      });
     }
     
     if (hideCompleted) {
@@ -674,9 +677,11 @@ function AddItemModal({ isOpen, onClose, listId, listVendors }: any) {
 
   const mutation = useMutation({
     mutationFn: async (data: any) => {
+      const payload = { ...data };
+      if (payload.vendorId === "none") payload.vendorId = null;
       return apiFetch(`/api/shopping-lists/${listId}/items`, {
         method: "POST",
-        body: JSON.stringify(data)
+        body: JSON.stringify(payload)
       });
     },
     onSuccess: () => {
@@ -719,8 +724,9 @@ function AddItemModal({ isOpen, onClose, listId, listVendors }: any) {
                   <SelectValue placeholder="Select Vendor" />
                 </SelectTrigger>
                 <SelectContent className="bg-[#161B22] border-white/10 text-white">
+                  <SelectItem value="none">No Vendor (General)</SelectItem>
                   {listVendors?.map((v: any) => (
-                    <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>
+                    <SelectItem key={v._id || v.id} value={v._id || v.id}>{v.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
