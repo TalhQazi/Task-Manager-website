@@ -29,6 +29,7 @@ import {
   Layers,
   ChevronDown,
   ChevronRight,
+  ShoppingCart,
 } from "lucide-react";
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -87,6 +88,7 @@ const navItemsBase: NavItem[] = [
       />
     ),
   },
+  { icon: ShoppingCart, label: "Shopping Lists", path: "/admin/shopping-lists" },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
 ];
 
