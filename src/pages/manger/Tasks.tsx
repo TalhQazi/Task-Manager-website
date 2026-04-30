@@ -102,6 +102,8 @@ import jsPDF from "jspdf";
 import { Pagination } from "@/components/Pagination";
 import { useGlobalTimer } from "@/hooks/useGlobalTimer";
 import { getRemainingTime, getTimerState } from "@/lib/manger/time";
+import CreateExpenseSheet from "@/components/expense/CreateExpenseSheet";
+import ExpenseSheetList from "@/components/expense/ExpenseSheetList";
 
 interface Task {
   id: string;
@@ -629,6 +631,11 @@ export default function Tasks() {
   const [projectComments, setProjectComments] = useState<TaskComment[]>([]);
   const [projectCommentsLoading, setProjectCommentsLoading] = useState(false);
   
+
+  const [isCreateExpenseOpen, setIsCreateExpenseOpen] = useState(false);
+  const [isExpenseListOpen, setIsExpenseListOpen] = useState(false);
+
+
   const now = useGlobalTimer();
   // Top contributors state
   const [topContributors, setTopContributors] = useState<Array<{
@@ -1777,6 +1784,24 @@ export default function Tasks() {
                 <Plus className="w-4 h-4" />
                 Add Task
               </Button>
+
+               <Button
+              className="gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={() => setIsCreateExpenseOpen(true)}
+            >
+              <Plus className="w-4 h-4" />
+              Create Expense
+            </Button>
+
+            <Button
+            className="gap-2"
+            variant="outline"
+            onClick={() => setIsExpenseListOpen(true)}
+          >
+          View Expenses
+          </Button>
+          
+
             </>
           ) : (
             <>
@@ -2001,6 +2026,8 @@ export default function Tasks() {
                             </button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+
+                            
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -3917,6 +3944,36 @@ export default function Tasks() {
           )}
         </DialogContent>
       </Dialog>
+
+
+      {/*Project Expenses */}
+      <Dialog open={isCreateExpenseOpen} onOpenChange={setIsCreateExpenseOpen}>
+          <DialogContent className="w-[95vw] sm:max-w-[900px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Create Expense Sheet</DialogTitle>
+              <DialogDescription>
+                Add items, vendors, and costs for this project.
+              </DialogDescription>
+            </DialogHeader>
+
+            <CreateExpenseSheet projectId={selectedProject?.id} onClose={() => setIsCreateExpenseOpen(false)} />
+          </DialogContent>
+        </Dialog>
+
+      {/*Project Expense Dialog */}
+
+      {/*Project Expense List*/}
+      <Dialog open={isExpenseListOpen} onOpenChange={setIsExpenseListOpen}>
+      <DialogContent className="max-w-5xl">
+        <DialogHeader>
+          <DialogTitle>Expense Sheets</DialogTitle>
+        </DialogHeader>
+
+        {/* Your Expense List UI here */}
+        <ExpenseSheetList projectId={selectedProject?.id} />
+      </DialogContent>
+    </Dialog>
+      {/*Project Expense List */}
 
       {/* Edit Project Dialog */}
       <Dialog open={isEditProjectOpen} onOpenChange={setIsEditProjectOpen}>
