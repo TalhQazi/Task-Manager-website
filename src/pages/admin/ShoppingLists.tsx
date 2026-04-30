@@ -784,30 +784,14 @@ function AddItemModal({ isOpen, onClose, listId, listVendors, allVendors, employ
               className="bg-[#161B22] border-white/10"
             />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-white/60">Quantity</label>
-              <Input 
-                value={formData.quantity} 
-                onChange={e => setFormData({...formData, quantity: e.target.value})}
-                placeholder="1 unit" 
-                className="bg-[#161B22] border-white/10"
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-white/60">Vendor</label>
-              <Select onValueChange={v => setFormData({...formData, vendorId: v})}>
-                <SelectTrigger className="bg-[#161B22] border-white/10">
-                  <SelectValue placeholder="Select Vendor" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#161B22] border-white/10 text-white">
-                  <SelectItem value="none">No Vendor (General)</SelectItem>
-                  {listVendors?.map((v: any) => (
-                    <SelectItem key={v._id || v.id} value={v._id || v.id}>{v.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-white/60">Quantity</label>
+            <Input 
+              value={formData.quantity} 
+              onChange={e => setFormData({...formData, quantity: e.target.value})}
+              placeholder="1 unit" 
+              className="bg-[#161B22] border-white/10"
+            />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
