@@ -82,6 +82,7 @@ export default function ShoppingLists() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedList, setSelectedList] = useState<ShoppingList | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   
   const queryClient = useQueryClient();
@@ -193,6 +194,29 @@ export default function ShoppingLists() {
     </Card>
   );
 
+  const deleteListMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiFetch(`/api/shopping-lists/${id}`, { method: "DELETE" });
+    },
+    onSuccess: () => {
+      toast.success("Shopping list deleted");
+      queryClient.invalidateQueries({ queryKey: ["shopping-lists"] });
+    }
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string, status: string }) => {
+      return apiFetch(`/api/shopping-lists/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ status })
+      });
+    },
+    onSuccess: () => {
+      toast.success("Status updated");
+      queryClient.invalidateQueries({ queryKey: ["shopping-lists"] });
+    }
+  });
+
   return (
     <div className="min-h-screen bg-[#0D1117] text-white p-4 md:p-8">
       {/* Header Section */}
@@ -260,7 +284,40 @@ export default function ShoppingLists() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {listsData?.length ? (
-              listsData.map(list => renderListCard(list))
+              listsData.map(list => (
+                <div key={list.id} className="relative group">
+                  {renderListCard(list)}
+                  {isAdmin && (
+                    <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 bg-[#0D1117]/80 hover:bg-white/10 text-white"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedList(list);
+                          setIsEditModalOpen(true);
+                        }}
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 bg-[#0D1117]/80 hover:bg-red-500/20 text-red-400 hover:text-red-300"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm("Are you sure you want to delete this list?")) {
+                            deleteListMutation.mutate(list.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))
             ) : (
               <div className="col-span-full py-20 flex flex-col items-center justify-center text-center space-y-4">
                 <div className="p-6 rounded-full bg-white/5">
@@ -286,7 +343,19 @@ export default function ShoppingLists() {
         vendors={vendors}
       />
 
-      {selectedList && (
+      {isEditModalOpen && selectedList && (
+        <EditListModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          list={selectedList}
+          companies={companies}
+          locations={locations}
+          employees={employees}
+          vendors={vendors}
+        />
+      )}
+
+      {selectedList && !isEditModalOpen && (
         <ListDetailModal
           isOpen={isDetailOpen}
           onClose={() => {
@@ -295,6 +364,8 @@ export default function ShoppingLists() {
           }}
           list={selectedList}
           vendors={vendors}
+          isAdmin={isAdmin}
+          onUpdateStatus={(status: string) => updateStatusMutation.mutate({ id: selectedList.id, status })}
         />
       )}
     </div>
@@ -444,7 +515,7 @@ function CreateListModal({ isOpen, onClose, companies, locations, employees, ven
 }
 
 // --- List Detail Modal ---
-function ListDetailModal({ isOpen, onClose, list, vendors }: { isOpen: boolean, onClose: () => void, list: ShoppingList, vendors: any[] }) {
+function ListDetailModal({ isOpen, onClose, list, vendors, isAdmin, onUpdateStatus }: any) {
   const queryClient = useQueryClient();
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   const [vendorFilter, setVendorFilter] = useState<string>("all");
@@ -470,7 +541,8 @@ function ListDetailModal({ isOpen, onClose, list, vendors }: { isOpen: boolean, 
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["shopping-list", list.id] });
-    }
+    },
+    onError: () => toast.error("Failed to update item status")
   });
 
   const deleteItemMutation = useMutation({
@@ -513,24 +585,47 @@ function ListDetailModal({ isOpen, onClose, list, vendors }: { isOpen: boolean, 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="bg-[#0D1117] border-white/10 text-white max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden">
-        <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#161B22]/50">
-          <div>
-            <h2 className="text-2xl font-bold text-white flex items-center gap-3">
+        {/* Header - added pr-12 to avoid overlap with close icon */}
+        <div className="p-6 pr-12 border-b border-white/5 flex flex-wrap justify-between items-center bg-[#161B22]/50 gap-4">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-2xl font-bold text-white flex items-center gap-3 truncate">
               <ShoppingCart className="w-6 h-6 text-[#00C6FF]" />
-              {list.name}
+              <span className="truncate">{list.name}</span>
             </h2>
-            <div className="flex items-center gap-4 mt-1">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
               <span className="text-xs text-white/40 flex items-center gap-1">
                 <MapPin className="w-3 h-3" /> {list.locationId?.name}
               </span>
               <span className="text-xs text-white/40 flex items-center gap-1">
-                <User className="w-3 h-3" /> {list.assignedEmployeeId?.name || "Unassigned"}
+                <User className="w-3 h-3" /> {list.assignedEmployeeId?.name || list.assignedEmployeeId?.username || "Unassigned"}
               </span>
+              {isAdmin && (
+                <div className="flex items-center gap-1.5 border-l border-white/10 pl-4 ml-1">
+                  <Badge 
+                    className={cn("cursor-pointer text-[10px] px-1.5 py-0", list.status === "open" ? "bg-emerald-500 text-white" : "bg-white/5 text-white/40")}
+                    onClick={() => onUpdateStatus("open")}
+                  >
+                    OPEN
+                  </Badge>
+                  <Badge 
+                    className={cn("cursor-pointer text-[10px] px-1.5 py-0", list.status === "completed" ? "bg-blue-500 text-white" : "bg-white/5 text-white/40")}
+                    onClick={() => onUpdateStatus("completed")}
+                  >
+                    COMPLETED
+                  </Badge>
+                  <Badge 
+                    className={cn("cursor-pointer text-[10px] px-1.5 py-0", list.status === "archived" ? "bg-gray-500 text-white" : "bg-white/5 text-white/40")}
+                    onClick={() => onUpdateStatus("archived")}
+                  >
+                    ARCHIVE
+                  </Badge>
+                </div>
+              )}
             </div>
           </div>
           <Button 
             onClick={() => setIsAddItemOpen(true)}
-            className="bg-gradient-to-r from-[#00C6FF] to-[#0072FF]"
+            className="bg-gradient-to-r from-[#00C6FF] to-[#0072FF] whitespace-nowrap"
           >
             <Plus className="w-4 h-4 mr-2" />
             Add Item
@@ -688,7 +783,9 @@ function AddItemModal({ isOpen, onClose, listId, listVendors }: any) {
       queryClient.invalidateQueries({ queryKey: ["shopping-list", listId] });
       onClose();
       setFormData({ name: "", quantity: "1", vendorId: "", category: "General", priority: "medium", aisle: "", notes: "" });
-    }
+      toast.success("Item added to list");
+    },
+    onError: () => toast.error("Failed to add item. Please try again.")
   });
 
   return (
@@ -760,6 +857,142 @@ function AddItemModal({ isOpen, onClose, listId, listVendors }: any) {
         <DialogFooter>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button onClick={() => mutation.mutate(formData)} disabled={!formData.name}>Add Item</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// --- Edit List Modal ---
+function EditListModal({ isOpen, onClose, list, companies, locations, employees, vendors }: any) {
+  const queryClient = useQueryClient();
+  const [formData, setFormData] = useState({
+    name: list.name,
+    companyId: list.companyId?._id || list.companyId?.id || list.companyId || "",
+    locationId: list.locationId?._id || list.locationId?.id || list.locationId || "",
+    assignedEmployeeId: list.assignedEmployeeId?._id || list.assignedEmployeeId?.id || list.assignedEmployeeId || "",
+    vendorIds: list.vendors?.map((v: any) => v._id || v.id || v) || [],
+    notes: list.notes || "",
+    status: list.status || "open"
+  });
+
+  const mutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiFetch(`/api/shopping-lists/${list.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          ...data,
+          vendors: data.vendorIds
+        })
+      });
+    },
+    onSuccess: () => {
+      toast.success("Shopping list updated!");
+      queryClient.invalidateQueries({ queryKey: ["shopping-lists"] });
+      onClose();
+    },
+    onError: () => toast.error("Failed to update list")
+  });
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="bg-[#0D1117] border-white/10 text-white max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="text-2xl font-bold">Edit Shopping List</DialogTitle>
+        </DialogHeader>
+        
+        <div className="grid grid-cols-2 gap-6 py-4">
+          <div className="col-span-2 space-y-2">
+            <label className="text-sm font-medium text-white/60">List Name</label>
+            <Input 
+              value={formData.name} 
+              onChange={e => setFormData({...formData, name: e.target.value})}
+              placeholder="e.g., Weekly Produce" 
+              className="bg-[#161B22] border-white/10"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-white/60">Company</label>
+            <Select value={formData.companyId} onValueChange={v => setFormData({...formData, companyId: v})}>
+              <SelectTrigger className="bg-[#161B22] border-white/10">
+                <SelectValue placeholder="Select Company" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#161B22] border-white/10 text-white">
+                {companies?.map((c: any) => (
+                  <SelectItem key={c.id || c._id} value={c.id || c._id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-white/60">Location</label>
+            <Select value={formData.locationId} onValueChange={v => setFormData({...formData, locationId: v})}>
+              <SelectTrigger className="bg-[#161B22] border-white/10">
+                <SelectValue placeholder="Select Location" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#161B22] border-white/10 text-white">
+                {locations?.map((l: any) => (
+                  <SelectItem key={l.id || l._id} value={l.id || l._id}>{l.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-white/60">Assign To</label>
+            <Select value={formData.assignedEmployeeId} onValueChange={v => setFormData({...formData, assignedEmployeeId: v})}>
+              <SelectTrigger className="bg-[#161B22] border-white/10">
+                <SelectValue placeholder="Select Employee" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#161B22] border-white/10 text-white">
+                {employees?.map((e: any) => (
+                  <SelectItem key={e._id || e.id} value={e._id || e.id}>{e.name || e.username}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-white/60">Vendors</label>
+            <Select onValueChange={v => {
+              if (!formData.vendorIds.includes(v)) {
+                setFormData({...formData, vendorIds: [...formData.vendorIds, v]});
+              }
+            }}>
+              <SelectTrigger className="bg-[#161B22] border-white/10">
+                <SelectValue placeholder="Add Vendors" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#161B22] border-white/10 text-white">
+                {vendors?.map((v: any) => (
+                  <SelectItem key={v._id || v.id} value={v._id || v.id}>{v.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {formData.vendorIds.map(vid => {
+                const v = vendors?.find((v: any) => (v._id || v.id) === vid);
+                return (
+                  <Badge key={vid} className="bg-[#00C6FF]/10 text-[#00C6FF] border-0 px-2 py-1 flex items-center gap-1">
+                    {v?.name || "Vendor"}
+                    <X className="w-3 h-3 cursor-pointer" onClick={() => setFormData({...formData, vendorIds: formData.vendorIds.filter(id => id !== vid)})} />
+                  </Badge>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} className="text-white/60 hover:text-white">Cancel</Button>
+          <Button 
+            onClick={() => mutation.mutate(formData)}
+            disabled={mutation.isPending || !formData.name}
+            className="bg-gradient-to-r from-[#00C6FF] to-[#0072FF]"
+          >
+            {mutation.isPending ? "Saving..." : "Save Changes"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
