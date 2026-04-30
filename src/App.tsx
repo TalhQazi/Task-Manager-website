@@ -61,9 +61,7 @@ const App = () => (
                 </ThemeProvider>
               } />
               <Route path="/manager/*" element={
-                <ThemeProvider>
-                  <ManagerController />
-                </ThemeProvider>
+                <ManagerController />
               } />
               <Route path="/developer/*" element={<DeveloperController />} />
               <Route path="/employee/*" element={

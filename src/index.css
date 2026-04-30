@@ -73,6 +73,24 @@
     --gradient-cyan: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
     --gradient-gold: linear-gradient(135deg, #ffd700 0%, #b8860b 100%);
     --gradient-majesty: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+
+    /* Theme variables with default values (dark-minimal theme) */
+    --tb-primary: #133767;
+    --tb-secondary: #3b82f6;
+    --tb-accent: #8b5cf6;
+    --tb-header-bg: #133767;
+    --tb-header-overlay-color: #000000;
+    --tb-header-overlay-opacity: 0.3;
+    --tb-sidebar-bg: #020617;
+    --tb-dashboard-bg: #0f172a;
+    --tb-sidebar-icon-color: #ffffff;
+    --tb-dashboard-icon-color: #3b82f6;
+    --tb-sidebar-text-color: #ffffff;
+    --tb-dashboard-card-bg: rgba(30, 41, 59, 0.7);
+    --tb-dashboard-text-color: #f8fafc;
+    --tb-glow-intensity: 50%;
+    --tb-animation-speed: 0.3s;
+    --tb-spacing: 1rem;
   }
 
   * {
