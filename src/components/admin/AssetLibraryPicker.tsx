@@ -37,6 +37,10 @@ export default function AssetLibraryPicker({ open, onOpenChange, onSelect, image
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [selectedAssetUrl, setSelectedAssetUrl] = useState<string>("");
+  const [page, setPage] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+  const itemsPerPage = 60;
 
   // Flatten folder tree
   const flatFolders = useMemo(() => {
@@ -62,6 +66,11 @@ export default function AssetLibraryPicker({ open, onOpenChange, onSelect, image
     })();
   }, [open]);
 
+  // Reset page when folder or search changes
+  useEffect(() => {
+    setPage(1);
+  }, [selectedFolderId, search]);
+
   // Load assets when folder changes or search
   useEffect(() => {
     if (!open) return;
@@ -72,17 +81,22 @@ export default function AssetLibraryPicker({ open, onOpenChange, onSelect, image
     if (imagesOnly) params.set("type", "image");
     if (search.trim()) params.set("q", search.trim());
     params.set("sort", "az");
-    params.set("limit", "60");
+    params.set("limit", itemsPerPage.toString());
+    params.set("page", page.toString());
 
     (async () => {
       try {
-        const res = await apiFetch<{ items: AssetItem[] }>(`/api/asset-library/assets?${params.toString()}`);
-        if (!cancelled) setAssets(res.items || []);
+        const res = await apiFetch<{ items: AssetItem[], total: number, totalPages: number }>(`/api/asset-library/assets?${params.toString()}`);
+        if (!cancelled) {
+          setAssets(res.items || []);
+          setTotalItems(res.total || 0);
+          setTotalPages(res.totalPages || 1);
+        }
       } catch { /* ignore */ }
       if (!cancelled) setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, [open, selectedFolderId, search, imagesOnly]);
+  }, [open, selectedFolderId, search, imagesOnly, page]);
 
   const handleSelect = () => {
     if (!selectedAssetUrl) return;
@@ -174,6 +188,42 @@ export default function AssetLibraryPicker({ open, onOpenChange, onSelect, image
                 </div>
               )}
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between px-1 py-2 border-t border-b bg-muted/20">
+                <p className="text-[10px] text-muted-foreground font-medium">
+                  Showing {(page - 1) * itemsPerPage + 1} - {Math.min(page * itemsPerPage, totalItems)} of {totalItems}
+                </p>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-7 w-7"
+                    disabled={page === 1 || loading}
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                  >
+                    <span className="sr-only">Previous Page</span>
+                    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5"><path d="M8.84182 3.13514C9.04327 3.32401 9.05348 3.64042 8.86462 3.84188L5.43521 7.49991L8.86462 11.1579C9.05348 11.3594 9.04327 11.6758 8.84182 11.8647C8.64036 12.0535 8.32394 12.0433 8.13508 11.8419L4.38508 7.84188C4.20477 7.64955 4.20477 7.35027 4.38508 7.15794L8.13508 3.15794C8.32394 2.95648 8.64036 2.94628 8.84182 3.13514Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path></svg>
+                  </Button>
+                  <div className="flex items-center gap-1 mx-1">
+                    <span className="text-[10px] font-bold">{page}</span>
+                    <span className="text-[10px] text-muted-foreground">/</span>
+                    <span className="text-[10px] text-muted-foreground">{totalPages}</span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-7 w-7"
+                    disabled={page === totalPages || loading}
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  >
+                    <span className="sr-only">Next Page</span>
+                    <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5"><path d="M6.15818 3.13514C5.95673 3.32401 5.94652 3.64042 6.13538 3.84188L9.56479 7.49991L6.13538 11.1579C5.94652 11.3594 5.95673 11.6758 6.15818 11.8647C6.35964 12.0535 6.67606 12.0433 6.86492 11.8419L10.6149 7.84188C10.7952 7.64955 10.7952 7.35027 10.6149 7.15794L6.86492 3.15794C6.67606 2.95648 6.35964 2.94628 6.15818 3.13514Z" fill="currentColor" fillRule="evenodd" clipRule="evenodd"></path></svg>
+                  </Button>
+                </div>
+              </div>
+            )}
 
             <div className="flex justify-end gap-2 pt-2 border-t">
               <Button variant="outline" size="sm" onClick={() => onOpenChange(false)}>Cancel</Button>
