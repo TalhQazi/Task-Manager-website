@@ -1,6 +1,6 @@
 import { NavLink } from "@/components/admin/NavLink";
 
-import { LayoutDashboard, ClipboardList, Calendar, UserCircle, Bell, Clock, MessageCircle, FileText, ClipboardCheck, Folder, Wallet, Palette, Calendar as CalendarIcon } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Calendar, UserCircle, Bell, Clock, MessageCircle, FileText, ClipboardCheck, Folder, Wallet, Palette, Calendar as CalendarIcon, ShoppingCart } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -23,6 +23,7 @@ const navItemsBase = [
   { icon: Bell, label: "Notifications", path: "/employee/notifications" },
   { icon: FileText, label: "My Notes", path: "/employee/personal-notes" },
   { icon: Palette, label: "UI Customization", path: "/employee/ui-customization" },
+  { icon: ShoppingCart, label: "Shopping Lists", path: "/employee/shopping-lists" },
 ];
 
 type SidebarMode = "desktop" | "mobile";
