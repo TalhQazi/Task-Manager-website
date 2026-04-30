@@ -363,7 +363,8 @@ export default function ShoppingLists() {
             setSelectedList(null);
           }}
           list={selectedList}
-          vendors={vendors}
+          allVendors={vendors}
+          employees={employees}
           isAdmin={isAdmin}
           onUpdateStatus={(status: string) => updateStatusMutation.mutate({ id: selectedList.id, status })}
         />
@@ -379,8 +380,6 @@ function CreateListModal({ isOpen, onClose, companies, locations, employees, ven
     name: "",
     companyId: "",
     locationId: "",
-    assignedEmployeeId: "",
-    vendorIds: [] as string[],
     notes: ""
   });
 
@@ -398,7 +397,7 @@ function CreateListModal({ isOpen, onClose, companies, locations, employees, ven
       toast.success("Shopping list created!");
       queryClient.invalidateQueries({ queryKey: ["shopping-lists"] });
       onClose();
-      setFormData({ name: "", companyId: "", locationId: "", assignedEmployeeId: "", vendorIds: [], notes: "" });
+      setFormData({ name: "", companyId: "", locationId: "", notes: "" });
     }
   });
 
@@ -448,45 +447,6 @@ function CreateListModal({ isOpen, onClose, companies, locations, employees, ven
             </Select>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-white/60">Assign To</label>
-            <Select onValueChange={v => setFormData({...formData, assignedEmployeeId: v})}>
-              <SelectTrigger className="bg-[#161B22] border-white/10">
-                <SelectValue placeholder="Select Employee" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#161B22] border-white/10 text-white">
-                {employees?.map((e: any) => (
-                  <SelectItem key={e._id} value={e._id}>{e.name || e.username}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-white/60">Primary Vendors</label>
-            {/* Multi-select logic simplified here for brevity */}
-            <Select onValueChange={v => setFormData({...formData, vendorIds: [...formData.vendorIds, v]})}>
-              <SelectTrigger className="bg-[#161B22] border-white/10">
-                <SelectValue placeholder="Add Vendors" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#161B22] border-white/10 text-white">
-                {vendors?.map((v: any) => (
-                  <SelectItem key={v._id || v.id} value={v._id || v.id}>{v.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex flex-wrap gap-2 mt-2">
-              {formData.vendorIds.map(vid => {
-                const v = vendors?.find((v: any) => v.id === vid);
-                return (
-                  <Badge key={vid} className="bg-[#00C6FF]/10 text-[#00C6FF] border-0 px-2 py-1 flex items-center gap-1">
-                    {v?.name}
-                    <X className="w-3 h-3 cursor-pointer" onClick={() => setFormData({...formData, vendorIds: formData.vendorIds.filter(id => id !== vid)})} />
-                  </Badge>
-                );
-              })}
-            </div>
-          </div>
 
           <div className="col-span-2 space-y-2">
             <label className="text-sm font-medium text-white/60">Internal Notes</label>
@@ -515,7 +475,7 @@ function CreateListModal({ isOpen, onClose, companies, locations, employees, ven
 }
 
 // --- List Detail Modal ---
-function ListDetailModal({ isOpen, onClose, list, vendors, isAdmin, onUpdateStatus }: any) {
+function ListDetailModal({ isOpen, onClose, list, allVendors, employees, isAdmin, onUpdateStatus }: any) {
   const queryClient = useQueryClient();
   const [isAddItemOpen, setIsAddItemOpen] = useState(false);
   const [vendorFilter, setVendorFilter] = useState<string>("all");
@@ -751,6 +711,10 @@ function ListDetailModal({ isOpen, onClose, list, vendors, isAdmin, onUpdateStat
           onClose={() => setIsAddItemOpen(false)} 
           listId={list.id} 
           listVendors={list.vendors}
+          allVendors={allVendors}
+          employees={employees}
+          currentAssignedId={list.assignedEmployeeId?._id || list.assignedEmployeeId?.id || list.assignedEmployeeId}
+          currentVendorIds={list.vendors?.map((v: any) => v._id || v.id) || []}
         />
       </DialogContent>
     </Dialog>
@@ -758,8 +722,12 @@ function ListDetailModal({ isOpen, onClose, list, vendors, isAdmin, onUpdateStat
 }
 
 // --- Add Item Modal ---
-function AddItemModal({ isOpen, onClose, listId, listVendors }: any) {
+function AddItemModal({ isOpen, onClose, listId, listVendors, allVendors, employees, currentAssignedId, currentVendorIds }: any) {
   const queryClient = useQueryClient();
+  const [listData, setListData] = useState({
+    assignedEmployeeId: currentAssignedId || "",
+    vendorIds: currentVendorIds || []
+  });
   const [formData, setFormData] = useState({
     name: "",
     quantity: "1",
@@ -772,6 +740,17 @@ function AddItemModal({ isOpen, onClose, listId, listVendors }: any) {
 
   const mutation = useMutation({
     mutationFn: async (data: any) => {
+      // First update the list properties if they changed
+      if (listData.assignedEmployeeId !== currentAssignedId || JSON.stringify(listData.vendorIds.sort()) !== JSON.stringify(currentVendorIds.sort())) {
+        await apiFetch(`/api/shopping-lists/${listId}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            assignedEmployeeId: listData.assignedEmployeeId,
+            vendors: listData.vendorIds
+          })
+        });
+      }
+
       const payload = { ...data };
       if (payload.vendorId === "none") payload.vendorId = null;
       return apiFetch(`/api/shopping-lists/${listId}/items`, {
@@ -781,9 +760,10 @@ function AddItemModal({ isOpen, onClose, listId, listVendors }: any) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["shopping-list", listId] });
+      queryClient.invalidateQueries({ queryKey: ["shopping-lists"] });
       onClose();
       setFormData({ name: "", quantity: "1", vendorId: "", category: "General", priority: "medium", aisle: "", notes: "" });
-      toast.success("Item added to list");
+      toast.success("Item added and list settings updated");
     },
     onError: () => toast.error("Failed to add item. Please try again.")
   });
@@ -794,7 +774,7 @@ function AddItemModal({ isOpen, onClose, listId, listVendors }: any) {
         <DialogHeader>
           <DialogTitle>Add Item to List</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4 py-2">
+        <div className="space-y-4 py-2 overflow-y-auto max-h-[60vh] pr-2">
           <div className="space-y-2">
             <label className="text-sm font-medium text-white/60">Item Name</label>
             <Input 
@@ -853,8 +833,56 @@ function AddItemModal({ isOpen, onClose, listId, listVendors }: any) {
               />
             </div>
           </div>
+
+          <div className="border-t border-white/5 pt-4 mt-4 space-y-4">
+            <h4 className="text-sm font-semibold text-[#00C6FF]">List Settings</h4>
+            <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-white/60">Assign List To</label>
+                <Select value={listData.assignedEmployeeId} onValueChange={v => setListData({...listData, assignedEmployeeId: v})}>
+                  <SelectTrigger className="bg-[#161B22] border-white/10">
+                    <SelectValue placeholder="Select Employee" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#161B22] border-white/10 text-white">
+                    {employees?.map((e: any) => (
+                      <SelectItem key={e._id || e.id} value={e._id || e.id}>{e.name || e.username}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-white/60">List Vendors</label>
+                <Select onValueChange={v => {
+                  if (!listData.vendorIds.includes(v)) {
+                    setListData({...listData, vendorIds: [...listData.vendorIds, v]});
+                  }
+                }}>
+                  <SelectTrigger className="bg-[#161B22] border-white/10">
+                    <SelectValue placeholder="Add Vendors to List" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#161B22] border-white/10 text-white">
+                    {allVendors?.map((v: any) => (
+                      <SelectItem key={v._id || v.id} value={v._id || v.id}>{v.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {listData.vendorIds.map((vid: string) => {
+                    const v = allVendors?.find((v: any) => (v._id || v.id) === vid);
+                    return (
+                      <Badge key={vid} className="bg-[#00C6FF]/10 text-[#00C6FF] border-0 px-2 py-1 flex items-center gap-1">
+                        {v?.name || "Vendor"}
+                        <X className="w-3 h-3 cursor-pointer" onClick={() => setListData({...listData, vendorIds: listData.vendorIds.filter(id => id !== vid)})} />
+                      </Badge>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="mt-4">
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button onClick={() => mutation.mutate(formData)} disabled={!formData.name}>Add Item</Button>
         </DialogFooter>
