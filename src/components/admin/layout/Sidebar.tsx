@@ -35,6 +35,7 @@ import {
   Bug,
   Palette,
   CalendarCheck,
+  ShoppingCart,
 } from "lucide-react";
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -110,6 +111,7 @@ const navItemsBase: NavItem[] = [
       />
     ),
   },
+  { icon: ShoppingCart, label: "Shopping Lists", path: "/admin/shopping-lists" },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
   { icon: Palette, label: "Theme Engine", path: "/admin/theme-engine" },
   { icon: Bug, label: "Bug Reports", path: "/admin/bug-reports" },
