@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/admin/ui/
 import { ActiveWebsites } from "@/components/admin/ActiveWebsites";
 import { FutureWebsites } from "@/components/admin/FutureWebsites";
 import { SocialMediaAccounts } from "@/components/admin/SocialMediaAccounts";
+import { EmailAccounts } from "@/components/admin/EmailAccounts";
 
 export function DigitalAssets() {
   return (
@@ -18,10 +19,11 @@ export function DigitalAssets() {
       </div>
 
       <Tabs defaultValue="active-websites" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="active-websites">Active Websites</TabsTrigger>
           <TabsTrigger value="future-websites">Future Websites</TabsTrigger>
           <TabsTrigger value="social-media">Social Media</TabsTrigger>
+          <TabsTrigger value="email-accounts">Email Accounts</TabsTrigger>
         </TabsList>
 
         <TabsContent value="active-websites">
@@ -53,6 +55,17 @@ export function DigitalAssets() {
             </CardHeader>
             <CardContent>
               <SocialMediaAccounts />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="email-accounts">
+          <Card>
+            <CardHeader>
+              <CardTitle>Email Accounts</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <EmailAccounts />
             </CardContent>
           </Card>
         </TabsContent>

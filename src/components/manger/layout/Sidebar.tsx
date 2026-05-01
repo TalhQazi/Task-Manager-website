@@ -21,6 +21,7 @@ import {
   FileText,
   ChevronDown,
   ChevronRight,
+  ShoppingCart,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -80,6 +81,7 @@ const navItemsBase: NavItem[] = [
   },
   { icon: FileText, label: "Personal Notes", path: "/manager/personal-notes" },
   { icon: Settings, label: "UI Customization", path: "/manager/ui-customization" },
+  { icon: ShoppingCart, label: "Shopping Lists", path: "/manager/shopping-lists" },
   { icon: Settings, label: "Settings", path: "/manager/settings" },
 ];
 

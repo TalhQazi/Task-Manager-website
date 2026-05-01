@@ -1032,9 +1032,7 @@ export default function Tasks() {
     if (!projectName.trim()) {
       errors.projectName = "Project name is required";
     }
-    if (projectTasks.length === 0) {
-      errors.title = "At least one task is required";
-    }
+    // Task is no longer mandatory during project creation
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -1167,8 +1165,7 @@ export default function Tasks() {
         })
         : undefined;
 
-      const tasksToCreate: CreateProjectTaskDraft[] =
-        projectTasks.length > 0 ? projectTasks : [draftFromForm(undefined)];
+      const tasksToCreate: CreateProjectTaskDraft[] = projectTasks;
 
       const projectAttachments =
         projectAttachmentFiles.length > 0 ? await filesToAttachments(projectAttachmentFiles) : [];
@@ -1194,8 +1191,7 @@ export default function Tasks() {
       setIsCreating(false);
       resetProjectFlow();
       toast({
-        title: "Project created",
-        description: "Your project has been created with tasks.",
+        description: projectTasks.length > 0 ? "Your project has been created with tasks." : "Your project has been created.",
       });
     } catch (e) {
       setIsCreating(false);
@@ -2576,7 +2572,7 @@ export default function Tasks() {
             </div>
             <div className="space-y-2">
               <div className="flex flex-wrap items-center justify-between gap-2"><label className="text-sm font-medium">Project Tasks</label><Button type="button" size="sm" onClick={() => setIsCreateTaskOpen(true)} className="gap-2"><Plus className="h-4 w-4" />Add Task</Button></div>
-              {projectTasks.length > 0 ? (<div className="space-y-2 max-h-[300px] overflow-y-auto border border-border rounded-md p-3">{projectTasks.map((task, idx) => (<div key={idx} className="flex flex-col sm:flex-row sm:items-start gap-3 p-2 bg-muted/50 rounded-md"><div className="flex-1 min-w-0"><p className="font-medium text-sm truncate">{task.title || `Task ${idx + 1}`}</p><p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p><div className="flex gap-2 mt-1 flex-wrap text-xs"><span className="px-2 py-0.5 bg-muted rounded capitalize">{task.priority}</span><span className="px-2 py-0.5 bg-muted rounded capitalize">{task.status}</span></div></div><Button type="button" variant="ghost" size="sm" onClick={() => { setProjectTasks((prev) => prev.filter((_, i) => i !== idx)); }} className="h-8 w-8 p-0 flex-shrink-0 self-start"><X className="h-4 w-4" /></Button></div>))}</div>) : (<div className="border border-dashed border-border rounded-md p-4 text-center text-sm text-muted-foreground">No tasks added yet. Add at least one task to create the project.</div>)}
+              {projectTasks.length > 0 ? (<div className="space-y-2 max-h-[300px] overflow-y-auto border border-border rounded-md p-3">{projectTasks.map((task, idx) => (<div key={idx} className="flex flex-col sm:flex-row sm:items-start gap-3 p-2 bg-muted/50 rounded-md"><div className="flex-1 min-w-0"><p className="font-medium text-sm truncate">{task.title || `Task ${idx + 1}`}</p><p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p><div className="flex gap-2 mt-1 flex-wrap text-xs"><span className="px-2 py-0.5 bg-muted rounded capitalize">{task.priority}</span><span className="px-2 py-0.5 bg-muted rounded capitalize">{task.status}</span></div></div><Button type="button" variant="ghost" size="sm" onClick={() => { setProjectTasks((prev) => prev.filter((_, i) => i !== idx)); }} className="h-8 w-8 p-0 flex-shrink-0 self-start"><X className="h-4 w-4" /></Button></div>))}</div>) : (<div className="border border-dashed border-border rounded-md p-4 text-center text-sm text-muted-foreground">No tasks added yet. You can create the project and add tasks later.</div>)}
               {validationErrors.title && <p className="text-xs text-destructive">{validationErrors.title}</p>}
             </div>
             <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end"><Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button><Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">{isCreating && <Loader2 className="h-4 w-4 animate-spin" />}Create Project</Button></DialogFooter>
