@@ -265,6 +265,18 @@ function normalizeTask(t: TaskApi): Task {
   };
 }
 
+function getAttachmentCounts(attachments?: any[], attachment?: any) {
+  const allAttachments = Array.isArray(attachments) ? [...attachments] : [];
+  if (attachment && attachment.url && !allAttachments.some(a => a.url === attachment.url)) {
+    allAttachments.push(attachment);
+  }
+  
+  const images = allAttachments.filter(a => a.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(a.fileName || "")).length;
+  const files = allAttachments.length - images;
+  
+  return { images, files };
+}
+
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
   const [src, setSrc] = useState<string | null | undefined>(undefined);
   const [error, setError] = useState(false);
@@ -1958,8 +1970,27 @@ export default function Tasks() {
               </Select>
             </div>
           </div>
-          <div className="flex items-center justify-between text-[10px] text-muted-foreground/60 mt-4 pt-3 border-t font-bold uppercase tracking-wider">
-            <span className="flex items-center gap-1"><PlusCircle className="w-3 h-3" /> {selectedProject.tasks.length} Total Tasks</span>
+          <div className="flex flex-wrap items-center justify-between text-[10px] text-muted-foreground/60 mt-4 pt-3 border-t font-bold uppercase tracking-wider">
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-1"><PlusCircle className="w-3 h-3" /> {selectedProject.tasks.length} Total Tasks</span>
+              {(() => {
+                const { images, files } = getAttachmentCounts(selectedProject.attachments);
+                return (images > 0 || files > 0) && (
+                  <div className="flex items-center gap-3 border-l pl-4 border-border/40">
+                    {images > 0 && (
+                      <span className="flex items-center gap-1 text-primary">
+                        <Paperclip className="w-3 h-3" /> {images} Image{images !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                    {files > 0 && (
+                      <span className="flex items-center gap-1 text-indigo-600">
+                        <FileText className="w-3 h-3" /> {files} File{files !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
             <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Created {new Date(selectedProject.createdAt).toLocaleDateString()}</span>
           </div>
         </div>
@@ -2029,9 +2060,20 @@ export default function Tasks() {
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between text-[11px] text-muted-foreground/80 mb-3 bg-muted/10 p-1.5 rounded-lg px-2">
+                        <div className="flex flex-wrap items-center justify-between text-[11px] text-muted-foreground/80 mb-3 bg-muted/10 p-1.5 rounded-lg px-2 gap-2">
                           <span className="truncate flex items-center gap-1"><Users className="w-3 h-3" /> {assigneeList.length > 0 ? (assigneeList.length > 1 ? `${assigneeList[0]} +${assigneeList.length-1}` : assigneeList[0]) : "Member Only"}</span>
-                          <span className="flex-shrink-0 font-bold bg-background px-1.5 py-0.5 rounded border border-border/50">{taskNum} total</span>
+                          <div className="flex items-center gap-3">
+                            <span className="flex-shrink-0 font-bold bg-background px-1.5 py-0.5 rounded border border-border/50">{taskNum} tasks</span>
+                            {(() => {
+                              const { images, files } = getAttachmentCounts(project.attachments);
+                              return (images > 0 || files > 0) && (
+                                <div className="flex items-center gap-2 border-l pl-2 border-border/40">
+                                  {images > 0 && <span className="flex items-center gap-1 text-primary/70"><Paperclip className="w-2.5 h-2.5" /> {images}</span>}
+                                  {files > 0 && <span className="flex items-center gap-1 text-indigo-600/70"><FileText className="w-2.5 h-2.5" /> {files}</span>}
+                                </div>
+                              );
+                            })()}
+                          </div>
                         </div>
                       </div>
 
@@ -2133,7 +2175,7 @@ export default function Tasks() {
         </p>
 
         {/* Status & Priority */}
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
           <Badge
             variant="secondary"
             className={cn("text-xs", statusClasses[task.status])}
@@ -2146,6 +2188,15 @@ export default function Tasks() {
           >
             {task.priority}
           </Badge>
+          {(() => {
+            const { images, files } = getAttachmentCounts(task.attachments, task.attachment);
+            return (images > 0 || files > 0) && (
+              <div className="flex items-center gap-2 ml-auto">
+                {images > 0 && <span className="flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/5 px-1.5 py-0.5 rounded border border-primary/10"><Paperclip className="w-3 h-3" /> {images}</span>}
+                {files > 0 && <span className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 bg-indigo-500/5 px-1.5 py-0.5 rounded border border-indigo-500/10"><FileText className="w-3 h-3" /> {files}</span>}
+              </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -3106,6 +3157,18 @@ export default function Tasks() {
                             <p className="text-[13px] font-medium text-foreground bg-background border border-border/60 rounded-lg px-3 py-2 truncate" title={selectedTask.location}>{selectedTask.location}</p>
                           </div>
                         )}
+                        {(() => {
+                          const { images, files } = getAttachmentCounts(selectedTask.attachments, selectedTask.attachment);
+                          return (images > 0 || files > 0) && (
+                            <div className="space-y-2 pt-2 border-t border-border/20">
+                              <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5"><Paperclip className="w-3 h-3" /> Attachments</label>
+                              <div className="flex items-center gap-4 bg-background border border-border/60 rounded-lg px-3 py-2">
+                                {images > 0 && <span className="flex items-center gap-1.5 text-xs font-bold text-primary"><Paperclip className="w-3.5 h-3.5" /> {images} Image{images !== 1 ? "s" : ""}</span>}
+                                {files > 0 && <span className="flex items-center gap-1.5 text-xs font-bold text-indigo-600"><FileText className="w-3.5 h-3.5" /> {files} File{files !== 1 ? "s" : ""}</span>}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       <div className="pt-4 space-y-3">

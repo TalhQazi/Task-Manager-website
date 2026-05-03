@@ -438,6 +438,18 @@ function normalizeTask(t: any): Task {
   };
 }
 
+function getAttachmentCounts(attachments?: any[], attachment?: any) {
+  const allAttachments = Array.isArray(attachments) ? [...attachments] : [];
+  if (attachment && attachment.url && !allAttachments.some(a => a.url === attachment.url)) {
+    allAttachments.push(attachment);
+  }
+  
+  const images = allAttachments.filter(a => a.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(a.fileName || "")).length;
+  const files = allAttachments.length - images;
+  
+  return { images, files };
+}
+
 function renderMessageWithMentions(text: string) {
   if (!text) return null;
   // Split by mentions that start with @ and don't contain spaces
@@ -2141,27 +2153,48 @@ export default function Tasks() {
               </div>
             </div>
           )}
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground mt-3">
-            <span>{selectedProject.tasks.length} tasks</span>
-            <Select value={selectedProject.status || "No status"} onValueChange={(value) => {
-              updateProjectStatusMutation.mutate({ projectId: selectedProject.id, status: value }, {
-                onSuccess: () => {
-                  setSelectedProject({ ...selectedProject, status: value });
-                }
-              });
-            }}>
-              <SelectTrigger className="w-[120px] h-8">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="No tasks">No tasks</SelectItem>
-                <SelectItem value="Pending">Pending</SelectItem>
-                <SelectItem value="In Progress">In Progress</SelectItem>
-                <SelectItem value="Completed">Completed</SelectItem>
-                <SelectItem value="Overdue">Overdue</SelectItem>
-              </SelectContent>
-            </Select>
-            <span className="text-xs">{selectedProject.createdAt ? new Date(selectedProject.createdAt).toLocaleDateString() : ""}</span>
+          <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-muted-foreground mt-3 pt-3 border-t border-border/40">
+            <div className="flex items-center gap-4">
+              <span>{selectedProject.tasks.length} tasks</span>
+              {(() => {
+                const { images, files } = getAttachmentCounts(selectedProject.attachments);
+                return (images > 0 || files > 0) && (
+                  <div className="flex items-center gap-3 border-l pl-4 border-border/40">
+                    {images > 0 && (
+                      <span className="flex items-center gap-1.5 text-primary font-semibold">
+                        <Paperclip className="w-3.5 h-3.5" /> {images} Image{images !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                    {files > 0 && (
+                      <span className="flex items-center gap-1.5 text-indigo-600 font-semibold">
+                        <FileText className="w-3.5 h-3.5" /> {files} File{files !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+            <div className="flex items-center gap-3">
+              <Select value={selectedProject.status || "No status"} onValueChange={(value) => {
+                updateProjectStatusMutation.mutate({ projectId: selectedProject.id, status: value }, {
+                  onSuccess: () => {
+                    setSelectedProject({ ...selectedProject, status: value });
+                  }
+                });
+              }}>
+                <SelectTrigger className="w-[120px] h-8">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="No tasks">No tasks</SelectItem>
+                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="In Progress">In Progress</SelectItem>
+                  <SelectItem value="Completed">Completed</SelectItem>
+                  <SelectItem value="Overdue">Overdue</SelectItem>
+                </SelectContent>
+              </Select>
+              <span className="text-xs">{selectedProject.createdAt ? new Date(selectedProject.createdAt).toLocaleDateString() : ""}</span>
+            </div>
           </div>
         </div>
       ) : (
@@ -2213,12 +2246,32 @@ export default function Tasks() {
                               <p className="text-xs text-muted-foreground line-clamp-2">{project.description || "No description"}</p>
                             </div>
                           </div>
-                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                            <span className="truncate flex-1 mr-2">
-                              <Users className="w-3 h-3 inline mr-1" />
+                          <div className="flex flex-wrap items-center justify-between text-[11px] text-muted-foreground mb-3 bg-muted/20 p-2 rounded-lg gap-2">
+                            <span className="truncate flex-1 font-medium flex items-center gap-1.5">
+                              <Users className="w-3.5 h-3.5 text-primary/60" />
                               {assigneeList.length} Assignee{assigneeList.length === 1 ? "" : "s"}
                             </span>
-                            <span className="flex-shrink-0">{taskNum} task{taskNum === 1 ? "" : "s"}</span>
+                            <span className="flex-shrink-0 font-medium flex items-center gap-1.5">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-green-500/60" />
+                              {taskNum} task{taskNum === 1 ? "" : "s"}
+                            </span>
+                            {(() => {
+                              const { images, files } = getAttachmentCounts(project.attachments);
+                              return (images > 0 || files > 0) && (
+                                <div className="flex items-center gap-2 w-full pt-1.5 border-t border-border/40">
+                                  {images > 0 && (
+                                    <span className="flex items-center gap-1 text-primary/70">
+                                      <Paperclip className="w-3 h-3" /> {images}
+                                    </span>
+                                  )}
+                                  {files > 0 && (
+                                    <span className="flex items-center gap-1 text-indigo-600/70">
+                                      <FileText className="w-3 h-3" /> {files}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
                           <div className="flex items-center justify-between text-xs">
                             <Badge className="capitalize" variant="outline">{project.status || "No tasks"}</Badge>
@@ -2348,11 +2401,28 @@ export default function Tasks() {
                               </div>
                             </div>
                           ) : null}
-                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                            <span className="truncate flex-1 mr-2">
-                              <Users className="w-3 h-3 inline mr-1" />
+                          <div className="flex flex-wrap items-center justify-between text-[11px] text-muted-foreground mb-3 gap-2">
+                            <span className="truncate flex-1 font-medium flex items-center gap-1.5">
+                              <Users className="w-3.5 h-3.5" />
                               {assigneeList.length} Assignee{assigneeList.length === 1 ? "" : "s"}
                             </span>
+                            {(() => {
+                              const { images, files } = getAttachmentCounts(task.attachments, task.attachment);
+                              return (images > 0 || files > 0) && (
+                                <div className="flex items-center gap-2">
+                                  {images > 0 && (
+                                    <span className="flex items-center gap-1 text-primary font-bold">
+                                      <Paperclip className="w-3.5 h-3.5" /> {images}
+                                    </span>
+                                  )}
+                                  {files > 0 && (
+                                    <span className="flex items-center gap-1 text-indigo-600 font-bold">
+                                      <FileText className="w-3.5 h-3.5" /> {files}
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
                           <div className="flex items-center justify-between text-xs gap-2 flex-wrap">
                             <div className="flex gap-1 flex-wrap">
@@ -3224,9 +3294,23 @@ export default function Tasks() {
                     </div>
 
                     {/* Created */}
-                    <div className="pt-4 border-t border-border/40 text-xs text-muted-foreground font-medium flex justify-between items-center">
-                      <span>Created</span>
-                      <span className="text-foreground/80">{new Date(selectedTask.createdAt).toLocaleDateString()}</span>
+                    <div className="pt-4 border-t border-border/40 text-xs text-muted-foreground font-medium space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span>Created</span>
+                        <span className="text-foreground/80">{new Date(selectedTask.createdAt).toLocaleDateString()}</span>
+                      </div>
+                      {(() => {
+                        const { images, files } = getAttachmentCounts(selectedTask.attachments, selectedTask.attachment);
+                        return (images > 0 || files > 0) && (
+                          <div className="flex justify-between items-center pt-2 border-t border-border/20">
+                            <span>Attachments</span>
+                            <div className="flex items-center gap-3">
+                              {images > 0 && <span className="flex items-center gap-1 text-primary font-bold"><Paperclip className="w-3 h-3" /> {images}</span>}
+                              {files > 0 && <span className="flex items-center gap-1 text-indigo-600 font-bold"><FileText className="w-3 h-3" /> {files}</span>}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* Task Contributors */}
@@ -3892,14 +3976,31 @@ export default function Tasks() {
                             />
                           </div>
                         )}
-                        {(task.dropboxAttachmentCount !== undefined && task.dropboxAttachmentCount > 0) && (
-                          <div className="flex flex-wrap items-center gap-2">
-                            <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-tight bg-blue-500/10 text-blue-400 px-2 py-1 rounded-md w-fit border border-blue-500/20">
-                              <DropboxIcon size={10} />
-                              {task.dropboxAttachmentCount} file{task.dropboxAttachmentCount > 1 ? "s" : ""}
+                        {(() => {
+                          const { images, files } = getAttachmentCounts(task.attachments, task.attachment);
+                          return (images > 0 || files > 0 || (task.dropboxAttachmentCount !== undefined && task.dropboxAttachmentCount > 0)) && (
+                            <div className="flex flex-wrap items-center gap-2">
+                              {images > 0 && (
+                                <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-tight bg-primary/10 text-primary px-2 py-1 rounded-md w-fit border border-primary/20">
+                                  <Paperclip size={11} />
+                                  {images} Image{images > 1 ? "s" : ""}
+                                </div>
+                              )}
+                              {files > 0 && (
+                                <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-tight bg-indigo-500/10 text-indigo-600 px-2 py-1 rounded-md w-fit border border-indigo-500/20">
+                                  <FileText size={11} />
+                                  {files} File{files > 1 ? "s" : ""}
+                                </div>
+                              )}
+                              {(task.dropboxAttachmentCount !== undefined && task.dropboxAttachmentCount > 0) && (
+                                <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-tight bg-blue-500/10 text-blue-400 px-2 py-1 rounded-md w-fit border border-blue-500/20">
+                                  <DropboxIcon size={10} />
+                                  {task.dropboxAttachmentCount} file{task.dropboxAttachmentCount > 1 ? "s" : ""}
+                                </div>
+                              )}
                             </div>
-                          </div>
-                        )}
+                          );
+                        })()}
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
                             <p className="text-xs text-muted-foreground">Assigned to</p>
