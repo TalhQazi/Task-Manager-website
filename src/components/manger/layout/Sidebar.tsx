@@ -79,7 +79,17 @@ const navItemsBase: NavItem[] = [
       />
     ),
   },
-  { icon: FileText, label: "Personal Notes", path: "/manager/personal-notes" },
+  {
+    label: "Personal Notes",
+    path: "/manager/personal-notes",
+    customIcon: (
+      <img
+        src="/kn_vlt.png"
+        alt="Personal Notes"
+        className="h-5 w-5 flex-shrink-0 object-contain opacity-80 group-hover:opacity-100 transition-opacity"
+      />
+    ),
+  },
   { icon: Settings, label: "UI Customization", path: "/manager/ui-customization" },
   { icon: ShoppingCart, label: "Shopping Lists", path: "/manager/shopping-lists" },
   { icon: Settings, label: "Settings", path: "/manager/settings" },
