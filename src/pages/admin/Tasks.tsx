@@ -402,6 +402,7 @@ interface Project {
     mimeType: string;
     size: number;
   }>;
+  taskAttachmentStats?: { images: number; files: number };
 }
 
 interface ProjectWithTasks extends Project {
@@ -2157,16 +2158,24 @@ export default function Tasks() {
             <div className="flex items-center gap-4">
               <span>{selectedProject.tasks.length} tasks</span>
               {(() => {
-                const { images, files } = getAttachmentCounts(selectedProject.attachments);
+                const projectAtts = getAttachmentCounts(selectedProject.attachments);
+                const taskAtts = (selectedProject.tasks || []).reduce((acc, t) => {
+                  const { images, files } = getAttachmentCounts(t.attachments, t.attachment);
+                  return { images: acc.images + images, files: acc.files + files };
+                }, { images: 0, files: 0 });
+                
+                const images = projectAtts.images + taskAtts.images;
+                const files = projectAtts.files + taskAtts.files;
+                
                 return (images > 0 || files > 0) && (
                   <div className="flex items-center gap-3 border-l pl-4 border-border/40">
                     {images > 0 && (
-                      <span className="flex items-center gap-1.5 text-primary font-semibold">
+                      <span className="flex items-center gap-1.5 text-primary font-semibold" title={`${projectAtts.images} from project, ${taskAtts.images} from tasks`}>
                         <Paperclip className="w-3.5 h-3.5" /> {images} Image{images !== 1 ? "s" : ""}
                       </span>
                     )}
                     {files > 0 && (
-                      <span className="flex items-center gap-1.5 text-indigo-600 font-semibold">
+                      <span className="flex items-center gap-1.5 text-indigo-600 font-semibold" title={`${projectAtts.files} from project, ${taskAtts.files} from tasks`}>
                         <FileText className="w-3.5 h-3.5" /> {files} File{files !== 1 ? "s" : ""}
                       </span>
                     )}
@@ -2256,16 +2265,20 @@ export default function Tasks() {
                               {taskNum} task{taskNum === 1 ? "" : "s"}
                             </span>
                             {(() => {
-                              const { images, files } = getAttachmentCounts(project.attachments);
+                              const projectAtts = getAttachmentCounts(project.attachments);
+                              const taskAtts = project.taskAttachmentStats || { images: 0, files: 0 };
+                              const images = projectAtts.images + taskAtts.images;
+                              const files = projectAtts.files + taskAtts.files;
+                              
                               return (images > 0 || files > 0) && (
                                 <div className="flex items-center gap-2 w-full pt-1.5 border-t border-border/40">
                                   {images > 0 && (
-                                    <span className="flex items-center gap-1 text-primary/70">
+                                    <span className="flex items-center gap-1 text-primary/70" title={`${projectAtts.images} from project, ${taskAtts.images} from tasks`}>
                                       <Paperclip className="w-3 h-3" /> {images}
                                     </span>
                                   )}
                                   {files > 0 && (
-                                    <span className="flex items-center gap-1 text-indigo-600/70">
+                                    <span className="flex items-center gap-1 text-indigo-600/70" title={`${projectAtts.files} from project, ${taskAtts.files} from tasks`}>
                                       <FileText className="w-3 h-3" /> {files}
                                     </span>
                                   )}
