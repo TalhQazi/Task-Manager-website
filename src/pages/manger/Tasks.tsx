@@ -659,7 +659,7 @@ export default function Tasks() {
 
   const [isCreateExpenseOpen, setIsCreateExpenseOpen] = useState(false);
   const [isExpenseListOpen, setIsExpenseListOpen] = useState(false);
-
+  const [selectedProjectId, setSelectedProjectId] = useState(null);
 
   const now = useGlobalTimer();
   // Top contributors state
