@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/manger/ui/button";
@@ -88,6 +88,7 @@ import {
   Paperclip,
   Layers,
   Maximize2,
+  Flame,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { io, Socket } from "socket.io-client";
@@ -108,6 +109,7 @@ interface Task {
   assignee?: string;
   priority: "low" | "medium" | "high";
   status: "pending" | "in-progress" | "completed" | "overdue";
+  executionPriority?: number | null;
   dueDate: string;
   dueTime?: string;
   location?: string;
@@ -225,6 +227,19 @@ interface ProjectWithTasks extends Project {
   status?: string;
 }
 
+const createTaskSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().min(1, "Description is required"),
+  priority: z.enum(["low", "medium", "high"]),
+  status: z.enum(["pending", "in-progress", "completed", "overdue"]),
+  dueDate: z.string().optional(),
+  dueTime: z.string().optional(),
+  location: z.string().optional(),
+  assignees: z.array(z.string()).optional().default([]),
+});
+
+type CreateTaskValues = z.infer<typeof createTaskSchema>;
+
 function normalizeTask(t: TaskApi): Task {
   const legacyAssignee = typeof t.assignee === "string" ? t.assignee.trim() : "";
   const assignees = Array.isArray(t.assignees)
@@ -241,9 +256,10 @@ function normalizeTask(t: TaskApi): Task {
     assignees,
     priority: t.priority,
     status: t.status,
+    executionPriority: (t as any).executionPriority ?? null,
     dueDate: t.dueDate,
     dueTime: t.dueTime,
-    location: t.location,
+    location: (t as any).location,
     createdAt: t.createdAt,
     attachmentFileName: extra.attachmentFileName,
     attachmentNote: extra.attachmentNote,
@@ -252,182 +268,6 @@ function normalizeTask(t: TaskApi): Task {
   };
 }
 
-function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
-  const [src, setSrc] = useState<string | null | undefined>(undefined);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    // If logoUrl is a real URL (S3 or data:), use it directly
-    if (logoUrl && logoUrl.length > 0) {
-      setSrc(toProxiedUrl(logoUrl) || logoUrl);
-      setError(false);
-      return;
-    }
-    
-    // logoUrl is undefined or empty string — fetch from dedicated endpoint
-    // Empty string means the list API stripped a base64 value stored in MongoDB
-    let cancelled = false;
-    setSrc(undefined);
-
-    apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
-      .then(d => { 
-        if (!cancelled) {
-          setSrc(toProxiedUrl(d.logo?.url) || null);
-          setError(false);
-        }
-      })
-      .catch(() => { 
-        if (!cancelled) {
-          setSrc(null);
-          setError(true);
-        }
-      });
-    return () => { cancelled = true; };
-  }, [projectId, logoUrl]);
-
-  if (src && !error) {
-    return (
-      <img 
-        src={src} 
-        alt={`${projectName} logo`} 
-        className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-border" 
-        crossOrigin="anonymous"
-        onError={() => setError(true)}
-      />
-    );
-  }
-
-  if (src === undefined) {
-    return <div className="w-10 h-10 rounded-md bg-muted/40 animate-pulse flex-shrink-0" />;
-  }
-
-  return (
-    <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary flex-shrink-0 border border-primary/20 uppercase">
-      {projectName.slice(0, 2).toUpperCase()}
-    </div>
-  );
-}
-
-function TaskAttachmentImg({ taskId, index, mimeType, fileName, fallbackUrl, onPreview }: { taskId: string; index: number; mimeType?: string; fileName?: string; fallbackUrl?: string; onPreview?: (url: string, name: string) => void }) {
-  const [src, setSrc] = useState<string | null>(toProxiedUrl(fallbackUrl) as string || null);
-
-  useEffect(() => {
-    // If fallbackUrl is a real URL (S3 or data:), use it directly
-    if (fallbackUrl && fallbackUrl.length > 0) {
-      setSrc(toProxiedUrl(fallbackUrl) || fallbackUrl);
-      return;
-    }
-    // fallbackUrl is undefined or empty string — fetch from dedicated endpoint
-    apiFetch<{ url: string }>(`/api/tasks/${taskId}/attachments/${index}`)
-      .then(d => setSrc(toProxiedUrl(d.url) as string || null))
-      .catch(() => setSrc(null));
-  }, [taskId, index, fallbackUrl]);
-
-  if (src && mimeType?.startsWith("image/")) return (
-    <div className="w-full h-full relative group/task-att cursor-zoom-in" onClick={() => onPreview?.(src, fileName || "Attachment")}>
-      <img src={src} alt={fileName} className="w-full h-24 object-cover" />
-      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/task-att:opacity-100 flex items-center justify-center transition-all duration-200">
-        <Maximize2 className="w-5 h-5 text-white" />
-      </div>
-    </div>
-  );
-  if (src && !mimeType?.startsWith("image/")) return (
-    <div className="w-full h-full relative group/att">
-      <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-white/10">
-        <FileText className="w-6 h-6 text-white/60 mb-1" />
-        <span className="text-[10px] text-white/40 truncate w-full px-2 font-medium">{fileName}</span>
-      </div>
-      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center gap-3 transition-opacity backdrop-blur-[1px] cursor-default">
-        <button 
-          onClick={(e) => { e.stopPropagation(); onPreview?.(src, fileName || "Attachment"); }}
-          className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
-          title="Preview"
-        >
-          <Maximize2 className="w-4 h-4" />
-        </button>
-        <a 
-          href={src} 
-          download={fileName} 
-          aria-label="Download" 
-          onClick={(e) => e.stopPropagation()} 
-          className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
-          title="Download"
-        >
-          <Download className="w-4 h-4" />
-        </a>
-      </div>
-    </div>
-  );
-  return <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>;
-}
-
-function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fallbackUrl, onPreview }: { taskId: string; commentId: string; index: number; mimeType?: string; fileName?: string; fallbackUrl?: string; onPreview?: (url: string, name: string) => void }) {
-  const [src, setSrc] = useState<string | null>(toProxiedUrl(fallbackUrl) as string || null);
-  useEffect(() => {
-    if (fallbackUrl) return;
-    apiFetch<{ url: string }>(`/api/tasks/${taskId}/comments/${commentId}/attachments/${index}`)
-      .then(d => setSrc(toProxiedUrl(d.url) as string || null))
-      .catch(() => setSrc(null));
-  }, [taskId, commentId, index, fallbackUrl]);
-
-  if (src && mimeType?.startsWith("image/")) return (
-    <div className="w-full h-full relative group/att cursor-zoom-in" onClick={() => onPreview?.(src, fileName || "Attachment")}>
-      <img src={src} alt={fileName} className="w-full h-24 object-cover" />
-      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-all duration-200">
-        <Maximize2 className="w-5 h-5 text-white" />
-      </div>
-    </div>
-  );
-  if (src && !mimeType?.startsWith("image/")) return (
-    <div className="w-full h-full relative group/att">
-      <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-white/10">
-        <FileText className="w-6 h-6 text-white/60 mb-1" />
-        <span className="text-[10px] text-white/40 truncate w-full px-2 font-medium">{fileName}</span>
-      </div>
-      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center gap-3 transition-opacity backdrop-blur-[1px] cursor-default">
-        <button 
-          onClick={(e) => { e.stopPropagation(); onPreview?.(src, fileName || "Attachment"); }}
-          className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
-          title="Preview"
-        >
-          <Maximize2 className="w-4 h-4" />
-        </button>
-        <a 
-          href={src} 
-          download={fileName} 
-          aria-label="Download" 
-          onClick={(e) => e.stopPropagation()} 
-          className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
-          title="Download"
-        >
-          <Download className="w-4 h-4" />
-        </a>
-      </div>
-    </div>
-  );
-  return <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>;
-}
-
-function formatMessageTime(date: string | Date) {
-  try {
-    const d = new Date(date);
-    if (isNaN(d.getTime())) return "Now";
-    return formatDistanceToNow(d, { addSuffix: true });
-  } catch {
-    return "Now";
-  }
-}
-
-function renderMessageWithMentions(message: string) {
-  if (!message) return null;
-  const parts = message.split(/(@[a-zA-Z0-9 ]+)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith("@")) {
-      return <span key={i} className="text-primary font-bold bg-primary/10 px-1 rounded">{part}</span>;
-    }
-    return part;
-  });
-}
 
 async function filesToAttachments(files: File[]) {
   return Promise.all(
@@ -445,90 +285,259 @@ async function filesToAttachments(files: File[]) {
   );
 }
 
-const priorityClasses = {
-  high: "bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive border-destructive/20",
-  medium: "bg-gradient-to-r from-yellow-500/20 to-amber-500/10 text-yellow-600 border-yellow-500/20",
-  low: "bg-gradient-to-r from-green-500/20 to-emerald-500/10 text-green-600 border-green-500/20",
+const priorityClasses: Record<Task["priority"], string> = {
+  low: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20",
+  medium: "bg-amber-500/10 text-amber-700 border-amber-500/20",
+  high: "bg-rose-500/10 text-rose-700 border-rose-500/20",
 };
 
-const statusClasses = {
-  pending: "bg-gradient-to-r from-blue-500/20 to-blue-400/10 text-blue-600 border-blue-500/20",
-  "in-progress": "bg-gradient-to-r from-amber-500/20 to-yellow-400/10 text-amber-600 border-amber-500/20",
-  completed: "bg-gradient-to-r from-green-500/20 to-emerald-400/10 text-green-600 border-green-500/20",
-  overdue: "bg-gradient-to-r from-red-500/20 to-rose-400/10 text-red-600 border-red-500/20",
+const statusClasses: Record<Task["status"], string> = {
+  pending: "bg-slate-500/10 text-slate-700 border-slate-500/20",
+  "in-progress": "bg-blue-500/10 text-blue-700 border-blue-500/20",
+  completed: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20",
+  overdue: "bg-rose-500/10 text-rose-700 border-rose-500/20",
 };
 
-const createTaskSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  description: z.string().min(1, "Description is required"),
-  priority: z.enum(["low", "medium", "high"]),
-  status: z.enum(["pending", "in-progress", "completed", "overdue"]),
-  dueDate: z.string().optional(),
-  dueTime: z.string().optional(),
-  location: z.string().optional(),
-  assignees: z.array(z.string()).optional().default([]),
-});
+function formatMessageTime(value: string) {
+  try {
+    return formatDistanceToNow(new Date(value), { addSuffix: true });
+  } catch {
+    return value;
+  }
+}
 
-type CreateTaskValues = z.infer<typeof createTaskSchema>;
+function renderMessageWithMentions(text: string) {
+  if (!text) return null;
+  const parts = text.split(/(@\S+)/g);
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith("@")) {
+          return (
+            <span
+              key={i}
+              className="text-primary font-medium bg-primary/10 px-1 py-0.5 rounded cursor-pointer hover:bg-primary/20 transition-colors"
+            >
+              {part}
+            </span>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </>
+  );
+}
 
-// Task Contributors Component
-function TaskContributorsList({ taskId }: { taskId: string }) {
-  const [contributors, setContributors] = useState<Array<{
-    userId: string;
-    name: string;
-    email: string;
-    role: string;
-    contributionType?: string;
-    actions?: string[];
-    addedAt?: string;
-    avatar?: string;
-    stats?: any;
-  }>>([]);
-  const [loading, setLoading] = useState(true);
+function ProjectLogoImg({ projectId, logoUrl, projectName }: { projectId: string; logoUrl?: string; projectName: string }) {
+  const [src, setSrc] = useState<string | null | undefined>(toProxiedUrl(logoUrl) || (logoUrl ? logoUrl : undefined));
+
+function getAttachmentCounts(attachments?: any[], attachment?: any) {
+  const allAttachments = Array.isArray(attachments) ? [...attachments] : [];
+  if (attachment && attachment.url && !allAttachments.some(a => a.url === attachment.url)) {
+    allAttachments.push(attachment);
+  }
+  
+  const images = allAttachments.filter(a => a.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(a.fileName || "")).length;
+  const files = allAttachments.length - images;
+  
+  return { images, files };
+}
+
+function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
+  const [src, setSrc] = useState<string | null | undefined>(undefined);
+
+  const [error, setError] = useState(false);
 
   useEffect(() => {
-    const loadContributors = async () => {
-      setLoading(true);
-      try {
-        const res = await apiFetch<{ items: typeof contributors }>(`/api/contributors/task/${encodeURIComponent(taskId)}/contributors`);
-        setContributors(res.items || []);
-      } catch (err) {
-        console.error("Failed to load task contributors:", err);
-      } finally {
-        setLoading(false);
-      }
+    setError(false);
+    if (logoUrl) {
+      setSrc(toProxiedUrl(logoUrl) || logoUrl);
+      return;
+    }
+    let cancelled = false;
+    apiFetch<{ logo?: { url?: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
+      .then((d) => {
+        if (!cancelled) setSrc(toProxiedUrl(d.logo?.url) || d.logo?.url || null);
+      })
+      .catch(() => {
+        if (!cancelled) setSrc(null);
+      });
+    return () => {
+      cancelled = true;
     };
-    loadContributors();
-  }, [taskId]);
+  }, [projectId, logoUrl]);
 
-  if (loading) {
-    return <div className="text-xs text-muted-foreground/70 italic">Loading collaborators...</div>;
+  if (src && !error) {
+    return (
+      <img
+        src={src}
+        alt={`${projectName} logo`}
+        className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-border"
+        crossOrigin="anonymous"
+        onError={() => setError(true)}
+      />
+    );
   }
 
-  if (contributors.length === 0) {
-    return <div className="text-xs text-muted-foreground/70 italic bg-muted/10 border border-dashed border-border/40 rounded-lg p-3 text-center">No collaborators yet</div>;
+  if (src === undefined) {
+    return <div className="w-10 h-10 rounded-md bg-muted/40 animate-pulse flex-shrink-0" />;
   }
 
   return (
-    <div className="flex flex-col gap-2 max-h-[180px] overflow-y-auto">
-      {contributors.map((contributor, idx) => (
-        <div key={idx} className="flex items-center gap-2.5 bg-background border border-border/60 rounded-lg px-3 py-2 shadow-xs">
-          <Avatar className="w-6 h-6">
-            <AvatarFallback className="text-[10px] bg-amber-100 text-amber-700 font-bold">
-              {contributor.name?.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase() || "?"}
-            </AvatarFallback>
+    <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary flex-shrink-0 border border-primary/20 uppercase">
+      {String(projectName || "P").slice(0, 2).toUpperCase()}
+    </div>
+  );
+}
+
+function TaskAttachmentImg({
+  taskId,
+  index,
+  mimeType,
+  fileName,
+  fallbackUrl,
+  onPreview,
+}: {
+  taskId: string;
+  index: number;
+  mimeType: string;
+  fileName: string;
+  fallbackUrl?: string;
+  onPreview?: (url: string, name: string) => void;
+}) {
+  const [src, setSrc] = useState<string | null | undefined>(toProxiedUrl(fallbackUrl) || (fallbackUrl ? fallbackUrl : undefined));
+
+  useEffect(() => {
+    if (fallbackUrl) {
+      setSrc(toProxiedUrl(fallbackUrl) || fallbackUrl);
+      return;
+    }
+    let cancelled = false;
+    apiFetch<{ attachment?: { url?: string } }>(`/api/tasks/${encodeURIComponent(taskId)}/attachments/${index}`)
+      .then((d) => {
+        if (!cancelled) setSrc(toProxiedUrl(d.attachment?.url) || d.attachment?.url || null);
+      })
+      .catch(() => {
+        if (!cancelled) setSrc(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [taskId, index, fallbackUrl]);
+
+  if (src && mimeType?.startsWith("image/")) {
+    return (
+      <div className="w-full h-full relative group/task-att cursor-zoom-in" onClick={() => onPreview?.(src, fileName)}>
+        <img src={src} alt={fileName} className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/task-att:opacity-100 flex items-center justify-center transition-all duration-200">
+          <Maximize2 className="w-5 h-5 text-white" />
+        </div>
+      </div>
+    );
+  }
+
+  if (src && !mimeType?.startsWith("image/")) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-muted/10">
+        <FileText className="w-6 h-6 text-muted-foreground/60 mb-1" />
+        <span className="text-[10px] text-muted-foreground/60 truncate w-full px-2 font-medium">{fileName}</span>
+      </div>
+    );
+  }
+
+  if (src === undefined) {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <Loader2 className="h-4 w-4 animate-spin opacity-20" />
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function CommentAttachmentImg({
+  taskId,
+  projectId,
+  commentId,
+  index,
+  mimeType,
+  fileName,
+  fallbackUrl,
+  onPreview,
+}: {
+  taskId?: string;
+  projectId?: string;
+  commentId: string;
+  index: number;
+  mimeType: string;
+  fileName: string;
+  fallbackUrl?: string;
+  onPreview?: (url: string, name: string) => void;
+}) {
+  const [src, setSrc] = useState<string | null | undefined>(toProxiedUrl(fallbackUrl) || (fallbackUrl ? fallbackUrl : undefined));
+
+  useEffect(() => {
+    if (fallbackUrl) return;
+    let cancelled = false;
+    const url = taskId
+      ? `/api/tasks/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}/attachments/${index}`
+      : `/api/projects/${encodeURIComponent(String(projectId))}/comments/${encodeURIComponent(commentId)}/attachments/${index}`;
+
+    apiFetch<{ attachment?: { url?: string } }>(url)
+      .then((d) => {
+        if (!cancelled) setSrc(toProxiedUrl(d.attachment?.url) || d.attachment?.url || null);
+      })
+      .catch(() => {
+        if (!cancelled) setSrc(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [taskId, projectId, commentId, index, fallbackUrl]);
+
+  if (src && mimeType?.startsWith("image/")) {
+    return (
+      <div className="w-full h-auto flex justify-center relative group/att cursor-zoom-in" onClick={() => onPreview?.(src, fileName)}>
+        <img src={src} alt={fileName} className="w-full h-auto max-h-[180px] object-contain rounded-lg" />
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-all duration-200 rounded-lg">
+          <Maximize2 className="w-5 h-5 text-white" />
+        </div>
+      </div>
+    );
+  }
+
+  if (src && !mimeType?.startsWith("image/")) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-muted/10 rounded-lg">
+        <FileText className="w-6 h-6 text-muted-foreground/60 mb-1" />
+        <span className="text-[10px] text-muted-foreground/60 truncate w-full px-2 font-medium">{fileName}</span>
+      </div>
+    );
+  }
+
+  if (src === undefined) {
+    return (
+      <div className="w-full h-20 flex items-center justify-center">
+        <Loader2 className="h-4 h-4 w-4 animate-spin opacity-10" />
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function TaskContributorsList({ assignees }: { assignees: string[] }) {
+  const people = (assignees || []).filter(Boolean);
+  if (people.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-2">
+      {people.map((name) => (
+        <div key={name} className="flex items-center gap-2 rounded-full border border-border/60 px-2 py-1 bg-background">
+          <Avatar className="h-6 w-6">
+            <AvatarFallback className="text-[10px] font-bold">{String(name).slice(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
-          <div className="flex-1 min-w-0">
-            <span className="text-xs font-medium text-foreground/80 truncate">{contributor.name || "Unknown"}</span>
-            <div className="flex items-center gap-1 mt-0.5">
-              <Badge variant="outline" className="text-[8px] h-3 px-1">
-                {contributor.contributionType || "collaborator"}
-              </Badge>
-              <span className="text-[9px] text-muted-foreground">
-                {contributor.actions?.length || 0} actions
-              </span>
-            </div>
-          </div>
+          <span className="text-xs font-medium max-w-[220px] truncate">{name}</span>
         </div>
       ))}
     </div>
@@ -538,73 +547,79 @@ function TaskContributorsList({ taskId }: { taskId: string }) {
 export default function Tasks() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
+  const [projectSearchQuery, setProjectSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [viewByPriority, setViewByPriority] = useState(false);
   const [projectPage, setProjectPage] = useState(1);
   const [taskPage, setTaskPage] = useState(1);
   const PAGE_SIZE = 25;
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
+  const [projectTasks, setProjectTasks] = useState<CreateProjectTaskDraft[]>([]);
   const [projectLogoFile, setProjectLogoFile] = useState<File | null>(null);
-  const [projectLogoPreview, setProjectLogoPreview] = useState<string>("");
+  const [projectLogoPreview, setProjectLogoPreview] = useState("");
   const [projectAttachmentFiles, setProjectAttachmentFiles] = useState<File[]>([]);
   const [projectAttachmentPreviews, setProjectAttachmentPreviews] = useState<string[]>([]);
-  const [projectTasks, setProjectTasks] = useState<CreateProjectTaskDraft[]>([]);
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [isViewOpen, setIsViewOpen] = useState(false);
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [validationErrors, setValidationErrors] = useState<{ projectName?: string; title?: string; description?: string }>({});
+
+  const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
+  const [isDirectTask, setIsDirectTask] = useState(false);
+  const [projectCreationAssigneesOpen, setProjectCreationAssigneesOpen] = useState(false);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  const [selectedProject, setSelectedProject] = useState<ProjectWithTasks | null>(null);
+  const [isLoadingProject, setIsLoadingProject] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
+  const [projectCreationAssignees, setProjectCreationAssignees] = useState<string[]>([]);
+  const [editSelectedAssignees, setEditSelectedAssignees] = useState<string[]>([]);
+  const [editAssigneesOpen, setEditAssigneesOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewName, setPreviewName] = useState<string>("");
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
   const [attachmentFilePreviews, setAttachmentFilePreviews] = useState<string[]>([]);
-  const [attachmentNoteDraft, setAttachmentNoteDraft] = useState<string>("");
-  const [isCreating, setIsCreating] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<{ projectName?: string; title?: string; description?: string }>({});
-  const [assigneesOpen, setAssigneesOpen] = useState(false);
-  const [editAssigneesOpen, setEditAssigneesOpen] = useState(false);
-  const [projectCreationAssignees, setProjectCreationAssignees] = useState<string[]>([]);
-  const [projectCreationAssigneesOpen, setProjectCreationAssigneesOpen] = useState(false);
 
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProject, setSelectedProject] = useState<ProjectWithTasks | null>(null);
-  const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
-  const [isDirectTask, setIsDirectTask] = useState(false);
-  const [isLoadingProject, setIsLoadingProject] = useState(false);
-  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
-  const [editSelectedAssignees, setEditSelectedAssignees] = useState<string[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [isViewOpen, setIsViewOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [statusSaving, setStatusSaving] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
+
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [commentsLoading, setCommentsLoading] = useState(false);
   const [commentDraft, setCommentDraft] = useState("");
-  const [commentError, setCommentError] = useState<string | null>(null);
-  const [statusSaving, setStatusSaving] = useState(false);
-  const queryClient = useQueryClient();
-  const { triggerBlaster, incrementCompletedCount, isEligible } = useTaskBlasterContext();
-
-  const currentUsername = getAuthState().username || "";
-  const [projectComments, setProjectComments] = useState<any[]>([]);
-  const [projectCommentsLoading, setProjectCommentsLoading] = useState(false);
-  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
-  
-  // Lightbox / File Preview State
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [previewName, setPreviewName] = useState<string>("");
-
   const [commentAttachments, setCommentAttachments] = useState<File[]>([]);
+  const [commentError, setCommentError] = useState<string | null>(null);
   const [isSendingComment, setIsSendingComment] = useState(false);
   const [isViewProjectOpen, setIsViewProjectOpen] = useState(false);
-  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
-  const [editCommentDraft, setEditCommentDraft] = useState("");
-  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
-  const chatContainerRef = useMemo(() => ({ current: null as HTMLDivElement | null }), []);
+  const [projectComments, setProjectComments] = useState<TaskComment[]>([]);
+  const [projectCommentsLoading, setProjectCommentsLoading] = useState(false);
 
-  // Fetch tasks with server-side pagination
+  const queryClient = useQueryClient();
+  const { triggerBlaster, incrementCompletedCount } = useTaskBlasterContext();
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  const projectsQuery = useQuery({
+    queryKey: ["projects", projectPage, projectSearchQuery],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page: projectPage.toString(),
+        limit: "10",
+        search: projectSearchQuery,
+      });
+      const res = await apiFetch<{ items: Project[], totalPages: number }>(`/api/projects?${params.toString()}`);
+      return res;
+    },
+  });
+
   const tasksQuery = useQuery({
-    queryKey: ["tasks", taskPage, searchQuery, statusFilter, priorityFilter],
+    queryKey: ["tasks", taskPage, searchQuery, statusFilter, priorityFilter, viewByPriority],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: taskPage.toString(),
@@ -613,46 +628,18 @@ export default function Tasks() {
         status: statusFilter,
         priority: priorityFilter,
       });
+      if (viewByPriority) params.set("sort", "priority");
       const res = await apiFetch<{ items: TaskApi[], totalPages: number, total: number }>(`/api/tasks?${params.toString()}`);
       return {
-        items: res.items.map(normalizeTask),
-        totalPages: res.totalPages || 1,
-        totalItems: res.total || 0,
+        items: (res.items || []).map(normalizeTask),
+        totalPages: res.totalPages,
+        totalItems: res.total,
       };
     },
-    placeholderData: (previousData) => previousData,
-    refetchInterval: 10000, // Auto-refresh every 10 seconds
   });
 
-  // Fetch projects with server-side pagination
-  const projectsQuery = useQuery({
-    queryKey: ["projects", projectPage, searchQuery],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        page: projectPage.toString(),
-        limit: PAGE_SIZE.toString(),
-        search: searchQuery,
-      });
-      const res = await apiFetch<{ items: Project[], totalPages: number, total: number }>(`/api/projects?${params.toString()}`);
-      return {
-        items: res.items,
-        totalPages: res.totalPages || 1,
-        totalItems: res.total || 0,
-      };
-    },
-    placeholderData: (previousData) => previousData,
-    refetchInterval: 10000, // Auto-refresh every 10 seconds
-  });
-
-  // Reset pages when filters change
-  useEffect(() => { setTaskPage(1); }, [searchQuery, statusFilter, priorityFilter, selectedProject?.id]);
+  useEffect(() => { setTaskPage(1); }, [searchQuery, statusFilter, priorityFilter, viewByPriority]);
   useEffect(() => { setProjectPage(1); }, [searchQuery]);
-
-  useEffect(() => {
-    if (tasksQuery.data) {
-      setTasks(tasksQuery.data.items);
-    }
-  }, [tasksQuery.data]);
 
   useEffect(() => {
     if (!selectedProject && tasksQuery.data) {
@@ -1538,6 +1525,16 @@ export default function Tasks() {
           <Button variant="outline" size="icon" className="shrink-0">
             <Filter className="w-4 h-4" />
           </Button>
+          <Button
+            type="button"
+            variant={viewByPriority ? "default" : "outline"}
+            className="shrink-0 gap-2"
+            onClick={() => setViewByPriority((v) => !v)}
+            title="View tasks by execution priority"
+          >
+            <Flame className="w-4 h-4" />
+            View by Priority
+          </Button>
         </div>
       </div>
 
@@ -1558,6 +1555,15 @@ export default function Tasks() {
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground mt-3">
             <div className="flex items-center gap-3">
                <span className="flex items-center gap-1"><Layers className="w-3.5 h-3.5" /> {(tasksQuery.data?.items.length ?? 0) > 0 ? tasksQuery.data?.items.length : (selectedProject.tasks?.length || 0)} tasks</span>
+               {(() => {
+                 const { images, files } = getAttachmentCounts(selectedProject.attachments);
+                 return (images > 0 || files > 0) && (
+                   <div className="flex items-center gap-3 border-l pl-3 border-border/40">
+                     {images > 0 && <span className="flex items-center gap-1 text-primary"><Paperclip className="w-3 h-3" /> {images} Image{images !== 1 ? "s" : ""}</span>}
+                     {files > 0 && <span className="flex items-center gap-1 text-indigo-600"><FileText className="w-3 h-3" /> {files} File{files !== 1 ? "s" : ""}</span>}
+                   </div>
+                 );
+               })()}
                <Button 
                  variant="outline" 
                  size="sm" 
@@ -1627,7 +1633,18 @@ export default function Tasks() {
 
                       <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
                         <span className="truncate">{assigneeList.length > 0 ? assigneeList.join(", ") : "No assignees"}</span>
-                        <span className="ml-2 flex-shrink-0">{taskNum} task{taskNum === 1 ? "" : "s"}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="ml-2 flex-shrink-0">{taskNum} task{taskNum === 1 ? "" : "s"}</span>
+                          {(() => {
+                            const { images, files } = getAttachmentCounts(project.attachments);
+                            return (images > 0 || files > 0) && (
+                              <div className="flex items-center gap-1.5 border-l pl-1.5 border-border/40">
+                                {images > 0 && <span className="text-primary/70"><Paperclip className="w-2.5 h-2.5" /></span>}
+                                {files > 0 && <span className="text-indigo-600/70"><FileText className="w-2.5 h-2.5" /></span>}
+                              </div>
+                            );
+                          })()}
+                        </div>
                       </div>
 
                       <div className="flex items-center justify-between text-xs mt-auto pt-2 border-t border-dashed border-border/40">
@@ -1695,21 +1712,20 @@ export default function Tasks() {
                       </div>
 
                       {/* Attachment Summary */}
-                      {task.attachments && task.attachments.length > 0 && (
-                        <div className="flex items-center gap-1.5 py-1 px-2 bg-primary/5 border border-primary/10 rounded-md w-fit mb-2">
-                          <Paperclip className="h-3 w-3 text-primary" />
-                          <span className="text-[10px] font-bold text-primary uppercase tracking-tight">
-                            {(() => {
-                              const docs = task.attachments.filter(a => !a.mimeType?.startsWith("image/")).length;
-                              const imgs = task.attachments.filter(a => a.mimeType?.startsWith("image/")).length;
-                              const parts = [];
-                              if (docs > 0) parts.push(`${docs} document${docs > 1 ? "s" : ""}`);
-                              if (imgs > 0) parts.push(`${imgs} image${imgs > 1 ? "s" : ""}`);
-                              return parts.join(", ");
-                            })()}
-                          </span>
-                        </div>
-                      )}
+                      {(() => {
+                        const { images, files } = getAttachmentCounts(task.attachments, task.attachment);
+                        return (images > 0 || files > 0) && (
+                          <div className="flex items-center gap-1.5 py-1 px-2 bg-primary/5 border border-primary/10 rounded-md w-fit mb-2">
+                            <Paperclip className="h-3 w-3 text-primary" />
+                            <span className="text-[10px] font-bold text-primary uppercase tracking-tight">
+                              {[
+                                images > 0 && `${images} image${images !== 1 ? "s" : ""}`,
+                                files > 0 && `${files} file${files !== 1 ? "s" : ""}`
+                              ].filter(Boolean).join(", ")}
+                            </span>
+                          </div>
+                        );
+                      })()}
 
                       <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
                         <span className="truncate">{assigneeList.length > 0 ? assigneeList.join(", ") : "Unassigned"}</span>
@@ -2445,6 +2461,18 @@ export default function Tasks() {
                             <p className="text-[13px] font-bold text-foreground/80 bg-background border border-border/60 rounded-xl px-4 py-3 truncate shadow-xs" title={selectedTask.location}>{selectedTask.location}</p>
                           </div>
                         )}
+                        {(() => {
+                          const { images, files } = getAttachmentCounts(selectedTask.attachments, selectedTask.attachment);
+                          return (images > 0 || files > 0) && (
+                            <div className="space-y-3">
+                              <label className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest flex items-center gap-2"><Paperclip className="w-3.5 h-3.5" /> Attachments</label>
+                              <div className="flex items-center gap-4 bg-background border border-border/60 rounded-xl px-4 py-3 shadow-xs">
+                                {images > 0 && <span className="flex items-center gap-1.5 text-xs font-bold text-primary"><Paperclip className="w-3.5 h-3.5" /> {images} Image{images !== 1 ? "s" : ""}</span>}
+                                {files > 0 && <span className="flex items-center gap-1.5 text-xs font-bold text-indigo-600"><FileText className="w-3.5 h-3.5" /> {files} File{files !== 1 ? "s" : ""}</span>}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       {/* Task Collaborators */}
@@ -2888,6 +2916,12 @@ export default function Tasks() {
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-foreground line-clamp-1">
                           <span className="text-primary mr-1.5">{task.taskNumber || ((taskPage - 1) * PAGE_SIZE + index + 1)}.</span>
+                          {task.executionPriority ? (
+                            <span className="inline-flex items-center gap-1 mr-2 align-middle text-[11px] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-orange-500 to-red-500 text-white">
+                              <Flame className="w-3 h-3" />
+                              #{task.executionPriority}
+                            </span>
+                          ) : null}
                           {task.title}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1 capitalize">{task.priority} priority</p>
@@ -2925,22 +2959,21 @@ export default function Tasks() {
                       {/* Description */}
                       <p className="text-sm text-muted-foreground line-clamp-2">{task.description}</p>
 
-                      {/* Attachment Summary */}
-                      {task.attachments && task.attachments.length > 0 && (
+                    {/* Attachment Summary */}
+                    {(() => {
+                      const { images, files } = getAttachmentCounts(task.attachments, task.attachment);
+                      return (images > 0 || files > 0) && (
                         <div className="flex items-center gap-1.5 py-1 px-2 bg-primary/5 border border-primary/10 rounded-md w-fit">
                           <Paperclip className="h-3 w-3 text-primary" />
                           <span className="text-[10px] font-bold text-primary uppercase tracking-tight">
-                            {(() => {
-                              const docs = task.attachments.filter(a => !a.mimeType?.startsWith("image/")).length;
-                              const imgs = task.attachments.filter(a => a.mimeType?.startsWith("image/")).length;
-                              const parts = [];
-                              if (docs > 0) parts.push(`${docs} document${docs > 1 ? "s" : ""}`);
-                              if (imgs > 0) parts.push(`${imgs} image${imgs > 1 ? "s" : ""}`);
-                              return parts.join(", ");
-                            })()}
+                            {[
+                              images > 0 && `${images} image${images !== 1 ? "s" : ""}`,
+                              files > 0 && `${files} file${files !== 1 ? "s" : ""}`
+                            ].filter(Boolean).join(", ")}
                           </span>
                         </div>
-                      )}
+                      );
+                    })()}
 
                       {/* Assignees */}
                       <div>

@@ -91,6 +91,7 @@ import {
   TrendingUp,
   Maximize2,
   Smile,
+  Flame,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch, downloadTaskAttachment, toProxiedUrl, getTopContributors, downloadViaUrl, updateComment, deleteComment } from "@/lib/manger/api";
@@ -114,6 +115,7 @@ interface Task {
   assignee?: string;
   priority: "low" | "medium" | "high";
   status: "pending" | "in-progress" | "completed" | "overdue";
+  executionPriority?: number | null;
   dueDate: string;
   dueTime?: string;
   location?: string;
@@ -256,15 +258,29 @@ function normalizeTask(t: TaskApi): Task {
     assignees,
     priority: t.priority,
     status: t.status,
+    executionPriority: (t as any).executionPriority ?? null,
     dueDate: t.dueDate,
     dueTime: t.dueTime,
-    location: t.location,
+    location: (t as any).location,
     createdAt: t.createdAt,
+    projectId: (t as any).projectId,
     attachmentFileName: extra.attachmentFileName,
     attachmentNote: extra.attachmentNote,
     attachment: extra.attachment,
     attachments: Array.isArray((t as any).attachments) ? (t as any).attachments : undefined,
   };
+}
+
+function getAttachmentCounts(attachments?: any[], attachment?: any) {
+  const allAttachments = Array.isArray(attachments) ? [...attachments] : [];
+  if (attachment && attachment.url && !allAttachments.some(a => a.url === attachment.url)) {
+    allAttachments.push(attachment);
+  }
+  
+  const images = allAttachments.filter(a => a.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(a.fileName || "")).length;
+  const files = allAttachments.length - images;
+  
+  return { images, files };
 }
 
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
@@ -560,6 +576,7 @@ export default function Tasks() {
   const [projectSearchQuery, setProjectSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [viewByPriority, setViewByPriority] = useState(false);
   const [projectPage, setProjectPage] = useState(1);
   const [taskPage, setTaskPage] = useState(1);
   const PAGE_SIZE = 25;
@@ -630,6 +647,14 @@ export default function Tasks() {
   const [isViewProjectOpen, setIsViewProjectOpen] = useState(false);
   const [projectComments, setProjectComments] = useState<TaskComment[]>([]);
   const [projectCommentsLoading, setProjectCommentsLoading] = useState(false);
+
+  // Team Lead reassign state
+  const [teamLeadMappings, setTeamLeadMappings] = useState<Array<{ user: string; allowOverrideAdminAssignments: boolean }>>([]);
+  const [isReassignDialogOpen, setIsReassignDialogOpen] = useState(false);
+  const [reassignTask, setReassignTask] = useState<Task | null>(null);
+  const [reassignAssignees, setReassignAssignees] = useState<string[]>([]);
+  const [reassignAssigneesOpen, setReassignAssigneesOpen] = useState(false);
+  const [isReassigning, setIsReassigning] = useState(false);
   
 
   const [isCreateExpenseOpen, setIsCreateExpenseOpen] = useState(false);
@@ -662,6 +687,7 @@ export default function Tasks() {
   const queryClient = useQueryClient();
 
   const currentUsername = getAuthState().username || "";
+  const isTeamLead = getAuthState().role === "team-lead";
   const { socket, joinTask, leaveTask } = useSocket();
 
   // Lightbox / File Preview State
@@ -673,7 +699,7 @@ export default function Tasks() {
 
   // Fetch tasks with server-side pagination
   const tasksQuery = useQuery({
-    queryKey: ["tasks", taskPage, searchQuery, statusFilter, priorityFilter],
+    queryKey: ["tasks", taskPage, searchQuery, statusFilter, priorityFilter, viewByPriority],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: taskPage.toString(),
@@ -682,11 +708,12 @@ export default function Tasks() {
         status: statusFilter,
         priority: priorityFilter,
       });
+      if (viewByPriority) params.set("sort", "priority");
       const res = await apiFetch<{ items: TaskApi[], totalPages: number, total: number }>(`/api/tasks?${params.toString()}`);
       return {
-        items: res.items.map(normalizeTask),
-        totalPages: res.totalPages || 1,
-        totalItems: res.total || 0,
+        items: (res.items || []).map(normalizeTask),
+        totalPages: res.totalPages,
+        totalItems: res.total,
       };
     },
     placeholderData: (previousData) => previousData,
@@ -714,7 +741,7 @@ export default function Tasks() {
   });
 
   // Reset pages when filters change
-  useEffect(() => { setTaskPage(1); }, [searchQuery, statusFilter, priorityFilter]);
+  useEffect(() => { setTaskPage(1); }, [searchQuery, statusFilter, priorityFilter, viewByPriority]);
   useEffect(() => { setProjectPage(1); }, [searchQuery]);
 
   useEffect(() => {
@@ -993,6 +1020,62 @@ export default function Tasks() {
       location: "",
     },
   });
+
+  // Fetch team lead mappings if user is team-lead
+  useEffect(() => {
+    const auth = getAuthState();
+    if (auth.role === "team-lead") {
+      apiFetch<{ items: Array<{ user: string; allowOverrideAdminAssignments: boolean }> }>("/api/team-lead-mappings/me")
+        .then((res) => {
+          setTeamLeadMappings(res?.items || []);
+        })
+        .catch(() => {
+          console.error("Failed to fetch team lead mappings");
+        });
+    }
+  }, []);
+
+  const openReassignDialog = (task: Task) => {
+    setReassignTask(task);
+    setReassignAssignees(task.assignees || []);
+    setIsReassignDialogOpen(true);
+  };
+
+  const handleReassign = async () => {
+    if (!reassignTask || reassignAssignees.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please select at least one assignee",
+      });
+      return;
+    }
+
+    setIsReassigning(true);
+    try {
+      await apiFetch(`/api/tasks/${reassignTask.id}/reassign`, {
+        method: "PUT",
+        body: JSON.stringify({ assignees: reassignAssignees }),
+      });
+      toast({
+        title: "Success",
+        description: "Task reassigned successfully",
+      });
+      setIsReassignDialogOpen(false);
+      setReassignTask(null);
+      setReassignAssignees([]);
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to reassign task",
+      });
+    } finally {
+      setIsReassigning(false);
+    }
+  };
 
   const validateForm = () => {
     const errors: { projectName?: string; title?: string; description?: string } = {};
@@ -1366,13 +1449,14 @@ export default function Tasks() {
         prev.map(c => {
           if (c.id !== commentId) return c;
           const auth = getAuthState();
+          const currentUsername = auth.username || "";
           const userId = String(auth.sub || auth.id || "");
           const existing = (c.reactions || []).find(r => r.emoji === emoji && r.userId === userId);
           let newReactions;
           if (existing) {
             newReactions = (c.reactions || []).filter(r => !(r.emoji === emoji && r.userId === userId));
           } else {
-            newReactions = [...(c.reactions || []), { emoji, userId, username: auth.username || "", fullName: "" }];
+            newReactions = [...(c.reactions || []), { emoji, userId, username: currentUsername, fullName: "" }];
           }
           return { ...c, reactions: newReactions };
         })
@@ -1858,6 +1942,16 @@ export default function Tasks() {
           <Button variant="outline" size="icon" className="shrink-0">
             <Filter className="w-4 h-4" />
           </Button>
+          <Button
+            type="button"
+            variant={viewByPriority ? "default" : "outline"}
+            className="shrink-0 gap-2"
+            onClick={() => setViewByPriority((v) => !v)}
+            title="View tasks by execution priority"
+          >
+            <Flame className="w-4 h-4" />
+            View by Priority
+          </Button>
         </div>
       </div>
 
@@ -1983,8 +2077,27 @@ export default function Tasks() {
               </Select>
             </div>
           </div>
-          <div className="flex items-center justify-between text-[10px] text-muted-foreground/60 mt-4 pt-3 border-t font-bold uppercase tracking-wider">
-            <span className="flex items-center gap-1"><PlusCircle className="w-3 h-3" /> {selectedProject.tasks.length} Total Tasks</span>
+          <div className="flex flex-wrap items-center justify-between text-[10px] text-muted-foreground/60 mt-4 pt-3 border-t font-bold uppercase tracking-wider">
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-1"><PlusCircle className="w-3 h-3" /> {selectedProject.tasks.length} Total Tasks</span>
+              {(() => {
+                const { images, files } = getAttachmentCounts(selectedProject.attachments);
+                return (images > 0 || files > 0) && (
+                  <div className="flex items-center gap-3 border-l pl-4 border-border/40">
+                    {images > 0 && (
+                      <span className="flex items-center gap-1 text-primary">
+                        <Paperclip className="w-3 h-3" /> {images} Image{images !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                    {files > 0 && (
+                      <span className="flex items-center gap-1 text-indigo-600">
+                        <FileText className="w-3 h-3" /> {files} File{files !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
             <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Created {new Date(selectedProject.createdAt).toLocaleDateString()}</span>
           </div>
         </div>
@@ -2056,9 +2169,20 @@ export default function Tasks() {
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between text-[11px] text-muted-foreground/80 mb-3 bg-muted/10 p-1.5 rounded-lg px-2">
+                        <div className="flex flex-wrap items-center justify-between text-[11px] text-muted-foreground/80 mb-3 bg-muted/10 p-1.5 rounded-lg px-2 gap-2">
                           <span className="truncate flex items-center gap-1"><Users className="w-3 h-3" /> {assigneeList.length > 0 ? (assigneeList.length > 1 ? `${assigneeList[0]} +${assigneeList.length-1}` : assigneeList[0]) : "Member Only"}</span>
-                          <span className="flex-shrink-0 font-bold bg-background px-1.5 py-0.5 rounded border border-border/50">{taskNum} total</span>
+                          <div className="flex items-center gap-3">
+                            <span className="flex-shrink-0 font-bold bg-background px-1.5 py-0.5 rounded border border-border/50">{taskNum} tasks</span>
+                            {(() => {
+                              const { images, files } = getAttachmentCounts(project.attachments);
+                              return (images > 0 || files > 0) && (
+                                <div className="flex items-center gap-2 border-l pl-2 border-border/40">
+                                  {images > 0 && <span className="flex items-center gap-1 text-primary/70"><Paperclip className="w-2.5 h-2.5" /> {images}</span>}
+                                  {files > 0 && <span className="flex items-center gap-1 text-indigo-600/70"><FileText className="w-2.5 h-2.5" /> {files}</span>}
+                                </div>
+                              );
+                            })()}
+                          </div>
                         </div>
                       </div>
 
@@ -2126,12 +2250,32 @@ export default function Tasks() {
             <span className="text-primary mr-1.5">
               {task.taskNumber || ((taskPage - 1) * PAGE_SIZE + index + 1)}.
             </span>
+            {task.executionPriority ? (
+              <span className="inline-flex items-center gap-1 mr-2 align-middle text-[11px] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-orange-500 to-red-500 text-white">
+                <Flame className="w-3 h-3" />
+                #{task.executionPriority}
+              </span>
+            ) : null}
             {task.title}
           </p>
           <p className="text-xs text-muted-foreground mt-1 capitalize">
             {task.priority} priority
           </p>
         </div>
+        {isTeamLead && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={(e) => {
+              e.stopPropagation();
+              openReassignDialog(task);
+            }}
+            className="shrink-0"
+          >
+            <Users className="w-4 h-4 mr-1" />
+            Reassign
+          </Button>
+        )}
       </div>
 
       {/* Card Body */}
@@ -2160,7 +2304,7 @@ export default function Tasks() {
         </p>
 
         {/* Status & Priority */}
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
           <Badge
             variant="secondary"
             className={cn("text-xs", statusClasses[task.status])}
@@ -2173,6 +2317,15 @@ export default function Tasks() {
           >
             {task.priority}
           </Badge>
+          {(() => {
+            const { images, files } = getAttachmentCounts(task.attachments, task.attachment);
+            return (images > 0 || files > 0) && (
+              <div className="flex items-center gap-2 ml-auto">
+                {images > 0 && <span className="flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/5 px-1.5 py-0.5 rounded border border-primary/10"><Paperclip className="w-3 h-3" /> {images}</span>}
+                {files > 0 && <span className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 bg-indigo-500/5 px-1.5 py-0.5 rounded border border-indigo-500/10"><FileText className="w-3 h-3" /> {files}</span>}
+              </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -3133,6 +3286,18 @@ export default function Tasks() {
                             <p className="text-[13px] font-medium text-foreground bg-background border border-border/60 rounded-lg px-3 py-2 truncate" title={selectedTask.location}>{selectedTask.location}</p>
                           </div>
                         )}
+                        {(() => {
+                          const { images, files } = getAttachmentCounts(selectedTask.attachments, selectedTask.attachment);
+                          return (images > 0 || files > 0) && (
+                            <div className="space-y-2 pt-2 border-t border-border/20">
+                              <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5"><Paperclip className="w-3 h-3" /> Attachments</label>
+                              <div className="flex items-center gap-4 bg-background border border-border/60 rounded-lg px-3 py-2">
+                                {images > 0 && <span className="flex items-center gap-1.5 text-xs font-bold text-primary"><Paperclip className="w-3.5 h-3.5" /> {images} Image{images !== 1 ? "s" : ""}</span>}
+                                {files > 0 && <span className="flex items-center gap-1.5 text-xs font-bold text-indigo-600"><FileText className="w-3.5 h-3.5" /> {files} File{files !== 1 ? "s" : ""}</span>}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       <div className="pt-4 space-y-3">
@@ -4197,6 +4362,104 @@ export default function Tasks() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Team Lead Reassign Dialog */}
+      <Dialog open={isReassignDialogOpen} onOpenChange={setIsReassignDialogOpen}>
+        <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Reassign Task</DialogTitle>
+            <DialogDescription>
+              Reassign "{reassignTask?.title}" to team members
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Assignees</label>
+              <Popover open={reassignAssigneesOpen} onOpenChange={setReassignAssigneesOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full justify-between h-10"
+                  >
+                    <span className="truncate">
+                      {reassignAssignees.length > 0
+                        ? reassignAssignees.join(", ")
+                        : "Select assignees"}
+                    </span>
+                    <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Search team members..." />
+                    <CommandList>
+                      <CommandEmpty>No team members found.</CommandEmpty>
+                      <CommandGroup>
+                        {teamLeadMappings.map((mapping) => (
+                          <CommandItem
+                            key={mapping.user}
+                            value={mapping.user}
+                            onSelect={() => {
+                              setReassignAssignees((prev) =>
+                                prev.includes(mapping.user)
+                                  ? prev.filter((u) => u !== mapping.user)
+                                  : [...prev, mapping.user]
+                              );
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                reassignAssignees.includes(mapping.user)
+                                  ? "opacity-100"
+                                  : "opacity-0"
+                              )}
+                            />
+                            {mapping.user}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+            {teamLeadMappings.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No team members mapped to you. Contact admin to set up team lead mappings.
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsReassignDialogOpen(false);
+                setReassignTask(null);
+                setReassignAssignees([]);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleReassign}
+              disabled={isReassigning || reassignAssignees.length === 0}
+            >
+              {isReassigning ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Reassigning...
+                </>
+              ) : (
+                "Reassign"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

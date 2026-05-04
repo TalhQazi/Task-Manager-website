@@ -1,12 +1,16 @@
 import { ReactNode, useState, useEffect, createContext, useContext } from "react";
 import { useLocation } from "react-router-dom";
+import { useSocket } from "@/contexts/SocketContext";
+import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
+import { getAuthState } from "@/lib/auth";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { TaskBlaster } from "@/components/shared/TaskBlaster";
 import { ReleaseNotes } from "@/components/admin/ReleaseNotes";
-
 
 // Context to share header height across components
 const HeaderHeightContext = createContext<number>(300);
@@ -21,10 +25,14 @@ interface AdminLayoutProps {
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   const location = useLocation();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { socket } = useSocket();
+  const auth = getAuthState();
+
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [headerHeight, setHeaderHeight] = useState(300);
   const [pageKey, setPageKey] = useState(0);
-
 
   const [headerKey, setHeaderKey] = useState(0);
 
@@ -73,6 +81,42 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     window.addEventListener("header-settings-updated", handleUpdate);
     return () => window.removeEventListener("header-settings-updated", handleUpdate);
   }, []);
+
+  // Socket notifications listener
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNotification = (data: any) => {
+      // Check if this notification is for me
+      const me = String(auth.username || auth.name || "").trim();
+      const myRole = String(auth.role || "").trim();
+      const recipients = String(data.recipient || "").split(",").map(s => s.trim());
+      
+      const isForMe = recipients.includes(me) || 
+                      recipients.includes(myRole) || 
+                      myRole === "super-admin" || 
+                      myRole === "admin";
+
+      if (isForMe) {
+        // Refresh notifications count
+        queryClient.invalidateQueries({ queryKey: ["admin-notifications"] });
+        
+        // Show toast
+        toast(data.title || "New Notification", {
+          description: data.content || data.message,
+          action: {
+            label: "View",
+            onClick: () => navigate("/admin/notifications")
+          }
+        });
+      }
+    };
+
+    socket.on("new-notification", handleNotification);
+    return () => {
+      socket.off("new-notification", handleNotification);
+    };
+  }, [socket, auth, queryClient, navigate]);
 
   return (
     <HeaderHeightContext.Provider value={headerHeight}>

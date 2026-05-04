@@ -35,6 +35,10 @@ import {
   Bug,
   Palette,
   CalendarCheck,
+
+  Shield,
+  UserPlus,
+
   ShoppingCart,
 } from "lucide-react";
 
@@ -45,7 +49,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { apiFetch } from "@/lib/admin/apiClient";
 
 type NavItem = {
-  icon?: any;
+  icon?: React.ComponentType<{ className?: string }>;
   customIcon?: React.ReactNode;
   label: string;
   path?: string;
@@ -73,7 +77,15 @@ const navItemsBase: NavItem[] = [
       { icon: Calendar, label: "Scheduling", path: "/admin/scheduling" },
       { icon: Bell, label: "Notifications", path: "/admin/notifications" },
       { icon: Clock, label: "Time Tracking", path: "/admin/time-tracking" },
-    
+
+    ],
+  },
+  {
+    icon: Shield,
+    label: "Delegation",
+    children: [
+      { icon: UserPlus, label: "Team Lead Mappings", path: "/admin/team-lead-mappings" },
+      { icon: Shield, label: "Task Permissions", path: "/admin/task-permissions" },
     ],
   },
   { icon: Landmark, label: "Companies", path: "/admin/companies" },
@@ -88,7 +100,17 @@ const navItemsBase: NavItem[] = [
   { icon: Database, label: "Imported Asana Data", path: "/admin/asana-data" },
   { icon: Archive, label: "Archive Data", path: "/admin/archive-data" },
   { icon: Quote, label: "Founder Messages", path: "/admin/founder-messages" },
-  { icon: FileText, label: "Personal Notes", path: "/admin/personal-notes" },
+  {
+    label: "Personal Notes",
+    path: "/admin/personal-notes",
+    customIcon: (
+      <img
+        src="/kn_vlt.png"
+        alt="Personal Notes"
+        className="h-5 w-5 flex-shrink-0 object-contain opacity-80 group-hover:opacity-100 transition-opacity"
+      />
+    ),
+  },
   {
     label: "SignaCore",
     path: "/admin/contracts",
@@ -147,6 +169,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
     try {
       await apiFetch("/api/auth/logout", { method: "POST" });
     } catch {
+      // ignore
     }
     clearAuthState();
     onNavigate?.();

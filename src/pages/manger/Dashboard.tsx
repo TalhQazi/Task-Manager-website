@@ -7,10 +7,17 @@ import { TaskCharts } from "@/components/manger/dashboard/TaskCharts";
 import { DayAheadCard } from "@/components/admin/dashboard/DayAheadCard";
 import { WeekAheadCard } from "@/components/admin/dashboard/WeekAheadCard";
 
-import { Users, CheckSquare, FolderRoot, Car, MapPin, AlertTriangle, Clock, Sparkles, TrendingUp, ClipboardList } from "lucide-react";
+import { Users, CheckSquare, FolderRoot, Car, MapPin, AlertTriangle, Clock, Sparkles, TrendingUp, ClipboardList, UserCog, ChevronDown, ChevronUp } from "lucide-react";
 import { apiFetch, getEODStatus } from "@/lib/manger/api";
+import { getAuthState } from "@/lib/auth";
 
 import { useNavigate } from "react-router-dom";
+
+interface TeamLeadMapping {
+  teamLead: string;
+  user: string;
+  allowOverrideAdminAssignments: boolean;
+}
 
 type DashboardSummary = {
   activeTasks: number;
@@ -58,7 +65,52 @@ const Dashboard = () => {
 
   const [onboardingStatus, setOnboardingStatus] = useState<string>("not_started");
   const [eodStats, setEodStats] = useState({ submitted: 0, late: 0, missing: 0, total: 0 });
+  
+  // Team visibility state
+  const [teamMappings, setTeamMappings] = useState<TeamLeadMapping[]>([]);
+  const [teamViewLoading, setTeamViewLoading] = useState(false);
+  const [expandedTeams, setExpandedTeams] = useState<Record<string, boolean>>({});
+  const auth = getAuthState();
+  const isTeamLead = auth.role === "team-lead";
+  const currentUserName = auth.name || auth.username || "";
     
+
+  // Fetch team mappings for visibility
+  useEffect(() => {
+    const fetchTeamMappings = async () => {
+      try {
+        setTeamViewLoading(true);
+        // Fetch all team mappings (for manager view) or just own mappings (for team lead)
+        const endpoint = isTeamLead 
+          ? "/api/team-lead-mappings/me" 
+          : "/api/team-lead-mappings";
+        const res = await apiFetch<{ items: TeamLeadMapping[] }>(endpoint);
+        setTeamMappings(res.items || []);
+      } catch (e) {
+        // Silently fail - team view is optional
+        console.error("Failed to load team mappings:", e);
+      } finally {
+        setTeamViewLoading(false);
+      }
+    };
+    fetchTeamMappings();
+  }, [isTeamLead, currentUserName]);
+
+  // Group mappings by team lead
+  const teamsByLead = useMemo(() => {
+    const grouped: Record<string, TeamLeadMapping[]> = {};
+    teamMappings.forEach(mapping => {
+      if (!grouped[mapping.teamLead]) {
+        grouped[mapping.teamLead] = [];
+      }
+      grouped[mapping.teamLead].push(mapping);
+    });
+    return grouped;
+  }, [teamMappings]);
+
+  const toggleTeamExpand = (teamLead: string) => {
+    setExpandedTeams(prev => ({ ...prev, [teamLead]: !prev[teamLead] }));
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -245,6 +297,101 @@ const Dashboard = () => {
             </motion.div>
           </div>
         </motion.div>
+
+        {/* Team View Section - Visible to Manager and Team Leads */}
+        {(auth.role === "manager" || isTeamLead) && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.5 }}
+            className="rounded-xl border bg-card/50 backdrop-blur-sm p-4 shadow-lg hover:shadow-xl transition-all duration-300"
+          >
+            <div className="flex items-center gap-2 mb-4">
+              <UserCog className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold">
+                {isTeamLead ? "My Team" : "Team Structure"}
+              </h2>
+            </div>
+            
+            {teamViewLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              </div>
+            ) : Object.keys(teamsByLead).length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground">
+                {isTeamLead 
+                  ? "No team members assigned to you yet."
+                  : "No team leads configured yet."}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {Object.entries(teamsByLead).map(([teamLead, mappings]) => (
+                  <div key={teamLead} className="border rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => toggleTeamExpand(teamLead)}
+                      className="w-full flex items-center justify-between p-3 bg-muted/30 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Users className="h-4 w-4 text-primary" />
+                        </div>
+                        <div className="text-left">
+                          <p className="font-medium text-sm">{teamLead}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {mappings.length} team member{mappings.length !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+                      </div>
+                      {expandedTeams[teamLead] ? (
+                        <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </button>
+                    
+                    {expandedTeams[teamLead] && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="border-t"
+                      >
+                        <div className="p-3 space-y-2">
+                          {mappings.map((mapping, idx) => (
+                            <div 
+                              key={idx} 
+                              className="flex items-center justify-between py-2 px-3 bg-muted/20 rounded-md"
+                            >
+                              <div className="flex items-center gap-2">
+                                <div className="h-6 w-6 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                                  <span className="text-xs font-medium text-emerald-600">
+                                    {mapping.user.charAt(0).toUpperCase()}
+                                  </span>
+                                </div>
+                                <span className="text-sm">{mapping.user}</span>
+                              </div>
+                              {mapping.allowOverrideAdminAssignments && (
+                                <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
+                                  Can Override
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            <p className="text-xs text-muted-foreground mt-3">
+              {isTeamLead 
+                ? "You can reassign tasks to your team members from the Tasks page."
+                : "Team leads can reassign tasks within their mapped teams."}
+            </p>
+          </motion.div>
+        )}
 
         <motion.div
           className="grid grid-cols-1 gap-4 sm:gap-5 md:gap-6 lg:grid-cols-2"

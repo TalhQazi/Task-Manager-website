@@ -32,11 +32,13 @@ const queryClient = new QueryClient({
 function IndexRedirect() {
   const auth = getAuthState();
   const employeeAuth = getEmployeeAuth();
-  
+
   if (employeeAuth) return <Navigate to="/employee" replace />;
   if (!auth.isAuthenticated || !auth.role) return <Navigate to="/login" replace />;
   if (auth.role === "developer") return <Navigate to="/developer" replace />;
-  return <Navigate to={auth.role === "admin" || auth.role === "super-admin" ? "/admin" : "/manager"} replace />;
+  if (auth.role === "admin" || auth.role === "super-admin") return <Navigate to="/admin" replace />;
+  if (auth.role === "team-lead") return <Navigate to="/manager" replace />;
+  return <Navigate to="/manager" replace />;
 }
 
 const App = () => (
@@ -61,9 +63,7 @@ const App = () => (
                 </ThemeProvider>
               } />
               <Route path="/manager/*" element={
-                <ThemeProvider>
-                  <ManagerController />
-                </ThemeProvider>
+                <ManagerController />
               } />
               <Route path="/developer/*" element={<DeveloperController />} />
               <Route path="/employee/*" element={
