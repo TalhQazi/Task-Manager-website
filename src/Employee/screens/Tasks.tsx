@@ -256,15 +256,15 @@ function normalizeTask(t: TaskApi): Task {
     assignees,
     priority: t.priority,
     status: t.status,
-    executionPriority: (t as any).executionPriority ?? null,
+    executionPriority: t.executionPriority ?? null,
     dueDate: t.dueDate,
     dueTime: t.dueTime,
-    location: (t as any).location,
+    location: t.location,
     createdAt: t.createdAt,
     attachmentFileName: extra.attachmentFileName,
     attachmentNote: extra.attachmentNote,
     attachment: extra.attachment,
-    attachments: Array.isArray((t as any).attachments) ? (t as any).attachments : undefined,
+    attachments: Array.isArray(t.attachments) ? t.attachments : undefined,
   };
 }
 
@@ -327,11 +327,7 @@ function renderMessageWithMentions(text: string) {
     </>
   );
 }
-
-function ProjectLogoImg({ projectId, logoUrl, projectName }: { projectId: string; logoUrl?: string; projectName: string }) {
-  const [src, setSrc] = useState<string | null | undefined>(toProxiedUrl(logoUrl) || (logoUrl ? logoUrl : undefined));
-
-function getAttachmentCounts(attachments?: any[], attachment?: any) {
+function getAttachmentCounts(attachments?: Array<{ url?: string; mimeType?: string; fileName?: string }>, attachment?: { url?: string; mimeType?: string; fileName?: string }) {
   const allAttachments = Array.isArray(attachments) ? [...attachments] : [];
   if (attachment && attachment.url && !allAttachments.some(a => a.url === attachment.url)) {
     allAttachments.push(attachment);
@@ -772,7 +768,7 @@ export default function Tasks() {
 
   const updateProjectStatusMutation = useMutation({
     mutationFn: async ({ projectId, status }: { projectId: string; status: string }) => {
-      const res = await apiFetch<any>(`/api/projects/${projectId}`, {
+      const res = await apiFetch<{ id: string; status: string }>(`/api/projects/${projectId}`, {
         method: "PUT",
         body: JSON.stringify({ status }),
       });
@@ -997,7 +993,7 @@ export default function Tasks() {
       const attachments = attachmentFiles.length > 0 ? await filesToAttachments(attachmentFiles) : [];
       const first = attachments[0];
 
-      const taskPayload: Record<string, any> = {
+      const taskPayload: Partial<Task> = {
         title: formData.title,
         description: formData.description,
         assignees: selectedAssignees,
@@ -1087,7 +1083,7 @@ export default function Tasks() {
     try {
       setProjectCommentsLoading(true);
       setCommentError(null);
-      const res = await apiFetch<{ items: any[] }>(`/api/projects/${encodeURIComponent(projectId)}/comments`);
+      const res = await apiFetch<{ items: TaskComment[] }>(`/api/projects/${encodeURIComponent(projectId)}/comments`);
       setProjectComments(Array.isArray(res.items) ? res.items : []);
       setIsViewProjectOpen(true);
     } catch (err) {
@@ -1131,7 +1127,7 @@ export default function Tasks() {
         )
       );
 
-      const res = await apiFetch<any>(endpoint, {
+      const res = await apiFetch<{ item: TaskComment }>(endpoint, {
         method: "POST",
         body: JSON.stringify({ message: msg, attachments: processedAttachments }),
       });
@@ -1171,7 +1167,7 @@ export default function Tasks() {
 
     socket.on("connect", () => console.log("✅ Socket connected:", socket.id));
     
-    socket.on("new-comment", (data: { taskId: string; comment: any }) => {
+    socket.on("new-comment", (data: { taskId: string; comment: TaskComment }) => {
       if (selectedTask && data.taskId === selectedTask.id) {
         setComments(prev => {
           if (prev.find(c => c.id === data.comment.id)) return prev;
@@ -1180,7 +1176,7 @@ export default function Tasks() {
       }
     });
 
-    socket.on("new-project-comment", (data: { projectId: string; comment: any }) => {
+    socket.on("new-project-comment", (data: { projectId: string; comment: TaskComment }) => {
       if (selectedProject && data.projectId === selectedProject.id) {
         setProjectComments(prev => {
           if (prev.find(c => c.id === data.comment.id)) return prev;
@@ -1211,7 +1207,7 @@ export default function Tasks() {
         const taskForBlaster = {
           id: normalized.id,
           title: normalized.title,
-          priority: normalized.priority as any,
+          priority: normalized.priority,
           status: "completed",
         };
         const triggered = triggerBlaster(taskForBlaster);
@@ -1392,7 +1388,7 @@ export default function Tasks() {
             const taskForBlaster = {
               id: selectedTask.id,
               title: selectedTask.title,
-              priority: values.priority as any,
+              priority: values.priority,
               status: "completed",
             };
             const triggered = triggerBlaster(taskForBlaster);
@@ -2480,7 +2476,7 @@ export default function Tasks() {
                         <label className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest flex items-center gap-2">
                           <TrendingUp className="w-3.5 h-3.5" /> Collaborators
                         </label>
-                        <TaskContributorsList taskId={selectedTask.id} />
+                        <TaskContributorsList assignees={selectedTask.assignees} />
                       </div>
 
                       <div className="pt-8 space-y-3 border-t border-border/60 border-dashed">
@@ -2566,7 +2562,7 @@ export default function Tasks() {
                                     </div>
                                     {c.attachments && c.attachments.length > 0 && (
                                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
-                                        {c.attachments.map((att: any, attIdx: number) => (
+                                        {c.attachments.map((att: { url?: string; mimeType?: string; fileName?: string }, attIdx: number) => (
                                           <div key={attIdx} className="relative rounded-lg overflow-hidden border border-border/40 bg-background shadow-xs group/att aspect-square flex flex-col items-center justify-center cursor-pointer">
                                             {att.mimeType?.startsWith("image/") ? <img src={att.url} alt={att.fileName} className="w-full h-full object-cover" /> : <FileText className="h-6 w-6 text-muted-foreground/30" />}
                                             <a href={att.url || "#"} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]" title="Download attachment"><Download className="h-4 w-4 text-white" /></a>
