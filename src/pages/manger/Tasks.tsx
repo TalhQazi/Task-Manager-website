@@ -95,6 +95,7 @@ import {
 import { cn } from "@/lib/manger/utils";
 import { apiFetch, downloadTaskAttachment, toProxiedUrl, getTopContributors, downloadViaUrl, updateComment, deleteComment } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
+import { ROLE_GROUPS } from "@/constants/roles";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSocket } from "@/contexts/SocketContext";
 import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
@@ -102,6 +103,7 @@ import jsPDF from "jspdf";
 import { Pagination } from "@/components/Pagination";
 import { useGlobalTimer } from "@/hooks/useGlobalTimer";
 import { getRemainingTime, getTimerState } from "@/lib/manger/time";
+import DropboxFilePicker, { type DropboxSelectedFile, formatBytes, DropboxIcon } from "@/components/admin/DropboxFilePicker";
 
 interface Task {
   id: string;
@@ -628,6 +630,13 @@ export default function Tasks() {
   const [isViewProjectOpen, setIsViewProjectOpen] = useState(false);
   const [projectComments, setProjectComments] = useState<TaskComment[]>([]);
   const [projectCommentsLoading, setProjectCommentsLoading] = useState(false);
+
+  // Dropbox integration state
+  const [isDropboxPickerOpen, setIsDropboxPickerOpen] = useState(false);
+  const [dropboxPickerTarget, setDropboxPickerTarget] = useState<"task" | "project">("task");
+  const [dropboxSelectedFiles, setDropboxSelectedFiles] = useState<DropboxSelectedFile[]>([]);
+  const [projectDropboxSelectedFiles, setProjectDropboxSelectedFiles] = useState<DropboxSelectedFile[]>([]);
+  const currentRole = getAuthState().role || "";
   
   const now = useGlobalTimer();
   // Top contributors state
@@ -1007,6 +1016,7 @@ export default function Tasks() {
     setProjectLogoPreview("");
     setProjectAttachmentFiles([]);
     setProjectAttachmentPreviews([]);
+    setProjectDropboxSelectedFiles([]);
     setValidationErrors({});
     setFormData({
       title: "",
@@ -1121,12 +1131,13 @@ export default function Tasks() {
         ? [currentUsername, ...projectCreationAssignees]
         : projectCreationAssignees;
 
-      const payload: CreateProjectPayload & { assignees?: string[]; logo?: ProjectLogo } = {
+      const payload: CreateProjectPayload & { assignees?: string[]; logo?: ProjectLogo; dropboxAttachments?: DropboxSelectedFile[] } = {
         name: projectName.trim(),
         description,
         assignees: assigneesWithSelf,
         logo: projectLogo,
         attachments: projectAttachments,
+        dropboxAttachments: projectDropboxSelectedFiles,
         tasks: tasksToCreate,
       };
 
@@ -1191,6 +1202,7 @@ export default function Tasks() {
         attachmentNote: formData.attachmentNote,
         attachment: first,
         attachments,
+        dropboxAttachments: dropboxSelectedFiles,
       };
 
       // Only add projectId if not a direct task
@@ -1227,6 +1239,7 @@ export default function Tasks() {
       setAttachmentFile(null);
       setAttachmentFiles([]);
       setAttachmentFilePreviews([]);
+      setDropboxSelectedFiles([]);
       setValidationErrors({});
 
       toast({
@@ -2256,16 +2269,23 @@ export default function Tasks() {
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Attachments</label>
                 <div className="space-y-2">
-                  <button
-                    type="button"
-                    className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted w-full"
-                    onClick={() => {
-                      const el = document.getElementById("project-attachments-input") as HTMLInputElement | null;
-                      el?.click();
-                    }}
-                  >
-                    + Add Files/Images
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1"
+                      onClick={() => {
+                        const el = document.getElementById("project-attachments-input") as HTMLInputElement | null;
+                        el?.click();
+                      }}
+                    >
+                      + Add Files/Images
+                    </button>
+                    {ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (
+                      <button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1 flex items-center justify-center gap-2" onClick={() => { setDropboxPickerTarget("project"); setIsDropboxPickerOpen(true); }}>
+                        <DropboxIcon size={14} />Dropbox
+                      </button>
+                    )}
+                  </div>
                   <input
                     id="project-attachments-input"
                     type="file"
@@ -2310,6 +2330,19 @@ export default function Tasks() {
                           >
                             ✕
                           </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {projectDropboxSelectedFiles.length > 0 && (
+                    <div className="border border-border rounded-md p-2 space-y-1.5 bg-muted/30">
+                      <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><DropboxIcon size={12} />Dropbox Files (External)</p>
+                      {projectDropboxSelectedFiles.map((dbf, idx) => (
+                        <div key={idx} className="flex items-center gap-2 bg-background rounded-md px-2.5 py-1.5 border border-border text-sm">
+                          <FileText className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                          <span className="flex-1 truncate text-foreground">{dbf.file_name}</span>
+                          <span className="text-xs text-muted-foreground">{dbf.file_size > 0 ? formatBytes(dbf.file_size) : ""}</span>
+                          <button type="button" onClick={() => setProjectDropboxSelectedFiles((prev) => prev.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive transition-colors">✕</button>
                         </div>
                       ))}
                     </div>
@@ -2567,16 +2600,23 @@ export default function Tasks() {
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Task Attachments</label>
                 <div className="space-y-2">
-                  <button
-                    type="button"
-                    className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted w-full"
-                    onClick={() => {
-                      const el = document.getElementById("task-attachments-input") as HTMLInputElement | null;
-                      el?.click();
-                    }}
-                  >
-                    + Add Files/Images
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1"
+                      onClick={() => {
+                        const el = document.getElementById("task-attachments-input") as HTMLInputElement | null;
+                        el?.click();
+                      }}
+                    >
+                      + Add Files/Images
+                    </button>
+                    {ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (
+                      <button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1 flex items-center justify-center gap-2" onClick={() => { setDropboxPickerTarget("task"); setIsDropboxPickerOpen(true); }}>
+                        <DropboxIcon size={14} />Dropbox
+                      </button>
+                    )}
+                  </div>
                   <input
                     id="task-attachments-input"
                     type="file"
@@ -2621,6 +2661,19 @@ export default function Tasks() {
                           >
                             ✕
                           </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {dropboxSelectedFiles.length > 0 && (
+                    <div className="border border-border rounded-md p-2 space-y-1.5 bg-muted/30">
+                      <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><DropboxIcon size={12} />Dropbox Files (External)</p>
+                      {dropboxSelectedFiles.map((dbf, idx) => (
+                        <div key={idx} className="flex items-center gap-2 bg-background rounded-md px-2.5 py-1.5 border border-border text-sm">
+                          <FileText className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                          <span className="flex-1 truncate text-foreground">{dbf.file_name}</span>
+                          <span className="text-xs text-muted-foreground">{dbf.file_size > 0 ? formatBytes(dbf.file_size) : ""}</span>
+                          <button type="button" onClick={() => setDropboxSelectedFiles((prev) => prev.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive transition-colors">✕</button>
                         </div>
                       ))}
                     </div>
@@ -3023,6 +3076,11 @@ export default function Tasks() {
                               <button type="button" onClick={() => { const el = document.getElementById("comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-primary/20" title="Attach file">
                                 <Paperclip className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Attach</span>
                               </button>
+                              {ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (
+                                <button type="button" onClick={() => { setDropboxPickerTarget("task"); setIsDropboxPickerOpen(true); }} className="p-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-blue-500/20" title="Attach from Dropbox">
+                                  <DropboxIcon size={14} /> <span className="text-xs font-semibold hidden sm:inline">Dropbox</span>
+                                </button>
+                              )}
                               <span className="text-[11px] text-muted-foreground/60 px-3 hidden sm:inline-block font-medium border-l ml-1 border-border/50">Pro tip: Ctrl+Enter to send.</span>
                               <input id="comment-attachment-input" type="file" multiple className="hidden" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value = ''; }} />
                             </div>
@@ -3851,9 +3909,16 @@ export default function Tasks() {
                           className="w-full min-h-[90px] max-h-[300px] border-0 focus:ring-0 resize-y p-4 text-[14px] bg-transparent outline-none placeholder-muted-foreground/60 font-medium"
                         />
                         <div className="flex items-center justify-between p-2 pl-3 bg-muted/20 border-t border-border/40">
-                          <button type="button" onClick={() => { const el = document.getElementById("project-comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center gap-1.5" title="Attach file">
-                            <Paperclip className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Attach Files</span>
-                          </button>
+                          <div className="flex items-center gap-1">
+                            <button type="button" onClick={() => { const el = document.getElementById("project-comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center gap-1.5" title="Attach file">
+                              <Paperclip className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Attach Files</span>
+                            </button>
+                            {ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (
+                              <button type="button" onClick={() => { setDropboxPickerTarget("project"); setIsDropboxPickerOpen(true); }} className="p-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-blue-500/20" title="Attach from Dropbox">
+                                <DropboxIcon size={14} /> <span className="text-xs font-semibold hidden sm:inline">Dropbox</span>
+                              </button>
+                            )}
+                          </div>
                           <input id="project-comment-attachment-input" type="file" multiple className="hidden" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value = ''; }} />
                           <Button type="button" onClick={() => void sendComment(true)} disabled={(!commentDraft.trim() && commentAttachments.length === 0) || isSendingComment} size="sm" className="h-9 px-5 rounded-lg font-bold shadow hover:shadow-md transition-all">
                             {isSendingComment ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "Post Announcement"}
@@ -4140,6 +4205,20 @@ export default function Tasks() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Dropbox File Picker Modal */}
+      <DropboxFilePicker
+        open={isDropboxPickerOpen}
+        onOpenChange={setIsDropboxPickerOpen}
+        onSelect={(files) => {
+          if (dropboxPickerTarget === "project") {
+            setProjectDropboxSelectedFiles((prev) => [...prev, ...files]);
+          } else {
+            setDropboxSelectedFiles((prev) => [...prev, ...files]);
+          }
+        }}
+        multiple={true}
+      />
     </div>
   );
 }

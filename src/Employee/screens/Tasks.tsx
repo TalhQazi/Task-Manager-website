@@ -98,6 +98,7 @@ import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import jsPDF from "jspdf";
 import { Pagination } from "@/components/Pagination";
+import { DropboxIcon, formatBytes } from "@/components/admin/DropboxFilePicker";
 
 interface Task {
   id: string;
@@ -126,6 +127,15 @@ interface Task {
     url: string;
     mimeType: string;
     size: number;
+  }>;
+  dropboxAttachments?: Array<{
+    file_name: string;
+    file_type?: string;
+    file_size?: number;
+    dropbox_file_id: string;
+    dropbox_path: string;
+    temporary_link?: string;
+    created_at?: string;
   }>;
 }
 
@@ -216,6 +226,15 @@ interface Project {
     url: string;
     mimeType: string;
     size: number;
+  }>;
+  dropboxAttachments?: Array<{
+    file_name: string;
+    file_type?: string;
+    file_size?: number;
+    dropbox_file_id: string;
+    dropbox_path: string;
+    temporary_link?: string;
+    created_at?: string;
   }>;
 }
 
@@ -2273,6 +2292,47 @@ export default function Tasks() {
                             ))}
                           </div>
                           {selectedTask.attachmentNote && <p className="text-[11px] font-medium text-muted-foreground bg-muted/20 p-3 rounded-lg border border-dashed border-border/60 flex items-start gap-2"><AlertCircle className="w-3.5 h-3.5 mt-0.5" /> {selectedTask.attachmentNote}</p>}
+
+                          {/* Dropbox Attachments (View-only for employees) */}
+                          {((selectedTask as any).dropboxAttachments?.length > 0 || (selectedProject as any)?.dropboxAttachments?.length > 0) && (
+                            <div className="space-y-3 mt-4">
+                              <div className="flex items-center gap-2 text-blue-500">
+                                <DropboxIcon size={14} />
+                                <h5 className="text-[11px] font-bold uppercase tracking-widest">Dropbox Files</h5>
+                              </div>
+                              <div className="space-y-2">
+                                {(selectedTask as any).dropboxAttachments?.map((dbf: any, idx: number) => (
+                                  <a
+                                    key={`task-dbx-${idx}`}
+                                    href={dbf.temporary_link || `https://www.dropbox.com/home${dbf.dropbox_path}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-3 bg-blue-500/5 border border-blue-200/60 rounded-xl px-4 py-3 hover:bg-blue-500/10 transition-colors group"
+                                  >
+                                    <FileText className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                                    <span className="flex-1 text-sm font-semibold text-foreground truncate">{dbf.file_name}</span>
+                                    {dbf.file_size > 0 && <span className="text-xs text-muted-foreground">{formatBytes(dbf.file_size)}</span>}
+                                    <Download className="w-4 h-4 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </a>
+                                ))}
+                                {(selectedProject as any)?.dropboxAttachments?.map((dbf: any, idx: number) => (
+                                  <a
+                                    key={`proj-dbx-${idx}`}
+                                    href={dbf.temporary_link || `https://www.dropbox.com/home${dbf.dropbox_path}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 hover:bg-primary/10 transition-colors group"
+                                  >
+                                    <Badge className="text-[8px] h-4 bg-primary text-white font-black border-none px-1.5 uppercase flex-shrink-0">Project</Badge>
+                                    <DropboxIcon size={12} />
+                                    <span className="flex-1 text-sm font-semibold text-foreground truncate">{dbf.file_name}</span>
+                                    {dbf.file_size > 0 && <span className="text-xs text-muted-foreground">{formatBytes(dbf.file_size)}</span>}
+                                    <Download className="w-4 h-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ) : null}
 

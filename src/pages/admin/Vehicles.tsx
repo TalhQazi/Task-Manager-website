@@ -52,8 +52,12 @@ import {
   Wrench,
   Clock,
   Camera,
+  FileText,
 } from "lucide-react";
 import { createResource, deleteResource, listResource, updateResource, toProxiedUrl } from "@/lib/admin/apiClient";
+import DropboxFilePicker, { type DropboxSelectedFile, formatBytes, DropboxIcon } from "@/components/admin/DropboxFilePicker";
+import { getAuthState } from "@/lib/auth";
+import { ROLE_GROUPS } from "@/constants/roles";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
@@ -269,6 +273,9 @@ const Vehicles = () => {
   const [apiError, setApiError] = useState<string | null>(null);
   const [hoveredVehicle, setHoveredVehicle] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [isVehicleDropboxPickerOpen, setIsVehicleDropboxPickerOpen] = useState(false);
+  const [vehicleDropboxDocs, setVehicleDropboxDocs] = useState<DropboxSelectedFile[]>([]);
+  const currentRole = getAuthState().role || "";
   const [formData, setFormData] = useState({
     make: "",
     model: "",
@@ -885,7 +892,7 @@ const Vehicles = () => {
                     />
                   </div>
 
-                  {/* Document Upload */}
+                   {/* Document Upload */}
                   <div className="space-y-1.5">
                     <label className="block text-xs sm:text-sm font-medium mb-1.5">Vehicle Documents</label>
                     <div className="flex flex-wrap gap-2 mb-2">
@@ -901,16 +908,43 @@ const Vehicles = () => {
                           </button>
                         </Badge>
                       ))}
+                      {vehicleDropboxDocs.map((dbf, idx) => (
+                        <Badge key={`dbx-${idx}`} variant="secondary" className="flex items-center gap-1.5 py-1 bg-blue-500/10 text-blue-700 border-blue-200">
+                          <DropboxIcon size={10} />
+                          {dbf.file_name}
+                          {dbf.file_size > 0 && <span className="text-[10px] opacity-70">{formatBytes(dbf.file_size)}</span>}
+                          <button
+                            type="button"
+                            onClick={() => setVehicleDropboxDocs((prev) => prev.filter((_, i) => i !== idx))}
+                            className="text-destructive hover:text-destructive/80"
+                          >
+                            ×
+                          </button>
+                        </Badge>
+                      ))}
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="w-full border-dashed"
-                      onClick={() => document.getElementById("vehicle-doc-input")?.click()}
-                    >
-                      <Plus className="h-4 w-4 mr-2" /> Add Document
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 border-dashed"
+                        onClick={() => document.getElementById("vehicle-doc-input")?.click()}
+                      >
+                        <Plus className="h-4 w-4 mr-2" /> Add Document
+                      </Button>
+                      {ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="flex-1 border-dashed flex items-center justify-center gap-2"
+                          onClick={() => setIsVehicleDropboxPickerOpen(true)}
+                        >
+                          <DropboxIcon size={14} /> Dropbox
+                        </Button>
+                      )}
+                    </div>
                     <input
                       id="vehicle-doc-input"
                       type="file"
@@ -1959,6 +1993,14 @@ const Vehicles = () => {
           background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgb(255 255 255 / 0.05)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
         }
       `}</style>
+
+      {/* Dropbox File Picker Modal */}
+      <DropboxFilePicker
+        open={isVehicleDropboxPickerOpen}
+        onOpenChange={setIsVehicleDropboxPickerOpen}
+        onSelect={(files) => setVehicleDropboxDocs((prev) => [...prev, ...files])}
+        multiple={true}
+      />
     </>
   );
 };
