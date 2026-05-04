@@ -1,6 +1,6 @@
-export type UserRole = "super-admin" | "admin" | "manager" | "developer";
+export type UserRole = "super-admin" | "admin" | "manager" | "team-lead" | "developer";
 
-export type Role = "super-admin" | "admin" | "manager" | "employee";
+export type Role = "super-admin" | "admin" | "manager" | "team-lead" | "employee";
 
 export type ModuleKey =
   | "dashboard"
@@ -65,6 +65,23 @@ export const DEFAULT_PERMISSION_MATRIX: PermissionMatrix = {
     reports: true,
     settings: true,
   },
+  "team-lead": {
+    dashboard: true,
+    users: false,
+    roles: false,
+    tasks: true,
+    employees: true,
+    appliances: true,
+    vehicles: true,
+    locations: true,
+    scheduling: true,
+    time_tracking: true,
+    messaging: true,
+    do_not_hire: false,
+    onboarding: false,
+    reports: true,
+    settings: true,
+  },
   employee: {
     dashboard: true,
     users: false,
@@ -109,7 +126,7 @@ export function getAuthState(): AuthState {
     return {
       isAuthenticated: Boolean(parsed.isAuthenticated),
       role:
-        parsed.role === "super-admin" || parsed.role === "admin" || parsed.role === "manager" || parsed.role === "developer"
+        parsed.role === "super-admin" || parsed.role === "admin" || parsed.role === "manager" || parsed.role === "team-lead" || parsed.role === "developer"
           ? parsed.role
           : null,
       username: typeof parsed.username === "string" ? parsed.username : null,

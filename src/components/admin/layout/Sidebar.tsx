@@ -35,6 +35,8 @@ import {
   Bug,
   Palette,
   CalendarCheck,
+  Shield,
+  UserPlus,
 } from "lucide-react";
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -44,7 +46,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { apiFetch } from "@/lib/admin/apiClient";
 
 type NavItem = {
-  icon?: any;
+  icon?: React.ComponentType<{ className?: string }>;
   customIcon?: React.ReactNode;
   label: string;
   path?: string;
@@ -72,7 +74,15 @@ const navItemsBase: NavItem[] = [
       { icon: Calendar, label: "Scheduling", path: "/admin/scheduling" },
       { icon: Bell, label: "Notifications", path: "/admin/notifications" },
       { icon: Clock, label: "Time Tracking", path: "/admin/time-tracking" },
-    
+
+    ],
+  },
+  {
+    icon: Shield,
+    label: "Delegation",
+    children: [
+      { icon: UserPlus, label: "Team Lead Mappings", path: "/admin/team-lead-mappings" },
+      { icon: Shield, label: "Task Permissions", path: "/admin/task-permissions" },
     ],
   },
   { icon: Landmark, label: "Companies", path: "/admin/companies" },
@@ -145,6 +155,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
     try {
       await apiFetch("/api/auth/logout", { method: "POST" });
     } catch {
+      // ignore
     }
     clearAuthState();
     onNavigate?.();

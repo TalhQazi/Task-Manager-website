@@ -45,6 +45,8 @@ const UphMaintenance = lazy(() => import("@/pages/admin/UphMaintenance"));
 const BugReport = lazy(() => import("@/pages/admin/BugReport"));
 const Contributors = lazy(() => import("@/pages/admin/Contributors"));
 const ThemeEngine = lazy(() => import("@/pages/admin/ThemeEngine"));
+const TeamLeadMappings = lazy(() => import("@/pages/admin/TeamLeadMappings"));
+const TaskPermissions = lazy(() => import("@/pages/admin/TaskPermissions"));
 
 function PageLoader() {
   return (
@@ -105,6 +107,8 @@ export default function AdminRoutes() {
       { path: "eod-reports/:employeeName", element: <EmployeeEODHistory /> },
       { path: "leave-requests", element: <LeaveRequests /> },
       { path: "contributors", element: <Contributors /> },
+      { path: "team-lead-mappings", element: <TeamLeadMappings /> },
+      { path: "task-permissions", element: <TaskPermissions /> },
 
       { path: "bug-reports", element: <BugReport /> },
       { path: "theme-engine", element: <ThemeEngine /> },

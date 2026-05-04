@@ -86,7 +86,7 @@ export default function ManagerController() {
 
   const element = useRoutes(routes);
 
-  if (!auth.isAuthenticated || auth.role !== "manager") {
+  if (!auth.isAuthenticated || (auth.role !== "manager" && auth.role !== "team-lead")) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 

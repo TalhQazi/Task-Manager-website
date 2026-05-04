@@ -88,6 +88,7 @@ import {
   Paperclip,
   Layers,
   Maximize2,
+  Flame,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { io, Socket } from "socket.io-client";
@@ -108,6 +109,7 @@ interface Task {
   assignee?: string;
   priority: "low" | "medium" | "high";
   status: "pending" | "in-progress" | "completed" | "overdue";
+  executionPriority?: number | null;
   dueDate: string;
   dueTime?: string;
   location?: string;
@@ -241,9 +243,10 @@ function normalizeTask(t: TaskApi): Task {
     assignees,
     priority: t.priority,
     status: t.status,
+    executionPriority: (t as any).executionPriority ?? null,
     dueDate: t.dueDate,
     dueTime: t.dueTime,
-    location: t.location,
+    location: (t as any).location,
     createdAt: t.createdAt,
     attachmentFileName: extra.attachmentFileName,
     attachmentNote: extra.attachmentNote,
@@ -252,359 +255,24 @@ function normalizeTask(t: TaskApi): Task {
   };
 }
 
-function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
-  const [src, setSrc] = useState<string | null | undefined>(undefined);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    // If logoUrl is a real URL (S3 or data:), use it directly
-    if (logoUrl && logoUrl.length > 0) {
-      setSrc(toProxiedUrl(logoUrl) || logoUrl);
-      setError(false);
-      return;
-    }
-    
-    // logoUrl is undefined or empty string — fetch from dedicated endpoint
-    // Empty string means the list API stripped a base64 value stored in MongoDB
-    let cancelled = false;
-    setSrc(undefined);
-
-    apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
-      .then(d => { 
-        if (!cancelled) {
-          setSrc(toProxiedUrl(d.logo?.url) || null);
-          setError(false);
-        }
-      })
-      .catch(() => { 
-        if (!cancelled) {
-          setSrc(null);
-          setError(true);
-        }
-      });
-    return () => { cancelled = true; };
-  }, [projectId, logoUrl]);
-
-  if (src && !error) {
-    return (
-      <img 
-        src={src} 
-        alt={`${projectName} logo`} 
-        className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-border" 
-        crossOrigin="anonymous"
-        onError={() => setError(true)}
-      />
-    );
-  }
-
-  if (src === undefined) {
-    return <div className="w-10 h-10 rounded-md bg-muted/40 animate-pulse flex-shrink-0" />;
-  }
-
-  return (
-    <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary flex-shrink-0 border border-primary/20 uppercase">
-      {projectName.slice(0, 2).toUpperCase()}
-    </div>
-  );
-}
-
-function TaskAttachmentImg({ taskId, index, mimeType, fileName, fallbackUrl, onPreview }: { taskId: string; index: number; mimeType?: string; fileName?: string; fallbackUrl?: string; onPreview?: (url: string, name: string) => void }) {
-  const [src, setSrc] = useState<string | null>(toProxiedUrl(fallbackUrl) as string || null);
-
-  useEffect(() => {
-    // If fallbackUrl is a real URL (S3 or data:), use it directly
-    if (fallbackUrl && fallbackUrl.length > 0) {
-      setSrc(toProxiedUrl(fallbackUrl) || fallbackUrl);
-      return;
-    }
-    // fallbackUrl is undefined or empty string — fetch from dedicated endpoint
-    apiFetch<{ url: string }>(`/api/tasks/${taskId}/attachments/${index}`)
-      .then(d => setSrc(toProxiedUrl(d.url) as string || null))
-      .catch(() => setSrc(null));
-  }, [taskId, index, fallbackUrl]);
-
-  if (src && mimeType?.startsWith("image/")) return (
-    <div className="w-full h-full relative group/task-att cursor-zoom-in" onClick={() => onPreview?.(src, fileName || "Attachment")}>
-      <img src={src} alt={fileName} className="w-full h-24 object-cover" />
-      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/task-att:opacity-100 flex items-center justify-center transition-all duration-200">
-        <Maximize2 className="w-5 h-5 text-white" />
-      </div>
-    </div>
-  );
-  if (src && !mimeType?.startsWith("image/")) return (
-    <div className="w-full h-full relative group/att">
-      <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-white/10">
-        <FileText className="w-6 h-6 text-white/60 mb-1" />
-        <span className="text-[10px] text-white/40 truncate w-full px-2 font-medium">{fileName}</span>
-      </div>
-      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center gap-3 transition-opacity backdrop-blur-[1px] cursor-default">
-        <button 
-          onClick={(e) => { e.stopPropagation(); onPreview?.(src, fileName || "Attachment"); }}
-          className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
-          title="Preview"
-        >
-          <Maximize2 className="w-4 h-4" />
-        </button>
-        <a 
-          href={src} 
-          download={fileName} 
-          aria-label="Download" 
-          onClick={(e) => e.stopPropagation()} 
-          className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
-          title="Download"
-        >
-          <Download className="w-4 h-4" />
-        </a>
-      </div>
-    </div>
-  );
-  return <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>;
-}
-
-function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fallbackUrl, onPreview }: { taskId: string; commentId: string; index: number; mimeType?: string; fileName?: string; fallbackUrl?: string; onPreview?: (url: string, name: string) => void }) {
-  const [src, setSrc] = useState<string | null>(toProxiedUrl(fallbackUrl) as string || null);
-  useEffect(() => {
-    if (fallbackUrl) return;
-    apiFetch<{ url: string }>(`/api/tasks/${taskId}/comments/${commentId}/attachments/${index}`)
-      .then(d => setSrc(toProxiedUrl(d.url) as string || null))
-      .catch(() => setSrc(null));
-  }, [taskId, commentId, index, fallbackUrl]);
-
-  if (src && mimeType?.startsWith("image/")) return (
-    <div className="w-full h-full relative group/att cursor-zoom-in" onClick={() => onPreview?.(src, fileName || "Attachment")}>
-      <img src={src} alt={fileName} className="w-full h-24 object-cover" />
-      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-all duration-200">
-        <Maximize2 className="w-5 h-5 text-white" />
-      </div>
-    </div>
-  );
-  if (src && !mimeType?.startsWith("image/")) return (
-    <div className="w-full h-full relative group/att">
-      <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-white/10">
-        <FileText className="w-6 h-6 text-white/60 mb-1" />
-        <span className="text-[10px] text-white/40 truncate w-full px-2 font-medium">{fileName}</span>
-      </div>
-      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center gap-3 transition-opacity backdrop-blur-[1px] cursor-default">
-        <button 
-          onClick={(e) => { e.stopPropagation(); onPreview?.(src, fileName || "Attachment"); }}
-          className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
-          title="Preview"
-        >
-          <Maximize2 className="w-4 h-4" />
-        </button>
-        <a 
-          href={src} 
-          download={fileName} 
-          aria-label="Download" 
-          onClick={(e) => e.stopPropagation()} 
-          className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
-          title="Download"
-        >
-          <Download className="w-4 h-4" />
-        </a>
-      </div>
-    </div>
-  );
-  return <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>;
-}
-
-function formatMessageTime(date: string | Date) {
-  try {
-    const d = new Date(date);
-    if (isNaN(d.getTime())) return "Now";
-    return formatDistanceToNow(d, { addSuffix: true });
-  } catch {
-    return "Now";
-  }
-}
-
-function renderMessageWithMentions(message: string) {
-  if (!message) return null;
-  const parts = message.split(/(@[a-zA-Z0-9 ]+)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith("@")) {
-      return <span key={i} className="text-primary font-bold bg-primary/10 px-1 rounded">{part}</span>;
-    }
-    return part;
-  });
-}
-
-async function filesToAttachments(files: File[]) {
-  return Promise.all(
-    files.map(
-      (file) =>
-        new Promise<{ fileName: string; url: string; mimeType: string; size: number }>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onerror = () => reject(new Error("Failed to read file"));
-          reader.onload = () => {
-            resolve({ fileName: file.name, url: typeof reader.result === "string" ? reader.result : "", mimeType: file.type, size: file.size });
-          };
-          reader.readAsDataURL(file);
-        }),
-    ),
-  );
-}
-
-const priorityClasses = {
-  high: "bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive border-destructive/20",
-  medium: "bg-gradient-to-r from-yellow-500/20 to-amber-500/10 text-yellow-600 border-yellow-500/20",
-  low: "bg-gradient-to-r from-green-500/20 to-emerald-500/10 text-green-600 border-green-500/20",
-};
-
-const statusClasses = {
-  pending: "bg-gradient-to-r from-blue-500/20 to-blue-400/10 text-blue-600 border-blue-500/20",
-  "in-progress": "bg-gradient-to-r from-amber-500/20 to-yellow-400/10 text-amber-600 border-amber-500/20",
-  completed: "bg-gradient-to-r from-green-500/20 to-emerald-400/10 text-green-600 border-green-500/20",
-  overdue: "bg-gradient-to-r from-red-500/20 to-rose-400/10 text-red-600 border-red-500/20",
-};
-
-const createTaskSchema = z.object({
-  title: z.string().min(1, "Title is required"),
-  description: z.string().min(1, "Description is required"),
-  priority: z.enum(["low", "medium", "high"]),
-  status: z.enum(["pending", "in-progress", "completed", "overdue"]),
-  dueDate: z.string().optional(),
-  dueTime: z.string().optional(),
-  location: z.string().optional(),
-  assignees: z.array(z.string()).optional().default([]),
-});
-
-type CreateTaskValues = z.infer<typeof createTaskSchema>;
-
-// Task Contributors Component
-function TaskContributorsList({ taskId }: { taskId: string }) {
-  const [contributors, setContributors] = useState<Array<{
-    userId: string;
-    name: string;
-    email: string;
-    role: string;
-    contributionType?: string;
-    actions?: string[];
-    addedAt?: string;
-    avatar?: string;
-    stats?: any;
-  }>>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const loadContributors = async () => {
-      setLoading(true);
-      try {
-        const res = await apiFetch<{ items: typeof contributors }>(`/api/contributors/task/${encodeURIComponent(taskId)}/contributors`);
-        setContributors(res.items || []);
-      } catch (err) {
-        console.error("Failed to load task contributors:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadContributors();
-  }, [taskId]);
-
-  if (loading) {
-    return <div className="text-xs text-muted-foreground/70 italic">Loading collaborators...</div>;
-  }
-
-  if (contributors.length === 0) {
-    return <div className="text-xs text-muted-foreground/70 italic bg-muted/10 border border-dashed border-border/40 rounded-lg p-3 text-center">No collaborators yet</div>;
-  }
-
-  return (
-    <div className="flex flex-col gap-2 max-h-[180px] overflow-y-auto">
-      {contributors.map((contributor, idx) => (
-        <div key={idx} className="flex items-center gap-2.5 bg-background border border-border/60 rounded-lg px-3 py-2 shadow-xs">
-          <Avatar className="w-6 h-6">
-            <AvatarFallback className="text-[10px] bg-amber-100 text-amber-700 font-bold">
-              {contributor.name?.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase() || "?"}
-            </AvatarFallback>
-          </Avatar>
-          <div className="flex-1 min-w-0">
-            <span className="text-xs font-medium text-foreground/80 truncate">{contributor.name || "Unknown"}</span>
-            <div className="flex items-center gap-1 mt-0.5">
-              <Badge variant="outline" className="text-[8px] h-3 px-1">
-                {contributor.contributionType || "collaborator"}
-              </Badge>
-              <span className="text-[9px] text-muted-foreground">
-                {contributor.actions?.length || 0} actions
-              </span>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
+// ...
 
 export default function Tasks() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
+  const [projectSearchQuery, setProjectSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [viewByPriority, setViewByPriority] = useState(false);
   const [projectPage, setProjectPage] = useState(1);
   const [taskPage, setTaskPage] = useState(1);
   const PAGE_SIZE = 25;
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
-  const [projectDescription, setProjectDescription] = useState("");
-  const [projectLogoFile, setProjectLogoFile] = useState<File | null>(null);
-  const [projectLogoPreview, setProjectLogoPreview] = useState<string>("");
-  const [projectAttachmentFiles, setProjectAttachmentFiles] = useState<File[]>([]);
-  const [projectAttachmentPreviews, setProjectAttachmentPreviews] = useState<string[]>([]);
-  const [projectTasks, setProjectTasks] = useState<CreateProjectTaskDraft[]>([]);
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [isViewOpen, setIsViewOpen] = useState(false);
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
-  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
-  const [attachmentFilePreviews, setAttachmentFilePreviews] = useState<string[]>([]);
-  const [attachmentNoteDraft, setAttachmentNoteDraft] = useState<string>("");
-  const [isCreating, setIsCreating] = useState(false);
-  const [validationErrors, setValidationErrors] = useState<{ projectName?: string; title?: string; description?: string }>({});
-  const [assigneesOpen, setAssigneesOpen] = useState(false);
-  const [editAssigneesOpen, setEditAssigneesOpen] = useState(false);
-  const [projectCreationAssignees, setProjectCreationAssignees] = useState<string[]>([]);
-  const [projectCreationAssigneesOpen, setProjectCreationAssigneesOpen] = useState(false);
+  // ...
 
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProject, setSelectedProject] = useState<ProjectWithTasks | null>(null);
-  const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
-  const [isDirectTask, setIsDirectTask] = useState(false);
-  const [isLoadingProject, setIsLoadingProject] = useState(false);
-  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
-  const [editSelectedAssignees, setEditSelectedAssignees] = useState<string[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [apiError, setApiError] = useState<string | null>(null);
-  const [comments, setComments] = useState<TaskComment[]>([]);
-  const [commentsLoading, setCommentsLoading] = useState(false);
-  const [commentDraft, setCommentDraft] = useState("");
-  const [commentError, setCommentError] = useState<string | null>(null);
-  const [statusSaving, setStatusSaving] = useState(false);
-  const queryClient = useQueryClient();
-  const { triggerBlaster, incrementCompletedCount, isEligible } = useTaskBlasterContext();
-
-  const currentUsername = getAuthState().username || "";
-  const [projectComments, setProjectComments] = useState<any[]>([]);
-  const [projectCommentsLoading, setProjectCommentsLoading] = useState(false);
-  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
-  
-  // Lightbox / File Preview State
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [previewName, setPreviewName] = useState<string>("");
-
-  const [commentAttachments, setCommentAttachments] = useState<File[]>([]);
-  const [isSendingComment, setIsSendingComment] = useState(false);
-  const [isViewProjectOpen, setIsViewProjectOpen] = useState(false);
-  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
-  const [editCommentDraft, setEditCommentDraft] = useState("");
-  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
-  const chatContainerRef = useMemo(() => ({ current: null as HTMLDivElement | null }), []);
-
-  // Fetch tasks with server-side pagination
   const tasksQuery = useQuery({
-    queryKey: ["tasks", taskPage, searchQuery, statusFilter, priorityFilter],
+    queryKey: ["tasks", taskPage, searchQuery, statusFilter, priorityFilter, viewByPriority],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: taskPage.toString(),
@@ -613,46 +281,20 @@ export default function Tasks() {
         status: statusFilter,
         priority: priorityFilter,
       });
+      if (viewByPriority) params.set("sort", "priority");
       const res = await apiFetch<{ items: TaskApi[], totalPages: number, total: number }>(`/api/tasks?${params.toString()}`);
       return {
-        items: res.items.map(normalizeTask),
-        totalPages: res.totalPages || 1,
-        totalItems: res.total || 0,
+        items: (res.items || []).map(normalizeTask),
+        totalPages: res.totalPages,
+        totalItems: res.total,
       };
     },
-    placeholderData: (previousData) => previousData,
-    refetchInterval: 10000, // Auto-refresh every 10 seconds
   });
 
-  // Fetch projects with server-side pagination
-  const projectsQuery = useQuery({
-    queryKey: ["projects", projectPage, searchQuery],
-    queryFn: async () => {
-      const params = new URLSearchParams({
-        page: projectPage.toString(),
-        limit: PAGE_SIZE.toString(),
-        search: searchQuery,
-      });
-      const res = await apiFetch<{ items: Project[], totalPages: number, total: number }>(`/api/projects?${params.toString()}`);
-      return {
-        items: res.items,
-        totalPages: res.totalPages || 1,
-        totalItems: res.total || 0,
-      };
-    },
-    placeholderData: (previousData) => previousData,
-    refetchInterval: 10000, // Auto-refresh every 10 seconds
-  });
+  // ...
 
-  // Reset pages when filters change
-  useEffect(() => { setTaskPage(1); }, [searchQuery, statusFilter, priorityFilter, selectedProject?.id]);
+  useEffect(() => { setTaskPage(1); }, [searchQuery, statusFilter, priorityFilter, viewByPriority]);
   useEffect(() => { setProjectPage(1); }, [searchQuery]);
-
-  useEffect(() => {
-    if (tasksQuery.data) {
-      setTasks(tasksQuery.data.items);
-    }
-  }, [tasksQuery.data]);
 
   useEffect(() => {
     if (!selectedProject && tasksQuery.data) {
@@ -1537,6 +1179,16 @@ export default function Tasks() {
           </Select>
           <Button variant="outline" size="icon" className="shrink-0">
             <Filter className="w-4 h-4" />
+          </Button>
+          <Button
+            type="button"
+            variant={viewByPriority ? "default" : "outline"}
+            className="shrink-0 gap-2"
+            onClick={() => setViewByPriority((v) => !v)}
+            title="View tasks by execution priority"
+          >
+            <Flame className="w-4 h-4" />
+            View by Priority
           </Button>
         </div>
       </div>
@@ -2888,6 +2540,12 @@ export default function Tasks() {
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-foreground line-clamp-1">
                           <span className="text-primary mr-1.5">{task.taskNumber || ((taskPage - 1) * PAGE_SIZE + index + 1)}.</span>
+                          {task.executionPriority ? (
+                            <span className="inline-flex items-center gap-1 mr-2 align-middle text-[11px] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-orange-500 to-red-500 text-white">
+                              <Flame className="w-3 h-3" />
+                              #{task.executionPriority}
+                            </span>
+                          ) : null}
                           {task.title}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1 capitalize">{task.priority} priority</p>
