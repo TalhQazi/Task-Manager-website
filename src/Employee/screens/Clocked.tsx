@@ -214,6 +214,22 @@ export default function EmployeeClocked() {
     });
   };
 
+  const toUSATime = (timeStr: string | null | undefined): string => {
+    if (!timeStr) return "--:--";
+    try {
+      const [hours, minutes] = timeStr.split(":").map(Number);
+      let usaHours = hours - 10;
+      let dayOffset = "";
+      if (usaHours < 0) {
+        usaHours += 24;
+        dayOffset = " (prev day)";
+      }
+      return `${usaHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}${dayOffset}`;
+    } catch {
+      return timeStr;
+    }
+  };
+
   const getDuration = () => {
     if (!timeEntry?.clockInAt) return "--:--:--";
     const start = new Date(timeEntry.clockInAt);
@@ -406,8 +422,8 @@ export default function EmployeeClocked() {
                 <LogIn className="h-6 w-6 text-green-600" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Clock In</p>
-                <p className="text-xl font-bold">{timeEntry?.clockIn || "--:--"}</p>
+                <p className="text-sm text-muted-foreground">Clock In (USA)</p>
+                <p className="text-xl font-bold">{toUSATime(timeEntry?.clockIn) || "--:--"}</p>
               </div>
             </div>
           </CardContent>
@@ -420,8 +436,8 @@ export default function EmployeeClocked() {
                 <LogOut className="h-6 w-6 text-blue-600" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Clock Out</p>
-                <p className="text-xl font-bold">{timeEntry?.clockOut || "--:--"}</p>
+                <p className="text-sm text-muted-foreground">Clock Out (USA)</p>
+                <p className="text-xl font-bold">{toUSATime(timeEntry?.clockOut) || "--:--"}</p>
               </div>
             </div>
           </CardContent>
@@ -520,8 +536,8 @@ export default function EmployeeClocked() {
                           year: "numeric",
                         })}
                       </TableCell>
-                      <TableCell>{entry.clockIn || "--:--"}</TableCell>
-                      <TableCell>{entry.clockOut || "--:--"}</TableCell>
+                      <TableCell>{toUSATime(entry.clockIn) || "--:--"}</TableCell>
+                      <TableCell>{toUSATime(entry.clockOut) || "--:--"}</TableCell>
                       <TableCell>{entry.totalHours?.toFixed(2) || "--"}</TableCell>
                       <TableCell>
                         <Badge

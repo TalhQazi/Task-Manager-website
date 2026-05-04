@@ -62,6 +62,19 @@ export default function ScrumRecords() {
     });
   };
 
+  const parseScrumDetails = (scrum: string) => {
+    try {
+      const parsed = JSON.parse(scrum);
+      return {
+        tasksCompleted: parsed.tasksCompleted || "",
+        issuesBlockers: parsed.issuesBlockers || "",
+        notes: parsed.notes || "",
+      };
+    } catch {
+      return { tasksCompleted: scrum, issuesBlockers: "", notes: "" };
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -167,9 +180,34 @@ export default function ScrumRecords() {
                         </Badge>
                       </TableCell>
                       <TableCell className="max-w-md">
-                        <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                          {record.scrum}
-                        </p>
+                        {(() => {
+                          const details = parseScrumDetails(record.scrum);
+                          return (
+                            <div className="space-y-1.5">
+                              {details.tasksCompleted && (
+                                <div className="text-sm">
+                                  <span className="font-semibold text-gray-900">Tasks Done:</span>{" "}
+                                  <span className="text-gray-700">{details.tasksCompleted}</span>
+                                </div>
+                              )}
+                              {details.issuesBlockers && (
+                                <div className="text-sm">
+                                  <span className="font-semibold text-gray-900">Issues/Blockers:</span>{" "}
+                                  <span className="text-red-600">{details.issuesBlockers}</span>
+                                </div>
+                              )}
+                              {details.notes && (
+                                <div className="text-sm">
+                                  <span className="font-semibold text-gray-900">Notes:</span>{" "}
+                                  <span className="text-gray-600">{details.notes}</span>
+                                </div>
+                              )}
+                              {!details.tasksCompleted && !details.issuesBlockers && !details.notes && (
+                                <p className="text-sm text-gray-400 italic">No details</p>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </TableCell>
                     </TableRow>
                   ))}
