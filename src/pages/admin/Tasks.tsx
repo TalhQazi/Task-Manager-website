@@ -90,6 +90,7 @@ import {
   Download,
   Maximize2,
   Smile,
+  Flame,
 } from "lucide-react";
 import { cn } from "@/lib/admin/utils";
 import { apiFetch, downloadTaskAttachment, toProxiedUrl, downloadViaUrl } from "@/lib/admin/apiClient";
@@ -270,6 +271,7 @@ interface Task {
   description: string;
   assignees: string[];
   assignee?: string;
+  teamLead?: string;
   priority: "low" | "medium" | "high";
   status: "pending" | "in-progress" | "completed" | "overdue";
   dueDate: string;
@@ -280,6 +282,7 @@ interface Task {
   attachmentFileName?: string;
   attachmentNote?: string;
   dropboxAttachmentCount?: number;
+  executionPriority?: number | null;
   attachment?: {
     fileName: string;
     url: string;
@@ -392,6 +395,7 @@ interface Project {
   createdByUsername?: string;
   createdAt?: string;
   assignees?: string[];
+  teamLead?: string;
   logo?: ProjectLogo;
   taskCount?: number;
   status?: string;
@@ -425,6 +429,7 @@ function normalizeTask(t: any): Task {
     title: t.title,
     description: t.description,
     assignees,
+    teamLead: t.teamLead || "",
     priority: t.priority,
     status: t.status,
     dueDate: t.dueDate,
@@ -436,6 +441,7 @@ function normalizeTask(t: any): Task {
     attachment: extra.attachment,
     attachments: Array.isArray((t as any).attachments) ? (t as any).attachments : undefined,
     dropboxAttachmentCount: t.dropboxAttachmentCount,
+    executionPriority: t.executionPriority ?? null,
   };
 }
 
@@ -560,6 +566,8 @@ export default function Tasks() {
   const [editAssigneesOpen, setEditAssigneesOpen] = useState(false);
   const [projectCreationAssignees, setProjectCreationAssignees] = useState<string[]>([]);
   const [projectCreationAssigneesOpen, setProjectCreationAssigneesOpen] = useState(false);
+  const [projectTeamLead, setProjectTeamLead] = useState("");
+  const [projectTeamLeadPopoverOpen, setProjectTeamLeadPopoverOpen] = useState(false);
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectWithTasks | null>(null);
@@ -568,6 +576,10 @@ export default function Tasks() {
   const [isLoadingProject, setIsLoadingProject] = useState(false);
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
   const [editSelectedAssignees, setEditSelectedAssignees] = useState<string[]>([]);
+  const [taskTeamLead, setTaskTeamLead] = useState("");
+  const [taskTeamLeadPopoverOpen, setTaskTeamLeadPopoverOpen] = useState(false);
+  const [editTaskTeamLead, setEditTaskTeamLead] = useState("");
+  const [editTaskTeamLeadPopoverOpen, setEditTaskTeamLeadPopoverOpen] = useState(false);
   const [editTaskFile, setEditTaskFile] = useState<File | null>(null);
   const [editTaskFilePreview, setEditTaskFilePreview] = useState<string | null>(null);
   const [editTaskFiles, setEditTaskFiles] = useState<File[]>([]);
@@ -613,6 +625,11 @@ export default function Tasks() {
   const [isReassigningProject, setIsReassigningProject] = useState(false);
   const [reassignTaskOpen, setReassignTaskOpen] = useState(false);
   const [reassignProjectOpen, setReassignProjectOpen] = useState(false);
+
+  // Execution Priority Mode states
+  const [priorityModeEnabled, setPriorityModeEnabled] = useState(false);
+  const [viewByPriority, setViewByPriority] = useState(false);
+  const [assigningPriority, setAssigningPriority] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -973,6 +990,167 @@ export default function Tasks() {
     },
   });
 
+  // Execution Priority mutations
+  const assignPriorityMutation = useMutation({
+    mutationFn: async ({ id, priority }: { id: string; priority: number }) => {
+      const res = await apiFetch<{ item: TaskApi }>(`/api/tasks/${id}/priority`, {
+        method: "POST",
+        body: JSON.stringify({ executionPriority: priority }),
+      });
+      return normalizeTask(res.item);
+    },
+    onMutate: async ({ id, priority }) => {
+      await queryClient.cancelQueries({ queryKey: ["tasks"], type: "all" });
+      await queryClient.cancelQueries({ queryKey: ["projects"], type: "all" });
+
+      const previousTasksQueries = queryClient.getQueriesData<{ items: Task[]; totalPages: number; totalItems: number }>({
+        queryKey: ["tasks"],
+      });
+
+      const optimisticUpdate = (t: Task) => (t.id === id ? { ...t, executionPriority: priority } : t);
+
+      queryClient.setQueriesData<{ items: Task[]; totalPages: number; totalItems: number }>({ queryKey: ["tasks"] }, (old) => {
+        if (!old) return old;
+        return { ...old, items: old.items.map(optimisticUpdate) };
+      });
+
+      if (selectedProject) {
+        setSelectedProject({
+          ...selectedProject,
+          tasks: (selectedProject.tasks || []).map(optimisticUpdate),
+        });
+      }
+
+      if (selectedTask?.id === id) {
+        setSelectedTask({ ...selectedTask, executionPriority: priority });
+      }
+
+      return { previousTasksQueries };
+    },
+    onSuccess: (updatedTask) => {
+      // Invalidate all tasks queries (including paginated ones)
+      queryClient.invalidateQueries({ queryKey: ["tasks"], type: "all" });
+      queryClient.invalidateQueries({ queryKey: ["projects"], type: "all" });
+      if (selectedTask?.id === updatedTask.id) {
+        setSelectedTask(updatedTask);
+      }
+      if (selectedProject && updatedTask.projectId && selectedProject.id === updatedTask.projectId) {
+        setSelectedProject({
+          ...selectedProject,
+          tasks: (selectedProject.tasks || []).map(t => t.id === updatedTask.id ? updatedTask : t)
+        });
+      }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previousTasksQueries) {
+        for (const [key, data] of ctx.previousTasksQueries) {
+          queryClient.setQueryData(key, data);
+        }
+      }
+    },
+  });
+
+  const removePriorityMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiFetch<{ item: TaskApi }>(`/api/tasks/${id}/priority`, {
+        method: "DELETE",
+      });
+      return normalizeTask(res.item);
+    },
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ["tasks"], type: "all" });
+      await queryClient.cancelQueries({ queryKey: ["projects"], type: "all" });
+
+      const previousTasksQueries = queryClient.getQueriesData<{ items: Task[]; totalPages: number; totalItems: number }>({
+        queryKey: ["tasks"],
+      });
+
+      const optimisticUpdate = (t: Task) => (t.id === id ? { ...t, executionPriority: null } : t);
+
+      queryClient.setQueriesData<{ items: Task[]; totalPages: number; totalItems: number }>({ queryKey: ["tasks"] }, (old) => {
+        if (!old) return old;
+        return { ...old, items: old.items.map(optimisticUpdate) };
+      });
+
+      if (selectedProject) {
+        setSelectedProject({
+          ...selectedProject,
+          tasks: (selectedProject.tasks || []).map(optimisticUpdate),
+        });
+      }
+
+      if (selectedTask?.id === id) {
+        setSelectedTask({ ...selectedTask, executionPriority: null });
+      }
+
+      return { previousTasksQueries };
+    },
+    onSuccess: (updatedTask) => {
+      // Invalidate all tasks queries (including paginated ones)
+      queryClient.invalidateQueries({ queryKey: ["tasks"], type: "all" });
+      queryClient.invalidateQueries({ queryKey: ["projects"], type: "all" });
+      if (selectedTask?.id === updatedTask.id) {
+        setSelectedTask(updatedTask);
+      }
+      if (selectedProject && updatedTask.projectId && selectedProject.id === updatedTask.projectId) {
+        setSelectedProject({
+          ...selectedProject,
+          tasks: (selectedProject.tasks || []).map(t => t.id === updatedTask.id ? updatedTask : t)
+        });
+      }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.previousTasksQueries) {
+        for (const [key, data] of ctx.previousTasksQueries) {
+          queryClient.setQueryData(key, data);
+        }
+      }
+    },
+  });
+
+  const clearAllPrioritiesMutation = useMutation({
+    mutationFn: async ({ type, projectId }: { type: "standalone" | "project"; projectId?: string }) => {
+      const endpoint = type === "project" && projectId
+        ? `/api/projects/${projectId}/priorities`
+        : "/api/tasks/priorities";
+      await apiFetch<{ success: boolean }>(endpoint, { method: "DELETE" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"], type: "all" });
+      queryClient.invalidateQueries({ queryKey: ["projects"], type: "all" });
+      toast({ title: "Priorities cleared", description: "All execution priorities have been removed." });
+    },
+    onError: (err) => {
+      toast({
+        title: "Failed to clear priorities",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const resequencePrioritiesMutation = useMutation({
+    mutationFn: async ({ taskIds }: { taskIds: string[] }) => {
+      const res = await apiFetch<{ items: TaskApi[] }>("/api/tasks/resequence", {
+        method: "POST",
+        body: JSON.stringify({ taskIds }),
+      });
+      return res.items.map(normalizeTask);
+    },
+    onSuccess: (updatedTasks) => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"], type: "all" });
+      queryClient.invalidateQueries({ queryKey: ["projects"], type: "all" });
+      // Update selected project tasks if needed
+      if (selectedProject) {
+        const updatedTaskMap = new Map(updatedTasks.map(t => [t.id, t]));
+        setSelectedProject({
+          ...selectedProject,
+          tasks: (selectedProject.tasks || []).map(t => updatedTaskMap.get(t.id) || t)
+        });
+      }
+    },
+  });
+
   // Reassign handlers
   const handleReassignTask = async () => {
     if (!reassigningTask) return;
@@ -1071,10 +1249,42 @@ export default function Tasks() {
       attachmentNote: "",
     });
     setSelectedAssignees([]);
-    setProjectCreationAssignees([]);
-    setAttachmentFile(null);
-    setAttachmentFiles([]);
-    setAttachmentFilePreviews([]);
+  };
+
+  // Handle task priority click in Priority Mode
+  const handleTaskPriorityClick = async (task: Task, e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    if (!priorityModeEnabled || assigningPriority) return;
+
+    setAssigningPriority(true);
+    try {
+      if (task.executionPriority) {
+        // Remove priority and resequence remaining tasks
+        await removePriorityMutation.mutateAsync(task.id);
+        toast({ title: "Priority removed", description: `Task "${task.title}" removed from execution order.` });
+      } else {
+        // Get current prioritized tasks to determine next priority number
+        const currentTasks = selectedProject ? selectedProject.tasks : tasks;
+        const maxPriority = currentTasks
+          .filter(t => t.id !== task.id && t.executionPriority)
+          .reduce((max, t) => Math.max(max, t.executionPriority || 0), 0);
+        const nextPriority = maxPriority + 1;
+
+        await assignPriorityMutation.mutateAsync({ id: task.id, priority: nextPriority });
+        toast({ title: "Priority assigned", description: `Task "${task.title}" set as #${nextPriority} in execution order.` });
+      }
+    } catch (err) {
+      toast({
+        title: "Failed to update priority",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setAssigningPriority(false);
+    }
   };
 
   const draftFromForm = (attachmentOverride?: CreateProjectTaskDraft["attachment"]) => {
@@ -1183,10 +1393,11 @@ export default function Tasks() {
       const projectAttachments =
         projectAttachmentFiles.length > 0 ? await filesToAttachments(projectAttachmentFiles) : [];
 
-      const payload: CreateProjectPayload & { assignees?: string[]; logo?: ProjectLogo } = {
+      const payload: CreateProjectPayload & { assignees?: string[]; logo?: ProjectLogo; teamLead?: string } = {
         name: projectName.trim(),
         description,
         assignees: projectCreationAssignees,
+        teamLead: projectTeamLead || undefined,
         logo: projectLogo,
         introVideoUrl: projectIntroVideoUrl,
         attachments: projectAttachments,
@@ -1246,6 +1457,7 @@ export default function Tasks() {
         title: formData.title,
         description: formData.description,
         assignees: selectedAssignees,
+        teamLead: taskTeamLead || undefined,
         priority: formData.priority,
         status: formData.status,
         dueDate: formData.dueDate || nowDate,
@@ -1290,6 +1502,7 @@ export default function Tasks() {
         attachmentNote: "",
       });
       setSelectedAssignees([]);
+      setTaskTeamLead("");
       setAttachmentFile(null);
       setAttachmentFiles([]);
       setAttachmentFilePreviews([]);
@@ -1605,6 +1818,7 @@ export default function Tasks() {
     setSearchQuery(""); // Clear search bar when editing a task
     setSelectedTask(task);
     setEditSelectedAssignees(task.assignees || []);
+    setEditTaskTeamLead(task.teamLead || "");
     editForm.reset({
       title: task.title,
       description: task.description,
@@ -1778,7 +1992,7 @@ export default function Tasks() {
     if (!selectedTask) return;
     const previousStatus = selectedTask.status;
 
-    const payload: Partial<Task> = { ...values, assignees: editSelectedAssignees };
+    const payload: Partial<Task> = { ...values, assignees: editSelectedAssignees, teamLead: editTaskTeamLead || undefined };
 
     // Handle multiple attachments
     const newAttachments = editTaskFiles.length > 0 ? await filesToAttachments(editTaskFiles) : [];
@@ -1869,7 +2083,7 @@ export default function Tasks() {
   const sourceTasks = selectedProject ? selectedProject.tasks : (tasksQuery.data?.items || []);
 
   const filteredTasks = useMemo(() => {
-    return sourceTasks.filter((task) => {
+    const filtered = sourceTasks.filter((task) => {
       const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
       const matchesSearch =
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1878,17 +2092,40 @@ export default function Tasks() {
         statusFilter === "all" || task.status === statusFilter;
       const matchesPriority =
         priorityFilter === "all" || task.priority === priorityFilter;
-      
+
       // Archive logic: Hide completed tasks if not showing archived
       if (!showArchivedTasks && task.status === "completed") return false;
-      // If showing archived, maybe only show completed? 
+      // If showing archived, maybe only show completed?
       // Actually, user said archiving completed tasks "off the screen".
       // So if showArchivedTasks is true, we probably want to see the archived ones.
       if (showArchivedTasks && task.status !== "completed") return false;
 
       return matchesSearch && matchesStatus && matchesPriority;
     });
-  }, [sourceTasks, searchQuery, statusFilter, priorityFilter, showArchivedTasks]);
+
+    // Sort by execution priority when viewByPriority is enabled
+    if (viewByPriority) {
+      // IMPORTANT: don't mutate `filtered` (which is derived from React state)
+      return [...filtered].sort((a, b) => {
+        const aP = a.executionPriority ?? null;
+        const bP = b.executionPriority ?? null;
+
+        // Tasks with execution priority come first
+        if (aP !== null && bP === null) return -1;
+        if (aP === null && bP !== null) return 1;
+
+        // Both have priority - sort by priority number
+        if (aP !== null && bP !== null) {
+          return aP - bP;
+        }
+
+        // Neither has priority - maintain original order
+        return 0;
+      });
+    }
+
+    return filtered;
+  }, [sourceTasks, searchQuery, statusFilter, priorityFilter, showArchivedTasks, viewByPriority]);
 
   const filteredProjects = useMemo(() => {
     const qMain = searchQuery.trim().toLowerCase();
@@ -1915,14 +2152,27 @@ export default function Tasks() {
   }, [projects, searchQuery, statusFilter]);
 
   const filteredStandaloneTasks = useMemo(() => {
-    const standalone = tasksQuery.data?.items || [];
-    if (!searchQuery.trim()) return standalone;
-    const q = searchQuery.toLowerCase();
-    return standalone.filter((task) => {
-      const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
-      return task.title.toLowerCase().includes(q) || assigneesText.toLowerCase().includes(q);
-    });
-  }, [tasksQuery.data, searchQuery]);
+    let standalone = tasksQuery.data?.items || [];
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      standalone = standalone.filter((task) => {
+        const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
+        return task.title.toLowerCase().includes(q) || assigneesText.toLowerCase().includes(q);
+      });
+    }
+    // Sort by execution priority when viewByPriority is enabled
+    if (viewByPriority) {
+      return [...standalone].sort((a, b) => {
+        const aP = a.executionPriority ?? null;
+        const bP = b.executionPriority ?? null;
+        if (aP !== null && bP === null) return -1;
+        if (aP === null && bP !== null) return 1;
+        if (aP !== null && bP !== null) return aP - bP;
+        return 0;
+      });
+    }
+    return standalone;
+  }, [tasksQuery.data, searchQuery, viewByPriority]);
 
   // Project & Task counts from server data
   const projectTotalPages = projectsQuery.data?.totalPages || 1;
@@ -1968,6 +2218,9 @@ export default function Tasks() {
               </Button>
               <Button size="sm" className="gap-2 h-9 text-sm" onClick={() => {
                 setIsDirectTask(false);
+                if (selectedProject?.teamLead) {
+                  setTaskTeamLead(selectedProject.teamLead);
+                }
                 setIsCreateTaskOpen(true);
               }}>
                 <Plus className="w-4 h-4" />
@@ -2034,9 +2287,39 @@ export default function Tasks() {
             <Archive className="h-4 w-4" />
             <span className="text-xs font-medium">{showArchivedTasks ? "Hide Archived" : "Show Archived"}</span>
           </Button>
-          <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 hidden sm:flex">
+          {/* <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 hidden sm:flex">
             <Filter className="w-4 h-4" />
-          </Button>
+          </Button> */}
+
+          {/* Execution Priority Mode Controls - Admin Only */}
+          {isAdminRole && (
+            <>
+              <Button
+                variant={priorityModeEnabled ? "default" : "outline"}
+                onClick={() => {
+                  setPriorityModeEnabled(!priorityModeEnabled);
+                  if (!priorityModeEnabled) {
+                    toast({ title: "Priority Mode Enabled", description: "Click tasks to assign execution order." });
+                  }
+                }}
+                className="h-10 px-3 flex items-center gap-2"
+                disabled={assigningPriority}
+              >
+                <Flame className="h-4 w-4" />
+                <span className="text-xs font-medium">{priorityModeEnabled ? "Priority Mode ON" : "Priority Mode"}</span>
+              </Button>
+
+              <Button
+                variant={viewByPriority ? "secondary" : "outline"}
+                onClick={() => setViewByPriority(!viewByPriority)}
+                className="h-10 px-3 flex items-center gap-2"
+                disabled={priorityModeEnabled}
+              >
+                <Eye className="h-4 w-4" />
+                <span className="text-xs font-medium">{viewByPriority ? "By Priority" : "View by Priority"}</span>
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -2379,16 +2662,50 @@ export default function Tasks() {
                   {filteredStandaloneTasks.map((task, idx) => {
                     const assigneeList = Array.isArray(task.assignees) && task.assignees.length > 0 ? task.assignees : [];
                     const taskLetter = String.fromCharCode(65 + (idx % 26));
-                    const taskNumber = (taskPage - 1) * PAGE_SIZE + idx + 1;
+                    const taskNumber = task.taskNumber ?? ((taskPage - 1) * PAGE_SIZE + idx + 1);
                     return (
                       <div
                         key={task.id}
-                        className="relative text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card w-full group"
+                        className={cn(
+                          "relative text-left p-3 sm:p-4 rounded-lg border transition w-full group",
+                          priorityModeEnabled && "cursor-pointer hover:border-orange-500 hover:ring-2 hover:ring-orange-500/20",
+                          !priorityModeEnabled && "border-border hover:border-primary bg-card shadow-sm hover:shadow-card",
+                          task.executionPriority && "border-orange-400 bg-orange-50/10 dark:bg-orange-950/10"
+                        )}
+                        onClick={(e) => {
+                          if (priorityModeEnabled) {
+                            void handleTaskPriorityClick(task, e);
+                          }
+                        }}
                       >
                         <button
-                          onClick={() => openView(task)}
+                          onClick={(e) => {
+                            if (!priorityModeEnabled) {
+                              openView(task);
+                            } else {
+                              e.stopPropagation();
+                              void handleTaskPriorityClick(task, e);
+                            }
+                          }}
                           className="w-full text-left"
                         >
+                          {/* Execution Priority Badge */}
+                          {task.executionPriority && (
+                            <div className="absolute -top-2 -left-2 z-10">
+                              <div className="flex items-center gap-1 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg animate-pulse">
+                                <Flame className="w-3 h-3" />
+                                #{task.executionPriority}
+                              </div>
+                            </div>
+                          )}
+                          {priorityModeEnabled && !task.executionPriority && (
+                            <div className="absolute -top-2 -left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="flex items-center gap-1 bg-muted text-muted-foreground text-xs font-medium px-2 py-1 rounded-full border border-dashed border-muted-foreground/30">
+                                <Flame className="w-3 h-3" />
+                                Click to assign
+                              </div>
+                            </div>
+                          )}
                           <div className="mb-2">
                             <p className="font-medium truncate text-sm">
                               <span className="text-primary mr-1">{taskNumber}.</span>
@@ -2398,9 +2715,9 @@ export default function Tasks() {
                           </div>
                           {task.attachment?.fileName && (
                             <div className="mb-2 rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
-                              <TaskAttachmentImg 
-                                taskId={task.id} 
-                                attachmentUrl={task.attachment?.url} 
+                              <TaskAttachmentImg
+                                taskId={task.id}
+                                attachmentUrl={task.attachment?.url}
                                 onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
                               />
                             </div>
@@ -2608,6 +2925,57 @@ export default function Tasks() {
                   {projectAttachmentFiles.length > 0 && (<div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">{projectAttachmentFiles.map((file, idx) => (<div key={idx} className="relative group">{projectAttachmentPreviews[idx] ? (<img src={projectAttachmentPreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />) : (<div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">📄 {file.name}</div>)}<button type="button" onClick={() => { setProjectAttachmentFiles((prev) => prev.filter((_, i) => i !== idx)); setProjectAttachmentPreviews((prev) => prev.filter((_, i) => i !== idx)); }} className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs">✕</button></div>))}</div>)}
                 </div>
               </div>
+               <div className="space-y-1.5">
+                <label className="text-sm font-medium">Team Lead (Optional)</label>
+                <Popover open={projectTeamLeadPopoverOpen} onOpenChange={setProjectTeamLeadPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button type="button" variant="outline" className="w-full justify-between h-10">
+                      <span className="truncate">{projectTeamLead || "Select team lead"}</span>
+                      <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] p-0 z-[100]" align="start" collisionPadding={20}>
+                    <Command className="h-full">
+                      <CommandInput placeholder="Search team lead..." />
+                      <CommandList className="max-h-[250px] overflow-y-auto custom-scrollbar">
+                        <CommandEmpty>No employee found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem 
+                            value="" 
+                            onSelect={() => { 
+                              setProjectTeamLead(""); 
+                              setProjectTeamLeadPopoverOpen(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", projectTeamLead === "" ? "opacity-100" : "opacity-0")} />
+                            <span className="text-muted-foreground">None</span>
+                          </CommandItem>
+                          {activeEmployees.map((employee) => (
+                            <CommandItem 
+                              key={employee.id} 
+                              value={employee.name} 
+                              onSelect={() => { 
+                                setProjectTeamLead(employee.name);
+                                setProjectTeamLeadPopoverOpen(false);
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4", projectTeamLead === employee.name ? "opacity-100" : "opacity-0")} />
+                              <Avatar className="h-6 w-6 mr-2">
+                                {employee.avatarDataUrl || employee.avatarUrl ? (
+                                  <img src={employee.avatarDataUrl || employee.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                                ) : (
+                                  <AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials || employee.name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                                )}
+                              </Avatar>
+                              {employee.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Assignees</label>
                 <Popover open={projectCreationAssigneesOpen} onOpenChange={setProjectCreationAssigneesOpen}>
@@ -2692,6 +3060,38 @@ export default function Tasks() {
                 {validationErrors.description && <p className="text-xs text-destructive">{validationErrors.description}</p>}
               </div>
               <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Assignees</label><Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}><PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{selectedAssignees.length > 0 ? selectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start"><Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); }}><Check className={cn("mr-2 h-4 w-4", selectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover></div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Team Lead (Optional)</label>
+                <Popover open={taskTeamLeadPopoverOpen} onOpenChange={setTaskTeamLeadPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button type="button" variant="outline" className="w-full justify-between h-10">
+                      <span className="truncate">{taskTeamLead || "Select team lead"}</span>
+                      <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Search team lead..." />
+                      <CommandList>
+                        <CommandEmpty>No employee found.</CommandEmpty>
+                        <CommandGroup>
+                          <CommandItem value="" onSelect={() => { setTaskTeamLead(""); setTaskTeamLeadPopoverOpen(false); }}>
+                            <Check className={cn("mr-2 h-4 w-4", taskTeamLead === "" ? "opacity-100" : "opacity-0")} />
+                            <span className="text-muted-foreground">None</span>
+                          </CommandItem>
+                          {activeEmployees.map((employee) => (
+                            <CommandItem key={employee.id} value={employee.name} onSelect={() => { setTaskTeamLead(employee.name); setTaskTeamLeadPopoverOpen(false); }}>
+                              <Check className={cn("mr-2 h-4 w-4", taskTeamLead === employee.name ? "opacity-100" : "opacity-0")} />
+                              <Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>
+                              {employee.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
               <div className="sm:col-span-1 space-y-1.5"><label className="text-sm font-medium">Priority</label><Select value={formData.priority} onValueChange={(value) => setFormData((prev) => ({ ...prev, priority: value as Task['priority'] }))}><SelectTrigger><SelectValue placeholder="Priority" /></SelectTrigger><SelectContent><SelectItem value="high">High</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="low">Low</SelectItem></SelectContent></Select></div>
               <div className="sm:col-span-1 space-y-1.5"><label className="text-sm font-medium">Status</label><Select value={formData.status} onValueChange={(value) => setFormData((prev) => ({ ...prev, status: value as Task['status'] }))}><SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger><SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="in-progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem><SelectItem value="overdue">Overdue</SelectItem></SelectContent></Select></div>
             </div>
@@ -3275,6 +3675,21 @@ export default function Tasks() {
                       </div>
                     </div>
 
+                    {/* Team Lead - only show when teamLead exists */}
+                    {selectedTask.teamLead && (
+                      <div className="space-y-2">
+                        <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><User className="w-3.5 h-3.5" /> Team Lead</label>
+                        <div className="flex items-center gap-2.5 bg-background border border-border/60 rounded-lg px-3 py-2 shadow-sm">
+                          <Avatar className="w-6 h-6">
+                            <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
+                              {selectedTask.teamLead.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-foreground text-sm font-medium truncate">{selectedTask.teamLead}</span>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Due Date */}
                     <div className="space-y-2">
                       <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Due Date</label>
@@ -3348,6 +3763,38 @@ export default function Tasks() {
                 <FormField control={editForm.control} name="title" render={({ field }) => (<FormItem className="sm:col-span-2"><FormLabel>Title</FormLabel><FormControl><Input placeholder="Task title" autoComplete="on" autoCorrect="on" spellCheck="true" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={editForm.control} name="description" render={({ field }) => (<FormItem className="sm:col-span-2"><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Short description" className="min-h-[90px]" autoComplete="on" autoCorrect="on" spellCheck="true" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Assignees</label><Popover open={editAssigneesOpen} onOpenChange={setEditAssigneesOpen}><PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{editSelectedAssignees.length > 0 ? editSelectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] p-0 z-[100]" align="start" collisionPadding={20}><Command className="h-full"><CommandInput placeholder="Search employees..." /><CommandList className="max-h-[250px] overflow-y-auto custom-scrollbar"><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setEditSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); }}><Check className={cn("mr-2 h-4 w-4", editSelectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover></div>
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="text-sm font-medium">Team Lead (Optional)</label>
+                  <Popover open={editTaskTeamLeadPopoverOpen} onOpenChange={setEditTaskTeamLeadPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button type="button" variant="outline" className="w-full justify-between h-10">
+                        <span className="truncate">{editTaskTeamLead || "Select team lead"}</span>
+                        <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] p-0 z-[100]" align="start" collisionPadding={20}>
+                      <Command>
+                        <CommandInput placeholder="Search team lead..." />
+                        <CommandList>
+                          <CommandEmpty>No employee found.</CommandEmpty>
+                          <CommandGroup>
+                            <CommandItem value="" onSelect={() => { setEditTaskTeamLead(""); setEditTaskTeamLeadPopoverOpen(false); }}>
+                              <Check className={cn("mr-2 h-4 w-4", editTaskTeamLead === "" ? "opacity-100" : "opacity-0")} />
+                              <span className="text-muted-foreground">None</span>
+                            </CommandItem>
+                            {activeEmployees.map((employee) => (
+                              <CommandItem key={employee.id} value={employee.name} onSelect={() => { setEditTaskTeamLead(employee.name); setEditTaskTeamLeadPopoverOpen(false); }}>
+                                <Check className={cn("mr-2 h-4 w-4", editTaskTeamLead === employee.name ? "opacity-100" : "opacity-0")} />
+                                <Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>
+                                {employee.name}
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
                 <FormField control={editForm.control} name="location" render={({ field }) => (<FormItem><FormLabel>Location</FormLabel><FormControl><Input placeholder="e.g. Main Office" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={editForm.control} name="priority" render={({ field }) => (<FormItem><FormLabel>Priority</FormLabel><Select value={field.value} onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue placeholder="Select priority" /></SelectTrigger></FormControl><SelectContent><SelectItem value="high">High</SelectItem><SelectItem value="medium">Medium</SelectItem><SelectItem value="low">Low</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
                 <FormField control={editForm.control} name="status" render={({ field }) => (<FormItem><FormLabel>Status</FormLabel><Select value={field.value} onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger></FormControl><SelectContent><SelectItem value="pending">Pending</SelectItem><SelectItem value="in-progress">In Progress</SelectItem><SelectItem value="completed">Completed</SelectItem><SelectItem value="overdue">Overdue</SelectItem></SelectContent></Select><FormMessage /></FormItem>)} />
@@ -3445,7 +3892,7 @@ export default function Tasks() {
                 </div>
               </div>
 
-              <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end"><Button type="button" variant="outline" onClick={() => { setIsEditOpen(false); setEditSelectedAssignees([]); }} disabled={updateTaskMutation.isPending} className="w-full sm:w-auto">Cancel</Button><Button type="submit" disabled={updateTaskMutation.isPending} className="w-full sm:w-auto gap-2">{updateTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Save</Button></DialogFooter>
+              <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end"><Button type="button" variant="outline" onClick={() => { setIsEditOpen(false); setEditSelectedAssignees([]); setEditTaskTeamLead(""); }} disabled={updateTaskMutation.isPending} className="w-full sm:w-auto">Cancel</Button><Button type="submit" disabled={updateTaskMutation.isPending} className="w-full sm:w-auto gap-2">{updateTaskMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}Save</Button></DialogFooter>
             </form>
           </Form>
         </DialogContent>
@@ -3958,16 +4405,44 @@ export default function Tasks() {
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredTasks.map((task, index) => {
                   const letterIndex = String.fromCharCode(65 + (index % 26));
-                  const displayNumber = task.taskNumber || (projectTaskPage - 1) * PAGE_SIZE + index + 1;
+                  const displayNumber = task.taskNumber ?? ((projectTaskPage - 1) * PAGE_SIZE + index + 1);
                   return (
                     <motion.div
                       key={task.id}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: index * 0.05 }}
-                      className="bg-card rounded-xl border border-muted/50 hover:border-primary/50 transition-all hover:shadow-md overflow-hidden flex flex-col group cursor-pointer"
-                      onClick={() => openView(task)}
+                      className={cn(
+                        "rounded-xl transition-all overflow-hidden flex flex-col group",
+                        priorityModeEnabled && "cursor-pointer hover:border-orange-500 hover:ring-2 hover:ring-orange-500/20",
+                        !priorityModeEnabled && "bg-card border border-muted/50 hover:border-primary/50 hover:shadow-md cursor-pointer",
+                        task.executionPriority && "border-orange-400 bg-orange-50/10 dark:bg-orange-950/10"
+                      )}
+                      onClick={(e) => {
+                        if (priorityModeEnabled) {
+                          void handleTaskPriorityClick(task, e);
+                        } else {
+                          openView(task);
+                        }
+                      }}
                     >
+                      {/* Execution Priority Badge */}
+                      {task.executionPriority && (
+                        <div className="absolute -top-2 -left-2 z-10">
+                          <div className="flex items-center gap-1 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-bold px-2 py-1 rounded-full shadow-lg animate-pulse">
+                            <Flame className="w-3 h-3" />
+                            #{task.executionPriority}
+                          </div>
+                        </div>
+                      )}
+                      {priorityModeEnabled && !task.executionPriority && (
+                        <div className="absolute -top-2 -left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex items-center gap-1 bg-muted text-muted-foreground text-xs font-medium px-2 py-1 rounded-full border border-dashed border-muted-foreground/30">
+                            <Flame className="w-3 h-3" />
+                            Click to assign
+                          </div>
+                        </div>
+                      )}
                       <div className="p-4 border-b border-muted/30 flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-foreground line-clamp-1 break-words">
