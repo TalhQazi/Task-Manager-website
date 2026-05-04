@@ -32,6 +32,8 @@ interface SocialMediaAccount {
   url: string;
   username: string;
   accountHandle: string;
+  accountEmail?: string;
+  password?: string;
   status: "Active" | "Inactive" | "Suspended";
   notes: string;
   createdAt: string;
@@ -65,9 +67,13 @@ export function SocialMediaAccounts() {
     url: "",
     username: "",
     accountHandle: "",
+    accountEmail: "",
+    password: "",
     status: "Active",
     notes: "",
   });
+  const [isViewOpen, setIsViewOpen] = useState(false);
+  const [viewingAccount, setViewingAccount] = useState<SocialMediaAccount | null>(null);
   const [selectedAccount, setSelectedAccount] = useState<SocialMediaAccount | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -108,6 +114,8 @@ export function SocialMediaAccounts() {
       url: "",
       username: "",
       accountHandle: "",
+      accountEmail: "",
+      password: "",
       status: "Active",
       notes: "",
     });
@@ -261,6 +269,33 @@ export function SocialMediaAccounts() {
               />
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-sm font-medium">Login Email</label>
+                <input
+                  type="email"
+                  value={formData.accountEmail || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, accountEmail: e.target.value })
+                  }
+                  className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
+                  placeholder="email@example.com"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium">Password</label>
+                <input
+                  type="text"
+                  value={formData.password || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
+                  className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
+                  placeholder="Password"
+                />
+              </div>
+            </div>
+
             <div>
               <label className="text-sm font-medium">Status</label>
               <select
@@ -349,7 +384,14 @@ export function SocialMediaAccounts() {
             </TableHeader>
             <TableBody>
               {accounts.map((account, index) => (
-                <TableRow key={account._id} className="hover:bg-muted/30 transition-colors">
+                <TableRow 
+                  key={account._id} 
+                  className="hover:bg-muted/30 transition-colors cursor-pointer"
+                  onClick={() => {
+                    setViewingAccount(account);
+                    setIsViewOpen(true);
+                  }}
+                >
                   <TableCell className="font-mono text-xs text-muted-foreground">{index + 1}</TableCell>
                   <TableCell className="font-medium text-sm">{account.platform}</TableCell>
                   <TableCell className="text-sm">{account.brand}</TableCell>
@@ -375,7 +417,10 @@ export function SocialMediaAccounts() {
                         size="icon"
                         variant="ghost"
                         className="h-8 w-8 text-blue-600"
-                        onClick={() => handleEdit(account)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEdit(account);
+                        }}
                       >
                         <Edit2 className="h-3.5 w-3.5" />
                       </Button>
@@ -383,7 +428,10 @@ export function SocialMediaAccounts() {
                         size="icon"
                         variant="ghost"
                         className="h-8 w-8 text-amber-600"
-                        onClick={() => setShowCredentials(showCredentials === account._id ? null : account._id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowCredentials(showCredentials === account._id ? null : account._id);
+                        }}
                       >
                         <Lock className="h-3.5 w-3.5" />
                       </Button>
@@ -391,7 +439,10 @@ export function SocialMediaAccounts() {
                         size="icon"
                         variant="ghost"
                         className="h-8 w-8 text-destructive"
-                        onClick={() => handleDelete(account)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(account);
+                        }}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -417,6 +468,123 @@ export function SocialMediaAccounts() {
           </CardContent>
         </Card>
       )}
+
+      {/* View Account Dialog */}
+      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+        <DialogContent className="w-[95vw] max-w-md">
+          <DialogHeader>
+            <DialogTitle>Account Details</DialogTitle>
+          </DialogHeader>
+          {viewingAccount && (
+            <div className="space-y-4 py-2">
+              <div className="grid grid-cols-2 gap-4 border-b pb-4">
+                <div>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">Platform</p>
+                  <p className="font-semibold text-sm">{viewingAccount.platform}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">Status</p>
+                  <Badge className={`${statusColors[viewingAccount.status]} border-0 shadow-none font-bold text-[10px] uppercase`}>
+                    {viewingAccount.status}
+                  </Badge>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">Brand</p>
+                  <p className="text-sm">{viewingAccount.brand || "N/A"}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">Username</p>
+                  <p className="text-sm font-medium">@{viewingAccount.username}</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 bg-muted/30 p-4 rounded-xl border border-border/50">
+                <div className="flex justify-between items-center group">
+                  <div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase">Login Email</p>
+                    <p className="text-sm font-mono">{viewingAccount.accountEmail || "No email set"}</p>
+                  </div>
+                  {viewingAccount.accountEmail && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-7 w-7 p-0" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigator.clipboard.writeText(viewingAccount.accountEmail || "");
+                      }}
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+
+                <div className="flex justify-between items-center group">
+                  <div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase">Password</p>
+                    <p className="text-sm font-mono">{viewingAccount.password || "No password set"}</p>
+                  </div>
+                  {viewingAccount.password && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-7 w-7 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigator.clipboard.writeText(viewingAccount.password || "");
+                      }}
+                    >
+                      <Lock className="h-3 w-3" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {viewingAccount.url && (
+                <div>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">URL</p>
+                  <a
+                    href={viewingAccount.url.startsWith("http") ? viewingAccount.url : `https://${viewingAccount.url}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-600 hover:underline flex items-center gap-1 mt-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {viewingAccount.url}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              )}
+
+              {viewingAccount.notes && (
+                <div>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase">Notes</p>
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap mt-1 leading-relaxed">
+                    {viewingAccount.notes}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsViewOpen(false);
+                handleEdit(viewingAccount!);
+              }}
+              className="w-full sm:w-auto"
+            >
+              <Edit2 className="h-3.5 w-3.5 mr-2" />
+              Edit Details
+            </Button>
+            <Button onClick={() => setIsViewOpen(false)} className="w-full sm:w-auto">Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

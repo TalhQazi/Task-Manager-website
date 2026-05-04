@@ -35,8 +35,11 @@ import {
   Bug,
   Palette,
   CalendarCheck,
+
   Shield,
   UserPlus,
+
+  ShoppingCart,
 } from "lucide-react";
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -97,7 +100,17 @@ const navItemsBase: NavItem[] = [
   { icon: Database, label: "Imported Asana Data", path: "/admin/asana-data" },
   { icon: Archive, label: "Archive Data", path: "/admin/archive-data" },
   { icon: Quote, label: "Founder Messages", path: "/admin/founder-messages" },
-  { icon: FileText, label: "Personal Notes", path: "/admin/personal-notes" },
+  {
+    label: "Personal Notes",
+    path: "/admin/personal-notes",
+    customIcon: (
+      <img
+        src="/kn_vlt.png"
+        alt="Personal Notes"
+        className="h-5 w-5 flex-shrink-0 object-contain opacity-80 group-hover:opacity-100 transition-opacity"
+      />
+    ),
+  },
   {
     label: "SignaCore",
     path: "/admin/contracts",
@@ -120,6 +133,7 @@ const navItemsBase: NavItem[] = [
       />
     ),
   },
+  { icon: ShoppingCart, label: "Shopping Lists", path: "/admin/shopping-lists" },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
   { icon: Palette, label: "Theme Engine", path: "/admin/theme-engine" },
   { icon: Bug, label: "Bug Reports", path: "/admin/bug-reports" },

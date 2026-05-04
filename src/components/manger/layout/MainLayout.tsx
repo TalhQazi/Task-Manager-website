@@ -1,6 +1,6 @@
 import { Sidebar } from "./Sidebar";
 import { ReactNode, useState, useEffect } from "react";
-import { Bell, Bug, LogOut, Mail, Menu, Search, Settings, User } from "lucide-react";
+import { Bell, Bug, Camera, Loader2, LogOut, Mail, Menu, Palette, Search, Settings, User } from "lucide-react";
 import { TaskBlaster } from "@/components/shared/TaskBlaster";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "@/components/manger/ui/sheet";
 import { Button } from "@/components/manger/ui/button";
@@ -24,12 +24,15 @@ import {
 } from "@/components/manger/ui/dialog";
 import { Input } from "@/components/manger/ui/input";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSocket } from "@/contexts/SocketContext";
+import { toast } from "sonner";
 import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
 import { getAuthState, clearAuthState } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { FounderMessageBar } from "@/components/FounderMessageBar";
 import { applyFullTheme, themeDefaults } from "@/lib/manger/theme";
+import AssetLibraryPicker from "@/components/admin/AssetLibraryPicker";
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -38,6 +41,8 @@ interface MainLayoutProps {
 export function MainLayout({ children }: MainLayoutProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { socket } = useSocket();
 
   const auth = getAuthState();
 
@@ -138,6 +143,53 @@ export function MainLayout({ children }: MainLayoutProps) {
   const headerSettings = headerSettingsQuery.data?.item;
 
   const hasImageBackground = headerSettings?.backgroundType === 'image' && headerSettings.imageConfig?.dataUrl;
+
+  // Handle Image Upload for Header
+  const [headerModalOpen, setHeaderModalOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [isHeaderPickerOpen, setIsHeaderPickerOpen] = useState(false);
+
+  const handleHeaderImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      try {
+        const base64String = reader.result as string;
+        await apiFetch("/api/header-settings", {
+          method: "PUT",
+          body: JSON.stringify({
+            backgroundType: "image",
+            imageConfig: {
+              dataUrl: base64String,
+              url: base64String
+            }
+          })
+        });
+        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+        window.dispatchEvent(new CustomEvent("header-settings-updated"));
+        setHeaderModalOpen(false);
+      } catch (error) {
+        console.error("Failed to upload header image:", error);
+      } finally {
+        setUploading(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleResetHeader = async () => {
+    try {
+      await apiFetch("/api/header-settings/reset", { method: "POST" });
+      queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+      window.dispatchEvent(new CustomEvent("header-settings-updated"));
+      setHeaderModalOpen(false);
+    } catch (error) {
+      console.error("Failed to reset header:", error);
+    }
+  };
 
   // Apply user UI preferences on load - same as EmployeeLayout (full applyThemeToDOM)
   useEffect(() => {
@@ -255,6 +307,42 @@ export function MainLayout({ children }: MainLayoutProps) {
     }
   };
 
+  // Socket notifications listener
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewNotification = (data: any) => {
+      // Check if this notification is for me
+      const me = String(auth.username || auth.name || "").trim();
+      const myRole = String(auth.role || "").trim();
+      const recipients = String(data.recipient || "").split(",").map(s => s.trim());
+      
+      const isForMe = recipients.includes(me) || 
+                      recipients.includes(myRole) || 
+                      myRole === "super-admin" || 
+                      myRole === "admin";
+
+      if (isForMe) {
+        // Refresh notifications count
+        queryClient.invalidateQueries({ queryKey: ["manager-notifications"] });
+        
+        // Show toast
+        toast(data.title || "New Notification", {
+          description: data.content || data.message,
+          action: {
+            label: "View",
+            onClick: () => navigate("/manager/notifications")
+          }
+        });
+      }
+    };
+
+    socket.on("new-notification", handleNewNotification);
+    return () => {
+      socket.off("new-notification", handleNewNotification);
+    };
+  }, [socket, auth, queryClient, navigate]);
+
   const markAllRead = async () => {
     try {
       await apiFetch("/api/messages/mark-all-read", { method: "POST" });
@@ -287,10 +375,10 @@ export function MainLayout({ children }: MainLayoutProps) {
       .toUpperCase() || "M";
 
   return (
-    <div className="min-h-screen tb-manager-panel" style={{ background: "var(--tb-dashboard-bg)" }}>
+    <div className="min-h-screen" style={{ background: "var(--tb-dashboard-bg)" }}>
       {/* Top header with dynamic background from admin settings - FULL WIDTH */}
       <header 
-        className="fixed top-0 left-0 right-0 z-50 shadow-floating h-[300px] sm:h-[220px] md:h-[300px]"
+        className="fixed top-0 left-0 right-0 z-50 shadow-floating h-[300px]"
         style={{ 
          // height: '300px',
           left: '0',
@@ -333,6 +421,24 @@ export function MainLayout({ children }: MainLayoutProps) {
             >
               {/* LEFT SIDE: Branding and Profile Stacking */}
               <div className="flex flex-col gap-4">
+                {/* Header Picture Edit Button (Camera Icon) */}
+                <div className="absolute top-4 right-4 z-20 flex gap-2">
+                  <button 
+                    onClick={() => navigate("/manager/ui-customization")}
+                    className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white transition-all backdrop-blur-sm border border-white/20"
+                    title="UI Customization"
+                  >
+                    <Palette className="h-5 w-5" />
+                  </button>
+                  <button 
+                    onClick={() => setHeaderModalOpen(true)}
+                    className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white transition-all backdrop-blur-sm border border-white/20"
+                    title="Change Header Picture"
+                  >
+                    <Camera className="h-5 w-5" />
+                  </button>
+                </div>
+
                 {/* Profile Card (Top) */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -466,6 +572,86 @@ export function MainLayout({ children }: MainLayoutProps) {
             </div>
           </div>
         </div>
+
+        {/* Header Settings Modal */}
+        <Dialog open={headerModalOpen} onOpenChange={setHeaderModalOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Update Header Picture</DialogTitle>
+              <DialogDescription>Choose a high-quality image for your manager dashboard banner.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-6 py-4">
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-full h-32 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center bg-muted/5 overflow-hidden relative group">
+                  {headerSettings?.imageConfig?.dataUrl ? (
+                    <img src={headerSettings.imageConfig.dataUrl} alt="Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="text-center">
+                      <Camera className="h-8 w-8 mx-auto text-muted-foreground/50" />
+                      <p className="text-xs text-muted-foreground mt-2">No background image set</p>
+                    </div>
+                  )}
+                  <label className="absolute inset-0 cursor-pointer flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-white text-sm font-medium">Click to Upload</span>
+                    <input type="file" className="hidden" accept="image/*" onChange={handleHeaderImageUpload} disabled={uploading} />
+                  </label>
+                </div>
+                <div className="w-full flex items-center gap-3">
+                  <div className="h-[1px] flex-1 bg-border" />
+                  <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">OR</span>
+                  <div className="h-[1px] flex-1 bg-border" />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 border-indigo-500/20 gap-2 font-bold"
+                  onClick={() => setIsHeaderPickerOpen(true)}
+                >
+                  <Palette className="h-4 w-4" /> Pick from Asset Library
+                </Button>
+                {uploading && (
+                  <div className="flex items-center gap-2 text-primary">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Uploading image...</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <DialogFooter className="flex justify-between sm:justify-between w-full">
+              <Button variant="outline" size="sm" onClick={handleResetHeader} className="text-red-600 hover:text-red-700 hover:bg-red-50">
+                Reset to Default
+              </Button>
+              <Button size="sm" onClick={() => setHeaderModalOpen(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <AssetLibraryPicker
+          open={isHeaderPickerOpen}
+          onOpenChange={setIsHeaderPickerOpen}
+          onSelect={async (url) => {
+            try {
+              await apiFetch("/api/header-settings", {
+                method: "PUT",
+                body: JSON.stringify({
+                  backgroundType: "image",
+                  imageConfig: {
+                    url: url,
+                    dataUrl: url
+                  }
+                })
+              });
+              queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+              window.dispatchEvent(new CustomEvent("header-settings-updated"));
+              setIsHeaderPickerOpen(false);
+              setHeaderModalOpen(false);
+            } catch (error) {
+              console.error("Failed to set header image from library:", error);
+            }
+          }}
+        />
       </header>
 
       {/* Mobile Sidebar */}

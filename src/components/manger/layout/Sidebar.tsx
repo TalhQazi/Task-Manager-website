@@ -21,6 +21,7 @@ import {
   FileText,
   ChevronDown,
   ChevronRight,
+  ShoppingCart,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -78,8 +79,19 @@ const navItemsBase: NavItem[] = [
       />
     ),
   },
-  { icon: FileText, label: "Personal Notes", path: "/manager/personal-notes" },
+  {
+    label: "Personal Notes",
+    path: "/manager/personal-notes",
+    customIcon: (
+      <img
+        src="/kn_vlt.png"
+        alt="Personal Notes"
+        className="h-5 w-5 flex-shrink-0 object-contain opacity-80 group-hover:opacity-100 transition-opacity"
+      />
+    ),
+  },
   { icon: Settings, label: "UI Customization", path: "/manager/ui-customization" },
+  { icon: ShoppingCart, label: "Shopping Lists", path: "/manager/shopping-lists" },
   { icon: Settings, label: "Settings", path: "/manager/settings" },
 ];
 
@@ -128,7 +140,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
             )}
           >
             <div className="flex items-center gap-3">
-              <item.icon className={cn("h-5 w-5 flex-shrink-0 transition-all", hasActiveChild && "text-[#00C6FF]")} />
+              <item.icon className={cn("h-5 w-5 flex-shrink-0 transition-all")} style={{ color: hasActiveChild ? "var(--tb-primary)" : "var(--tb-sidebar-icon-color)" }} />
               <span className="text-sm font-medium truncate">{item.label}</span>
             </div>
             {isExpanded ? (
@@ -169,7 +181,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
               <span 
                 className={cn(
                   "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full",
-                  "bg-gradient-to-b from-[#00C6FF] to-[#0072FF]",
+                  "bg-[var(--tb-primary)] shadow-[0_0_8px_var(--tb-primary)]",
                   "transition-all duration-[120ms] ease-in-out",
                   isActive ? "opacity-100" : "opacity-0"
                 )} 
@@ -177,14 +189,14 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
             )}
             {isChild && isActive && (
               <span 
-                className="absolute left-[-17px] top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#00C6FF]"
+                className="absolute left-[-17px] top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[var(--tb-primary)] shadow-[0_0_5px_var(--tb-primary)]"
               />
             )}
             
             {/* Dashboard Pulse */}
             {item.label === "Dashboard" && (
               <span 
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gradient-to-b from-[#00C6FF] to-[#0072FF] animate-dashboard-pulse pointer-events-none"
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-[var(--tb-primary)] opacity-20 animate-dashboard-pulse pointer-events-none"
                 aria-hidden="true"
               />
             )}
