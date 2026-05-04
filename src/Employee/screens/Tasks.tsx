@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/manger/ui/button";
@@ -227,6 +227,19 @@ interface ProjectWithTasks extends Project {
   status?: string;
 }
 
+const createTaskSchema = z.object({
+  title: z.string().min(1, "Title is required"),
+  description: z.string().min(1, "Description is required"),
+  priority: z.enum(["low", "medium", "high"]),
+  status: z.enum(["pending", "in-progress", "completed", "overdue"]),
+  dueDate: z.string().optional(),
+  dueTime: z.string().optional(),
+  location: z.string().optional(),
+  assignees: z.array(z.string()).optional().default([]),
+});
+
+type CreateTaskValues = z.infer<typeof createTaskSchema>;
+
 function normalizeTask(t: TaskApi): Task {
   const legacyAssignee = typeof t.assignee === "string" ? t.assignee.trim() : "";
   const assignees = Array.isArray(t.assignees)
@@ -255,7 +268,264 @@ function normalizeTask(t: TaskApi): Task {
   };
 }
 
-// ...
+async function filesToAttachments(files: File[]) {
+  return Promise.all(
+    files.map(
+      (file) =>
+        new Promise<{ fileName: string; url: string; mimeType: string; size: number }>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onerror = () => reject(new Error("Failed to read file"));
+          reader.onload = () => {
+            resolve({ fileName: file.name, url: typeof reader.result === "string" ? reader.result : "", mimeType: file.type, size: file.size });
+          };
+          reader.readAsDataURL(file);
+        }),
+    ),
+  );
+}
+
+const priorityClasses: Record<Task["priority"], string> = {
+  low: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20",
+  medium: "bg-amber-500/10 text-amber-700 border-amber-500/20",
+  high: "bg-rose-500/10 text-rose-700 border-rose-500/20",
+};
+
+const statusClasses: Record<Task["status"], string> = {
+  pending: "bg-slate-500/10 text-slate-700 border-slate-500/20",
+  "in-progress": "bg-blue-500/10 text-blue-700 border-blue-500/20",
+  completed: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20",
+  overdue: "bg-rose-500/10 text-rose-700 border-rose-500/20",
+};
+
+function formatMessageTime(value: string) {
+  try {
+    return formatDistanceToNow(new Date(value), { addSuffix: true });
+  } catch {
+    return value;
+  }
+}
+
+function renderMessageWithMentions(text: string) {
+  if (!text) return null;
+  const parts = text.split(/(@\S+)/g);
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (part.startsWith("@")) {
+          return (
+            <span
+              key={i}
+              className="text-primary font-medium bg-primary/10 px-1 py-0.5 rounded cursor-pointer hover:bg-primary/20 transition-colors"
+            >
+              {part}
+            </span>
+          );
+        }
+        return <span key={i}>{part}</span>;
+      })}
+    </>
+  );
+}
+
+function ProjectLogoImg({ projectId, logoUrl, projectName }: { projectId: string; logoUrl?: string; projectName: string }) {
+  const [src, setSrc] = useState<string | null | undefined>(toProxiedUrl(logoUrl) || (logoUrl ? logoUrl : undefined));
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    setError(false);
+    if (logoUrl) {
+      setSrc(toProxiedUrl(logoUrl) || logoUrl);
+      return;
+    }
+    let cancelled = false;
+    apiFetch<{ logo?: { url?: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
+      .then((d) => {
+        if (!cancelled) setSrc(toProxiedUrl(d.logo?.url) || d.logo?.url || null);
+      })
+      .catch(() => {
+        if (!cancelled) setSrc(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, logoUrl]);
+
+  if (src && !error) {
+    return (
+      <img
+        src={src}
+        alt={`${projectName} logo`}
+        className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-border"
+        crossOrigin="anonymous"
+        onError={() => setError(true)}
+      />
+    );
+  }
+
+  if (src === undefined) {
+    return <div className="w-10 h-10 rounded-md bg-muted/40 animate-pulse flex-shrink-0" />;
+  }
+
+  return (
+    <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary flex-shrink-0 border border-primary/20 uppercase">
+      {String(projectName || "P").slice(0, 2).toUpperCase()}
+    </div>
+  );
+}
+
+function TaskAttachmentImg({
+  taskId,
+  index,
+  mimeType,
+  fileName,
+  fallbackUrl,
+  onPreview,
+}: {
+  taskId: string;
+  index: number;
+  mimeType: string;
+  fileName: string;
+  fallbackUrl?: string;
+  onPreview?: (url: string, name: string) => void;
+}) {
+  const [src, setSrc] = useState<string | null | undefined>(toProxiedUrl(fallbackUrl) || (fallbackUrl ? fallbackUrl : undefined));
+
+  useEffect(() => {
+    if (fallbackUrl) {
+      setSrc(toProxiedUrl(fallbackUrl) || fallbackUrl);
+      return;
+    }
+    let cancelled = false;
+    apiFetch<{ attachment?: { url?: string } }>(`/api/tasks/${encodeURIComponent(taskId)}/attachments/${index}`)
+      .then((d) => {
+        if (!cancelled) setSrc(toProxiedUrl(d.attachment?.url) || d.attachment?.url || null);
+      })
+      .catch(() => {
+        if (!cancelled) setSrc(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [taskId, index, fallbackUrl]);
+
+  if (src && mimeType?.startsWith("image/")) {
+    return (
+      <div className="w-full h-full relative group/task-att cursor-zoom-in" onClick={() => onPreview?.(src, fileName)}>
+        <img src={src} alt={fileName} className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/task-att:opacity-100 flex items-center justify-center transition-all duration-200">
+          <Maximize2 className="w-5 h-5 text-white" />
+        </div>
+      </div>
+    );
+  }
+
+  if (src && !mimeType?.startsWith("image/")) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-muted/10">
+        <FileText className="w-6 h-6 text-muted-foreground/60 mb-1" />
+        <span className="text-[10px] text-muted-foreground/60 truncate w-full px-2 font-medium">{fileName}</span>
+      </div>
+    );
+  }
+
+  if (src === undefined) {
+    return (
+      <div className="w-full h-full flex items-center justify-center">
+        <Loader2 className="h-4 w-4 animate-spin opacity-20" />
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function CommentAttachmentImg({
+  taskId,
+  projectId,
+  commentId,
+  index,
+  mimeType,
+  fileName,
+  fallbackUrl,
+  onPreview,
+}: {
+  taskId?: string;
+  projectId?: string;
+  commentId: string;
+  index: number;
+  mimeType: string;
+  fileName: string;
+  fallbackUrl?: string;
+  onPreview?: (url: string, name: string) => void;
+}) {
+  const [src, setSrc] = useState<string | null | undefined>(toProxiedUrl(fallbackUrl) || (fallbackUrl ? fallbackUrl : undefined));
+
+  useEffect(() => {
+    if (fallbackUrl) return;
+    let cancelled = false;
+    const url = taskId
+      ? `/api/tasks/${encodeURIComponent(taskId)}/comments/${encodeURIComponent(commentId)}/attachments/${index}`
+      : `/api/projects/${encodeURIComponent(String(projectId))}/comments/${encodeURIComponent(commentId)}/attachments/${index}`;
+
+    apiFetch<{ attachment?: { url?: string } }>(url)
+      .then((d) => {
+        if (!cancelled) setSrc(toProxiedUrl(d.attachment?.url) || d.attachment?.url || null);
+      })
+      .catch(() => {
+        if (!cancelled) setSrc(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [taskId, projectId, commentId, index, fallbackUrl]);
+
+  if (src && mimeType?.startsWith("image/")) {
+    return (
+      <div className="w-full h-auto flex justify-center relative group/att cursor-zoom-in" onClick={() => onPreview?.(src, fileName)}>
+        <img src={src} alt={fileName} className="w-full h-auto max-h-[180px] object-contain rounded-lg" />
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-all duration-200 rounded-lg">
+          <Maximize2 className="w-5 h-5 text-white" />
+        </div>
+      </div>
+    );
+  }
+
+  if (src && !mimeType?.startsWith("image/")) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-muted/10 rounded-lg">
+        <FileText className="w-6 h-6 text-muted-foreground/60 mb-1" />
+        <span className="text-[10px] text-muted-foreground/60 truncate w-full px-2 font-medium">{fileName}</span>
+      </div>
+    );
+  }
+
+  if (src === undefined) {
+    return (
+      <div className="w-full h-20 flex items-center justify-center">
+        <Loader2 className="h-4 h-4 w-4 animate-spin opacity-10" />
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function TaskContributorsList({ assignees }: { assignees: string[] }) {
+  const people = (assignees || []).filter(Boolean);
+  if (people.length === 0) return null;
+  return (
+    <div className="flex flex-wrap gap-2">
+      {people.map((name) => (
+        <div key={name} className="flex items-center gap-2 rounded-full border border-border/60 px-2 py-1 bg-background">
+          <Avatar className="h-6 w-6">
+            <AvatarFallback className="text-[10px] font-bold">{String(name).slice(0, 2).toUpperCase()}</AvatarFallback>
+          </Avatar>
+          <span className="text-xs font-medium max-w-[220px] truncate">{name}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function Tasks() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -269,7 +539,67 @@ export default function Tasks() {
   const PAGE_SIZE = 25;
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
-  // ...
+  const [projectDescription, setProjectDescription] = useState("");
+  const [projectTasks, setProjectTasks] = useState<CreateProjectTaskDraft[]>([]);
+  const [projectLogoFile, setProjectLogoFile] = useState<File | null>(null);
+  const [projectLogoPreview, setProjectLogoPreview] = useState("");
+  const [projectAttachmentFiles, setProjectAttachmentFiles] = useState<File[]>([]);
+  const [projectAttachmentPreviews, setProjectAttachmentPreviews] = useState<string[]>([]);
+  const [validationErrors, setValidationErrors] = useState<{ projectName?: string; title?: string; description?: string }>({});
+
+  const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
+  const [isDirectTask, setIsDirectTask] = useState(false);
+  const [projectCreationAssigneesOpen, setProjectCreationAssigneesOpen] = useState(false);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  const [selectedProject, setSelectedProject] = useState<ProjectWithTasks | null>(null);
+  const [isLoadingProject, setIsLoadingProject] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
+  const [projectCreationAssignees, setProjectCreationAssignees] = useState<string[]>([]);
+  const [editSelectedAssignees, setEditSelectedAssignees] = useState<string[]>([]);
+  const [editAssigneesOpen, setEditAssigneesOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewName, setPreviewName] = useState<string>("");
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
+  const [attachmentFilePreviews, setAttachmentFilePreviews] = useState<string[]>([]);
+
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [isViewOpen, setIsViewOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [statusSaving, setStatusSaving] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  const [comments, setComments] = useState<TaskComment[]>([]);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [commentAttachments, setCommentAttachments] = useState<File[]>([]);
+  const [commentError, setCommentError] = useState<string | null>(null);
+  const [isSendingComment, setIsSendingComment] = useState(false);
+  const [isViewProjectOpen, setIsViewProjectOpen] = useState(false);
+  const [projectComments, setProjectComments] = useState<TaskComment[]>([]);
+  const [projectCommentsLoading, setProjectCommentsLoading] = useState(false);
+
+  const queryClient = useQueryClient();
+  const { triggerBlaster, incrementCompletedCount } = useTaskBlasterContext();
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  const projectsQuery = useQuery({
+    queryKey: ["projects", projectPage, projectSearchQuery],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page: projectPage.toString(),
+        limit: "10",
+        search: projectSearchQuery,
+      });
+      const res = await apiFetch<{ items: Project[], totalPages: number }>(`/api/projects?${params.toString()}`);
+      return res;
+    },
+  });
 
   const tasksQuery = useQuery({
     queryKey: ["tasks", taskPage, searchQuery, statusFilter, priorityFilter, viewByPriority],
@@ -290,8 +620,6 @@ export default function Tasks() {
       };
     },
   });
-
-  // ...
 
   useEffect(() => { setTaskPage(1); }, [searchQuery, statusFilter, priorityFilter, viewByPriority]);
   useEffect(() => { setProjectPage(1); }, [searchQuery]);

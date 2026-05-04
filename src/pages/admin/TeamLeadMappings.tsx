@@ -67,9 +67,10 @@ export default function TeamLeadMappings() {
   const [selectedMapping, setSelectedMapping] = useState<TeamLeadMapping | null>(null);
   const [formData, setFormData] = useState({
     teamLead: "",
-    user: "",
+    users: [] as string[],
     allowOverrideAdminAssignments: false,
   });
+  const [userToAdd, setUserToAdd] = useState<string>("");
 
   const fetchMappings = async () => {
     try {
@@ -104,26 +105,35 @@ export default function TeamLeadMappings() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.teamLead || !formData.user) {
+    if (!formData.teamLead || formData.users.length === 0) {
       toast({
         variant: "destructive",
         title: "Validation Error",
-        description: "Team Lead and User are required",
+        description: "Team Lead and at least one User are required",
       });
       return;
     }
 
     try {
-      await apiFetch("/api/team-lead-mappings", {
-        method: "POST",
-        body: JSON.stringify(formData),
-      });
+      await Promise.all(
+        formData.users.map((user) =>
+          apiFetch("/api/team-lead-mappings", {
+            method: "POST",
+            body: JSON.stringify({
+              teamLead: formData.teamLead,
+              user,
+              allowOverrideAdminAssignments: formData.allowOverrideAdminAssignments,
+            }),
+          })
+        )
+      );
       toast({
         title: "Success",
         description: "Team lead mapping saved successfully",
       });
       setDialogOpen(false);
-      setFormData({ teamLead: "", user: "", allowOverrideAdminAssignments: false });
+      setFormData({ teamLead: "", users: [], allowOverrideAdminAssignments: false });
+      setUserToAdd("");
       await fetchMappings();
     } catch (error) {
       toast({
@@ -210,10 +220,7 @@ export default function TeamLeadMappings() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">User</label>
-                  <Select
-                    value={formData.user}
-                    onValueChange={(value) => setFormData({ ...formData, user: value })}
-                  >
+                  <Select value={userToAdd} onValueChange={setUserToAdd}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select user" />
                     </SelectTrigger>
@@ -225,6 +232,52 @@ export default function TeamLeadMappings() {
                       ))}
                     </SelectContent>
                   </Select>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (!userToAdd) return;
+                        setFormData((prev) => {
+                          if (prev.users.includes(userToAdd)) return prev;
+                          return { ...prev, users: [...prev.users, userToAdd] };
+                        });
+                        setUserToAdd("");
+                      }}
+                      disabled={!userToAdd}
+                    >
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      Add
+                    </Button>
+                    <p className="text-xs text-gray-500">Add multiple users one by one</p>
+                  </div>
+                  {formData.users.length > 0 && (
+                    <div className="flex flex-wrap gap-2 pt-2">
+                      {formData.users.map((u) => (
+                        <Badge
+                          key={u}
+                          variant="secondary"
+                          className="flex items-center gap-2"
+                        >
+                          <span className="truncate max-w-[220px]">{u}</span>
+                          <button
+                            type="button"
+                            className="text-gray-500 hover:text-gray-800"
+                            onClick={() =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                users: prev.users.filter((x) => x !== u),
+                              }))
+                            }
+                            aria-label={`Remove ${u}`}
+                          >
+                            ×
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center space-x-2">
                   <input
