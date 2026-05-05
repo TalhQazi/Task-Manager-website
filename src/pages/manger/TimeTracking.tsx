@@ -239,9 +239,22 @@ export default function TimeTracking() {
                 >
                   <td>
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-medium">
-                        {entry.avatar}
-                      </div>
+                      {entry.avatar && (entry.avatar.startsWith("http") || entry.avatar.startsWith("data:")) ? (
+                        <img
+                          src={entry.avatar}
+                          alt={entry.employee}
+                          className="w-8 h-8 rounded-full object-cover"
+                          crossOrigin="anonymous"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = "none";
+                            (e.target as HTMLImageElement).parentElement?.querySelector(".fallback-avatar")?.classList.remove("hidden");
+                          }}
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-medium">
+                          {entry.avatar || entry.employee.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
                       <span className="font-medium text-foreground">
                         {entry.employee}
                       </span>

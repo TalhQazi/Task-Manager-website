@@ -174,12 +174,22 @@ export default function Messages() {
     }
   }, [location.state]);
 
-  // Load employees
+  // Load all contacts (employees + managers + admins + super-admins)
   const employeesQuery = useQuery({
-    queryKey: ["employees"],
+    queryKey: ["messaging-contacts"],
     queryFn: async () => {
-      const res = await apiFetch<{ items: Employee[] }>("/api/employees");
-      return res.items;
+      const res = await apiFetch<{ items: Array<{ id: string; name: string; username?: string; email?: string; role?: string; status?: string; avatarUrl?: string }> }>("/api/users/all");
+      return (res.items || []).map((u) => ({
+        id: u.id,
+        _id: u.id,
+        name: u.name || u.username || "User",
+        initials: getInitials(u.name || u.username || "U"),
+        email: u.email || "",
+        role: u.role || "user",
+        department: u.role || "User",
+        status: u.status || "active",
+        avatarUrl: u.avatarUrl || "",
+      }));
     },
   });
 
@@ -758,13 +768,13 @@ export default function Messages() {
       <Dialog open={Boolean(view === "employees")} onOpenChange={() => setView("list")}>
         <DialogContent className="w-[95vw] max-w-2xl h-[80vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>Select Employee to Message</DialogTitle>
+            <DialogTitle>Select Contact to Message</DialogTitle>
           </DialogHeader>
 
           <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search employees by name, email, or department..."
+              placeholder="Search contacts by name, email, or role..."
               className="pl-10"
               value={employeeSearchQuery}
               onChange={(e) => setEmployeeSearchQuery(e.target.value)}
@@ -810,7 +820,7 @@ export default function Messages() {
             {filteredEmployees.length === 0 && (
               <div className="text-center py-8">
                 <User className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground">No employees found</p>
+                <p className="text-muted-foreground">No contacts found</p>
                 <p className="text-sm text-muted-foreground mt-1">Try a different search term</p>
               </div>
             )}
