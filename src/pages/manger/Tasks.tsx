@@ -101,6 +101,7 @@ import { useSocket } from "@/contexts/SocketContext";
 import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import jsPDF from "jspdf";
 import { Pagination } from "@/components/Pagination";
+import { useRewards } from "@/contexts/RewardContext";
 import { useGlobalTimer } from "@/hooks/useGlobalTimer";
 import { getRemainingTime, getTimerState } from "@/lib/manger/time";
 
@@ -419,20 +420,81 @@ function CommentAttachmentImg({ taskId, projectId, commentId, index, mimeType, f
   return <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/10"><X className="w-4 h-4 text-muted-foreground/40" /></div>;
 }
 
+function isImageFile(file: File) {
+  const t = String(file.type || "").toLowerCase();
+  return t.startsWith("image/");
+}
+
+async function compressImageToDataUrl(file: File): Promise<string> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new Image();
+    i.onload = () => resolve(i);
+    i.onerror = () => reject(new Error("Invalid image"));
+    i.src = dataUrl;
+  });
+
+  const maxW = 1600;
+  const maxH = 1600;
+  const scale = Math.min(1, maxW / img.naturalWidth, maxH / img.naturalHeight);
+  const w = Math.max(1, Math.round(img.naturalWidth * scale));
+  const h = Math.max(1, Math.round(img.naturalHeight * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas not supported");
+  ctx.drawImage(img, 0, 0, w, h);
+
+  const quality = 0.75;
+  const mime = "image/jpeg";
+  return canvas.toDataURL(mime, quality);
+}
+
 async function filesToAttachments(files: File[]) {
-  return Promise.all(
+  const results = await Promise.all(
     files.map(
-      (file) =>
-        new Promise<{ fileName: string; url: string; mimeType: string; size: number }>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onerror = () => reject(new Error("Failed to read file"));
-          reader.onload = () => {
-            resolve({ fileName: file.name, url: typeof reader.result === "string" ? reader.result : "", mimeType: file.type, size: file.size });
-          };
-          reader.readAsDataURL(file);
-        }),
+      async (file) => {
+        let url = "";
+        if (isImageFile(file)) {
+          try {
+            url = await compressImageToDataUrl(file);
+          } catch (e) {
+            console.error("Compression failed, using raw data URL", e);
+            url = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(String(reader.result || ""));
+              reader.onerror = () => reject(new Error("Failed to read file"));
+              reader.readAsDataURL(file);
+            });
+          }
+        } else {
+          url = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || ""));
+            reader.onerror = () => reject(new Error("Failed to read file"));
+            reader.readAsDataURL(file);
+          });
+        }
+        
+        return {
+          fileName: file.name,
+          url,
+          mimeType: file.type,
+          size: file.size,
+        };
+      }
     ),
   );
+
+  return results;
 }
 
 function renderMessageWithMentions(text: string) {
@@ -1177,20 +1239,32 @@ export default function Tasks() {
       const description = projectDescription?.trim() || "—";
 
       const projectLogo = projectLogoFile
-        ? await new Promise<ProjectLogo>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onerror = () => reject(new Error("Failed to read project logo"));
-            reader.onload = () => {
-              const url = typeof reader.result === "string" ? reader.result : "";
-              resolve({
-                fileName: projectLogoFile.name,
-                url,
-                mimeType: projectLogoFile.type,
-                size: projectLogoFile.size,
-              });
+        ? await (async () => {
+          try {
+            const url = await compressImageToDataUrl(projectLogoFile);
+            return {
+              fileName: projectLogoFile.name,
+              url,
+              mimeType: projectLogoFile.type,
+              size: projectLogoFile.size,
             };
-            reader.readAsDataURL(projectLogoFile);
-          })
+          } catch (e) {
+            return new Promise<ProjectLogo>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onerror = () => reject(new Error("Failed to read project logo"));
+              reader.onload = () => {
+                const url = typeof reader.result === "string" ? reader.result : "";
+                resolve({
+                  fileName: projectLogoFile.name,
+                  url,
+                  mimeType: projectLogoFile.type,
+                  size: projectLogoFile.size,
+                });
+              };
+              reader.readAsDataURL(projectLogoFile);
+            });
+          }
+        })()
         : undefined;
 
       const tasksToCreate: CreateProjectTaskDraft[] =
@@ -1519,8 +1593,9 @@ export default function Tasks() {
   };
 
   const { triggerBlaster, incrementCompletedCount } = useTaskBlasterContext();
+  const { triggerReward } = useRewards();
 
-  const updateStatus = async (next: Task["status"]) => {
+  const updateStatus = async (next: Task["status"], event?: React.MouseEvent | React.TouchEvent | { x: number; y: number }) => {
     if (!selectedTask) return;
     const previousStatus = selectedTask.status;
     try {
@@ -1534,8 +1609,9 @@ export default function Tasks() {
       setSelectedTask(normalized);
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
-      // Trigger TaskBlaster when task is marked as completed
+      // Trigger TaskBlaster & Reward System when task is marked as completed
       if (next === "completed" && previousStatus !== "completed") {
+        // 1. Trigger Global Blaster (Legacy)
         const taskForBlaster = {
           id: normalized.id,
           title: normalized.title,
@@ -1545,6 +1621,25 @@ export default function Tasks() {
         const triggered = triggerBlaster(taskForBlaster);
         if (triggered) {
           incrementCompletedCount();
+        }
+
+        // 2. Trigger Professional Reward System (Micro-animations, Haptics, Sound)
+        if (event) {
+          let x = 0, y = 0;
+          if ('clientX' in event) {
+            x = event.clientX;
+            y = event.clientY;
+          } else if ('touches' in event && event.touches[0]) {
+            x = event.touches[0].clientX;
+            y = event.touches[0].clientY;
+          } else if ('x' in event) {
+            x = (event as any).x;
+            y = (event as any).y;
+          }
+          if (x || y) triggerReward(x, y);
+        } else {
+          // Fallback to center of screen if no event provided
+          triggerReward(window.innerWidth / 2, window.innerHeight / 2);
         }
       }
     } catch (e) {
@@ -1749,7 +1844,7 @@ export default function Tasks() {
               description: "The task has been updated successfully.",
             });
 
-            // Trigger TaskBlaster when task is marked as completed via edit
+            // Trigger TaskBlaster & Reward System when task is marked as completed via edit
             if (values.status === "completed" && previousStatus !== "completed") {
               const taskForBlaster = {
                 id: selectedTask.id,
@@ -1761,6 +1856,9 @@ export default function Tasks() {
               if (triggered) {
                 incrementCompletedCount();
               }
+
+              // Trigger reward at center for form submission completion
+              triggerReward(window.innerWidth / 2, window.innerHeight / 2);
             }
           },
           onError: (err) => {

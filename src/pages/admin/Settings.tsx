@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
-import { Camera, User, Loader2, CheckCircle, XCircle, AlertCircle, Upload, FileImage, Image, Quote, ToggleLeft, ToggleRight } from "lucide-react";
+import { Camera, User, Loader2, CheckCircle, XCircle, AlertCircle, Upload, FileImage, Image as ImageIcon, Quote, ToggleLeft, ToggleRight, Plus } from "lucide-react";
 import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 import { useQuery } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -15,6 +15,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/admin/ui/dialog";
+import { Label } from "@/components/admin/ui/label";
+import { Switch } from "@/components/admin/ui/switch";
+import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
 import AssetLibraryPicker from "@/components/admin/AssetLibraryPicker";
 
@@ -34,7 +37,13 @@ type SettingsState = {
   fullName: string;
   email: string;
   avatarUrl: string;
+  rewardSettings: {
+    animationsEnabled: boolean;
+    hapticsEnabled: boolean;
+    soundEnabled: boolean;
+  };
 };
+
 
 const SETTINGS_STORAGE_KEY = "app_settings";
 
@@ -47,7 +56,13 @@ const defaultSettings: SettingsState = {
   fullName: "",
   email: "",
   avatarUrl: "",
+  rewardSettings: {
+    animationsEnabled: true,
+    hapticsEnabled: true,
+    soundEnabled: false,
+  },
 };
+
 
 function loadSettings(): SettingsState {
   const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
@@ -63,7 +78,9 @@ function loadSettings(): SettingsState {
       fullName: parsed.fullName ?? defaultSettings.fullName,
       email: parsed.email ?? defaultSettings.email,
       avatarUrl: parsed.avatarUrl ?? defaultSettings.avatarUrl,
+      rewardSettings: parsed.rewardSettings ?? defaultSettings.rewardSettings,
     };
+
   } catch {
     return defaultSettings;
   }
@@ -323,8 +340,10 @@ export default function Settings() {
         : typeof item.avatarUrl === "string"
           ? toProxiedUrl(item.avatarUrl) || item.avatarUrl
           : prev.avatarUrl,
+      rewardSettings: item.rewardSettings || prev.rewardSettings,
     }));
   }, [backendSettingsQuery.data]);
+
 
   const notifications = backendSettingsQuery.data?.item?.notifications || {};
   const saveChanges = async () => {
@@ -367,6 +386,27 @@ export default function Settings() {
     });
     await backendSettingsQuery.refetch();
   };
+
+  const handleRewardSettingChange = async (key: string, value: boolean) => {
+    setSettings((prev) => ({
+      ...prev,
+      rewardSettings: {
+        ...prev.rewardSettings,
+        [key]: value,
+      },
+    }));
+    await apiFetch<{ item: any }>("/api/settings", {
+      method: "PUT",
+      body: JSON.stringify({
+        rewardSettings: {
+          ...settings.rewardSettings,
+          [key]: value,
+        },
+      }),
+    });
+    await backendSettingsQuery.refetch();
+  };
+
 
   const onChangePassword = async () => {
     const currentPassword = passwordDraft.currentPassword;
@@ -526,7 +566,7 @@ export default function Settings() {
       <Card className="shadow-soft border-0 sm:border">
         <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
           <CardTitle className="text-base sm:text-lg md:text-xl font-semibold flex items-center gap-2">
-            <Image className="h-5 w-5" />
+            <ImageIcon className="h-5 w-5" />
             Customize Header
           </CardTitle>
         </CardHeader>
@@ -592,7 +632,7 @@ export default function Settings() {
 
                 {!headerSettings.imageConfig.dataUrl && (
                   <div className="rounded-lg border border-dashed border-muted-foreground/30 p-8 text-center">
-                    <Image className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                    <ImageIcon className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
                     <p className="text-sm text-muted-foreground">No image uploaded</p>
                     <p className="text-xs text-muted-foreground mt-1">Default color gradient will be used</p>
                   </div>
@@ -726,6 +766,272 @@ export default function Settings() {
               ...prev,
               backgroundType: "image",
               imageConfig: { ...prev.imageConfig, dataUrl: url }
+            }));
+            setIsLibraryPickerOpen(false);
+          }}
+        />
+      </Card>
+    );
+  }
+
+  // Asset Library Header Customization Card
+  function AssetLibraryHeaderCustomizationCard() {
+    const [settings, setSettings] = useState({
+      images: [] as string[],
+      displayMode: "single" as "single" | "carousel",
+      overlayEnabled: true,
+      overlayColor: "rgba(0,0,0,0.3)",
+      height: 160,
+    });
+    const [isLoading, setIsLoading] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [message, setMessage] = useState<string | null>(null);
+    const [isLibraryPickerOpen, setIsLibraryPickerOpen] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const compressImage = async (file: File): Promise<string> => {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            const MAX_WIDTH = 1920;
+            const MAX_HEIGHT = 1080;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > height) {
+              if (width > MAX_WIDTH) {
+                height *= MAX_WIDTH / width;
+                width = MAX_WIDTH;
+              }
+            } else {
+              if (height > MAX_HEIGHT) {
+                width *= MAX_HEIGHT / height;
+                height = MAX_HEIGHT;
+              }
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            ctx?.drawImage(img, 0, 0, width, height);
+            resolve(canvas.toDataURL("image/jpeg", 0.8));
+          };
+          img.onerror = reject;
+          img.src = e.target?.result as string;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    };
+
+    useEffect(() => {
+      const fetchSettings = async () => {
+        setIsLoading(true);
+        try {
+          const res = await apiFetch<{ item: typeof settings }>("/api/asset-library-header-settings");
+          if (res.item) {
+            setSettings({
+              images: res.item.images || [],
+              displayMode: res.item.displayMode || "single",
+              overlayEnabled: res.item.overlayEnabled ?? true,
+              overlayColor: res.item.overlayColor || "rgba(0,0,0,0.3)",
+              height: res.item.height || 160,
+            });
+          }
+        } catch (e) {
+          console.error("Failed to load asset library header settings", e);
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchSettings();
+    }, []);
+
+    const handleSave = async () => {
+      setIsSaving(true);
+      setMessage(null);
+      try {
+        await apiFetch("/api/asset-library-header-settings", {
+          method: "PUT",
+          body: JSON.stringify(settings),
+        });
+        setMessage("Asset library header settings saved!");
+        window.dispatchEvent(new CustomEvent("asset-library-header-updated"));
+      } catch (e) {
+        setMessage("Failed to save settings");
+      } finally {
+        setIsSaving(false);
+        setTimeout(() => setMessage(null), 3000);
+      }
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.target.files || []);
+      const newImages: string[] = [];
+      
+      for (const file of files) {
+        try {
+          const compressed = await compressImage(file);
+          newImages.push(compressed);
+        } catch (err) {
+          console.error("Failed to compress image", err);
+          // Fallback to original if compression fails and it's not too large
+          if (file.size <= 5 * 1024 * 1024) {
+            const dataUrl = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as string);
+              reader.readAsDataURL(file);
+            });
+            newImages.push(dataUrl);
+          }
+        }
+      }
+
+      if (newImages.length > 0) {
+        setSettings(prev => ({
+          ...prev,
+          images: [...prev.images, ...newImages]
+        }));
+      }
+      
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    const removeImage = (index: number) => {
+      setSettings(prev => ({
+        ...prev,
+        images: prev.images.filter((_, i) => i !== index)
+      }));
+    };
+
+    return (
+      <Card className="shadow-soft border-0 sm:border">
+        <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
+          <CardTitle className="text-base sm:text-lg md:text-xl font-semibold flex items-center gap-2">
+            <ImageIcon className="h-5 w-5" />
+            Asset Library Header
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4 sm:space-y-5 px-4 sm:px-6 pb-5 sm:pb-6 pt-0">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : (
+            <>
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-medium">Display Mode</Label>
+                    <p className="text-xs text-muted-foreground">Single image or carousel</p>
+                  </div>
+                  <div className="flex bg-muted rounded-md p-1">
+                    <button
+                      className={cn("px-3 py-1 text-xs rounded-md", settings.displayMode === "single" ? "bg-background shadow-sm" : "hover:text-foreground/70")}
+                      onClick={() => setSettings(p => ({ ...p, displayMode: "single" }))}
+                    >
+                      Single
+                    </button>
+                    <button
+                      className={cn("px-3 py-1 text-xs rounded-md", settings.displayMode === "carousel" ? "bg-background shadow-sm" : "hover:text-foreground/70")}
+                      onClick={() => setSettings(p => ({ ...p, displayMode: "carousel" }))}
+                    >
+                      Carousel
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Header Images ({settings.images.length})</Label>
+                  <div className="flex flex-wrap gap-3">
+                    {settings.images.map((img, i) => (
+                      <div key={i} className="relative group w-24 h-24 rounded-lg overflow-hidden border bg-muted">
+                        <img src={img} alt="" className="w-full h-full object-cover" />
+                        <button
+                          onClick={() => removeImage(i)}
+                          className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <XCircle className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      className="w-24 h-24 rounded-lg border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-1 hover:border-primary/50 hover:bg-primary/5 transition-all"
+                      onClick={() => setIsLibraryPickerOpen(true)}
+                    >
+                      <Plus className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-[10px] text-muted-foreground">Pick</span>
+                    </button>
+                    <button
+                      className="w-24 h-24 rounded-lg border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-1 hover:border-primary/50 hover:bg-primary/5 transition-all"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <Upload className="h-5 w-5 text-muted-foreground" />
+                      <span className="text-[10px] text-muted-foreground">Upload</span>
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageUpload}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium">Header Height</Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="range"
+                        min="80"
+                        max="300"
+                        value={settings.height}
+                        onChange={(e) => setSettings(p => ({ ...p, height: parseInt(e.target.value) }))}
+                        className="h-9 px-0"
+                      />
+                      <span className="text-xs font-mono w-10 text-right">{settings.height}px</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm font-medium">Dark Overlay</Label>
+                      <p className="text-[10px] text-muted-foreground">Enhance text legibility</p>
+                    </div>
+                    <Switch
+                      checked={settings.overlayEnabled}
+                      onCheckedChange={(val) => setSettings(p => ({ ...p, overlayEnabled: val }))}
+                    />
+                  </div>
+                </div>
+
+                {message && (
+                  <div className={cn("p-3 rounded-md text-sm", message.includes("saved") ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700")}>
+                    {message}
+                  </div>
+                )}
+
+                <div className="flex justify-end pt-2">
+                  <Button onClick={handleSave} disabled={isSaving} className="h-9">
+                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Header Configuration"}
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+        <AssetLibraryPicker
+          open={isLibraryPickerOpen}
+          onOpenChange={setIsLibraryPickerOpen}
+          onSelect={(url) => {
+            setSettings(prev => ({
+              ...prev,
+              images: [...prev.images, url]
             }));
             setIsLibraryPickerOpen(false);
           }}
@@ -963,6 +1269,9 @@ export default function Settings() {
           {/* Header Customization Card */}
           <HeaderCustomizationCard />
 
+          {/* Asset Library Header Customization Card */}
+          <AssetLibraryHeaderCustomizationCard />
+
           {/* Security Card */}
           <Card className="shadow-soft border-0 sm:border">
             <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
@@ -1040,10 +1349,53 @@ export default function Settings() {
                 >
                   Import from Asana
                 </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Productivity Feedback (Reward System) */}
+            <Card className="shadow-soft border-0 sm:border">
+              <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
+                <CardTitle className="text-base sm:text-lg md:text-xl font-semibold flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-primary" />
+                  Productivity Feedback
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6 px-4 sm:px-6 pb-5 sm:pb-6 pt-0">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-medium">Task Completion Animations</Label>
+                    <p className="text-xs text-muted-foreground">Subtle visual feedback when finishing a task</p>
+                  </div>
+                  <Switch
+                    checked={settings.rewardSettings.animationsEnabled}
+                    onCheckedChange={(val) => handleRewardSettingChange("animationsEnabled", val)}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-medium">Haptic Feedback</Label>
+                    <p className="text-xs text-muted-foreground">Vibration on supported devices</p>
+                  </div>
+                  <Switch
+                    checked={settings.rewardSettings.hapticsEnabled}
+                    onCheckedChange={(val) => handleRewardSettingChange("hapticsEnabled", val)}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label className="text-sm font-medium">Audio Confirmation</Label>
+                    <p className="text-xs text-muted-foreground">Subtle ascending tone upon completion</p>
+                  </div>
+                  <Switch
+                    checked={settings.rewardSettings.soundEnabled}
+                    onCheckedChange={(val) => handleRewardSettingChange("soundEnabled", val)}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
 
         {/* Save Changes Section */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 border-t">

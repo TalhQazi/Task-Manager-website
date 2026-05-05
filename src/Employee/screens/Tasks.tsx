@@ -99,6 +99,7 @@ import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import jsPDF from "jspdf";
 import { Pagination } from "@/components/Pagination";
+import { useRewards } from "@/contexts/RewardContext";
 
 interface Task {
   id: string;
@@ -599,6 +600,7 @@ export default function Tasks() {
 
   const queryClient = useQueryClient();
   const { triggerBlaster, incrementCompletedCount } = useTaskBlasterContext();
+  const { triggerReward } = useRewards();
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const projectsQuery = useQuery({
@@ -1188,7 +1190,7 @@ export default function Tasks() {
     return () => { socket.disconnect(); };
   }, [selectedTask?.id, selectedProject?.id]);
 
-  const updateStatus = async (next: Task["status"]) => {
+  const updateStatus = async (next: Task["status"], event?: React.MouseEvent | React.TouchEvent | { x: number; y: number }) => {
     if (!selectedTask) return;
     const previousStatus = selectedTask.status;
     try {
@@ -1202,8 +1204,9 @@ export default function Tasks() {
       setSelectedTask(normalized);
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
-      // Trigger TaskBlaster when task is marked as completed
+      // Trigger TaskBlaster & Reward System when task is marked as completed
       if (next === "completed" && previousStatus !== "completed") {
+        // 1. Trigger Global Blaster (Legacy)
         const taskForBlaster = {
           id: normalized.id,
           title: normalized.title,
@@ -1213,6 +1216,25 @@ export default function Tasks() {
         const triggered = triggerBlaster(taskForBlaster);
         if (triggered) {
           incrementCompletedCount();
+        }
+
+        // 2. Trigger Professional Reward System (Micro-animations, Haptics, Sound)
+        if (event) {
+          let x = 0, y = 0;
+          if ('clientX' in event) {
+            x = event.clientX;
+            y = event.clientY;
+          } else if ('touches' in event && event.touches[0]) {
+            x = event.touches[0].clientX;
+            y = event.touches[0].clientY;
+          } else if ('x' in event) {
+            x = (event as any).x;
+            y = (event as any).y;
+          }
+          if (x || y) triggerReward(x, y);
+        } else {
+          // Fallback to center of screen if no event provided
+          triggerReward(window.innerWidth / 2, window.innerHeight / 2);
         }
       }
     } catch (e) {
@@ -1383,7 +1405,7 @@ export default function Tasks() {
             description: "Task has been updated.",
           });
 
-          // Trigger TaskBlaster when task is marked as completed via edit
+          // Trigger TaskBlaster & Reward System when task is marked as completed via edit
           if (values.status === "completed" && previousStatus !== "completed") {
             const taskForBlaster = {
               id: selectedTask.id,
@@ -1395,6 +1417,9 @@ export default function Tasks() {
             if (triggered) {
               incrementCompletedCount();
             }
+
+            // Trigger reward at center for form submission completion
+            triggerReward(window.innerWidth / 2, window.innerHeight / 2);
           }
         },
         onError: (err) => {

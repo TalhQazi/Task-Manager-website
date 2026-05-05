@@ -1,4 +1,5 @@
 import { clearAuthState, getAuthState, setAuthState } from "@/lib/auth";
+import { getEmployeeAuth, clearEmployeeAuth } from "@/Employee/lib/auth";
 
 type ApiErrorBody = {
   error?: {
@@ -77,6 +78,11 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 
   if (auth.isAuthenticated && auth.token) {
     headers.set("Authorization", `Bearer ${auth.token}`);
+  } else {
+    const empAuth = getEmployeeAuth();
+    if (empAuth?.token) {
+      headers.set("Authorization", `Bearer ${empAuth.token}`);
+    }
   }
 
   const res = await fetch(finalUrl, {
@@ -86,6 +92,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 
   if (res.status === 401) {
     clearAuthState();
+    clearEmployeeAuth();
   }
 
   if (!res.ok) {

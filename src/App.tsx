@@ -11,6 +11,8 @@ import { getEmployeeAuth } from "./Employee/lib/auth";
 import { SocketProvider } from "./contexts/SocketContext";
 import { TaskBlasterProvider } from "./contexts/TaskBlasterContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { RewardProvider } from "./contexts/RewardContext";
+
 
 // Lazy-load route controllers — each pulls in its own pages lazily
 const AdminRoutes = lazy(() => import("./routes/AdminRoutes"));
@@ -46,7 +48,9 @@ const App = () => (
     <TaskBlasterProvider>
       <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
+        <RewardProvider>
+          <Toaster />
+
         <Sonner />
         <BrowserRouter>
           <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0a0a0f" }}>
@@ -75,11 +79,13 @@ const App = () => (
             </Routes>
           </Suspense>
         </BrowserRouter>
+        </RewardProvider>
       </TooltipProvider>
     </QueryClientProvider>
     </TaskBlasterProvider>
   </SocketProvider>
 );
+
 
 export default App;
 

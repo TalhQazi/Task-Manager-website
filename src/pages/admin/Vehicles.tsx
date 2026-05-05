@@ -54,6 +54,7 @@ import {
   Camera,
 } from "lucide-react";
 import { createResource, deleteResource, listResource, updateResource, toProxiedUrl } from "@/lib/admin/apiClient";
+import { Pagination } from "@/components/Pagination";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
@@ -72,8 +73,9 @@ interface Vehicle {
   assignedTo: string;
   insuranceInfo?: string;
   documents?: { fileName: string; dataUrl: string }[];
-  tagPhotoFileName?: string;
+   tagPhotoFileName?: string;
   tagPhotoDataUrl?: string;
+  requiresInspection?: boolean;
 }
 
 interface Employee {
@@ -152,6 +154,7 @@ function normalizeVehicle(v: BackendVehicle): Vehicle {
     documents: Array.isArray(v.documents) ? v.documents : [],
     tagPhotoFileName: String(v.tagPhotoFileName || "").trim() || undefined,
     tagPhotoDataUrl: String(v.tagPhotoDataUrl || "").trim() || undefined,
+    requiresInspection: v.requiresInspection !== false,
   };
 }
 
@@ -269,6 +272,10 @@ const Vehicles = () => {
   const [apiError, setApiError] = useState<string | null>(null);
   const [hoveredVehicle, setHoveredVehicle] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const PAGE_SIZE = 25;
   const [formData, setFormData] = useState({
     make: "",
     model: "",
@@ -284,6 +291,7 @@ const Vehicles = () => {
     documents: [] as { fileName: string; dataUrl: string }[],
     tagPhotoFileName: "",
     tagPhotoDataUrl: "",
+    requiresInspection: true,
   });
 
   const [tagPhotoFile, setTagPhotoFile] = useState<File | null>(null);
@@ -317,49 +325,61 @@ const Vehicles = () => {
         setLoading(true);
         setApiError(null);
         
-        // Fetch vehicles
-        const list = await listResource<BackendVehicle>("vehicles");
+        // Fetch vehicles with pagination
+        const res = await listResource<BackendVehicle>("vehicles", { 
+          page: currentPage, 
+          limit: PAGE_SIZE,
+          search: searchQuery 
+        });
+        
         if (!mounted) return;
-        setVehiclesList(list.map(normalizeVehicle));
         
-        // Fetch employees from employees API
-        let allEmployees: Employee[] = [];
-        try {
-          const employeeList = await listResource<Employee>("employees");
-          if (mounted) {
-            allEmployees = employeeList.filter((e) => e.status === "active");
-          }
-        } catch (empErr) {
-          console.error("Failed to load employees:", empErr);
+        if (res && typeof res === "object" && "items" in res) {
+          setVehiclesList((res.items as BackendVehicle[]).map(normalizeVehicle));
+          setTotalPages(res.pagination?.totalPages || 1);
+        } else if (Array.isArray(res)) {
+          setVehiclesList(res.map(normalizeVehicle));
+          setTotalPages(1);
         }
         
-        // Fetch users with employee role from users API
-        try {
-          const userList = await listResource<User>("users");
-          if (mounted) {
-            const employeeUsers = userList
-              .filter((u) => u.role === "employee" && (u.status === "active" || u.status === "pending"))
-              .map((u) => ({
-                id: u.id,
-                name: u.name,
-                initials: getInitials(u.name),
-                email: u.email,
-                status: "active" as const,
-              }));
-            
-            // Merge both lists (remove duplicates by email)
-            employeeUsers.forEach((eu) => {
-              if (!allEmployees.some((e) => e.email === eu.email)) {
-                allEmployees.push(eu);
-              }
-            });
+        // Fetch employees from employees API (only if needed once)
+        if (employees.length === 0) {
+          let allEmployees: Employee[] = [];
+          try {
+            const employeeList = await listResource<Employee>("employees");
+            if (mounted) {
+              allEmployees = employeeList.filter((e: any) => e.status === "active");
+            }
+          } catch (empErr) {
+            console.error("Failed to load employees:", empErr);
           }
-        } catch (userErr) {
-          console.error("Failed to load users:", userErr);
-        }
-        
-        if (mounted) {
-          setEmployees(allEmployees);
+          
+          try {
+            const userList = await listResource<User>("users");
+            if (mounted) {
+              const employeeUsers = userList
+                .filter((u: any) => u.role === "employee" && (u.status === "active" || u.status === "pending"))
+                .map((u: any) => ({
+                  id: u.id,
+                  name: u.name,
+                  initials: getInitials(u.name),
+                  email: u.email,
+                  status: "active" as const,
+                }));
+              
+              employeeUsers.forEach((eu: any) => {
+                if (!allEmployees.some((e: any) => e.email === eu.email)) {
+                  allEmployees.push(eu);
+                }
+              });
+            }
+          } catch (userErr) {
+            console.error("Failed to load users:", userErr);
+          }
+          
+          if (mounted) {
+            setEmployees(allEmployees);
+          }
         }
       } catch (e) {
         if (!mounted) return;
@@ -373,11 +393,20 @@ const Vehicles = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [currentPage, searchQuery]);
 
   const refreshVehicles = async () => {
-    const list = await listResource<BackendVehicle>("vehicles");
-    setVehiclesList(list.map(normalizeVehicle));
+    const res = await listResource<BackendVehicle>("vehicles", { 
+      page: currentPage, 
+      limit: PAGE_SIZE,
+      search: searchQuery 
+    });
+    if (res && typeof res === "object" && "items" in res) {
+      setVehiclesList((res.items as BackendVehicle[]).map(normalizeVehicle));
+      setTotalPages(res.pagination?.totalPages || 1);
+    } else if (Array.isArray(res)) {
+      setVehiclesList(res.map(normalizeVehicle));
+    }
   };
 
   const [formError, setFormError] = useState<string | null>(null);
@@ -450,6 +479,7 @@ const Vehicles = () => {
         documents: formData.documents,
         tagPhotoFileName: formData.tagPhotoFileName || "",
         tagPhotoDataUrl,
+        requiresInspection: formData.requiresInspection,
       };
       await createResource("vehicles", newVehiclePayload);
       await refreshVehicles();
@@ -470,6 +500,7 @@ const Vehicles = () => {
         documents: [],
         tagPhotoFileName: "",
         tagPhotoDataUrl: "",
+        requiresInspection: true,
       });
       setTagPhotoFile(null);
     } catch (e) {
@@ -525,6 +556,7 @@ const Vehicles = () => {
       documents: vehicle.documents || [],
       tagPhotoFileName: vehicle.tagPhotoFileName || "",
       tagPhotoDataUrl: vehicle.tagPhotoDataUrl || "",
+      requiresInspection: vehicle.requiresInspection !== false,
     });
     setEditVehicleOpen(true);
   };
@@ -544,6 +576,7 @@ const Vehicles = () => {
     documents: [] as { fileName: string; dataUrl: string }[],
     tagPhotoFileName: "",
     tagPhotoDataUrl: "",
+    requiresInspection: true,
   });
 
   const [editFormError, setEditFormError] = useState<string | null>(null);
@@ -562,10 +595,11 @@ const Vehicles = () => {
     }
     setEditFormError(null);
     try {
+      setIsSaving(true);
       setApiError(null);
       let tagPhotoDataUrl = String(editFormData.tagPhotoDataUrl || "").trim();
       if (editTagPhotoFile) {
-        try { tagPhotoDataUrl = await readFileAsDataUrl(editTagPhotoFile); } catch { tagPhotoDataUrl = ""; }
+        try { tagPhotoDataUrl = await compressImageToDataUrl(editTagPhotoFile); } catch { tagPhotoDataUrl = ""; }
       }
       await updateResource<Vehicle>("vehicles", selectedVehicle.id, {
         ...selectedVehicle,
@@ -583,6 +617,7 @@ const Vehicles = () => {
         documents: editFormData.documents,
         tagPhotoFileName: editFormData.tagPhotoFileName || "",
         tagPhotoDataUrl,
+        requiresInspection: editFormData.requiresInspection,
       });
       await refreshVehicles();
       setEditVehicleOpen(false);
@@ -591,6 +626,8 @@ const Vehicles = () => {
       setEditTagPhotoFile(null);
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "Failed to update vehicle");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -872,6 +909,19 @@ const Vehicles = () => {
                         className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all"
                       />
                     </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 py-2">
+                    <input
+                      type="checkbox"
+                      id="requires-inspection-add"
+                      checked={formData.requiresInspection}
+                      onChange={(e) => setFormData({ ...formData, requiresInspection: e.target.checked })}
+                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <label htmlFor="requires-inspection-add" className="text-sm font-medium">
+                      Requires Regular Inspections
+                    </label>
                   </div>
 
                   {/* Insurance Info */}
@@ -1271,37 +1321,38 @@ const Vehicles = () => {
                             </motion.div>
                           </div>
 
-                          {/* Inspection Info */}
-                          <motion.div 
-                            className="pt-2 border-t"
-                            whileHover={{ x: 5 }}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-xs text-muted-foreground">Next Inspection</p>
-                                <p className="text-sm">{toDateOnly(vehicle.nextInspection) || "—"}</p>
+                          {vehicle.requiresInspection && (
+                            <motion.div 
+                              className="pt-2 border-t"
+                              whileHover={{ x: 5 }}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-xs text-muted-foreground">Next Inspection</p>
+                                  <p className="text-sm">{toDateOnly(vehicle.nextInspection) || "—"}</p>
+                                </div>
+                                {(() => {
+                                  const d = daysUntil(vehicle.nextInspection);
+                                  if (d === null) return null;
+                                  if (d < 0) {
+                                    return (
+                                      <Badge variant="secondary" className="bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive text-xs">
+                                        Overdue
+                                      </Badge>
+                                    );
+                                  }
+                                  if (d <= 30) {
+                                    return (
+                                      <Badge variant="secondary" className="bg-gradient-to-r from-warning/20 to-warning/10 text-warning text-xs">
+                                        Due in {d}d
+                                      </Badge>
+                                    );
+                                  }
+                                  return null;
+                                })()}
                               </div>
-                              {(() => {
-                                const d = daysUntil(vehicle.nextInspection);
-                                if (d === null) return null;
-                                if (d < 0) {
-                                  return (
-                                    <Badge variant="secondary" className="bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive text-xs">
-                                      Overdue
-                                    </Badge>
-                                  );
-                                }
-                                if (d <= 30) {
-                                  return (
-                                    <Badge variant="secondary" className="bg-gradient-to-r from-warning/20 to-warning/10 text-warning text-xs">
-                                      Due in {d}d
-                                    </Badge>
-                                  );
-                                }
-                                return null;
-                              })()}
-                            </div>
-                          </motion.div>
+                            </motion.div>
+                          )}
                         </motion.div>
                       ))}
                     </AnimatePresence>
@@ -1422,26 +1473,32 @@ const Vehicles = () => {
                               </TableCell>
                               <TableCell className="text-muted-foreground">
                                 <div className="flex flex-col gap-1">
-                                  <span className="text-sm md:text-sm">{toDateOnly(vehicle.nextInspection) || "—"}</span>
-                                  {(() => {
-                                    const d = daysUntil(vehicle.nextInspection);
-                                    if (d === null) return null;
-                                    if (d < 0) {
-                                      return (
-                                        <Badge variant="secondary" className="bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive text-xs w-fit">
-                                          Overdue
-                                        </Badge>
-                                      );
-                                    }
-                                    if (d <= 30) {
-                                      return (
-                                        <Badge variant="secondary" className="bg-gradient-to-r from-warning/20 to-warning/10 text-warning text-xs w-fit">
-                                          Due in {d} days
-                                        </Badge>
-                                      );
-                                    }
-                                    return null;
-                                  })()}
+                                  {vehicle.requiresInspection ? (
+                                    <>
+                                      <span className="text-sm md:text-sm">{toDateOnly(vehicle.nextInspection) || "—"}</span>
+                                      {(() => {
+                                        const d = daysUntil(vehicle.nextInspection);
+                                        if (d === null) return null;
+                                        if (d < 0) {
+                                          return (
+                                            <Badge variant="secondary" className="bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive text-xs w-fit">
+                                              Overdue
+                                            </Badge>
+                                          );
+                                        }
+                                        if (d <= 30) {
+                                          return (
+                                            <Badge variant="secondary" className="bg-gradient-to-r from-warning/20 to-warning/10 text-warning text-xs w-fit">
+                                              Due in {d} days
+                                            </Badge>
+                                          );
+                                        }
+                                        return null;
+                                      })()}
+                                    </>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground italic">No inspection required</span>
+                                  )}
                                 </div>
                               </TableCell>
                               <TableCell className="text-right">
@@ -1485,6 +1542,14 @@ const Vehicles = () => {
               )}
             </CardContent>
           </Card>
+          
+          <div className="mt-6">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          </div>
         </motion.div>
       </motion.div>
 
@@ -1797,6 +1862,19 @@ const Vehicles = () => {
                 </div>
               </div>
 
+              <div className="flex items-center gap-2 py-2">
+                <input
+                  type="checkbox"
+                  id="requires-inspection-edit"
+                  checked={editFormData.requiresInspection}
+                  onChange={(e) => setEditFormData({ ...editFormData, requiresInspection: e.target.checked })}
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <label htmlFor="requires-inspection-edit" className="text-sm font-medium">
+                  Requires Regular Inspections
+                </label>
+              </div>
+
               {/* Vehicle Photo Upload */}
               <div className="flex flex-col gap-3">
                 <div className="flex-1 min-w-0">
@@ -1819,7 +1897,7 @@ const Vehicles = () => {
                       const f = e.dataTransfer.files?.[0];
                       if (f) {
                         setEditTagPhotoFile(f);
-                        void readFileAsDataUrl(f).then((url) => setEditFormData((p) => ({ ...p, tagPhotoFileName: f.name, tagPhotoDataUrl: url })));
+                        void compressImageToDataUrl(f).then((url) => setEditFormData((p) => ({ ...p, tagPhotoFileName: f.name, tagPhotoDataUrl: url })));
                       }
                     }}
                     onClick={() => {
@@ -1856,7 +1934,7 @@ const Vehicles = () => {
                       onChange={(e) => {
                         const f = e.target.files?.[0] || null;
                         setEditTagPhotoFile(f);
-                        if (f) void readFileAsDataUrl(f).then((url) => setEditFormData((p) => ({ ...p, tagPhotoFileName: f.name, tagPhotoDataUrl: url })));
+                        if (f) void compressImageToDataUrl(f).then((url) => setEditFormData((p) => ({ ...p, tagPhotoFileName: f.name, tagPhotoDataUrl: url })));
                       }}
                     />
                   </motion.div>
@@ -1886,9 +1964,17 @@ const Vehicles = () => {
             >
               <Button 
                 onClick={saveEditVehicle} 
+                disabled={isSaving}
                 className="bg-gradient-to-r from-primary to-primary/80 text-white w-full sm:w-auto order-1 sm:order-2 shadow-lg hover:shadow-xl transition-all duration-300"
               >
-                Save Changes
+                {isSaving ? (
+                  <span className="flex items-center gap-2">
+                    <span className="h-4 w-4 border-2 border-white/80 border-t-transparent rounded-full animate-spin" />
+                    Saving...
+                  </span>
+                ) : (
+                  "Save Changes"
+                )}
               </Button>
             </motion.div>
           </DialogFooter>

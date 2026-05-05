@@ -40,7 +40,9 @@ import {
   UserPlus,
 
   ShoppingCart,
+  Mail,
 } from "lucide-react";
+
 
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -141,6 +143,8 @@ const navItemsBase: NavItem[] = [
 
 // Activity Logs only for super-admin
 const activityLogNavItem = { icon: Activity, label: "Activity Logs", path: "/admin/activity-logs" };
+const systemEmailSettingsNavItem = { icon: Mail, label: "System Email Settings", path: "/admin/system-email-settings" };
+
 
 type SidebarMode = "desktop" | "mobile";
 
@@ -159,8 +163,9 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
     // Insert Activity Logs before Settings (for super-admin only)
     if (auth.role === "super-admin") {
       const settingsIndex = items.findIndex((i) => i.label === "Settings");
-      items.splice(settingsIndex, 0, activityLogNavItem);
+      items.splice(settingsIndex, 0, systemEmailSettingsNavItem, activityLogNavItem);
     }
+
     return items;
   }, [auth.role]);
 

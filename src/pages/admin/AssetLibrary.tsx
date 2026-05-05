@@ -6,11 +6,13 @@ import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
   DialogTitle,
 } from "@/components/admin/ui/dialog";
+import { 
+  Carousel, 
+  CarouselContent, 
+  CarouselItem, 
+} from "@/components/admin/ui/carousel";
 import { cn } from "@/lib/utils";
 import {
   ChevronRight,
@@ -130,6 +132,84 @@ function formatBytes(bytes: number | undefined) {
   const i = Math.min(Math.floor(Math.log(b) / Math.log(1024)), units.length - 1);
   const v = b / Math.pow(1024, i);
   return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+function AssetLibraryHeader() {
+  const { data: settings, refetch } = useQuery({
+    queryKey: ["asset-library-header-settings"],
+    queryFn: async () => {
+      const res = await apiFetch<{ item: any }>("/api/asset-library-header-settings");
+      return res.item;
+    }
+  });
+
+  useEffect(() => {
+    const handleUpdate = () => refetch();
+    window.addEventListener("asset-library-header-updated", handleUpdate);
+    return () => window.removeEventListener("asset-library-header-updated", handleUpdate);
+  }, [refetch]);
+
+  if (!settings || !settings.images?.length) {
+    return (
+      <div className="space-y-1.5 py-4">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Company Information/Images</h1>
+        <p className="text-xs sm:text-sm md:text-base text-muted-foreground">
+          Upload, organize, preview, and download brand assets.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div 
+      className="relative rounded-xl overflow-hidden mb-6 group border shadow-sm bg-muted"
+      style={{ height: `${settings.height || 160}px` }}
+    >
+      {settings.displayMode === "carousel" && settings.images.length > 1 ? (
+        <Carousel 
+          className="w-full h-full"
+          opts={{ loop: true }}
+        >
+          <CarouselContent className="h-full ml-0">
+            {settings.images.map((img: string, i: number) => {
+              const src = toProxiedUrl(img) || img;
+              return (
+                <CarouselItem key={i} className="h-full pl-0">
+                  <img 
+                    src={src} 
+                    alt="" 
+                    className="w-full h-full object-cover"
+                  />
+                </CarouselItem>
+              );
+            })}
+          </CarouselContent>
+        </Carousel>
+      ) : (
+        <img 
+          src={toProxiedUrl(settings.images[0]) || settings.images[0]} 
+          alt="" 
+          className="w-full h-full object-cover"
+        />
+      )}
+
+      {settings.overlayEnabled && (
+        <div 
+          className="absolute inset-0 pointer-events-none" 
+          style={{ backgroundColor: settings.overlayColor || "rgba(0,0,0,0.3)" }} 
+        />
+      )}
+
+      <div className="absolute inset-0 flex flex-col justify-center px-6 sm:px-10 pointer-events-none">
+        <h1 className="text-xl sm:text-2xl md:text-4xl font-bold tracking-tight text-white drop-shadow-md">
+          Company Information/Images
+        </h1>
+        <p className="text-xs sm:text-sm md:text-lg text-white/90 max-w-2xl mt-1 drop-shadow-sm font-medium">
+          Upload, organize, preview, and download brand assets.
+        </p>
+      </div>
+    </div>
+  );
 }
 
 export default function AssetLibrary() {
@@ -532,14 +612,9 @@ export default function AssetLibrary() {
 
   return (
     <div className="pl-6 space-y-4 sm:space-y-5 md:space-y-6">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div className="space-y-1.5">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Company Information/Images</h1>
-          <p className="text-xs sm:text-sm md:text-base text-muted-foreground">
-            Upload, organize, preview, and download brand assets.
-          </p>
-        </div>
+      <AssetLibraryHeader />
 
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <div className="flex items-center border rounded-md bg-background overflow-hidden shrink-0">
             <button
