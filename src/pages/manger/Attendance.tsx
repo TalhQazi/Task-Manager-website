@@ -70,14 +70,12 @@ export default function Attendance() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [entryRes, profileRes, onboardingRes] = await Promise.all([
+        const [entryRes, profileRes] = await Promise.all([
           apiFetch<{ item: TimeEntry | null }>("/api/employees/me/time-entry/today"),
           apiFetch<{ item: { name: string } }>("/api/employees/me"),
-          apiFetch<{ item: { overallStatus: string } }>("/api/onboarding/me").catch(() => ({ item: { overallStatus: "not_started" } })),
         ]);
         setTimeEntry(entryRes.item);
         setManagerName(profileRes.item.name);
-        setOnboardingStatus(onboardingRes.item.overallStatus);
       } catch (err) {
         console.error("Failed to load time entry:", err);
         toast.error("Failed to load time entry data");
@@ -112,8 +110,9 @@ export default function Attendance() {
       });
       setTimeEntry(res.item);
       toast.success("Clocked in successfully");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to clock in");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to clock in";
+      toast.error(message);
     } finally {
       setActionLoading(false);
     }
@@ -175,8 +174,9 @@ export default function Attendance() {
       // Refresh history
       const historyRes = await apiFetch<{ items: HistoryEntry[] }>("/api/employees/me/time-entry/history");
       setHistory(historyRes.items || []);
-    } catch (err: any) {
-      toast.error(err.message || "Failed to clock out");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to clock out";
+      toast.error(message);
     } finally {
       setScrumSubmitting(false);
     }
@@ -184,6 +184,7 @@ export default function Attendance() {
 
   const formatTime = (date: Date) => {
     return date.toLocaleTimeString("en-US", {
+      timeZone: "America/New_York",
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
@@ -192,6 +193,7 @@ export default function Attendance() {
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString("en-US", {
+      timeZone: "America/New_York",
       weekday: "long",
       year: "numeric",
       month: "long",
@@ -404,6 +406,7 @@ export default function Attendance() {
                     <TableRow key={entry.id}>
                       <TableCell className="font-medium">
                         {new Date(entry.date).toLocaleDateString("en-US", {
+                          timeZone: "America/New_York",
                           month: "short",
                           day: "numeric",
                           year: "numeric",
