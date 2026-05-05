@@ -4406,41 +4406,42 @@ export default function Tasks() {
 
       {/* Team Lead Reassign Dialog */}
       <Dialog open={isReassignDialogOpen} onOpenChange={setIsReassignDialogOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Reassign Task</DialogTitle>
-            <DialogDescription>
-              Reassign "{reassignTask?.title}" to team members
+        <DialogContent className="w-[95vw] sm:max-w-[550px] max-h-[90vh] overflow-y-auto overflow-x-hidden p-8 rounded-xl border-border shadow-2xl">
+          <DialogHeader className="space-y-3">
+            <DialogTitle className="text-xl font-bold tracking-tight">Reassign Task</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
+              Reassign "{reassignTask?.title}" to your team members
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Assignees</label>
+          <div className="space-y-6 py-6">
+            <div className="space-y-3">
+              <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70">Assignees</label>
               <Popover open={reassignAssigneesOpen} onOpenChange={setReassignAssigneesOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full justify-between h-10"
+                    className="w-full justify-between h-11 border-border/60 hover:border-primary/50 hover:bg-primary/5 transition-all rounded-lg px-4"
                   >
-                    <span className="truncate">
+                    <span className="truncate font-medium text-sm">
                       {reassignAssignees.length > 0
                         ? reassignAssignees.join(", ")
                         : "Select assignees"}
                     </span>
-                    <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                    <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Search team members..." />
-                    <CommandList>
-                      <CommandEmpty>No team members found.</CommandEmpty>
-                      <CommandGroup>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 shadow-2xl border-border/40 overflow-hidden" align="start" sideOffset={4}>
+                  <Command className="rounded-lg">
+                    <CommandInput placeholder="Search team members..." className="h-11" />
+                    <CommandList className="max-h-[300px]">
+                      <CommandEmpty className="py-6 text-sm text-muted-foreground">No team members found.</CommandEmpty>
+                      <CommandGroup className="p-1.5">
                         {teamLeadMappings.map((mapping) => (
                           <CommandItem
                             key={mapping.user}
                             value={mapping.user}
+                            className="rounded-md h-10 px-3 cursor-pointer"
                             onSelect={() => {
                               setReassignAssignees((prev) =>
                                 prev.includes(mapping.user)
@@ -4449,15 +4450,17 @@ export default function Tasks() {
                               );
                             }}
                           >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                reassignAssignees.includes(mapping.user)
-                                  ? "opacity-100"
-                                  : "opacity-0"
-                              )}
-                            />
-                            {mapping.user}
+                            <div className="flex items-center w-full">
+                              <div className={cn(
+                                "mr-3 flex h-4 w-4 items-center justify-center rounded-sm border border-primary transition-all",
+                                reassignAssignees.includes(mapping.user) 
+                                  ? "bg-primary text-primary-foreground" 
+                                  : "opacity-50"
+                              )}>
+                                {reassignAssignees.includes(mapping.user) && <Check className="h-3 w-3" />}
+                              </div>
+                              <span className="font-medium text-sm">{mapping.user}</span>
+                            </div>
                           </CommandItem>
                         ))}
                       </CommandGroup>
@@ -4467,15 +4470,19 @@ export default function Tasks() {
               </Popover>
             </div>
             {teamLeadMappings.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No team members mapped to you. Contact admin to set up team lead mappings.
-              </p>
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                <p className="text-sm text-destructive font-medium leading-snug">
+                  No team members mapped to you. Contact admin to set up team lead mappings.
+                </p>
+              </div>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
+              className="font-bold uppercase tracking-widest text-[11px] h-10 hover:bg-muted"
               onClick={() => {
                 setIsReassignDialogOpen(false);
                 setReassignTask(null);
@@ -4486,16 +4493,17 @@ export default function Tasks() {
             </Button>
             <Button
               type="button"
+              className="bg-primary hover:bg-primary/90 font-bold uppercase tracking-widest text-[11px] h-10 px-8 shadow-lg shadow-primary/20 transition-all active:scale-95"
               onClick={handleReassign}
               disabled={isReassigning || reassignAssignees.length === 0}
             >
               {isReassigning ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
                   Reassigning...
                 </>
               ) : (
-                "Reassign"
+                "Reassign Task"
               )}
             </Button>
           </DialogFooter>

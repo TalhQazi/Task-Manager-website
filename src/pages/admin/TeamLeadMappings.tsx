@@ -191,15 +191,15 @@ export default function TeamLeadMappings() {
               Add Mapping
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Add Team Lead Mapping</DialogTitle>
-              <DialogDescription>
+          <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="space-y-1">
+              <DialogTitle className="text-lg sm:text-xl">Add Team Lead Mapping</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">
                 Map a user to a team lead to enable task delegation
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-4 py-4">
+            <form onSubmit={handleSubmit} className="mt-2">
+              <div className="space-y-4 py-2 sm:py-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Team Lead</label>
                   <Select
@@ -209,7 +209,7 @@ export default function TeamLeadMappings() {
                     <SelectTrigger>
                       <SelectValue placeholder="Select team lead" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-[300px] overflow-y-auto">
                       {teamLeads.map((user) => (
                         <SelectItem key={user.id} value={user.username || user.name}>
                           {user.name || user.username} ({user.role})
@@ -224,7 +224,7 @@ export default function TeamLeadMappings() {
                     <SelectTrigger>
                       <SelectValue placeholder="Select user" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-[300px] overflow-y-auto">
                       {regularUsers.map((user) => (
                         <SelectItem key={user.id} value={user.username || user.name}>
                           {user.name || user.username} ({user.role})
