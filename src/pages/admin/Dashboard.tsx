@@ -6,7 +6,7 @@ import { ActiveEmployees } from "@/components/admin/dashboard/ActiveEmployees";
 import { TaskCharts } from "@/components/admin/dashboard/TaskCharts";
 import { DayAheadCard } from "@/components/admin/dashboard/DayAheadCard";
 import { WeekAheadCard } from "@/components/admin/dashboard/WeekAheadCard";
-import { Users, CheckSquare, AlertTriangle, Clock, Car, FileSearch, Globe, FolderRoot, Bug } from "lucide-react";
+import { Users, CheckSquare, AlertTriangle, Clock, Car, FileSearch, Globe, FolderRoot, Bug, CreditCard } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useNavigate } from "react-router-dom";
 
@@ -23,6 +23,13 @@ type DashboardSummary = {
   websiteTotal: number;
   projectTotal: number;
   pendingBugs: number;
+};
+
+type PaymentPlansSummary = {
+  activePlans: number;
+  completedPlans: number;
+  upcomingPayments: number;
+  missedPayments: number;
 };
 
 // Animation variants
@@ -55,6 +62,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [paymentSummary, setPaymentSummary] = useState<PaymentPlansSummary | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -62,9 +70,13 @@ const Dashboard = () => {
       try {
         setLoading(true);
         setApiError(null);
-        const data = await apiFetch<DashboardSummary>("/api/dashboard/summary");
+        const [data, ps] = await Promise.all([
+          apiFetch<DashboardSummary>("/api/dashboard/summary"),
+          apiFetch<PaymentPlansSummary>("/api/payment-plans/summary"),
+        ]);
         if (!mounted) return;
         setSummary(data);
+        setPaymentSummary(ps);
       } catch (e) {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load dashboard");
@@ -95,6 +107,16 @@ const Dashboard = () => {
     };
   }, [summary]);
 
+  const paymentMetrics = useMemo(() => {
+    if (!paymentSummary) return null;
+    return {
+      upcomingPayments: paymentSummary.upcomingPayments,
+      missedPayments: paymentSummary.missedPayments,
+      activePlans: paymentSummary.activePlans,
+      completedPlans: paymentSummary.completedPlans,
+    };
+  }, [paymentSummary]);
+
   if (loading) {
     return (
       <div className="flex h-[80vh] items-center justify-center">
@@ -105,14 +127,13 @@ const Dashboard = () => {
 
   return (
     <>
-      <motion.div 
+      <motion.div
         className="pl-2 pr-2 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
       >
-
-        <motion.div 
+        <motion.div
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-4 lg:gap-6"
           variants={containerVariants}
         >
@@ -126,6 +147,10 @@ const Dashboard = () => {
             { title: "Overdue Tasks", value: metrics.overdueTasks, icon: AlertTriangle, variant: "red", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
             { title: "Clocked In", value: metrics.clockedInEmployees, icon: Clock, variant: "gold", changeType: "neutral" as const, onClick: () => navigate("/admin/time-tracking") },
             { title: "Pending Bugs", value: metrics.pendingBugs, icon: Bug, variant: "yellow", changeType: "neutral" as const, onClick: () => navigate("/admin/bug-reports") },
+            ...(paymentMetrics ? [
+              { title: "Active Plans", value: paymentMetrics.activePlans, icon: CreditCard, variant: "purple", changeType: "positive" as const, onClick: () => navigate("/admin/payment-plans?status=draft") },
+              { title: "Completed Plans", value: paymentMetrics.completedPlans, icon: CreditCard, variant: "green", changeType: "positive" as const, onClick: () => navigate("/admin/payment-plans?status=completed") },
+            ] : []),
           ].map((stat, idx) => (
             <motion.div
               key={stat.title}

@@ -32,6 +32,7 @@ const UICustomization = lazy(() => import("@/pages/manger/UICustomization"));
 const SignaCore = lazy(() => import("@/pages/admin/SignaCore"));
 const UphMaintenance = lazy(() => import("@/pages/admin/UphMaintenance"));
 const ShoppingLists = lazy(() => import("@/pages/admin/ShoppingLists"));
+const PaymentPlans = lazy(() => import("@/pages/manger/PaymentPlans"));
 
 function PageLoader() {
   return (
@@ -81,6 +82,8 @@ export default function ManagerController() {
       { path: "personal-notes", element: <PersonalNotes /> },
       { path: "ui-customization", element: <UICustomization /> },
       { path: "shopping-lists", element: <ShoppingLists /> },
+      { path: "payment-plans", element: <PaymentPlans /> },
+      { path: "payment-plans/:id", element: <PaymentPlans /> },
       { path: "*", element: <NotFound /> },
     ],
     [],

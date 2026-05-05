@@ -100,6 +100,10 @@ export function MainLayout({ children }: MainLayoutProps) {
       if (resourceId) return `/developer/bugs?view=${encodeURIComponent(resourceId)}`;
       return "/developer/bugs";
     }
+    if (resourceType === "payment-plan" || resourceType === "payment_plan" || resourceType === "paymentplan") {
+      if (resourceId) return `/manager/payment-plans/${encodeURIComponent(resourceId)}`;
+      return "/manager/payment-plans";
+    }
 
     const content = String(n.content || "").toLowerCase();
     if (content.includes(" employee")) return "/manager/employees";

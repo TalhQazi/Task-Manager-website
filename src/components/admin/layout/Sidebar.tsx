@@ -36,6 +36,7 @@ import {
   Palette,
   CalendarCheck,
   ShoppingCart,
+  CreditCard,
 } from "lucide-react";
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -120,6 +121,14 @@ const navItemsBase: NavItem[] = [
         className="h-6 w-6 flex-shrink-0 rounded-md object-cover opacity-85 group-hover:opacity-100 transition-opacity"
       />
     ),
+  },
+  {
+    icon: CreditCard,
+    label: "Payment Plans",
+    children: [
+      { label: "All Plans", path: "/admin/payment-plans" },
+      { label: "Tenants", path: "/admin/tenants" },
+    ],
   },
   { icon: ShoppingCart, label: "Shopping Lists", path: "/admin/shopping-lists" },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
@@ -268,7 +277,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
             
             {item.customIcon ? (
               item.customIcon
-            ) : (
+            ) : item.icon ? (
               <item.icon
                 className={cn(
                   "flex-shrink-0 transition-all duration-100 linear relative z-10",
@@ -276,6 +285,14 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
                   isActive && ["brightness-[112%]", "scale-[1.03]"],
                   "group-hover:brightness-[108%]"
                 )}
+              />
+            ) : (
+              <span
+                className={cn(
+                  "flex-shrink-0",
+                  isChild ? "h-4 w-4" : "h-5 w-5"
+                )}
+                aria-hidden="true"
               />
             )}
             {item.label === "SignaCore" ? (

@@ -18,6 +18,7 @@ import {
   Settings,
   LogOut,
   Building2,
+  CreditCard,
   FileText,
   ChevronDown,
   ChevronRight,
@@ -92,6 +93,7 @@ const navItemsBase: NavItem[] = [
   },
   { icon: Settings, label: "UI Customization", path: "/manager/ui-customization" },
   { icon: ShoppingCart, label: "Shopping Lists", path: "/manager/shopping-lists" },
+  { icon: CreditCard, label: "Payment Plans", path: "/manager/payment-plans" },
   { icon: Settings, label: "Settings", path: "/manager/settings" },
 ];
 

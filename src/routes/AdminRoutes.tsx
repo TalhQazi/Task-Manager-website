@@ -47,6 +47,10 @@ const Contributors = lazy(() => import("@/pages/admin/Contributors"));
 const ThemeEngine = lazy(() => import("@/pages/admin/ThemeEngine"));
 const ShoppingLists = lazy(() => import("@/pages/admin/ShoppingLists"));
 
+const PaymentPlans = lazy(() => import("@/pages/admin/PaymentPlans"));
+const PaymentPlanDetails = lazy(() => import("@/pages/admin/PaymentPlanDetails"));
+const Tenants = lazy(() => import("@/pages/admin/Tenants"));
+
 function PageLoader() {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh" }}>
@@ -106,6 +110,11 @@ export default function AdminRoutes() {
       { path: "eod-reports/:employeeName", element: <EmployeeEODHistory /> },
       { path: "leave-requests", element: <LeaveRequests /> },
       { path: "contributors", element: <Contributors /> },
+
+      { path: "tenants", element: <Tenants /> },
+
+      { path: "payment-plans", element: <PaymentPlans /> },
+      { path: "payment-plans/:id", element: <PaymentPlanDetails /> },
 
       { path: "bug-reports", element: <BugReport /> },
       { path: "theme-engine", element: <ThemeEngine /> },

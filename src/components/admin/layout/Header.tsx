@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
+import { cn } from "@/lib/utils";
 import { getAuthState, clearAuthState } from "@/lib/auth";
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { AdminInfoManager } from "@/components/admin/AdminInfoManager";
@@ -110,6 +111,10 @@ export function Header({ onMenuClick }: HeaderProps) {
     if (resourceType === "bug") {
       if (resourceId) return `/developer/bugs?view=${encodeURIComponent(resourceId)}`;
       return "/developer/bugs";
+    }
+    if (resourceType === "payment-plan" || resourceType === "payment_plan" || resourceType === "paymentplan") {
+      if (resourceId) return `/admin/payment-plans/${encodeURIComponent(resourceId)}`;
+      return "/admin/payment-plans";
     }
 
     const content = String(n.content || "").toLowerCase();
@@ -499,15 +504,57 @@ export function Header({ onMenuClick }: HeaderProps) {
                       )}
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
-                    <DropdownMenuLabel className="text-xs text-foreground">Notifications</DropdownMenuLabel>
+                  <DropdownMenuContent align="start" side="bottom" className="w-72 mt-2 max-h-[420px] overflow-y-auto">
+                    <div className="flex items-center justify-between px-3 py-2">
+                      <DropdownMenuLabel className="text-xs text-foreground m-0 p-0">Notifications</DropdownMenuLabel>
+                      {unreadCount > 0 && (
+                        <button onClick={(e) => { e.stopPropagation(); markAllRead(); }} className="text-[10px] text-accent hover:underline">
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
                     <DropdownMenuSeparator />
                     {notificationsQuery.data?.length === 0 ? (
                       <div className="p-4 text-center text-xs text-muted-foreground">No notifications</div>
                     ) : (
-                      notificationsQuery.data?.slice(0, 5).map(n => (
-                        <DropdownMenuItem key={n.id} className="text-xs">{n.content}</DropdownMenuItem>
-                      ))
+                      <>
+                        {notificationsQuery.data?.slice(0, 6).map((n) => {
+                          const isUnread = n.status !== "read";
+                          const link = resolveNotificationLink(n);
+                          return (
+                            <DropdownMenuItem
+                              key={n.id}
+                              className={cn(
+                                "flex flex-col items-start gap-1 cursor-pointer py-2.5 px-3",
+                                isUnread && "bg-accent/10"
+                              )}
+                              onClick={() => {
+                                if (link) navigate(link);
+                                markRead(n.id);
+                              }}
+                            >
+                              <span className={cn("text-xs font-medium leading-tight", isUnread ? "text-foreground" : "text-muted-foreground")}>
+                                {n.title || n.content}
+                              </span>
+                              {n.content && n.title && (
+                                <span className="text-[11px] text-muted-foreground line-clamp-2 leading-tight">
+                                  {n.content}
+                                </span>
+                              )}
+                              <span className="text-[10px] text-muted-foreground/70">
+                                {n.timestamp ? new Date(n.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}
+                              </span>
+                            </DropdownMenuItem>
+                          );
+                        })}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          className="justify-center text-xs text-accent cursor-pointer"
+                          onClick={() => navigate("/admin/notifications")}
+                        >
+                          View all notifications
+                        </DropdownMenuItem>
+                      </>
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>
