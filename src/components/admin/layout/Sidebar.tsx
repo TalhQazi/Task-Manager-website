@@ -19,6 +19,7 @@ import {
   LogOut,
   Building2,
   Landmark,
+  Building,
   Activity,
   History,
   Wallet,
@@ -61,11 +62,12 @@ type NavItem = {
 
 const navItemsBase: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin", end: true },
-  { icon: Users, label: "User Management", path: "/admin/users" },
+  { icon: Users, label: "User Management", path: "/admin/users", end: true },
   { icon: CheckSquare, label: "Task Management", path: "/admin/tasks" },
   { icon: UserCircle, label: "Employee Directory", path: "/admin/employees" },
   { icon: Wallet, label: "Payroll", path: "/admin/payroll" },
    { icon: ClipboardList, label: "EOD Reports", path: "/admin/eod-reports" },
+     { icon: Building, label: "EIN list", path: "/admin/company-registry" },
   { icon: CalendarCheck, label: "Leave Requests", path: "/admin/leave-requests" },
   { icon: History, label: "Task History", path: "/admin/task-history" },
   {
