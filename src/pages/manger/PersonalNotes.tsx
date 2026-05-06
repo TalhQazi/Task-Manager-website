@@ -17,9 +17,9 @@ export default function ManagerPersonalNotes() {
   });
 
   return (
-    <div className="p-6 h-full flex flex-col gap-6">
+    <div className="p-4 sm:p-6 h-full flex flex-col gap-4 sm:gap-6">
       <div className="flex flex-col gap-1">
-        <h1 className="text-3xl font-bold tracking-tight">Private Notes</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Private Notes</h1>
         <p className="text-muted-foreground">Catch your ideas and private task drafts here.</p>
       </div>
       <PersonalNotes 
