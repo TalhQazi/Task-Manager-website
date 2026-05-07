@@ -174,7 +174,7 @@ const Employees = () => {
     phone: string;
     category: string;
     createUser: "no" | "yes";
-    userRole: "super-admin" | "admin" | "manager" | "team-lead" | "coder";
+    userRole: "super-admin" | "admin" | "manager" | "team-lead" | "coder" | "employee";
     userStatus: "active" | "inactive" | "pending";
     role: string;
     company: string;
@@ -243,7 +243,7 @@ const Employees = () => {
     payType: "hourly" as "hourly" | "monthly",
     payRate: "",
     hireDate: "",
-    userRole: "manager" as "super-admin" | "admin" | "manager" | "team-lead" | "coder",
+    userRole: "employee" as "super-admin" | "admin" | "manager" | "team-lead" | "coder" | "employee",
     userStatus: "active" as "active" | "inactive" | "pending",
   });
 
@@ -439,7 +439,7 @@ const Employees = () => {
       payType: employee.payType || "hourly",
       payRate: employee.payRate,
       hireDate: employee.hireDate,
-      userRole: (employee as any).userRole || "manager",
+      userRole: (employee as any).userRole || "employee",
       userStatus: (employee as any).userStatus || "active",
     });
 
@@ -989,6 +989,7 @@ const Employees = () => {
                         {...addForm.register("userRole")}
                         className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
                       >
+                        <option value="employee">Employee</option>
                         <option value="super-admin">Super Admin</option>
                         <option value="admin">Admin</option>
                         <option value="manager">Manager</option>
@@ -1984,6 +1985,7 @@ const Employees = () => {
                     }
                     className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
                   >
+                    <option value="employee">Employee</option>
                     <option value="super-admin">Super Admin</option>
                     <option value="admin">Admin</option>
                     <option value="manager">Manager</option>
