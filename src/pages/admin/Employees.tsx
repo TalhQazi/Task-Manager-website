@@ -437,9 +437,10 @@ const Employees = () => {
     if (!editFormData.name || !editFormData.email || !editFormData.role) return;
     try {
       setApiError(null);
+
+      // 1. Update employee record
       await updateResource<Employee>("employees", selectedEmployee.id, {
         ...selectedEmployee,
-
         name: editFormData.name,
         initials: editFormData.name
           .split(" ")
@@ -461,6 +462,28 @@ const Employees = () => {
         userRole: editFormData.userRole,
         userStatus: editFormData.userStatus,
       } as any);
+
+      // 2. Sync changes to the linked user login account (matched by original email)
+      try {
+        const usersResult = await listResource<any>("users", { limit: 1000 });
+        const usersList: any[] = Array.isArray(usersResult) ? usersResult : (usersResult?.items ?? []);
+        const linkedUser = usersList.find(
+          (u: any) =>
+            String(u.email || "").toLowerCase() ===
+            String(selectedEmployee.email || "").toLowerCase()
+        );
+        if (linkedUser) {
+          await updateResource("users", linkedUser.id || linkedUser._id, {
+            ...linkedUser,
+            name: editFormData.name,
+            email: editFormData.email,
+            role: editFormData.userRole,
+            status: editFormData.userStatus,
+          });
+        }
+      } catch {
+        // User account sync is best-effort — employee update already succeeded
+      }
 
       await refreshEmployees();
       setEditEmployeeOpen(false);
