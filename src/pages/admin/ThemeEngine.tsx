@@ -2,8 +2,11 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/admin/ui/button";
 import { Palette, RefreshCw } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
+import { useTheme } from "@/contexts/ThemeContext";
 
 export default function ThemeEngine() {
+  const { uiTheme, updateTheme } = useTheme();
+
   const themes = [
     { id: "dark-minimal", name: "Dark Minimal" },
     { id: "neon-tech", name: "Neon Tech" },
@@ -31,58 +34,43 @@ export default function ThemeEngine() {
     { id: "flat", name: "Flat Default" },
   ];
 
-  const [activeTheme, setActiveTheme] = useState("dark-minimal");
-  const [activeCardStyle, setActiveCardStyle] = useState("glass");
-  const [customTextColor, setCustomTextColor] = useState("#ffffff");
+  const [activeTheme, setActiveTheme] = useState(uiTheme.theme);
+  const [activeCardStyle, setActiveCardStyle] = useState(uiTheme.cardStyle);
+  const [customTextColor, setCustomTextColor] = useState(
+    uiTheme.customColors?.textColor || themeDefaults[uiTheme.theme] || "#ffffff"
+  );
   const [loading, setLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Keep local display state in sync when ThemeContext finishes loading from backend
   useEffect(() => {
-    // Fetch initial preferences
-    apiFetch<{item: any}>("/api/ui-preferences").then(res => {
-      if (res?.item?.theme) {
-        setActiveTheme(res.item.theme);
-        applyThemeClass(res.item.theme);
-      }
-      if (res?.item?.cardStyle) {
-        setActiveCardStyle(res.item.cardStyle);
-        document.body.setAttribute("data-tb-card-style", res.item.cardStyle);
-      }
-      if (res?.item?.customColors?.textColor) {
-        setCustomTextColor(res.item.customColors.textColor);
-        document.documentElement.style.setProperty("--tb-dashboard-text-color", res.item.customColors.textColor);
-        document.body.style.color = res.item.customColors.textColor;
-      }
-    }).catch(console.error);
-  }, []);
-
-  const applyThemeClass = (theme: string) => {
-    document.body.className = document.body.className.replace(/\btb-theme-[a-z-]+\b/g, "");
-    document.body.classList.add(`tb-theme-${theme}`);
-  };
+    setActiveTheme(uiTheme.theme);
+    setActiveCardStyle(uiTheme.cardStyle);
+    setCustomTextColor(uiTheme.customColors?.textColor || themeDefaults[uiTheme.theme] || "#ffffff");
+  }, [uiTheme.theme, uiTheme.cardStyle, uiTheme.customColors?.textColor]);
 
   const handlePreviewTheme = (themeId: string) => {
-    applyThemeClass(themeId);
-    setActiveTheme(themeId);
-    
-    // Automatically set text color according to theme
     const defaultColor = themeDefaults[themeId] || "#ffffff";
-    handleTextColorChange(defaultColor);
-    
+    setActiveTheme(themeId);
+    setCustomTextColor(defaultColor);
     setSaveSuccess(false);
+    // Update ThemeContext state — the interval will immediately re-apply via applyThemeToDOM
+    updateTheme({
+      theme: themeId as typeof uiTheme.theme,
+      customColors: { ...uiTheme.customColors, textColor: defaultColor },
+    });
   };
 
   const handlePreviewCardStyle = (styleId: string) => {
-    document.body.setAttribute("data-tb-card-style", styleId);
     setActiveCardStyle(styleId);
     setSaveSuccess(false);
+    updateTheme({ cardStyle: styleId as typeof uiTheme.cardStyle });
   };
 
   const handleTextColorChange = (color: string) => {
     setCustomTextColor(color);
-    document.documentElement.style.setProperty("--tb-dashboard-text-color", color);
-    document.body.style.color = color;
     setSaveSuccess(false);
+    updateTheme({ customColors: { ...uiTheme.customColors, textColor: color } });
   };
 
   const saveSettings = async () => {
@@ -95,9 +83,9 @@ export default function ThemeEngine() {
           theme: activeTheme,
           cardStyle: activeCardStyle,
           customColors: {
-            textColor: customTextColor
-          }
-        })
+            textColor: customTextColor,
+          },
+        }),
       });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -112,21 +100,20 @@ export default function ThemeEngine() {
     setLoading(true);
     setSaveSuccess(false);
     try {
-      const res = await apiFetch<{item: any}>("/api/ui-preferences/reset", { method: "POST" });
-      const theme = res.item.theme || "dark-minimal";
-      const cardStyle = res.item.cardStyle || "glass";
-      
-      applyThemeClass(theme);
-      setActiveTheme(theme);
-      
-      document.body.setAttribute("data-tb-card-style", cardStyle);
-      setActiveCardStyle(cardStyle);
-      
+      const res = await apiFetch<{ item: any }>("/api/ui-preferences/reset", { method: "POST" });
+      const theme = (res.item.theme || "dark-minimal") as typeof uiTheme.theme;
+      const cardStyle = (res.item.cardStyle || "glass") as typeof uiTheme.cardStyle;
       const textColor = res.item.customColors?.textColor || "#ffffff";
+
+      setActiveTheme(theme);
+      setActiveCardStyle(cardStyle);
       setCustomTextColor(textColor);
-      document.documentElement.style.setProperty("--tb-dashboard-text-color", textColor);
-      document.body.style.color = textColor;
-      
+
+      updateTheme({
+        theme,
+        cardStyle,
+        customColors: { ...uiTheme.customColors, textColor },
+      });
     } catch (e) {
       console.error(e);
     } finally {
@@ -156,8 +143,8 @@ export default function ThemeEngine() {
                 key={t.id}
                 onClick={() => handlePreviewTheme(t.id)}
                 className={`p-4 rounded-lg border text-sm transition-all flex flex-col items-start gap-1 ${
-                  activeTheme === t.id 
-                    ? "bg-primary border-primary text-white font-bold shadow-md ring-2 ring-primary" 
+                  activeTheme === t.id
+                    ? "bg-primary border-primary text-white font-bold shadow-md ring-2 ring-primary"
                     : "bg-background hover:bg-muted"
                 }`}
               >
@@ -176,8 +163,8 @@ export default function ThemeEngine() {
                 key={s.id}
                 onClick={() => handlePreviewCardStyle(s.id)}
                 className={`p-4 rounded-lg border text-sm text-left transition-all ${
-                  activeCardStyle === s.id 
-                    ? "bg-primary border-primary text-white font-bold shadow-md ring-2 ring-primary" 
+                  activeCardStyle === s.id
+                    ? "bg-primary border-primary text-white font-bold shadow-md ring-2 ring-primary"
                     : "bg-background hover:bg-muted"
                 }`}
               >
@@ -188,9 +175,9 @@ export default function ThemeEngine() {
 
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider border-b pb-2 mt-6">Global Text Color</h3>
           <div className="flex items-center gap-4">
-            <input 
-              type="color" 
-              value={customTextColor || "#ffffff"} 
+            <input
+              type="color"
+              value={customTextColor || "#ffffff"}
               onChange={(e) => handleTextColorChange(e.target.value)}
               className="w-12 h-12 rounded cursor-pointer border-0 bg-transparent"
             />
