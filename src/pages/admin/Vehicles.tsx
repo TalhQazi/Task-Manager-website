@@ -383,13 +383,16 @@ const Vehicles = () => {
       }
 
       return {
-        items: items.map(normalizeVehicle),
+        items: items,
         totalPages: total
       };
     },
   });
 
-  const vehiclesList = vehiclesQuery.data?.items || [];
+  const rawVehiclesList = vehiclesQuery.data?.items || [];
+  const vehiclesList = useMemo(() => {
+    return rawVehiclesList.map(normalizeVehicle);
+  }, [rawVehiclesList, employees]);
   const totalPagesCount = vehiclesQuery.data?.totalPages || 1;
   const loading = vehiclesQuery.isLoading;
 

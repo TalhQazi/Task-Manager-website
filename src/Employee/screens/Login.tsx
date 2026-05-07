@@ -21,9 +21,9 @@ export default function EmployeeLogin() {
 
   // Animated background gradients
   const backgrounds = [
-    `from-[${uiTheme.customColors.primary}] via-[${uiTheme.customColors.primary}]cc to-[${uiTheme.customColors.primary}]aa`,
-    `from-[${uiTheme.customColors.secondary}] via-[${uiTheme.customColors.primary}] to-[${uiTheme.customColors.primary}]dd`,
-    `from-[${uiTheme.customColors.primary}] via-[${uiTheme.customColors.secondary}]44 to-[${uiTheme.customColors.primary}]`,
+    "from-[#133767] via-blue-900 to-[#133767]",
+    "from-[#1a4585] via-[#133767] to-[#0f2a52]",
+    "from-[#0f2a52] via-blue-900 to-[#133767]",
   ];
 
   useEffect(() => {
@@ -79,12 +79,7 @@ export default function EmployeeLogin() {
   };
 
   return (
-    <div 
-      className="min-h-screen transition-all duration-1000 ease-in-out flex items-center justify-center p-4 relative overflow-hidden"
-      style={{ 
-        background: `linear-gradient(135deg, ${uiTheme.panelColors?.dashboardBackground || '#0f172a'} 0%, ${uiTheme.customColors.primary}40 50%, ${uiTheme.customColors.secondary}20 100%)`
-      }}
-    >
+    <div className={`min-h-screen bg-gradient-to-br ${backgrounds[backgroundIndex]} transition-all duration-1000 ease-in-out flex items-center justify-center p-4 relative overflow-hidden`}>
       {/* Animated particles/background effects */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-white/5 rounded-full blur-3xl animate-pulse"></div>
@@ -116,10 +111,7 @@ export default function EmployeeLogin() {
               </div>
             </div>
             
-            <CardTitle 
-              className="text-2xl sm:text-3xl font-bold text-center bg-clip-text text-transparent"
-              style={{ backgroundImage: `linear-gradient(to right, ${uiTheme.customColors.primary}, ${uiTheme.customColors.secondary})` }}
-            >
+            <CardTitle className="text-2xl sm:text-3xl font-bold text-center bg-gradient-to-r from-[#133767] to-blue-600 bg-clip-text text-transparent">
               Employee Portal
             </CardTitle>
             
@@ -200,11 +192,7 @@ export default function EmployeeLogin() {
               {/* Submit Button - Enhanced with animations */}
               <Button
                 type="submit"
-                className="w-full transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl"
-                style={{ 
-                  background: `linear-gradient(to right, ${uiTheme.customColors.primary}, ${uiTheme.customColors.secondary})`,
-                  boxShadow: `0 10px 25px -5px ${uiTheme.customColors.primary}40`
-                }}
+                className="w-full bg-gradient-to-r from-[#133767] to-blue-700 hover:from-[#1a4585] hover:to-blue-800 transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl"
                 disabled={loading}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
