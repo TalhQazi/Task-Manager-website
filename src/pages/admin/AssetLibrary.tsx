@@ -6,6 +6,9 @@ import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
   DialogTitle,
 } from "@/components/admin/ui/dialog";
 import { 
