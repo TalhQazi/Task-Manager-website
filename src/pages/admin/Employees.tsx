@@ -315,8 +315,22 @@ const Employees = () => {
   }, [currentPage, searchQuery, statusFilter, categoryFilter, roleFilter, companyFilter]);
 
   const refreshEmployees = async () => {
-    const list = await listResource<Employee>("employees");
-    setEmployeesList(list);
+    const params: any = {
+      page: currentPage,
+      limit: PAGE_SIZE,
+      search: searchQuery,
+      status: statusFilter === "all" ? undefined : statusFilter,
+      category: categoryFilter === "all" ? undefined : categoryFilter,
+      role: roleFilter === "all" ? undefined : roleFilter,
+      company: companyFilter === "all" ? undefined : companyFilter,
+    };
+    const res = await listResource<Employee>("employees", params);
+    if (res && typeof res === "object" && "items" in res) {
+      setEmployeesList((res as any).items ?? []);
+      setTotalPages((res as any).pagination?.totalPages || 1);
+    } else {
+      setEmployeesList(res as Employee[]);
+    }
   };
 
   const handleAddEmployee = async (values: AddEmployeeValues) => {
