@@ -823,13 +823,24 @@ export default function Tasks() {
     if (isViewOpen || isEditOpen || isDeleteOpen || isCreateOpen) return;
 
     const match = tasks.find((t) => String(t.id) === viewId);
-    if (!match) return;
-
-    openView(match);
-
-    const next = new URLSearchParams(searchParams);
-    next.delete("view");
-    setSearchParams(next, { replace: true });
+    if (match) {
+      openView(match);
+      const next = new URLSearchParams(searchParams);
+      next.delete("view");
+      setSearchParams(next, { replace: true });
+    } else {
+      // Fetch specifically if not in list
+      apiFetch<{ item: TaskApi }>(`/api/tasks/${encodeURIComponent(viewId)}`)
+        .then(res => {
+          if (res.item) {
+            openView(normalizeTask(res.item));
+            const next = new URLSearchParams(searchParams);
+            next.delete("view");
+            setSearchParams(next, { replace: true });
+          }
+        })
+        .catch(err => console.error("Failed to fetch task for view:", err));
+    }
   }, [tasks, searchParams, setSearchParams, isViewOpen, isEditOpen, isDeleteOpen, isCreateOpen]);
 
   // Fetch employees/users for mentions and assignees
