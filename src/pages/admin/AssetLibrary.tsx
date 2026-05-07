@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
+import { apiFetch, toProxiedUrl, downloadViaUrl } from "@/lib/admin/apiClient";
+import { toast } from "@/components/admin/ui/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
@@ -521,23 +522,24 @@ export default function AssetLibrary() {
   });
 
   const downloadAsset = async (asset: Asset) => {
-    const res = await apiFetch<{ url: string; fileName: string }>(
-      `/api/asset-library/assets/${encodeURIComponent(asset.id)}/download`,
-      { method: "POST" }
-    );
+    try {
+      const res = await apiFetch<{ url: string; fileName: string }>(
+        `/api/asset-library/assets/${encodeURIComponent(asset.id)}/download`,
+        { method: "POST" }
+      );
 
-    const safeUrl = toProxiedUrl(res.url) || res.url;
-    const r = await fetch(safeUrl);
-    if (!r.ok) throw new Error(`Download failed (${r.status})`);
-    const blob = await r.blob();
-    const objectUrl = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = objectUrl;
-    a.download = res.fileName || asset.attachment?.fileName || "asset";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(objectUrl);
+      const safeUrl = toProxiedUrl(res.url) || res.url;
+      if (safeUrl) {
+        await downloadViaUrl(safeUrl, res.fileName || asset.attachment?.fileName || "asset");
+      }
+    } catch (err) {
+      console.error("Download failed:", err);
+      toast({
+        title: "Download failed",
+        description: err instanceof Error ? err.message : "Could not download the file",
+        variant: "destructive"
+      });
+    }
   };
 
   const renderFolderNode = (node: FolderNode, depth = 0) => {
@@ -1316,7 +1318,7 @@ export default function AssetLibrary() {
       <Dialog open={Boolean(preview)} onOpenChange={(o) => (!o ? setPreview(null) : null)}>
         <DialogContent className="max-w-4xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-between gap-2">
+            <DialogTitle className="flex items-center justify-between gap-2 pr-10">
               <span className="truncate">{preview?.originalFilename || preview?.attachment?.fileName || "Asset"}</span>
               {preview ? (
                 <div className="flex items-center gap-2 flex-wrap justify-end">
