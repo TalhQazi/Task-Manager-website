@@ -471,26 +471,26 @@ export function Header({ onMenuClick }: HeaderProps) {
                       )}
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" side="bottom" className="w-80 mt-2 p-0 shadow-2xl border-white/10 backdrop-blur-xl bg-slate-900/95">
+                  <DropdownMenuContent align="end" side="bottom" className="w-80 mt-2 p-0 shadow-2xl border-slate-700 bg-[#0f172a]">
                     <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
                       <DropdownMenuLabel className="text-sm font-bold text-white p-0">Direct Messages</DropdownMenuLabel>
                     </div>
                     <div className="max-h-[400px] overflow-y-auto">
                       {messagesQuery.data?.length === 0 ? (
                         <div className="p-8 text-center">
-                          <Mail className="h-8 w-8 text-white/10 mx-auto mb-2" />
-                          <p className="text-xs text-white/40">No messages found</p>
+                          <Mail className="h-8 w-8 text-slate-500 mx-auto mb-2" />
+                          <p className="text-xs text-slate-400">No messages found</p>
                         </div>
                       ) : (
                         messagesQuery.data?.map(c => (
                           <DropdownMenuItem 
                             key={c.employee?.id} 
                             onClick={() => navigate("/admin/messaging")}
-                            className="flex items-center gap-3 px-4 py-3 cursor-pointer border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors"
+                            className="flex items-center gap-3 px-4 py-3 cursor-pointer border-b border-slate-800 last:border-0 hover:bg-slate-800/50 transition-colors"
                           >
                             <div className="relative">
                               <Avatar className="h-9 w-9 border border-white/10">
-                                <AvatarFallback className="bg-white/5 text-white/60 text-[10px]">
+                                <AvatarFallback className="bg-slate-800 text-slate-300 text-[10px]">
                                   {c.employee?.name?.[0]?.toUpperCase()}
                                 </AvatarFallback>
                               </Avatar>
@@ -502,12 +502,12 @@ export function Header({ onMenuClick }: HeaderProps) {
                               <div className="flex items-center justify-between gap-2 mb-0.5">
                                 <span className="text-[13px] font-semibold text-white truncate">{c.employee?.name}</span>
                                 {c.lastMessage?.createdAt && (
-                                  <span className="text-[10px] text-white/20 whitespace-nowrap">
+                                  <span className="text-[10px] text-slate-400 whitespace-nowrap">
                                     {new Date(c.lastMessage.createdAt).toLocaleDateString()}
                                   </span>
                                 )}
                               </div>
-                              <p className={`text-xs truncate ${ (c.unreadCount || 0) > 0 ? 'text-white/70 font-medium' : 'text-white/40' }`}>
+                              <p className={`text-xs truncate ${ (c.unreadCount || 0) > 0 ? 'text-slate-200 font-medium' : 'text-slate-400' }`}>
                                 {c.lastMessage?.content || "No message content"}
                               </p>
                             </div>
@@ -515,10 +515,10 @@ export function Header({ onMenuClick }: HeaderProps) {
                         ))
                       )}
                     </div>
-                    <DropdownMenuSeparator className="m-0 bg-white/5" />
+                    <DropdownMenuSeparator className="m-0 bg-slate-800" />
                     <DropdownMenuItem 
                       onClick={() => navigate("/admin/messaging")}
-                      className="justify-center py-2.5 text-xs font-bold text-white/40 hover:text-white hover:bg-white/5 transition-all"
+                      className="justify-center py-2.5 text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"
                     >
                       Open Messenger
                     </DropdownMenuItem>
@@ -536,7 +536,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                       )}
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" side="bottom" className="w-80 mt-2 p-0 shadow-2xl border-white/10 backdrop-blur-xl bg-slate-900/95">
+                  <DropdownMenuContent align="end" side="bottom" className="w-80 mt-2 p-0 shadow-2xl border-slate-700 bg-[#0f172a]">
                     <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
                       <DropdownMenuLabel className="text-sm font-bold text-white p-0">Notifications</DropdownMenuLabel>
                       {unreadCount > 0 && (
@@ -551,8 +551,8 @@ export function Header({ onMenuClick }: HeaderProps) {
                     <div className="max-h-[400px] overflow-y-auto">
                       {notificationsQuery.data?.length === 0 ? (
                         <div className="p-8 text-center">
-                          <Bell className="h-8 w-8 text-white/10 mx-auto mb-2" />
-                          <p className="text-xs text-white/40">No new notifications</p>
+                          <Bell className="h-8 w-8 text-slate-500 mx-auto mb-2" />
+                          <p className="text-xs text-slate-400">No new notifications</p>
                         </div>
                       ) : (
                         notificationsQuery.data?.slice(0, 10).map(n => (
@@ -562,19 +562,19 @@ export function Header({ onMenuClick }: HeaderProps) {
                               markRead(n.id);
                               navigate(resolveNotificationLink(n));
                             }}
-                            className={`flex flex-col items-start gap-1 px-4 py-3 cursor-pointer border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors ${n.status !== 'read' ? 'bg-white/[0.03]' : ''}`}
+                            className={`flex flex-col items-start gap-1 px-4 py-3 cursor-pointer border-b border-slate-800 last:border-0 hover:bg-slate-800/50 transition-colors ${n.status !== 'read' ? 'bg-slate-800/30' : ''}`}
                           >
                             <div className="flex items-center gap-2 w-full">
                               <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${n.status !== 'read' ? 'bg-[#00C6FF]' : 'bg-transparent'}`} />
-                              <span className={`text-[13px] font-semibold truncate ${n.status !== 'read' ? 'text-white' : 'text-white/60'}`}>
+                              <span className={`text-[13px] font-semibold truncate ${n.status !== 'read' ? 'text-white' : 'text-slate-400'}`}>
                                 {n.title || "Notification"}
                               </span>
                             </div>
-                            <p className="text-xs text-white/40 line-clamp-2 pl-3.5 leading-relaxed">
+                            <p className="text-xs text-slate-300 line-clamp-2 pl-3.5 leading-relaxed">
                               {n.content || n.message}
                             </p>
                             {n.createdAt && (
-                              <span className="text-[10px] text-white/20 pl-3.5 mt-1 font-medium">
+                              <span className="text-[10px] text-slate-400 pl-3.5 mt-1 font-medium">
                                 {new Date(n.createdAt).toLocaleDateString()}
                               </span>
                             )}
@@ -582,10 +582,10 @@ export function Header({ onMenuClick }: HeaderProps) {
                         ))
                       )}
                     </div>
-                    <DropdownMenuSeparator className="m-0 bg-white/5" />
+                    <DropdownMenuSeparator className="m-0 bg-slate-800" />
                     <DropdownMenuItem 
                       onClick={() => navigate("/admin/notifications")}
-                      className="justify-center py-2.5 text-xs font-bold text-white/40 hover:text-white hover:bg-white/5 transition-all"
+                      className="justify-center py-2.5 text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"
                     >
                       View all notifications
                     </DropdownMenuItem>
