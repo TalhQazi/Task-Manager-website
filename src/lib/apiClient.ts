@@ -1,8 +1,9 @@
 import { apiFetch } from "./api";
 
 export type LoginResult =
-  | { needsPasswordSetup: true; identifier: string }
-  | { needsPasswordSetup?: false; role: string; username: string; name: string; token: string };
+  | { status: "needs-password-setup"; identifier: string }
+  | { status: "role-not-defined" }
+  | { status: "success"; role: string; username: string; name: string; token: string };
 
 export async function login(username: string, password: string): Promise<LoginResult> {
   const res = await apiFetch<any>("/api/auth/login", {
@@ -15,11 +16,15 @@ export async function login(username: string, password: string): Promise<LoginRe
   });
 
   if (res.needsPasswordSetup) {
-    return { needsPasswordSetup: true, identifier: res.identifier };
+    return { status: "needs-password-setup", identifier: res.identifier };
+  }
+
+  if (res.roleNotDefined) {
+    return { status: "role-not-defined" };
   }
 
   return {
-    needsPasswordSetup: false,
+    status: "success",
     role: res.item.role,
     username: res.item.username,
     name: res.item.name || res.item.username,

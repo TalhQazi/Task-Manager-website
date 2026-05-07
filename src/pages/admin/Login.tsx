@@ -61,13 +61,18 @@ export default function Login() {
       setError(null);
       const result = await login(formData.username, formData.password);
 
-      if (result.needsPasswordSetup) {
+      if (result.status === "needs-password-setup") {
         setSetupIdentifier(result.identifier);
         setStep("setup-password");
         return;
       }
 
-      const { role, username, name, token } = result as { role: string; username: string; name: string; token: string };
+      if (result.status === "role-not-defined") {
+        setStep("no-role");
+        return;
+      }
+
+      const { role, username, name, token } = result;
 
       // Unknown / no role — contact admin
       if (!role || (!EMPLOYEE_ROLES.includes(role) && !ADMIN_ROLES.includes(role))) {
@@ -138,7 +143,7 @@ export default function Login() {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       if (step === "login") onLogin();
       else if (step === "setup-password") onSetupPassword();
@@ -226,7 +231,7 @@ export default function Login() {
                           const v = e.target.value;
                           setFormData({ ...formData, username: v.charAt(0).toLowerCase() + v.slice(1) });
                         }}
-                        onKeyPress={handleKeyPress}
+                        onKeyDown={handleKeyDown}
                         placeholder="Enter your username or email"
                         autoComplete="username"
                         className="h-11 sm:h-12 text-sm sm:text-base pl-10 pr-4 bg-white border-slate-200 focus:border-[#133767] focus:ring-2 focus:ring-[#133767]/20 transition-all duration-300 group-hover:border-[#133767]/50"
@@ -241,7 +246,7 @@ export default function Login() {
                       <Input
                         value={formData.password}
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        onKeyPress={handleKeyPress}
+                        onKeyDown={handleKeyDown}
                         type={showPassword ? "text" : "password"}
                         placeholder="Enter your password"
                         autoComplete="current-password"
@@ -324,7 +329,7 @@ export default function Login() {
                       <Input
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        onKeyPress={handleKeyPress}
+                        onKeyDown={handleKeyDown}
                         type={showNewPassword ? "text" : "password"}
                         placeholder="Minimum 6 characters"
                         autoFocus
@@ -343,7 +348,7 @@ export default function Login() {
                       <Input
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
-                        onKeyPress={handleKeyPress}
+                        onKeyDown={handleKeyDown}
                         type={showConfirmPassword ? "text" : "password"}
                         placeholder="Re-enter your password"
                         className="h-11 sm:h-12 text-sm pl-10 pr-12 bg-white border-slate-200 focus:border-[#133767] focus:ring-2 focus:ring-[#133767]/20 transition-all duration-300"
