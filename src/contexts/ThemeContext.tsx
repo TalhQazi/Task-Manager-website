@@ -512,10 +512,22 @@ const applyThemeToDOM = (theme: UITheme) => {
 
   // Sync Tailwind dark mode class
   const darkThemes: UITheme["theme"][] = ["dark-minimal", "neon-tech", "metallic-elite", "executive-black", "high-contrast", "energy-mode"];
-  if (darkThemes.includes(theme.theme)) {
-    document.documentElement.classList.add("dark");
-  } else {
+  
+  // Force light mode on login/logout pages
+  const isLoginPage = window.location.pathname.startsWith("/login");
+  
+  if (isLoginPage) {
     document.documentElement.classList.remove("dark");
+    document.body.style.backgroundColor = "#ffffff";
+  } else {
+    // Set background color from theme panel colors
+    document.body.style.backgroundColor = panelColors.dashboardBackground;
+    
+    if (darkThemes.includes(theme.theme)) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
   }
 
   console.log("Theme applied. Body class:", document.body.className, "Dark mode:", document.documentElement.classList.contains("dark"));
@@ -589,6 +601,26 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (isLoaded) {
       applyThemeToDOM(uiTheme);
     }
+  }, [uiTheme, isLoaded]);
+
+  // Re-apply theme when location changes (to handle login page white background)
+  useEffect(() => {
+    const handlePathChange = () => {
+      if (isLoaded) {
+        applyThemeToDOM(uiTheme);
+      }
+    };
+
+    window.addEventListener("popstate", handlePathChange);
+    
+    // Also check periodically or on navigation if using a SPA router
+    // This is a bit of a hack but effective for global theme overrides
+    const interval = setInterval(handlePathChange, 1000);
+
+    return () => {
+      window.removeEventListener("popstate", handlePathChange);
+      clearInterval(interval);
+    };
   }, [uiTheme, isLoaded]);
 
   const updateTheme = (updates: Partial<UITheme>) => {

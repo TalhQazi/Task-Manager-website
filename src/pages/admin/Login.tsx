@@ -8,13 +8,11 @@ import { getAuthState } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
 import { login } from "@/lib/apiClient";
 import { Eye, EyeOff, Lock, User, LogIn } from "lucide-react";
-import { useTheme } from "@/contexts/ThemeContext";
 import logoImage from "../../../public/new_logo.jpeg";
 
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { uiTheme } = useTheme();
 
   const redirectTo = useMemo(() => {
     const state = location.state as { from?: { pathname?: string } } | null;
@@ -138,40 +136,8 @@ export default function Login() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 
-                 flex items-center justify-center p-3 sm:p-4 md:p-6
-                 relative overflow-hidden"
+      className="min-h-screen bg-white flex items-center justify-center p-3 sm:p-4 md:p-6 relative overflow-hidden"
     >
-      {/* Animated background elements */}
-      <div className="absolute inset-0 overflow-hidden">
-        <motion.div
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, 90, 0],
-            opacity: [0.1, 0.2, 0.1],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "linear"
-          }}
-          className="absolute -top-1/2 -right-1/2 w-full h-full bg-gradient-to-br from-accent/20 to-transparent rounded-full blur-3xl"
-        />
-        <motion.div
-          animate={{
-            scale: [1, 1.1, 1],
-            rotate: [0, -45, 0],
-            opacity: [0.1, 0.15, 0.1],
-          }}
-          transition={{
-            duration: 15,
-            repeat: Infinity,
-            ease: "linear",
-            delay: 2
-          }}
-          className="absolute -bottom-1/2 -left-1/2 w-full h-full bg-gradient-to-tr from-primary/20 to-transparent rounded-full blur-3xl"
-        />
-      </div>
 
       {/* Responsive Card - Mobile first */}
       <motion.div
@@ -186,9 +152,7 @@ export default function Login() {
           whileHover={{ boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.25)" }}
           transition={{ duration: 0.3 }}
         >
-          <Card className="backdrop-blur-sm bg-white/90 dark:bg-slate-950/90 
-                         shadow-xl border border-white/20 dark:border-slate-800/50
-                         overflow-hidden">
+          <Card className="bg-white shadow-2xl border border-slate-200 overflow-hidden">
             {/* Logo Section - Top Center */}
             <div className="flex justify-center pt-6 sm:pt-8 px-6 sm:px-8 pb-2">
               <div className="h-20 w-28 sm:h-24 sm:w-32 rounded-full bg-white flex items-center justify-center p-2 ">
@@ -213,7 +177,7 @@ export default function Login() {
                 </CardTitle>
               </motion.div>
               <motion.div variants={itemVariants}>
-                <CardDescription className="text-sm sm:text-base md:text-lg text-muted-foreground">
+                <CardDescription className="text-sm sm:text-base md:text-lg text-slate-500">
                   Sign in to continue to Task Manager
                 </CardDescription>
               </motion.div>
@@ -222,12 +186,12 @@ export default function Login() {
             <CardContent className="space-y-5 sm:space-y-6 p-6 sm:p-8 pt-0 sm:pt-0">
               {/* Username Field */}
               <motion.div variants={itemVariants} className="space-y-2">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                <label className="block text-sm font-medium text-slate-700">
                   Username
                 </label>
                 <div className="relative group">
                   <User className="absolute left-3 top-1/2 transform -translate-y-1/2 
-                                 text-slate-400 group-hover:text-accent transition-colors duration-200"
+                                 text-slate-400 group-hover:text-[#133767] transition-colors duration-200"
                        size={18} />
                   <Input
                     value={formData.username}
@@ -242,23 +206,23 @@ export default function Login() {
                     autoComplete="username"
                     className="h-11 sm:h-12 text-sm sm:text-base 
                              pl-10 pr-4
-                             bg-white/50 dark:bg-slate-900/50
-                             border-slate-200 dark:border-slate-700
-                             focus:border-accent focus:ring-2 focus:ring-accent/20
+                             bg-white
+                             border-slate-200
+                             focus:border-[#133767] focus:ring-2 focus:ring-[#133767]/20
                              transition-all duration-300
-                             group-hover:border-accent/50"
+                             group-hover:border-[#133767]/50"
                   />
                 </div>
               </motion.div>
 
               {/* Password Field */}
               <motion.div variants={itemVariants} className="space-y-2">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                <label className="block text-sm font-medium text-slate-700">
                   Password
                 </label>
                 <div className="relative group">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 
-                                 text-slate-400 group-hover:text-accent transition-colors duration-200"
+                                 text-slate-400 group-hover:text-[#133767] transition-colors duration-200"
                        size={18} />
                   <Input
                     value={formData.password}
@@ -269,20 +233,21 @@ export default function Login() {
                     autoComplete="current-password"
                     className="h-11 sm:h-12 text-sm sm:text-base 
                              pl-10 pr-12
-                             bg-white/50 dark:bg-slate-900/50
-                             border-slate-200 dark:border-slate-700
-                             focus:border-accent focus:ring-2 focus:ring-accent/20
+                             bg-white
+                             border-slate-200
+                             focus:border-[#133767] focus:ring-2 focus:ring-[#133767]/20
                              transition-all duration-300
-                             group-hover:border-accent/50"
+                             group-hover:border-[#133767]/50"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2
-                             text-slate-400 hover:text-accent
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2
+                             text-slate-400 hover:text-[#133767]
                              transition-all duration-200
-                             focus:outline-none focus:text-accent
-                             p-1 rounded-full hover:bg-accent/10"
+                             focus:outline-none focus:text-[#133767]
+                             p-1 rounded-full hover:bg-[#133767]/10"
                     aria-label={showPassword ? "Hide password" : "Show password"}
                   >
                     <motion.div
@@ -322,11 +287,11 @@ export default function Login() {
                   whileTap="tap"
                 >
                   <Button
-                    className="w-full bg-gradient-to-r from-accent to-accent/80
-                             hover:from-accent/90 hover:to-accent/70
-                             text-accent-foreground 
+                    className="w-full bg-[#133767]
+                             hover:bg-[#1a4585]
+                             text-white 
                              h-12 sm:h-14 text-base sm:text-lg font-semibold
-                             shadow-lg shadow-accent/25
+                             shadow-lg shadow-blue-900/20
                              disabled:opacity-70 disabled:cursor-not-allowed
                              relative overflow-hidden group"
                     onClick={onLogin}
@@ -382,10 +347,10 @@ export default function Login() {
               <motion.div variants={itemVariants} className="pt-2">
                 <div className="relative">
                   <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-slate-200 dark:border-slate-700" />
+                    <div className="w-full border-t border-slate-200" />
                   </div>
                   <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-white/90 dark:bg-slate-950/90 px-2 text-muted-foreground">
+                    <span className="bg-white px-2 text-slate-500">
                       Or
                     </span>
                   </div>
