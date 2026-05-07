@@ -477,9 +477,43 @@ const Employees = () => {
         userStatus: editFormData.userStatus,
       } as any);
 
-      // 2. Sync changes to the linked user login account (matched by original email)
-      try {
-        const usersResult = await listResource<any>("users", { limit: 1000 });
+      // 2. Immediately update the local list so the table reflects changes without waiting for a re-fetch
+      const updatedInitials = editFormData.name
+        .split(" ")
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase();
+      setEmployeesList((prev) =>
+        prev.map((emp) =>
+          emp.id === selectedEmployee.id
+            ? {
+                ...emp,
+                name: editFormData.name,
+                initials: updatedInitials,
+                email: editFormData.email,
+                phone: editFormData.phone,
+                category: editFormData.category,
+                role: editFormData.role,
+                company: editFormData.company || "",
+                shift: editFormData.shift,
+                status: editFormData.status,
+                payType: editFormData.payType,
+                payRate: editFormData.payRate,
+                hireDate: editFormData.hireDate,
+                department: editFormData.department,
+                userRole: editFormData.userRole,
+                userStatus: editFormData.userStatus,
+              } as any
+            : emp
+        )
+      );
+
+      setEditEmployeeOpen(false);
+      setSelectedEmployee(null);
+
+      // 3. Sync linked user login account in the background (best-effort)
+      listResource<any>("users", { limit: 1000 }).then((usersResult) => {
         const usersList: any[] = Array.isArray(usersResult) ? usersResult : (usersResult?.items ?? []);
         const linkedUser = usersList.find(
           (u: any) =>
@@ -487,21 +521,15 @@ const Employees = () => {
             String(selectedEmployee.email || "").toLowerCase()
         );
         if (linkedUser) {
-          await updateResource("users", linkedUser.id || linkedUser._id, {
+          updateResource("users", linkedUser.id || linkedUser._id, {
             ...linkedUser,
             name: editFormData.name,
             email: editFormData.email,
             role: editFormData.userRole,
             status: editFormData.userStatus,
-          });
+          }).catch(() => {});
         }
-      } catch {
-        // User account sync is best-effort — employee update already succeeded
-      }
-
-      await refreshEmployees();
-      setEditEmployeeOpen(false);
-      setSelectedEmployee(null);
+      }).catch(() => {});
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "Failed to update employee");
     }
@@ -1435,12 +1463,13 @@ const Employees = () => {
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-muted/30">
-                          <TableHead className="text-xs md:text-sm w-[18%]">Employee</TableHead>
-                          <TableHead className="text-xs md:text-sm w-[20%]">Contact</TableHead>
-                          <TableHead className="text-xs md:text-sm w-[12%]">Role</TableHead>
-                          <TableHead className="text-xs md:text-sm w-[12%]">Company</TableHead>
-                          <TableHead className="text-xs md:text-sm w-[10%]">Pay Rate</TableHead>
-                          <TableHead className="text-xs md:text-sm w-[10%]">Status</TableHead>
+                          <TableHead className="text-xs md:text-sm w-[16%]">Employee</TableHead>
+                          <TableHead className="text-xs md:text-sm w-[18%]">Contact</TableHead>
+                          <TableHead className="text-xs md:text-sm w-[10%]">Role</TableHead>
+                          <TableHead className="text-xs md:text-sm w-[10%]">Company</TableHead>
+                          <TableHead className="text-xs md:text-sm w-[10%]">User Role</TableHead>
+                          <TableHead className="text-xs md:text-sm w-[9%]">Pay Rate</TableHead>
+                          <TableHead className="text-xs md:text-sm w-[9%]">Status</TableHead>
                           <TableHead className="text-xs md:text-sm w-[10%]">Hire Date</TableHead>
                           <TableHead className="text-right text-xs md:text-sm w-[8%]">Actions</TableHead>
                         </TableRow>
@@ -1521,7 +1550,7 @@ const Employees = () => {
                                 </motion.div>
                               </TableCell>
                               <TableCell>
-                                <motion.div 
+                                <motion.div
                                   className="flex items-center gap-2 text-muted-foreground"
                                   whileHover={{ x: 5 }}
                                 >
@@ -1530,7 +1559,18 @@ const Employees = () => {
                                 </motion.div>
                               </TableCell>
                               <TableCell>
-                                <motion.div 
+                                <motion.div whileHover={{ x: 5 }}>
+                                  {(employee as any).userRole ? (
+                                    <Badge variant="secondary" className="text-xs capitalize w-fit">
+                                      {(employee as any).userRole}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">—</span>
+                                  )}
+                                </motion.div>
+                              </TableCell>
+                              <TableCell>
+                                <motion.div
                                   className="flex items-center gap-2 text-muted-foreground"
                                   whileHover={{ x: 5 }}
                                 >
