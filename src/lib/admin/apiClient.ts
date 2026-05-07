@@ -152,7 +152,8 @@ export type CrudResource =
   | "time-entries"
   | "onboarding"
   | "do-not-hire"
-  | "companies";
+  | "companies"
+  | "company-registry";
 
 type ListResponse<T> = { items?: T[] } | T[];
 
@@ -160,6 +161,7 @@ function resourcePath(resource: CrudResource) {
   if (resource === "time-entries") return "/api/time-entries";
   if (resource === "do-not-hire") return "/api/do-not-hire";
   if (resource === "companies") return "/api/companies";
+  if (resource === "company-registry") return "/api/company-registry";
   return `/api/${resource}`;
 }
 
