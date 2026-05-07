@@ -174,7 +174,7 @@ const Employees = () => {
     phone: string;
     category: string;
     createUser: "no" | "yes";
-    userRole: "super-admin" | "admin" | "manager" | "team-lead" | "coder" | "employee";
+    userRole: "super-admin" | "admin" | "manager" | "team-lead" | "employee";
     userStatus: "active" | "inactive" | "pending";
     role: string;
     company: string;
@@ -243,7 +243,7 @@ const Employees = () => {
     payType: "hourly" as "hourly" | "monthly",
     payRate: "",
     hireDate: "",
-    userRole: "employee" as "super-admin" | "admin" | "manager" | "team-lead" | "coder" | "employee",
+    userRole: "employee" as "super-admin" | "admin" | "manager" | "team-lead" | "employee",
     userStatus: "active" as "active" | "inactive" | "pending",
   });
 
@@ -994,7 +994,6 @@ const Employees = () => {
                         <option value="admin">Admin</option>
                         <option value="manager">Manager</option>
                         <option value="team-lead">Team Lead</option>
-                        <option value="coder">Coder</option>
                       </select>
                     </div>
                     <div className="flex-1 min-w-0">
@@ -1990,7 +1989,6 @@ const Employees = () => {
                     <option value="admin">Admin</option>
                     <option value="manager">Manager</option>
                     <option value="team-lead">Team Lead</option>
-                    <option value="coder">Coder</option>
                   </select>
                 </div>
                 <div className="flex-1 min-w-0">
