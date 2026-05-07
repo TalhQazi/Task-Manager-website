@@ -1,6 +1,6 @@
 import { Sidebar } from "./Sidebar";
 import { ReactNode, useState, useEffect } from "react";
-import { Bell, Bug, Camera, Loader2, LogOut, Mail, Menu, Palette, Search, Settings, User } from "lucide-react";
+import { Bell, Bug, Camera, CheckCircle2, Clock, FileText, Loader2, LogOut, Mail, Menu, MessageSquare, Palette, Search, Settings, User } from "lucide-react";
 import { TaskBlaster } from "@/components/shared/TaskBlaster";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "@/components/manger/ui/sheet";
 import { Button } from "@/components/manger/ui/button";
@@ -517,26 +517,65 @@ export function MainLayout({ children }: MainLayoutProps) {
                         )}
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
-                      <DropdownMenuLabel className="text-xs">Notifications</DropdownMenuLabel>
+                    <DropdownMenuContent align="start" side="bottom" className="w-80 mt-2">
+                      <DropdownMenuLabel className="text-xs flex items-center justify-between">
+                        <span>Notifications</span>
+                        {unreadCount > 0 && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); markAllRead(); }}
+                            className="text-[10px] text-primary hover:underline"
+                          >
+                            Mark all read
+                          </button>
+                        )}
+                      </DropdownMenuLabel>
                       <DropdownMenuSeparator />
                       {notificationsQuery.isLoading ? (
                         <div className="p-4 text-center text-xs text-muted-foreground">Loading...</div>
                       ) : (notificationsQuery.data || []).length === 0 ? (
                         <div className="p-4 text-center text-xs text-muted-foreground">No notifications</div>
                       ) : (
-                        (notificationsQuery.data || []).slice(0, 5).map((n) => (
-                          <DropdownMenuItem
-                            key={n.id}
-                            className="text-xs"
-                            onClick={() => {
-                              void markRead(String(n.id));
-                              navigate(resolveNotificationLink(n));
-                            }}
-                          >
-                            {n.content}
-                          </DropdownMenuItem>
-                        ))
+                        <div className="max-h-72 overflow-y-auto">
+                          {(notificationsQuery.data || []).slice(0, 5).map((n) => {
+                            const resourceType = String(n.meta?.resourceType || "").toLowerCase();
+                            const isRead = n.status === "read";
+                            const Icon = resourceType.includes("task")
+                              ? CheckCircle2
+                              : resourceType.includes("message")
+                              ? MessageSquare
+                              : resourceType.includes("comment")
+                              ? MessageSquare
+                              : resourceType.includes("project")
+                              ? FileText
+                              : Clock;
+                            return (
+                              <DropdownMenuItem
+                                key={n.id}
+                                className="text-xs flex items-start gap-2 py-2 px-3 cursor-pointer"
+                                onClick={() => {
+                                  void markRead(String(n.id));
+                                  navigate(resolveNotificationLink(n));
+                                }}
+                              >
+                                <div className={`mt-0.5 shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${isRead ? "bg-muted" : "bg-primary/10"}`}>
+                                  <Icon className={`w-3 h-3 ${isRead ? "text-muted-foreground" : "text-primary"}`} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className={`text-xs font-medium truncate ${isRead ? "text-muted-foreground" : "text-foreground"}`}>
+                                    {n.title || "Notification"}
+                                  </p>
+                                  <p className="text-[10px] text-muted-foreground line-clamp-2">
+                                    {n.content || n.message}
+                                  </p>
+                                  <p className="text-[9px] text-muted-foreground/70 mt-0.5">
+                                    {n.timestamp ? new Date(n.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
+                                  </p>
+                                </div>
+                                {!isRead && <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />}
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </div>
                       )}
                       {(notificationsQuery.data || []).length > 0 && (
                         <>

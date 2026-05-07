@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/manger/ui/table";
-import { Search, Bell } from "lucide-react";
+import { Search, Bell, CheckCircle2, Clock, FileText, MessageSquare, Trash2, Check } from "lucide-react";
 import { apiFetch } from "@/lib/manger/api";
 import { useNavigate } from "react-router-dom";
 
@@ -59,6 +59,25 @@ export default function Notifications() {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [items, setItems] = useState<NotificationItem[]>([]);
+
+  const getNotificationIcon = (resourceType: string) => {
+    const rt = resourceType.toLowerCase();
+    if (rt.includes("task")) return CheckCircle2;
+    if (rt.includes("message")) return MessageSquare;
+    if (rt.includes("comment")) return MessageSquare;
+    if (rt.includes("project")) return FileText;
+    if (rt.includes("delete") || rt.includes("archived")) return Trash2;
+    return Bell;
+  };
+
+  const markAllRead = async () => {
+    try {
+      await apiFetch("/api/messages/mark-all-read", { method: "POST" });
+      setItems((prev) => prev.map((n) => ({ ...n, status: "read" })));
+    } catch {
+      // ignore
+    }
+  };
 
   const resolveNotificationLink = (n: NotificationItem): string => {
     const direct = String(n.meta?.link || "").trim();
@@ -140,6 +159,15 @@ export default function Notifications() {
             View system notifications and updates.
           </p>
         </div>
+        {items.some((n) => n.status !== "read") && (
+          <button
+            onClick={markAllRead}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+          >
+            <Check className="w-3.5 h-3.5" />
+            Mark all as read
+          </button>
+        )}
       </div>
 
       {/* API Error Message */}
@@ -150,6 +178,32 @@ export default function Notifications() {
           </p>
         </div>
       )}
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <Card className="border-0 shadow-soft">
+          <CardContent className="p-3 sm:p-4 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Bell className="w-4 h-4 text-primary" />
+            </div>
+            <div>
+              <p className="text-lg font-bold">{items.length}</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Total</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-0 shadow-soft">
+          <CardContent className="p-3 sm:p-4 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-red-500/10 flex items-center justify-center">
+              <Clock className="w-4 h-4 text-red-500" />
+            </div>
+            <div>
+              <p className="text-lg font-bold">{items.filter((n) => n.status !== "read").length}</p>
+              <p className="text-[10px] text-muted-foreground uppercase tracking-wide">Unread</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Search Card */}
       <Card className="shadow-soft border-0 sm:border">
@@ -204,13 +258,17 @@ export default function Notifications() {
                     >
                       {/* Header with Icon and Title */}
                       <div className="flex items-start gap-3">
-                        <div className="h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
-                          <Bell className="h-4 w-4 text-accent" />
+                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center flex-shrink-0 ${n.status === "read" ? "bg-muted" : "bg-primary/10"}`}>
+                          {(() => {
+                            const Icon = getNotificationIcon(n.meta?.resourceType || "");
+                            return <Icon className={`h-4 w-4 ${n.status === "read" ? "text-muted-foreground" : "text-primary"}`} />;
+                          })()}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">{n.title}</p>
-                          <p className="text-xs text-muted-foreground">{n.id}</p>
+                          <p className={`font-medium text-sm truncate ${n.status === "read" ? "text-muted-foreground" : "text-foreground"}`}>{n.title}</p>
+                          <p className="text-xs text-muted-foreground">{n.sender || "System"}</p>
                         </div>
+                        {n.status !== "read" && <div className="w-2 h-2 rounded-full bg-red-500 mt-1" />}
                       </div>
 
                       {/* Message */}
@@ -221,7 +279,7 @@ export default function Notifications() {
                       {/* Footer - Audience and Date/Time */}
                       <div className="flex items-center justify-between pt-1 border-t">
                         <Badge variant="secondary" className="text-xs">
-                          {n.audience}
+                          {n.audience || "Targeted"}
                         </Badge>
                         <span className="text-xs text-muted-foreground">{date} • {time}</span>
                       </div>
@@ -249,19 +307,21 @@ export default function Notifications() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="text-xs md:text-sm w-[45%]">Notification</TableHead>
-                      <TableHead className="text-xs md:text-sm w-[15%]">Audience</TableHead>
+                      <TableHead className="text-xs md:text-sm w-[50%]">Notification</TableHead>
+                      <TableHead className="text-xs md:text-sm w-[15%]">From</TableHead>
                       <TableHead className="text-xs md:text-sm w-[20%]">Date</TableHead>
-                      <TableHead className="text-xs md:text-sm w-[20%]">Time</TableHead>
+                      <TableHead className="text-xs md:text-sm w-[15%]">Status</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredNotifications.map((n) => {
                       const { date, time } = formatUSA(n.createdAt);
+                      const Icon = getNotificationIcon(n.meta?.resourceType || "");
+                      const isRead = n.status === "read";
                       return (
                         <TableRow
                           key={n.id}
-                          className="hover:bg-muted/30 cursor-pointer"
+                          className={`hover:bg-muted/30 cursor-pointer ${isRead ? "" : "bg-primary/5"}`}
                           role="button"
                           tabIndex={0}
                           onClick={() => void onOpenNotification(n)}
@@ -270,21 +330,29 @@ export default function Notifications() {
                           }}
                         >
                           <TableCell>
-                            <div className="space-y-1">
-                              <p className="font-medium text-sm md:text-base">{n.title}</p>
-                              <p className="text-xs md:text-sm text-muted-foreground line-clamp-2 max-w-2xl">
-                                {n.content || n.message}
-                              </p>
-                              <p className="text-xs text-muted-foreground md:hidden">{n.id}</p>
+                            <div className="flex items-start gap-3">
+                              <div className={`mt-0.5 w-7 h-7 rounded-full flex items-center justify-center shrink-0 ${isRead ? "bg-muted" : "bg-primary/10"}`}>
+                                <Icon className={`w-3.5 h-3.5 ${isRead ? "text-muted-foreground" : "text-primary"}`} />
+                              </div>
+                              <div className="space-y-1 min-w-0">
+                                <p className={`font-medium text-sm md:text-base truncate ${isRead ? "text-muted-foreground" : "text-foreground"}`}>{n.title}</p>
+                                <p className="text-xs md:text-sm text-muted-foreground line-clamp-2 max-w-2xl">
+                                  {n.content || n.message}
+                                </p>
+                              </div>
                             </div>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="secondary" className="text-xs md:text-sm">
-                              {n.audience}
-                            </Badge>
+                            <span className="text-xs md:text-sm text-muted-foreground">{n.sender || "System"}</span>
                           </TableCell>
-                          <TableCell className="text-sm md:text-base text-muted-foreground whitespace-nowrap">{date}</TableCell>
-                          <TableCell className="text-sm md:text-base text-muted-foreground whitespace-nowrap">{time}</TableCell>
+                          <TableCell className="text-sm md:text-base text-muted-foreground whitespace-nowrap">{date}<br/><span className="text-xs text-muted-foreground/60">{time}</span></TableCell>
+                          <TableCell>
+                            {isRead ? (
+                              <Badge variant="outline" className="text-[10px] md:text-xs">Read</Badge>
+                            ) : (
+                              <Badge className="text-[10px] md:text-xs bg-red-500 hover:bg-red-500">Unread</Badge>
+                            )}
+                          </TableCell>
                         </TableRow>
                       );
                     })}
