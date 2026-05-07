@@ -41,23 +41,25 @@ export function RecentTasksList() {
 
   useEffect(() => {
     let mounted = true;
-    const load = async () => {
+    const load = async (isInitial = false) => {
       try {
-        setLoading(true);
-        setApiError(null);
+        if (isInitial) {
+          setLoading(true);
+          setApiError(null);
+        }
         const res = await apiFetch<{ items: Task[] }>("/api/tasks?limit=6&page=1");
         if (!mounted) return;
         setTasks(res.items ?? []);
       } catch (e) {
         if (!mounted) return;
-        setApiError(e instanceof Error ? e.message : "Failed to load tasks");
+        if (isInitial) setApiError(e instanceof Error ? e.message : "Failed to load tasks");
       } finally {
         if (!mounted) return;
-        setLoading(false);
+        if (isInitial) setLoading(false);
       }
     };
-    void load();
-    const interval = setInterval(load, 30000);
+    void load(true);
+    const interval = setInterval(() => load(false), 30000);
 
     return () => {
       mounted = false;
