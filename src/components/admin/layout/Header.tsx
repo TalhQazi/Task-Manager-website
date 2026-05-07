@@ -231,7 +231,14 @@ export function Header({ onMenuClick }: HeaderProps) {
   const settingsQuery = useQuery({
     queryKey: ["settings"],
     queryFn: async () => {
-      return apiFetch<{ item: { fullName?: string; email?: string; avatarUrl?: string } }>("/api/settings");
+      const data = await apiFetch<{ item: { fullName?: string; email?: string; avatarUrl?: string; avatarDataUrl?: string } }>("/api/settings");
+      if (data?.item) {
+        localStorage.setItem("taskflow_cached_profile", JSON.stringify({
+          fullName: data.item.fullName,
+          avatarUrl: data.item.avatarDataUrl || data.item.avatarUrl
+        }));
+      }
+      return data;
     },
   });
 
@@ -364,10 +371,16 @@ export function Header({ onMenuClick }: HeaderProps) {
     }
   };
 
+  let cachedProfile = null;
+  try {
+    const cachedRaw = localStorage.getItem("taskflow_cached_profile");
+    if (cachedRaw) cachedProfile = JSON.parse(cachedRaw);
+  } catch (e) {}
+
   const settings = settingsQuery.data?.item;
-  const fullName = (settings?.fullName || auth.username || "Admin").trim();
+  const fullName = (settings?.fullName || cachedProfile?.fullName || auth.username || "Admin").trim();
   const email = (settings?.email || "").trim();
-  const avatarUrl = toProxiedUrl((settings as any)?.avatarDataUrl || (settings as any)?.avatarUrl as string | undefined);
+  const avatarUrl = toProxiedUrl((settings as any)?.avatarDataUrl || (settings as any)?.avatarUrl || cachedProfile?.avatarUrl as string | undefined);
   const initials =
     fullName
       .split(" ")
