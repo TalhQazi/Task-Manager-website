@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
@@ -266,9 +267,7 @@ const Vehicles = () => {
   const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
   const [editVehicleOpen, setEditVehicleOpen] = useState(false);
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
-  const [vehiclesList, setVehiclesList] = useState<Vehicle[]>(() => []);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [hoveredVehicle, setHoveredVehicle] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
@@ -318,96 +317,96 @@ const Vehicles = () => {
     return null;
   };
 
-  useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      try {
-        setLoading(true);
-        setApiError(null);
-        
-        // Fetch vehicles with pagination
-        const res = await listResource<BackendVehicle>("vehicles", { 
-          page: currentPage, 
-          limit: PAGE_SIZE,
-          search: searchQuery 
-        });
-        
-        if (!mounted) return;
-        
-        if (res && typeof res === "object" && "items" in res) {
-          setVehiclesList((res.items as BackendVehicle[]).map(normalizeVehicle));
-          setTotalPages(res.pagination?.totalPages || 1);
-        } else if (Array.isArray(res)) {
-          setVehiclesList(res.map(normalizeVehicle));
-          setTotalPages(1);
-        }
-        
-        // Fetch employees from employees API (only if needed once)
-        if (employees.length === 0) {
-          let allEmployees: Employee[] = [];
-          try {
-            const employeeList = await listResource<Employee>("employees");
-            if (mounted) {
-              allEmployees = employeeList.filter((e: any) => e.status === "active");
-            }
-          } catch (empErr) {
-            console.error("Failed to load employees:", empErr);
-          }
-          
-          try {
-            const userList = await listResource<User>("users");
-            if (mounted) {
-              const employeeUsers = userList
-                .filter((u: any) => u.role === "employee" && (u.status === "active" || u.status === "pending"))
-                .map((u: any) => ({
-                  id: u.id,
-                  name: u.name,
-                  initials: getInitials(u.name),
-                  email: u.email,
-                  status: "active" as const,
-                }));
-              
-              employeeUsers.forEach((eu: any) => {
-                if (!allEmployees.some((e: any) => e.email === eu.email)) {
-                  allEmployees.push(eu);
-                }
-              });
-            }
-          } catch (userErr) {
-            console.error("Failed to load users:", userErr);
-          }
-          
-          if (mounted) {
-            setEmployees(allEmployees);
-          }
-        }
-      } catch (e) {
-        if (!mounted) return;
-        setApiError(e instanceof Error ? e.message : "Failed to load vehicles");
-      } finally {
-        if (!mounted) return;
-        setLoading(false);
-      }
-    };
-    void load();
-    return () => {
-      mounted = false;
-    };
-  }, [currentPage, searchQuery]);
+  const queryClient = useQueryClient();
 
-  const refreshVehicles = async () => {
-    const res = await listResource<BackendVehicle>("vehicles", { 
-      page: currentPage, 
-      limit: PAGE_SIZE,
-      search: searchQuery 
-    });
-    if (res && typeof res === "object" && "items" in res) {
-      setVehiclesList((res.items as BackendVehicle[]).map(normalizeVehicle));
-      setTotalPages(res.pagination?.totalPages || 1);
-    } else if (Array.isArray(res)) {
-      setVehiclesList(res.map(normalizeVehicle));
+  // Fetch employees and users in parallel once
+  const { data: allAssignees = [] } = useQuery({
+    queryKey: ["vehicle-assignees"],
+    queryFn: async () => {
+      const [employeeList, userList] = await Promise.all([
+        listResource<Employee>("employees").catch(() => []),
+        listResource<User>("users").catch(() => []),
+      ]);
+
+      const allEmployees: Employee[] = Array.isArray(employeeList) 
+        ? employeeList.filter((e: any) => e.status === "active")
+        : [];
+
+      if (Array.isArray(userList)) {
+        const employeeUsers = userList
+          .filter((u: any) => u.role === "employee" && (u.status === "active" || u.status === "pending"))
+          .map((u: any) => ({
+            id: u.id,
+            name: u.name,
+            initials: getInitials(u.name),
+            email: u.email,
+            status: "active" as const,
+          }));
+        
+        employeeUsers.forEach((eu: any) => {
+          if (!allEmployees.some((e: any) => e.email === eu.email)) {
+            allEmployees.push(eu);
+          }
+        });
+      }
+      return allEmployees;
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  useEffect(() => {
+    if (allAssignees.length > 0) {
+      setEmployees(allAssignees);
     }
+  }, [allAssignees]);
+
+  // Fetch vehicles with TanStack Query
+  const vehiclesQuery = useQuery({
+    queryKey: ["vehicles", currentPage, searchQuery],
+    placeholderData: keepPreviousData,
+    staleTime: 60 * 1000, // 1 minute
+    queryFn: async () => {
+      const res = await listResource<BackendVehicle>("vehicles", { 
+        page: currentPage, 
+        limit: PAGE_SIZE,
+        search: searchQuery 
+      });
+      
+      let items: BackendVehicle[] = [];
+      let total = 1;
+
+      if (res && typeof res === "object" && "items" in res) {
+        items = res.items as BackendVehicle[];
+        total = res.pagination?.totalPages || 1;
+      } else if (Array.isArray(res)) {
+        items = res;
+      }
+
+      return {
+        items: items.map(normalizeVehicle),
+        totalPages: total
+      };
+    },
+  });
+
+  const vehiclesList = vehiclesQuery.data?.items || [];
+  const totalPagesCount = vehiclesQuery.data?.totalPages || 1;
+  const loading = vehiclesQuery.isLoading;
+
+  useEffect(() => {
+    if (vehiclesQuery.error) {
+      setApiError(vehiclesQuery.error instanceof Error ? vehiclesQuery.error.message : "Failed to load vehicles");
+    }
+  }, [vehiclesQuery.error]);
+
+  useEffect(() => {
+    setTotalPages(totalPagesCount);
+  }, [totalPagesCount]);
+
+  const refreshVehicles = () => {
+    void vehiclesQuery.refetch();
   };
+
 
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -649,21 +648,7 @@ const Vehicles = () => {
     }
   };
 
-  const filteredVehicles = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return vehiclesList;
-
-    return vehiclesList.filter((v) => {
-      const vehicleName = `${v.year} ${v.make} ${v.model}`.toLowerCase();
-      return (
-        vehicleName.includes(q) ||
-        v.licensePlate.toLowerCase().includes(q) ||
-        v.vin.toLowerCase().includes(q) ||
-        v.status.toLowerCase().includes(q) ||
-        v.assignedTo.toLowerCase().includes(q)
-      );
-    });
-  }, [searchQuery, vehiclesList]);
+  const filteredVehicles = vehiclesList;
 
   const vehiclesStatusData = useMemo(() => {
     const map: Record<string, number> = { active: 0, maintenance: 0, inactive: 0, available: 0 };
@@ -729,8 +714,18 @@ const Vehicles = () => {
                 Track fleet vehicles, inspections, and maintenance schedules.
               </p>
             </div>
-
-           
+            
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+              {/* Search Bar */}
+              <div className="relative w-full sm:w-64 md:w-80">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search vehicles..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 h-10 bg-background/50 backdrop-blur-sm border-primary/20 focus:border-primary transition-all shadow-sm"
+                />
+              </div>
             <Dialog open={addVehicleOpen} onOpenChange={setAddVehicleOpen}>
               <DialogTrigger asChild>
                 <motion.div
@@ -1081,7 +1076,8 @@ const Vehicles = () => {
               </DialogContent>
             </Dialog>
           </div>
-        </motion.div>
+        </div>
+      </motion.div>
 
         {/* API Error Message */}
         <AnimatePresence>

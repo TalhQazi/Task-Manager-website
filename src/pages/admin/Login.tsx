@@ -8,11 +8,13 @@ import { getAuthState } from "@/lib/auth";
 import { apiFetch } from "@/lib/api";
 import { login } from "@/lib/apiClient";
 import { Eye, EyeOff, Lock, User, LogIn } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
 import logoImage from "../../../public/new_logo.jpeg";
 
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { uiTheme } = useTheme();
 
   const redirectTo = useMemo(() => {
     const state = location.state as { from?: { pathname?: string } } | null;
@@ -136,10 +138,10 @@ export default function Login() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 
-                 dark:from-slate-950 dark:via-slate-900 dark:to-slate-800
-                 flex items-center justify-center p-3 sm:p-4 md:p-6
-                 relative overflow-hidden"
+      className="min-h-screen flex items-center justify-center p-3 sm:p-4 md:p-6 relative overflow-hidden transition-colors duration-500"
+      style={{ 
+        background: `linear-gradient(135deg, ${uiTheme.panelColors?.dashboardBackground || (uiTheme.theme === 'dark-minimal' ? '#0f172a' : '#f8fafc')} 0%, ${uiTheme.customColors.primary}20 50%, ${uiTheme.customColors.secondary}10 100%)`
+      }}
     >
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
@@ -205,10 +207,10 @@ export default function Login() {
             <CardHeader className="space-y-1.5 sm:space-y-2 p-6 sm:p-8 pt-2 sm:pt-4 text-center">
               <motion.div variants={itemVariants}>
                 
-                <CardTitle className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight
-                                   bg-gradient-to-r from-slate-900 to-slate-600 
-                                   dark:from-slate-100 dark:to-slate-400
-                                   bg-clip-text text-transparent">
+                <CardTitle 
+                  className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight bg-clip-text text-transparent"
+                  style={{ backgroundImage: `linear-gradient(to right, ${uiTheme.customColors.primary}, ${uiTheme.customColors.secondary})` }}
+                >
                   Welcome Back
                 </CardTitle>
               </motion.div>
@@ -226,9 +228,11 @@ export default function Login() {
                   Username
                 </label>
                 <div className="relative group">
-                  <User className="absolute left-3 top-1/2 transform -translate-y-1/2 
-                                 text-slate-400 group-hover:text-accent transition-colors duration-200"
-                       size={18} />
+                  <User 
+                    className="absolute left-3 top-1/2 transform -translate-y-1/2 transition-colors duration-200"
+                    style={{ color: uiTheme.customColors.primary }}
+                    size={18} 
+                  />
                   <Input
                     value={formData.username}
                     onChange={(e) => {
@@ -257,9 +261,11 @@ export default function Login() {
                   Password
                 </label>
                 <div className="relative group">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 
-                                 text-slate-400 group-hover:text-accent transition-colors duration-200"
-                       size={18} />
+                  <Lock 
+                    className="absolute left-3 top-1/2 transform -translate-y-1/2 transition-colors duration-200"
+                    style={{ color: uiTheme.customColors.primary }}
+                    size={18} 
+                  />
                   <Input
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
@@ -322,13 +328,10 @@ export default function Login() {
                   whileTap="tap"
                 >
                   <Button
-                    className="w-full bg-gradient-to-r from-accent to-accent/80
-                             hover:from-accent/90 hover:to-accent/70
-                             text-accent-foreground 
-                             h-12 sm:h-14 text-base sm:text-lg font-semibold
-                             shadow-lg shadow-accent/25
-                             disabled:opacity-70 disabled:cursor-not-allowed
-                             relative overflow-hidden group"
+                    style={{ 
+                      background: `linear-gradient(to right, ${uiTheme.customColors.primary}, ${uiTheme.customColors.secondary})`,
+                      boxShadow: `0 10px 25px -5px ${uiTheme.customColors.primary}40`
+                    }}
                     onClick={onLogin}
                     disabled={isLoading}
                   >

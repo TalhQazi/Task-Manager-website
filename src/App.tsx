@@ -53,31 +53,23 @@ const App = () => (
 
         <Sonner />
         <BrowserRouter>
-          <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0a0a0f" }}>
-            <div style={{ width: 40, height: 40, border: "3px solid rgba(255,255,255,0.1)", borderTopColor: "#6366f1", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-          </div>}>
-            <Routes>
-              <Route path="/" element={<IndexRedirect />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/login/employee" element={<EmployeeLogin />} />
-              <Route path="/admin/*" element={
-                <ThemeProvider>
-                  <AdminRoutes />
-                </ThemeProvider>
-              } />
-              <Route path="/manager/*" element={
-                <ManagerController />
-              } />
-              <Route path="/developer/*" element={<DeveloperController />} />
-              <Route path="/employee/*" element={
-                <ThemeProvider>
-                  <EmployeeController />
-                </ThemeProvider>
-              } />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </Suspense>
+          <ThemeProvider>
+            <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0a0a0f" }}>
+              <div style={{ width: 40, height: 40, border: "3px solid rgba(255,255,255,0.1)", borderTopColor: "#6366f1", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+            </div>}>
+              <Routes>
+                <Route path="/" element={<IndexRedirect />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/login/employee" element={<EmployeeLogin />} />
+                <Route path="/admin/*" element={<AdminRoutes />} />
+                <Route path="/manager/*" element={<ManagerController />} />
+                <Route path="/developer/*" element={<DeveloperController />} />
+                <Route path="/employee/*" element={<EmployeeController />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </Suspense>
+          </ThemeProvider>
         </BrowserRouter>
         </RewardProvider>
       </TooltipProvider>
