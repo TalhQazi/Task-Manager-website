@@ -54,7 +54,7 @@ import {
   Clock,
   Camera,
 } from "lucide-react";
-import { createResource, deleteResource, listResource, updateResource, getResource, toProxiedUrl } from "@/lib/admin/apiClient";
+import { createResource, deleteResource, listResource, updateResource, getResource, toProxiedUrl, apiFetch } from "@/lib/admin/apiClient";
 import { Pagination } from "@/components/Pagination";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -257,6 +257,28 @@ const cardVariants = {
       damping: 17,
     },
   },
+};
+
+const LazyVehiclePhoto = ({ vehicleId, model, className }: { vehicleId: string, model: string, className?: string }) => {
+  const { data } = useQuery({
+    queryKey: ["vehicle-photo", vehicleId],
+    queryFn: async () => {
+      return apiFetch<{ photo: string, fileName: string }>(`/api/vehicles/${vehicleId}/photo`);
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const photoSrc = data?.photo ? (toProxiedUrl(data.photo) || data.photo) : null;
+
+  if (photoSrc) {
+    return <img src={photoSrc} alt={model} className={`object-cover ${className}`} />;
+  }
+  
+  return (
+    <div className={`bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center flex-shrink-0 ${className}`}>
+      <Car className="h-1/2 w-1/2 text-primary opacity-50" />
+    </div>
+  );
 };
 
 const Vehicles = () => {
@@ -1257,16 +1279,11 @@ const Vehicles = () => {
                                 whileHover={{ scale: 1.1, rotate: 5 }}
                                 transition={{ type: "spring" as const, stiffness: 300, damping: 10 }}
                               >
-                                {(() => {
-                                  const photoSrc = getVehicleTagPhotoSrc(vehicle);
-                                  return photoSrc ? (
-                                    <img src={photoSrc} alt={vehicle.model} className="h-10 w-10 rounded-lg object-cover ring-2 ring-primary/20" />
-                                  ) : (
-                                    <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center flex-shrink-0 ring-2 ring-primary/20">
-                                      <Car className="h-5 w-5 text-primary" />
-                                    </div>
-                                  );
-                                })()}
+                                <LazyVehiclePhoto 
+                                  vehicleId={vehicle.id} 
+                                  model={vehicle.model} 
+                                  className="h-10 w-10 rounded-lg ring-2 ring-primary/20" 
+                                />
                               </motion.div>
                               <div className="min-w-0 flex-1">
                                 <p className="font-medium text-sm truncate flex items-center gap-2">
@@ -1456,16 +1473,11 @@ const Vehicles = () => {
                                     whileHover={{ scale: 1.1, rotate: 5 }}
                                     transition={{ type: "spring" as const, stiffness: 300, damping: 10 }}
                                   >
-                                    {(() => {
-                                      const photoSrc = getVehicleTagPhotoSrc(vehicle);
-                                      return photoSrc ? (
-                                        <img src={photoSrc} alt={vehicle.model} className="h-9 w-9 md:h-10 md:w-10 rounded-lg object-cover ring-2 ring-primary/20" />
-                                      ) : (
-                                        <div className="h-9 w-9 md:h-10 md:w-10 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center flex-shrink-0 ring-2 ring-primary/20">
-                                          <Car className="h-4 w-4 md:h-5 md:w-5 text-primary" />
-                                        </div>
-                                      );
-                                    })()}
+                                    <LazyVehiclePhoto 
+                                      vehicleId={vehicle.id} 
+                                      model={vehicle.model} 
+                                      className="h-9 w-9 md:h-10 md:w-10 rounded-lg ring-2 ring-primary/20" 
+                                    />
                                   </motion.div>
                                   <div className="min-w-0">
                                     <p className="font-medium text-sm md:text-sm whitespace-nowrap flex items-center gap-2">
