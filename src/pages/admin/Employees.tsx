@@ -174,7 +174,7 @@ const Employees = () => {
     phone: string;
     category: string;
     createUser: "no" | "yes";
-    userRole: "manager" | "admin";
+    userRole: "super-admin" | "admin" | "manager" | "team-lead" | "coder";
     userStatus: "active" | "inactive" | "pending";
     role: string;
     company: string;
@@ -925,8 +925,11 @@ const Employees = () => {
                             {...addForm.register("userRole")}
                             className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
                           >
-                            <option value="manager">Manager</option>
+                            <option value="super-admin">Super Admin</option>
                             <option value="admin">Admin</option>
+                            <option value="manager">Manager</option>
+                            <option value="team-lead">Team Lead</option>
+                            <option value="coder">Coder</option>
                           </select>
                         </div>
                         <div className="flex-1 min-w-0">
