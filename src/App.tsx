@@ -5,7 +5,6 @@ import { TooltipProvider } from "@/components/manger/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import Login from "./pages/admin/Login";
-import EmployeeLogin from "./Employee/screens/Login";
 import { getAuthState } from "./lib/auth";
 import { getEmployeeAuth } from "./Employee/lib/auth";
 import { SocketProvider } from "./contexts/SocketContext";
@@ -61,7 +60,7 @@ const App = () => (
               <Routes>
                 <Route path="/" element={<IndexRedirect />} />
                 <Route path="/login" element={<Login />} />
-                <Route path="/login/employee" element={<EmployeeLogin />} />
+                <Route path="/login/employee" element={<Navigate to="/login" replace />} />
                 <Route path="/admin/*" element={<AdminRoutes />} />
                 <Route path="/manager/*" element={<ManagerController />} />
                 <Route path="/developer/*" element={<DeveloperController />} />

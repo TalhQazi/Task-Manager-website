@@ -1,21 +1,11 @@
-import { setAuthState, type UserRole } from "./auth";
 import { apiFetch } from "./api";
 
-export type LoginResult = {
-  role: UserRole;
-  username: string;
-};
-
-type LoginApiResponse = {
-  item: {
-    token: string;
-    role: UserRole;
-    username: string;
-  };
-};
+export type LoginResult =
+  | { needsPasswordSetup: true; identifier: string }
+  | { needsPasswordSetup?: false; role: string; username: string; name: string; token: string };
 
 export async function login(username: string, password: string): Promise<LoginResult> {
-  const res = await apiFetch<LoginApiResponse>("/api/auth/login", {
+  const res = await apiFetch<any>("/api/auth/login", {
     method: "POST",
     body: JSON.stringify({
       username: username.trim(),
@@ -24,14 +14,24 @@ export async function login(username: string, password: string): Promise<LoginRe
     }),
   });
 
-  setAuthState({
-    isAuthenticated: true,
+  if (res.needsPasswordSetup) {
+    return { needsPasswordSetup: true, identifier: res.identifier };
+  }
+
+  return {
+    needsPasswordSetup: false,
     role: res.item.role,
     username: res.item.username,
+    name: res.item.name || res.item.username,
     token: res.item.token,
-  });
+  };
+}
 
-  return { role: res.item.role, username: res.item.username };
+export async function setupPassword(identifier: string, newPassword: string): Promise<void> {
+  await apiFetch<any>("/api/auth/setup-password", {
+    method: "POST",
+    body: JSON.stringify({ identifier, newPassword }),
+  });
 }
 
 export async function listResource<T>(resource: string): Promise<T[]> {
