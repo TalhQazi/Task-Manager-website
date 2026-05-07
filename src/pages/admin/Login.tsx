@@ -243,11 +243,10 @@ export default function Login() {
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2
-                             text-slate-400 hover:text-[#133767]
-                             transition-all duration-200
-                             focus:outline-none focus:text-[#133767]
-                             p-1 rounded-full hover:bg-[#133767]/10"
+                               text-slate-400 hover:text-[#133767]
+                               transition-all duration-200
+                               focus:outline-none focus:text-[#133767]
+                               p-1 rounded-full hover:bg-[#133767]/10"
                     aria-label={showPassword ? "Hide password" : "Show password"}
                   >
                     <motion.div
