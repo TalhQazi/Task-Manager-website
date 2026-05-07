@@ -510,7 +510,15 @@ const applyThemeToDOM = (theme: UITheme) => {
   document.body.className = document.body.className.replace(/\btb-theme-[a-z-]+\b/g, "").trim();
   document.body.classList.add(`tb-theme-${theme.theme}`);
 
-  console.log("Theme applied. Body class:", document.body.className);
+  // Sync Tailwind dark mode class
+  const darkThemes: UITheme["theme"][] = ["dark-minimal", "neon-tech", "metallic-elite", "executive-black", "high-contrast", "energy-mode"];
+  if (darkThemes.includes(theme.theme)) {
+    document.documentElement.classList.add("dark");
+  } else {
+    document.documentElement.classList.remove("dark");
+  }
+
+  console.log("Theme applied. Body class:", document.body.className, "Dark mode:", document.documentElement.classList.contains("dark"));
 };
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

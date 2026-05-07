@@ -139,7 +139,6 @@ export default function Login() {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="min-h-screen bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 
-                 dark:from-slate-950 dark:via-slate-900 dark:to-slate-800
                  flex items-center justify-center p-3 sm:p-4 md:p-6
                  relative overflow-hidden"
     >
@@ -209,7 +208,6 @@ export default function Login() {
                 
                 <CardTitle className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-tight
                                    bg-gradient-to-r from-slate-900 to-slate-600 
-                                   dark:from-slate-100 dark:to-slate-400
                                    bg-clip-text text-transparent">
                   Welcome Back
                 </CardTitle>
