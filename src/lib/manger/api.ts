@@ -167,7 +167,7 @@ export async function apiFetch<T>(
 
 // Contributor API functions
 export async function getTopContributors(limit = 5) {
-  return apiFetch<{ contributors: Array<{
+  const res = await apiFetch<{ items?: Array<{
     userId: string;
     name: string;
     email: string;
@@ -183,7 +183,13 @@ export async function getTopContributors(limit = 5) {
       projectName: string;
       contributionCount: number;
     }>;
-  }> }>(`/api/contributors/top?limit=${limit}`);
+  }>; total?: number }>(`/api/contributors/top?limit=${limit}`);
+
+  return {
+    contributors: Array.isArray((res as any)?.contributors)
+      ? (res as any).contributors
+      : (res.items || []),
+  };
 }
 
 export async function getTaskContributors(taskId: string) {

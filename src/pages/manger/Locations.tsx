@@ -49,6 +49,10 @@ import { toast } from "@/components/manger/ui/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { cn } from "@/lib/manger/utils";
+import { apiFetch } from "@/lib/manger/api";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+
 import {
   Plus,
   Search,
@@ -63,10 +67,9 @@ import {
   Image as ImageIcon,
   X,
   Save,
+  Eye,
+  Download,
 } from "lucide-react";
-import { cn } from "@/lib/manger/utils";
-import { apiFetch } from "@/lib/manger/api";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 interface Location {
   id: string;
@@ -86,6 +89,15 @@ interface Location {
 type LocationApi = Omit<Location, "id"> & {
   _id: string;
 };
+
+function downloadDataUrl(dataUrl: string, fileName: string) {
+  const a = document.createElement("a");
+  a.href = dataUrl;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
 
 function normalizeLocation(l: LocationApi): Location {
   return {
@@ -331,6 +343,8 @@ export default function Locations() {
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isPhotoActionsOpen, setIsPhotoActionsOpen] = useState(false);
+  const [isPhotoPreviewOpen, setIsPhotoPreviewOpen] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const queryClient = useQueryClient();
 
@@ -1228,13 +1242,81 @@ export default function Locations() {
               <div className="space-y-6 mt-4">
                 {/* Photo */}
                 {selectedLocation.photoDataUrl && (
-                  <div className="w-full h-48 rounded-lg overflow-hidden border">
-                    <img
-                      src={selectedLocation.photoDataUrl}
-                      alt={selectedLocation.name}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
+                  <>
+                    <button
+                      type="button"
+                      className="w-full h-48 rounded-lg overflow-hidden border relative group"
+                      onClick={() => setIsPhotoActionsOpen(true)}
+                    >
+                      <img
+                        src={selectedLocation.photoDataUrl}
+                        alt={selectedLocation.name}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors" />
+                      <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Badge variant="secondary" className="text-[11px]">Click for actions</Badge>
+                      </div>
+                    </button>
+
+                    <Dialog open={isPhotoActionsOpen} onOpenChange={setIsPhotoActionsOpen}>
+                      <DialogContent className="w-[95vw] sm:max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>Photo</DialogTitle>
+                          <DialogDescription>Choose what you want to do with this image.</DialogDescription>
+                        </DialogHeader>
+                        <div className="flex flex-col gap-2">
+                          <Button
+                            type="button"
+                            className="justify-start gap-2"
+                            onClick={() => {
+                              setIsPhotoActionsOpen(false);
+                              setIsPhotoPreviewOpen(true);
+                            }}
+                          >
+                            <Eye className="w-4 h-4" />
+                            Preview
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="justify-start gap-2"
+                            onClick={() => {
+                              const fileName =
+                                (selectedLocation.photoFileName && selectedLocation.photoFileName.trim())
+                                  ? selectedLocation.photoFileName.trim()
+                                  : `${selectedLocation.name || "location"}.png`;
+                              downloadDataUrl(selectedLocation.photoDataUrl || "", fileName);
+                              toast({
+                                title: "Download started",
+                                description: fileName,
+                              });
+                            }}
+                          >
+                            <Download className="w-4 h-4" />
+                            Download
+                          </Button>
+                        </div>
+                        <DialogFooter>
+                          <Button type="button" variant="outline" onClick={() => setIsPhotoActionsOpen(false)}>
+                            Close
+                          </Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+
+                    <Dialog open={isPhotoPreviewOpen} onOpenChange={setIsPhotoPreviewOpen}>
+                      <DialogContent className="w-[95vw] sm:max-w-3xl p-0 overflow-hidden">
+                        <div className="w-full max-h-[85vh] bg-black">
+                          <img
+                            src={selectedLocation.photoDataUrl}
+                            alt={selectedLocation.name}
+                            className="w-full h-full object-contain"
+                          />
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  </>
                 )}
 
                 {/* Basic Info */}

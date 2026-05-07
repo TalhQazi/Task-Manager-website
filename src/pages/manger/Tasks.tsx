@@ -133,6 +133,7 @@ interface Task {
     mimeType: string;
     size: number;
   }>;
+  timer_enabled?: boolean;
 }
 
 type CreateProjectTaskDraft = {
@@ -503,9 +504,11 @@ function TaskContributorsList({ taskId }: { taskId: string }) {
     name: string;
     email: string;
     role: string;
-    contributionType: string;
-    actions: string[];
-    addedAt: string;
+    contributionType?: string;
+    actions?: string[];
+    addedAt?: string;
+    avatar?: string;
+    stats?: any;
   }>>([]);
   const [loading, setLoading] = useState(true);
 
@@ -577,6 +580,7 @@ export default function Tasks() {
   const [viewByPriority, setViewByPriority] = useState(false);
   const [projectPage, setProjectPage] = useState(1);
   const [taskPage, setTaskPage] = useState(1);
+  const [projectTaskPage, setProjectTaskPage] = useState(1);
   const PAGE_SIZE = 25;
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
@@ -736,6 +740,7 @@ export default function Tasks() {
   // Reset pages when filters change
   useEffect(() => { setTaskPage(1); }, [searchQuery, statusFilter, priorityFilter, viewByPriority]);
   useEffect(() => { setProjectPage(1); }, [searchQuery]);
+  useEffect(() => { setProjectTaskPage(1); }, [selectedProject, searchQuery, statusFilter, priorityFilter]);
 
   useEffect(() => {
     if (tasksQuery.data) {
@@ -1444,7 +1449,7 @@ export default function Tasks() {
           if (c.id !== commentId) return c;
           const auth = getAuthState();
           const currentUsername = auth.username || "";
-          const userId = String(auth.sub || auth.id || "");
+          const userId = String(auth.username || "");
           const existing = (c.reactions || []).find(r => r.emoji === emoji && r.userId === userId);
           let newReactions;
           if (existing) {
@@ -1831,12 +1836,13 @@ export default function Tasks() {
 
   const paginatedTasks = useMemo(() => {
     if (!selectedProject) return filteredTasks; // already paginated server-side
-    const start = (taskPage - 1) * PAGE_SIZE;
+    const start = (projectTaskPage - 1) * PAGE_SIZE;
     return filteredTasks.slice(start, start + PAGE_SIZE);
-  }, [filteredTasks, taskPage, selectedProject]);
-  const taskTotalPages = selectedProject
+  }, [filteredTasks, projectTaskPage, selectedProject]);
+  const taskTotalPages = tasksQuery.data?.totalPages || 1;
+  const projectTaskTotalPages = selectedProject
     ? (Math.ceil(filteredTasks.length / PAGE_SIZE) || 1)
-    : (tasksQuery.data?.totalPages || 1);
+    : 1;
 
   return (
     <div className="px-2 sm:px-4 lg:px-6 space-y-6"> 
@@ -1855,6 +1861,7 @@ export default function Tasks() {
                 setStatusFilter("all");
                 setPriorityFilter("all");
                 setTaskPage(1);
+                setProjectTaskPage(1);
               }}>
                 Back to Projects
               </Button>
@@ -1955,9 +1962,13 @@ export default function Tasks() {
                 <div className="flex items-center gap-3">
                   <div className="relative">
                     <Avatar className="h-10 w-10">
-                      <AvatarFallback className="bg-amber-100 text-amber-700 text-sm font-bold">
-                        {contributor.name?.split(" ").map(n => n[0]).join("").toUpperCase() || "?"}
-                      </AvatarFallback>
+                      {contributor.avatar ? (
+                        <img src={contributor.avatar} alt={contributor.name || "avatar"} className="h-10 w-10 rounded-full object-cover" />
+                      ) : (
+                        <AvatarFallback className="bg-amber-100 text-amber-700 text-sm font-bold">
+                          {contributor.name?.split(" ").map(n => n[0]).join("").toUpperCase() || "?"}
+                        </AvatarFallback>
+                      )}
                     </Avatar>
                     {index < 3 && (
                       <div className={`absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
@@ -2080,7 +2091,11 @@ export default function Tasks() {
       ) : (
         <>
           <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
-            <h2 className="font-semibold text-lg mb-3">Projects</h2>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+              <h2 className="font-semibold text-lg">
+                Projects ({projectsQuery.data?.items.length ? `${(projectPage - 1) * PAGE_SIZE + 1} - ${(projectPage - 1) * PAGE_SIZE + projectsQuery.data.items.length}` : "0"} of {projectsQuery.data?.totalItems || 0})
+              </h2>
+            </div>
             {projectsQuery.isLoading ? (
               <p className="text-muted-foreground">Loading projects...</p>
             ) : projectsQuery.isError ? (
@@ -2192,7 +2207,9 @@ export default function Tasks() {
 
           {/* Tasks Section */}
           <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
-            <h2 className="font-semibold text-lg mb-3">Tasks</h2>
+            <h2 className="font-semibold text-lg mb-3">
+              Tasks ({tasksQuery.data?.items.length ? `${(taskPage - 1) * PAGE_SIZE + 1} - ${(taskPage - 1) * PAGE_SIZE + tasksQuery.data.items.length}` : "0"} of {tasksQuery.data?.totalItems || 0})
+            </h2>
             {tasksQuery.isLoading ? (
               <p className="text-muted-foreground">Loading tasks...</p>
             ) : tasksQuery.isError ? (
@@ -2200,6 +2217,7 @@ export default function Tasks() {
             ) : paginatedTasks.length === 0 ? (
               <p className="text-muted-foreground">No standalone tasks found. Create one to begin.</p>
             ) : (
+              <>
               <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                {paginatedTasks.map((task, index) => {
   const timer = task.dueDate
@@ -2320,6 +2338,13 @@ export default function Tasks() {
   );
 })}
               </div>
+              <Pagination
+                currentPage={taskPage}
+                totalPages={taskTotalPages}
+                onPageChange={setTaskPage}
+                className="mt-6"
+              />
+              </>
             )}
           </div>
         </>
@@ -3007,6 +3032,31 @@ export default function Tasks() {
                                           isMe ? "items-end" : "items-start"
                                         )}>
                                           <div className={cn(
+                                            "absolute -top-4 opacity-0 group-hover/bubble:opacity-100 transition-opacity flex items-center gap-1 bg-background border border-border shadow-sm rounded-full px-1.5 py-0.5 z-20",
+                                            isMe ? "right-0" : "left-0"
+                                          )}>
+                                            <Popover>
+                                              <PopoverTrigger asChild>
+                                                <button className="p-1 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground" type="button">
+                                                  <Smile className="w-3.5 h-3.5" />
+                                                </button>
+                                              </PopoverTrigger>
+                                              <PopoverContent className="w-fit p-1.5 grid grid-cols-4 gap-1" align={isMe ? "end" : "start"}>
+                                                {["👍", "❤️", "🔥", "🚀", "👏", "🎉", "😮", "🙏"].map((emoji) => (
+                                                  <button
+                                                    key={emoji}
+                                                    onClick={() => { void toggleReaction(c.id, emoji); }}
+                                                    className="p-1.5 hover:bg-muted rounded text-lg transition-transform hover:scale-125"
+                                                    type="button"
+                                                  >
+                                                    {emoji}
+                                                  </button>
+                                                ))}
+                                              </PopoverContent>
+                                            </Popover>
+                                          </div>
+
+                                          <div className={cn(
                                             "relative px-4 py-2.5 rounded-2xl shadow-sm transition-all duration-200",
                                             isMe
                                               ? "bg-primary text-primary-foreground rounded-br-md"
@@ -3056,6 +3106,40 @@ export default function Tasks() {
                                               </div>
                                             )}
                                           </div>
+
+                                          {c.reactions && c.reactions.length > 0 && (
+                                            <div className={cn(
+                                              "flex flex-wrap gap-1 mt-1 px-1",
+                                              isMe ? "justify-end" : "justify-start"
+                                            )}>
+                                              {Object.entries(
+                                                c.reactions.reduce((acc, r) => {
+                                                  acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+                                                  return acc;
+                                                }, {} as Record<string, number>)
+                                              ).map(([emoji, count]) => {
+                                                const auth = getAuthState();
+                                                const userId = String(auth.username || "");
+                                                const hasReacted = c.reactions?.some((r) => r.emoji === emoji && r.userId === userId);
+                                                return (
+                                                  <button
+                                                    key={emoji}
+                                                    onClick={() => { void toggleReaction(c.id, emoji); }}
+                                                    className={cn(
+                                                      "flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] border transition-all",
+                                                      hasReacted
+                                                        ? "bg-primary/20 border-primary/40 text-primary"
+                                                        : "bg-muted/30 border-border/40 text-muted-foreground hover:bg-muted/50"
+                                                    )}
+                                                    type="button"
+                                                  >
+                                                    <span>{emoji}</span>
+                                                    <span className="font-bold">{count}</span>
+                                                  </button>
+                                                );
+                                              })}
+                                            </div>
+                                          )}
 
                                           <div className={cn(
                                             "flex items-center gap-2 mt-1.5",
@@ -3811,12 +3895,28 @@ export default function Tasks() {
                 ))}
               </div>
 
-              <Pagination
-                currentPage={taskPage}
-                totalPages={taskTotalPages}
-                onPageChange={setTaskPage}
-                className="mt-6"
-              />
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-muted-foreground mt-6 pt-4 border-t border-muted/20">
+                <span className="text-center sm:text-left">
+                  Showing {paginatedTasks.length ? `${(projectTaskPage - 1) * PAGE_SIZE + 1} - ${(projectTaskPage - 1) * PAGE_SIZE + paginatedTasks.length}` : "0"} of {filteredTasks.length} tasks
+                </span>
+                <div className="flex flex-wrap items-center justify-center sm:justify-end gap-4">
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-success" />{filteredTasks.filter((t) => t.status === "completed").length} completed</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary" />{filteredTasks.filter((t) => t.status === "in-progress").length} in progress</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-warning" />{filteredTasks.filter((t) => t.status === "pending").length} pending</span>
+                </div>
+              </div>
+              {projectTaskTotalPages > 1 && (
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mt-4 pt-2">
+                  <span className="text-sm text-muted-foreground">
+                    Page {projectTaskPage} of {projectTaskTotalPages} ({paginatedTasks.length} tasks)
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setProjectTaskPage((p) => Math.max(1, p - 1))} disabled={projectTaskPage === 1}>Previous</Button>
+                    <span className="text-sm px-1">{projectTaskPage} / {projectTaskTotalPages}</span>
+                    <Button variant="outline" size="sm" onClick={() => setProjectTaskPage((p) => Math.min(projectTaskTotalPages, p + 1))} disabled={projectTaskPage === projectTaskTotalPages}>Next</Button>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
