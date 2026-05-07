@@ -159,14 +159,33 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
 
   // Build nav items based on role
   const navItems = useMemo(() => {
-    const items = [...navItemsBase];
-    // Insert Activity Logs before Settings (for super-admin only)
+    let items = [...navItemsBase];
+    
+    // Add super-admin items
     if (auth.role === "super-admin") {
-      const settingsIndex = items.findIndex((i) => i.label === "Settings");
-      items.splice(settingsIndex, 0, systemEmailSettingsNavItem, activityLogNavItem);
+      items.push(systemEmailSettingsNavItem, activityLogNavItem);
     }
 
-    return items;
+    // Sort children within items first
+    items.forEach(item => {
+      if (item.children) {
+        item.children = [...item.children].sort((a, b) => a.label.localeCompare(b.label));
+      }
+    });
+
+    // Separate Settings from the list to ensure it's always last
+    const settingsItem = items.find((i) => i.label === "Settings");
+    const otherItems = items.filter((i) => i.label !== "Settings");
+
+    // Sort all other items alphabetically
+    const sortedItems = [...otherItems].sort((a, b) => a.label.localeCompare(b.label));
+
+    // Combine sorted items with Settings at the end
+    if (settingsItem) {
+      sortedItems.push(settingsItem);
+    }
+
+    return sortedItems;
   }, [auth.role]);
 
   const onLogout = async () => {

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Clock, MapPin, AlertCircle, User } from "lucide-react";
-import { apiFetch } from "@/lib/manger/api";
+import { apiFetch } from "@/lib/admin/apiClient";
 
 interface Task {
   id: string;
@@ -78,14 +78,14 @@ export function RecentTasksList() {
         <CardTitle className="text-base sm:text-lg md:text-xl font-semibold">
           Recent Tasks
         </CardTitle>
-        <a 
-          href="/tasks" 
-          className="text-xs sm:text-sm text-accent hover:underline inline-flex items-center"
-        >
-          View all
-          <span className="ml-1 hidden sm:inline">→</span>
-        </a>
-      </CardHeader>
+          <a 
+            href="/admin/tasks" 
+            className="text-xs sm:text-sm text-accent hover:underline inline-flex items-center"
+          >
+            View all
+            <span className="ml-1 hidden sm:inline">→</span>
+          </a>
+        </CardHeader>
 
       {/* Card Content - Responsive */}
       <CardContent className="space-y-3 sm:space-y-4 px-4 sm:px-6 pb-5 sm:pb-6">
@@ -118,7 +118,7 @@ export function RecentTasksList() {
               Create your first task to get started
             </p>
             <a 
-              href="/tasks" 
+              href="/admin/tasks" 
               className="mt-3 text-xs sm:text-sm text-accent hover:underline"
             >
               Create a task →
@@ -187,7 +187,7 @@ export function RecentTasksList() {
             {/* Mobile View All Link - Only visible on mobile */}
             <div className="block sm:hidden pt-2">
               <a 
-                href="/tasks" 
+                href="/admin/tasks" 
                 className="text-xs text-accent hover:underline inline-flex items-center w-full justify-center py-2"
               >
                 View all tasks

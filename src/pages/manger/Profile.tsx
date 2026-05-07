@@ -23,6 +23,7 @@ import {
   Clock,
 } from "lucide-react";
 import { apiFetch } from "@/lib/manger/api";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ProfileData {
   id: string;
@@ -73,6 +74,7 @@ interface OnboardingData {
 }
 
 export default function Profile() {
+  const queryClient = useQueryClient();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [editedProfile, setEditedProfile] = useState<ProfileData | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -231,6 +233,8 @@ export default function Profile() {
 
         setEditedProfile({ ...editedProfile!, avatarUrl: base64String });
         setProfile({ ...profile, avatarUrl: base64String });
+        await queryClient.invalidateQueries({ queryKey: ["settings"] });
+        window.dispatchEvent(new CustomEvent("header-settings-updated"));
         toast.success("Profile image updated");
         setUploadingImage(false);
       };

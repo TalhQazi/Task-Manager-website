@@ -145,6 +145,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   useEffect(() => {
     const handleUpdate = () => {
       queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
     };
     window.addEventListener("header-settings-updated", handleUpdate);
     return () => window.removeEventListener("header-settings-updated", handleUpdate);

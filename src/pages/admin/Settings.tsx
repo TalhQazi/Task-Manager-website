@@ -5,7 +5,7 @@ import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
 import { Camera, User, Loader2, CheckCircle, XCircle, AlertCircle, Upload, FileImage, Image as ImageIcon, Quote, ToggleLeft, ToggleRight, Plus } from "lucide-react";
 import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Cropper from "react-easy-crop";
 import {
@@ -88,6 +88,7 @@ function loadSettings(): SettingsState {
 
 export default function Settings() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [settings, setSettings] = useState<SettingsState>(() => loadSettings());
 
   const [isSaving, setIsSaving] = useState(false);
@@ -224,7 +225,8 @@ export default function Settings() {
       setCrop({ x: 0, y: 0 });
       setCroppedAreaPixels(null);
 
-      await backendSettingsQuery.refetch();
+      await queryClient.invalidateQueries({ queryKey: ["settings"] });
+      window.dispatchEvent(new CustomEvent("header-settings-updated"));
     } catch (err: any) {
       console.error("Avatar upload failed:", err);
       let errorMessage = "Failed to upload profile picture. Please try again.";
@@ -364,7 +366,7 @@ export default function Settings() {
         }),
       });
       localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
-      await backendSettingsQuery.refetch();
+      await queryClient.invalidateQueries({ queryKey: ["settings"] });
       setSaveMessage("Settings saved successfully!");
     } catch (error) {
       console.error("Failed to save settings:", error);
@@ -384,7 +386,7 @@ export default function Settings() {
         },
       }),
     });
-    await backendSettingsQuery.refetch();
+    await queryClient.invalidateQueries({ queryKey: ["settings"] });
   };
 
   const handleRewardSettingChange = async (key: string, value: boolean) => {
@@ -404,7 +406,7 @@ export default function Settings() {
         },
       }),
     });
-    await backendSettingsQuery.refetch();
+    await queryClient.invalidateQueries({ queryKey: ["settings"] });
   };
 
 
