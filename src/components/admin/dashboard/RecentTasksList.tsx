@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -33,6 +34,7 @@ const statusClasses = {
 };
 
 export function RecentTasksList() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -55,8 +57,11 @@ export function RecentTasksList() {
       }
     };
     void load();
+    const interval = setInterval(load, 30000);
+
     return () => {
       mounted = false;
+      clearInterval(interval);
     };
   }, []);
 
@@ -129,8 +134,9 @@ export function RecentTasksList() {
             {recentTasks.map((task) => (
               <div
                 key={task.id}
+                onClick={() => navigate(`/admin/tasks?view=${task.id}`)}
                 className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg 
-                         bg-muted/30 hover:bg-muted/50 transition-colors border border-transparent sm:border-0"
+                         bg-muted/30 hover:bg-muted/50 transition-colors border border-transparent sm:border-0 cursor-pointer"
               >
                 {/* Avatar - Hidden on mobile? No, keep visible but smaller */}
                 <div className="flex items-start gap-3 sm:items-center flex-1 min-w-0">

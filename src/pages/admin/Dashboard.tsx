@@ -75,8 +75,11 @@ const Dashboard = () => {
     };
 
     void load();
+    const interval = setInterval(load, 30000);
+
     return () => {
       mounted = false;
+      clearInterval(interval);
     };
   }, []);
 
