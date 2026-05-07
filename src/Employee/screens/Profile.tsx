@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 
 import { getEmployeeProfile, employeeApiFetch, updateBankInfo, updateTaxInfo, toProxiedUrl } from "../lib/api";
+import ClearHireOnboardingForm from "../components/ClearHireOnboardingForm";
 
 
 interface EmployeeProfileData {
@@ -90,6 +91,7 @@ const [uploading, setUploading] = useState(false);
 
   // Onboarding state
   const [onboardingData, setOnboardingData] = useState<any>(null);
+  const [clearHireStatus, setClearHireStatus] = useState<any>(null);
   const [loadingOnboarding, setLoadingOnboarding] = useState(false);
 
   // File input refs
@@ -161,14 +163,14 @@ const hasTaxInfo =
       setProfile(res.item);
       setEditedProfile(res.item);
       setEditedWorkInfo(res.item);
-      setBank(res.item.bankInfo || {
+      setBank((res.item as any).bankInfo || {
       accountName: "",
       accountNumber: "",
       ifsc: "",
       bankName: "",
     });
 
-    setTax(res.item.taxSettings || {
+    setTax((res.item as any).taxSettings || {
       pan: "",
       tds: "",
       regime: "",
@@ -269,7 +271,7 @@ const hasTaxInfo =
   const loadOnboardingData = async () => {
     try {
       setLoadingOnboarding(true);
-      const res = await employeeApiFetch("/api/onboarding/me");
+      const res = await employeeApiFetch<any>("/api/onboarding/me");
       setOnboardingData(res.item);
       if (res.item) {
         setPrimaryIdType(res.item.identityVerification?.primaryId?.idType || "");
@@ -278,6 +280,14 @@ const hasTaxInfo =
         setPrimaryIdFrontData(res.item.identityVerification?.primaryId?.frontImage || "");
         setPrimaryIdBackData(res.item.identityVerification?.primaryId?.backImage || "");
         setSecondaryIdData(res.item.identityVerification?.secondaryId?.image || "");
+      }
+
+      // Fetch ClearHire status concurrently
+      try {
+        const chRes = await employeeApiFetch<any>("/api/clearhire/status/me");
+        setClearHireStatus(chRes.item);
+      } catch (e) {
+        setClearHireStatus(null);
       }
     } catch (err: any) {
       if (err.message?.includes("not found")) {
@@ -294,10 +304,13 @@ const hasTaxInfo =
   const calculateProgress = () => {
     if (!onboardingData) return 0;
     let completed = 0;
-    const total = 5; // 5 sections total
+    const total = 6; // 6 sections total including ClearHire
 
     // Basic Information
     if (onboardingData.basicInfo?.completed) completed++;
+
+    // ClearHire Background Check (Step 2)
+    if (clearHireStatus) completed++;
 
     // Identity Verification (both primary and secondary must be submitted)
     if (onboardingData.identityVerification?.primaryId?.status === "submitted" ||
@@ -565,7 +578,7 @@ const hasTaxInfo =
 
   const handleSaveWorkInfo = async () => {
     try {
-      const employeeId = profile.id || profile._id;
+      const employeeId = String((profile as any)._id || profile.id);
       if (!employeeId) {
         toast.error("Employee ID not found");
         return;
@@ -1039,6 +1052,9 @@ const hasTaxInfo =
             </CardContent>
           </Card>
 
+          {/* Step 2: Background Check (ClearHire) */}
+          <ClearHireOnboardingForm onStatusChange={loadOnboardingData} />
+
           {/* Step 3: Identity Verification */}
           <Card>
             <CardHeader>
@@ -1385,11 +1401,11 @@ const hasTaxInfo =
                 className="w-full bg-[#133767] hover:bg-[#1a4585]"
                 disabled={
                   !onboardingData?.basicInfo?.completed ||
-                  !onboardingData?.identityVerification?.primaryId?.status === "submitted" ||
-                  !onboardingData?.identityVerification?.secondaryId?.status === "submitted" ||
-                  !onboardingData?.w4Form?.status === "submitted" ||
-                  !onboardingData?.employeeHandbook?.status === "submitted" ||
-                  !onboardingData?.digitalSignature?.status === "submitted" ||
+                  onboardingData?.identityVerification?.primaryId?.status !== "submitted" ||
+                  onboardingData?.identityVerification?.secondaryId?.status !== "submitted" ||
+                  onboardingData?.w4Form?.status !== "submitted" ||
+                  onboardingData?.employeeHandbook?.status !== "submitted" ||
+                  onboardingData?.digitalSignature?.status !== "submitted" ||
                   onboardingData?.overallStatus === "submitted" ||
                   onboardingData?.overallStatus === "approved"
                 }

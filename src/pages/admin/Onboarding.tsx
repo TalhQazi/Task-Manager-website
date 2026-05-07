@@ -21,8 +21,12 @@ import {
   FileText,
   FileImage,
   PenTool,
+  ShieldCheck,
 } from "lucide-react";
 import { getAdminOnboardingList, getAdminOnboardingDetails, approveOnboarding, rejectOnboarding } from "@/lib/admin/apiClient";
+import { listClearHireProfiles, getClearHireStatus, type ClearHireProfile } from "@/lib/admin/clearhireApi";
+import ClearHireStatusBadge from "@/components/admin/ClearHireStatusBadge";
+import ClearHireReviewModal from "@/components/admin/ClearHireReviewModal";
 
 interface OnboardingData {
   id: string;
@@ -106,8 +110,14 @@ const Onboarding = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [actionLoading, setActionLoading] = useState(false);
 
+  // ClearHire state
+  const [clearHireProfiles, setClearHireProfiles] = useState<Record<string, ClearHireProfile>>({});
+  const [clearHireReviewOpen, setClearHireReviewOpen] = useState(false);
+  const [selectedClearHire, setSelectedClearHire] = useState<ClearHireProfile | null>(null);
+
   useEffect(() => {
     loadOnboardingList();
+    loadClearHireProfiles();
   }, [statusFilter]);
 
   const loadOnboardingList = async () => {
@@ -115,7 +125,7 @@ const Onboarding = () => {
       setLoading(true);
       setApiError(null);
       const data = await getAdminOnboardingList(statusFilter === "all" ? undefined : statusFilter);
-      setOnboardingList(data.items || []);
+      setOnboardingList((data.items || []) as OnboardingData[]);
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "Failed to load onboarding");
     } finally {
@@ -123,10 +133,35 @@ const Onboarding = () => {
     }
   };
 
+  const loadClearHireProfiles = async () => {
+    try {
+      const data = await listClearHireProfiles();
+      const map: Record<string, ClearHireProfile> = {};
+      (data.items || []).forEach((p) => {
+        map[p.userId] = p;
+      });
+      setClearHireProfiles(map);
+    } catch (e) {
+      // Non-critical — ClearHire data is supplementary
+      console.warn("Failed to load ClearHire profiles:", e);
+    }
+  };
+
+  const handleOpenClearHireReview = async (userId: string) => {
+    try {
+      const data = await getClearHireStatus(userId);
+      setSelectedClearHire(data.item);
+      setClearHireReviewOpen(true);
+    } catch (e) {
+      setSelectedClearHire(null);
+      setClearHireReviewOpen(true);
+    }
+  };
+
   const loadOnboardingDetails = async (id: string) => {
     try {
       const data = await getAdminOnboardingDetails(id);
-      setSelectedOnboarding(data.item);
+      setSelectedOnboarding(data.item as OnboardingData);
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "Failed to load details");
     }
@@ -336,6 +371,7 @@ const Onboarding = () => {
                             <Badge className={`${statusClasses[onboarding.overallStatus]} text-xs`} variant="secondary">
                               {statusLabels[onboarding.overallStatus]}
                             </Badge>
+                            <ClearHireStatusBadge status={clearHireProfiles[onboarding.userId]?.status} />
                           </div>
                         </div>
                       </div>
@@ -592,6 +628,36 @@ const Onboarding = () => {
             </div>
           )}
 
+          {/* ClearHire Section */}
+          {selectedOnboarding && (
+            <div className="space-y-2">
+              <h3 className="text-sm font-semibold flex items-center gap-1.5">
+                <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+                ClearHire® Background Check
+              </h3>
+              <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <ClearHireStatusBadge
+                    status={clearHireProfiles[selectedOnboarding.userId]?.status}
+                    size="md"
+                  />
+                  {!clearHireProfiles[selectedOnboarding.userId] && (
+                    <span className="text-xs text-muted-foreground">Not submitted yet</span>
+                  )}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleOpenClearHireReview(selectedOnboarding.userId)}
+                  className="gap-1.5"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  {clearHireProfiles[selectedOnboarding.userId] ? "Review" : "View"}
+                </Button>
+              </div>
+            </div>
+          )}
+
           <DialogFooter className="mt-4 sm:mt-6 gap-2">
             {selectedOnboarding && (selectedOnboarding.overallStatus === "submitted" || selectedOnboarding.overallStatus === "in_progress") && (
               <>
@@ -620,6 +686,21 @@ const Onboarding = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ClearHire Review Modal */}
+      <ClearHireReviewModal
+        open={clearHireReviewOpen}
+        onOpenChange={setClearHireReviewOpen}
+        profile={selectedClearHire}
+        onUpdated={() => {
+          loadClearHireProfiles();
+          if (selectedClearHire) {
+            getClearHireStatus(selectedClearHire.userId)
+              .then((d) => setSelectedClearHire(d.item))
+              .catch(() => {});
+          }
+        }}
+      />
     </>
   );
 };
