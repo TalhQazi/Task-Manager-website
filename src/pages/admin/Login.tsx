@@ -5,14 +5,15 @@ import { Button } from "@/components/admin/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Input } from "@/components/admin/ui/input";
 import { getAuthState } from "@/lib/auth";
-import { apiFetch } from "@/lib/api";
 import { login } from "@/lib/apiClient";
 import { Eye, EyeOff, Lock, User, LogIn } from "lucide-react";
 import logoImage from "../../../public/new_logo.jpeg";
+import { useTheme } from "@/contexts/ThemeContext";
 
 export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { loadFromBackend } = useTheme();
 
   const redirectTo = useMemo(() => {
     const state = location.state as { from?: { pathname?: string } } | null;
@@ -50,6 +51,8 @@ export default function Login() {
       const defaultLanding =
         result.role === "developer" ? "/developer" : result.role === "admin" || result.role === "super-admin" ? "/admin" : "/manager";
       const nextPath = redirectTo && redirectTo !== "/" && redirectTo !== "/login" ? redirectTo : defaultLanding;
+      // Load this user's saved theme from backend now that auth is stored
+      loadFromBackend().catch(() => {});
       navigate(nextPath, { replace: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Login failed");
