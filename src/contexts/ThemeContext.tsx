@@ -444,10 +444,11 @@ const applyThemeToDOM = (theme: UITheme) => {
   root.style.setProperty("--tb-dashboard-text-color", resolvedDashboardTextColor);
   document.body.style.color = resolvedDashboardTextColor;
   
-  // Also set Tailwind CSS variables for consistent text colors across all pages
+  // Set foreground CSS variable for raw color usage (hex form is valid for color: var(--foreground))
   root.style.setProperty("--foreground", resolvedDashboardTextColor);
   root.style.setProperty("--card-foreground", resolvedDashboardTextColor);
-  root.style.setProperty("--muted-foreground", resolvedDashboardTextColor === "#000000" ? "#64748b" : "#94a3b8");
+  // NOTE: --muted-foreground is intentionally NOT set here — each theme's CSS class on body
+  // defines it as a proper HSL triple (e.g. "43 45% 62%") required by hsl(var(--muted-foreground)).
   
   // Also update Tailwind --card variable to match TaskBlaster card background
   // Convert hex to HSL format for Tailwind
@@ -487,9 +488,10 @@ const applyThemeToDOM = (theme: UITheme) => {
   };
   root.style.setProperty("--tb-animation-speed", speedMap[theme.animationSpeed]);
 
-  // Apply card style
+  // Apply card style — set on both html and body so all CSS selectors match
   root.style.setProperty("--tb-card-style", theme.cardStyle);
   root.setAttribute("data-tb-card-style", theme.cardStyle);
+  document.body.setAttribute("data-tb-card-style", theme.cardStyle);
 
   // Apply layout density
   const densityMap = {
@@ -506,9 +508,10 @@ const applyThemeToDOM = (theme: UITheme) => {
   root.setAttribute("data-tb-hover-effects", theme.animationSettings.hoverEffects ? "1" : "0");
   root.setAttribute("data-tb-click-effects", theme.animationSettings.clickEffects ? "1" : "0");
 
-  // Apply theme class to body (preserve other body classes)
+  // Apply theme class to body — guard against corrupted/null theme values
+  const safeTheme = baseThemeIds.includes(theme.theme) ? theme.theme : "dark-minimal";
   document.body.className = document.body.className.replace(/\btb-theme-[a-z-]+\b/g, "").trim();
-  document.body.classList.add(`tb-theme-${theme.theme}`);
+  document.body.classList.add(`tb-theme-${safeTheme}`);
 
   // Sync Tailwind dark mode class
   const darkThemes: UITheme["theme"][] = ["dark-minimal", "neon-tech", "metallic-elite", "executive-black", "high-contrast", "energy-mode"];
