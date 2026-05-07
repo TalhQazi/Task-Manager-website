@@ -293,10 +293,11 @@ body[class*="tb-theme-"] div:not([class*="bg-"]):not([class*="btn"]):not([class*
 }
 
 /* Metallic card style + Metallic Elite = premium dark metallic look */
-body.tb-theme-metallic-elite[data-tb-card-style="metallic"] main .rounded-xl:not(.stat-card-gradient),
-body.tb-theme-metallic-elite[data-tb-card-style="metallic"] main .rounded-lg:not(.stat-card-gradient),
-body.tb-theme-metallic-elite[data-tb-card-style="metallic"] main .card,
-body.tb-theme-metallic-elite[data-tb-card-style="metallic"] main [class*="bg-card"] {
+/* Extra [class*="tb-theme-"] attr selector bumps specificity to (0,5,2) so this wins over the general metallic rule (0,4,2) */
+body.tb-theme-metallic-elite[class*="tb-theme-"][data-tb-card-style="metallic"] main .rounded-xl:not(.stat-card-gradient),
+body.tb-theme-metallic-elite[class*="tb-theme-"][data-tb-card-style="metallic"] main .rounded-lg:not(.stat-card-gradient),
+body.tb-theme-metallic-elite[class*="tb-theme-"][data-tb-card-style="metallic"] main .card,
+body.tb-theme-metallic-elite[class*="tb-theme-"][data-tb-card-style="metallic"] main [class*="bg-card"] {
   background-color: #222222 !important;
   background-image: linear-gradient(145deg, rgba(212, 175, 55, 0.07) 0%, rgba(0, 0, 0, 0.25) 100%) !important;
   border: 1px solid rgba(212, 175, 55, 0.20) !important;

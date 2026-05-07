@@ -406,6 +406,18 @@ const getThemeStorageKey = () => {
 
 // Helper function to apply theme to DOM
 const applyThemeToDOM = (theme: UITheme) => {
+  // Never apply theme engine on login pages — keep them clean white
+  const isLoginPage = window.location.pathname.startsWith("/login");
+  if (isLoginPage) {
+    document.body.className = document.body.className.replace(/\btb-theme-[a-z-]+\b/g, "").trim();
+    document.documentElement.classList.remove("dark");
+    document.documentElement.removeAttribute("data-tb-card-style");
+    document.body.removeAttribute("data-tb-card-style");
+    document.body.style.backgroundColor = "";
+    document.body.style.color = "";
+    return;
+  }
+
   const root = document.documentElement;
 
   console.log("Applying theme:", theme.theme, theme);
@@ -515,22 +527,14 @@ const applyThemeToDOM = (theme: UITheme) => {
 
   // Sync Tailwind dark mode class
   const darkThemes: UITheme["theme"][] = ["dark-minimal", "neon-tech", "metallic-elite", "executive-black", "high-contrast", "energy-mode"];
-  
-  // Force light mode on login/logout pages
-  const isLoginPage = window.location.pathname.startsWith("/login");
-  
-  if (isLoginPage) {
-    document.documentElement.classList.remove("dark");
-    document.body.style.backgroundColor = "#ffffff";
+
+  // Set background color from theme panel colors
+  document.body.style.backgroundColor = panelColors.dashboardBackground;
+
+  if (darkThemes.includes(theme.theme)) {
+    document.documentElement.classList.add("dark");
   } else {
-    // Set background color from theme panel colors
-    document.body.style.backgroundColor = panelColors.dashboardBackground;
-    
-    if (darkThemes.includes(theme.theme)) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
+    document.documentElement.classList.remove("dark");
   }
 
   console.log("Theme applied. Body class:", document.body.className, "Dark mode:", document.documentElement.classList.contains("dark"));
