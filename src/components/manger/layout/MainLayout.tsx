@@ -1,6 +1,6 @@
 import { Sidebar } from "./Sidebar";
 import { ReactNode, useState, useEffect } from "react";
-import { Bell, Bug, Camera, CheckCircle2, Clock, FileText, Loader2, LogOut, Mail, Menu, MessageSquare, Palette, Search, Settings, User } from "lucide-react";
+import { ArrowRight, Bell, Bug, Camera, CheckCheck, CheckCircle2, Clock, FileText, Inbox, Loader2, LogOut, Mail, Menu, MessageSquare, Palette, Search, Settings, User } from "lucide-react";
 import { TaskBlaster } from "@/components/shared/TaskBlaster";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "@/components/manger/ui/sheet";
 import { Button } from "@/components/manger/ui/button";
@@ -117,6 +117,23 @@ export function MainLayout({ children }: MainLayoutProps) {
     if (content.includes(" task")) return "/manager/tasks";
 
     return "/manager/notifications";
+  };
+
+  const timeAgo = (dateStr?: string) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    if (diffSec < 5) return "Just now";
+    if (diffSec < 60) return `${diffSec}s ago`;
+    const diffMin = Math.floor(diffSec / 60);
+    if (diffMin < 60) return `${diffMin}m ago`;
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffHr < 24) return `${diffHr}h ago`;
+    const diffDay = Math.floor(diffHr / 24);
+    if (diffDay < 7) return `${diffDay}d ago`;
+    return date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
   };
 
   const settingsQuery = useQuery({
@@ -239,6 +256,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   const unreadCount = (notificationsQuery.data || []).filter((n) => n.status !== "read").length;
   const unreadMessageCount = (messagesQuery.data || []).reduce((sum, c) => sum + (c.unreadCount || 0), 0);
 
+  const [notifOpen, setNotifOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [reportTitle, setReportTitle] = useState("");
   const [reportDescription, setReportDescription] = useState("");
@@ -506,90 +524,148 @@ export function MainLayout({ children }: MainLayoutProps) {
                     </DropdownMenuContent>
                   </DropdownMenu>
 
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
-                        <Bell className="h-4.5 w-4.5" />
+                  {/* Notification bell + modal */}
+                  <button
+                    onClick={() => setNotifOpen(true)}
+                    className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white"
+                    title="Notifications"
+                  >
+                    <Bell className="h-4.5 w-4.5" />
+                    {unreadCount > 0 && (
+                      <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[9px] border-black">
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </Badge>
+                    )}
+                  </button>
+
+                  <Dialog open={notifOpen} onOpenChange={setNotifOpen}>
+                    <DialogContent className="w-full sm:max-w-md p-0 gap-0 overflow-hidden rounded-none sm:rounded-xl border-0 sm:border shadow-2xl">
+                      {/* Header */}
+                      <div className="flex items-center justify-between px-4 sm:px-5 py-4 border-b bg-white">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                            <Bell className="w-4.5 h-4.5 text-indigo-700" />
+                          </div>
+                          <div>
+                            <DialogTitle className="text-base font-bold text-slate-900 leading-none">Notifications</DialogTitle>
+                            <p className="text-xs text-slate-500 mt-1 font-medium">
+                              {(notificationsQuery.data || []).length} total · <span className="text-indigo-600">{unreadCount} unread</span>
+                            </p>
+                          </div>
+                        </div>
                         {unreadCount > 0 && (
-                          <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[9px] border-black">
-                            {unreadCount > 9 ? "9+" : unreadCount}
-                          </Badge>
-                        )}
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" side="bottom" className="w-80 mt-2">
-                      <DropdownMenuLabel className="text-xs flex items-center justify-between">
-                        <span>Notifications</span>
-                        {unreadCount > 0 && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); markAllRead(); }}
-                            className="text-[10px] text-primary hover:underline"
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs gap-1.5 border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                            onClick={markAllRead}
                           >
-                            Mark all read
-                          </button>
+                            <CheckCheck className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">Mark all read</span>
+                          </Button>
                         )}
-                      </DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      {notificationsQuery.isLoading ? (
-                        <div className="p-4 text-center text-xs text-muted-foreground">Loading...</div>
-                      ) : (notificationsQuery.data || []).length === 0 ? (
-                        <div className="p-4 text-center text-xs text-muted-foreground">No notifications</div>
-                      ) : (
-                        <div className="max-h-72 overflow-y-auto">
-                          {(notificationsQuery.data || []).slice(0, 5).map((n) => {
-                            const resourceType = String(n.meta?.resourceType || "").toLowerCase();
-                            const isRead = n.status === "read";
-                            const Icon = resourceType.includes("task")
-                              ? CheckCircle2
-                              : resourceType.includes("message")
-                              ? MessageSquare
-                              : resourceType.includes("comment")
-                              ? MessageSquare
-                              : resourceType.includes("project")
-                              ? FileText
-                              : Clock;
-                            return (
-                              <DropdownMenuItem
-                                key={n.id}
-                                className="text-xs flex items-start gap-2 py-2 px-3 cursor-pointer"
-                                onClick={() => {
-                                  void markRead(String(n.id));
-                                  navigate(resolveNotificationLink(n));
-                                }}
-                              >
-                                <div className={`mt-0.5 shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${isRead ? "bg-muted" : "bg-primary/10"}`}>
-                                  <Icon className={`w-3 h-3 ${isRead ? "text-muted-foreground" : "text-primary"}`} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className={`text-xs font-medium truncate ${isRead ? "text-muted-foreground" : "text-foreground"}`}>
-                                    {n.title || "Notification"}
-                                  </p>
-                                  <p className="text-[10px] text-muted-foreground line-clamp-2">
-                                    {n.content || n.message}
-                                  </p>
-                                  <p className="text-[9px] text-muted-foreground/70 mt-0.5">
-                                    {n.timestamp ? new Date(n.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
-                                  </p>
-                                </div>
-                                {!isRead && <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-red-500 shrink-0" />}
-                              </DropdownMenuItem>
-                            );
-                          })}
+                      </div>
+
+                      {/* Body */}
+                      <div className="max-h-[60vh] sm:max-h-[420px] overflow-y-auto bg-white">
+                        {notificationsQuery.isLoading ? (
+                          <div className="py-10 flex flex-col items-center gap-3 text-slate-500">
+                            <Loader2 className="w-6 h-6 animate-spin" />
+                            <span className="text-sm">Loading notifications…</span>
+                          </div>
+                        ) : (notificationsQuery.data || []).length === 0 ? (
+                          <div className="py-12 flex flex-col items-center gap-4 text-slate-500">
+                            <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center">
+                              <Inbox className="w-7 h-7 text-slate-400" />
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm font-semibold text-slate-700">No notifications yet</p>
+                              <p className="text-xs mt-1 text-slate-500 max-w-[220px] mx-auto">When you get tasks or messages, they will appear here.</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="divide-y divide-slate-100">
+                            {(notificationsQuery.data || []).slice(0, 10).map((n) => {
+                              const resourceType = String(n.meta?.resourceType || "").toLowerCase();
+                              const isRead = n.status === "read";
+
+                              let Icon = Clock;
+                              let iconBg = "bg-slate-100";
+                              let iconColor = "text-slate-600";
+
+                              if (resourceType.includes("task")) {
+                                Icon = CheckCircle2;
+                                iconBg = "bg-emerald-100";
+                                iconColor = "text-emerald-700";
+                              } else if (resourceType.includes("message") || resourceType.includes("comment")) {
+                                Icon = MessageSquare;
+                                iconBg = "bg-sky-100";
+                                iconColor = "text-sky-700";
+                              } else if (resourceType.includes("project")) {
+                                Icon = FileText;
+                                iconBg = "bg-amber-100";
+                                iconColor = "text-amber-700";
+                              } else if (resourceType.includes("status")) {
+                                Icon = Clock;
+                                iconBg = "bg-violet-100";
+                                iconColor = "text-violet-700";
+                              }
+
+                              return (
+                                <button
+                                  key={n.id}
+                                  className={cn(
+                                    "w-full text-left flex items-start gap-3 px-4 sm:px-5 py-3.5 transition-colors",
+                                    isRead ? "bg-white hover:bg-slate-50" : "bg-indigo-50/40 hover:bg-indigo-50/60"
+                                  )}
+                                  onClick={() => {
+                                    void markRead(String(n.id));
+                                    setNotifOpen(false);
+                                    navigate(resolveNotificationLink(n));
+                                  }}
+                                >
+                                  <div className={cn("mt-0.5 shrink-0 w-9 h-9 rounded-full flex items-center justify-center", iconBg)}>
+                                    <Icon className={cn("w-4 h-4", iconColor)} />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <p className={cn("text-sm font-semibold truncate", isRead ? "text-slate-500" : "text-slate-900")}>
+                                        {n.title || "Notification"}
+                                      </p>
+                                      <span className="text-[11px] text-slate-400 shrink-0 mt-0.5 font-medium">
+                                        {timeAgo(n.timestamp || n.createdAt)}
+                                      </span>
+                                    </div>
+                                    <p className={cn("text-xs line-clamp-2 mt-0.5 leading-relaxed", isRead ? "text-slate-400" : "text-slate-600")}>
+                                      {n.content || n.message}
+                                    </p>
+                                  </div>
+                                  {!isRead && (
+                                    <div className="mt-2.5 w-2 h-2 rounded-full bg-red-500 shrink-0 shadow-sm shadow-red-500/30" />
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Footer */}
+                      {(notificationsQuery.data || []).length > 0 && (
+                        <div className="border-t px-4 sm:px-5 py-3 bg-slate-50">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full text-xs gap-1.5 text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
+                            onClick={() => { setNotifOpen(false); navigate("/manager/notifications"); }}
+                          >
+                            View all notifications
+                            <ArrowRight className="w-3.5 h-3.5" />
+                          </Button>
                         </div>
                       )}
-                      {(notificationsQuery.data || []).length > 0 && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-xs text-center justify-center"
-                            onClick={() => navigate("/manager/notifications")}
-                          >
-                            View All Notifications
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    </DialogContent>
+                  </Dialog>
 
                   <button 
                     onClick={() => { resetReport(); setReportOpen(true); }}

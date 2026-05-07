@@ -260,12 +260,12 @@ export default function Scheduling() {
           </p>
         </div>
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
-          <DialogTrigger asChild>
+          {/* <DialogTrigger asChild>
             <Button className="gap-2">
               <Plus className="w-4 h-4" />
               Add Schedule
             </Button>
-          </DialogTrigger>
+          </DialogTrigger> */}
           <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
             <DialogHeader className="space-y-1.5 sm:space-y-2">
               <DialogTitle className="text-lg sm:text-xl">Add Schedule</DialogTitle>
