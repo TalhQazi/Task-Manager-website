@@ -371,41 +371,41 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <div className="ml-12 pl-6 p-6 text-center">
+      <div className="px-4 sm:px-6 p-6 text-center">
         <p>Loading profile...</p>
       </div>
     );
   }
 
   return (
-    <div className="ml-12 pl-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Profile</h1>
+    <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 space-y-4 sm:space-y-6">
+      <div>
+        <h1 className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-gray-900">Profile</h1>
       </div>
 
-      <Tabs defaultValue="personal" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="personal">Personal Information</TabsTrigger>
-          <TabsTrigger value="onboarding">Onboarding</TabsTrigger>
+      <Tabs defaultValue="personal" className="space-y-4 sm:space-y-6 w-full">
+        <TabsList className="flex flex-wrap h-auto gap-2 bg-gray-100 p-1 rounded-lg">
+          <TabsTrigger value="personal" className="text-xs sm:text-sm md:text-base">Personal Information</TabsTrigger>
+          <TabsTrigger value="onboarding" className="text-xs sm:text-sm md:text-base">Onboarding</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="personal" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
+        <TabsContent value="personal" className="space-y-4 sm:space-y-6 w-full">
+          <Card className="border-0 sm:border shadow-none sm:shadow">
+            <CardHeader className="px-3 sm:px-6 py-4 sm:py-6">
+              <CardTitle className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-lg sm:text-xl">
                 <span>Profile Information</span>
                 {!isEditing ? (
-                  <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                  <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="w-full sm:w-auto text-xs sm:text-sm">
                     <Edit2 className="h-4 w-4 mr-2" />
                     Edit
                   </Button>
                 ) : (
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={handleCancelEdit}>
+                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <Button variant="outline" size="sm" onClick={handleCancelEdit} className="w-full sm:w-auto text-xs sm:text-sm">
                       <X className="h-4 w-4 mr-2" />
                       Cancel
                     </Button>
-                    <Button size="sm" onClick={handleSaveProfile} disabled={saving}>
+                    <Button size="sm" onClick={handleSaveProfile} disabled={saving} className="w-full sm:w-auto text-xs sm:text-sm">
                       <Save className="h-4 w-4 mr-2" />
                       Save
                     </Button>
@@ -413,16 +413,16 @@ export default function Profile() {
                 )}
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="flex items-center gap-6">
-                <div className="relative">
-                  <Avatar className="h-24 w-24">
+            <CardContent className="px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3 sm:gap-6">
+                <div className="relative flex-shrink-0">
+                  <Avatar className="h-16 w-16 sm:h-20 sm:w-20 md:h-24 md:w-24">
                     <AvatarImage src={profile?.avatarUrl} alt={profile?.name} />
                     <AvatarFallback>{profile?.name?.charAt(0)}</AvatarFallback>
                   </Avatar>
                   <label
                     htmlFor="avatar-upload"
-                    className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-1 cursor-pointer hover:bg-primary/90"
+                    className="absolute bottom-0 right-0 bg-primary text-primary-foreground rounded-full p-1 cursor-pointer hover:bg-primary/90 transition-colors"
                   >
                     <Camera className="h-4 w-4" />
                   </label>
@@ -436,40 +436,43 @@ export default function Profile() {
                     disabled={uploadingImage}
                   />
                 </div>
-                <div>
-                  <h3 className="text-lg font-semibold">{profile?.name}</h3>
-                  <p className="text-sm text-muted-foreground">{profile?.email}</p>
-                  <Badge variant="outline" className="mt-2">{profile?.role}</Badge>
+                <div className="text-center sm:text-left flex-1">
+                  <h3 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900">{profile?.name}</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-1">{profile?.email}</p>
+                  <Badge variant="outline" className="mt-2 text-xs sm:text-sm">{profile?.role}</Badge>
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
-                  <Label>Name</Label>
+                  <Label className="text-xs sm:text-sm">Name</Label>
                   <Input
                     value={isEditing ? editedProfile?.name : profile?.name}
                     onChange={(e) => setEditedProfile({ ...editedProfile!, name: e.target.value })}
                     disabled={!isEditing}
+                    className="text-xs sm:text-sm"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Email</Label>
-                  <Input value={profile?.email} disabled />
+                  <Label className="text-xs sm:text-sm">Email</Label>
+                  <Input value={profile?.email} disabled className="text-xs sm:text-sm" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Phone</Label>
+                  <Label className="text-xs sm:text-sm">Phone</Label>
                   <Input
                     value={isEditing ? editedProfile?.phone : profile?.phone}
                     onChange={(e) => setEditedProfile({ ...editedProfile!, phone: e.target.value })}
                     disabled={!isEditing}
+                    className="text-xs sm:text-sm"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Location</Label>
+                  <Label className="text-xs sm:text-sm">Location</Label>
                   <Input
                     value={isEditing ? editedProfile?.location : profile?.location}
                     onChange={(e) => setEditedProfile({ ...editedProfile!, location: e.target.value })}
                     disabled={!isEditing}
+                    className="text-xs sm:text-sm"
                   />
                 </div>
               </div>
@@ -477,22 +480,22 @@ export default function Profile() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="onboarding" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Onboarding Status</CardTitle>
-              <CardDescription>Complete your onboarding to get started</CardDescription>
+        <TabsContent value="onboarding" className="space-y-4 sm:space-y-6 w-full">
+          <Card className="border-0 sm:border shadow-none sm:shadow">
+            <CardHeader className="px-3 sm:px-6 py-4 sm:py-6">
+              <CardTitle className="text-lg sm:text-xl">Onboarding Status</CardTitle>
+              <CardDescription className="text-xs sm:text-sm mt-1">Complete your onboarding to get started</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="px-3 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
               {onboardingData && (
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:p-4 bg-gray-50 rounded-lg">
                   <div className="flex items-center gap-2">
                     {onboardingData.overallStatus === "approved" ? (
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
                     ) : (
-                      <Clock className="h-5 w-5 text-orange-600" />
+                      <Clock className="h-5 w-5 text-orange-600 flex-shrink-0" />
                     )}
-                    <span className="font-medium">
+                    <span className="font-medium text-sm sm:text-base">
                       Status:{" "}
                       <Badge
                         variant={
@@ -502,12 +505,13 @@ export default function Profile() {
                             ? "secondary"
                             : "outline"
                         }
+                        className="text-xs sm:text-sm"
                       >
                         {onboardingData.overallStatus}
                       </Badge>
                     </span>
                   </div>
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-xs sm:text-sm text-muted-foreground">
                     Progress: {getOnboardingProgress()}%
                   </div>
                 </div>
@@ -515,75 +519,83 @@ export default function Profile() {
 
               {onboardingData?.overallStatus !== "approved" && (
                 <>
-                  <div className="space-y-4">
-                    <h3 className="font-semibold">Personal Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>First Name *</Label>
+                  <div className="space-y-3 sm:space-y-4">
+                    <h3 className="font-semibold text-sm sm:text-base md:text-lg">Personal Information</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 sm:gap-4">
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label className="text-xs sm:text-sm">First Name *</Label>
                         <Input
                           value={onboardingForm.firstName}
                           onChange={(e) => setOnboardingForm({ ...onboardingForm, firstName: e.target.value })}
+                          className="text-xs sm:text-sm h-8 sm:h-10"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label>Last Name *</Label>
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label className="text-xs sm:text-sm">Last Name *</Label>
                         <Input
                           value={onboardingForm.lastName}
                           onChange={(e) => setOnboardingForm({ ...onboardingForm, lastName: e.target.value })}
+                          className="text-xs sm:text-sm h-8 sm:h-10"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label>Phone *</Label>
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label className="text-xs sm:text-sm">Phone *</Label>
                         <Input
                           value={onboardingForm.phone}
                           onChange={(e) => setOnboardingForm({ ...onboardingForm, phone: e.target.value })}
+                          className="text-xs sm:text-sm h-8 sm:h-10"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label>Address *</Label>
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label className="text-xs sm:text-sm">Address *</Label>
                         <Input
                           value={onboardingForm.address}
                           onChange={(e) => setOnboardingForm({ ...onboardingForm, address: e.target.value })}
+                          className="text-xs sm:text-sm h-8 sm:h-10"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label>City *</Label>
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label className="text-xs sm:text-sm">City *</Label>
                         <Input
                           value={onboardingForm.city}
                           onChange={(e) => setOnboardingForm({ ...onboardingForm, city: e.target.value })}
+                          className="text-xs sm:text-sm h-8 sm:h-10"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label>State *</Label>
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label className="text-xs sm:text-sm">State *</Label>
                         <Input
                           value={onboardingForm.state}
                           onChange={(e) => setOnboardingForm({ ...onboardingForm, state: e.target.value })}
+                          className="text-xs sm:text-sm h-8 sm:h-10"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label>ZIP *</Label>
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label className="text-xs sm:text-sm">ZIP *</Label>
                         <Input
                           value={onboardingForm.zip}
                           onChange={(e) => setOnboardingForm({ ...onboardingForm, zip: e.target.value })}
+                          className="text-xs sm:text-sm h-8 sm:h-10"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label>Country *</Label>
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label className="text-xs sm:text-sm">Country *</Label>
                         <Input
                           value={onboardingForm.country}
                           onChange={(e) => setOnboardingForm({ ...onboardingForm, country: e.target.value })}
+                          className="text-xs sm:text-sm h-8 sm:h-10"
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <h3 className="font-semibold">Identity Verification</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>ID Type *</Label>
+                  <div className="space-y-3 sm:space-y-4">
+                    <h3 className="font-semibold text-sm sm:text-base md:text-lg">Identity Verification</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 sm:gap-4">
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label className="text-xs sm:text-sm">ID Type *</Label>
                         <select
-                          className="w-full px-3 py-2 border rounded-md"
+                          className="w-full px-3 py-2 text-xs sm:text-sm border rounded-md bg-white h-8 sm:h-10"
                           value={onboardingForm.idType}
                           onChange={(e) => setOnboardingForm({ ...onboardingForm, idType: e.target.value })}
                         >
@@ -593,45 +605,48 @@ export default function Profile() {
                           <option value="national_id">National ID</option>
                         </select>
                       </div>
-                      <div className="space-y-2">
-                        <Label>ID Number *</Label>
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label className="text-xs sm:text-sm">ID Number *</Label>
                         <Input
                           value={onboardingForm.idNumber}
                           onChange={(e) => setOnboardingForm({ ...onboardingForm, idNumber: e.target.value })}
+                          className="text-xs sm:text-sm h-8 sm:h-10"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label>ID Front *</Label>
-                        <div className="flex gap-2">
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label className="text-xs sm:text-sm">ID Front *</Label>
+                        <div className="flex flex-col gap-2">
                           <Input
                             type="file"
                             ref={primaryIdFrontRef}
                             onChange={(e) => handleFileUpload(e.target.files?.[0] || null, setUploadingPrimaryIdFront, "idFrontUrl")}
                             disabled={uploadingPrimaryIdFront}
+                            className="text-xs sm:text-sm h-8 sm:h-10"
                           />
                           {onboardingData?.identityVerification?.idFrontUrl && (
-                            <Button variant="outline" size="sm">View</Button>
+                            <Button variant="outline" size="sm" className="w-full sm:w-auto text-xs sm:text-sm">View</Button>
                           )}
                         </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label>ID Back</Label>
-                        <div className="flex gap-2">
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label className="text-xs sm:text-sm">ID Back</Label>
+                        <div className="flex flex-col gap-2">
                           <Input
                             type="file"
                             ref={primaryIdBackRef}
                             onChange={(e) => handleFileUpload(e.target.files?.[0] || null, setUploadingPrimaryIdBack, "idBackUrl")}
                             disabled={uploadingPrimaryIdBack}
+                            className="text-xs sm:text-sm h-8 sm:h-10"
                           />
                           {onboardingData?.identityVerification?.idBackUrl && (
-                            <Button variant="outline" size="sm">View</Button>
+                            <Button variant="outline" size="sm" className="w-full sm:w-auto text-xs sm:text-sm">View</Button>
                           )}
                         </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label>Secondary ID Type *</Label>
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label className="text-xs sm:text-sm">Secondary ID Type *</Label>
                         <select
-                          className="w-full px-3 py-2 border rounded-md"
+                          className="w-full px-3 py-2 text-xs sm:text-sm border rounded-md bg-white h-8 sm:h-10"
                           value={secondaryIdType}
                           onChange={(e) => setSecondaryIdType(e.target.value)}
                         >
@@ -640,38 +655,40 @@ export default function Profile() {
                           <option value="other">Other</option>
                         </select>
                       </div>
-                      <div className="space-y-2">
-                        <Label>Secondary ID *</Label>
-                        <div className="flex gap-2">
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label className="text-xs sm:text-sm">Secondary ID *</Label>
+                        <div className="flex flex-col gap-2">
                           <Input
                             type="file"
                             ref={secondaryIdRef}
                             onChange={(e) => handleFileUpload(e.target.files?.[0] || null, setUploadingSecondaryId, "secondaryIdUrl")}
                             disabled={uploadingSecondaryId}
+                            className="text-xs sm:text-sm h-8 sm:h-10"
                           />
                           {onboardingData?.identityVerification?.secondaryIdUrl && (
-                            <Button variant="outline" size="sm">View</Button>
+                            <Button variant="outline" size="sm" className="w-full sm:w-auto text-xs sm:text-sm">View</Button>
                           )}
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <h3 className="font-semibold">Tax Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>SSN *</Label>
+                  <div className="space-y-3 sm:space-y-4">
+                    <h3 className="font-semibold text-sm sm:text-base md:text-lg">Tax Information</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 sm:gap-4">
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label className="text-xs sm:text-sm">SSN *</Label>
                         <Input
                           type="password"
                           value={onboardingForm.ssn}
                           onChange={(e) => setOnboardingForm({ ...onboardingForm, ssn: e.target.value })}
+                          className="text-xs sm:text-sm h-8 sm:h-10"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label>Tax Filing Status *</Label>
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label className="text-xs sm:text-sm">Tax Filing Status *</Label>
                         <select
-                          className="w-full px-3 py-2 border rounded-md"
+                          className="w-full px-3 py-2 text-xs sm:text-sm border rounded-md bg-white h-8 sm:h-10"
                           value={onboardingForm.taxFilingStatus}
                           onChange={(e) => setOnboardingForm({ ...onboardingForm, taxFilingStatus: e.target.value })}
                         >
@@ -685,62 +702,67 @@ export default function Profile() {
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <h3 className="font-semibold">Bank Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Bank Name *</Label>
+                  <div className="space-y-3 sm:space-y-4">
+                    <h3 className="font-semibold text-sm sm:text-base md:text-lg">Bank Information</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 sm:gap-4">
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label className="text-xs sm:text-sm">Bank Name *</Label>
                         <Input
                           value={onboardingForm.bankName}
                           onChange={(e) => setOnboardingForm({ ...onboardingForm, bankName: e.target.value })}
+                          className="text-xs sm:text-sm h-8 sm:h-10"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label>Account Number *</Label>
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label className="text-xs sm:text-sm">Account Number *</Label>
                         <Input
                           type="password"
                           value={onboardingForm.accountNumber}
                           onChange={(e) => setOnboardingForm({ ...onboardingForm, accountNumber: e.target.value })}
+                          className="text-xs sm:text-sm h-8 sm:h-10"
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label>Routing Number *</Label>
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label className="text-xs sm:text-sm">Routing Number *</Label>
                         <Input
                           value={onboardingForm.routingNumber}
                           onChange={(e) => setOnboardingForm({ ...onboardingForm, routingNumber: e.target.value })}
+                          className="text-xs sm:text-sm h-8 sm:h-10"
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div className="space-y-4">
-                    <h3 className="font-semibold">Documents</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>W-4 Form *</Label>
-                        <div className="flex gap-2">
+                  <div className="space-y-3 sm:space-y-4">
+                    <h3 className="font-semibold text-sm sm:text-base md:text-lg">Documents</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-3 sm:gap-4">
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label className="text-xs sm:text-sm">W-4 Form *</Label>
+                        <div className="flex flex-col gap-2">
                           <Input
                             type="file"
                             ref={w4FormRef}
                             onChange={(e) => handleFileUpload(e.target.files?.[0] || null, setUploadingW4Form, "w4FormUrl")}
                             disabled={uploadingW4Form}
+                            className="text-xs sm:text-sm h-8 sm:h-10"
                           />
                           {onboardingData?.documents?.w4FormUrl && (
-                            <Button variant="outline" size="sm">View</Button>
+                            <Button variant="outline" size="sm" className="w-full sm:w-auto text-xs sm:text-sm">View</Button>
                           )}
                         </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label>Handbook Signature *</Label>
-                        <div className="flex gap-2">
+                      <div className="space-y-1.5 sm:space-y-2">
+                        <Label className="text-xs sm:text-sm">Handbook Signature *</Label>
+                        <div className="flex flex-col gap-2">
                           <Input
                             type="file"
                             ref={handbookSignatureRef}
                             onChange={(e) => handleFileUpload(e.target.files?.[0] || null, setUploadingHandbookSignature, "handbookSignatureUrl")}
                             disabled={uploadingHandbookSignature}
+                            className="text-xs sm:text-sm h-8 sm:h-10"
                           />
                           {onboardingData?.documents?.handbookSignatureUrl && (
-                            <Button variant="outline" size="sm">View</Button>
+                            <Button variant="outline" size="sm" className="w-full sm:w-auto text-xs sm:text-sm">View</Button>
                           )}
                         </div>
                       </div>
@@ -750,7 +772,7 @@ export default function Profile() {
                   <Button
                     onClick={handleSubmitOnboarding}
                     disabled={submittingOnboarding || onboardingData?.overallStatus === "submitted"}
-                    className="w-full"
+                    className="w-full text-xs sm:text-sm h-8 sm:h-10"
                   >
                     {submittingOnboarding ? "Submitting..." : "Submit Onboarding"}
                   </Button>
@@ -758,9 +780,9 @@ export default function Profile() {
               )}
 
               {onboardingData?.overallStatus === "approved" && (
-                <div className="flex items-center gap-2 p-4 bg-green-50 border border-green-200 rounded-md">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  <p className="text-sm text-green-700">Your onboarding has been approved. You can now clock in.</p>
+                <div className="flex items-start sm:items-center gap-2 p-3 sm:p-4 bg-green-50 border border-green-200 rounded-md">
+                  <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0 mt-0.5 sm:mt-0" />
+                  <p className="text-xs sm:text-sm text-green-700">Your onboarding has been approved. You can now clock in.</p>
                 </div>
               )}
             </CardContent>

@@ -359,7 +359,7 @@ function TaskAttachmentImg({ taskId, attachmentUrl, onPreview }: { taskId: strin
   if (src) return (
     <div className="w-full h-full relative group/task-att cursor-zoom-in" onClick={() => onPreview?.(src, "Task Attachment")}>
       <img src={src} alt="Task preview" className="w-full h-full object-cover" />
-      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/task-att:opacity-100 flex items-center justify-center transition-all duration-200">
+      <div className="absolute inset-0 bg-black/40 opacity-100 sm:opacity-0 sm:group-hover/task-att:opacity-100 flex items-center justify-center transition-all duration-200">
         <Maximize2 className="w-5 h-5 text-white" />
       </div>
     </div>
@@ -386,7 +386,7 @@ function CommentAttachmentImg({ taskId, projectId, commentId, index, mimeType, f
   if (src && mimeType?.startsWith("image/")) return (
     <div className="w-full h-auto flex justify-center relative group/att cursor-zoom-in" onClick={() => onPreview?.(src, fileName)}>
       <img src={src} alt={fileName} className="w-full h-auto max-h-[180px] object-contain rounded-lg" />
-      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-all duration-200 rounded-lg">
+      <div className="absolute inset-0 bg-black/40 opacity-100 sm:opacity-0 sm:group-hover/att:opacity-100 flex items-center justify-center transition-all duration-200 rounded-lg">
         <Maximize2 className="w-5 h-5 text-white" />
       </div>
     </div>
@@ -397,7 +397,7 @@ function CommentAttachmentImg({ taskId, projectId, commentId, index, mimeType, f
         <FileText className="w-6 h-6 text-white/60 mb-1" />
         <span className="text-[10px] text-white/40 truncate w-full px-2 font-medium">{fileName}</span>
       </div>
-      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center gap-3 transition-opacity backdrop-blur-[1px] cursor-default">
+      <div className="absolute inset-0 bg-black/40 opacity-100 sm:opacity-0 sm:group-hover/att:opacity-100 flex items-center justify-center gap-3 transition-opacity backdrop-blur-[1px] cursor-default">
         <button 
           onClick={(e) => { e.stopPropagation(); onPreview?.(src, fileName); }}
           className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
@@ -1113,6 +1113,7 @@ export default function Tasks() {
         body: JSON.stringify({ assignees: reassignAssignees }),
       });
       toast({
+        
         title: "Success",
         description: "Task reassigned successfully",
       });
@@ -1989,9 +1990,9 @@ export default function Tasks() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 sm:mx-0 sm:px-0 sm:pb-0">
+        <div className="flex flex-wrap gap-2 sm:gap-3 sm:flex-nowrap sm:overflow-x-auto sm:pb-0">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px] sm:w-[140px]">
+            <SelectTrigger className="w-[130px] sm:w-[140px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -2002,7 +2003,7 @@ export default function Tasks() {
             </SelectContent>
           </Select>
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-[140px] sm:w-[140px]">
+            <SelectTrigger className="w-[130px] sm:w-[140px]">
               <SelectValue placeholder="Priority" />
             </SelectTrigger>
             <SelectContent>
@@ -2023,7 +2024,7 @@ export default function Tasks() {
             title="View tasks by execution priority"
           >
             <Flame className="w-4 h-4" />
-            View by Priority
+            <span className="hidden sm:inline">View by Priority</span>
           </Button>
         </div>
       </div>
@@ -2035,7 +2036,7 @@ export default function Tasks() {
           <h3 className="font-semibold text-amber-900 dark:text-amber-100">Top Contributors</h3>
         </div>
         {topContributorsLoading ? (
-          <div className="flex gap-3 overflow-x-auto pb-2">
+          <div className="flex flex-wrap sm:flex-nowrap gap-3 sm:overflow-x-auto pb-2">
             {[1, 2, 3].map((i) => (
               <div key={i} className="flex-shrink-0 w-48 h-20 bg-muted rounded-lg animate-pulse" />
             ))}
@@ -2043,11 +2044,11 @@ export default function Tasks() {
         ) : topContributors.length === 0 ? (
           <p className="text-sm text-muted-foreground italic">No contributors yet.</p>
         ) : (
-          <div className="flex gap-3 overflow-x-auto pb-2">
+          <div className="flex flex-wrap sm:flex-nowrap gap-3 sm:overflow-x-auto pb-2">
             {topContributors.map((contributor, index) => (
               <div
                 key={contributor.userId}
-                className="flex-shrink-0 bg-white dark:bg-background rounded-lg border border-amber-200/60 dark:border-amber-800/30 p-3 min-w-[200px] shadow-sm"
+                className="flex-shrink-0 bg-white dark:bg-background rounded-lg border border-amber-200/60 dark:border-amber-800/30 p-3 min-w-[180px] sm:min-w-[200px] shadow-sm"
               >
                 <div className="flex items-center gap-3">
                   <div className="relative">
@@ -2150,13 +2151,13 @@ export default function Tasks() {
               </Select>
             </div>
           </div>
-          <div className="flex flex-wrap items-center justify-between text-[10px] text-muted-foreground/60 mt-4 pt-3 border-t font-bold uppercase tracking-wider">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center justify-between text-[10px] text-muted-foreground/60 mt-4 pt-3 border-t font-bold uppercase tracking-wider gap-y-2">
+            <div className="flex flex-wrap items-center gap-4">
               <span className="flex items-center gap-1"><PlusCircle className="w-3 h-3" /> {selectedProject.tasks.length} Total Tasks</span>
               {(() => {
                 const { images, files } = getAttachmentCounts(selectedProject.attachments);
                 return (images > 0 || files > 0) && (
-                  <div className="flex items-center gap-3 border-l pl-4 border-border/40">
+                  <div className="flex flex-wrap items-center gap-3 border-l pl-4 border-border/40">
                     {images > 0 && (
                       <span className="flex items-center gap-1 text-primary">
                         <Paperclip className="w-3 h-3" /> {images} Image{images !== 1 ? "s" : ""}
@@ -2200,7 +2201,7 @@ export default function Tasks() {
                       className="group relative p-3 sm:p-4 rounded-xl border border-border/60 hover:border-primary/50 transition-all bg-card shadow-sm hover:shadow-md flex flex-col gap-3"
                     >
                       {/* Three dots menu for project edit */}
-                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      <div className="absolute top-2 right-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <button
@@ -2342,9 +2343,10 @@ export default function Tasks() {
               openReassignDialog(task);
             }}
             className="shrink-0"
+            title="Reassign"
           >
-            <Users className="w-4 h-4 mr-1" />
-            Reassign
+            <Users className="w-4 h-4 sm:mr-1" />
+            <span className="hidden sm:inline">Reassign</span>
           </Button>
         )}
       </div>
@@ -2557,7 +2559,7 @@ export default function Tasks() {
                               setProjectAttachmentFiles((prev) => prev.filter((_, i) => i !== idx));
                               setProjectAttachmentPreviews((prev) => prev.filter((_, i) => i !== idx));
                             }}
-                            className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                            className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-xs"
                           >
                             ✕
                           </button>
@@ -2868,7 +2870,7 @@ export default function Tasks() {
                               setAttachmentFiles((prev) => prev.filter((_, i) => i !== idx));
                               setAttachmentFilePreviews((prev) => prev.filter((_, i) => i !== idx));
                             }}
-                            className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                            className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-xs"
                           >
                             ✕
                           </button>
@@ -2941,7 +2943,7 @@ export default function Tasks() {
                                   )}
                                   <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
 
-                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[1px]">
+                                  <div className="absolute inset-0 bg-black/40 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[1px]">
                                     <button
                                       type="button"
                                       onClick={(e) => { e.stopPropagation(); setPreviewUrl(toProxiedUrl(attachment.url) || attachment.url); setPreviewName(attachment.fileName || "Attachment"); }}
@@ -2969,7 +2971,7 @@ export default function Tasks() {
                                     <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
                                   )}
                                   <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{selectedTask.attachment.fileName}</div>
-                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[1px]">
+                                  <div className="absolute inset-0 bg-black/40 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[1px]">
                                     <button
                                       type="button"
                                       onClick={(e) => { e.stopPropagation(); setPreviewUrl(toProxiedUrl(selectedTask.attachment!.url) || selectedTask.attachment!.url); setPreviewName(selectedTask.attachment!.fileName || "Attachment"); }}
@@ -3166,7 +3168,7 @@ export default function Tasks() {
 
                                         {/* Three dots menu for Edit/Delete */}
                                         {isMe && editingCommentId !== c.id && (
-                                          <div className="opacity-0 group-hover:opacity-100 transition-all duration-200">
+                                          <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200">
                                             <DropdownMenu>
                                               <DropdownMenuTrigger asChild>
                                                 <button
@@ -3252,7 +3254,7 @@ export default function Tasks() {
                               {commentAttachments.map((f, i) => (
                                 <div key={i} className="relative rounded-md border border-border/50 bg-background flex flex-col items-center justify-center p-2 text-center h-16 group/rem">
                                   <span className="text-[10px] w-full mt-1 truncate font-medium text-muted-foreground">{f.name}</span>
-                                  <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover/rem:opacity-100 transition-opacity text-[9px] shadow-sm ring-2 ring-background">✕</button>
+                                  <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover/rem:opacity-100 transition-opacity text-[9px] shadow-sm ring-2 ring-background">✕</button>
                                 </div>
                               ))}
                             </div>
@@ -3289,7 +3291,7 @@ export default function Tasks() {
 
 
                   {/* Right Pane: Properties Sidebar */}
-                  <div className="w-full md:w-[320px] lg:w-[360px] bg-muted/10 shrink-0 border-t md:border-t-0 md:border-l border-border/50 overflow-y-auto hidden md:block">
+                  <div className="w-full md:w-[320px] lg:w-[360px] bg-muted/10 shrink-0 border-t md:border-t-0 md:border-l border-border/50 overflow-y-auto">
                     <div className="p-6 space-y-7">
                       <h3 className="text-sm font-bold text-foreground flex items-center gap-2 pb-2 border-b">Properties</h3>
 
@@ -3662,7 +3664,7 @@ export default function Tasks() {
                                   }
                                   setEditTaskFilePreviews((prev) => prev.filter((_, i) => i !== idx)); 
                                 }} 
-                                className="absolute top-1.5 right-1.5 bg-destructive text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-lg"
+                                className="absolute top-1.5 right-1.5 bg-destructive text-white rounded-full w-6 h-6 flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all hover:scale-110 shadow-lg"
                               >
                                 <X className="w-3.5 h-3.5" />
                               </button>
@@ -3770,7 +3772,7 @@ export default function Tasks() {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button
-                            className="p-1 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100"
+                            className="p-1 rounded-lg hover:bg-muted transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                             aria-label="Task actions"
                             onClick={(e) => e.stopPropagation()}
                           >
@@ -3967,7 +3969,7 @@ export default function Tasks() {
                                 <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
                               )}
                               <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
-                              <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]"><span className="text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/50 bg-black/40">Open File</span></a>
+                              <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/50 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]"><span className="text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/50 bg-black/40">Open File</span></a>
                             </div>
                           ))}
                         </div>
@@ -4099,7 +4101,7 @@ export default function Tasks() {
                             {commentAttachments.map((f, i) => (
                               <div key={i} className="relative rounded-md border border-border/50 bg-background flex flex-col items-center justify-center p-2 text-center h-16 group shadow-xs">
                                 <span className="text-[10px] w-full mt-1 truncate font-medium text-muted-foreground">{f.name}</span>
-                                <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-[9px] shadow-sm">✕</button>
+                                <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[9px] shadow-sm">✕</button>
                               </div>
                             ))}
                           </div>
@@ -4127,7 +4129,7 @@ export default function Tasks() {
                   </div>
                 </div>
 
-                <div className="w-full md:w-[320px] lg:w-[360px] bg-muted/10 shrink-0 border-t md:border-t-0 md:border-l border-border/50 overflow-y-auto hidden md:block">
+                <div className="w-full md:w-[320px] lg:w-[360px] bg-muted/10 shrink-0 border-t md:border-t-0 md:border-l border-border/50 overflow-y-auto">
                   <div className="p-6 space-y-7">
                     <h3 className="text-sm font-bold text-foreground flex items-center gap-2 pb-2 border-b">Project Summary</h3>
                     
@@ -4330,7 +4332,7 @@ export default function Tasks() {
       <Dialog open={!!previewUrl} onOpenChange={(open) => !open && setPreviewUrl(null)}>
         <DialogContent className="max-w-[95vw] w-fit p-0 border-none bg-transparent shadow-none">
           <div className="relative group/preview-modal">
-            <div className="absolute top-4 right-4 z-50 flex items-center gap-3 opacity-0 group-hover/preview-modal:opacity-100 transition-opacity">
+            <div className="absolute top-4 right-4 z-50 flex items-center gap-3 opacity-100 sm:opacity-0 sm:group-hover/preview-modal:opacity-100 transition-opacity">
               <button 
                 onClick={(e) => { e.stopPropagation(); if (previewUrl) void downloadViaUrl(previewUrl, previewName); }}
                 className="p-2 bg-black/50 hover:bg-black/70 backdrop-blur-md rounded-full text-white shadow-lg transition-all"
@@ -4355,7 +4357,7 @@ export default function Tasks() {
                     className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl" 
                   />
                 ) : (
-                  <div className="flex flex-col items-center justify-center p-12 bg-white/5 rounded-2xl border border-white/10 min-w-[300px]">
+                  <div className="flex flex-col items-center justify-center p-8 sm:p-12 bg-white/5 rounded-2xl border border-white/10 min-w-[260px] sm:min-w-[300px] max-w-full">
                     <FileText className="w-20 h-20 text-white/40 mb-4" />
                     <p className="text-white font-semibold mb-2">{previewName}</p>
                     <p className="text-white/40 text-xs mb-6">Preview not available for this file type</p>
@@ -4406,41 +4408,42 @@ export default function Tasks() {
 
       {/* Team Lead Reassign Dialog */}
       <Dialog open={isReassignDialogOpen} onOpenChange={setIsReassignDialogOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Reassign Task</DialogTitle>
-            <DialogDescription>
-              Reassign "{reassignTask?.title}" to team members
+        <DialogContent className="w-[95vw] sm:max-w-[550px] max-h-[90vh] overflow-y-auto overflow-x-hidden p-8 rounded-xl border-border shadow-2xl">
+          <DialogHeader className="space-y-3">
+            <DialogTitle className="text-xl font-bold tracking-tight">Reassign Task</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
+              Reassign "{reassignTask?.title}" to your team members
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Assignees</label>
+          <div className="space-y-6 py-6">
+            <div className="space-y-3">
+              <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70">Assignees</label>
               <Popover open={reassignAssigneesOpen} onOpenChange={setReassignAssigneesOpen}>
                 <PopoverTrigger asChild>
                   <Button
                     type="button"
                     variant="outline"
-                    className="w-full justify-between h-10"
+                    className="w-full justify-between h-11 border-border/60 hover:border-primary/50 hover:bg-primary/5 transition-all rounded-lg px-4"
                   >
-                    <span className="truncate">
+                    <span className="truncate font-medium text-sm">
                       {reassignAssignees.length > 0
                         ? reassignAssignees.join(", ")
                         : "Select assignees"}
                     </span>
-                    <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                    <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                  <Command>
-                    <CommandInput placeholder="Search team members..." />
-                    <CommandList>
-                      <CommandEmpty>No team members found.</CommandEmpty>
-                      <CommandGroup>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 shadow-2xl border-border/40 overflow-hidden" align="start" sideOffset={4}>
+                  <Command className="rounded-lg">
+                    <CommandInput placeholder="Search team members..." className="h-11" />
+                    <CommandList className="max-h-[300px]">
+                      <CommandEmpty className="py-6 text-sm text-muted-foreground">No team members found.</CommandEmpty>
+                      <CommandGroup className="p-1.5">
                         {teamLeadMappings.map((mapping) => (
                           <CommandItem
                             key={mapping.user}
                             value={mapping.user}
+                            className="rounded-md h-10 px-3 cursor-pointer"
                             onSelect={() => {
                               setReassignAssignees((prev) =>
                                 prev.includes(mapping.user)
@@ -4449,15 +4452,17 @@ export default function Tasks() {
                               );
                             }}
                           >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                reassignAssignees.includes(mapping.user)
-                                  ? "opacity-100"
-                                  : "opacity-0"
-                              )}
-                            />
-                            {mapping.user}
+                            <div className="flex items-center w-full">
+                              <div className={cn(
+                                "mr-3 flex h-4 w-4 items-center justify-center rounded-sm border border-primary transition-all",
+                                reassignAssignees.includes(mapping.user) 
+                                  ? "bg-primary text-primary-foreground" 
+                                  : "opacity-50"
+                              )}>
+                                {reassignAssignees.includes(mapping.user) && <Check className="h-3 w-3" />}
+                              </div>
+                              <span className="font-medium text-sm">{mapping.user}</span>
+                            </div>
                           </CommandItem>
                         ))}
                       </CommandGroup>
@@ -4467,15 +4472,19 @@ export default function Tasks() {
               </Popover>
             </div>
             {teamLeadMappings.length === 0 && (
-              <p className="text-sm text-muted-foreground">
-                No team members mapped to you. Contact admin to set up team lead mappings.
-              </p>
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                <p className="text-sm text-destructive font-medium leading-snug">
+                  No team members mapped to you. Contact admin to set up team lead mappings.
+                </p>
+              </div>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
+              className="font-bold uppercase tracking-widest text-[11px] h-10 hover:bg-muted"
               onClick={() => {
                 setIsReassignDialogOpen(false);
                 setReassignTask(null);
@@ -4486,16 +4495,17 @@ export default function Tasks() {
             </Button>
             <Button
               type="button"
+              className="bg-primary hover:bg-primary/90 font-bold uppercase tracking-widest text-[11px] h-10 px-8 shadow-lg shadow-primary/20 transition-all active:scale-95"
               onClick={handleReassign}
               disabled={isReassigning || reassignAssignees.length === 0}
             >
               {isReassigning ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
                   Reassigning...
                 </>
               ) : (
-                "Reassign"
+                "Reassign Task"
               )}
             </Button>
           </DialogFooter>
