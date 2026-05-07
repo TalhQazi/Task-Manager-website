@@ -190,6 +190,11 @@ export async function listResource<T>(resource: CrudResource, params?: Record<st
   return (res.items ?? []) as any;
 }
 
+export async function getResource<T>(resource: CrudResource, id: string) {
+  const res = await apiFetch<{ item: T }>(`${resourcePath(resource)}/${encodeURIComponent(id)}`);
+  return res?.item || res;
+}
+
 export async function createResource<T>(resource: CrudResource, payload: unknown) {
   return apiFetch<T>(resourcePath(resource), {
     method: "POST",

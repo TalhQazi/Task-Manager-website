@@ -54,7 +54,7 @@ import {
   Clock,
   Camera,
 } from "lucide-react";
-import { createResource, deleteResource, listResource, updateResource, toProxiedUrl } from "@/lib/admin/apiClient";
+import { createResource, deleteResource, listResource, updateResource, getResource, toProxiedUrl } from "@/lib/admin/apiClient";
 import { Pagination } from "@/components/Pagination";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -512,9 +512,18 @@ const Vehicles = () => {
     }
   };
 
-  const handleViewDetails = (vehicle: Vehicle) => {
-    setSelectedVehicle(vehicle);
-    setViewDetailsOpen(true);
+  const handleViewDetails = async (vehicle: Vehicle) => {
+    try {
+      setApiError(null);
+      // Fetch full vehicle to get tagPhotoDataUrl
+      const fullVehicle = await getResource<BackendVehicle>("vehicles", vehicle.id);
+      setSelectedVehicle(normalizeVehicle(fullVehicle as any));
+      setViewDetailsOpen(true);
+    } catch (e) {
+      setApiError("Failed to fetch vehicle details");
+      setSelectedVehicle(vehicle); // Fallback to list data
+      setViewDetailsOpen(true);
+    }
   };
 
   useEffect(() => {
@@ -540,27 +549,56 @@ const Vehicles = () => {
     addVehicleOpen,
   ]);
 
-  const handleEditVehicle = (vehicle: Vehicle) => {
-    setSelectedVehicle(vehicle);
-    setEditTagPhotoFile(null);
-    setEditFormData({
-      make: vehicle.make,
-      model: vehicle.model,
-      year: vehicle.year,
-      licensePlate: vehicle.licensePlate,
-      vin: vehicle.vin,
-      mileage: vehicle.mileage,
-      status: vehicle.status,
-      lastInspection: vehicle.lastInspection,
-      nextInspection: vehicle.nextInspection,
-      assignedTo: vehicle.assignedTo,
-      insuranceInfo: vehicle.insuranceInfo || "",
-      documents: vehicle.documents || [],
-      tagPhotoFileName: vehicle.tagPhotoFileName || "",
-      tagPhotoDataUrl: vehicle.tagPhotoDataUrl || "",
-      requiresInspection: vehicle.requiresInspection !== false,
-    });
-    setEditVehicleOpen(true);
+  const handleEditVehicle = async (vehicle: Vehicle) => {
+    try {
+      setApiError(null);
+      // Fetch full vehicle to get tagPhotoDataUrl
+      const fullVehicle = await getResource<BackendVehicle>("vehicles", vehicle.id);
+      const normalized = normalizeVehicle(fullVehicle as any);
+      setSelectedVehicle(normalized);
+      setEditTagPhotoFile(null);
+      setEditFormData({
+        make: normalized.make,
+        model: normalized.model,
+        year: normalized.year,
+        licensePlate: normalized.licensePlate,
+        vin: normalized.vin,
+        mileage: normalized.mileage,
+        status: normalized.status,
+        lastInspection: normalized.lastInspection,
+        nextInspection: normalized.nextInspection,
+        assignedTo: normalized.assignedTo,
+        insuranceInfo: normalized.insuranceInfo || "",
+        documents: normalized.documents || [],
+        tagPhotoFileName: normalized.tagPhotoFileName || "",
+        tagPhotoDataUrl: normalized.tagPhotoDataUrl || "",
+        requiresInspection: normalized.requiresInspection !== false,
+      });
+      setEditVehicleOpen(true);
+    } catch (e) {
+      setApiError("Failed to fetch vehicle details for editing");
+      // Fallback
+      setSelectedVehicle(vehicle);
+      setEditTagPhotoFile(null);
+      setEditFormData({
+        make: vehicle.make,
+        model: vehicle.model,
+        year: vehicle.year,
+        licensePlate: vehicle.licensePlate,
+        vin: vehicle.vin,
+        mileage: vehicle.mileage,
+        status: vehicle.status,
+        lastInspection: vehicle.lastInspection,
+        nextInspection: vehicle.nextInspection,
+        assignedTo: vehicle.assignedTo,
+        insuranceInfo: vehicle.insuranceInfo || "",
+        documents: vehicle.documents || [],
+        tagPhotoFileName: vehicle.tagPhotoFileName || "",
+        tagPhotoDataUrl: vehicle.tagPhotoDataUrl || "",
+        requiresInspection: vehicle.requiresInspection !== false,
+      });
+      setEditVehicleOpen(true);
+    }
   };
 
   const [editFormData, setEditFormData] = useState({
