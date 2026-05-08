@@ -145,6 +145,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   useEffect(() => {
     const handleUpdate = () => {
       queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
     };
     window.addEventListener("header-settings-updated", handleUpdate);
     return () => window.removeEventListener("header-settings-updated", handleUpdate);
@@ -230,7 +231,14 @@ export function Header({ onMenuClick }: HeaderProps) {
   const settingsQuery = useQuery({
     queryKey: ["settings"],
     queryFn: async () => {
-      return apiFetch<{ item: { fullName?: string; email?: string; avatarUrl?: string } }>("/api/settings");
+      const data = await apiFetch<{ item: { fullName?: string; email?: string; avatarUrl?: string; avatarDataUrl?: string } }>("/api/settings");
+      if (data?.item) {
+        localStorage.setItem("taskflow_cached_profile", JSON.stringify({
+          fullName: data.item.fullName,
+          avatarUrl: data.item.avatarDataUrl || data.item.avatarUrl
+        }));
+      }
+      return data;
     },
   });
 
@@ -261,12 +269,16 @@ export function Header({ onMenuClick }: HeaderProps) {
     },
   });
 
+  // Only show unread notifications in the dropdown
   const notifications = (notificationsQuery.data || [])
+    .filter((n) => n.status !== "read")
     .slice()
-    .sort((a, b) => String(b.timestamp || "").localeCompare(String(a.timestamp || "")))
-    .slice(0, 4);
+    .sort((a, b) =>
+      String(b.timestamp || b.createdAt || "").localeCompare(String(a.timestamp || a.createdAt || ""))
+    )
+    .slice(0, 8);
 
-  const unreadCount = (notificationsQuery.data || []).filter((n) => n.status !== "read").length;
+  const unreadCount = notifications.length;
   const unreadMessageCount = (messagesQuery.data || []).reduce((sum, c) => sum + (c.unreadCount || 0), 0);
 
   // Bug Report State
@@ -346,27 +358,39 @@ export function Header({ onMenuClick }: HeaderProps) {
   
 
   const markAllRead = async () => {
+    // Optimistic: immediately mark all as read in cache
+    queryClient.setQueryData(["admin-notifications"], (old: any) =>
+      Array.isArray(old) ? old.map((n) => ({ ...n, status: "read" })) : old
+    );
     try {
       await apiFetch("/api/messages/mark-all-read", { method: "POST" });
-      await notificationsQuery.refetch();
     } catch {
-      // ignore errors
+      await notificationsQuery.refetch();
     }
   };
 
   const markRead = async (id: string) => {
+    // Optimistic: immediately remove this notification from the unread list
+    queryClient.setQueryData(["admin-notifications"], (old: any) =>
+      Array.isArray(old) ? old.map((n) => (n.id === id ? { ...n, status: "read" } : n)) : old
+    );
     try {
       await apiFetch(`/api/messages/${id}/mark-read`, { method: "POST" });
-      await notificationsQuery.refetch();
     } catch {
       // ignore errors
     }
   };
 
+  let cachedProfile = null;
+  try {
+    const cachedRaw = localStorage.getItem("taskflow_cached_profile");
+    if (cachedRaw) cachedProfile = JSON.parse(cachedRaw);
+  } catch (e) {}
+
   const settings = settingsQuery.data?.item;
-  const fullName = (settings?.fullName || auth.username || "Admin").trim();
+  const fullName = (settings?.fullName || cachedProfile?.fullName || auth.username || "Admin").trim();
   const email = (settings?.email || "").trim();
-  const avatarUrl = toProxiedUrl((settings as any)?.avatarDataUrl || (settings as any)?.avatarUrl as string | undefined);
+  const avatarUrl = toProxiedUrl((settings as any)?.avatarDataUrl || (settings as any)?.avatarUrl || cachedProfile?.avatarUrl as string | undefined);
   const initials =
     fullName
       .split(" ")
@@ -470,21 +494,57 @@ export function Header({ onMenuClick }: HeaderProps) {
                       )}
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
-                    <DropdownMenuLabel className="text-xs text-foreground">Direct Messages</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {messagesQuery.data?.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-muted-foreground">No messages</div>
-                    ) : (
-                      messagesQuery.data?.map(c => (
-                        <DropdownMenuItem key={c.employee?.id} onClick={() => navigate("/admin/messaging")}>
-                          <div className="flex flex-col gap-0.5">
-                            <span className="font-medium text-xs">{c.employee?.name}</span>
-                            <span className="text-[10px] text-muted-foreground truncate">{c.lastMessage?.content}</span>
-                          </div>
-                        </DropdownMenuItem>
-                      ))
-                    )}
+                  <DropdownMenuContent align="end" side="bottom" className="w-80 mt-2 p-0 shadow-2xl border-slate-700 bg-[#0f172a]">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+                      <DropdownMenuLabel className="text-sm font-bold text-white p-0">Direct Messages</DropdownMenuLabel>
+                    </div>
+                    <div className="max-h-[400px] overflow-y-auto">
+                      {messagesQuery.data?.length === 0 ? (
+                        <div className="p-8 text-center">
+                          <Mail className="h-8 w-8 text-slate-500 mx-auto mb-2" />
+                          <p className="text-xs text-slate-400">No messages found</p>
+                        </div>
+                      ) : (
+                        messagesQuery.data?.map(c => (
+                          <DropdownMenuItem 
+                            key={c.employee?.id} 
+                            onClick={() => navigate("/admin/messaging")}
+                            className="flex items-center gap-3 px-4 py-3 cursor-pointer border-b border-slate-800 last:border-0 hover:bg-slate-800/50 transition-colors"
+                          >
+                            <div className="relative">
+                              <Avatar className="h-9 w-9 border border-white/10">
+                                <AvatarFallback className="bg-slate-800 text-slate-300 text-[10px]">
+                                  {c.employee?.name?.[0]?.toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              {(c.unreadCount || 0) > 0 && (
+                                <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 bg-[#00C6FF] border-2 border-slate-900 rounded-full" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-2 mb-0.5">
+                                <span className="text-[13px] font-semibold text-white truncate">{c.employee?.name}</span>
+                                {c.lastMessage?.createdAt && (
+                                  <span className="text-[10px] text-slate-400 whitespace-nowrap">
+                                    {new Date(c.lastMessage.createdAt).toLocaleDateString()}
+                                  </span>
+                                )}
+                              </div>
+                              <p className={`text-xs truncate ${ (c.unreadCount || 0) > 0 ? 'text-slate-200 font-medium' : 'text-slate-400' }`}>
+                                {c.lastMessage?.content || "No message content"}
+                              </p>
+                            </div>
+                          </DropdownMenuItem>
+                        ))
+                      )}
+                    </div>
+                    <DropdownMenuSeparator className="m-0 bg-slate-800" />
+                    <DropdownMenuItem 
+                      onClick={() => navigate("/admin/messaging")}
+                      className="justify-center py-2.5 text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"
+                    >
+                      Open Messenger
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
 
@@ -499,16 +559,59 @@ export function Header({ onMenuClick }: HeaderProps) {
                       )}
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
-                    <DropdownMenuLabel className="text-xs text-foreground">Notifications</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {notificationsQuery.data?.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-muted-foreground">No notifications</div>
-                    ) : (
-                      notificationsQuery.data?.slice(0, 5).map(n => (
-                        <DropdownMenuItem key={n.id} className="text-xs">{n.content}</DropdownMenuItem>
-                      ))
-                    )}
+                  <DropdownMenuContent align="end" side="bottom" className="w-80 mt-2 p-0 shadow-2xl border-slate-700 bg-[#0f172a]">
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+                      <DropdownMenuLabel className="text-sm font-bold text-white p-0">Notifications</DropdownMenuLabel>
+                      {unreadCount > 0 && (
+                        <button 
+                          onClick={(e) => { e.stopPropagation(); markAllRead(); }}
+                          className="text-[10px] font-bold uppercase tracking-wider text-[#00C6FF] hover:text-white transition-colors"
+                        >
+                          Mark all as read
+                        </button>
+                      )}
+                    </div>
+                    <div className="max-h-[400px] overflow-y-auto">
+                      {notifications.length === 0 ? (
+                        <div className="p-8 text-center">
+                          <Bell className="h-8 w-8 text-slate-500 mx-auto mb-2" />
+                          <p className="text-sm text-slate-300">You're all caught up!</p>
+                        </div>
+                      ) : (
+                        notifications.map(n => (
+                          <DropdownMenuItem
+                            key={n.id}
+                            onClick={() => {
+                              markRead(n.id);
+                              navigate(resolveNotificationLink(n));
+                            }}
+                            className="flex flex-col items-start gap-1 px-4 py-3 cursor-pointer border-b border-slate-700 last:border-0 hover:bg-white/10 bg-slate-800/40 transition-colors"
+                          >
+                            <div className="flex items-center gap-2 w-full">
+                              <span className="h-2 w-2 rounded-full flex-shrink-0 bg-[#00C6FF]" />
+                              <span className="text-[13px] font-semibold text-white truncate">
+                                {n.title || "Notification"}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-200 line-clamp-2 pl-4 leading-relaxed">
+                              {n.content || n.message}
+                            </p>
+                            {(n.createdAt || n.timestamp) && (
+                              <span className="text-[10px] text-slate-400 pl-4 mt-0.5">
+                                {new Date(n.createdAt || n.timestamp).toLocaleString()}
+                              </span>
+                            )}
+                          </DropdownMenuItem>
+                        ))
+                      )}
+                    </div>
+                    <DropdownMenuSeparator className="m-0 bg-slate-800" />
+                    <DropdownMenuItem 
+                      onClick={() => navigate("/admin/notifications")}
+                      className="justify-center py-2.5 text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"
+                    >
+                      View all notifications
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
 

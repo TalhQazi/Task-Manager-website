@@ -408,14 +408,14 @@ export default function Messages() {
   // Loading state
   if (conversationsQuery.isLoading) {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="space-y-4 md:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div className="page-header mb-0">
-            <h1 className="page-title">Messages</h1>
-            <p className="page-subtitle">Communicate with your team</p>
+            <h1 className="page-title text-xl sm:text-2xl md:text-3xl">Messages</h1>
+            <p className="page-subtitle text-sm sm:text-base">Communicate with your team</p>
           </div>
         </div>
-        <div className="p-6 text-sm text-muted-foreground">Loading...</div>
+        <div className="p-4 sm:p-6 text-sm text-muted-foreground">Loading...</div>
       </div>
     );
   }
@@ -423,27 +423,27 @@ export default function Messages() {
   // Empty state
   if (!conversationsQuery.isLoading && conversations.length === 0 && (view as string) === "list") {
     return (
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="space-y-4 md:space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           <div className="page-header mb-0">
-            <h1 className="page-title">Messages</h1>
-            <p className="page-subtitle">Communicate with your team</p>
+            <h1 className="page-title text-xl sm:text-2xl md:text-3xl">Messages</h1>
+            <p className="page-subtitle text-sm sm:text-base">Communicate with your team</p>
           </div>
         </div>
 
-        <div className="h-[calc(100vh-300px)] flex flex-col items-center justify-center px-4">
-          <div className="text-center space-y-6">
-            <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
-              <MessageCircle className="h-10 w-10 text-primary" />
+        <div className="h-[calc(100vh-250px)] sm:h-[calc(100vh-280px)] md:h-[calc(100vh-300px)] flex flex-col items-center justify-center px-3 sm:px-4">
+          <div className="text-center space-y-4 sm:space-y-6">
+            <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+              <MessageCircle className="h-8 w-8 sm:h-10 sm:w-10 text-primary" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold">No Messages Yet</h2>
-              <p className="text-muted-foreground mt-2 max-w-md">
+              <h2 className="text-xl sm:text-2xl font-bold">No Messages Yet</h2>
+              <p className="text-muted-foreground mt-1 sm:mt-2 max-w-xs sm:max-w-md text-sm sm:text-base">
                 Start a conversation with an employee to send and receive messages.
               </p>
             </div>
-            <Button size="lg" onClick={() => setView("employees")} className="gap-2">
-              <Plus className="h-5 w-5" />
+            <Button size="lg" onClick={() => setView("employees")} className="gap-2 text-sm sm:text-base px-4 sm:px-6">
+              <Plus className="h-4 w-4 sm:h-5 sm:w-5" />
               Start Conversation
             </Button>
           </div>
@@ -451,16 +451,16 @@ export default function Messages() {
 
         {/* Employee Selection Dialog */}
         <Dialog open={Boolean(view === "employees")} onOpenChange={() => setView("list")}>
-          <DialogContent className="w-[95vw] max-w-2xl h-[80vh] flex flex-col">
-            <DialogHeader>
-              <DialogTitle>Select Employee</DialogTitle>
+          <DialogContent className="w-[95vw] max-w-2xl h-[85vh] sm:h-[80vh] flex flex-col p-4 sm:p-6">
+            <DialogHeader className="pb-2 sm:pb-4">
+              <DialogTitle className="text-lg sm:text-xl">Select Employee</DialogTitle>
             </DialogHeader>
 
-            <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <div className="relative mb-3 sm:mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
               <Input
                 placeholder="Search employees..."
-                className="pl-10"
+                className="pl-9 sm:pl-10 text-sm sm:text-base"
                 value={employeeSearchQuery}
                 onChange={(e) => setEmployeeSearchQuery(e.target.value)}
               />
@@ -471,24 +471,24 @@ export default function Messages() {
                 <button
                   key={employee.id || employee._id}
                   onClick={() => startConversation(employee)}
-                  className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-muted transition-colors text-left"
+                  className="w-full flex items-center gap-3 sm:gap-4 p-2 sm:p-3 rounded-lg hover:bg-muted transition-colors text-left"
                 >
-                  <Avatar className="h-12 w-12">
-                    <AvatarFallback className="bg-primary text-primary-foreground">
+                  <Avatar className="h-10 w-10 sm:h-12 sm:w-12">
+                    <AvatarFallback className="bg-primary text-primary-foreground text-xs sm:text-sm">
                       {getInitials(employee.name)}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{employee.name}</p>
-                    <p className="text-sm text-muted-foreground truncate">{employee.email}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="secondary" className="text-xs">
+                    <p className="font-medium truncate text-sm sm:text-base">{employee.name}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground truncate">{employee.email}</p>
+                    <div className="flex items-center gap-1 sm:gap-2 mt-1">
+                      <Badge variant="secondary" className="text-[10px] sm:text-xs">
                         {employee.department || "No Department"}
                       </Badge>
                       <Badge
                         variant="outline"
                         className={cn(
-                          "text-xs",
+                          "text-[10px] sm:text-xs",
                           employee.status === "active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
                         )}
                       >
@@ -500,8 +500,8 @@ export default function Messages() {
               ))}
 
               {filteredEmployees.length === 0 && (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground">No employees found</p>
+                <div className="text-center py-6 sm:py-8">
+                  <p className="text-sm sm:text-base text-muted-foreground">No employees found</p>
                 </div>
               )}
             </div>
@@ -512,32 +512,32 @@ export default function Messages() {
   }
 
   return (
-    <div className="pl-6 space-y-6">
+    <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
         <div className="space-y-1">
           {view === "conversation" && selectedEmployee ? (
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="icon" onClick={() => { setView("list"); setSelectedEmployee(null); }}>
-                <ArrowLeft className="h-5 w-5" />
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Button variant="ghost" size="icon" onClick={() => { setView("list"); setSelectedEmployee(null); }} className="h-8 w-8 sm:h-9 sm:w-9">
+                <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
-              <Avatar className="h-10 w-10">
+              <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
                 {selectedEmployee.avatarUrl ? (
                   <AvatarImage src={selectedEmployee.avatarUrl} alt={selectedEmployee.name} className="object-cover" />
                 ) : null}
-                <AvatarFallback className="bg-primary text-primary-foreground text-sm">
+                <AvatarFallback className="bg-primary text-primary-foreground text-xs sm:text-sm">
                   {getInitials(selectedEmployee.name)}
                 </AvatarFallback>
               </Avatar>
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold">{selectedEmployee.name}</h1>
-                <p className="text-sm text-muted-foreground">{selectedEmployee.email}</p>
+                <h1 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold">{selectedEmployee.name}</h1>
+                <p className="text-xs sm:text-sm text-muted-foreground truncate max-w-[180px] sm:max-w-none">{selectedEmployee.email}</p>
               </div>
             </div>
           ) : (
             <div className="page-header mb-0">
-              <h1 className="page-title">Messages</h1>
-              <p className="page-subtitle">
+              <h1 className="page-title text-xl sm:text-2xl md:text-3xl lg:text-4xl">Messages</h1>
+              <p className="page-subtitle text-xs sm:text-sm md:text-base mt-1">
                 {conversations.length} conversation{conversations.length !== 1 ? "s" : ""}
               </p>
             </div>
@@ -545,8 +545,8 @@ export default function Messages() {
         </div>
 
         {view !== "conversation" && (
-          <Button onClick={() => setView("employees")} className="gap-2">
-            <Plus className="h-4 w-4" />
+          <Button onClick={() => setView("employees")} className="gap-2 w-full sm:w-auto text-xs sm:text-sm h-9 sm:h-10">
+            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             New Conversation
           </Button>
         )}
@@ -556,12 +556,12 @@ export default function Messages() {
       {view === "list" && (
         <>
           {/* Filter Tabs */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-2">
+          <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto pb-2 -mx-1 sm:mx-0 px-1 sm:px-0 scrollbar-thin">
             <Button
               variant={listFilter === "all" ? "default" : "outline"}
               size="sm"
               onClick={() => setListFilter("all")}
-              className="whitespace-nowrap"
+              className="whitespace-nowrap text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9"
             >
               All
             </Button>
@@ -569,30 +569,34 @@ export default function Messages() {
               variant={listFilter === "archived" ? "default" : "outline"}
               size="sm"
               onClick={() => setListFilter("archived")}
-              className="whitespace-nowrap gap-1"
+              className="whitespace-nowrap gap-1 text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9"
             >
-              <Archive className="h-3.5 w-3.5" />
-              Archived ({archivedConversations.size})
+              <Archive className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              <span className="hidden sm:inline">Archived</span>
+              <span className="sm:hidden">({archivedConversations.size})</span>
+              <span className="hidden sm:inline">({archivedConversations.size})</span>
             </Button>
             <Button
               variant={listFilter === "bookmarked" ? "default" : "outline"}
               size="sm"
               onClick={() => setListFilter("bookmarked")}
-              className="whitespace-nowrap gap-1"
+              className="whitespace-nowrap gap-1 text-xs sm:text-sm px-2 sm:px-3 h-8 sm:h-9"
             >
-              <Bookmark className="h-3.5 w-3.5" />
-              Bookmarked ({bookmarkedConversations.size})
+              <Bookmark className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              <span className="hidden sm:inline">Bookmarked</span>
+              <span className="sm:hidden">({bookmarkedConversations.size})</span>
+              <span className="hidden sm:inline">({bookmarkedConversations.size})</span>
             </Button>
           </div>
 
           {/* Search */}
-          <Card>
-            <CardContent className="p-3 sm:p-4">
+          <Card className="border-0 sm:border shadow-none sm:shadow">
+            <CardContent className="p-2 sm:p-3 md:p-4">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
                 <Input
                   placeholder="Search conversations..."
-                  className="pl-10"
+                  className="pl-9 sm:pl-10 text-xs sm:text-sm h-8 sm:h-10"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -601,21 +605,21 @@ export default function Messages() {
           </Card>
 
           {/* Conversations */}
-          <Card>
+          <Card className="border-0 sm:border shadow-none sm:shadow">
             <CardContent className="p-0">
               <div className="divide-y divide-border">
                 {/* Archived Section Header (when showing archived) */}
                 {listFilter === "archived" && archivedConversations.size > 0 && (
-                  <div className="px-4 py-2 bg-muted/50 text-xs font-medium text-muted-foreground flex items-center gap-2">
-                    <Archive className="h-3.5 w-3.5" />
+                  <div className="px-3 sm:px-4 py-1.5 sm:py-2 bg-muted/50 text-[10px] sm:text-xs font-medium text-muted-foreground flex items-center gap-1 sm:gap-2">
+                    <Archive className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                     Archived Conversations
                   </div>
                 )}
                 
                 {/* Bookmarked Section Header (when showing bookmarked) */}
                 {listFilter === "bookmarked" && bookmarkedConversations.size > 0 && (
-                  <div className="px-4 py-2 bg-muted/50 text-xs font-medium text-muted-foreground flex items-center gap-2">
-                    <Bookmark className="h-3.5 w-3.5" />
+                  <div className="px-3 sm:px-4 py-1.5 sm:py-2 bg-muted/50 text-[10px] sm:text-xs font-medium text-muted-foreground flex items-center gap-1 sm:gap-2">
+                    <Bookmark className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                     Bookmarked Conversations
                   </div>
                 )}
@@ -641,8 +645,8 @@ export default function Messages() {
 
                   if (displayConversations.length === 0) {
                     return (
-                      <div className="p-8 text-center">
-                        <p className="text-muted-foreground">
+                      <div className="p-4 sm:p-6 md:p-8 text-center">
+                        <p className="text-xs sm:text-sm md:text-base text-muted-foreground">
                           {listFilter === "archived" 
                             ? "No archived conversations" 
                             : listFilter === "bookmarked"
@@ -652,7 +656,7 @@ export default function Messages() {
                         {listFilter !== "all" && (
                           <Button 
                             variant="outline" 
-                            className="mt-4"
+                            className="mt-3 sm:mt-4 text-xs sm:text-sm h-8 sm:h-9"
                             onClick={() => setListFilter("all")}
                           >
                             Show All Conversations
@@ -670,44 +674,44 @@ export default function Messages() {
                     return (
                       <div
                         key={empId}
-                        className="group flex items-center gap-3 p-4 hover:bg-muted/50 transition-colors"
+                        className="group flex items-center gap-2 sm:gap-3 p-2 sm:p-3 md:p-4 hover:bg-muted/50 transition-colors"
                       >
                         {/* Main conversation button */}
                         <button
                           onClick={() => startConversation(conv.employee)}
-                          className="flex-1 flex items-center gap-3 text-left min-w-0"
+                          className="flex-1 flex items-center gap-2 sm:gap-3 text-left min-w-0"
                         >
                           <div className="relative flex-shrink-0">
-                            <Avatar className="h-12 w-12">
+                            <Avatar className="h-9 w-9 sm:h-10 sm:w-10 md:h-12 md:w-12">
                               {conv.employee.avatarUrl ? (
                                 <AvatarImage src={conv.employee.avatarUrl} alt={conv.employee.name} className="object-cover" />
                               ) : null}
-                              <AvatarFallback className="bg-primary text-primary-foreground">
+                              <AvatarFallback className="bg-primary text-primary-foreground text-xs sm:text-sm">
                                 {getInitials(conv.employee.name)}
                               </AvatarFallback>
                             </Avatar>
                             {conv.unreadCount > 0 && !isArchived && (
-                              <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
+                              <span className="absolute -top-1 -right-1 h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-red-500 text-white text-[9px] sm:text-[10px] flex items-center justify-center">
                                 {conv.unreadCount}
                               </span>
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2">
-                                <p className="font-medium truncate">{conv.employee.name}</p>
+                            <div className="flex items-center justify-between gap-1 sm:gap-2">
+                              <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+                                <p className="font-medium truncate text-xs sm:text-sm md:text-base">{conv.employee.name}</p>
                                 {isBookmarked && (
-                                  <Bookmark className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" fill="currentColor" />
+                                  <Bookmark className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-500 flex-shrink-0" fill="currentColor" />
                                 )}
                               </div>
                               {conv.lastMessage && (
-                                <p className="text-xs text-muted-foreground flex-shrink-0">
+                                <p className="text-[9px] sm:text-xs text-muted-foreground flex-shrink-0">
                                   {formatMessageTime(conv.lastMessage.timestamp)}
                                 </p>
                               )}
                             </div>
                             <p className={cn(
-                              "text-sm truncate",
+                              "text-[11px] sm:text-xs md:text-sm truncate",
                               conv.unreadCount > 0 && !isArchived ? "font-medium text-foreground" : "text-muted-foreground"
                             )}>
                               {conv.lastMessage 
@@ -719,28 +723,28 @@ export default function Messages() {
                         </button>
                         
                         {/* Action buttons - visible on hover */}
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-0.5 sm:gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8"
+                            className="h-7 w-7 sm:h-8 sm:w-8"
                             onClick={(e) => toggleBookmark(e, empId)}
                             title={isBookmarked ? "Remove bookmark" : "Bookmark conversation"}
                           >
                             <Bookmark 
-                              className={cn("h-4 w-4", isBookmarked ? "text-amber-500" : "text-muted-foreground")} 
+                              className={cn("h-3 w-3 sm:h-3.5 sm:w-3.5", isBookmarked ? "text-amber-500" : "text-muted-foreground")} 
                               fill={isBookmarked ? "currentColor" : "none"}
                             />
                           </Button>
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8"
+                            className="h-7 w-7 sm:h-8 sm:w-8"
                             onClick={(e) => toggleArchive(e, empId)}
                             title={isArchived ? "Unarchive" : "Archive conversation"}
                           >
                             <Archive 
-                              className={cn("h-4 w-4", isArchived ? "text-primary" : "text-muted-foreground")} 
+                              className={cn("h-3 w-3 sm:h-3.5 sm:w-3.5", isArchived ? "text-primary" : "text-muted-foreground")} 
                             />
                           </Button>
                         </div>
@@ -756,47 +760,47 @@ export default function Messages() {
 
       {/* Employee Selection Dialog */}
       <Dialog open={Boolean(view === "employees")} onOpenChange={() => setView("list")}>
-        <DialogContent className="w-[95vw] max-w-2xl h-[80vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>Select Employee to Message</DialogTitle>
+        <DialogContent className="w-[95vw] max-w-2xl h-[85vh] sm:h-[80vh] flex flex-col p-3 sm:p-4 md:p-6">
+          <DialogHeader className="pb-2 sm:pb-3 md:pb-4">
+            <DialogTitle className="text-sm sm:text-base md:text-lg">Select Employee to Message</DialogTitle>
           </DialogHeader>
 
-          <div className="relative mb-4">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <div className="relative mb-3 sm:mb-4 md:mb-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 sm:h-4 sm:w-4 text-muted-foreground" />
             <Input
               placeholder="Search employees by name, email, or department..."
-              className="pl-10"
+              className="pl-9 sm:pl-10 text-xs sm:text-sm h-8 sm:h-10"
               value={employeeSearchQuery}
               onChange={(e) => setEmployeeSearchQuery(e.target.value)}
             />
           </div>
 
-          <div className="flex-1 overflow-y-auto space-y-2">
+          <div className="flex-1 overflow-y-auto space-y-1.5 sm:space-y-2">
             {filteredEmployees.map((employee) => (
               <button
                 key={employee.id || employee._id}
                 onClick={() => startConversation(employee)}
-                className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-muted transition-colors text-left"
+                className="w-full flex items-center gap-2 sm:gap-3 md:gap-4 p-2 sm:p-2.5 md:p-3 rounded-lg hover:bg-muted transition-colors text-left"
               >
-                <Avatar className="h-12 w-12">
+                <Avatar className="h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 flex-shrink-0">
                   {employee.avatarUrl ? (
                     <AvatarImage src={employee.avatarUrl} alt={employee.name} className="object-cover" />
                   ) : null}
-                  <AvatarFallback className="bg-primary text-primary-foreground">
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                     {getInitials(employee.name)}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{employee.name}</p>
-                  <p className="text-sm text-muted-foreground truncate">{employee.email}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <Badge variant="secondary" className="text-xs">
+                  <p className="font-medium truncate text-xs sm:text-sm md:text-base">{employee.name}</p>
+                  <p className="text-[11px] sm:text-xs md:text-sm text-muted-foreground truncate">{employee.email}</p>
+                  <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 mt-1">
+                    <Badge variant="secondary" className="text-[9px] sm:text-[10px] md:text-xs">
                       {employee.department || "No Department"}
                     </Badge>
                     <Badge
                       variant="outline"
                       className={cn(
-                        "text-xs",
+                        "text-[9px] sm:text-[10px] md:text-xs",
                         employee.status === "active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
                       )}
                     >
@@ -808,10 +812,10 @@ export default function Messages() {
             ))}
 
             {filteredEmployees.length === 0 && (
-              <div className="text-center py-8">
-                <User className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground">No employees found</p>
-                <p className="text-sm text-muted-foreground mt-1">Try a different search term</p>
+              <div className="text-center py-6 sm:py-8 md:py-10">
+                <User className="h-8 w-8 sm:h-10 sm:w-10 md:h-12 md:w-12 text-muted-foreground mx-auto mb-2 sm:mb-3" />
+                <p className="text-xs sm:text-sm md:text-base text-muted-foreground">No employees found</p>
+                <p className="text-[11px] sm:text-xs md:text-sm text-muted-foreground mt-1">Try a different search term</p>
               </div>
             )}
           </div>
@@ -823,18 +827,18 @@ export default function Messages() {
         <>
           {preview ? (
             <Dialog open={Boolean(preview)} onOpenChange={(o) => (!o ? setPreview(null) : null)}>
-              <DialogContent className="max-w-3xl">
+              <DialogContent className="w-[95vw] max-w-3xl p-3 sm:p-4 md:p-6">
                 <DialogHeader>
-                  <DialogTitle className="flex items-center justify-between gap-2">
+                  <DialogTitle className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 text-sm sm:text-base md:text-lg">
                     <span className="truncate">{preview.fileName}</span>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="gap-2"
+                      className="gap-2 w-full sm:w-auto text-xs sm:text-sm h-8 sm:h-9"
                       onClick={() => downloadAttachment(preview.url, preview.fileName)}
                     >
-                      <Download className="h-4 w-4" />
+                      <Download className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                       Download
                     </Button>
                   </DialogTitle>
@@ -843,21 +847,21 @@ export default function Messages() {
                   <img
                     src={toProxiedUrl(preview.url) || preview.url}
                     alt={preview.fileName}
-                    className="w-full max-h-[70vh] object-contain rounded-md"
+                    className="w-full max-h-[50vh] sm:max-h-[60vh] md:max-h-[70vh] object-contain rounded-md"
                   />
                 </div>
               </DialogContent>
             </Dialog>
           ) : null}
 
-          <Card className="flex flex-col h-[calc(100vh-280px)] min-h-[400px]">
+          <Card className="flex flex-col h-[calc(100vh-200px)] sm:h-[calc(100vh-240px)] md:h-[calc(100vh-280px)] min-h-[350px] sm:min-h-[400px] border-0 sm:border shadow-none sm:shadow">
           {/* Messages Area */}
-          <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+          <CardContent className="flex-1 overflow-y-auto p-2 sm:p-3 md:p-4 space-y-2 sm:space-y-3 md:space-y-4">
             {conversationMessages.length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-center">
-                <MessageCircle className="h-16 w-16 text-muted-foreground/50 mb-4" />
-                <p className="text-lg font-medium">Start the conversation</p>
-                <p className="text-muted-foreground">Send a message to {selectedEmployee.name}</p>
+              <div className="h-full flex flex-col items-center justify-center text-center px-3 sm:px-4">
+                <MessageCircle className="h-10 w-10 sm:h-12 sm:w-12 md:h-16 md:w-16 text-muted-foreground/50 mb-2 sm:mb-3 md:mb-4" />
+                <p className="text-sm sm:text-base md:text-lg font-medium">Start the conversation</p>
+                <p className="text-xs sm:text-sm md:text-base text-muted-foreground">Send a message to {selectedEmployee.name}</p>
               </div>
             ) : (
               <>
@@ -870,22 +874,22 @@ export default function Messages() {
                   const isImage = attachmentMime.startsWith("image/");
 
                   return (
-                    <div key={msg.id} className={cn("flex gap-3", isMe ? "flex-row-reverse" : "flex-row")}>
+                    <div key={msg.id} className={cn("flex gap-1.5 sm:gap-2 md:gap-3", isMe ? "flex-row-reverse" : "flex-row")}>
                       {showAvatar ? (
-                        <Avatar className="h-8 w-8 flex-shrink-0">
+                        <Avatar className="h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8 flex-shrink-0">
                           {isMe ? null : selectedEmployee?.avatarUrl ? (
                             <AvatarImage src={selectedEmployee.avatarUrl} alt={selectedEmployee.name} className="object-cover" />
                           ) : null}
-                          <AvatarFallback className={isMe ? "bg-primary text-primary-foreground" : "bg-muted"}>
+                          <AvatarFallback className={cn("text-[9px] sm:text-xs", isMe ? "bg-primary text-primary-foreground" : "bg-muted")}>
                             {getInitials(isMe ? currentUser : msg.sender)}
                           </AvatarFallback>
                         </Avatar>
                       ) : (
-                        <div className="w-8 flex-shrink-0" />
+                        <div className="w-5 sm:w-6 md:w-8 flex-shrink-0" />
                       )}
                       <div
                         className={cn(
-                          "max-w-[70%] rounded-2xl px-4 py-2",
+                          "max-w-[80%] sm:max-w-[75%] md:max-w-[70%] rounded-2xl px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 text-xs sm:text-sm md:text-base",
                           isMe
                             ? "bg-primary text-primary-foreground rounded-br-none"
                             : "bg-muted rounded-bl-none"
@@ -901,14 +905,14 @@ export default function Messages() {
                               <img
                                 src={toProxiedUrl(attachmentUrl) || attachmentUrl}
                                 alt={attachmentName}
-                                className="max-w-[160px] max-h-[160px] rounded-md object-cover"
+                                className="max-w-[100px] sm:max-w-[140px] md:max-w-[160px] max-h-[100px] sm:max-h-[140px] md:max-h-[160px] rounded-md object-cover"
                               />
                             </button>
                           ) : (
                             <button
                               type="button"
                               className={cn(
-                                "text-sm underline",
+                                "text-[10px] sm:text-xs md:text-sm underline",
                                 isMe ? "text-primary-foreground" : "text-foreground",
                               )}
                               onClick={() => downloadAttachment(attachmentUrl, attachmentName)}
@@ -918,11 +922,11 @@ export default function Messages() {
                           )
                         ) : null}
 
-                        {msg.content?.trim() ? <p className="text-sm">{msg.content}</p> : null}
-                        <p className={cn("text-xs mt-1", isMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                        {msg.content?.trim() ? <p className="break-words">{msg.content}</p> : null}
+                        <p className={cn("text-[9px] sm:text-[10px] md:text-xs mt-0.5 sm:mt-1", isMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
                           {formatMessageTime(msg.timestamp)}
                           {isMe && (
-                            <span className="ml-2">
+                            <span className="ml-1">
                               {msg.status === "sent" && "✓"}
                               {msg.status === "delivered" && "✓✓"}
                               {msg.status === "read" && "✓✓"}
@@ -939,39 +943,46 @@ export default function Messages() {
           </CardContent>
 
           {/* Message Input */}
-          <div className="p-4 border-t">
-            <div className="flex gap-3">
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="hidden"
-                aria-label="Attach file"
-                onChange={(e) => handleFileSelected(e.target.files?.[0] || null)}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                disabled={uploading}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Paperclip className="h-4 w-4" />
-              </Button>
-              <Textarea
-                placeholder={`Message ${selectedEmployee.name}...`}
-                className="min-h-[60px] resize-none"
-                value={newMessageContent}
-                onChange={(e) => setNewMessageContent(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    sendMessage();
-                  }
-                }}
-              />
-              <Button onClick={sendMessage} disabled={!newMessageContent.trim() || sending || uploading} className="h-auto px-4">
-                <Send className="h-5 w-5" />
-              </Button>
+          <div className="p-2 sm:p-3 md:p-4 border-t">
+            <div className="flex flex-col gap-2 sm:gap-2.5 md:gap-3">
+              <div className="flex gap-1.5 sm:gap-2 md:gap-3">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  aria-label="Attach file"
+                  onChange={(e) => handleFileSelected(e.target.files?.[0] || null)}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  disabled={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 flex-shrink-0"
+                >
+                  <Paperclip className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
+                </Button>
+                <Textarea
+                  placeholder={`Message ${selectedEmployee.name}...`}
+                  className="min-h-[40px] sm:min-h-[48px] md:min-h-[60px] resize-none text-xs sm:text-sm md:text-base"
+                  value={newMessageContent}
+                  onChange={(e) => setNewMessageContent(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      sendMessage();
+                    }
+                  }}
+                />
+                <Button 
+                  onClick={sendMessage} 
+                  disabled={!newMessageContent.trim() || sending || uploading} 
+                  className="h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 flex-shrink-0 px-0"
+                >
+                  <Send className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-5 md:w-5" />
+                </Button>
+              </div>
             </div>
           </div>
           </Card>

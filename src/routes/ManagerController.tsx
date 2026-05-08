@@ -31,6 +31,7 @@ const PersonalNotes = lazy(() => import("@/pages/manger/PersonalNotes"));
 const UICustomization = lazy(() => import("@/pages/manger/UICustomization"));
 const SignaCore = lazy(() => import("@/pages/admin/SignaCore"));
 const UphMaintenance = lazy(() => import("@/pages/admin/UphMaintenance"));
+const ShoppingLists = lazy(() => import("@/pages/admin/ShoppingLists"));
 
 function PageLoader() {
   return (
@@ -79,6 +80,7 @@ export default function ManagerController() {
       { path: "settings", element: <Settings /> },
       { path: "personal-notes", element: <PersonalNotes /> },
       { path: "ui-customization", element: <UICustomization /> },
+      { path: "shopping-lists", element: <ShoppingLists /> },
       { path: "*", element: <NotFound /> },
     ],
     [],
@@ -86,7 +88,7 @@ export default function ManagerController() {
 
   const element = useRoutes(routes);
 
-  if (!auth.isAuthenticated || auth.role !== "manager") {
+  if (!auth.isAuthenticated || (auth.role !== "manager" && auth.role !== "team-lead")) {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 

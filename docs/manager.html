@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Manager Panel Documentation</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            color: #1e293b;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background: #fff;
+        }
+        
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            padding: 20mm;
+            margin: 10mm auto;
+            background: white;
+            box-sizing: border-box;
+        }
+
+        .cover {
+            height: 257mm;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            border: 20px solid #fef3c7;
+        }
+
+        .cover h1 {
+            font-size: 4rem;
+            color: #92400e;
+            margin: 0;
+            font-weight: 800;
+            letter-spacing: -2px;
+        }
+
+        .cover p {
+            font-size: 1.5rem;
+            color: #9a3412;
+            margin-top: 10px;
+        }
+
+        h1 { color: #0f172a; border-bottom: 3px solid #f59e0b; padding-bottom: 10px; margin-top: 40px; }
+        h2 { color: #b45309; margin-top: 30px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
+        h3 { color: #334155; margin-top: 20px; }
+
+        .card {
+            background: #fffbeb;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 6px solid #f59e0b;
+        }
+
+        ul { padding-left: 20px; }
+        li { margin-bottom: 8px; }
+
+        .footer {
+            margin-top: 50px;
+            text-align: center;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            border-top: 1px solid #f1f5f9;
+            padding-top: 20px;
+        }
+        
+        @media print {
+            body { background: none; }
+            .page { margin: 0; box-shadow: none; width: 100%; }
+            .cover { page-break-after: always; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="cover">
+            <h1>TASKFLOW</h1>
+            <p>Manager Panel Documentation</p>
+            <div style="margin-top: 40px; color: #f59e0b; font-weight: 600;">Operational Leadership & Coordination</div>
+        </div>
+
+        <h1>Manager Panel Overview</h1>
+        <p>The Manager Panel is designed for operational leadership, focusing on team productivity, task execution, and resource coordination.</p>
+
+        <h2>Core Responsibilities</h2>
+        
+        <div class="card">
+            <h3>📈 Operational Dashboard</h3>
+            <ul>
+                <li>Monitor department-specific pending and overdue tasks.</li>
+                <li>Track real-time employee clock-in status.</li>
+                <li>Review recent system activity and event logs.</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3>✅ Task & Project Management</h3>
+            <ul>
+                <li>Create, assign, and monitor team tasks with strict deadlines.</li>
+                <li>Set priorities and provide detailed execution guidelines.</li>
+                <li>Review End-of-Day (EOD) reports to track incremental progress.</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3>📅 Team Scheduling</h3>
+            <ul>
+                <li>Manage and adjust shift schedules for team members.</li>
+                <li>Monitor shift compliance and attendance.</li>
+                <li>Process and review employee leave requests.</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3>🚗 Resource Allocation</h3>
+            <ul>
+                <li>View available company vehicles and appliances.</li>
+                <li>Assign resources to specific employees or projects.</li>
+                <li>Ensure efficient utilization of operational assets.</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            TaskFlow System Documentation &copy; 2026
+        </div>
+    </div>
+</body>
+</html>

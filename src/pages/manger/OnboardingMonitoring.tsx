@@ -79,7 +79,7 @@ export default function OnboardingMonitoring() {
   const pendingCount = items.filter((i) => i.approvalStatus === "pending").length;
 
   return (
-    <div className="pl-6 space-y-6">
+    <div className="w-full px-3 sm:px-4 md:px-6 lg:px-8 space-y-4 sm:space-y-6">
       <div className="page-header">
         <h1 className="page-title">Onboarding Monitoring</h1>
         <p className="page-subtitle">Track employee onboarding progress and approvals</p>
@@ -126,7 +126,7 @@ export default function OnboardingMonitoring() {
           />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Approval status" />
           </SelectTrigger>
           <SelectContent>
@@ -138,17 +138,16 @@ export default function OnboardingMonitoring() {
         </Select>
       </div>
 
-      <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
-        {onboardingQuery.isLoading ? (
-          <div className="p-6 text-sm text-muted-foreground">Loading onboarding...</div>
-        ) : onboardingQuery.isError ? (
-          <div className="p-6 text-sm text-destructive">
-            {onboardingQuery.error instanceof Error
-              ? onboardingQuery.error.message
-              : "Failed to load onboarding"}
-          </div>
-        ) : null}
-        <div className="overflow-x-auto">
+      {onboardingQuery.isLoading ? (
+        <div className="p-6 text-sm text-muted-foreground">Loading onboarding...</div>
+      ) : onboardingQuery.isError ? (
+        <div className="p-6 text-sm text-destructive">
+          {onboardingQuery.error instanceof Error
+            ? onboardingQuery.error.message
+            : "Failed to load onboarding"}
+        </div>
+      ) : (
+        <div className="rounded-lg border overflow-x-auto px-4">
           <table className="data-table w-full min-w-[800px]">
             <thead>
               <tr>
@@ -203,7 +202,7 @@ export default function OnboardingMonitoring() {
             </tbody>
           </table>
         </div>
-      </div>
+      )}
     </div>
   );
 }

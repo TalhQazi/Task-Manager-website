@@ -6,9 +6,11 @@ import { useNavigate } from "react-router-dom";
 import { setEmployeeAuth } from "../lib/auth";
 import { employeeApiFetch } from "../lib/api";
 import { Eye, EyeOff, User, Lock, ArrowLeft, Briefcase, Shield, Sparkles } from "lucide-react";
+import { useTheme } from "@/contexts/ThemeContext";
 
 export default function EmployeeLogin() {
   const navigate = useNavigate();
+  const { uiTheme, loadFromBackend } = useTheme();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -64,6 +66,8 @@ export default function EmployeeLogin() {
       });
 
       localStorage.setItem("token", res.item.token);
+      // Load this user's saved theme from backend now that auth is stored
+      loadFromBackend().catch(() => {});
       navigate("/employee");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed. Please check your credentials.");

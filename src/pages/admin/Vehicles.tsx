@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
@@ -54,10 +55,11 @@ import {
   Camera,
   FileText,
 } from "lucide-react";
-import { createResource, deleteResource, listResource, updateResource, toProxiedUrl } from "@/lib/admin/apiClient";
+import { createResource, deleteResource, listResource, updateResource, getResource, toProxiedUrl, apiFetch } from "@/lib/admin/apiClient";
 import DropboxFilePicker, { type DropboxSelectedFile, formatBytes, DropboxIcon } from "@/components/admin/DropboxFilePicker";
 import { getAuthState } from "@/lib/auth";
 import { ROLE_GROUPS } from "@/constants/roles";
+import { Pagination } from "@/components/Pagination";
 
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 
@@ -76,8 +78,9 @@ interface Vehicle {
   assignedTo: string;
   insuranceInfo?: string;
   documents?: { fileName: string; dataUrl: string }[];
-  tagPhotoFileName?: string;
+   tagPhotoFileName?: string;
   tagPhotoDataUrl?: string;
+  requiresInspection?: boolean;
 }
 
 interface Employee {
@@ -156,6 +159,7 @@ function normalizeVehicle(v: BackendVehicle): Vehicle {
     documents: Array.isArray(v.documents) ? v.documents : [],
     tagPhotoFileName: String(v.tagPhotoFileName || "").trim() || undefined,
     tagPhotoDataUrl: String(v.tagPhotoDataUrl || "").trim() || undefined,
+    requiresInspection: v.requiresInspection !== false,
   };
 }
 
@@ -259,6 +263,28 @@ const cardVariants = {
   },
 };
 
+const LazyVehiclePhoto = ({ vehicleId, model, className }: { vehicleId: string, model: string, className?: string }) => {
+  const { data } = useQuery({
+    queryKey: ["vehicle-photo", vehicleId],
+    queryFn: async () => {
+      return apiFetch<{ photo: string, fileName: string }>(`/api/vehicles/${vehicleId}/photo`);
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const photoSrc = data?.photo ? (toProxiedUrl(data.photo) || data.photo) : null;
+
+  if (photoSrc) {
+    return <img src={photoSrc} alt={model} className={`object-cover ${className}`} />;
+  }
+  
+  return (
+    <div className={`bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center flex-shrink-0 ${className}`}>
+      <Car className="h-1/2 w-1/2 text-primary opacity-50" />
+    </div>
+  );
+};
+
 const Vehicles = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
@@ -267,15 +293,17 @@ const Vehicles = () => {
   const [viewDetailsOpen, setViewDetailsOpen] = useState(false);
   const [editVehicleOpen, setEditVehicleOpen] = useState(false);
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
-  const [vehiclesList, setVehiclesList] = useState<Vehicle[]>(() => []);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [hoveredVehicle, setHoveredVehicle] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [isVehicleDropboxPickerOpen, setIsVehicleDropboxPickerOpen] = useState(false);
   const [vehicleDropboxDocs, setVehicleDropboxDocs] = useState<DropboxSelectedFile[]>([]);
   const currentRole = getAuthState().role || "";
+  const [isSaving, setIsSaving] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const PAGE_SIZE = 25;
   const [formData, setFormData] = useState({
     make: "",
     model: "",
@@ -291,6 +319,7 @@ const Vehicles = () => {
     documents: [] as { fileName: string; dataUrl: string }[],
     tagPhotoFileName: "",
     tagPhotoDataUrl: "",
+    requiresInspection: true,
   });
 
   const [tagPhotoFile, setTagPhotoFile] = useState<File | null>(null);
@@ -317,75 +346,99 @@ const Vehicles = () => {
     return null;
   };
 
-  useEffect(() => {
-    let mounted = true;
-    const load = async () => {
-      try {
-        setLoading(true);
-        setApiError(null);
-        
-        // Fetch vehicles
-        const list = await listResource<BackendVehicle>("vehicles");
-        if (!mounted) return;
-        setVehiclesList(list.map(normalizeVehicle));
-        
-        // Fetch employees from employees API
-        let allEmployees: Employee[] = [];
-        try {
-          const employeeList = await listResource<Employee>("employees");
-          if (mounted) {
-            allEmployees = employeeList.filter((e) => e.status === "active");
-          }
-        } catch (empErr) {
-          console.error("Failed to load employees:", empErr);
-        }
-        
-        // Fetch users with employee role from users API
-        try {
-          const userList = await listResource<User>("users");
-          if (mounted) {
-            const employeeUsers = userList
-              .filter((u) => u.role === "employee" && (u.status === "active" || u.status === "pending"))
-              .map((u) => ({
-                id: u.id,
-                name: u.name,
-                initials: getInitials(u.name),
-                email: u.email,
-                status: "active" as const,
-              }));
-            
-            // Merge both lists (remove duplicates by email)
-            employeeUsers.forEach((eu) => {
-              if (!allEmployees.some((e) => e.email === eu.email)) {
-                allEmployees.push(eu);
-              }
-            });
-          }
-        } catch (userErr) {
-          console.error("Failed to load users:", userErr);
-        }
-        
-        if (mounted) {
-          setEmployees(allEmployees);
-        }
-      } catch (e) {
-        if (!mounted) return;
-        setApiError(e instanceof Error ? e.message : "Failed to load vehicles");
-      } finally {
-        if (!mounted) return;
-        setLoading(false);
-      }
-    };
-    void load();
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const queryClient = useQueryClient();
 
-  const refreshVehicles = async () => {
-    const list = await listResource<BackendVehicle>("vehicles");
-    setVehiclesList(list.map(normalizeVehicle));
+  // Fetch employees and users in parallel once
+  const { data: allAssignees = [] } = useQuery({
+    queryKey: ["vehicle-assignees"],
+    queryFn: async () => {
+      const [employeeList, userList] = await Promise.all([
+        listResource<Employee>("employees").catch(() => []),
+        listResource<User>("users").catch(() => []),
+      ]);
+
+      const allEmployees: Employee[] = Array.isArray(employeeList) 
+        ? employeeList.filter((e: any) => e.status === "active")
+        : [];
+
+      if (Array.isArray(userList)) {
+        const employeeUsers = userList
+          .filter((u: any) => u.role === "employee" && (u.status === "active" || u.status === "pending"))
+          .map((u: any) => ({
+            id: u.id,
+            name: u.name,
+            initials: getInitials(u.name),
+            email: u.email,
+            status: "active" as const,
+          }));
+        
+        employeeUsers.forEach((eu: any) => {
+          if (!allEmployees.some((e: any) => e.email === eu.email)) {
+            allEmployees.push(eu);
+          }
+        });
+      }
+      return allEmployees;
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  useEffect(() => {
+    if (allAssignees.length > 0) {
+      setEmployees(allAssignees);
+    }
+  }, [allAssignees]);
+
+  // Fetch vehicles with TanStack Query
+  const vehiclesQuery = useQuery({
+    queryKey: ["vehicles", currentPage, searchQuery],
+    placeholderData: keepPreviousData,
+    staleTime: 60 * 1000, // 1 minute
+    queryFn: async () => {
+      const res = await listResource<BackendVehicle>("vehicles", { 
+        page: currentPage, 
+        limit: PAGE_SIZE,
+        search: searchQuery 
+      });
+      
+      let items: BackendVehicle[] = [];
+      let total = 1;
+
+      if (res && typeof res === "object" && "items" in res) {
+        items = res.items as BackendVehicle[];
+        total = res.pagination?.totalPages || 1;
+      } else if (Array.isArray(res)) {
+        items = res;
+      }
+
+      return {
+        items: items,
+        totalPages: total
+      };
+    },
+  });
+
+  const rawVehiclesList = vehiclesQuery.data?.items || [];
+  const vehiclesList = useMemo(() => {
+    return rawVehiclesList.map(normalizeVehicle);
+  }, [rawVehiclesList, employees]);
+  const totalPagesCount = vehiclesQuery.data?.totalPages || 1;
+  const loading = vehiclesQuery.isLoading;
+
+  useEffect(() => {
+    if (vehiclesQuery.error) {
+      setApiError(vehiclesQuery.error instanceof Error ? vehiclesQuery.error.message : "Failed to load vehicles");
+    }
+  }, [vehiclesQuery.error]);
+
+  useEffect(() => {
+    setTotalPages(totalPagesCount);
+  }, [totalPagesCount]);
+
+  const refreshVehicles = () => {
+    void vehiclesQuery.refetch();
   };
+
 
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -457,6 +510,7 @@ const Vehicles = () => {
         documents: formData.documents,
         tagPhotoFileName: formData.tagPhotoFileName || "",
         tagPhotoDataUrl,
+        requiresInspection: formData.requiresInspection,
       };
       await createResource("vehicles", newVehiclePayload);
       await refreshVehicles();
@@ -477,6 +531,7 @@ const Vehicles = () => {
         documents: [],
         tagPhotoFileName: "",
         tagPhotoDataUrl: "",
+        requiresInspection: true,
       });
       setTagPhotoFile(null);
     } catch (e) {
@@ -486,9 +541,18 @@ const Vehicles = () => {
     }
   };
 
-  const handleViewDetails = (vehicle: Vehicle) => {
-    setSelectedVehicle(vehicle);
-    setViewDetailsOpen(true);
+  const handleViewDetails = async (vehicle: Vehicle) => {
+    try {
+      setApiError(null);
+      // Fetch full vehicle to get tagPhotoDataUrl
+      const fullVehicle = await getResource<BackendVehicle>("vehicles", vehicle.id);
+      setSelectedVehicle(normalizeVehicle(fullVehicle as any));
+      setViewDetailsOpen(true);
+    } catch (e) {
+      setApiError("Failed to fetch vehicle details");
+      setSelectedVehicle(vehicle); // Fallback to list data
+      setViewDetailsOpen(true);
+    }
   };
 
   useEffect(() => {
@@ -514,26 +578,56 @@ const Vehicles = () => {
     addVehicleOpen,
   ]);
 
-  const handleEditVehicle = (vehicle: Vehicle) => {
-    setSelectedVehicle(vehicle);
-    setEditTagPhotoFile(null);
-    setEditFormData({
-      make: vehicle.make,
-      model: vehicle.model,
-      year: vehicle.year,
-      licensePlate: vehicle.licensePlate,
-      vin: vehicle.vin,
-      mileage: vehicle.mileage,
-      status: vehicle.status,
-      lastInspection: vehicle.lastInspection,
-      nextInspection: vehicle.nextInspection,
-      assignedTo: vehicle.assignedTo,
-      insuranceInfo: vehicle.insuranceInfo || "",
-      documents: vehicle.documents || [],
-      tagPhotoFileName: vehicle.tagPhotoFileName || "",
-      tagPhotoDataUrl: vehicle.tagPhotoDataUrl || "",
-    });
-    setEditVehicleOpen(true);
+  const handleEditVehicle = async (vehicle: Vehicle) => {
+    try {
+      setApiError(null);
+      // Fetch full vehicle to get tagPhotoDataUrl
+      const fullVehicle = await getResource<BackendVehicle>("vehicles", vehicle.id);
+      const normalized = normalizeVehicle(fullVehicle as any);
+      setSelectedVehicle(normalized);
+      setEditTagPhotoFile(null);
+      setEditFormData({
+        make: normalized.make,
+        model: normalized.model,
+        year: normalized.year,
+        licensePlate: normalized.licensePlate,
+        vin: normalized.vin,
+        mileage: normalized.mileage,
+        status: normalized.status,
+        lastInspection: normalized.lastInspection,
+        nextInspection: normalized.nextInspection,
+        assignedTo: normalized.assignedTo,
+        insuranceInfo: normalized.insuranceInfo || "",
+        documents: normalized.documents || [],
+        tagPhotoFileName: normalized.tagPhotoFileName || "",
+        tagPhotoDataUrl: normalized.tagPhotoDataUrl || "",
+        requiresInspection: normalized.requiresInspection !== false,
+      });
+      setEditVehicleOpen(true);
+    } catch (e) {
+      setApiError("Failed to fetch vehicle details for editing");
+      // Fallback
+      setSelectedVehicle(vehicle);
+      setEditTagPhotoFile(null);
+      setEditFormData({
+        make: vehicle.make,
+        model: vehicle.model,
+        year: vehicle.year,
+        licensePlate: vehicle.licensePlate,
+        vin: vehicle.vin,
+        mileage: vehicle.mileage,
+        status: vehicle.status,
+        lastInspection: vehicle.lastInspection,
+        nextInspection: vehicle.nextInspection,
+        assignedTo: vehicle.assignedTo,
+        insuranceInfo: vehicle.insuranceInfo || "",
+        documents: vehicle.documents || [],
+        tagPhotoFileName: vehicle.tagPhotoFileName || "",
+        tagPhotoDataUrl: vehicle.tagPhotoDataUrl || "",
+        requiresInspection: vehicle.requiresInspection !== false,
+      });
+      setEditVehicleOpen(true);
+    }
   };
 
   const [editFormData, setEditFormData] = useState({
@@ -551,6 +645,7 @@ const Vehicles = () => {
     documents: [] as { fileName: string; dataUrl: string }[],
     tagPhotoFileName: "",
     tagPhotoDataUrl: "",
+    requiresInspection: true,
   });
 
   const [editFormError, setEditFormError] = useState<string | null>(null);
@@ -569,10 +664,11 @@ const Vehicles = () => {
     }
     setEditFormError(null);
     try {
+      setIsSaving(true);
       setApiError(null);
       let tagPhotoDataUrl = String(editFormData.tagPhotoDataUrl || "").trim();
       if (editTagPhotoFile) {
-        try { tagPhotoDataUrl = await readFileAsDataUrl(editTagPhotoFile); } catch { tagPhotoDataUrl = ""; }
+        try { tagPhotoDataUrl = await compressImageToDataUrl(editTagPhotoFile); } catch { tagPhotoDataUrl = ""; }
       }
       await updateResource<Vehicle>("vehicles", selectedVehicle.id, {
         ...selectedVehicle,
@@ -590,6 +686,7 @@ const Vehicles = () => {
         documents: editFormData.documents,
         tagPhotoFileName: editFormData.tagPhotoFileName || "",
         tagPhotoDataUrl,
+        requiresInspection: editFormData.requiresInspection,
       });
       await refreshVehicles();
       setEditVehicleOpen(false);
@@ -598,6 +695,8 @@ const Vehicles = () => {
       setEditTagPhotoFile(null);
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "Failed to update vehicle");
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -619,21 +718,7 @@ const Vehicles = () => {
     }
   };
 
-  const filteredVehicles = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    if (!q) return vehiclesList;
-
-    return vehiclesList.filter((v) => {
-      const vehicleName = `${v.year} ${v.make} ${v.model}`.toLowerCase();
-      return (
-        vehicleName.includes(q) ||
-        v.licensePlate.toLowerCase().includes(q) ||
-        v.vin.toLowerCase().includes(q) ||
-        v.status.toLowerCase().includes(q) ||
-        v.assignedTo.toLowerCase().includes(q)
-      );
-    });
-  }, [searchQuery, vehiclesList]);
+  const filteredVehicles = vehiclesList;
 
   const vehiclesStatusData = useMemo(() => {
     const map: Record<string, number> = { active: 0, maintenance: 0, inactive: 0, available: 0 };
@@ -699,8 +784,18 @@ const Vehicles = () => {
                 Track fleet vehicles, inspections, and maintenance schedules.
               </p>
             </div>
-
-           
+            
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+              {/* Search Bar */}
+              <div className="relative w-full sm:w-64 md:w-80">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search vehicles..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 h-10 bg-background/50 backdrop-blur-sm border-primary/20 focus:border-primary transition-all shadow-sm"
+                />
+              </div>
             <Dialog open={addVehicleOpen} onOpenChange={setAddVehicleOpen}>
               <DialogTrigger asChild>
                 <motion.div
@@ -879,6 +974,19 @@ const Vehicles = () => {
                         className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base h-9 sm:h-10 focus:ring-2 focus:ring-primary/20 transition-all"
                       />
                     </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 py-2">
+                    <input
+                      type="checkbox"
+                      id="requires-inspection-add"
+                      checked={formData.requiresInspection}
+                      onChange={(e) => setFormData({ ...formData, requiresInspection: e.target.checked })}
+                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <label htmlFor="requires-inspection-add" className="text-sm font-medium">
+                      Requires Regular Inspections
+                    </label>
                   </div>
 
                   {/* Insurance Info */}
@@ -1065,7 +1173,8 @@ const Vehicles = () => {
               </DialogContent>
             </Dialog>
           </div>
-        </motion.div>
+        </div>
+      </motion.div>
 
         {/* API Error Message */}
         <AnimatePresence>
@@ -1204,16 +1313,11 @@ const Vehicles = () => {
                                 whileHover={{ scale: 1.1, rotate: 5 }}
                                 transition={{ type: "spring" as const, stiffness: 300, damping: 10 }}
                               >
-                                {(() => {
-                                  const photoSrc = getVehicleTagPhotoSrc(vehicle);
-                                  return photoSrc ? (
-                                    <img src={photoSrc} alt={vehicle.model} className="h-10 w-10 rounded-lg object-cover ring-2 ring-primary/20" />
-                                  ) : (
-                                    <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center flex-shrink-0 ring-2 ring-primary/20">
-                                      <Car className="h-5 w-5 text-primary" />
-                                    </div>
-                                  );
-                                })()}
+                                <LazyVehiclePhoto 
+                                  vehicleId={vehicle.id} 
+                                  model={vehicle.model} 
+                                  className="h-10 w-10 rounded-lg ring-2 ring-primary/20" 
+                                />
                               </motion.div>
                               <div className="min-w-0 flex-1">
                                 <p className="font-medium text-sm truncate flex items-center gap-2">
@@ -1305,37 +1409,38 @@ const Vehicles = () => {
                             </motion.div>
                           </div>
 
-                          {/* Inspection Info */}
-                          <motion.div 
-                            className="pt-2 border-t"
-                            whileHover={{ x: 5 }}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="text-xs text-muted-foreground">Next Inspection</p>
-                                <p className="text-sm">{toDateOnly(vehicle.nextInspection) || "—"}</p>
+                          {vehicle.requiresInspection && (
+                            <motion.div 
+                              className="pt-2 border-t"
+                              whileHover={{ x: 5 }}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-xs text-muted-foreground">Next Inspection</p>
+                                  <p className="text-sm">{toDateOnly(vehicle.nextInspection) || "—"}</p>
+                                </div>
+                                {(() => {
+                                  const d = daysUntil(vehicle.nextInspection);
+                                  if (d === null) return null;
+                                  if (d < 0) {
+                                    return (
+                                      <Badge variant="secondary" className="bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive text-xs">
+                                        Overdue
+                                      </Badge>
+                                    );
+                                  }
+                                  if (d <= 30) {
+                                    return (
+                                      <Badge variant="secondary" className="bg-gradient-to-r from-warning/20 to-warning/10 text-warning text-xs">
+                                        Due in {d}d
+                                      </Badge>
+                                    );
+                                  }
+                                  return null;
+                                })()}
                               </div>
-                              {(() => {
-                                const d = daysUntil(vehicle.nextInspection);
-                                if (d === null) return null;
-                                if (d < 0) {
-                                  return (
-                                    <Badge variant="secondary" className="bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive text-xs">
-                                      Overdue
-                                    </Badge>
-                                  );
-                                }
-                                if (d <= 30) {
-                                  return (
-                                    <Badge variant="secondary" className="bg-gradient-to-r from-warning/20 to-warning/10 text-warning text-xs">
-                                      Due in {d}d
-                                    </Badge>
-                                  );
-                                }
-                                return null;
-                              })()}
-                            </div>
-                          </motion.div>
+                            </motion.div>
+                          )}
                         </motion.div>
                       ))}
                     </AnimatePresence>
@@ -1402,16 +1507,11 @@ const Vehicles = () => {
                                     whileHover={{ scale: 1.1, rotate: 5 }}
                                     transition={{ type: "spring" as const, stiffness: 300, damping: 10 }}
                                   >
-                                    {(() => {
-                                      const photoSrc = getVehicleTagPhotoSrc(vehicle);
-                                      return photoSrc ? (
-                                        <img src={photoSrc} alt={vehicle.model} className="h-9 w-9 md:h-10 md:w-10 rounded-lg object-cover ring-2 ring-primary/20" />
-                                      ) : (
-                                        <div className="h-9 w-9 md:h-10 md:w-10 rounded-lg bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center flex-shrink-0 ring-2 ring-primary/20">
-                                          <Car className="h-4 w-4 md:h-5 md:w-5 text-primary" />
-                                        </div>
-                                      );
-                                    })()}
+                                    <LazyVehiclePhoto 
+                                      vehicleId={vehicle.id} 
+                                      model={vehicle.model} 
+                                      className="h-9 w-9 md:h-10 md:w-10 rounded-lg ring-2 ring-primary/20" 
+                                    />
                                   </motion.div>
                                   <div className="min-w-0">
                                     <p className="font-medium text-sm md:text-sm whitespace-nowrap flex items-center gap-2">
@@ -1456,26 +1556,32 @@ const Vehicles = () => {
                               </TableCell>
                               <TableCell className="text-muted-foreground">
                                 <div className="flex flex-col gap-1">
-                                  <span className="text-sm md:text-sm">{toDateOnly(vehicle.nextInspection) || "—"}</span>
-                                  {(() => {
-                                    const d = daysUntil(vehicle.nextInspection);
-                                    if (d === null) return null;
-                                    if (d < 0) {
-                                      return (
-                                        <Badge variant="secondary" className="bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive text-xs w-fit">
-                                          Overdue
-                                        </Badge>
-                                      );
-                                    }
-                                    if (d <= 30) {
-                                      return (
-                                        <Badge variant="secondary" className="bg-gradient-to-r from-warning/20 to-warning/10 text-warning text-xs w-fit">
-                                          Due in {d} days
-                                        </Badge>
-                                      );
-                                    }
-                                    return null;
-                                  })()}
+                                  {vehicle.requiresInspection ? (
+                                    <>
+                                      <span className="text-sm md:text-sm">{toDateOnly(vehicle.nextInspection) || "—"}</span>
+                                      {(() => {
+                                        const d = daysUntil(vehicle.nextInspection);
+                                        if (d === null) return null;
+                                        if (d < 0) {
+                                          return (
+                                            <Badge variant="secondary" className="bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive text-xs w-fit">
+                                              Overdue
+                                            </Badge>
+                                          );
+                                        }
+                                        if (d <= 30) {
+                                          return (
+                                            <Badge variant="secondary" className="bg-gradient-to-r from-warning/20 to-warning/10 text-warning text-xs w-fit">
+                                              Due in {d} days
+                                            </Badge>
+                                          );
+                                        }
+                                        return null;
+                                      })()}
+                                    </>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground italic">No inspection required</span>
+                                  )}
                                 </div>
                               </TableCell>
                               <TableCell className="text-right">
@@ -1519,6 +1625,14 @@ const Vehicles = () => {
               )}
             </CardContent>
           </Card>
+          
+          <div className="mt-6">
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          </div>
         </motion.div>
       </motion.div>
 
@@ -1831,6 +1945,19 @@ const Vehicles = () => {
                 </div>
               </div>
 
+              <div className="flex items-center gap-2 py-2">
+                <input
+                  type="checkbox"
+                  id="requires-inspection-edit"
+                  checked={editFormData.requiresInspection}
+                  onChange={(e) => setEditFormData({ ...editFormData, requiresInspection: e.target.checked })}
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <label htmlFor="requires-inspection-edit" className="text-sm font-medium">
+                  Requires Regular Inspections
+                </label>
+              </div>
+
               {/* Vehicle Photo Upload */}
               <div className="flex flex-col gap-3">
                 <div className="flex-1 min-w-0">
@@ -1853,7 +1980,7 @@ const Vehicles = () => {
                       const f = e.dataTransfer.files?.[0];
                       if (f) {
                         setEditTagPhotoFile(f);
-                        void readFileAsDataUrl(f).then((url) => setEditFormData((p) => ({ ...p, tagPhotoFileName: f.name, tagPhotoDataUrl: url })));
+                        void compressImageToDataUrl(f).then((url) => setEditFormData((p) => ({ ...p, tagPhotoFileName: f.name, tagPhotoDataUrl: url })));
                       }
                     }}
                     onClick={() => {
@@ -1890,7 +2017,7 @@ const Vehicles = () => {
                       onChange={(e) => {
                         const f = e.target.files?.[0] || null;
                         setEditTagPhotoFile(f);
-                        if (f) void readFileAsDataUrl(f).then((url) => setEditFormData((p) => ({ ...p, tagPhotoFileName: f.name, tagPhotoDataUrl: url })));
+                        if (f) void compressImageToDataUrl(f).then((url) => setEditFormData((p) => ({ ...p, tagPhotoFileName: f.name, tagPhotoDataUrl: url })));
                       }}
                     />
                   </motion.div>
@@ -1920,9 +2047,17 @@ const Vehicles = () => {
             >
               <Button 
                 onClick={saveEditVehicle} 
+                disabled={isSaving}
                 className="bg-gradient-to-r from-primary to-primary/80 text-white w-full sm:w-auto order-1 sm:order-2 shadow-lg hover:shadow-xl transition-all duration-300"
               >
-                Save Changes
+                {isSaving ? (
+                  <span className="flex items-center gap-2">
+                    <span className="h-4 w-4 border-2 border-white/80 border-t-transparent rounded-full animate-spin" />
+                    Saving...
+                  </span>
+                ) : (
+                  "Save Changes"
+                )}
               </Button>
             </motion.div>
           </DialogFooter>

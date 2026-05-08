@@ -1,13 +1,20 @@
-import  React,{ useMemo } from "react";
+import  React,{ useMemo, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getEmployeeDashboard, getEmployeeProfile, getOnboardingStatus } from "../lib/api";
-import { CheckCircle, Clock, AlertCircle, MessageSquare, Calendar, Timer, ListTodo, AlertTriangle, DollarSign, CheckSquare2 } from "lucide-react";
+import { employeeApiFetch } from "../lib/api";
+import { CheckCircle, Clock, AlertCircle, MessageSquare, Calendar, Timer, ListTodo, AlertTriangle, DollarSign, CheckSquare2, Users, UserCog, ChevronDown, ChevronUp } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { EmployeeStatCard } from "../components/StatCard";
+
+interface TeamLeadMapping {
+  teamLead: string;
+  user: string;
+  allowOverrideAdminAssignments: boolean;
+}
 
 
 interface DashboardData {
@@ -135,6 +142,39 @@ export default function EmployeeDashboard() {
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
+
+  // Team info state
+  const [teamMappings, setTeamMappings] = useState<TeamLeadMapping[]>([]);
+  const [teamLoading, setTeamLoading] = useState(false);
+  const [teamExpanded, setTeamExpanded] = useState(false);
+
+  useEffect(() => {
+    const fetchTeamInfo = async () => {
+      try {
+        setTeamLoading(true);
+        // Fetch team lead mappings for current user (to find their team lead)
+        const res = await employeeApiFetch<{ items: TeamLeadMapping[] }>("/api/team-lead-mappings/me");
+        setTeamMappings(res.items || []);
+      } catch (e) {
+        console.error("Failed to load team info:", e);
+      } finally {
+        setTeamLoading(false);
+      }
+    };
+    fetchTeamInfo();
+  }, []);
+
+  // Find team lead for current employee
+  const myTeamLead = useMemo(() => {
+    if (teamMappings.length === 0) return null;
+    return teamMappings[0]?.teamLead || null;
+  }, [teamMappings]);
+
+  // Find teammates (other users with same team lead)
+  const teammates = useMemo(() => {
+    if (!myTeamLead) return [];
+    return teamMappings.filter(m => m.teamLead === myTeamLead).map(m => m.user);
+  }, [teamMappings, myTeamLead]);
 
   const data = dashboardQuery.data || null;
   const onboardingStatus = onboardingQuery.data?.overallStatus || "not_started";
@@ -303,6 +343,85 @@ export default function EmployeeDashboard() {
         />
       </div>
 
+      {/* My Team Section */}
+      <Card className="border-l-4 border-l-primary">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <UserCog className="h-5 w-5 text-primary" />
+            My Team
+          </CardTitle>
+          {myTeamLead && (
+            <button
+              onClick={() => setTeamExpanded(!teamExpanded)}
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-primary transition-colors"
+            >
+              {teamExpanded ? (
+                <>
+                  <ChevronUp className="h-4 w-4" />
+                  Hide
+                </>
+              ) : (
+                <>
+                  <ChevronDown className="h-4 w-4" />
+                  Show
+                </>
+              )}
+            </button>
+          )}
+        </CardHeader>
+        <CardContent>
+          {teamLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          ) : !myTeamLead ? (
+            <div className="text-center py-4 text-muted-foreground text-sm">
+              You are not assigned to any team yet.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {/* Team Lead */}
+              <div className="flex items-center gap-3 p-3 bg-primary/5 rounded-lg">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <UserCog className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Team Lead</p>
+                  <p className="font-medium">{myTeamLead}</p>
+                </div>
+              </div>
+
+              {/* Team Members */}
+              {teamExpanded && teammates.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Team Members</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {teammates.map((member, idx) => (
+                      <div 
+                        key={idx} 
+                        className="flex items-center gap-2 p-2 bg-muted/30 rounded-md"
+                      >
+                        <div className="h-7 w-7 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                          <span className="text-xs font-medium text-emerald-600">
+                            {member.charAt(0).toUpperCase()}
+                          </span>
+                        </div>
+                        <span className="text-sm">{member}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!teamExpanded && teammates.length > 0 && (
+                <p className="text-xs text-muted-foreground text-center">
+                  {teammates.length} team member{teammates.length !== 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
 <div className="space-y-2">
   {(data?.alerts?.length ?? 0) === 0 ? (

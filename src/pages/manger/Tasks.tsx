@@ -91,6 +91,7 @@ import {
   TrendingUp,
   Maximize2,
   Smile,
+  Flame,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch, downloadTaskAttachment, toProxiedUrl, getTopContributors, downloadViaUrl, updateComment, deleteComment } from "@/lib/manger/api";
@@ -101,6 +102,7 @@ import { useSocket } from "@/contexts/SocketContext";
 import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import jsPDF from "jspdf";
 import { Pagination } from "@/components/Pagination";
+import { useRewards } from "@/contexts/RewardContext";
 import { useGlobalTimer } from "@/hooks/useGlobalTimer";
 import { getRemainingTime, getTimerState } from "@/lib/manger/time";
 import DropboxFilePicker, { type DropboxSelectedFile, formatBytes, DropboxIcon } from "@/components/admin/DropboxFilePicker";
@@ -114,6 +116,7 @@ interface Task {
   assignee?: string;
   priority: "low" | "medium" | "high";
   status: "pending" | "in-progress" | "completed" | "overdue";
+  executionPriority?: number | null;
   dueDate: string;
   dueTime?: string;
   location?: string;
@@ -256,15 +259,29 @@ function normalizeTask(t: TaskApi): Task {
     assignees,
     priority: t.priority,
     status: t.status,
+    executionPriority: (t as any).executionPriority ?? null,
     dueDate: t.dueDate,
     dueTime: t.dueTime,
-    location: t.location,
+    location: (t as any).location,
     createdAt: t.createdAt,
+    projectId: (t as any).projectId,
     attachmentFileName: extra.attachmentFileName,
     attachmentNote: extra.attachmentNote,
     attachment: extra.attachment,
     attachments: Array.isArray((t as any).attachments) ? (t as any).attachments : undefined,
   };
+}
+
+function getAttachmentCounts(attachments?: any[], attachment?: any) {
+  const allAttachments = Array.isArray(attachments) ? [...attachments] : [];
+  if (attachment && attachment.url && !allAttachments.some(a => a.url === attachment.url)) {
+    allAttachments.push(attachment);
+  }
+  
+  const images = allAttachments.filter(a => a.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(a.fileName || "")).length;
+  const files = allAttachments.length - images;
+  
+  return { images, files };
 }
 
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
@@ -344,7 +361,7 @@ function TaskAttachmentImg({ taskId, attachmentUrl, onPreview }: { taskId: strin
   if (src) return (
     <div className="w-full h-full relative group/task-att cursor-zoom-in" onClick={() => onPreview?.(src, "Task Attachment")}>
       <img src={src} alt="Task preview" className="w-full h-full object-cover" />
-      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/task-att:opacity-100 flex items-center justify-center transition-all duration-200">
+      <div className="absolute inset-0 bg-black/40 opacity-100 sm:opacity-0 sm:group-hover/task-att:opacity-100 flex items-center justify-center transition-all duration-200">
         <Maximize2 className="w-5 h-5 text-white" />
       </div>
     </div>
@@ -371,7 +388,7 @@ function CommentAttachmentImg({ taskId, projectId, commentId, index, mimeType, f
   if (src && mimeType?.startsWith("image/")) return (
     <div className="w-full h-auto flex justify-center relative group/att cursor-zoom-in" onClick={() => onPreview?.(src, fileName)}>
       <img src={src} alt={fileName} className="w-full h-auto max-h-[180px] object-contain rounded-lg" />
-      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-all duration-200 rounded-lg">
+      <div className="absolute inset-0 bg-black/40 opacity-100 sm:opacity-0 sm:group-hover/att:opacity-100 flex items-center justify-center transition-all duration-200 rounded-lg">
         <Maximize2 className="w-5 h-5 text-white" />
       </div>
     </div>
@@ -382,7 +399,7 @@ function CommentAttachmentImg({ taskId, projectId, commentId, index, mimeType, f
         <FileText className="w-6 h-6 text-white/60 mb-1" />
         <span className="text-[10px] text-white/40 truncate w-full px-2 font-medium">{fileName}</span>
       </div>
-      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center gap-3 transition-opacity backdrop-blur-[1px] cursor-default">
+      <div className="absolute inset-0 bg-black/40 opacity-100 sm:opacity-0 sm:group-hover/att:opacity-100 flex items-center justify-center gap-3 transition-opacity backdrop-blur-[1px] cursor-default">
         <button 
           onClick={(e) => { e.stopPropagation(); onPreview?.(src, fileName); }}
           className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-colors"
@@ -405,20 +422,81 @@ function CommentAttachmentImg({ taskId, projectId, commentId, index, mimeType, f
   return <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/10"><X className="w-4 h-4 text-muted-foreground/40" /></div>;
 }
 
+function isImageFile(file: File) {
+  const t = String(file.type || "").toLowerCase();
+  return t.startsWith("image/");
+}
+
+async function compressImageToDataUrl(file: File): Promise<string> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new Image();
+    i.onload = () => resolve(i);
+    i.onerror = () => reject(new Error("Invalid image"));
+    i.src = dataUrl;
+  });
+
+  const maxW = 1600;
+  const maxH = 1600;
+  const scale = Math.min(1, maxW / img.naturalWidth, maxH / img.naturalHeight);
+  const w = Math.max(1, Math.round(img.naturalWidth * scale));
+  const h = Math.max(1, Math.round(img.naturalHeight * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Canvas not supported");
+  ctx.drawImage(img, 0, 0, w, h);
+
+  const quality = 0.75;
+  const mime = "image/jpeg";
+  return canvas.toDataURL(mime, quality);
+}
+
 async function filesToAttachments(files: File[]) {
-  return Promise.all(
+  const results = await Promise.all(
     files.map(
-      (file) =>
-        new Promise<{ fileName: string; url: string; mimeType: string; size: number }>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onerror = () => reject(new Error("Failed to read file"));
-          reader.onload = () => {
-            resolve({ fileName: file.name, url: typeof reader.result === "string" ? reader.result : "", mimeType: file.type, size: file.size });
-          };
-          reader.readAsDataURL(file);
-        }),
+      async (file) => {
+        let url = "";
+        if (isImageFile(file)) {
+          try {
+            url = await compressImageToDataUrl(file);
+          } catch (e) {
+            console.error("Compression failed, using raw data URL", e);
+            url = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(String(reader.result || ""));
+              reader.onerror = () => reject(new Error("Failed to read file"));
+              reader.readAsDataURL(file);
+            });
+          }
+        } else {
+          url = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result || ""));
+            reader.onerror = () => reject(new Error("Failed to read file"));
+            reader.readAsDataURL(file);
+          });
+        }
+        
+        return {
+          fileName: file.name,
+          url,
+          mimeType: file.type,
+          size: file.size,
+        };
+      }
     ),
   );
+
+  return results;
 }
 
 function renderMessageWithMentions(text: string) {
@@ -560,6 +638,7 @@ export default function Tasks() {
   const [projectSearchQuery, setProjectSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [viewByPriority, setViewByPriority] = useState(false);
   const [projectPage, setProjectPage] = useState(1);
   const [taskPage, setTaskPage] = useState(1);
   const PAGE_SIZE = 25;
@@ -637,6 +716,14 @@ export default function Tasks() {
   const [dropboxSelectedFiles, setDropboxSelectedFiles] = useState<DropboxSelectedFile[]>([]);
   const [projectDropboxSelectedFiles, setProjectDropboxSelectedFiles] = useState<DropboxSelectedFile[]>([]);
   const currentRole = getAuthState().role || "";
+
+  // Team Lead reassign state
+  const [teamLeadMappings, setTeamLeadMappings] = useState<Array<{ user: string; allowOverrideAdminAssignments: boolean }>>([]);
+  const [isReassignDialogOpen, setIsReassignDialogOpen] = useState(false);
+  const [reassignTask, setReassignTask] = useState<Task | null>(null);
+  const [reassignAssignees, setReassignAssignees] = useState<string[]>([]);
+  const [reassignAssigneesOpen, setReassignAssigneesOpen] = useState(false);
+  const [isReassigning, setIsReassigning] = useState(false);
   
   const now = useGlobalTimer();
   // Top contributors state
@@ -664,6 +751,7 @@ export default function Tasks() {
   const queryClient = useQueryClient();
 
   const currentUsername = getAuthState().username || "";
+  const isTeamLead = getAuthState().role === "team-lead";
   const { socket, joinTask, leaveTask } = useSocket();
 
   // Lightbox / File Preview State
@@ -675,7 +763,7 @@ export default function Tasks() {
 
   // Fetch tasks with server-side pagination
   const tasksQuery = useQuery({
-    queryKey: ["tasks", taskPage, searchQuery, statusFilter, priorityFilter],
+    queryKey: ["tasks", taskPage, searchQuery, statusFilter, priorityFilter, viewByPriority],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: taskPage.toString(),
@@ -684,11 +772,12 @@ export default function Tasks() {
         status: statusFilter,
         priority: priorityFilter,
       });
+      if (viewByPriority) params.set("sort", "priority");
       const res = await apiFetch<{ items: TaskApi[], totalPages: number, total: number }>(`/api/tasks?${params.toString()}`);
       return {
-        items: res.items.map(normalizeTask),
-        totalPages: res.totalPages || 1,
-        totalItems: res.total || 0,
+        items: (res.items || []).map(normalizeTask),
+        totalPages: res.totalPages,
+        totalItems: res.total,
       };
     },
     placeholderData: (previousData) => previousData,
@@ -716,7 +805,7 @@ export default function Tasks() {
   });
 
   // Reset pages when filters change
-  useEffect(() => { setTaskPage(1); }, [searchQuery, statusFilter, priorityFilter]);
+  useEffect(() => { setTaskPage(1); }, [searchQuery, statusFilter, priorityFilter, viewByPriority]);
   useEffect(() => { setProjectPage(1); }, [searchQuery]);
 
   useEffect(() => {
@@ -996,6 +1085,63 @@ export default function Tasks() {
     },
   });
 
+  // Fetch team lead mappings if user is team-lead
+  useEffect(() => {
+    const auth = getAuthState();
+    if (auth.role === "team-lead") {
+      apiFetch<{ items: Array<{ user: string; allowOverrideAdminAssignments: boolean }> }>("/api/team-lead-mappings/me")
+        .then((res) => {
+          setTeamLeadMappings(res?.items || []);
+        })
+        .catch(() => {
+          console.error("Failed to fetch team lead mappings");
+        });
+    }
+  }, []);
+
+  const openReassignDialog = (task: Task) => {
+    setReassignTask(task);
+    setReassignAssignees(task.assignees || []);
+    setIsReassignDialogOpen(true);
+  };
+
+  const handleReassign = async () => {
+    if (!reassignTask || reassignAssignees.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please select at least one assignee",
+      });
+      return;
+    }
+
+    setIsReassigning(true);
+    try {
+      await apiFetch(`/api/tasks/${reassignTask.id}/reassign`, {
+        method: "PUT",
+        body: JSON.stringify({ assignees: reassignAssignees }),
+      });
+      toast({
+        
+        title: "Success",
+        description: "Task reassigned successfully",
+      });
+      setIsReassignDialogOpen(false);
+      setReassignTask(null);
+      setReassignAssignees([]);
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to reassign task",
+      });
+    } finally {
+      setIsReassigning(false);
+    }
+  };
+
   const validateForm = () => {
     const errors: { projectName?: string; title?: string; description?: string } = {};
     if (!projectName.trim()) {
@@ -1104,20 +1250,32 @@ export default function Tasks() {
       const description = projectDescription?.trim() || "—";
 
       const projectLogo = projectLogoFile
-        ? await new Promise<ProjectLogo>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onerror = () => reject(new Error("Failed to read project logo"));
-            reader.onload = () => {
-              const url = typeof reader.result === "string" ? reader.result : "";
-              resolve({
-                fileName: projectLogoFile.name,
-                url,
-                mimeType: projectLogoFile.type,
-                size: projectLogoFile.size,
-              });
+        ? await (async () => {
+          try {
+            const url = await compressImageToDataUrl(projectLogoFile);
+            return {
+              fileName: projectLogoFile.name,
+              url,
+              mimeType: projectLogoFile.type,
+              size: projectLogoFile.size,
             };
-            reader.readAsDataURL(projectLogoFile);
-          })
+          } catch (e) {
+            return new Promise<ProjectLogo>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onerror = () => reject(new Error("Failed to read project logo"));
+              reader.onload = () => {
+                const url = typeof reader.result === "string" ? reader.result : "";
+                resolve({
+                  fileName: projectLogoFile.name,
+                  url,
+                  mimeType: projectLogoFile.type,
+                  size: projectLogoFile.size,
+                });
+              };
+              reader.readAsDataURL(projectLogoFile);
+            });
+          }
+        })()
         : undefined;
 
       const tasksToCreate: CreateProjectTaskDraft[] =
@@ -1372,13 +1530,14 @@ export default function Tasks() {
         prev.map(c => {
           if (c.id !== commentId) return c;
           const auth = getAuthState();
+          const currentUsername = auth.username || "";
           const userId = String(auth.sub || auth.id || "");
           const existing = (c.reactions || []).find(r => r.emoji === emoji && r.userId === userId);
           let newReactions;
           if (existing) {
             newReactions = (c.reactions || []).filter(r => !(r.emoji === emoji && r.userId === userId));
           } else {
-            newReactions = [...(c.reactions || []), { emoji, userId, username: auth.username || "", fullName: "" }];
+            newReactions = [...(c.reactions || []), { emoji, userId, username: currentUsername, fullName: "" }];
           }
           return { ...c, reactions: newReactions };
         })
@@ -1448,8 +1607,9 @@ export default function Tasks() {
   };
 
   const { triggerBlaster, incrementCompletedCount } = useTaskBlasterContext();
+  const { triggerReward } = useRewards();
 
-  const updateStatus = async (next: Task["status"]) => {
+  const updateStatus = async (next: Task["status"], event?: React.MouseEvent | React.TouchEvent | { x: number; y: number }) => {
     if (!selectedTask) return;
     const previousStatus = selectedTask.status;
     try {
@@ -1463,8 +1623,9 @@ export default function Tasks() {
       setSelectedTask(normalized);
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
-      // Trigger TaskBlaster when task is marked as completed
+      // Trigger TaskBlaster & Reward System when task is marked as completed
       if (next === "completed" && previousStatus !== "completed") {
+        // 1. Trigger Global Blaster (Legacy)
         const taskForBlaster = {
           id: normalized.id,
           title: normalized.title,
@@ -1474,6 +1635,25 @@ export default function Tasks() {
         const triggered = triggerBlaster(taskForBlaster);
         if (triggered) {
           incrementCompletedCount();
+        }
+
+        // 2. Trigger Professional Reward System (Micro-animations, Haptics, Sound)
+        if (event) {
+          let x = 0, y = 0;
+          if ('clientX' in event) {
+            x = event.clientX;
+            y = event.clientY;
+          } else if ('touches' in event && event.touches[0]) {
+            x = event.touches[0].clientX;
+            y = event.touches[0].clientY;
+          } else if ('x' in event) {
+            x = (event as any).x;
+            y = (event as any).y;
+          }
+          if (x || y) triggerReward(x, y);
+        } else {
+          // Fallback to center of screen if no event provided
+          triggerReward(window.innerWidth / 2, window.innerHeight / 2);
         }
       }
     } catch (e) {
@@ -1678,7 +1858,7 @@ export default function Tasks() {
               description: "The task has been updated successfully.",
             });
 
-            // Trigger TaskBlaster when task is marked as completed via edit
+            // Trigger TaskBlaster & Reward System when task is marked as completed via edit
             if (values.status === "completed" && previousStatus !== "completed") {
               const taskForBlaster = {
                 id: selectedTask.id,
@@ -1690,6 +1870,9 @@ export default function Tasks() {
               if (triggered) {
                 incrementCompletedCount();
               }
+
+              // Trigger reward at center for form submission completion
+              triggerReward(window.innerWidth / 2, window.innerHeight / 2);
             }
           },
           onError: (err) => {
@@ -1820,9 +2003,9 @@ export default function Tasks() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 sm:mx-0 sm:px-0 sm:pb-0">
+        <div className="flex flex-wrap gap-2 sm:gap-3 sm:flex-nowrap sm:overflow-x-auto sm:pb-0">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px] sm:w-[140px]">
+            <SelectTrigger className="w-[130px] sm:w-[140px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -1833,7 +2016,7 @@ export default function Tasks() {
             </SelectContent>
           </Select>
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-[140px] sm:w-[140px]">
+            <SelectTrigger className="w-[130px] sm:w-[140px]">
               <SelectValue placeholder="Priority" />
             </SelectTrigger>
             <SelectContent>
@@ -1846,6 +2029,16 @@ export default function Tasks() {
           <Button variant="outline" size="icon" className="shrink-0">
             <Filter className="w-4 h-4" />
           </Button>
+          <Button
+            type="button"
+            variant={viewByPriority ? "default" : "outline"}
+            className="shrink-0 gap-2"
+            onClick={() => setViewByPriority((v) => !v)}
+            title="View tasks by execution priority"
+          >
+            <Flame className="w-4 h-4" />
+            <span className="hidden sm:inline">View by Priority</span>
+          </Button>
         </div>
       </div>
 
@@ -1856,7 +2049,7 @@ export default function Tasks() {
           <h3 className="font-semibold text-amber-900 dark:text-amber-100">Top Contributors</h3>
         </div>
         {topContributorsLoading ? (
-          <div className="flex gap-3 overflow-x-auto pb-2">
+          <div className="flex flex-wrap sm:flex-nowrap gap-3 sm:overflow-x-auto pb-2">
             {[1, 2, 3].map((i) => (
               <div key={i} className="flex-shrink-0 w-48 h-20 bg-muted rounded-lg animate-pulse" />
             ))}
@@ -1864,11 +2057,11 @@ export default function Tasks() {
         ) : topContributors.length === 0 ? (
           <p className="text-sm text-muted-foreground italic">No contributors yet.</p>
         ) : (
-          <div className="flex gap-3 overflow-x-auto pb-2">
+          <div className="flex flex-wrap sm:flex-nowrap gap-3 sm:overflow-x-auto pb-2">
             {topContributors.map((contributor, index) => (
               <div
                 key={contributor.userId}
-                className="flex-shrink-0 bg-white dark:bg-background rounded-lg border border-amber-200/60 dark:border-amber-800/30 p-3 min-w-[200px] shadow-sm"
+                className="flex-shrink-0 bg-white dark:bg-background rounded-lg border border-amber-200/60 dark:border-amber-800/30 p-3 min-w-[180px] sm:min-w-[200px] shadow-sm"
               >
                 <div className="flex items-center gap-3">
                   <div className="relative">
@@ -1971,8 +2164,27 @@ export default function Tasks() {
               </Select>
             </div>
           </div>
-          <div className="flex items-center justify-between text-[10px] text-muted-foreground/60 mt-4 pt-3 border-t font-bold uppercase tracking-wider">
-            <span className="flex items-center gap-1"><PlusCircle className="w-3 h-3" /> {selectedProject.tasks.length} Total Tasks</span>
+          <div className="flex flex-wrap items-center justify-between text-[10px] text-muted-foreground/60 mt-4 pt-3 border-t font-bold uppercase tracking-wider gap-y-2">
+            <div className="flex flex-wrap items-center gap-4">
+              <span className="flex items-center gap-1"><PlusCircle className="w-3 h-3" /> {selectedProject.tasks.length} Total Tasks</span>
+              {(() => {
+                const { images, files } = getAttachmentCounts(selectedProject.attachments);
+                return (images > 0 || files > 0) && (
+                  <div className="flex flex-wrap items-center gap-3 border-l pl-4 border-border/40">
+                    {images > 0 && (
+                      <span className="flex items-center gap-1 text-primary">
+                        <Paperclip className="w-3 h-3" /> {images} Image{images !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                    {files > 0 && (
+                      <span className="flex items-center gap-1 text-indigo-600">
+                        <FileText className="w-3 h-3" /> {files} File{files !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
             <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Created {new Date(selectedProject.createdAt).toLocaleDateString()}</span>
           </div>
         </div>
@@ -2002,7 +2214,7 @@ export default function Tasks() {
                       className="group relative p-3 sm:p-4 rounded-xl border border-border/60 hover:border-primary/50 transition-all bg-card shadow-sm hover:shadow-md flex flex-col gap-3"
                     >
                       {/* Three dots menu for project edit */}
-                      <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      <div className="absolute top-2 right-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <button
@@ -2042,9 +2254,20 @@ export default function Tasks() {
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between text-[11px] text-muted-foreground/80 mb-3 bg-muted/10 p-1.5 rounded-lg px-2">
+                        <div className="flex flex-wrap items-center justify-between text-[11px] text-muted-foreground/80 mb-3 bg-muted/10 p-1.5 rounded-lg px-2 gap-2">
                           <span className="truncate flex items-center gap-1"><Users className="w-3 h-3" /> {assigneeList.length > 0 ? (assigneeList.length > 1 ? `${assigneeList[0]} +${assigneeList.length-1}` : assigneeList[0]) : "Member Only"}</span>
-                          <span className="flex-shrink-0 font-bold bg-background px-1.5 py-0.5 rounded border border-border/50">{taskNum} total</span>
+                          <div className="flex items-center gap-3">
+                            <span className="flex-shrink-0 font-bold bg-background px-1.5 py-0.5 rounded border border-border/50">{taskNum} tasks</span>
+                            {(() => {
+                              const { images, files } = getAttachmentCounts(project.attachments);
+                              return (images > 0 || files > 0) && (
+                                <div className="flex items-center gap-2 border-l pl-2 border-border/40">
+                                  {images > 0 && <span className="flex items-center gap-1 text-primary/70"><Paperclip className="w-2.5 h-2.5" /> {images}</span>}
+                                  {files > 0 && <span className="flex items-center gap-1 text-indigo-600/70"><FileText className="w-2.5 h-2.5" /> {files}</span>}
+                                </div>
+                              );
+                            })()}
+                          </div>
                         </div>
                       </div>
 
@@ -2112,12 +2335,33 @@ export default function Tasks() {
             <span className="text-primary mr-1.5">
               {task.taskNumber || ((taskPage - 1) * PAGE_SIZE + index + 1)}.
             </span>
+            {task.executionPriority ? (
+              <span className="inline-flex items-center gap-1 mr-2 align-middle text-[11px] font-bold px-2 py-0.5 rounded-full bg-gradient-to-r from-orange-500 to-red-500 text-white">
+                <Flame className="w-3 h-3" />
+                #{task.executionPriority}
+              </span>
+            ) : null}
             {task.title}
           </p>
           <p className="text-xs text-muted-foreground mt-1 capitalize">
             {task.priority} priority
           </p>
         </div>
+        {isTeamLead && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={(e) => {
+              e.stopPropagation();
+              openReassignDialog(task);
+            }}
+            className="shrink-0"
+            title="Reassign"
+          >
+            <Users className="w-4 h-4 sm:mr-1" />
+            <span className="hidden sm:inline">Reassign</span>
+          </Button>
+        )}
       </div>
 
       {/* Card Body */}
@@ -2146,7 +2390,7 @@ export default function Tasks() {
         </p>
 
         {/* Status & Priority */}
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
           <Badge
             variant="secondary"
             className={cn("text-xs", statusClasses[task.status])}
@@ -2159,6 +2403,15 @@ export default function Tasks() {
           >
             {task.priority}
           </Badge>
+          {(() => {
+            const { images, files } = getAttachmentCounts(task.attachments, task.attachment);
+            return (images > 0 || files > 0) && (
+              <div className="flex items-center gap-2 ml-auto">
+                {images > 0 && <span className="flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/5 px-1.5 py-0.5 rounded border border-primary/10"><Paperclip className="w-3 h-3" /> {images}</span>}
+                {files > 0 && <span className="flex items-center gap-1 text-[10px] font-bold text-indigo-600 bg-indigo-500/5 px-1.5 py-0.5 rounded border border-indigo-500/10"><FileText className="w-3 h-3" /> {files}</span>}
+              </div>
+            );
+          })()}
         </div>
       </div>
 
@@ -2326,7 +2579,7 @@ export default function Tasks() {
                               setProjectAttachmentFiles((prev) => prev.filter((_, i) => i !== idx));
                               setProjectAttachmentPreviews((prev) => prev.filter((_, i) => i !== idx));
                             }}
-                            className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                            className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-xs"
                           >
                             ✕
                           </button>
@@ -2657,7 +2910,7 @@ export default function Tasks() {
                               setAttachmentFiles((prev) => prev.filter((_, i) => i !== idx));
                               setAttachmentFilePreviews((prev) => prev.filter((_, i) => i !== idx));
                             }}
-                            className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs"
+                            className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-xs"
                           >
                             ✕
                           </button>
@@ -2743,7 +2996,7 @@ export default function Tasks() {
                                   )}
                                   <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
 
-                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[1px]">
+                                  <div className="absolute inset-0 bg-black/40 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[1px]">
                                     <button
                                       type="button"
                                       onClick={(e) => { e.stopPropagation(); setPreviewUrl(toProxiedUrl(attachment.url) || attachment.url); setPreviewName(attachment.fileName || "Attachment"); }}
@@ -2771,7 +3024,7 @@ export default function Tasks() {
                                     <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
                                   )}
                                   <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{selectedTask.attachment.fileName}</div>
-                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[1px]">
+                                  <div className="absolute inset-0 bg-black/40 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[1px]">
                                     <button
                                       type="button"
                                       onClick={(e) => { e.stopPropagation(); setPreviewUrl(toProxiedUrl(selectedTask.attachment!.url) || selectedTask.attachment!.url); setPreviewName(selectedTask.attachment!.fileName || "Attachment"); }}
@@ -2968,7 +3221,7 @@ export default function Tasks() {
 
                                         {/* Three dots menu for Edit/Delete */}
                                         {isMe && editingCommentId !== c.id && (
-                                          <div className="opacity-0 group-hover:opacity-100 transition-all duration-200">
+                                          <div className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200">
                                             <DropdownMenu>
                                               <DropdownMenuTrigger asChild>
                                                 <button
@@ -3054,7 +3307,7 @@ export default function Tasks() {
                               {commentAttachments.map((f, i) => (
                                 <div key={i} className="relative rounded-md border border-border/50 bg-background flex flex-col items-center justify-center p-2 text-center h-16 group/rem">
                                   <span className="text-[10px] w-full mt-1 truncate font-medium text-muted-foreground">{f.name}</span>
-                                  <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover/rem:opacity-100 transition-opacity text-[9px] shadow-sm ring-2 ring-background">✕</button>
+                                  <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover/rem:opacity-100 transition-opacity text-[9px] shadow-sm ring-2 ring-background">✕</button>
                                 </div>
                               ))}
                             </div>
@@ -3096,7 +3349,7 @@ export default function Tasks() {
 
 
                   {/* Right Pane: Properties Sidebar */}
-                  <div className="w-full md:w-[320px] lg:w-[360px] bg-muted/10 shrink-0 border-t md:border-t-0 md:border-l border-border/50 overflow-y-auto hidden md:block">
+                  <div className="w-full md:w-[320px] lg:w-[360px] bg-muted/10 shrink-0 border-t md:border-t-0 md:border-l border-border/50 overflow-y-auto">
                     <div className="p-6 space-y-7">
                       <h3 className="text-sm font-bold text-foreground flex items-center gap-2 pb-2 border-b">Properties</h3>
 
@@ -3164,6 +3417,18 @@ export default function Tasks() {
                             <p className="text-[13px] font-medium text-foreground bg-background border border-border/60 rounded-lg px-3 py-2 truncate" title={selectedTask.location}>{selectedTask.location}</p>
                           </div>
                         )}
+                        {(() => {
+                          const { images, files } = getAttachmentCounts(selectedTask.attachments, selectedTask.attachment);
+                          return (images > 0 || files > 0) && (
+                            <div className="space-y-2 pt-2 border-t border-border/20">
+                              <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5"><Paperclip className="w-3 h-3" /> Attachments</label>
+                              <div className="flex items-center gap-4 bg-background border border-border/60 rounded-lg px-3 py-2">
+                                {images > 0 && <span className="flex items-center gap-1.5 text-xs font-bold text-primary"><Paperclip className="w-3.5 h-3.5" /> {images} Image{images !== 1 ? "s" : ""}</span>}
+                                {files > 0 && <span className="flex items-center gap-1.5 text-xs font-bold text-indigo-600"><FileText className="w-3.5 h-3.5" /> {files} File{files !== 1 ? "s" : ""}</span>}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
 
                       <div className="pt-4 space-y-3">
@@ -3457,7 +3722,7 @@ export default function Tasks() {
                                   }
                                   setEditTaskFilePreviews((prev) => prev.filter((_, i) => i !== idx)); 
                                 }} 
-                                className="absolute top-1.5 right-1.5 bg-destructive text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:scale-110 shadow-lg"
+                                className="absolute top-1.5 right-1.5 bg-destructive text-white rounded-full w-6 h-6 flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all hover:scale-110 shadow-lg"
                               >
                                 <X className="w-3.5 h-3.5" />
                               </button>
@@ -3565,7 +3830,7 @@ export default function Tasks() {
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <button
-                            className="p-1 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100"
+                            className="p-1 rounded-lg hover:bg-muted transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100"
                             aria-label="Task actions"
                             onClick={(e) => e.stopPropagation()}
                           >
@@ -3762,7 +4027,7 @@ export default function Tasks() {
                                 <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
                               )}
                               <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
-                              <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]"><span className="text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/50 bg-black/40">Open File</span></a>
+                              <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/50 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]"><span className="text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/50 bg-black/40">Open File</span></a>
                             </div>
                           ))}
                         </div>
@@ -3894,7 +4159,7 @@ export default function Tasks() {
                             {commentAttachments.map((f, i) => (
                               <div key={i} className="relative rounded-md border border-border/50 bg-background flex flex-col items-center justify-center p-2 text-center h-16 group shadow-xs">
                                 <span className="text-[10px] w-full mt-1 truncate font-medium text-muted-foreground">{f.name}</span>
-                                <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-[9px] shadow-sm">✕</button>
+                                <button type="button" onClick={() => setCommentAttachments(prev => prev.filter((_, idx) => idx !== i))} className="absolute -top-1.5 -right-1.5 bg-destructive text-white rounded-full w-4 h-4 flex items-center justify-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-[9px] shadow-sm">✕</button>
                               </div>
                             ))}
                           </div>
@@ -3929,7 +4194,7 @@ export default function Tasks() {
                   </div>
                 </div>
 
-                <div className="w-full md:w-[320px] lg:w-[360px] bg-muted/10 shrink-0 border-t md:border-t-0 md:border-l border-border/50 overflow-y-auto hidden md:block">
+                <div className="w-full md:w-[320px] lg:w-[360px] bg-muted/10 shrink-0 border-t md:border-t-0 md:border-l border-border/50 overflow-y-auto">
                   <div className="p-6 space-y-7">
                     <h3 className="text-sm font-bold text-foreground flex items-center gap-2 pb-2 border-b">Project Summary</h3>
                     
@@ -4132,7 +4397,7 @@ export default function Tasks() {
       <Dialog open={!!previewUrl} onOpenChange={(open) => !open && setPreviewUrl(null)}>
         <DialogContent className="max-w-[95vw] w-fit p-0 border-none bg-transparent shadow-none">
           <div className="relative group/preview-modal">
-            <div className="absolute top-4 right-4 z-50 flex items-center gap-3 opacity-0 group-hover/preview-modal:opacity-100 transition-opacity">
+            <div className="absolute top-4 right-4 z-50 flex items-center gap-3 opacity-100 sm:opacity-0 sm:group-hover/preview-modal:opacity-100 transition-opacity">
               <button 
                 onClick={(e) => { e.stopPropagation(); if (previewUrl) void downloadViaUrl(previewUrl, previewName); }}
                 className="p-2 bg-black/50 hover:bg-black/70 backdrop-blur-md rounded-full text-white shadow-lg transition-all"
@@ -4157,7 +4422,7 @@ export default function Tasks() {
                     className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl" 
                   />
                 ) : (
-                  <div className="flex flex-col items-center justify-center p-12 bg-white/5 rounded-2xl border border-white/10 min-w-[300px]">
+                  <div className="flex flex-col items-center justify-center p-8 sm:p-12 bg-white/5 rounded-2xl border border-white/10 min-w-[260px] sm:min-w-[300px] max-w-full">
                     <FileText className="w-20 h-20 text-white/40 mb-4" />
                     <p className="text-white font-semibold mb-2">{previewName}</p>
                     <p className="text-white/40 text-xs mb-6">Preview not available for this file type</p>
@@ -4219,6 +4484,114 @@ export default function Tasks() {
         }}
         multiple={true}
       />
+
+
+      {/* Team Lead Reassign Dialog */}
+      <Dialog open={isReassignDialogOpen} onOpenChange={setIsReassignDialogOpen}>
+        <DialogContent className="w-[95vw] sm:max-w-[550px] max-h-[90vh] overflow-y-auto overflow-x-hidden p-8 rounded-xl border-border shadow-2xl">
+          <DialogHeader className="space-y-3">
+            <DialogTitle className="text-xl font-bold tracking-tight">Reassign Task</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground leading-relaxed">
+              Reassign "{reassignTask?.title}" to your team members
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-6">
+            <div className="space-y-3">
+              <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/70">Assignees</label>
+              <Popover open={reassignAssigneesOpen} onOpenChange={setReassignAssigneesOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full justify-between h-11 border-border/60 hover:border-primary/50 hover:bg-primary/5 transition-all rounded-lg px-4"
+                  >
+                    <span className="truncate font-medium text-sm">
+                      {reassignAssignees.length > 0
+                        ? reassignAssignees.join(", ")
+                        : "Select assignees"}
+                    </span>
+                    <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 shadow-2xl border-border/40 overflow-hidden" align="start" sideOffset={4}>
+                  <Command className="rounded-lg">
+                    <CommandInput placeholder="Search team members..." className="h-11" />
+                    <CommandList className="max-h-[300px]">
+                      <CommandEmpty className="py-6 text-sm text-muted-foreground">No team members found.</CommandEmpty>
+                      <CommandGroup className="p-1.5">
+                        {teamLeadMappings.map((mapping) => (
+                          <CommandItem
+                            key={mapping.user}
+                            value={mapping.user}
+                            className="rounded-md h-10 px-3 cursor-pointer"
+                            onSelect={() => {
+                              setReassignAssignees((prev) =>
+                                prev.includes(mapping.user)
+                                  ? prev.filter((u) => u !== mapping.user)
+                                  : [...prev, mapping.user]
+                              );
+                            }}
+                          >
+                            <div className="flex items-center w-full">
+                              <div className={cn(
+                                "mr-3 flex h-4 w-4 items-center justify-center rounded-sm border border-primary transition-all",
+                                reassignAssignees.includes(mapping.user) 
+                                  ? "bg-primary text-primary-foreground" 
+                                  : "opacity-50"
+                              )}>
+                                {reassignAssignees.includes(mapping.user) && <Check className="h-3 w-3" />}
+                              </div>
+                              <span className="font-medium text-sm">{mapping.user}</span>
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+            {teamLeadMappings.length === 0 && (
+              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                <p className="text-sm text-destructive font-medium leading-snug">
+                  No team members mapped to you. Contact admin to set up team lead mappings.
+                </p>
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="ghost"
+              className="font-bold uppercase tracking-widest text-[11px] h-10 hover:bg-muted"
+              onClick={() => {
+                setIsReassignDialogOpen(false);
+                setReassignTask(null);
+                setReassignAssignees([]);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-primary hover:bg-primary/90 font-bold uppercase tracking-widest text-[11px] h-10 px-8 shadow-lg shadow-primary/20 transition-all active:scale-95"
+              onClick={handleReassign}
+              disabled={isReassigning || reassignAssignees.length === 0}
+            >
+              {isReassigning ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                  Reassigning...
+                </>
+              ) : (
+                "Reassign Task"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      </Dialog>
     </div>
   );
 }

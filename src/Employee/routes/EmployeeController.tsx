@@ -21,6 +21,7 @@ const EmployeeScrumRecords = lazy(() => import("../screens/ScrumRecords"));
 const EmployeeAssetLibrary = lazy(() => import("../screens/AssetLibrary"));
 const EmployeeUICustomization = lazy(() => import("../screens/UICustomization"));
 const EmployeeLeaveRequests = lazy(() => import("../screens/LeaveRequests"));
+const ShoppingLists = lazy(() => import("@/pages/admin/ShoppingLists"));
 
 function PageLoader() {
   return (
@@ -69,6 +70,7 @@ function EmployeeController() {
           <Route path="/timeLogs" element={<TimeLogs />} />
           <Route path="/documents" element={<Documents />} />
           <Route path="/leave-requests" element={<EmployeeLeaveRequests />} />
+          <Route path="/shopping-lists" element={<ShoppingLists />} />
 
         </Route>
         <Route path="*" element={<Navigate to="/employee" replace />} />

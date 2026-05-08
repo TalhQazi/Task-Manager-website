@@ -107,8 +107,8 @@ export function ManagerUICustomizationPanel() {
   };
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-8">
-      <div className="flex items-center gap-3 mb-6">
+    <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-6 sm:space-y-8">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-6">
         <div className="p-3 rounded-full bg-primary/10 text-primary">
           <Palette className="w-8 h-8" />
         </div>
@@ -157,7 +157,7 @@ export function ManagerUICustomizationPanel() {
           </div>
 
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider border-b pb-2 mt-6">Global Text Color</h3>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
             <input
               type="color"
               value={customTextColor || "#ffffff"}
@@ -170,7 +170,7 @@ export function ManagerUICustomizationPanel() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between p-4 bg-card border rounded-xl shadow-sm mt-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-card border rounded-xl shadow-sm mt-8">
         <Button
           variant="outline"
           onClick={resetToDefault}
@@ -179,11 +179,11 @@ export function ManagerUICustomizationPanel() {
         >
           <RefreshCw className="w-4 h-4 mr-2" /> Restore Defaults
         </Button>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 sm:justify-end">
           {saveSuccess && (
             <span className="text-green-500 text-sm font-medium animate-fade-in">Settings saved successfully!</span>
           )}
-          <Button onClick={saveSettings} disabled={loading} className="px-8">
+          <Button onClick={saveSettings} disabled={loading} className="px-8 w-full sm:w-auto">
             Save Preferences
           </Button>
         </div>

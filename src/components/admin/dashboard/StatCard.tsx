@@ -86,6 +86,11 @@ export function StatCard({
           <p className="text-white text-2xl sm:text-3xl font-bold tracking-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
             {value}
           </p>
+          {change && (
+            <p className="text-[#a0a0a0] text-[10px] sm:text-xs font-medium mt-0.5 tracking-wide">
+              {change}
+            </p>
+          )}
         </div>
 
         {/* Right Section - Icon inside metallic badge */}

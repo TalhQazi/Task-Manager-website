@@ -6,7 +6,7 @@ import { ActiveEmployees } from "@/components/admin/dashboard/ActiveEmployees";
 import { TaskCharts } from "@/components/admin/dashboard/TaskCharts";
 import { DayAheadCard } from "@/components/admin/dashboard/DayAheadCard";
 import { WeekAheadCard } from "@/components/admin/dashboard/WeekAheadCard";
-import { Users, CheckSquare, AlertTriangle, Clock, Car, FileSearch, Globe, FolderRoot, Bug } from "lucide-react";
+import { Users, CheckSquare, AlertTriangle, Clock, Car, FileSearch, Globe, FolderRoot, Bug, CalendarCheck } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useNavigate } from "react-router-dom";
 
@@ -20,7 +20,8 @@ type DashboardSummary = {
   avgHoursPerEmployee: number;
   vehicleTotal: number;
   patentTotal: number;
-  websiteTotal: number;
+  websiteActive: number;
+  websiteFuture: number;
   projectTotal: number;
   pendingBugs: number;
 };
@@ -75,6 +76,7 @@ const Dashboard = () => {
     };
 
     void load();
+
     return () => {
       mounted = false;
     };
@@ -85,11 +87,13 @@ const Dashboard = () => {
     return {
       totalEmployees: summary.employeeTotal,
       activeTasks: summary.activeTasks,
+      dueToday: summary.dueToday,
       overdueTasks: summary.overdueTasks,
       clockedInEmployees: summary.employeesWorking,
       totalVehicles: summary.vehicleTotal,
       totalPatents: summary.patentTotal,
-      totalWebsites: summary.websiteTotal,
+      websiteActive: summary.websiteActive,
+      websiteFuture: summary.websiteFuture,
       totalProjects: summary.projectTotal,
       pendingBugs: summary.pendingBugs,
     };
@@ -119,10 +123,11 @@ const Dashboard = () => {
           {metrics && [
             { title: "Active Employee", value: metrics.totalEmployees, icon: Users, variant: "dark-grey", changeType: "positive" as const, onClick: () => navigate("/admin/employees") },
             { title: "Active Tasks", value: metrics.activeTasks, icon: CheckSquare, variant: "green", changeType: "neutral" as const, onClick: () => navigate("/admin/tasks") },
+            { title: "Due Today", value: metrics.dueToday, icon: CalendarCheck, variant: "teal", changeType: "neutral" as const, onClick: () => navigate("/admin/tasks?filter=today") },
             { title: "Active Projects", value: metrics.totalProjects, icon: FolderRoot, variant: "purple", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
             { title: "Total Vehicles", value: metrics.totalVehicles, icon: Car, variant: "orange", changeType: "positive" as const, onClick: () => navigate("/admin/vehicles") },
             { title: "Patents", value: metrics.totalPatents, icon: FileSearch, variant: "amber", changeType: "positive" as const, onClick: () => navigate("/admin/intellectual-property") },
-            { title: "Websites", value: metrics.totalWebsites, icon: Globe, variant: "teal", changeType: "positive" as const, onClick: () => navigate("/admin/websites") },
+            { title: "Websites", value: `${metrics.websiteActive} / ${metrics.websiteFuture}`, change: "active / future", icon: Globe, variant: "teal", changeType: "positive" as const, onClick: () => navigate("/admin/websites") },
             { title: "Overdue Tasks", value: metrics.overdueTasks, icon: AlertTriangle, variant: "red", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
             { title: "Clocked In", value: metrics.clockedInEmployees, icon: Clock, variant: "gold", changeType: "neutral" as const, onClick: () => navigate("/admin/time-tracking") },
             { title: "Pending Bugs", value: metrics.pendingBugs, icon: Bug, variant: "yellow", changeType: "neutral" as const, onClick: () => navigate("/admin/bug-reports") },
@@ -136,6 +141,7 @@ const Dashboard = () => {
               <StatCard
                 title={stat.title}
                 value={stat.value}
+                change={(stat as any).change}
                 changeType={stat.changeType}
                 icon={stat.icon}
                 variant={stat.variant}

@@ -46,6 +46,15 @@ const BugReport = lazy(() => import("@/pages/admin/BugReport"));
 const Contributors = lazy(() => import("@/pages/admin/Contributors"));
 const ThemeEngine = lazy(() => import("@/pages/admin/ThemeEngine"));
 
+const TeamLeadMappings = lazy(() => import("@/pages/admin/TeamLeadMappings"));
+const TaskPermissions = lazy(() => import("@/pages/admin/TaskPermissions"));
+
+const ShoppingLists = lazy(() => import("@/pages/admin/ShoppingLists"));
+const SystemEmailSettings = lazy(() => import("@/pages/admin/SystemEmailSettings"));
+const CompanyRegistry = lazy(() => import("@/pages/admin/CompanyRegistry"));
+
+
+
 function PageLoader() {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh" }}>
@@ -105,9 +114,15 @@ export default function AdminRoutes() {
       { path: "eod-reports/:employeeName", element: <EmployeeEODHistory /> },
       { path: "leave-requests", element: <LeaveRequests /> },
       { path: "contributors", element: <Contributors /> },
+      { path: "team-lead-mappings", element: <TeamLeadMappings /> },
+      { path: "task-permissions", element: <TaskPermissions /> },
 
       { path: "bug-reports", element: <BugReport /> },
       { path: "theme-engine", element: <ThemeEngine /> },
+      { path: "shopping-lists", element: <ShoppingLists /> },
+      { path: "system-email-settings", element: auth.role === "super-admin" ? <SystemEmailSettings /> : <Navigate to="/admin" replace /> },
+      { path: "company-registry", element: <CompanyRegistry /> },
+
       { path: "*", element: <NotFound /> },
     ],
     [],

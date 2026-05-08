@@ -61,9 +61,27 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     loadNotes();
+  }, []);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const sync = () => {
+      const next = mq.matches;
+      setIsMobile(next);
+      setSidebarOpen(!next);
+    };
+    sync();
+    const handler = () => sync();
+    if (typeof mq.addEventListener === "function") mq.addEventListener("change", handler);
+    else mq.addListener(handler);
+    return () => {
+      if (typeof mq.removeEventListener === "function") mq.removeEventListener("change", handler);
+      else mq.removeListener(handler);
+    };
   }, []);
 
   const loadNotes = async () => {
@@ -71,8 +89,8 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
     try {
       const res = await getNotes();
       setNotes(res.items || []);
-    } catch (err: any) {
-      toast.error("Failed to load notes");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to load notes");
       console.error(err);
     } finally {
       setLoading(false);
@@ -161,12 +179,15 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
   const otherNotes = filteredNotes.filter(n => !n.isPinned);
 
   return (
-    <div className="flex h-[calc(100vh-140px)] bg-background/50 backdrop-blur-sm rounded-3xl border border-border/40 overflow-hidden shadow-2xl relative">
+    <div className="flex flex-col sm:flex-row min-h-[calc(100vh-140px)] sm:h-[calc(100vh-140px)] bg-background/50 backdrop-blur-sm rounded-3xl border border-border/40 overflow-hidden shadow-2xl relative">
       {/* Sidebar - Note List */}
       <motion.div 
         initial={false}
-        animate={{ width: sidebarOpen ? 320 : 0, opacity: sidebarOpen ? 1 : 0 }}
-        className="h-full border-r border-border/40 bg-muted/5 flex flex-col"
+        animate={{ width: sidebarOpen ? (isMobile ? "100%" : 320) : 0, opacity: sidebarOpen ? 1 : 0 }}
+        className={cn(
+          "h-full border-border/40 bg-muted/5 flex flex-col",
+          isMobile ? "absolute inset-0 z-20 border-r-0" : "border-r"
+        )}
       >
         <div className="p-4 space-y-4">
           <div className="flex items-center justify-between gap-2">
@@ -202,6 +223,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
                       setEditTitle(n.title);
                       setEditContent(n.content);
                       setIsEditing(false);
+                      if (isMobile) setSidebarOpen(false);
                     }}
                     onDelete={handleDeleteNote}
                     onPin={togglePin}
@@ -225,6 +247,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
                       setEditTitle(n.title);
                       setEditContent(n.content);
                       setIsEditing(false);
+                      if (isMobile) setSidebarOpen(false);
                     }}
                     onDelete={handleDeleteNote}
                     onPin={togglePin}
@@ -253,7 +276,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
         </Button>
 
         {selectedNote ? (
-          <div className="flex-1 flex flex-col p-8 md:p-12 max-w-4xl mx-auto w-full">
+          <div className="flex-1 flex flex-col p-4 sm:p-8 md:p-12 max-w-4xl mx-auto w-full">
             <div className="mb-8 flex items-center justify-between gap-4">
               <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-medium">
                 <Clock className="w-3 h-3" />

@@ -62,6 +62,7 @@ import {
 import { cn } from "@/lib/manger/utils";
 import { apiFetch } from "@/lib/manger/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Pagination } from "@/components/Pagination";
 
 interface Vehicle {
   id: string;
@@ -76,6 +77,7 @@ interface Vehicle {
   mileage: number;
   tagPhotoFileName?: string;
   tagPhotoDataUrl?: string;
+  requiresInspection?: boolean;
 }
 
 interface Employee {
@@ -122,6 +124,7 @@ function normalizeVehicle(v: VehicleApi): Vehicle {
     mileage: v.mileage,
     tagPhotoFileName: v.tagPhotoFileName,
     tagPhotoDataUrl: v.tagPhotoDataUrl,
+    requiresInspection: v.requiresInspection !== false,
   };
   console.log("[DEBUG] normalizeVehicle:", v._id, "photo fields:", { 
     tagPhotoFileName: v.tagPhotoFileName, 
@@ -154,12 +157,13 @@ const createVehicleSchema = z.object({
   licensePlate: z.string().min(1, "License plate is required"),
   status: z.enum(["available", "in-use", "maintenance"]),
   assignedTo: z.string().optional(),
-  lastInspection: z.string().min(1, "Last inspection date is required"),
-  nextInspection: z.string().min(1, "Next inspection date is required"),
+  lastInspection: z.string().optional(),
+  nextInspection: z.string().optional(),
   fuelLevel: z.coerce.number().min(0, "Min 0").max(100, "Max 100"),
   mileage: z.coerce.number().min(0, "Must be 0 or greater"),
   tagPhotoFileName: z.string().optional(),
   tagPhotoDataUrl: z.string().optional(),
+  requiresInspection: z.boolean().optional().default(true),
 });
 
 type CreateVehicleValues = z.infer<typeof createVehicleSchema>;
@@ -176,6 +180,9 @@ export default function Vehicles() {
   const [tagPhotoFile, setTagPhotoFile] = useState<File | null>(null);
   const [editTagPhotoFile, setEditTagPhotoFile] = useState<File | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const PAGE_SIZE = 25;
   const queryClient = useQueryClient();
 
   const readFileAsDataUrl = (file: File): Promise<string> => {
@@ -185,6 +192,34 @@ export default function Vehicles() {
       reader.onerror = () => reject(new Error("Failed to read file"));
       reader.readAsDataURL(file);
     });
+  };
+
+  const compressImageToDataUrl = async (file: File): Promise<string> => {
+    const dataUrl = await readFileAsDataUrl(file);
+
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error("Invalid image"));
+      i.src = dataUrl;
+    });
+
+    const maxW = 1600;
+    const maxH = 1600;
+    const scale = Math.min(1, maxW / img.naturalWidth, maxH / img.naturalHeight);
+    const w = Math.max(1, Math.round(img.naturalWidth * scale));
+    const h = Math.max(1, Math.round(img.naturalHeight * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas not supported");
+    ctx.drawImage(img, 0, 0, w, h);
+
+    const quality = 0.75;
+    const mime = "image/jpeg";
+    return canvas.toDataURL(mime, quality);
   };
 
   // Fetch employees on mount
@@ -244,20 +279,25 @@ export default function Vehicles() {
   }, []);
 
   const vehiclesQuery = useQuery({
-    queryKey: ["vehicles"],
+    queryKey: ["vehicles", currentPage, searchQuery, statusFilter],
     queryFn: async () => {
-      const res = await apiFetch<{ items: VehicleApi[] }>("/api/vehicles");
-      console.log("[DEBUG] Vehicles response:", res.items.map((v: any) => ({ 
-        id: v._id, 
-        name: v.name, 
-        tagPhotoFileName: v.tagPhotoFileName, 
-        tagPhotoDataUrl: v.tagPhotoDataUrl ? v.tagPhotoDataUrl.substring(0, 50) + "..." : "empty" 
-      })));
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: PAGE_SIZE.toString(),
+        search: searchQuery,
+        status: statusFilter === "all" ? "" : statusFilter,
+      });
+      const res = await apiFetch<{ items: VehicleApi[], pagination?: { totalPages: number } }>(`/api/vehicles?${params.toString()}`);
+      if (res.pagination) {
+        setTotalPages(res.pagination.totalPages);
+      } else {
+        setTotalPages(1);
+      }
       return res.items.map(normalizeVehicle);
     },
   });
 
-  const vehicles = vehiclesQuery.data ?? [];
+  const vehicles = useMemo(() => vehiclesQuery.data ?? [], [vehiclesQuery.data]);
 
   useEffect(() => {
     const viewId = String(searchParams.get("view") || "").trim();
@@ -327,6 +367,7 @@ export default function Vehicles() {
       mileage: 0,
       tagPhotoFileName: "",
       tagPhotoDataUrl: "",
+      requiresInspection: true,
     },
   });
 
@@ -344,6 +385,7 @@ export default function Vehicles() {
       mileage: 0,
       tagPhotoFileName: "",
       tagPhotoDataUrl: "",
+      requiresInspection: true,
     },
   });
 
@@ -360,6 +402,7 @@ export default function Vehicles() {
       mileage: values.mileage,
       tagPhotoFileName: values.tagPhotoFileName || "",
       tagPhotoDataUrl: values.tagPhotoDataUrl || "",
+      requiresInspection: values.requiresInspection,
     };
 
     createVehicleMutation.mutate(payload, {
@@ -408,6 +451,7 @@ export default function Vehicles() {
       mileage: vehicle.mileage,
       tagPhotoFileName: vehicle.tagPhotoFileName || "",
       tagPhotoDataUrl: vehicle.tagPhotoDataUrl || "",
+      requiresInspection: vehicle.requiresInspection !== false,
     });
     setIsEditOpen(true);
   };
@@ -462,17 +506,9 @@ export default function Vehicles() {
     });
   };
 
-  const filteredVehicles = useMemo(() => {
-    return vehicles.filter((vehicle) => {
-      const matchesSearch =
-        (vehicle.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (vehicle.licensePlate || "").toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus =
-        statusFilter === "all" || vehicle.status === statusFilter;
-      return matchesSearch && matchesStatus;
-    });
-  }, [vehicles, searchQuery, statusFilter]);
+  const filteredVehicles = vehicles;
 
+  // Use count stats if available from backend or fallback to currently loaded list
   const availableCount = useMemo(() => vehicles.filter((v) => v.status === "available").length, [vehicles]);
   const inUseCount = useMemo(() => vehicles.filter((v) => v.status === "in-use").length, [vehicles]);
   const maintenanceCount = useMemo(() => vehicles.filter((v) => v.status === "maintenance").length, [vehicles]);
@@ -654,6 +690,27 @@ export default function Vehicles() {
                 />
               </div>
 
+              <FormField
+                control={form.control}
+                name="requiresInspection"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm mb-4">
+                    <div className="space-y-0.5">
+                      <FormLabel>Requires Inspection</FormLabel>
+                      <p className="text-[0.8rem] text-muted-foreground">Enable regular maintenance tracking</p>
+                    </div>
+                    <FormControl>
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={field.value}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
               {/* Vehicle Photo Upload */}
               <div className="space-y-2">
                 <FormLabel>Vehicle Photo</FormLabel>
@@ -666,7 +723,7 @@ export default function Vehicles() {
                     const f = e.dataTransfer.files?.[0];
                     if (f) {
                       setTagPhotoFile(f);
-                      void readFileAsDataUrl(f).then((url) => {
+                      void compressImageToDataUrl(f).then((url) => {
                         form.setValue("tagPhotoFileName", f.name);
                         form.setValue("tagPhotoDataUrl", url);
                       });
@@ -689,7 +746,7 @@ export default function Vehicles() {
                       const f = e.target.files?.[0];
                       if (f) {
                         setTagPhotoFile(f);
-                        void readFileAsDataUrl(f).then((url) => {
+                        void compressImageToDataUrl(f).then((url) => {
                           form.setValue("tagPhotoFileName", f.name);
                           form.setValue("tagPhotoDataUrl", url);
                         });
@@ -991,6 +1048,27 @@ export default function Vehicles() {
                 />
               </div>
 
+              <FormField
+                control={editForm.control}
+                name="requiresInspection"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm mb-4">
+                    <div className="space-y-0.5">
+                      <FormLabel>Requires Inspection</FormLabel>
+                      <p className="text-[0.8rem] text-muted-foreground">Enable regular maintenance tracking</p>
+                    </div>
+                    <FormControl>
+                      <input
+                        type="checkbox"
+                        className="h-4 w-4"
+                        checked={field.value}
+                        onChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
               {/* Vehicle Photo Upload - Edit */}
               <div className="space-y-2">
                 <FormLabel>Vehicle Photo</FormLabel>
@@ -1003,7 +1081,7 @@ export default function Vehicles() {
                     const f = e.dataTransfer.files?.[0];
                     if (f) {
                       setEditTagPhotoFile(f);
-                      void readFileAsDataUrl(f).then((url) => {
+                      void compressImageToDataUrl(f).then((url) => {
                         editForm.setValue("tagPhotoFileName", f.name);
                         editForm.setValue("tagPhotoDataUrl", url);
                       });
@@ -1026,7 +1104,7 @@ export default function Vehicles() {
                       const f = e.target.files?.[0];
                       if (f) {
                         setEditTagPhotoFile(f);
-                        void readFileAsDataUrl(f).then((url) => {
+                        void compressImageToDataUrl(f).then((url) => {
                           editForm.setValue("tagPhotoFileName", f.name);
                           editForm.setValue("tagPhotoDataUrl", url);
                         });
@@ -1049,7 +1127,16 @@ export default function Vehicles() {
                 <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit">Save</Button>
+                <Button type="submit" disabled={updateVehicleMutation.isPending}>
+                  {updateVehicleMutation.isPending ? (
+                    <span className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Saving...
+                    </span>
+                  ) : (
+                    "Save Changes"
+                  )}
+                </Button>
               </DialogFooter>
             </form>
           </Form>
@@ -1239,6 +1326,7 @@ export default function Vehicles() {
                 </span>
               </div>
 
+            {vehicle.requiresInspection && (
               <div className="flex items-center justify-between text-sm">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Calendar className="w-4 h-4" />
@@ -1248,9 +1336,18 @@ export default function Vehicles() {
                   {new Date(vehicle.nextInspection).toLocaleDateString()}
                 </span>
               </div>
-            </div>
+            )}
           </div>
+        </div>
         ))}
+      </div>
+
+      <div className="mt-6">
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
       </div>
     </div>
   );

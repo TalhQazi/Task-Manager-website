@@ -174,7 +174,7 @@ const Employees = () => {
     phone: string;
     category: string;
     createUser: "no" | "yes";
-    userRole: "manager" | "admin";
+    userRole: "super-admin" | "admin" | "manager" | "team-lead" | "employee";
     userStatus: "active" | "inactive" | "pending";
     role: string;
     company: string;
@@ -237,10 +237,14 @@ const Employees = () => {
     category: "",
     role: "",
     company: "",
+    department: "",
+    shift: "",
     status: "active" as Employee["status"],
     payType: "hourly" as "hourly" | "monthly",
     payRate: "",
     hireDate: "",
+    userRole: "employee" as "super-admin" | "admin" | "manager" | "team-lead" | "employee",
+    userStatus: "active" as "active" | "inactive" | "pending",
   });
 
   const [shiftFormData, setShiftFormData] = useState({
@@ -311,8 +315,22 @@ const Employees = () => {
   }, [currentPage, searchQuery, statusFilter, categoryFilter, roleFilter, companyFilter]);
 
   const refreshEmployees = async () => {
-    const list = await listResource<Employee>("employees");
-    setEmployeesList(list);
+    const params: any = {
+      page: currentPage,
+      limit: PAGE_SIZE,
+      search: searchQuery,
+      status: statusFilter === "all" ? undefined : statusFilter,
+      category: categoryFilter === "all" ? undefined : categoryFilter,
+      role: roleFilter === "all" ? undefined : roleFilter,
+      company: companyFilter === "all" ? undefined : companyFilter,
+    };
+    const res = await listResource<Employee>("employees", params);
+    if (res && typeof res === "object" && "items" in res) {
+      setEmployeesList((res as any).items ?? []);
+      setTotalPages((res as any).pagination?.totalPages || 1);
+    } else {
+      setEmployeesList(res as Employee[]);
+    }
   };
 
   const handleAddEmployee = async (values: AddEmployeeValues) => {
@@ -321,10 +339,11 @@ const Employees = () => {
 
       const fullName = `${values.firstName.trim()} ${values.lastName.trim()}`.trim();
 
+      const isLoginUser = values.createUser === "yes";
+
       const newEmployee = {
         id: `EMP-${Date.now().toString().slice(-6)}`,
         name: fullName,
-
         initials: fullName
           .split(" ")
           .map((n) => n[0])
@@ -341,20 +360,15 @@ const Employees = () => {
         payRate: values.payRate,
         shift: values.shift,
         hireDate: values.hireDate,
-        password: values.password,
+        // Login credentials — only set if this employee should have task manager access
+        ...(isLoginUser && {
+          password: values.password,
+          userRole: values.userRole,
+          userStatus: values.userStatus,
+        }),
       };
 
       await createResource<Employee>("employees", newEmployee);
-
-      if (values.createUser === "yes") {
-        await createResource("users", {
-          name: fullName,
-          email: values.email.trim(),
-          password: values.password,
-          role: values.userRole,
-          status: values.userStatus,
-        });
-      }
 
       await refreshEmployees();
       setAddEmployeeOpen(false);
@@ -415,10 +429,14 @@ const Employees = () => {
       category: employee.category || "",
       role: employee.role,
       company: employee.company || "",
+      department: (employee as any).department || "",
+      shift: employee.shift || "",
       status: employee.status,
       payType: employee.payType || "hourly",
       payRate: employee.payRate,
       hireDate: employee.hireDate,
+      userRole: (employee as any).userRole || "employee",
+      userStatus: (employee as any).userStatus || "active",
     });
 
     setEditEmployeeOpen(true);
@@ -429,9 +447,10 @@ const Employees = () => {
     if (!editFormData.name || !editFormData.email || !editFormData.role) return;
     try {
       setApiError(null);
+
+      // 1. Update employee record
       await updateResource<Employee>("employees", selectedEmployee.id, {
         ...selectedEmployee,
-
         name: editFormData.name,
         initials: editFormData.name
           .split(" ")
@@ -444,15 +463,69 @@ const Employees = () => {
         category: editFormData.category,
         role: editFormData.role,
         company: editFormData.company || "",
+        department: editFormData.department,
+        shift: editFormData.shift,
         status: editFormData.status,
         payType: editFormData.payType,
         payRate: editFormData.payRate,
         hireDate: editFormData.hireDate,
-      });
+        userRole: editFormData.userRole,
+        userStatus: editFormData.userStatus,
+      } as any);
 
-      await refreshEmployees();
+      // 2. Immediately update the local list so the table reflects changes without waiting for a re-fetch
+      const updatedInitials = editFormData.name
+        .split(" ")
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase();
+      setEmployeesList((prev) =>
+        prev.map((emp) =>
+          emp.id === selectedEmployee.id
+            ? {
+                ...emp,
+                name: editFormData.name,
+                initials: updatedInitials,
+                email: editFormData.email,
+                phone: editFormData.phone,
+                category: editFormData.category,
+                role: editFormData.role,
+                company: editFormData.company || "",
+                shift: editFormData.shift,
+                status: editFormData.status,
+                payType: editFormData.payType,
+                payRate: editFormData.payRate,
+                hireDate: editFormData.hireDate,
+                department: editFormData.department,
+                userRole: editFormData.userRole,
+                userStatus: editFormData.userStatus,
+              } as any
+            : emp
+        )
+      );
+
       setEditEmployeeOpen(false);
       setSelectedEmployee(null);
+
+      // 3. Sync linked user login account in the background (best-effort)
+      listResource<any>("users", { limit: 1000 }).then((usersResult) => {
+        const usersList: any[] = Array.isArray(usersResult) ? usersResult : (usersResult?.items ?? []);
+        const linkedUser = usersList.find(
+          (u: any) =>
+            String(u.email || "").toLowerCase() ===
+            String(selectedEmployee.email || "").toLowerCase()
+        );
+        if (linkedUser) {
+          updateResource("users", linkedUser.id || linkedUser._id, {
+            ...linkedUser,
+            name: editFormData.name,
+            email: editFormData.email,
+            role: editFormData.userRole,
+            status: editFormData.userStatus,
+          }).catch(() => {});
+        }
+      }).catch(() => {});
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "Failed to update employee");
     }
@@ -907,41 +980,39 @@ const Employees = () => {
                     {/* Create User */}
                   <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                     <div className="flex-1 min-w-0">
-                      <label className="block text-xs sm:text-sm font-medium mb-1.5"> Want to Create it as a User?</label>
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">User Role</label>
+                      <select
+                        {...addForm.register("userRole")}
+                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                      >
+                        <option value="employee">Employee</option>
+                        <option value="super-admin">Super Admin</option>
+                        <option value="admin">Admin</option>
+                        <option value="manager">Manager</option>
+                        <option value="team-lead">Team Lead</option>
+                      </select>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">User Status</label>
+                      <select
+                        {...addForm.register("userStatus")}
+                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                      >
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="pending">Pending</option>
+                      </select>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Task Manager Access?</label>
                       <select
                         {...addForm.register("createUser")}
                         className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
                       >
-                        <option value="no">No</option>
-                        <option value="yes">Yes</option>
+                        <option value="no">Record only (no login)</option>
+                        <option value="yes">Yes — can log in</option>
                       </select>
                     </div>
-
-                    {createUserChoice === "yes" && (
-                      <>
-                        <div className="flex-1 min-w-0">
-                          <label className="block text-xs sm:text-sm font-medium mb-1.5">User Role</label>
-                          <select
-                            {...addForm.register("userRole")}
-                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
-                          >
-                            <option value="manager">Manager</option>
-                            <option value="admin">Admin</option>
-                          </select>
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <label className="block text-xs sm:text-sm font-medium mb-1.5">User Status</label>
-                          <select
-                            {...addForm.register("userStatus")}
-                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
-                          >
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                            <option value="pending">Pending</option>
-                          </select>
-                        </div>
-                      </>
-                    )}
                   </div>
                 </motion.form>
 
@@ -1388,12 +1459,13 @@ const Employees = () => {
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-muted/30">
-                          <TableHead className="text-xs md:text-sm w-[18%]">Employee</TableHead>
-                          <TableHead className="text-xs md:text-sm w-[20%]">Contact</TableHead>
-                          <TableHead className="text-xs md:text-sm w-[12%]">Role</TableHead>
-                          <TableHead className="text-xs md:text-sm w-[12%]">Company</TableHead>
-                          <TableHead className="text-xs md:text-sm w-[10%]">Pay Rate</TableHead>
-                          <TableHead className="text-xs md:text-sm w-[10%]">Status</TableHead>
+                          <TableHead className="text-xs md:text-sm w-[16%]">Employee</TableHead>
+                          <TableHead className="text-xs md:text-sm w-[18%]">Contact</TableHead>
+                          <TableHead className="text-xs md:text-sm w-[10%]">Role</TableHead>
+                          <TableHead className="text-xs md:text-sm w-[10%]">Company</TableHead>
+                          <TableHead className="text-xs md:text-sm w-[10%]">User Role</TableHead>
+                          <TableHead className="text-xs md:text-sm w-[9%]">Pay Rate</TableHead>
+                          <TableHead className="text-xs md:text-sm w-[9%]">Status</TableHead>
                           <TableHead className="text-xs md:text-sm w-[10%]">Hire Date</TableHead>
                           <TableHead className="text-right text-xs md:text-sm w-[8%]">Actions</TableHead>
                         </TableRow>
@@ -1474,7 +1546,7 @@ const Employees = () => {
                                 </motion.div>
                               </TableCell>
                               <TableCell>
-                                <motion.div 
+                                <motion.div
                                   className="flex items-center gap-2 text-muted-foreground"
                                   whileHover={{ x: 5 }}
                                 >
@@ -1483,7 +1555,18 @@ const Employees = () => {
                                 </motion.div>
                               </TableCell>
                               <TableCell>
-                                <motion.div 
+                                <motion.div whileHover={{ x: 5 }}>
+                                  {(employee as any).userRole ? (
+                                    <Badge variant="secondary" className="text-xs capitalize w-fit">
+                                      {(employee as any).userRole}
+                                    </Badge>
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">—</span>
+                                  )}
+                                </motion.div>
+                              </TableCell>
+                              <TableCell>
+                                <motion.div
                                   className="flex items-center gap-2 text-muted-foreground"
                                   whileHover={{ x: 5 }}
                                 >
@@ -1726,7 +1809,7 @@ const Employees = () => {
             </DialogDescription>
           </DialogHeader>
           {selectedEmployee && (
-            <motion.form 
+            <motion.form
               className="space-y-4 sm:space-y-5"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1756,7 +1839,7 @@ const Employees = () => {
                 </div>
               </div>
 
-              {/* Phone & Role */}
+              {/* Phone & Category & Role */}
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <div className="flex-1 min-w-0">
                   <label className="block text-xs sm:text-sm font-medium mb-1.5">Phone</label>
@@ -1776,9 +1859,7 @@ const Employees = () => {
                   >
                     <option value="">Select category</option>
                     {categoryOptions.map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
+                      <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
                 </div>
@@ -1794,20 +1875,37 @@ const Employees = () => {
                 </div>
               </div>
 
-              {/* Company */}
+              {/* Company & Department */}
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <div className="flex-1 min-w-0">
                   <label className="block text-xs sm:text-sm font-medium mb-1.5">Company</label>
-                  <input
-                    type="text"
+                  <select
                     value={editFormData.company}
                     onChange={(e) => setEditFormData({ ...editFormData, company: e.target.value })}
-                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                  />
+                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                  >
+                    <option value="">Select company</option>
+                    {companies.map((c) => (
+                      <option key={c.id} value={c.name}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Department</label>
+                  <select
+                    value={editFormData.department}
+                    onChange={(e) => setEditFormData({ ...editFormData, department: e.target.value })}
+                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                  >
+                    <option value="">Select department</option>
+                    <option value="Coding">Coding</option>
+                    <option value="Electrician">Electrician</option>
+                    <option value="Mechanic">Mechanic</option>
+                  </select>
                 </div>
               </div>
 
-              {/* Pay Rate & Hire Date & Status */}
+              {/* Pay Type & Pay Rate & Shift */}
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                 <div className="flex-1 min-w-0">
                   <label className="block text-xs sm:text-sm font-medium mb-1.5">Pay Type</label>
@@ -1833,6 +1931,20 @@ const Employees = () => {
                   />
                 </div>
                 <div className="flex-1 min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Shift</label>
+                  <input
+                    type="text"
+                    value={editFormData.shift}
+                    onChange={(e) => setEditFormData({ ...editFormData, shift: e.target.value })}
+                    placeholder="09:00 - 17:00"
+                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* Hire Date & Status */}
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                <div className="flex-1 min-w-0">
                   <label className="block text-xs sm:text-sm font-medium mb-1.5">Hire Date</label>
                   <input
                     type="date"
@@ -1853,6 +1965,40 @@ const Employees = () => {
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
                     <option value="on-leave">On Leave</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* User Role & User Status */}
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+                <div className="flex-1 min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">User Role</label>
+                  <select
+                    value={editFormData.userRole}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, userRole: e.target.value as typeof editFormData.userRole })
+                    }
+                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                  >
+                    <option value="employee">Employee</option>
+                    <option value="super-admin">Super Admin</option>
+                    <option value="admin">Admin</option>
+                    <option value="manager">Manager</option>
+                    <option value="team-lead">Team Lead</option>
+                  </select>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">User Status</label>
+                  <select
+                    value={editFormData.userStatus}
+                    onChange={(e) =>
+                      setEditFormData({ ...editFormData, userStatus: e.target.value as typeof editFormData.userStatus })
+                    }
+                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                  >
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="pending">Pending</option>
                   </select>
                 </div>
               </div>
