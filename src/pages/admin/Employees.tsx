@@ -378,7 +378,7 @@ const Employees = () => {
     }
   };
 
-  const roles = useMemo(() => [...new Set(employeesList.map((e) => e.role))], [employeesList]);
+  const roles = useMemo(() => [...new Set(employeesList.map((e) => e.role).filter((r): r is string => !!r))], [employeesList]);
   const companiesList = useMemo(() => [...new Set(employeesList.map((e) => e.company).filter(Boolean))] as string[], [employeesList]);
 
   const categories = useMemo(
@@ -1187,11 +1187,11 @@ const Employees = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Categories</SelectItem>
-                        {categoryOptions.map((c) => (
+                        {categoryOptions.map((c) => c ? (
                           <SelectItem key={c} value={c} className="text-xs sm:text-sm">
                             {c}
                           </SelectItem>
-                        ))}
+                        ) : null)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1206,11 +1206,11 @@ const Employees = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Roles</SelectItem>
-                        {roles.map((r) => (
+                        {roles.map((r) => r ? (
                           <SelectItem key={r} value={r} className="text-xs sm:text-sm">
                             {r}
                           </SelectItem>
-                        ))}
+                        ) : null)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1225,7 +1225,7 @@ const Employees = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Companies</SelectItem>
-                        {companies.map((company) => (
+                        {companies.filter((company) => !!company.name).map((company) => (
                           <SelectItem key={company.id} value={company.name} className="text-xs sm:text-sm">
                             {company.name}
                           </SelectItem>

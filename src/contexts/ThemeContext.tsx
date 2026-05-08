@@ -561,19 +561,36 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // Load from backend after initial mount (per-user, authoritative)
   useEffect(() => {
     if (!isLoaded) return;
+
+    // Determine which token/fetch function to use
+    const auth = getAuthState();
+    let apiFetchFn: ApiFetch | null = null;
+
+    if (auth.isAuthenticated && auth.token) {
+      if (auth.role === "admin" || auth.role === "super-admin") {
+        apiFetchFn = adminApiFetch as unknown as ApiFetch;
+      } else if (auth.role === "manager") {
+        apiFetchFn = apiFetch as unknown as ApiFetch;
+      } else {
+        apiFetchFn = adminApiFetch as unknown as ApiFetch;
+      }
+    } else {
+      // Check for employee portal token
+      try {
+        const raw = localStorage.getItem("employee_auth");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.token) apiFetchFn = employeeApiFetch as unknown as ApiFetch;
+        }
+      } catch { /* no token */ }
+    }
+
+    // No token available — skip backend fetch, keep local storage theme
+    if (!apiFetchFn) return;
+
     void (async () => {
       try {
-        // Use appropriate API fetch based on auth type
-        const auth = getAuthState();
-        let apiFetchFn: ApiFetch;
-        if (auth.isAuthenticated && (auth.role === "admin" || auth.role === "super-admin")) {
-          apiFetchFn = adminApiFetch as unknown as ApiFetch;
-        } else if (auth.isAuthenticated && auth.role === "manager") {
-          apiFetchFn = apiFetch as unknown as ApiFetch;
-        } else {
-          apiFetchFn = employeeApiFetch as unknown as ApiFetch;
-        }
-        const data = await apiFetchFn<{ item: UITheme }>("/api/ui-preferences");
+        const data = await apiFetchFn!<{ item: UITheme }>("/api/ui-preferences");
         if (data.item) {
           const merged: UITheme = {
             ...defaultTheme,
@@ -586,8 +603,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
           localStorage.setItem(getThemeStorageKey(), JSON.stringify(merged));
           applyThemeToDOM(merged);
         }
+
       } catch (error) {
         // ignore
+      } catch {
+        // Backend unavailable or token invalid — silently fall back to local storage theme
+
       }
     })();
   }, [isLoaded]);
@@ -599,7 +620,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     }
   }, [uiTheme, isLoaded]);
 
-  // Re-apply theme when location changes (to handle login page white background)
+  // Re-apply theme on browser navigation (popstate)
   useEffect(() => {
     const handlePathChange = () => {
       if (isLoaded) {
@@ -608,14 +629,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     };
 
     window.addEventListener("popstate", handlePathChange);
-    
-    // Also check periodically or on navigation if using a SPA router
-    // This is a bit of a hack but effective for global theme overrides
-    const interval = setInterval(handlePathChange, 1000);
 
     return () => {
       window.removeEventListener("popstate", handlePathChange);
-      clearInterval(interval);
     };
   }, [uiTheme, isLoaded]);
 
