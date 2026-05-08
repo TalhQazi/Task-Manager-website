@@ -213,9 +213,7 @@ const Employees = () => {
     formState: { errors: addErrors, isValid: isAddValid, isSubmitting: isAddSubmitting },
   } = addForm;
 
-  const createUserChoice = addForm.watch("createUser");
-
-  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [viewProfileOpen, setViewProfileOpen] = useState(false);
   const [editEmployeeOpen, setEditEmployeeOpen] = useState(false);
   const [deactivateConfirmOpen, setDeactivateConfirmOpen] = useState(false);
@@ -363,16 +361,6 @@ const Employees = () => {
       };
 
       await createResource<Employee>("employees", newEmployee);
-
-      if (values.createUser === "yes") {
-        await createResource("users", {
-          name: fullName,
-          email: values.email.trim(),
-          password: values.password,
-          role: values.userRole,
-          status: values.userStatus,
-        });
-      }
 
       await refreshEmployees();
       setAddEmployeeOpen(false);
@@ -1005,16 +993,6 @@ const Employees = () => {
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
                         <option value="pending">Pending</option>
-                      </select>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Create as User?</label>
-                      <select
-                        {...addForm.register("createUser")}
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
-                      >
-                        <option value="no">No</option>
-                        <option value="yes">Yes</option>
                       </select>
                     </div>
                   </div>
