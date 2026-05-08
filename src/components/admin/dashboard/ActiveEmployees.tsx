@@ -21,7 +21,7 @@ const statusClasses = {
   "on-leave": "bg-warning/10 text-warning border-warning/20",
 };
 
-export function ActiveEmployees() {
+export function ActiveEmployees({ basePath = "/employees" }: { basePath?: string }) {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -75,8 +75,8 @@ export function ActiveEmployees() {
           <Users className="h-5 w-5 text-primary" />
           Active Employee
         </CardTitle>
-        <a 
-          href="/employees" 
+        <a
+          href={basePath}
           className="text-xs sm:text-sm text-accent hover:underline inline-flex items-center group"
         >
           View all
@@ -116,8 +116,8 @@ export function ActiveEmployees() {
             <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               Add employees to see them here
             </p>
-            <a 
-              href="/employees" 
+            <a
+              href={basePath}
               className="mt-3 text-xs sm:text-sm text-accent hover:underline inline-flex items-center"
             >
               Go to Employees →
@@ -160,8 +160,8 @@ export function ActiveEmployees() {
 
             {/* Mobile View All Link */}
             <div className="block sm:hidden pt-2">
-              <a 
-                href="/employees" 
+              <a
+                href={basePath}
                 className="text-xs text-accent hover:underline inline-flex items-center w-full justify-center py-2"
               >
                 View all employees

@@ -37,11 +37,8 @@ import {
   User,
   MoreHorizontal,
   Eye,
-  Mic,
-  CheckSquare,
-  Link,
 } from "lucide-react";
-import { getEODReports, getEODStatus } from "@/lib/manger/api";
+import { getEODReports, getEODStatus, getEODReportById } from "@/lib/manger/api";
 import { toast } from "sonner";
 
 interface EODReport {
@@ -56,11 +53,9 @@ interface EODReport {
   clockIn?: string;
   clockOut?: string;
   totalHours?: number;
-  transcription?: string;
   aiSummary?: string;
   productivityScore?: number;
-  flags?: { missing?: boolean; lowOutput?: boolean };
-  taggedTasks?: Array<{ _id: string; title: string; taskId?: string }>;
+  flags?: string[];
 }
 
 interface EODStatus {
@@ -81,7 +76,7 @@ export default function ManagerEODReports() {
   const [dateFilter, setDateFilter] = useState(today);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedReport, setSelectedReport] = useState<EODReport | null>(null);
-  const [viewMode, setViewMode] = useState<"status" | "reports">("status");
+  const [viewMode, setViewMode] = useState<"status" | "reports">("reports");
 
   useEffect(() => {
     loadData();
@@ -194,15 +189,6 @@ export default function ManagerEODReports() {
         </div>
         <div className="flex gap-2">
           <Button
-            variant={viewMode === "status" ? "default" : "outline"}
-            onClick={() => {
-              setViewMode("status");
-              setDateFilter(today);
-            }}
-          >
-            Status Dashboard
-          </Button>
-          <Button
             variant={viewMode === "reports" ? "default" : "outline"}
             onClick={() => {
               setViewMode("reports");
@@ -210,6 +196,15 @@ export default function ManagerEODReports() {
             }}
           >
             All Reports
+          </Button>
+          <Button
+            variant={viewMode === "status" ? "default" : "outline"}
+            onClick={() => {
+              setViewMode("status");
+              setDateFilter(today);
+            }}
+          >
+            Status Dashboard
           </Button>
         </div>
       </div>
@@ -296,7 +291,7 @@ export default function ManagerEODReports() {
                   return (
                     <div
                       key={status.employeeId}
-                      onClick={() => {
+                      onClick={async () => {
                         const report = reports.find((r) => r.employeeName === status.employeeName);
                         if (report) {
                           setSelectedReport(report);
@@ -522,30 +517,8 @@ export default function ManagerEODReports() {
                 </div>
               )}
 
-              {/* AI Linked Tasks */}
-              {selectedReport.taggedTasks && selectedReport.taggedTasks.length > 0 && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-2">
-                    <Link className="h-4 w-4 text-indigo-600" />
-                    AI-Linked Tasks
-                  </label>
-                  <div className="p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
-                    <div className="space-y-2">
-                      {selectedReport.taggedTasks.map((task) => (
-                        <div key={task._id} className="flex items-center gap-2">
-                          <CheckSquare className="h-4 w-4 text-indigo-600" />
-                          <span className="text-sm font-medium text-indigo-900">
-                            {task.taskId ? `[${task.taskId}] ` : ""}{task.title}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
               {/* Flags */}
-              {selectedReport.flags && (selectedReport.flags.missing || selectedReport.flags.lowOutput) && (
+              {selectedReport.flags && selectedReport.flags.length > 0 && (
                 <div className="space-y-2">
                   <label className="text-sm font-medium flex items-center gap-2">
                     <AlertCircle className="h-4 w-4 text-orange-600" />
@@ -553,30 +526,12 @@ export default function ManagerEODReports() {
                   </label>
                   <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
                     <div className="flex flex-wrap gap-2">
-                      {selectedReport.flags.missing && (
-                        <Badge variant="destructive">Missing Report</Badge>
-                      )}
-                      {selectedReport.flags.lowOutput && (
-                        <Badge variant="outline" className="border-orange-500 text-orange-700 bg-orange-100">
-                          Low Output
+                      {selectedReport.flags.map((flag) => (
+                        <Badge key={flag} variant="outline" className="border-orange-500 text-orange-700 bg-orange-100">
+                          {flag}
                         </Badge>
-                      )}
+                      ))}
                     </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Transcription (Voice Input) */}
-              {selectedReport.transcription && selectedReport.inputType === "voice" && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-2">
-                    <Mic className="h-4 w-4 text-blue-600" />
-                    Voice Transcription
-                  </label>
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                      {selectedReport.transcription}
-                    </p>
                   </div>
                 </div>
               )}
