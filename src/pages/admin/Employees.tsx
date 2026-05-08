@@ -1187,11 +1187,11 @@ const Employees = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Categories</SelectItem>
-                        {categoryOptions.map((c) => (
+                        {categoryOptions.map((c) => c ? (
                           <SelectItem key={c} value={c} className="text-xs sm:text-sm">
                             {c}
                           </SelectItem>
-                        ))}
+                        ) : null)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1206,11 +1206,11 @@ const Employees = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Roles</SelectItem>
-                        {roles.map((r) => (
+                        {roles.map((r) => r ? (
                           <SelectItem key={r} value={r} className="text-xs sm:text-sm">
                             {r}
                           </SelectItem>
-                        ))}
+                        ) : null)}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1225,11 +1225,11 @@ const Employees = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Companies</SelectItem>
-                        {companies.map((company) => (
+                        {companies.map((company) => company.name ? (
                           <SelectItem key={company.id} value={company.name} className="text-xs sm:text-sm">
                             {company.name}
                           </SelectItem>
-                        ))}
+                        ) : null)}
                       </SelectContent>
                     </Select>
                   </div>
