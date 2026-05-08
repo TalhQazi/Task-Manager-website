@@ -229,21 +229,21 @@ export default function Payroll() {
 
   if (loading) {
     return (
-      <div className="ml-12 pl-6 p-6 text-center">
+      <div className="px-4 sm:px-6 p-6 text-center">
         <p>Loading payroll...</p>
       </div>
     );
   }
 
   return (
-    <div className="ml-12 pl-6 space-y-6">
+    <div className="px-4 sm:px-6 space-y-6">
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">My Payroll</h1>
           <p className="text-sm text-muted-foreground">Track your earnings and hours</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button
             variant="outline"
             size="icon"
@@ -262,9 +262,9 @@ export default function Payroll() {
             <ChevronRight className="h-4 w-4" />
           </Button>
           {calculatedPayroll && (
-            <Button onClick={handleExportPDF} className="gap-2">
+            <Button onClick={handleExportPDF} className="gap-2 w-full sm:w-auto">
               <Download className="h-4 w-4" />
-              Export PDF
+              <span className="hidden sm:inline">Export PDF</span>
             </Button>
           )}
         </div>

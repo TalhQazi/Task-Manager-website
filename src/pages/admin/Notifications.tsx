@@ -68,7 +68,7 @@ export default function Notifications() {
       try {
         setLoading(true);
         setApiError(null);
-        const notificationsList = await listResource<NotificationItem>("notifications");
+        const notificationsList = await listResource<NotificationItem>("notifications", { type: "broadcast" });
         if (!mounted) return;
         setItems(notificationsList);
       } catch (e) {
@@ -90,7 +90,7 @@ export default function Notifications() {
   
 
   const refresh = async () => {
-    const notificationsList = await listResource<NotificationItem>("notifications");
+    const notificationsList = await listResource<NotificationItem>("notifications", { type: "broadcast" });
     setItems(notificationsList);
   };
 

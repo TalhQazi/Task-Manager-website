@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Panel Documentation</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            color: #1e293b;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background: #fff;
+        }
+        
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            padding: 20mm;
+            margin: 10mm auto;
+            background: white;
+            box-sizing: border-box;
+        }
+
+        .cover {
+            height: 257mm;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            border: 20px solid #f1f5f9;
+        }
+
+        .cover h1 {
+            font-size: 4rem;
+            color: #1e3a8a;
+            margin: 0;
+            font-weight: 800;
+            letter-spacing: -2px;
+        }
+
+        .cover p {
+            font-size: 1.5rem;
+            color: #64748b;
+            margin-top: 10px;
+        }
+
+        h1 { color: #0f172a; border-bottom: 3px solid #3b82f6; padding-bottom: 10px; margin-top: 40px; }
+        h2 { color: #1e40af; margin-top: 30px; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; }
+        h3 { color: #334155; margin-top: 20px; }
+
+        .card {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 6px solid #8b5cf6;
+        }
+
+        ul { padding-left: 20px; }
+        li { margin-bottom: 8px; }
+
+        .footer {
+            margin-top: 50px;
+            text-align: center;
+            font-size: 0.8rem;
+            color: #94a3b8;
+            border-top: 1px solid #f1f5f9;
+            padding-top: 20px;
+        }
+        
+        @media print {
+            body { background: none; }
+            .page { margin: 0; box-shadow: none; width: 100%; }
+            .cover { page-break-after: always; }
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="cover">
+            <h1>TASKFLOW</h1>
+            <p>Admin Panel Documentation</p>
+            <div style="margin-top: 40px; color: #3b82f6; font-weight: 600;">System Administration & Control</div>
+        </div>
+
+        <h1>Admin Panel Overview</h1>
+        <p>The Admin Panel is the central command center of the TaskFlow platform. It provides complete organizational oversight and system-wide configuration capabilities.</p>
+
+        <h2>Core Modules</h2>
+        
+        <div class="card">
+            <h3>📊 Global Dashboard</h3>
+            <ul>
+                <li>Real-time metrics on active employees and tasks.</li>
+                <li>System-wide tracking of company assets (Vehicles, Patents, Websites).</li>
+                <li>Organizational forecasting and health indicators.</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3>👥 User & Role Management</h3>
+            <ul>
+                <li>Create and manage user accounts across all tiers.</li>
+                <li>Dynamic Permission Matrix to control module access per role.</li>
+                <li>Secure authentication and access auditing.</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3>📁 Human Resources</h3>
+            <ul>
+                <li>Complete employee directory with history and sensitive data.</li>
+                <li>Onboarding pipeline management for new hires.</li>
+                <li>"Do Not Hire" registry for compliance and security.</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3>🏢 Asset Management</h3>
+            <ul>
+                <li><strong>Vehicles:</strong> Fleet assignments, mileage, and inspections.</li>
+                <li><strong>Appliances:</strong> Equipment tracking and maintenance.</li>
+                <li><strong>Digital Assets:</strong> Patents and domain portfolios.</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <h3>⚙️ System Settings & Aesthetics</h3>
+            <ul>
+                <li><strong>Theme Engine:</strong> Visual customization of the entire platform.</li>
+                <li>Configuring auto-logout, email preferences, and company details.</li>
+            </ul>
+        </div>
+
+        <div class="footer">
+            TaskFlow System Documentation &copy; 2026
+        </div>
+    </div>
+</body>
+</html>
