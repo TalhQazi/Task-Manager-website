@@ -33,7 +33,7 @@ const statusClasses = {
   overdue: "bg-destructive/10 text-destructive",
 };
 
-export function RecentTasksList() {
+export function RecentTasksList({ basePath = "/admin/tasks" }: { basePath?: string }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -85,8 +85,8 @@ export function RecentTasksList() {
         <CardTitle className="text-base sm:text-lg md:text-xl font-semibold">
           Recent Tasks
         </CardTitle>
-          <a 
-            href="/admin/tasks" 
+          <a
+            href={basePath}
             className="text-xs sm:text-sm text-accent hover:underline inline-flex items-center"
           >
             View all
@@ -124,8 +124,8 @@ export function RecentTasksList() {
             <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               Create your first task to get started
             </p>
-            <a 
-              href="/admin/tasks" 
+            <a
+              href={basePath}
               className="mt-3 text-xs sm:text-sm text-accent hover:underline"
             >
               Create a task →
@@ -136,7 +136,7 @@ export function RecentTasksList() {
             {recentTasks.map((task) => (
               <div
                 key={task.id}
-                onClick={() => navigate(`/admin/tasks?view=${task.id}`)}
+                onClick={() => navigate(`${basePath}?view=${task.id}`)}
                 className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg 
                          bg-muted/30 hover:bg-muted/50 transition-colors border border-transparent sm:border-0 cursor-pointer"
               >
@@ -194,8 +194,8 @@ export function RecentTasksList() {
 
             {/* Mobile View All Link - Only visible on mobile */}
             <div className="block sm:hidden pt-2">
-              <a 
-                href="/admin/tasks" 
+              <a
+                href={basePath}
                 className="text-xs text-accent hover:underline inline-flex items-center w-full justify-center py-2"
               >
                 View all tasks

@@ -54,7 +54,7 @@ const priorityConfig = {
   },
 };
 
-export function DayAheadCard() {
+export function DayAheadCard({ basePath = "/admin/tasks" }: { basePath?: string }) {
   const navigate = useNavigate();
   const [data, setData] = useState<TodayResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -148,7 +148,7 @@ export function DayAheadCard() {
             <span className="text-xs text-muted-foreground hidden md:inline">— {today}</span>
           </div>
           <button
-            onClick={() => navigate("/admin/tasks")}
+            onClick={() => navigate(`${basePath}?create=true`)}
             className="flex items-center gap-1 text-xs text-primary hover:underline font-medium"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -205,6 +205,7 @@ export function DayAheadCard() {
                       isCompleted={completedIds.has(task._id)}
                       onToggle={() => toggleComplete(task._id)}
                       isOverdue
+                      basePath={basePath}
                     />
                   ))}
                 </AnimatePresence>
@@ -224,6 +225,7 @@ export function DayAheadCard() {
                       task={task}
                       isCompleted={completedIds.has(task._id)}
                       onToggle={() => toggleComplete(task._id)}
+                      basePath={basePath}
                     />
                   ))}
                 </AnimatePresence>
@@ -252,11 +254,13 @@ function TaskRow({
   isCompleted,
   onToggle,
   isOverdue = false,
+  basePath = "/admin/tasks",
 }: {
   task: Task;
   isCompleted: boolean;
   onToggle: () => void;
   isOverdue?: boolean;
+  basePath?: string;
 }) {
   const navigate = useNavigate();
   const pc = priorityConfig[task.priority] ?? priorityConfig.medium;
@@ -267,7 +271,7 @@ function TaskRow({
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, height: 0 }}
-      onClick={() => navigate(`/admin/tasks?view=${task._id}`)}
+      onClick={() => navigate(`${basePath}?view=${task._id}`)}
       className={`flex items-center gap-3 p-2.5 rounded-lg border-l-2 transition-colors cursor-pointer ${
         isOverdue
           ? "bg-destructive/5 border-l-destructive hover:bg-destructive/10"

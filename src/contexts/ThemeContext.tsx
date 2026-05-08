@@ -433,24 +433,19 @@ const applyThemeToDOM = (theme: UITheme) => {
     ...(theme.panelColors || ({} as UITheme["panelColors"])),
   };
 
-  const shouldApplyPanelColors = !baseThemeIds.includes(theme.theme) || !isDefaultPanelColors(theme.panelColors);
-  if (shouldApplyPanelColors) {
-    root.style.setProperty("--tb-header-bg", panelColors.headerBackground);
-    root.style.setProperty("--tb-header-overlay-color", panelColors.headerOverlayColor);
-    root.style.setProperty(
-      "--tb-header-overlay-opacity",
-      `${Math.max(0, Math.min(100, panelColors.headerOverlayOpacity)) / 100}`,
-    );
-    root.style.setProperty("--tb-sidebar-bg", panelColors.sidebarBackground);
-    console.log("Sidebar background set to:", panelColors.sidebarBackground);
-    root.style.setProperty("--tb-dashboard-bg", panelColors.dashboardBackground);
-    root.style.setProperty("--tb-sidebar-icon-color", panelColors.sidebarIconColor);
-    root.style.setProperty("--tb-dashboard-icon-color", panelColors.dashboardIconColor);
-    root.style.setProperty("--tb-sidebar-text-color", panelColors.sidebarTextColor);
-    root.style.setProperty("--tb-sidebar-text-color", panelColors.sidebarTextColor);
-    console.log("Sidebar text color set to:", panelColors.sidebarTextColor);
-    root.style.setProperty("--tb-dashboard-card-bg", panelColors.dashboardCardBackground);
-  }
+  // Always apply panel colors — manager sidebar depends on these CSS variables
+  root.style.setProperty("--tb-header-bg", panelColors.headerBackground);
+  root.style.setProperty("--tb-header-overlay-color", panelColors.headerOverlayColor);
+  root.style.setProperty(
+    "--tb-header-overlay-opacity",
+    `${Math.max(0, Math.min(100, panelColors.headerOverlayOpacity)) / 100}`,
+  );
+  root.style.setProperty("--tb-sidebar-bg", panelColors.sidebarBackground);
+  root.style.setProperty("--tb-dashboard-bg", panelColors.dashboardBackground);
+  root.style.setProperty("--tb-sidebar-icon-color", panelColors.sidebarIconColor);
+  root.style.setProperty("--tb-dashboard-icon-color", panelColors.dashboardIconColor);
+  root.style.setProperty("--tb-sidebar-text-color", panelColors.sidebarTextColor);
+  root.style.setProperty("--tb-dashboard-card-bg", panelColors.dashboardCardBackground);
   root.style.setProperty("--tb-dashboard-text-color", resolvedDashboardTextColor);
   document.body.style.color = resolvedDashboardTextColor;
   
@@ -483,9 +478,7 @@ const applyThemeToDOM = (theme: UITheme) => {
     }
     return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
   };
-  if (shouldApplyPanelColors) {
-    root.style.setProperty("--card", hexToHSL(panelColors.dashboardCardBackground));
-  }
+  root.style.setProperty("--card", hexToHSL(panelColors.dashboardCardBackground));
 
   // Apply glow intensity
   root.style.setProperty("--tb-glow-intensity", `${theme.glowIntensity}%`);
@@ -557,7 +550,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         setUITheme(merged);
         applyThemeToDOM(merged);
       } catch (e) {
-        console.error("Failed to parse saved theme:", e);
         applyThemeToDOM(defaultTheme);
       }
     } else {
@@ -611,8 +603,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
           localStorage.setItem(getThemeStorageKey(), JSON.stringify(merged));
           applyThemeToDOM(merged);
         }
+
+      } catch (error) {
+        // ignore
       } catch {
         // Backend unavailable or token invalid — silently fall back to local storage theme
+
       }
     })();
   }, [isLoaded]);
@@ -670,7 +666,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify(theme),
       });
     } catch (error) {
-      console.error("Failed to save preferences to backend:", error);
       throw error;
     }
   };
@@ -705,7 +700,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         applyThemeToDOM(merged);
       }
     } catch (error) {
-      console.error("Failed to load preferences from backend:", error);
       // Keep using localStorage theme as fallback
     }
   };
