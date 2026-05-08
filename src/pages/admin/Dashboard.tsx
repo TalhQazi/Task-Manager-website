@@ -20,7 +20,8 @@ type DashboardSummary = {
   avgHoursPerEmployee: number;
   vehicleTotal: number;
   patentTotal: number;
-  websiteTotal: number;
+  websiteActive: number;
+  websiteFuture: number;
   projectTotal: number;
   pendingBugs: number;
 };
@@ -91,7 +92,8 @@ const Dashboard = () => {
       clockedInEmployees: summary.employeesWorking,
       totalVehicles: summary.vehicleTotal,
       totalPatents: summary.patentTotal,
-      totalWebsites: summary.websiteTotal,
+      websiteActive: summary.websiteActive,
+      websiteFuture: summary.websiteFuture,
       totalProjects: summary.projectTotal,
       pendingBugs: summary.pendingBugs,
     };
@@ -125,7 +127,7 @@ const Dashboard = () => {
             { title: "Active Projects", value: metrics.totalProjects, icon: FolderRoot, variant: "purple", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
             { title: "Total Vehicles", value: metrics.totalVehicles, icon: Car, variant: "orange", changeType: "positive" as const, onClick: () => navigate("/admin/vehicles") },
             { title: "Patents", value: metrics.totalPatents, icon: FileSearch, variant: "amber", changeType: "positive" as const, onClick: () => navigate("/admin/intellectual-property") },
-            { title: "Websites", value: metrics.totalWebsites, icon: Globe, variant: "teal", changeType: "positive" as const, onClick: () => navigate("/admin/websites") },
+            { title: "Websites", value: `${metrics.websiteActive} / ${metrics.websiteFuture}`, change: "active / future", icon: Globe, variant: "teal", changeType: "positive" as const, onClick: () => navigate("/admin/websites") },
             { title: "Overdue Tasks", value: metrics.overdueTasks, icon: AlertTriangle, variant: "red", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
             { title: "Clocked In", value: metrics.clockedInEmployees, icon: Clock, variant: "gold", changeType: "neutral" as const, onClick: () => navigate("/admin/time-tracking") },
             { title: "Pending Bugs", value: metrics.pendingBugs, icon: Bug, variant: "yellow", changeType: "neutral" as const, onClick: () => navigate("/admin/bug-reports") },
@@ -139,6 +141,7 @@ const Dashboard = () => {
               <StatCard
                 title={stat.title}
                 value={stat.value}
+                change={(stat as any).change}
                 changeType={stat.changeType}
                 icon={stat.icon}
                 variant={stat.variant}
