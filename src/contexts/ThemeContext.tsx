@@ -604,11 +604,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
           applyThemeToDOM(merged);
         }
 
-      } catch (error) {
-        // ignore
       } catch {
         // Backend unavailable or token invalid — silently fall back to local storage theme
-
       }
     })();
   }, [isLoaded]);
