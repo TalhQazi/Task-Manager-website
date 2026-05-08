@@ -75,7 +75,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
       return apiFetch<{ item: {
         backgroundType: 'color' | 'image';
         colorConfig?: { from: string; via: string; to: string };
-        imageConfig?: { dataUrl: string; size: string; position: string };
+        imageConfig?: { dataUrl?: string; url?: string; size?: string; position?: string; repeat?: string };
         overlay?: { enabled: boolean; color: string };
         height: number;
       } }>("/api/header-settings");
@@ -84,7 +84,12 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
 
   const headerSettings = headerSettingsQuery.data?.item;
   const headerHeight = 300;
-  const hasImageBackground = headerSettings?.backgroundType === 'image' && headerSettings.imageConfig?.dataUrl;
+  const headerImageUrlRaw =
+    headerSettings?.backgroundType === "image"
+      ? headerSettings?.imageConfig?.url || headerSettings?.imageConfig?.dataUrl
+      : null;
+  const headerImageUrl = headerImageUrlRaw ? toProxiedUrl(headerImageUrlRaw) : null;
+  const hasImageBackground = Boolean(headerImageUrl);
 
   const fullName = (profile?.name || auth?.name || auth?.username || "Employee").trim();
   const initials =
@@ -202,7 +207,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
         {hasImageBackground && (
           <>
             <img      
-              src={headerSettings?.imageConfig?.dataUrl}
+              src={headerImageUrl || undefined}
               alt="header background"
               className="absolute inset-0 w-full h-full"
               style={{
@@ -349,7 +354,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
               <div className="relative h-40 w-full rounded-lg border-2 border-dashed border-muted-foreground/25 overflow-hidden group">
                 {hasImageBackground ? (
                   <img
-                    src={headerSettings?.imageConfig?.dataUrl}
+                    src={headerImageUrl || undefined}
                     alt="Header preview"
                     className="w-full h-full object-cover"
                   />
