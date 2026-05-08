@@ -88,6 +88,7 @@ import {
   Paperclip,
   Layers,
   Maximize2,
+  Smile,
   Flame,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -184,6 +185,12 @@ type TaskComment = {
     mimeType: string;
     size: number;
     uploadedAt?: string;
+  }>;
+  reactions?: Array<{
+    emoji: string;
+    userId: string;
+    username: string;
+    fullName?: string;
   }>;
 };
 
@@ -516,7 +523,7 @@ function CommentAttachmentImg({
   if (src === undefined) {
     return (
       <div className="w-full h-20 flex items-center justify-center">
-        <Loader2 className="h-4 h-4 w-4 animate-spin opacity-10" />
+        <Loader2 className="h-4 w-4 animate-spin opacity-10" />
       </div>
     );
   }
@@ -672,6 +679,38 @@ export default function Tasks() {
       setTasks([]);
     } finally {
       setIsLoadingProject(false);
+    }
+  };
+
+  const toggleReaction = async (commentId: string, emoji: string) => {
+    if (!selectedTask) return;
+    try {
+      setComments((prev) =>
+        prev.map((c) => {
+          if (c.id !== commentId) return c;
+          const auth = getAuthState();
+          const userId = String(auth.username || "");
+          const username = String(auth.username || "");
+          const existing = (c.reactions || []).find((r) => r.emoji === emoji && r.userId === userId);
+          let newReactions;
+          if (existing) {
+            newReactions = (c.reactions || []).filter((r) => !(r.emoji === emoji && r.userId === userId));
+          } else {
+            newReactions = [...(c.reactions || []), { emoji, userId, username, fullName: "" }];
+          }
+          return { ...c, reactions: newReactions };
+        })
+      );
+
+      await apiFetch(
+        `/api/tasks/${encodeURIComponent(selectedTask.id)}/comments/${encodeURIComponent(commentId)}/reactions`,
+        {
+          method: "POST",
+          body: JSON.stringify({ emoji }),
+        }
+      );
+    } catch (e) {
+      console.error("Failed to toggle reaction:", e);
     }
   };
 
@@ -1187,7 +1226,16 @@ export default function Tasks() {
       }
     });
 
-    return () => { socket.disconnect(); };
+    const handleReactionUpdated = ({ commentId, reactions }: { commentId: string; reactions: any[] }) => {
+      setComments((prev) => prev.map((c) => (c.id === commentId ? { ...c, reactions } : c)));
+    };
+
+    socket.on("comment-reaction-updated", handleReactionUpdated);
+
+    return () => {
+      socket.off("comment-reaction-updated", handleReactionUpdated);
+      socket.disconnect();
+    };
   }, [selectedTask?.id, selectedProject?.id]);
 
   const updateStatus = async (next: Task["status"], event?: React.MouseEvent | React.TouchEvent | { x: number; y: number }) => {
@@ -2348,7 +2396,28 @@ export default function Tasks() {
                                       {(c.authorFullName || c.authorUsername || "U").split(" ").map((n: string) => n ? n[0] : "").join("").toUpperCase()}
                                     </AvatarFallback>
                                   </Avatar>
-                                  <div className="flex-1 space-y-2 min-w-0 bg-card p-4 rounded-2xl border border-border/60 ml-2 group-hover:border-primary/20 transition-all shadow-xs group-hover:shadow-md">
+                                  <div className="flex-1 space-y-2 min-w-0 bg-card p-4 rounded-2xl border border-border/60 ml-2 group-hover:border-primary/20 transition-all shadow-xs group-hover:shadow-md relative">
+                                    <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <Popover>
+                                        <PopoverTrigger asChild>
+                                          <button className="p-1.5 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground" type="button">
+                                            <Smile className="w-4 h-4" />
+                                          </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-fit p-1.5 grid grid-cols-4 gap-1" align="end">
+                                          {["👍", "❤️", "🔥", "🚀", "👏", "🎉", "😮", "🙏"].map((emoji) => (
+                                            <button
+                                              key={emoji}
+                                              onClick={() => { void toggleReaction(c.id, emoji); }}
+                                              className="p-1.5 hover:bg-muted rounded text-lg transition-transform hover:scale-125"
+                                              type="button"
+                                            >
+                                              {emoji}
+                                            </button>
+                                          ))}
+                                        </PopoverContent>
+                                      </Popover>
+                                    </div>
                                     <div className="flex items-center justify-between gap-2 flex-wrap">
                                       <div className="flex items-center gap-2">
                                         <span className="font-black text-[13px] text-foreground tracking-tight">{c.authorFullName || c.authorUsername}</span>
@@ -2359,6 +2428,37 @@ export default function Tasks() {
                                     <div className="text-[14px] leading-relaxed text-foreground/90 font-medium whitespace-pre-wrap break-words">
                                       {renderMessageWithMentions(c.message)}
                                     </div>
+
+                                    {c.reactions && c.reactions.length > 0 && (
+                                      <div className="flex flex-wrap gap-1 mt-1 px-1">
+                                        {Object.entries(
+                                          c.reactions.reduce((acc, r) => {
+                                            acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+                                            return acc;
+                                          }, {} as Record<string, number>)
+                                        ).map(([emoji, count]) => {
+                                          const auth = getAuthState();
+                                          const userId = String(auth.username || "");
+                                          const hasReacted = c.reactions?.some((r) => r.emoji === emoji && r.userId === userId);
+                                          return (
+                                            <button
+                                              key={emoji}
+                                              onClick={() => { void toggleReaction(c.id, emoji); }}
+                                              className={cn(
+                                                "flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] border transition-all",
+                                                hasReacted
+                                                  ? "bg-primary/20 border-primary/40 text-primary"
+                                                  : "bg-muted/30 border-border/40 text-muted-foreground hover:bg-muted/50"
+                                              )}
+                                              type="button"
+                                            >
+                                              <span>{emoji}</span>
+                                              <span className="font-bold">{count}</span>
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
                                     
                                     {/* Comment Attachments */}
                                     {c.attachments && c.attachments.length > 0 && (
