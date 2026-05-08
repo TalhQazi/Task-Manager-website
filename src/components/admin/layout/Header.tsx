@@ -269,12 +269,16 @@ export function Header({ onMenuClick }: HeaderProps) {
     },
   });
 
+  // Only show unread notifications in the dropdown
   const notifications = (notificationsQuery.data || [])
+    .filter((n) => n.status !== "read")
     .slice()
-    .sort((a, b) => String(b.timestamp || "").localeCompare(String(a.timestamp || "")))
-    .slice(0, 4);
+    .sort((a, b) =>
+      String(b.timestamp || b.createdAt || "").localeCompare(String(a.timestamp || a.createdAt || ""))
+    )
+    .slice(0, 8);
 
-  const unreadCount = (notificationsQuery.data || []).filter((n) => n.status !== "read").length;
+  const unreadCount = notifications.length;
   const unreadMessageCount = (messagesQuery.data || []).reduce((sum, c) => sum + (c.unreadCount || 0), 0);
 
   // Bug Report State
@@ -354,18 +358,24 @@ export function Header({ onMenuClick }: HeaderProps) {
   
 
   const markAllRead = async () => {
+    // Optimistic: immediately mark all as read in cache
+    queryClient.setQueryData(["admin-notifications"], (old: any) =>
+      Array.isArray(old) ? old.map((n) => ({ ...n, status: "read" })) : old
+    );
     try {
       await apiFetch("/api/messages/mark-all-read", { method: "POST" });
-      await notificationsQuery.refetch();
     } catch {
-      // ignore errors
+      await notificationsQuery.refetch();
     }
   };
 
   const markRead = async (id: string) => {
+    // Optimistic: immediately remove this notification from the unread list
+    queryClient.setQueryData(["admin-notifications"], (old: any) =>
+      Array.isArray(old) ? old.map((n) => (n.id === id ? { ...n, status: "read" } : n)) : old
+    );
     try {
       await apiFetch(`/api/messages/${id}/mark-read`, { method: "POST" });
-      await notificationsQuery.refetch();
     } catch {
       // ignore errors
     }
@@ -562,33 +572,33 @@ export function Header({ onMenuClick }: HeaderProps) {
                       )}
                     </div>
                     <div className="max-h-[400px] overflow-y-auto">
-                      {notificationsQuery.data?.length === 0 ? (
+                      {notifications.length === 0 ? (
                         <div className="p-8 text-center">
                           <Bell className="h-8 w-8 text-slate-500 mx-auto mb-2" />
-                          <p className="text-xs text-slate-400">No new notifications</p>
+                          <p className="text-sm text-slate-300">You're all caught up!</p>
                         </div>
                       ) : (
-                        notificationsQuery.data?.slice(0, 10).map(n => (
-                          <DropdownMenuItem 
-                            key={n.id} 
+                        notifications.map(n => (
+                          <DropdownMenuItem
+                            key={n.id}
                             onClick={() => {
                               markRead(n.id);
                               navigate(resolveNotificationLink(n));
                             }}
-                            className={`flex flex-col items-start gap-1 px-4 py-3 cursor-pointer border-b border-slate-800 last:border-0 hover:bg-slate-800/50 transition-colors ${n.status !== 'read' ? 'bg-slate-800/30' : ''}`}
+                            className="flex flex-col items-start gap-1 px-4 py-3 cursor-pointer border-b border-slate-700 last:border-0 hover:bg-white/10 bg-slate-800/40 transition-colors"
                           >
                             <div className="flex items-center gap-2 w-full">
-                              <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${n.status !== 'read' ? 'bg-[#00C6FF]' : 'bg-transparent'}`} />
-                              <span className={`text-[13px] font-semibold truncate ${n.status !== 'read' ? 'text-white' : 'text-slate-400'}`}>
+                              <span className="h-2 w-2 rounded-full flex-shrink-0 bg-[#00C6FF]" />
+                              <span className="text-[13px] font-semibold text-white truncate">
                                 {n.title || "Notification"}
                               </span>
                             </div>
-                            <p className="text-xs text-slate-300 line-clamp-2 pl-3.5 leading-relaxed">
+                            <p className="text-xs text-slate-200 line-clamp-2 pl-4 leading-relaxed">
                               {n.content || n.message}
                             </p>
-                            {n.createdAt && (
-                              <span className="text-[10px] text-slate-400 pl-3.5 mt-1 font-medium">
-                                {new Date(n.createdAt).toLocaleDateString()}
+                            {(n.createdAt || n.timestamp) && (
+                              <span className="text-[10px] text-slate-400 pl-4 mt-0.5">
+                                {new Date(n.createdAt || n.timestamp).toLocaleString()}
                               </span>
                             )}
                           </DropdownMenuItem>
