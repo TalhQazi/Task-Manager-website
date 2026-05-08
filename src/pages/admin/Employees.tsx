@@ -989,7 +989,6 @@ const Employees = () => {
                         <option value="super-admin">Super Admin</option>
                         <option value="admin">Admin</option>
                         <option value="manager">Manager</option>
-                        <option value="team-lead">Team Lead</option>
                       </select>
                     </div>
                     <div className="flex-1 min-w-0">
@@ -1984,7 +1983,6 @@ const Employees = () => {
                     <option value="super-admin">Super Admin</option>
                     <option value="admin">Admin</option>
                     <option value="manager">Manager</option>
-                    <option value="team-lead">Team Lead</option>
                   </select>
                 </div>
                 <div className="flex-1 min-w-0">
