@@ -378,7 +378,7 @@ const Employees = () => {
     }
   };
 
-  const roles = useMemo(() => [...new Set(employeesList.map((e) => e.role))], [employeesList]);
+  const roles = useMemo(() => [...new Set(employeesList.map((e) => e.role).filter((r): r is string => !!r))], [employeesList]);
   const companiesList = useMemo(() => [...new Set(employeesList.map((e) => e.company).filter(Boolean))] as string[], [employeesList]);
 
   const categories = useMemo(
@@ -1225,11 +1225,11 @@ const Employees = () => {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All Companies</SelectItem>
-                        {companies.map((company) => company.name ? (
+                        {companies.filter((company) => !!company.name).map((company) => (
                           <SelectItem key={company.id} value={company.name} className="text-xs sm:text-sm">
                             {company.name}
                           </SelectItem>
-                        ) : null)}
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
