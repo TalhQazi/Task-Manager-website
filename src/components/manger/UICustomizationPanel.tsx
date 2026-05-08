@@ -2,9 +2,12 @@ import React, { useEffect, useState } from "react";
 import { Button } from "@/components/manger/ui/button";
 import { Palette, RefreshCw } from "lucide-react";
 import { apiFetch } from "@/lib/manger/api";
-import { applyFullTheme, themeDefaults } from "@/lib/manger/theme";
+import { useTheme } from "@/contexts/ThemeContext";
+import { themeDefaults } from "@/lib/manger/theme";
 
 export function ManagerUICustomizationPanel() {
+  const { uiTheme, updateTheme } = useTheme();
+
   const themes = [
     { id: "dark-minimal", name: "Dark Minimal" },
     { id: "neon-tech", name: "Neon Tech" },
@@ -22,45 +25,45 @@ export function ManagerUICustomizationPanel() {
     { id: "flat", name: "Flat Default" },
   ];
 
-  const [activeTheme, setActiveTheme] = useState("dark-minimal");
-  const [activeCardStyle, setActiveCardStyle] = useState("glass");
-  const [customTextColor, setCustomTextColor] = useState("#ffffff");
+  const [activeTheme, setActiveTheme] = useState(uiTheme.theme);
+  const [activeCardStyle, setActiveCardStyle] = useState(uiTheme.cardStyle);
+  const [customTextColor, setCustomTextColor] = useState(
+    uiTheme.customColors?.textColor || themeDefaults[uiTheme.theme] || "#ffffff"
+  );
   const [loading, setLoading] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Keep local display state in sync when ThemeContext finishes loading from backend
   useEffect(() => {
-    // Fetch initial preferences - same as admin
-    apiFetch<{item: { theme?: string; cardStyle?: string; customColors?: { textColor?: string } }}>("/api/ui-preferences").then(res => {
-      const theme = res?.item?.theme || "dark-minimal";
-      const cardStyle = res?.item?.cardStyle || "glass";
-      const textColor = res?.item?.customColors?.textColor;
-
-      setActiveTheme(theme);
-      setActiveCardStyle(cardStyle);
-      if (textColor) setCustomTextColor(textColor);
-
-      applyFullTheme(theme, textColor || themeDefaults[theme], cardStyle);
-    }).catch(console.error);
-  }, []);
+    setActiveTheme(uiTheme.theme);
+    setActiveCardStyle(uiTheme.cardStyle);
+    setCustomTextColor(
+      uiTheme.customColors?.textColor || themeDefaults[uiTheme.theme] || "#ffffff"
+    );
+  }, [uiTheme.theme, uiTheme.cardStyle, uiTheme.customColors?.textColor]);
 
   const handlePreviewTheme = (themeId: string) => {
     const defaultColor = themeDefaults[themeId] || "#ffffff";
     setActiveTheme(themeId);
     setCustomTextColor(defaultColor);
-    applyFullTheme(themeId, defaultColor, activeCardStyle);
     setSaveSuccess(false);
+    // Update ThemeContext state — the interval will immediately re-apply via applyThemeToDOM
+    updateTheme({
+      theme: themeId as typeof uiTheme.theme,
+      customColors: { ...uiTheme.customColors, textColor: defaultColor },
+    });
   };
 
   const handlePreviewCardStyle = (styleId: string) => {
     setActiveCardStyle(styleId);
-    applyFullTheme(activeTheme, customTextColor, styleId);
     setSaveSuccess(false);
+    updateTheme({ cardStyle: styleId as typeof uiTheme.cardStyle });
   };
 
   const handleTextColorChange = (color: string) => {
     setCustomTextColor(color);
-    applyFullTheme(activeTheme, color, activeCardStyle);
     setSaveSuccess(false);
+    updateTheme({ customColors: { ...uiTheme.customColors, textColor: color } });
   };
 
   const saveSettings = async () => {
@@ -73,9 +76,9 @@ export function ManagerUICustomizationPanel() {
           theme: activeTheme,
           cardStyle: activeCardStyle,
           customColors: {
-            textColor: customTextColor
-          }
-        })
+            textColor: customTextColor,
+          },
+        }),
       });
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
@@ -90,7 +93,10 @@ export function ManagerUICustomizationPanel() {
     setLoading(true);
     setSaveSuccess(false);
     try {
-      const res = await apiFetch<{item: { theme?: string; cardStyle?: string; customColors?: { textColor?: string } }}>("/api/ui-preferences/reset", { method: "POST" });
+      const res = await apiFetch<{ item: { theme?: string; cardStyle?: string; customColors?: { textColor?: string } } }>(
+        "/api/ui-preferences/reset",
+        { method: "POST" }
+      );
       const theme = res.item.theme || "dark-minimal";
       const cardStyle = res.item.cardStyle || "glass";
       const textColor = res.item.customColors?.textColor || "#ffffff";
@@ -98,7 +104,12 @@ export function ManagerUICustomizationPanel() {
       setActiveTheme(theme);
       setActiveCardStyle(cardStyle);
       setCustomTextColor(textColor);
-      applyFullTheme(theme, textColor, cardStyle);
+
+      updateTheme({
+        theme: theme as typeof uiTheme.theme,
+        cardStyle: cardStyle as typeof uiTheme.cardStyle,
+        customColors: { ...uiTheme.customColors, textColor },
+      });
     } catch (e) {
       console.error(e);
     } finally {

@@ -140,7 +140,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
             )}
           >
             <div className="flex items-center gap-3">
-              <item.icon className={cn("h-5 w-5 flex-shrink-0 transition-all")} style={{ color: hasActiveChild ? "var(--tb-primary)" : "var(--tb-sidebar-icon-color)" }} />
+              <item.icon className={cn("h-5 w-5 flex-shrink-0 transition-all")} style={{ color: hasActiveChild ? "var(--tb-primary)" : "var(--tb-primary)" }} />
               <span className="text-sm font-medium truncate">{item.label}</span>
             </div>
             {isExpanded ? (
@@ -211,7 +211,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
                   isActive && ["brightness-[112%]", "scale-[1.03]"],
                   "group-hover:brightness-[108%]"
                 )}
-                style={{ color: "var(--tb-sidebar-icon-color)" }}
+                style={{ color: "var(--tb-primary)" }}
               />
             )}
             {item.label === "SignaCore" ? (
