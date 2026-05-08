@@ -213,7 +213,9 @@ const Employees = () => {
     formState: { errors: addErrors, isValid: isAddValid, isSubmitting: isAddSubmitting },
   } = addForm;
 
-const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const createUserChoice = addForm.watch("createUser");
+
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [viewProfileOpen, setViewProfileOpen] = useState(false);
   const [editEmployeeOpen, setEditEmployeeOpen] = useState(false);
   const [deactivateConfirmOpen, setDeactivateConfirmOpen] = useState(false);
@@ -337,10 +339,11 @@ const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
 
       const fullName = `${values.firstName.trim()} ${values.lastName.trim()}`.trim();
 
+      const isLoginUser = values.createUser === "yes";
+
       const newEmployee = {
         id: `EMP-${Date.now().toString().slice(-6)}`,
         name: fullName,
-
         initials: fullName
           .split(" ")
           .map((n) => n[0])
@@ -357,7 +360,12 @@ const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
         payRate: values.payRate,
         shift: values.shift,
         hireDate: values.hireDate,
-        password: values.password,
+        // Login credentials — only set if this employee should have task manager access
+        ...(isLoginUser && {
+          password: values.password,
+          userRole: values.userRole,
+          userStatus: values.userStatus,
+        }),
       };
 
       await createResource<Employee>("employees", newEmployee);
@@ -993,6 +1001,16 @@ const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
                         <option value="active">Active</option>
                         <option value="inactive">Inactive</option>
                         <option value="pending">Pending</option>
+                      </select>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Task Manager Access?</label>
+                      <select
+                        {...addForm.register("createUser")}
+                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                      >
+                        <option value="no">Record only (no login)</option>
+                        <option value="yes">Yes — can log in</option>
                       </select>
                     </div>
                   </div>
