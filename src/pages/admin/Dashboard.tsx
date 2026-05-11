@@ -19,7 +19,8 @@ type DashboardSummary = {
   hoursLoggedToday: number;
   avgHoursPerEmployee: number;
   vehicleTotal: number;
-  patentTotal: number;
+  patentFiled: number;
+  patentPending: number;
   websiteActive: number;
   websiteFuture: number;
   projectTotal: number;
@@ -91,7 +92,8 @@ const Dashboard = () => {
       overdueTasks: summary.overdueTasks,
       clockedInEmployees: summary.employeesWorking,
       totalVehicles: summary.vehicleTotal,
-      totalPatents: summary.patentTotal,
+      patentFiled: summary.patentFiled,
+      patentPending: summary.patentPending,
       websiteActive: summary.websiteActive,
       websiteFuture: summary.websiteFuture,
       totalProjects: summary.projectTotal,
@@ -126,7 +128,7 @@ const Dashboard = () => {
             { title: "Due Today", value: metrics.dueToday, icon: CalendarCheck, variant: "teal", changeType: "neutral" as const, onClick: () => navigate("/admin/tasks?filter=today") },
             { title: "Active Projects", value: metrics.totalProjects, icon: FolderRoot, variant: "purple", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
             { title: "Total Vehicles", value: metrics.totalVehicles, icon: Car, variant: "orange", changeType: "positive" as const, onClick: () => navigate("/admin/vehicles") },
-            { title: "Patents", value: metrics.totalPatents, icon: FileSearch, variant: "amber", changeType: "positive" as const, onClick: () => navigate("/admin/intellectual-property") },
+            { title: "Patents", value: `${metrics.patentFiled} / ${metrics.patentPending}`, change: "filed / pending", icon: FileSearch, variant: "amber", changeType: "neutral" as const, onClick: () => navigate("/admin/intellectual-property") },
             { title: "Websites", value: `${metrics.websiteActive} / ${metrics.websiteFuture}`, change: "active / future", icon: Globe, variant: "teal", changeType: "positive" as const, onClick: () => navigate("/admin/websites") },
             { title: "Overdue Tasks", value: metrics.overdueTasks, icon: AlertTriangle, variant: "red", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
             { title: "Clocked In", value: metrics.clockedInEmployees, icon: Clock, variant: "gold", changeType: "neutral" as const, onClick: () => navigate("/admin/time-tracking") },
