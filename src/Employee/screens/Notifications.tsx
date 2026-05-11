@@ -122,10 +122,8 @@ useEffect(() => {
     };
 
     setNotifications((prev) => {
-      const exists = prev.find((n) => n.id === formatted.id);
-      if (exists) return prev;
-
-      return [formatted, ...prev]; 
+      if (prev.find((n) => n.id === formatted.id)) return prev;
+      return [formatted, ...prev];
     });
   };
 
@@ -139,55 +137,36 @@ useEffect(() => {
 
 const loadNotifications = useCallback(async () => {
   try {
-    const data = await listResource<Notification>("notifications");;
-   console.log("API DATA:", data);
-   const filteredData = (data || []).filter((n: any) => {
-    // Check if notification is for this user via recipient field or audience
-    const recipient = n.recipient || "";
-    const isForMe = recipient.includes(userEmail) || recipient.includes(userName) || n.audience === "all";
-    return isForMe;
-  });
+    const data = await listResource<Notification>("notifications");
+    const filteredData = (data || []).filter((n: any) => {
+      const recipient = n.recipient || "";
+      return recipient.includes(userEmail) || recipient.includes(userName) || n.audience === "all";
+    });
 
-const formatted: Notification[] = filteredData.map((n: any) => {
+    const formatted: Notification[] = filteredData.map((n: any) => {
       const safeType: Notification["type"] =
-        n.type === "success" ||
-        n.type === "warning" ||
-        n.type === "task"
+        n.type === "success" || n.type === "warning" || n.type === "task"
           ? n.type
           : "info";
+      const readByList = Array.isArray(n.readBy) ? n.readBy : [];
+      const isRead = readByList.includes(userName) || readByList.includes(userEmail);
+      return {
+        id: n.id || n._id,
+        title: n.title || "Notification",
+        message: n.content || n.message,
+        type: safeType,
+        timestamp: n.timestamp,
+        read: isRead,
+        category: n.meta?.category || "",
+        link: n.meta?.link || "",
+        meta: n.meta,
+      };
+    });
 
-          const readByList = Array.isArray(n.readBy) ? n.readBy : [];
-          const isRead = readByList.includes(userName) || readByList.includes(userEmail);
+    formatted.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-          return {
-            id: n.id || n._id,
-            title: n.title || "Notification",
-            message: n.content || n.message,
-            type: safeType,
-            timestamp: n.timestamp,
-            read: isRead,
-            category: n.meta?.category || "",
-            link: n.meta?.link || "",
-            meta: n.meta,
-          };
-        });
-
-
-      formatted.sort(
-        (a, b) =>
-          new Date(b.timestamp).getTime() -
-          new Date(a.timestamp).getTime()
-      );
-
-      setNotifications((prev) => {
-    const merged = [...formatted, ...prev];
-    const unique = merged.filter(
-    (n, index, self) =>
-      index === self.findIndex((x) => x.id === n.id)
-    );
-
-    return unique;
-}   );
+    // Replace state with fresh API data — socket listener prepends new arrivals on top
+    setNotifications(formatted);
   } catch (err) {
     console.error("Failed to load notifications", err);
   }
@@ -354,7 +333,7 @@ useEffect(() => {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <Tabs defaultValue="all" className="w-full">
+          <Tabs defaultValue="unread" className="w-full">
             <TabsList className="w-full grid grid-cols-3 rounded-none border-b">
               <TabsTrigger value="all">
                 All ({notifications.length})

@@ -20,9 +20,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/admin/ui/dialog";
-import { Plus, Search, Bell } from "lucide-react";
+import { Plus, Search, Bell, Eye, EyeOff } from "lucide-react";
 import { createResource, listResource } from "@/lib/admin/apiClient";
 import { useSocket } from "@/contexts/SocketContext";
+import { getAuthState } from "@/lib/auth";
 
 interface NotificationItem {
   id: string;
@@ -31,6 +32,7 @@ interface NotificationItem {
   message?: string;
   audience: "all" | "employees" | "managers";
   createdAt: string;
+  readBy?: string[];
 }
 
 function formatUSA(dateStr: string) {
@@ -56,7 +58,10 @@ export default function Notifications() {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [items, setItems] = useState<NotificationItem[]>(() => []);
+  const [unreadOnly, setUnreadOnly] = useState(false);
   const { socket } = useSocket();
+  const auth = getAuthState();
+  const currentUser = auth.username || "";
 
   const [formData, setFormData] = useState({
     title: "",
@@ -106,8 +111,15 @@ export default function Notifications() {
 
   const filteredNotifications = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((n) => {
+    let list = items
+      .map((n) => ({ ...n, isRead: Array.isArray(n.readBy) && n.readBy.includes(currentUser) }))
+      .sort((a, b) => {
+        if (a.isRead !== b.isRead) return a.isRead ? 1 : -1;
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+    if (unreadOnly) list = list.filter((n) => !n.isRead);
+    if (!q) return list;
+    return list.filter((n) => {
       const content = n.content || n.message || "";
       return (
         n.title?.toLowerCase().includes(q) ||
@@ -115,7 +127,7 @@ export default function Notifications() {
         n.audience?.toLowerCase().includes(q)
       );
     });
-  }, [items, searchQuery]);
+  }, [items, searchQuery, unreadOnly, currentUser]);
 
   const addNotification = async () => {
     if (!formData.title || !formData.message) return;
@@ -153,15 +165,27 @@ export default function Notifications() {
             </p>
           </div>
 
-          {/* New Notification Dialog */}
-          <Dialog open={addOpen} onOpenChange={setAddOpen}>
-            <DialogTrigger asChild>
-              <Button className="bg-accent hover:bg-accent/90 text-accent-foreground w-full sm:w-auto mt-2 sm:mt-0">
-                <Plus className="h-4 w-4 mr-2 flex-shrink-0" />
-                <span className="sm:hidden">New</span>
-                <span className="hidden sm:inline">New Notification</span>
-              </Button>
-            </DialogTrigger>
+          {/* Header actions */}
+          <div className="flex items-center gap-2 mt-2 sm:mt-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setUnreadOnly((v) => !v)}
+              className="gap-2 text-xs"
+            >
+              {unreadOnly ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+              {unreadOnly ? "Show All" : "Unread Only"}
+            </Button>
+
+            {/* New Notification Dialog */}
+            <Dialog open={addOpen} onOpenChange={setAddOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-accent hover:bg-accent/90 text-accent-foreground w-full sm:w-auto">
+                  <Plus className="h-4 w-4 mr-2 flex-shrink-0" />
+                  <span className="sm:hidden">New</span>
+                  <span className="hidden sm:inline">New Notification</span>
+                </Button>
+              </DialogTrigger>
           
             <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
               <DialogHeader className="space-y-1.5 sm:space-y-2">
@@ -232,7 +256,8 @@ export default function Notifications() {
                 </Button>
               </DialogFooter>
             </DialogContent>
-          </Dialog>
+            </Dialog>
+          </div>
         </div>
 
         {/* API Error Message */}
@@ -342,15 +367,21 @@ export default function Notifications() {
                     <TableBody>
                       {filteredNotifications.map((n) => {
                         const { date, time } = formatUSA(n.createdAt);
+                        const isUnread = !n.isRead;
                         return (
-                          <TableRow key={n.id} className="hover:bg-muted/30">
+                          <TableRow
+                            key={n.id}
+                            className={`hover:bg-muted/30 ${isUnread ? "bg-blue-50/40" : ""}`}
+                          >
                             <TableCell>
                               <div className="space-y-1">
-                                <p className="font-medium text-sm md:text-base">{n.title}</p>
+                                <div className="flex items-center gap-2">
+                                  {isUnread && <span className="h-2 w-2 rounded-full bg-blue-500 flex-shrink-0" />}
+                                  <p className={`text-sm md:text-base ${isUnread ? "font-semibold" : "font-medium"}`}>{n.title}</p>
+                                </div>
                                 <p className="text-xs md:text-sm text-muted-foreground line-clamp-2 max-w-2xl">
                                   {n.content || n.message}
                                 </p>
-                                <p className="text-xs text-muted-foreground md:hidden">{n.id}</p>
                               </div>
                             </TableCell>
                             <TableCell>

@@ -10,10 +10,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/manger/ui/table";
-import { Search, Bell } from "lucide-react";
+import { Search, Bell, Eye, EyeOff } from "lucide-react";
 import { apiFetch } from "@/lib/manger/api";
 import { useNavigate } from "react-router-dom";
 import { useSocket } from "@/contexts/SocketContext";
+import { getAuthState } from "@/lib/auth";
 
 interface NotificationItem {
   id: string;
@@ -33,8 +34,10 @@ interface NotificationItem {
     resourceType?: string;
     resourceId?: string;
     link?: string;
+    category?: string;
   };
   timestamp?: string;
+  isRead?: boolean;
 }
 
 function formatUSA(dateStr: string) {
@@ -60,7 +63,10 @@ export default function Notifications() {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [items, setItems] = useState<NotificationItem[]>([]);
+  const [unreadOnly, setUnreadOnly] = useState(true);
   const { socket } = useSocket();
+  const auth = getAuthState();
+  const currentUser = auth.username || "";
 
   const resolveNotificationLink = (n: NotificationItem): string => {
     const direct = String(n.meta?.link || "").trim();
@@ -135,8 +141,16 @@ export default function Notifications() {
 
   const filteredNotifications = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return items;
-    return items.filter((n) => {
+    let list = items
+      .map((n) => ({ ...n, isRead: Array.isArray(n.readBy) && n.readBy.includes(currentUser) }))
+      .sort((a, b) => {
+        if (a.isRead !== b.isRead) return a.isRead ? 1 : -1;
+        const ta = n => new Date(n.timestamp || n.createdAt || "").getTime();
+        return ta(b) - ta(a);
+      });
+    if (unreadOnly) list = list.filter((n) => !n.isRead);
+    if (!q) return list;
+    return list.filter((n) => {
       const content = n.content || n.message || "";
       return (
         n.title?.toLowerCase().includes(q) ||
@@ -144,12 +158,12 @@ export default function Notifications() {
         n.audience?.toLowerCase().includes(q)
       );
     });
-  }, [items, searchQuery]);
+  }, [items, searchQuery, unreadOnly, currentUser]);
 
   return (
     <div className="pl-6 space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 sm:gap-6">
         <div className="space-y-1.5 sm:space-y-2">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">
             Notifications
@@ -158,6 +172,13 @@ export default function Notifications() {
             View system notifications and updates.
           </p>
         </div>
+        <button
+          onClick={() => setUnreadOnly((v) => !v)}
+          className="flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-colors hover:bg-muted"
+        >
+          {unreadOnly ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+          {unreadOnly ? "Show All" : "Unread Only"}
+        </button>
       </div>
 
       {/* API Error Message */}
@@ -212,7 +233,7 @@ export default function Notifications() {
                   return (
                     <div
                       key={n.id}
-                      className="bg-white rounded-lg border p-4 space-y-3 cursor-pointer"
+                      className={`rounded-lg border p-4 space-y-3 cursor-pointer ${n.isRead ? "bg-white" : "bg-blue-50/40"}`}
                       role="button"
                       tabIndex={0}
                       onClick={() => void onOpenNotification(n)}
@@ -222,12 +243,12 @@ export default function Notifications() {
                     >
                       {/* Header with Icon and Title */}
                       <div className="flex items-start gap-3">
-                        <div className="h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
+                        <div className="relative h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
                           <Bell className="h-4 w-4 text-accent" />
+                          {!n.isRead && <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-blue-500" />}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm truncate">{n.title}</p>
-                          <p className="text-xs text-muted-foreground">{n.id}</p>
+                          <p className={`text-sm truncate ${n.isRead ? "font-medium" : "font-semibold"}`}>{n.title}</p>
                         </div>
                       </div>
 
@@ -279,7 +300,7 @@ export default function Notifications() {
                       return (
                         <TableRow
                           key={n.id}
-                          className="hover:bg-muted/30 cursor-pointer"
+                          className={`cursor-pointer hover:bg-muted/30 ${!n.isRead ? "bg-blue-50/30" : ""}`}
                           role="button"
                           tabIndex={0}
                           onClick={() => void onOpenNotification(n)}
@@ -289,11 +310,13 @@ export default function Notifications() {
                         >
                           <TableCell>
                             <div className="space-y-1">
-                              <p className="font-medium text-sm md:text-base">{n.title}</p>
+                              <div className="flex items-center gap-2">
+                                {!n.isRead && <span className="h-2 w-2 rounded-full bg-blue-500 flex-shrink-0" />}
+                                <p className={`text-sm md:text-base ${!n.isRead ? "font-semibold" : "font-medium"}`}>{n.title}</p>
+                              </div>
                               <p className="text-xs md:text-sm text-muted-foreground line-clamp-2 max-w-2xl">
                                 {n.content || n.message}
                               </p>
-                              <p className="text-xs text-muted-foreground md:hidden">{n.id}</p>
                             </div>
                           </TableCell>
                           <TableCell>
