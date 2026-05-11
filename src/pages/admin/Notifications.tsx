@@ -22,6 +22,7 @@ import {
 } from "@/components/admin/ui/dialog";
 import { Plus, Search, Bell } from "lucide-react";
 import { createResource, listResource } from "@/lib/admin/apiClient";
+import { useSocket } from "@/contexts/SocketContext";
 
 interface NotificationItem {
   id: string;
@@ -55,6 +56,7 @@ export default function Notifications() {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [items, setItems] = useState<NotificationItem[]>(() => []);
+  const { socket } = useSocket();
 
   const [formData, setFormData] = useState({
     title: "",
@@ -93,6 +95,14 @@ export default function Notifications() {
     const notificationsList = await listResource<NotificationItem>("notifications", { type: "broadcast" });
     setItems(notificationsList);
   };
+
+  // Real-time: refresh list when a new notification arrives
+  useEffect(() => {
+    if (!socket) return;
+    const handleNew = () => { void refresh(); };
+    socket.on("new-notification", handleNew);
+    return () => { socket.off("new-notification", handleNew); };
+  }, [socket]);
 
   const filteredNotifications = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();

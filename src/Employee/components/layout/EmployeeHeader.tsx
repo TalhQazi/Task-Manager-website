@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Bell, Menu, Mail, User, Settings, LogOut, Bug, Camera, Palette, Loader2 } from "lucide-react";
+import { Bell, Menu, Mail, User, Settings, LogOut, Camera, Palette, Loader2 } from "lucide-react";
+import { useSocket } from "@/contexts/SocketContext";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -101,15 +102,25 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
       .join("")
       .toUpperCase() || "E";
 
+  const { socket } = useSocket();
+
   const notificationsQuery = useQuery({
     queryKey: ["employee-notifications"],
     queryFn: async () => {
       const res = await apiFetch<{ items?: Notification[] } | Notification[]>("/api/notifications?type=broadcast");
       const items = Array.isArray(res) ? res : Array.isArray((res as { items?: Notification[] })?.items) ? (res as { items?: Notification[] }).items : [];
-      return items.map((m: Notification) => ({ ...m, id: String(m.id || m._id || "") })).filter((m: Notification) => Boolean(m.id));
+      return items.map((m: Notification) => ({ ...m, id: String(m.id || (m as any)._id || "") })).filter((m: Notification) => Boolean(m.id));
     },
-    refetchInterval: 5000,
+    refetchInterval: 30000,
   });
+
+  // Real-time: immediately refresh unread count when a targeted notification arrives
+  useEffect(() => {
+    if (!socket) return;
+    const handleNew = () => { queryClient.invalidateQueries({ queryKey: ["employee-notifications"] }); };
+    socket.on("new-notification", handleNew);
+    return () => { socket.off("new-notification", handleNew); };
+  }, [socket, queryClient]);
 
   const notifications = (notificationsQuery.data || [])
     .slice()

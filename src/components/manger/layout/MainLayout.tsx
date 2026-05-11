@@ -62,8 +62,9 @@ export function MainLayout({ children }: MainLayoutProps) {
   };
 
   const resolveNotificationLink = (n: MessageApi) => {
+    // meta.link is stored with /admin/ prefix by the backend — rewrite to /manager/
     const direct = String(n.meta?.link || "").trim();
-    if (direct) return direct;
+    if (direct) return direct.replace(/^\/admin\//, "/manager/");
 
     const resourceTypeRaw = String(n.meta?.resourceType || "").trim();
     const resourceType = resourceTypeRaw.toLowerCase();

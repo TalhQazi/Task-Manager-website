@@ -58,6 +58,30 @@ export function SocketProvider({ children }: SocketProviderProps) {
     socket.on("connect", () => {
       console.log("✅ Socket connected:", socket.id);
       setIsConnected(true);
+
+      // Register in a personal room + role room so the backend can send targeted notifications
+      let username = "";
+      let role = "";
+      try {
+        const authRaw = localStorage.getItem("taskflow_auth");
+        if (authRaw) {
+          const auth = JSON.parse(authRaw);
+          username = auth.username || auth.name || "";
+          role = auth.role || "";
+        } else {
+          const empRaw = localStorage.getItem("employee_auth");
+          if (empRaw) {
+            const emp = JSON.parse(empRaw);
+            username = emp.name || emp.username || emp.email || "";
+            role = "employee";
+          }
+        }
+      } catch {
+        // ignore parse errors
+      }
+      if (username) {
+        socket.emit("register-user", { username, role });
+      }
     });
 
     socket.on("disconnect", () => {

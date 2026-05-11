@@ -13,6 +13,7 @@ import {
 import { Search, Bell } from "lucide-react";
 import { apiFetch } from "@/lib/manger/api";
 import { useNavigate } from "react-router-dom";
+import { useSocket } from "@/contexts/SocketContext";
 
 interface NotificationItem {
   id: string;
@@ -59,6 +60,7 @@ export default function Notifications() {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [items, setItems] = useState<NotificationItem[]>([]);
+  const { socket } = useSocket();
 
   const resolveNotificationLink = (n: NotificationItem): string => {
     const direct = String(n.meta?.link || "").trim();
@@ -90,6 +92,16 @@ export default function Notifications() {
     navigate(resolveNotificationLink(n));
   };
 
+  const refresh = async () => {
+    try {
+      const res = await apiFetch<{ items?: NotificationItem[] } | NotificationItem[]>("/api/notifications?type=broadcast");
+      const list = Array.isArray(res) ? res : Array.isArray(res?.items) ? res.items : [];
+      setItems(list);
+    } catch {
+      // ignore background refresh errors
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
     const load = async () => {
@@ -110,10 +122,16 @@ export default function Notifications() {
     };
 
     void load();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, []);
+
+  // Real-time: refresh list when a new notification arrives
+  useEffect(() => {
+    if (!socket) return;
+    const handleNew = () => { void refresh(); };
+    socket.on("new-notification", handleNew);
+    return () => { socket.off("new-notification", handleNew); };
+  }, [socket]);
 
   const filteredNotifications = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
