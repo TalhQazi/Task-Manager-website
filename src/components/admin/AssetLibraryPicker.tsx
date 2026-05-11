@@ -4,7 +4,6 @@ import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Loader2, Search, Image as ImageIcon, Check, FolderOpen } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
-import { toProxiedUrl as employeeToProxiedUrl, getEmployeeAuth } from "@/Employee/lib/api";
 
 type AssetItem = {
   id: string;
@@ -29,9 +28,11 @@ interface AssetLibraryPickerProps {
   onSelect: (url: string, fileName: string) => void;
   /** Only show images (default true) */
   imagesOnly?: boolean;
+  /** Which module to load from (default asset-library) */
+  moduleName?: "asset-library" | "company-information";
 }
 
-export default function AssetLibraryPicker({ open, onOpenChange, onSelect, imagesOnly = true }: AssetLibraryPickerProps) {
+export default function AssetLibraryPicker({ open, onOpenChange, onSelect, imagesOnly = true, moduleName = "asset-library" }: AssetLibraryPickerProps) {
   const [folders, setFolders] = useState<FolderItem[]>([]);
   const [selectedFolderId, setSelectedFolderId] = useState<string>("");
   const [assets, setAssets] = useState<AssetItem[]>([]);
@@ -61,7 +62,7 @@ export default function AssetLibraryPicker({ open, onOpenChange, onSelect, image
     if (!open) return;
     (async () => {
       try {
-        const res = await apiFetch<{ items: FolderItem[] }>("/api/asset-library/folders");
+        const res = await apiFetch<{ items: FolderItem[] }>(`/api/asset-library/folders?module=${moduleName}`);
         setFolders(res.items || []);
       } catch { /* ignore */ }
     })();
@@ -78,6 +79,7 @@ export default function AssetLibraryPicker({ open, onOpenChange, onSelect, image
     let cancelled = false;
     setLoading(true);
     const params = new URLSearchParams();
+    params.set("module", moduleName);
     if (selectedFolderId) params.set("folderId", selectedFolderId);
     if (imagesOnly) params.set("type", "image");
     if (search.trim()) params.set("q", search.trim());
@@ -112,8 +114,8 @@ export default function AssetLibraryPicker({ open, onOpenChange, onSelect, image
     <Dialog open={open} onOpenChange={(v) => { onOpenChange(v); if (!v) { setSelectedAssetUrl(""); setSearch(""); } }}>
       <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[750px] max-h-[85vh] overflow-hidden rounded-lg flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5" /> Pick from Company Information/Images</DialogTitle>
-          <DialogDescription>Select an image from the asset library</DialogDescription>
+          <DialogTitle className="flex items-center gap-2"><ImageIcon className="h-5 w-5" /> Pick from {moduleName === "asset-library" ? "Images" : "Company Information"}</DialogTitle>
+          <DialogDescription>Select an image from the {moduleName === "asset-library" ? "images" : "company information"}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col sm:flex-row gap-3 flex-1 overflow-hidden">
@@ -243,7 +245,38 @@ function getAssetUrl(asset: AssetItem): string {
   return asset.urlOriginal || asset.attachment?.url || "";
 }
 
-// Use employee toProxiedUrl which uses employee auth tokens
+// Universal toProxiedUrl that handles both admin and employee tokens
 const toProxiedUrl = (url: string): string => {
-  return employeeToProxiedUrl(url);
+  if (!url || url.startsWith("data:")) return url;
+  if (url.includes("/api/s3-proxy/")) return url;
+
+  // Match S3 URLs pattern: https://<bucket>.s3.<region>.amazonaws.com/<key>
+  const s3Match = url.match(/https:\/\/[^/]+\.s3\.[^/]+\.amazonaws\.com\/(.+)/);
+  if (!s3Match) return url;
+
+  const s3Key = s3Match[1];
+  const baseUrl = (import.meta.env.VITE_API_URL || "https://task.se7eninc.com").replace(/\/$/, "");
+
+  let token = "";
+  // Check Admin Auth
+  const adminAuth = localStorage.getItem("taskflow_auth");
+  if (adminAuth) {
+    try {
+      const parsed = JSON.parse(adminAuth);
+      token = parsed.token || "";
+    } catch { /* ignore */ }
+  }
+
+  // If no admin token, check Employee Auth
+  if (!token) {
+    const empAuth = localStorage.getItem("employee_auth");
+    if (empAuth) {
+      try {
+        const parsed = JSON.parse(empAuth);
+        token = parsed.token || "";
+      } catch { /* ignore */ }
+    }
+  }
+
+  return `${baseUrl}/api/s3-proxy/${s3Key}${token ? `?token=${token}` : ""}`;
 };

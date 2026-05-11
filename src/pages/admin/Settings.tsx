@@ -914,7 +914,7 @@ export default function Settings() {
         <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
           <CardTitle className="text-base sm:text-lg md:text-xl font-semibold flex items-center gap-2">
             <ImageIcon className="h-5 w-5" />
-            Asset Library Header
+            Images Header
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 sm:space-y-5 px-4 sm:px-6 pb-5 sm:pb-6 pt-0">
@@ -965,7 +965,7 @@ export default function Settings() {
                       onClick={() => setIsLibraryPickerOpen(true)}
                     >
                       <Plus className="h-5 w-5 text-muted-foreground" />
-                      <span className="text-[10px] text-muted-foreground">Pick</span>
+                      <span className="text-[10px] text-muted-foreground">Pick from Images</span>
                     </button>
                     <button
                       className="w-24 h-24 rounded-lg border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-1 hover:border-primary/50 hover:bg-primary/5 transition-all"
@@ -1271,7 +1271,7 @@ export default function Settings() {
           {/* Header Customization Card */}
           <HeaderCustomizationCard />
 
-          {/* Asset Library Header Customization Card */}
+          {/* Images Header Customization Card */}
           <AssetLibraryHeaderCustomizationCard />
 
           {/* Security Card */}

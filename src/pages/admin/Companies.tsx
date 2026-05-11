@@ -687,7 +687,7 @@ const Companies = () => {
                             onClick={() => setAddPickerOpen(true)}
                             className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 text-indigo-600 rounded-lg hover:bg-indigo-500/20 transition-all text-sm font-medium"
                           >
-                            <ImageIcon className="h-4 w-4" /> Pick from Library
+                            <ImageIcon className="h-4 w-4" /> Pick from Images
                           </button>
                         </div>
                       )}
@@ -1330,7 +1330,7 @@ const Companies = () => {
                         onClick={() => setEditPickerOpen(true)}
                         className="flex items-center gap-2 px-4 py-2 bg-indigo-500/10 text-indigo-600 rounded-lg hover:bg-indigo-500/20 transition-all text-sm font-medium"
                       >
-                        <ImageIcon className="h-4 w-4" /> Pick from Library
+                        <ImageIcon className="h-4 w-4" /> Pick from Images
                       </button>
                     </div>
                   )}

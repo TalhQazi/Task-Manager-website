@@ -2992,10 +2992,10 @@ export default function Tasks() {
                   <button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted" onClick={() => { const el = document.getElementById("project-logo-input") as HTMLInputElement | null; el?.click(); }}>Upload Logo</button>
                   <button
                     type="button"
-                    className="py-2 px-3 border border-border rounded-md text-sm bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 transition-all font-medium flex items-center gap-1.5"
                     onClick={() => setIsProjectLogoPickerOpen(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 text-indigo-600 rounded-lg hover:bg-indigo-500/20 transition-all text-xs font-medium"
                   >
-                    <FileText className="h-4 w-4" /> Pick from Library
+                    <ImageIcon className="h-3.5 w-3.5" /> Pick from Images
                   </button>
                   {projectLogoPreview ? <img src={projectLogoPreview} alt="Project Logo" className="w-10 h-10 rounded-md object-cover" /> : <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">No logo</div>}
                 </div>
@@ -4208,10 +4208,10 @@ export default function Tasks() {
                   </button>
                   <button
                     type="button"
-                    className="py-2 px-3 border border-border rounded-md text-sm bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 transition-all font-medium flex items-center gap-1.5"
                     onClick={() => setIsEditProjectLogoPickerOpen(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-indigo-500/10 text-indigo-600 rounded-lg hover:bg-indigo-500/20 transition-all text-xs font-medium"
                   >
-                    <FileText className="h-4 w-4" /> Pick from Library
+                    <ImageIcon className="h-3.5 w-3.5" /> Pick from Images
                   </button>
                   {editProjectLogoPreview ? (
                     <img src={editProjectLogoPreview} alt="Project Logo" className="w-10 h-10 rounded-md object-cover" />

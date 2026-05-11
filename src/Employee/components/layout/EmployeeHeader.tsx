@@ -346,7 +346,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Update Header Picture</DialogTitle>
-            <DialogDescription>Upload a custom image or pick from the asset library.</DialogDescription>
+            <DialogDescription>Upload a custom image or pick from images.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -379,7 +379,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                 className="w-full bg-indigo-500/10 text-indigo-600 hover:bg-indigo-500/20 border-indigo-500/20 gap-2 font-bold"
                 onClick={() => setIsHeaderPickerOpen(true)}
               >
-                <Palette className="h-4 w-4" /> Pick from Asset Library
+                <Palette className="h-4 w-4" /> Pick from Images
               </Button>
               {uploading && (
                 <div className="flex items-center gap-2 text-primary">
