@@ -53,18 +53,38 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 interface Appliance {
   id: string;
   frontendId: string;
+  inventoryType: "asset" | "consumable" | "sellable";
   name: string;
   brand?: string;
   model?: string;
   serialNumber?: string;
-  type: "residential" | "commercial";
   location: string;
-  purchaseDate: string;
-  warrantyUntil: string;
-  status: "active" | "inactive";
+  status: string;
+  photoFileName?: string;
+  photoDataUrl?: string;
+  assignedTo?: string;
+  supplier?: string;
+
+  // Asset
+  propertyType?: "commercial" | "residential";
+  purchaseDate?: string;
+  warrantyUntil?: string;
+  conditionStatus?: "excellent" | "good" | "fair" | "damaged";
+
+  // Consumable
+  quantity?: number;
+  unitType?: "pieces" | "boxes" | "liters" | "kg";
+  reorderPoint?: number;
+  dailyUsageRate?: number;
+
+  // Sellable
+  sku?: string;
+  costPrice?: number;
+  sellingPrice?: number;
+
+  // Legacy
   tagPhotoFileName?: string;
   tagPhotoDataUrl?: string;
-  assignedTo?: string;
 }
 
 interface Employee {
@@ -109,8 +129,9 @@ const statusClasses = {
 
 // Enhanced type classes with beautiful gradients
 const typeClasses = {
-  residential: "bg-gradient-to-r from-[#22c55e]/20 to-[#10b981]/20 text-[#22c55e] dark:text-[#34d399] border-[#22c55e]/20 shadow-sm",
-  commercial: "bg-gradient-to-r from-[#3b82f6]/20 to-[#6366f1]/20 text-[#3b82f6] dark:text-[#818cf8] border-[#3b82f6]/20 shadow-sm",
+  asset: "bg-gradient-to-r from-[#3b82f6]/20 to-[#6366f1]/20 text-[#3b82f6] dark:text-[#818cf8] border-[#3b82f6]/20 shadow-sm",
+  consumable: "bg-gradient-to-r from-[#22c55e]/20 to-[#10b981]/20 text-[#22c55e] dark:text-[#34d399] border-[#22c55e]/20 shadow-sm",
+  sellable: "bg-gradient-to-r from-[#f59e0b]/20 to-[#f97316]/20 text-[#f59e0b] dark:text-[#fdba74] border-[#f59e0b]/20 shadow-sm",
 } as const;
 
 // Animation variants
@@ -159,6 +180,7 @@ const cardVariants: Variants = {
     },
   },
 };
+
 //exporting deafult function
 export default function Appliances() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -171,7 +193,7 @@ export default function Appliances() {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selected, setSelected] = useState<Appliance | null>(null);
   const [hoveredAppliance, setHoveredAppliance] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"all" | "commercial" | "residential">("all");
+  const [activeTab, setActiveTab] = useState<"all" | Appliance["inventoryType"]>("all");
 
   // Fetch appliances from backend
   const appliancesQuery = useQuery({
@@ -206,54 +228,89 @@ export default function Appliances() {
     return items.map((a: any) => ({
       id: String(a._id || a.id || ""),
       frontendId: String(a.frontendId || ""),
+      inventoryType: String(a.inventoryType || "asset") as "asset" | "consumable" | "sellable",
       name: String(a.name || ""),
       brand: String(a.brand || ""),
       model: String(a.model || ""),
       serialNumber: String(a.serialNumber || ""),
-      type: String(a.type || a.category || "commercial") as "residential" | "commercial",
       location: String(a.location || ""),
+      status: String(a.status || "active"),
+      photoFileName: a.photoFileName || "",
+      photoDataUrl: a.photoDataUrl || a.photoAttachment?.url || "",
+      assignedTo: a.assignedTo || "",
+      supplier: a.supplier || "",
+      propertyType: a.propertyType || "commercial",
       purchaseDate: String(a.purchaseDate || a.lastMaintenance || ""),
       warrantyUntil: String(a.warrantyUntil || a.warrantyExpiry || ""),
-      status: String(a.status || "active") as "active" | "inactive",
+      conditionStatus: a.conditionStatus || "good",
+      quantity: Number(a.quantity || 0),
+      unitType: a.unitType || "pieces",
+      reorderPoint: Number(a.reorderPoint || 0),
+      dailyUsageRate: Number(a.dailyUsageRate || 0),
+      sku: a.sku || "",
+      costPrice: Number(a.costPrice || 0),
+      sellingPrice: Number(a.sellingPrice || 0),
       tagPhotoFileName: a.tagPhotoFileName || "",
       tagPhotoDataUrl: a.tagPhotoDataUrl || a.tagPhotoAttachment?.url || "",
-      assignedTo: a.assignedTo || "",
     }));
   }, [appliancesQuery.data]);
 
   const [employees, setEmployees] = useState<Employee[]>([]);
 
   const [formData, setFormData] = useState({
+    inventoryType: "asset" as Appliance["inventoryType"],
     name: "",
     brand: "",
     model: "",
     serialNumber: "",
-    type: "commercial" as Appliance["type"],
     location: "",
+    photoFileName: "",
+    photoDataUrl: "",
+    assignedTo: "",
+    supplier: "",
+    // Asset
+    propertyType: "commercial" as "commercial" | "residential",
     purchaseDate: "",
     warrantyUntil: "",
-    status: "active" as Appliance["status"],
-    tagPhotoFileName: "",
-    tagPhotoDataUrl: "",
-    assignedTo: "",
+    conditionStatus: "good" as "excellent" | "good" | "fair" | "damaged",
+    // Consumable
+    quantity: "",
+    unitType: "pieces" as "pieces" | "boxes" | "liters" | "kg",
+    reorderPoint: "",
+    dailyUsageRate: "",
+    // Sellable
+    sku: "",
+    costPrice: "",
+    sellingPrice: "",
+    status: "active",
   });
 
-  const [tagPhotoFile, setTagPhotoFile] = useState<File | null>(null);
-  const [editTagPhotoFile, setEditTagPhotoFile] = useState<File | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [editPhotoFile, setEditPhotoFile] = useState<File | null>(null);
 
   const [editFormData, setEditFormData] = useState({
+    inventoryType: "asset" as Appliance["inventoryType"],
     name: "",
     brand: "",
     model: "",
     serialNumber: "",
-    type: "commercial" as Appliance["type"],
     location: "",
+    photoFileName: "",
+    photoDataUrl: "",
+    assignedTo: "",
+    supplier: "",
+    propertyType: "commercial" as "commercial" | "residential",
     purchaseDate: "",
     warrantyUntil: "",
-    status: "active" as Appliance["status"],
-    tagPhotoFileName: "",
-    tagPhotoDataUrl: "",
-    assignedTo: "",
+    conditionStatus: "good" as "excellent" | "good" | "fair" | "damaged",
+    quantity: "",
+    unitType: "pieces" as "pieces" | "boxes" | "liters" | "kg",
+    reorderPoint: "",
+    dailyUsageRate: "",
+    sku: "",
+    costPrice: "",
+    sellingPrice: "",
+    status: "active",
   });
 
   const readFileAsDataUrl = (file: File) => {
@@ -265,16 +322,22 @@ export default function Appliances() {
     });
   };
 
-  const getApplianceTagPhotoSrc = (a?: Pick<Appliance, "tagPhotoDataUrl" | "tagPhotoFileName"> | null) => {
+  const getPhotoSrc = (a?: Pick<Appliance, "photoDataUrl" | "photoFileName" | "tagPhotoDataUrl" | "tagPhotoFileName"> | null) => {
     if (!a) return null;
-    const dataUrl = String(a.tagPhotoDataUrl || "").trim();
+    const dataUrl = String(a.photoDataUrl || a.tagPhotoDataUrl || "").trim();
     if (dataUrl) return dataUrl;
-    const fileName = String(a.tagPhotoFileName || "").trim();
+    const fileName = String(a.photoFileName || a.tagPhotoFileName || "").trim();
     if (!fileName) return null;
     if (fileName.startsWith("data:")) return fileName;
     if (fileName.startsWith("http://") || fileName.startsWith("https://")) return fileName;
     if (fileName.startsWith("/")) return fileName;
     return null;
+  };
+
+  const getApplianceTagPhotoSrc = (
+    a?: Pick<Appliance, "photoDataUrl" | "photoFileName" | "tagPhotoDataUrl" | "tagPhotoFileName"> | null,
+  ) => {
+    return getPhotoSrc(a);
   };
 
   // Mutations for CRUD operations
@@ -283,18 +346,28 @@ export default function Appliances() {
       const res = await apiFetch<{ item: any }>("/api/appliances", {
         method: "POST",
         body: JSON.stringify({
+          inventoryType: payload.inventoryType,
           name: payload.name,
           brand: payload.brand,
           model: payload.model,
           serialNumber: payload.serialNumber,
-          category: payload.type,
           location: payload.location,
-          status: payload.status === "active" ? "operational" : "out-of-service",
-          warrantyExpiry: payload.warrantyUntil,
-          lastMaintenance: payload.purchaseDate,
+          status: payload.status,
+          photoFileName: payload.photoFileName,
+          photoDataUrl: payload.photoDataUrl,
           assignedTo: payload.assignedTo,
-          tagPhotoFileName: payload.tagPhotoFileName,
-          tagPhotoDataUrl: payload.tagPhotoDataUrl,
+          supplier: payload.supplier,
+          propertyType: payload.propertyType,
+          purchaseDate: payload.purchaseDate,
+          warrantyUntil: payload.warrantyUntil,
+          conditionStatus: payload.conditionStatus,
+          quantity: payload.quantity,
+          unitType: payload.unitType,
+          reorderPoint: payload.reorderPoint,
+          dailyUsageRate: payload.dailyUsageRate,
+          sku: payload.sku,
+          costPrice: payload.costPrice,
+          sellingPrice: payload.sellingPrice,
         }),
       });
       return res.item;
@@ -309,18 +382,28 @@ export default function Appliances() {
       const res = await apiFetch<{ item: any }>(`/api/appliances/${id}`, {
         method: "PUT",
         body: JSON.stringify({
+          inventoryType: payload.inventoryType,
           name: payload.name,
           brand: payload.brand,
           model: payload.model,
           serialNumber: payload.serialNumber,
-          category: payload.type,
           location: payload.location,
-          status: payload.status === "active" ? "operational" : "out-of-service",
-          warrantyExpiry: payload.warrantyUntil,
-          lastMaintenance: payload.purchaseDate,
+          status: payload.status,
+          photoFileName: payload.photoFileName,
+          photoDataUrl: payload.photoDataUrl,
           assignedTo: payload.assignedTo,
-          tagPhotoFileName: payload.tagPhotoFileName,
-          tagPhotoDataUrl: payload.tagPhotoDataUrl,
+          supplier: payload.supplier,
+          propertyType: payload.propertyType,
+          purchaseDate: payload.purchaseDate,
+          warrantyUntil: payload.warrantyUntil,
+          conditionStatus: payload.conditionStatus,
+          quantity: payload.quantity,
+          unitType: payload.unitType,
+          reorderPoint: payload.reorderPoint,
+          dailyUsageRate: payload.dailyUsageRate,
+          sku: payload.sku,
+          costPrice: payload.costPrice,
+          sellingPrice: payload.sellingPrice,
         }),
       });
       return res.item;
@@ -396,7 +479,7 @@ export default function Appliances() {
       return (
         a.name.toLowerCase().includes(q) ||
         a.location.toLowerCase().includes(q) ||
-        a.type.toLowerCase().includes(q) ||
+        a.inventoryType.toLowerCase().includes(q) ||
         (a.assignedTo && a.assignedTo.toLowerCase().includes(q))
       );
     });
@@ -404,53 +487,73 @@ export default function Appliances() {
 
   const displayedAppliances = useMemo(() => {
     if (activeTab === "all") return filtered;
-    return filtered.filter((a) => a.type === activeTab);
+    return filtered.filter((a) => a.inventoryType === activeTab);
   }, [filtered, activeTab]);
 
   const handleAdd = async () => {
     if (!formData.name || !formData.location) return;
 
-    let tagPhotoDataUrl = String(formData.tagPhotoDataUrl || "").trim();
-    if (!tagPhotoDataUrl && tagPhotoFile) {
+    let photoDataUrl = String(formData.photoDataUrl || "").trim();
+    if (!photoDataUrl && photoFile) {
       try {
-        tagPhotoDataUrl = await readFileAsDataUrl(tagPhotoFile);
+        photoDataUrl = await readFileAsDataUrl(photoFile);
       } catch {
-        tagPhotoDataUrl = "";
+        photoDataUrl = "";
       }
     }
 
     const payload: Omit<Appliance, "id" | "frontendId"> = {
+      inventoryType: formData.inventoryType,
       name: formData.name,
       brand: formData.brand,
       model: formData.model,
       serialNumber: formData.serialNumber,
-      type: formData.type,
       location: formData.location,
+      status: formData.status,
+      photoFileName: formData.photoFileName || "",
+      photoDataUrl,
+      assignedTo: formData.assignedTo || "",
+      supplier: formData.supplier,
+      propertyType: formData.propertyType,
       purchaseDate: formData.purchaseDate,
       warrantyUntil: formData.warrantyUntil,
-      status: formData.status,
-      tagPhotoFileName: formData.tagPhotoFileName || "",
-      tagPhotoDataUrl,
-      assignedTo: formData.assignedTo || "",
+      conditionStatus: formData.conditionStatus,
+      quantity: formData.quantity ? Number(formData.quantity) : undefined,
+      unitType: formData.unitType,
+      reorderPoint: formData.reorderPoint ? Number(formData.reorderPoint) : undefined,
+      dailyUsageRate: formData.dailyUsageRate ? Number(formData.dailyUsageRate) : undefined,
+      sku: formData.sku,
+      costPrice: formData.costPrice ? Number(formData.costPrice) : undefined,
+      sellingPrice: formData.sellingPrice ? Number(formData.sellingPrice) : undefined,
     };
 
     await createApplianceMutation.mutateAsync(payload);
     setAddOpen(false);
     setFormData({
+      inventoryType: "asset",
       name: "",
       brand: "",
       model: "",
       serialNumber: "",
-      type: "commercial",
       location: "",
+      photoFileName: "",
+      photoDataUrl: "",
+      assignedTo: "",
+      supplier: "",
+      propertyType: "commercial",
       purchaseDate: "",
       warrantyUntil: "",
+      conditionStatus: "good",
+      quantity: "",
+      unitType: "pieces",
+      reorderPoint: "",
+      dailyUsageRate: "",
+      sku: "",
+      costPrice: "",
+      sellingPrice: "",
       status: "active",
-      tagPhotoFileName: "",
-      tagPhotoDataUrl: "",
-      assignedTo: "",
     });
-    setTagPhotoFile(null);
+    setPhotoFile(null);
   };
 
   const onView = (a: Appliance) => {
@@ -484,20 +587,30 @@ export default function Appliances() {
 
   const onEdit = (a: Appliance) => {
     setSelected(a);
-    setEditTagPhotoFile(null);
+    setEditPhotoFile(null);
     setEditFormData({
+      inventoryType: a.inventoryType,
       name: a.name,
       brand: a.brand || "",
       model: a.model || "",
       serialNumber: a.serialNumber || "",
-      type: a.type,
       location: a.location,
-      purchaseDate: a.purchaseDate,
-      warrantyUntil: a.warrantyUntil,
-      status: a.status,
-      tagPhotoFileName: a.tagPhotoFileName || "",
-      tagPhotoDataUrl: a.tagPhotoDataUrl || "",
+      photoFileName: a.photoFileName || a.tagPhotoFileName || "",
+      photoDataUrl: a.photoDataUrl || a.tagPhotoDataUrl || "",
       assignedTo: a.assignedTo || "",
+      supplier: a.supplier || "",
+      propertyType: (a.propertyType as any) || "commercial",
+      purchaseDate: a.purchaseDate || "",
+      warrantyUntil: a.warrantyUntil || "",
+      conditionStatus: (a.conditionStatus as any) || "good",
+      quantity: String(a.quantity ?? ""),
+      unitType: (a.unitType as any) || "pieces",
+      reorderPoint: String(a.reorderPoint ?? ""),
+      dailyUsageRate: String(a.dailyUsageRate ?? ""),
+      sku: a.sku || "",
+      costPrice: String(a.costPrice ?? ""),
+      sellingPrice: String(a.sellingPrice ?? ""),
+      status: a.status,
     });
     setEditOpen(true);
   };
@@ -508,18 +621,28 @@ export default function Appliances() {
     await updateApplianceMutation.mutateAsync({
       id: selected.id,
       payload: {
+        inventoryType: editFormData.inventoryType,
         name: editFormData.name,
         brand: editFormData.brand,
         model: editFormData.model,
         serialNumber: editFormData.serialNumber,
-        type: editFormData.type,
         location: editFormData.location,
+        status: editFormData.status,
+        photoFileName: editFormData.photoFileName,
+        photoDataUrl: editFormData.photoDataUrl,
+        assignedTo: editFormData.assignedTo,
+        supplier: editFormData.supplier,
+        propertyType: editFormData.propertyType,
         purchaseDate: editFormData.purchaseDate,
         warrantyUntil: editFormData.warrantyUntil,
-        status: editFormData.status,
-        tagPhotoFileName: editFormData.tagPhotoFileName,
-        tagPhotoDataUrl: editFormData.tagPhotoDataUrl,
-        assignedTo: editFormData.assignedTo,
+        conditionStatus: editFormData.conditionStatus,
+        quantity: editFormData.quantity ? Number(editFormData.quantity) : undefined,
+        unitType: editFormData.unitType,
+        reorderPoint: editFormData.reorderPoint ? Number(editFormData.reorderPoint) : undefined,
+        dailyUsageRate: editFormData.dailyUsageRate ? Number(editFormData.dailyUsageRate) : undefined,
+        sku: editFormData.sku,
+        costPrice: editFormData.costPrice ? Number(editFormData.costPrice) : undefined,
+        sellingPrice: editFormData.sellingPrice ? Number(editFormData.sellingPrice) : undefined,
       },
     });
     setEditOpen(false);
@@ -557,10 +680,12 @@ export default function Appliances() {
   // Get type icon
   const getTypeIcon = (type: string) => {
     switch(type) {
-      case 'commercial':
-        return <Building2 className="h-4 w-4" />;
-      case 'residential':
+      case 'asset':
+        return <Wrench className="h-4 w-4" />;
+      case 'consumable':
         return <Home className="h-4 w-4" />;
+      case 'sellable':
+        return <Building2 className="h-4 w-4" />;
       default:
         return <Wrench className="h-4 w-4" />;
     }
@@ -611,270 +736,387 @@ export default function Appliances() {
                   <Button className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-white w-full sm:w-auto mt-2 sm:mt-0 shadow-lg hover:shadow-xl transition-all duration-300">
                     <Plus className="h-4 w-4 mr-2 flex-shrink-0" />
                     <span className="sm:hidden">Add</span>
-                    <span className="hidden sm:inline">Add Appliance</span>
+                    <span className="hidden sm:inline">Add Item</span>
                   </Button>
                 </motion.div>
               </DialogTrigger>
-              
               {/* Add Dialog - Responsive */}
               <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
                 <DialogHeader className="space-y-1.5 sm:space-y-2">
                   <DialogTitle className="text-lg sm:text-xl bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                    Add Appliance
+                    Add Inventory Item
                   </DialogTitle>
                   <DialogDescription className="text-xs sm:text-sm">
-                    Create a new appliance record
+                    Create a new inventory record
                   </DialogDescription>
                 </DialogHeader>
-                
+
                 <div className="flex-1 overflow-y-auto pr-2 py-2 min-h-0">
-                  <motion.form 
+                  <motion.form
                     className="space-y-4 sm:space-y-5"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2 }}
                   >
-                  {/* Name & Location - Stack on mobile, row on tablet+ */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                    {/* Inventory Type */}
                     <div className="min-w-0">
-                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Asset Name *</label>
-                      <input
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                        placeholder="e.g. HVAC Unit 1"
-                        required
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Brand</label>
-                      <input
-                        value={formData.brand}
-                        onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                        placeholder="e.g. Carrier"
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Model</label>
-                      <input
-                        value={formData.model}
-                        onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                        placeholder="e.g. 50TC"
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Serial Number</label>
-                      <input
-                        value={formData.serialNumber}
-                        onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                        placeholder="SN-123456"
-                      />
-                    </div>
-                    <div className="min-w-0 sm:col-span-2">
-                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Location *</label>
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Inventory Type *</label>
                       <select
-                        value={formData.location}
-                        onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                        value={formData.inventoryType}
+                        onChange={(e) => setFormData({ ...formData, inventoryType: e.target.value as Appliance["inventoryType"] })}
                         className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
                         required
                       >
-                        <option value="">Select location</option>
-                        {locationsQuery.isLoading ? (
-                          <option value="" disabled>
-                            Loading locations...
-                          </option>
-                        ) : locations.length === 0 ? (
-                          <option value="" disabled>
-                            No locations found
-                          </option>
-                        ) : (
-                          locations.map((loc) => (
-                            <option key={loc.id} value={loc.id}>
-                              {loc.name}{loc.city ? ` (${loc.city})` : ""}
-                            </option>
-                          ))
-                        )}
+                        <option value="asset">Asset</option>
+                        <option value="consumable">Consumable</option>
+                        <option value="sellable">Sellable</option>
                       </select>
                     </div>
-                  </div>
 
-                  {/* Assigned To */}
-                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                    <div className="flex-1 min-w-0">
-                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Assigned To</label>
-                      <select
-                        value={formData.assignedTo}
-                        onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })}
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
-                      >
-                        <option value="">Select assignee</option>
-                        {employees.map((emp) => (
-                          <option key={emp.id} value={emp.name}>
-                            {emp.name}
-                          </option>
-                        ))}
-                      </select>
-                      {employees.length === 0 && (
-                        <p className="text-xs text-warning mt-1">No employees found.</p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Tag Photo File Upload */}
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium mb-1.5">
-                      Tag Photo
-                    </label>
-                    <motion.div
-                      className="w-full rounded-lg border px-3 py-3 text-sm sm:text-base bg-gradient-to-br from-muted/20 to-muted/5 hover:from-muted/30 hover:to-muted/10 transition-all cursor-pointer"
-                      onDragOver={(e) => {
-                        e.preventDefault();
-                      }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        const f = e.dataTransfer.files?.[0];
-                        if (f) {
-                          setTagPhotoFile(f);
-                          void readFileAsDataUrl(f)
-                            .then((dataUrl) => {
-                              setFormData((prev) => ({ ...prev, tagPhotoFileName: f.name, tagPhotoDataUrl: dataUrl }));
-                            })
-                            .catch(() => {
-                              setFormData((prev) => ({ ...prev, tagPhotoFileName: f.name, tagPhotoDataUrl: "" }));
-                            });
-                        }
-                      }}
-                      onClick={() => {
-                        const el = document.getElementById("appliance-tag-input") as HTMLInputElement | null;
-                        el?.click();
-                      }}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          const el = document.getElementById("appliance-tag-input") as HTMLInputElement | null;
-                          el?.click();
-                        }
-                      }}
-                      whileHover={{ scale: 1.01 }}
-                      whileTap={{ scale: 0.99 }}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-xs sm:text-sm font-medium truncate">
-                            {tagPhotoFile ? tagPhotoFile.name : "Click to choose or drag & drop a file"}
-                          </p>
-                          <p className="text-[10px] sm:text-xs text-muted-foreground">
-                            Max 10MB
-                          </p>
-                        </div>
-                        <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    {/* Common: Name, Brand, Model, Location */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                      <div className="min-w-0">
+                        <label className="block text-xs sm:text-sm font-medium mb-1.5">
+                          {formData.inventoryType === "asset" ? "Asset Name" : formData.inventoryType === "consumable" ? "Item Name" : "Product Name"} *
+                        </label>
+                        <input
+                          value={formData.name}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                          required
+                        />
                       </div>
-                      <input
-                        id="appliance-tag-input"
-                        type="file"
-                        className="hidden"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0] || null;
-                          setTagPhotoFile(f);
-                          if (!f) {
-                            setFormData((prev) => ({ ...prev, tagPhotoFileName: "", tagPhotoDataUrl: "" }));
-                            return;
+                      <div className="min-w-0">
+                        <label className="block text-xs sm:text-sm font-medium mb-1.5">Brand</label>
+                        <input
+                          value={formData.brand}
+                          onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
+                          className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <label className="block text-xs sm:text-sm font-medium mb-1.5">Model</label>
+                        <input
+                          value={formData.model}
+                          onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                          className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <label className="block text-xs sm:text-sm font-medium mb-1.5">Location *</label>
+                        <select
+                          value={formData.location}
+                          onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                          className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                          required
+                        >
+                          <option value="">Select location</option>
+                          {locationsQuery.isLoading ? (
+                            <option value="" disabled>Loading locations...</option>
+                          ) : locations.length === 0 ? (
+                            <option value="" disabled>No locations found</option>
+                          ) : (
+                            locations.map((loc) => (
+                              <option key={loc.id} value={loc.id}>
+                                {loc.name}{loc.city ? ` (${loc.city})` : ""}
+                              </option>
+                            ))
+                          )}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* ASSET fields */}
+                    {formData.inventoryType === "asset" && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                        <div className="min-w-0">
+                          <label className="block text-xs sm:text-sm font-medium mb-1.5">Serial Number</label>
+                          <input
+                            value={formData.serialNumber}
+                            onChange={(e) => setFormData({ ...formData, serialNumber: e.target.value })}
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <label className="block text-xs sm:text-sm font-medium mb-1.5">Assigned To</label>
+                          <select
+                            value={formData.assignedTo}
+                            onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })}
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                          >
+                            <option value="">Select assignee</option>
+                            {employees.map((emp) => (
+                              <option key={emp.id} value={emp.name}>{emp.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="min-w-0">
+                          <label className="block text-xs sm:text-sm font-medium mb-1.5">Property Type</label>
+                          <select
+                            value={formData.propertyType}
+                            onChange={(e) => setFormData({ ...formData, propertyType: e.target.value as any })}
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                          >
+                            <option value="commercial">Commercial</option>
+                            <option value="residential">Residential</option>
+                          </select>
+                        </div>
+                        <div className="min-w-0">
+                          <label className="block text-xs sm:text-sm font-medium mb-1.5">Purchase Date</label>
+                          <input
+                            type="date"
+                            value={formData.purchaseDate}
+                            onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })}
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <label className="block text-xs sm:text-sm font-medium mb-1.5">Warranty Until</label>
+                          <input
+                            type="date"
+                            value={formData.warrantyUntil}
+                            onChange={(e) => setFormData({ ...formData, warrantyUntil: e.target.value })}
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <label className="block text-xs sm:text-sm font-medium mb-1.5">Condition Status</label>
+                          <select
+                            value={formData.conditionStatus}
+                            onChange={(e) => setFormData({ ...formData, conditionStatus: e.target.value as any })}
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                          >
+                            <option value="excellent">Excellent</option>
+                            <option value="good">Good</option>
+                            <option value="fair">Fair</option>
+                            <option value="damaged">Damaged</option>
+                          </select>
+                        </div>
+                        <div className="min-w-0 sm:col-span-2">
+                          <label className="block text-xs sm:text-sm font-medium mb-1.5">Asset Status</label>
+                          <select
+                            value={formData.status}
+                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                          >
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="maintenance">Maintenance</option>
+                            <option value="retired">Retired</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* CONSUMABLE fields */}
+                    {formData.inventoryType === "consumable" && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                        <div className="min-w-0">
+                          <label className="block text-xs sm:text-sm font-medium mb-1.5">Quantity *</label>
+                          <input
+                            type="number"
+                            value={formData.quantity}
+                            onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                            required
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <label className="block text-xs sm:text-sm font-medium mb-1.5">Unit Type</label>
+                          <select
+                            value={formData.unitType}
+                            onChange={(e) => setFormData({ ...formData, unitType: e.target.value as any })}
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                          >
+                            <option value="pieces">Pieces</option>
+                            <option value="boxes">Boxes</option>
+                            <option value="liters">Liters</option>
+                            <option value="kg">Kg</option>
+                          </select>
+                        </div>
+                        <div className="min-w-0">
+                          <label className="block text-xs sm:text-sm font-medium mb-1.5">Supplier</label>
+                          <input
+                            value={formData.supplier}
+                            onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <label className="block text-xs sm:text-sm font-medium mb-1.5">Reorder Point *</label>
+                          <input
+                            type="number"
+                            value={formData.reorderPoint}
+                            onChange={(e) => setFormData({ ...formData, reorderPoint: e.target.value })}
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                            required
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <label className="block text-xs sm:text-sm font-medium mb-1.5">Daily Usage Rate</label>
+                          <input
+                            type="number"
+                            value={formData.dailyUsageRate}
+                            onChange={(e) => setFormData({ ...formData, dailyUsageRate: e.target.value })}
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                          />
+                        </div>
+                        <div className="min-w-0 sm:col-span-2">
+                          <label className="block text-xs sm:text-sm font-medium mb-1.5">Status</label>
+                          <select
+                            value={formData.status}
+                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                          >
+                            <option value="In Stock">In Stock</option>
+                            <option value="Low Stock">Low Stock</option>
+                            <option value="Out of Stock">Out of Stock</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* SELLABLE fields */}
+                    {formData.inventoryType === "sellable" && (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                        <div className="min-w-0">
+                          <label className="block text-xs sm:text-sm font-medium mb-1.5">SKU *</label>
+                          <input
+                            value={formData.sku}
+                            onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                            required
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <label className="block text-xs sm:text-sm font-medium mb-1.5">Quantity *</label>
+                          <input
+                            type="number"
+                            value={formData.quantity}
+                            onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                            required
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <label className="block text-xs sm:text-sm font-medium mb-1.5">Cost Price *</label>
+                          <input
+                            type="number"
+                            value={formData.costPrice}
+                            onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })}
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                            required
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <label className="block text-xs sm:text-sm font-medium mb-1.5">Selling Price *</label>
+                          <input
+                            type="number"
+                            value={formData.sellingPrice}
+                            onChange={(e) => setFormData({ ...formData, sellingPrice: e.target.value })}
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                            required
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <label className="block text-xs sm:text-sm font-medium mb-1.5">Supplier</label>
+                          <input
+                            value={formData.supplier}
+                            onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                          />
+                        </div>
+                        <div className="min-w-0">
+                          <label className="block text-xs sm:text-sm font-medium mb-1.5">Reorder Point</label>
+                          <input
+                            type="number"
+                            value={formData.reorderPoint}
+                            onChange={(e) => setFormData({ ...formData, reorderPoint: e.target.value })}
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                          />
+                        </div>
+                        <div className="min-w-0 sm:col-span-2">
+                          <label className="block text-xs sm:text-sm font-medium mb-1.5">Status</label>
+                          <select
+                            value={formData.status}
+                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                          >
+                            <option value="Available">Available</option>
+                            <option value="Low Stock">Low Stock</option>
+                            <option value="Out of Stock">Out of Stock</option>
+                            <option value="Discontinued">Discontinued</option>
+                          </select>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Photo Upload */}
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Photo</label>
+                      <motion.div
+                        className="w-full rounded-lg border px-3 py-3 text-sm sm:text-base bg-gradient-to-br from-muted/20 to-muted/5 hover:from-muted/30 hover:to-muted/10 transition-all cursor-pointer"
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          const f = e.dataTransfer.files?.[0];
+                          if (f) {
+                            setPhotoFile(f);
+                            void readFileAsDataUrl(f)
+                              .then((dataUrl) => setFormData((prev) => ({ ...prev, photoFileName: f.name, photoDataUrl: dataUrl })))
+                              .catch(() => setFormData((prev) => ({ ...prev, photoFileName: f.name, photoDataUrl: "" })));
                           }
-                          void readFileAsDataUrl(f)
-                            .then((dataUrl) => {
-                              setFormData((prev) => ({ ...prev, tagPhotoFileName: f.name, tagPhotoDataUrl: dataUrl }));
-                            })
-                            .catch(() => {
-                              setFormData((prev) => ({ ...prev, tagPhotoFileName: f.name, tagPhotoDataUrl: "" }));
-                            });
                         }}
-                      />
-                    </motion.div>
-                  </div>
-
-                  {/* Type, Purchase, Warranty - Stack on mobile, grid on tablet+ */}
-                  <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                    <div className="flex-1 min-w-0">
-                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Type</label>
-                      <select
-                        value={formData.type}
-                        onChange={(e) =>
-                          setFormData({ ...formData, type: e.target.value as Appliance["type"] })
-                        }
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                        onClick={() => {
+                          const el = document.getElementById("appliance-photo-input") as HTMLInputElement | null;
+                          el?.click();
+                        }}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            const el = document.getElementById("appliance-photo-input") as HTMLInputElement | null;
+                            el?.click();
+                          }
+                        }}
+                        whileHover={{ scale: 1.01 }}
+                        whileTap={{ scale: 0.99 }}
                       >
-                        <option value="commercial">Commercial</option>
-                        <option value="residential">Residential</option>
-                      </select>
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-xs sm:text-sm font-medium truncate">
+                              {photoFile ? photoFile.name : formData.photoFileName ? formData.photoFileName : "Click to choose or drag & drop a file"}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">Max 10MB</p>
+                          </div>
+                          <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        </div>
+                        <input
+                          id="appliance-photo-input"
+                          type="file"
+                          className="hidden"
+                          onChange={(e) => {
+                            const f = e.target.files?.[0] || null;
+                            setPhotoFile(f);
+                            if (!f) { setFormData((prev) => ({ ...prev, photoFileName: "", photoDataUrl: "" })); return; }
+                            void readFileAsDataUrl(f)
+                              .then((dataUrl) => setFormData((prev) => ({ ...prev, photoFileName: f.name, photoDataUrl: dataUrl })))
+                              .catch(() => setFormData((prev) => ({ ...prev, photoFileName: f.name, photoDataUrl: "" })));
+                          }}
+                        />
+                      </motion.div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Purchase Date</label>
-                      <input
-                        type="date"
-                        value={formData.purchaseDate}
-                        onChange={(e) => setFormData({ ...formData, purchaseDate: e.target.value })}
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Warranty Until</label>
-                      <input
-                        type="date"
-                        value={formData.warrantyUntil}
-                        onChange={(e) => setFormData({ ...formData, warrantyUntil: e.target.value })}
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Status */}
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                    <div className="w-full sm:w-1/2">
-                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Status</label>
-                      <select
-                        value={formData.status}
-                        onChange={(e) =>
-                          setFormData({ ...formData, status: e.target.value as Appliance["status"] })
-                        }
-                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
-                      >
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                      </select>
-                    </div>
-                  </div>
                   </motion.form>
                 </div>
-                
+
                 <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="w-full sm:w-auto"
-                  >
-                    <Button 
-                      variant="outline" 
-                      onClick={() => setAddOpen(false)}
-                      className="w-full sm:w-auto order-2 sm:order-1"
-                    >
-                      Cancel
-                    </Button>
+                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
+                    <Button variant="outline" onClick={() => setAddOpen(false)} className="w-full sm:w-auto order-2 sm:order-1">Cancel</Button>
                   </motion.div>
-                  <motion.div
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="w-full sm:w-auto"
-                  >
-                    <Button 
-                      onClick={handleAdd} 
-                      className="bg-gradient-to-r from-primary to-primary/80 text-white w-full sm:w-auto order-1 sm:order-2 shadow-lg hover:shadow-xl transition-all duration-300"
-                    >
+                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
+                    <Button onClick={handleAdd} className="bg-gradient-to-r from-primary to-primary/80 text-white w-full sm:w-auto order-1 sm:order-2 shadow-lg hover:shadow-xl transition-all duration-300">
                       <Plus className="h-4 w-4 mr-2 flex-shrink-0" />
-                      Add Appliance
+                      Add Item
                     </Button>
                   </motion.div>
                 </DialogFooter>
@@ -882,7 +1124,6 @@ export default function Appliances() {
             </Dialog>
           </div>
         </motion.div>
-
         {/* Appliance Summary Cards - Animated */}
         <motion.div 
           className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4"
@@ -890,8 +1131,8 @@ export default function Appliances() {
         >
           {[
             { label: "Total Appliances", value: appliancesList.length, icon: Wrench, color: "primary" },
-            { label: "Commercial", value: appliancesList.filter(a => a.type === "commercial").length, icon: Building2, color: "[#3b82f6]" },
-            { label: "Residential", value: appliancesList.filter(a => a.type === "residential").length, icon: Home, color: "[#22c55e]" },
+            { label: "Assets", value: appliancesList.filter(a => a.inventoryType === "asset").length, icon: Wrench, color: "[#3b82f6]" },
+            { label: "Consumables", value: appliancesList.filter(a => a.inventoryType === "consumable").length, icon: Home, color: "[#22c55e]" },
             { label: "Active", value: appliancesList.filter(a => a.status === "active").length, icon: Power, color: "success" },
           ].map((item, index) => (
             <motion.div
@@ -954,8 +1195,9 @@ export default function Appliances() {
               <div className="flex-shrink-0">
                 <TabsList className="bg-muted/50 border p-1 rounded-xl">
                   <TabsTrigger value="all" className="data-[state=active]:bg-background data-[state=active]:shadow-sm rounded-lg px-4 transition-all">All</TabsTrigger>
-                  <TabsTrigger value="commercial" className="data-[state=active]:bg-[#3b82f6]/10 data-[state=active]:text-[#3b82f6] rounded-lg px-4 transition-all">Commercial</TabsTrigger>
-                  <TabsTrigger value="residential" className="data-[state=active]:bg-[#22c55e]/10 data-[state=active]:text-[#22c55e] rounded-lg px-4 transition-all">Residential</TabsTrigger>
+                  <TabsTrigger value="asset" className="data-[state=active]:bg-[#3b82f6]/10 data-[state=active]:text-[#3b82f6] rounded-lg px-4 transition-all">Assets</TabsTrigger>
+                  <TabsTrigger value="consumable" className="data-[state=active]:bg-[#22c55e]/10 data-[state=active]:text-[#22c55e] rounded-lg px-4 transition-all">Consumables</TabsTrigger>
+                  <TabsTrigger value="sellable" className="data-[state=active]:bg-[#f59e0b]/10 data-[state=active]:text-[#f59e0b] rounded-lg px-4 transition-all">Sellables</TabsTrigger>
                 </TabsList>
               </div>
             </CardHeader>
@@ -1060,15 +1302,15 @@ export default function Appliances() {
                       {/* Details Grid */}
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         <motion.div whileHover={{ x: 5 }}>
-                          <p className="text-xs text-muted-foreground">Type</p>
-                          <Badge className={`${typeClasses[a.type]} mt-1 flex items-center gap-1 w-fit`} variant="secondary">
-                            {getTypeIcon(a.type)}
-                            {a.type}
+                          <p className="text-xs text-muted-foreground">Inventory Type</p>
+                          <Badge className={`${typeClasses[a.inventoryType]} mt-1 flex items-center gap-1 w-fit`} variant="secondary">
+                            {getTypeIcon(a.inventoryType)}
+                            {a.inventoryType}
                           </Badge>
                         </motion.div>
                         <motion.div whileHover={{ x: 5 }}>
                           <p className="text-xs text-muted-foreground">Status</p>
-                          <Badge className={`${statusClasses[a.status]} mt-1 flex items-center gap-1 w-fit`} variant="secondary">
+                          <Badge className={`${statusClasses[a.status as keyof typeof statusClasses] ?? "bg-muted text-muted-foreground border-muted-foreground/20 shadow-sm"} mt-1 flex items-center gap-1 w-fit`} variant="secondary">
                             {a.status === "active" ? <Power className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
                             {a.status}
                           </Badge>
@@ -1122,7 +1364,7 @@ export default function Appliances() {
                     <TableRow className="bg-muted/30">
                       <TableHead className="text-xs md:text-sm">Asset ID</TableHead>
                       <TableHead className="text-xs md:text-sm">Name</TableHead>
-                      <TableHead className="text-xs md:text-sm">Type</TableHead>
+                      <TableHead className="text-xs md:text-sm">Inventory Type</TableHead>
                       <TableHead className="text-xs md:text-sm">Location</TableHead>
                       <TableHead className="text-xs md:text-sm">Assigned To</TableHead>
                       <TableHead className="text-xs md:text-sm">Status</TableHead>
@@ -1199,9 +1441,9 @@ export default function Appliances() {
                               whileHover={{ scale: 1.1 }}
                               whileTap={{ scale: 0.95 }}
                             >
-                              <Badge className={`${typeClasses[a.type]} text-xs md:text-sm flex items-center gap-1 w-fit`} variant="secondary">
-                                {getTypeIcon(a.type)}
-                                {a.type}
+                              <Badge className={`${typeClasses[a.inventoryType]} text-xs md:text-sm flex items-center gap-1 w-fit`} variant="secondary">
+                                {getTypeIcon(a.inventoryType)}
+                                {a.inventoryType}
                               </Badge>
                             </motion.div>
                           </TableCell>
@@ -1221,7 +1463,7 @@ export default function Appliances() {
                               whileHover={{ scale: 1.1 }}
                               whileTap={{ scale: 0.95 }}
                             >
-                              <Badge className={`${statusClasses[a.status]} text-xs md:text-sm flex items-center gap-1 w-fit`} variant="secondary">
+                              <Badge className={`${statusClasses[a.status as keyof typeof statusClasses] ?? "bg-muted text-muted-foreground border-muted-foreground/20 shadow-sm"} text-xs md:text-sm flex items-center gap-1 w-fit`} variant="secondary">
                                 {a.status === "active" ? <Power className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
                                 {a.status}
                               </Badge>
@@ -1320,11 +1562,11 @@ export default function Appliances() {
                     className="space-y-1.5"
                     whileHover={{ x: 5 }}
                   >
-                    <label className="text-xs sm:text-sm font-medium">Type</label>
+                    <label className="text-xs sm:text-sm font-medium">Inventory Type</label>
                     <div>
-                      <Badge className={`${typeClasses[selected.type]} text-xs sm:text-sm flex items-center gap-1 w-fit`} variant="secondary">
-                        {getTypeIcon(selected.type)}
-                        {selected.type}
+                      <Badge className={`${typeClasses[selected.inventoryType]} text-xs sm:text-sm flex items-center gap-1 w-fit`} variant="secondary">
+                        {getTypeIcon(selected.inventoryType)}
+                        {selected.inventoryType}
                       </Badge>
                     </div>
                   </motion.div>
@@ -1335,7 +1577,7 @@ export default function Appliances() {
                   >
                     <label className="text-xs sm:text-sm font-medium">Status</label>
                     <div>
-                      <Badge className={`${statusClasses[selected.status]} text-xs sm:text-sm flex items-center gap-1 w-fit`} variant="secondary">
+                      <Badge className={`${statusClasses[selected.status as keyof typeof statusClasses] ?? "bg-muted text-muted-foreground border-muted-foreground/20 shadow-sm"} text-xs sm:text-sm flex items-center gap-1 w-fit`} variant="secondary">
                         {selected.status === "active" ? <Power className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
                         {selected.status}
                       </Badge>
@@ -1351,7 +1593,7 @@ export default function Appliances() {
                       {getLocationLabel(selected.location)}
                     </p>
                   </motion.div>
-  
+
                   {selected.assignedTo && (
                     <motion.div 
                       className="sm:col-span-2 space-y-1.5"
@@ -1364,28 +1606,125 @@ export default function Appliances() {
                       </div>
                     </motion.div>
                   )}
-                  
-                  <motion.div 
-                    className="space-y-1.5"
-                    whileHover={{ x: 5 }}
-                  >
-                    <label className="text-xs sm:text-sm font-medium">Purchase Date</label>
-                    <div className="flex items-center gap-2 text-sm sm:text-base text-muted-foreground">
-                      <Calendar className="h-4 w-4" />
-                      <span>{selected.purchaseDate || "—"}</span>
-                    </div>
-                  </motion.div>
-                  
-                  <motion.div 
-                    className="space-y-1.5"
-                    whileHover={{ x: 5 }}
-                  >
-                    <label className="text-xs sm:text-sm font-medium">Warranty Until</label>
-                    <div className="flex items-center gap-2 text-sm sm:text-base text-muted-foreground">
-                      <Calendar className="h-4 w-4" />
-                      <span>{selected.warrantyUntil || "—"}</span>
-                    </div>
-                  </motion.div>
+
+                  {selected.inventoryType === "asset" && (
+                    <>
+                      <motion.div className="space-y-1.5" whileHover={{ x: 5 }}>
+                        <label className="text-xs sm:text-sm font-medium">Property Type</label>
+                        <p className="text-sm sm:text-base text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg break-words">
+                          {selected.propertyType || "—"}
+                        </p>
+                      </motion.div>
+
+                      <motion.div className="space-y-1.5" whileHover={{ x: 5 }}>
+                        <label className="text-xs sm:text-sm font-medium">Purchase Date</label>
+                        <div className="flex items-center gap-2 text-sm sm:text-base text-muted-foreground">
+                          <Calendar className="h-4 w-4" />
+                          <span>{selected.purchaseDate || "—"}</span>
+                        </div>
+                      </motion.div>
+
+                      <motion.div className="space-y-1.5" whileHover={{ x: 5 }}>
+                        <label className="text-xs sm:text-sm font-medium">Warranty Until</label>
+                        <div className="flex items-center gap-2 text-sm sm:text-base text-muted-foreground">
+                          <Calendar className="h-4 w-4" />
+                          <span>{selected.warrantyUntil || "—"}</span>
+                        </div>
+                      </motion.div>
+
+                      <motion.div className="space-y-1.5" whileHover={{ x: 5 }}>
+                        <label className="text-xs sm:text-sm font-medium">Condition Status</label>
+                        <p className="text-sm sm:text-base text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg break-words">
+                          {selected.conditionStatus || "—"}
+                        </p>
+                      </motion.div>
+                    </>
+                  )}
+
+                  {selected.inventoryType === "consumable" && (
+                    <>
+                      <motion.div className="space-y-1.5" whileHover={{ x: 5 }}>
+                        <label className="text-xs sm:text-sm font-medium">Quantity</label>
+                        <p className="text-sm sm:text-base text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg break-words">
+                          {typeof selected.quantity === "number" ? selected.quantity : "—"}
+                        </p>
+                      </motion.div>
+
+                      <motion.div className="space-y-1.5" whileHover={{ x: 5 }}>
+                        <label className="text-xs sm:text-sm font-medium">Unit Type</label>
+                        <p className="text-sm sm:text-base text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg break-words">
+                          {selected.unitType || "—"}
+                        </p>
+                      </motion.div>
+
+                      <motion.div className="space-y-1.5" whileHover={{ x: 5 }}>
+                        <label className="text-xs sm:text-sm font-medium">Supplier</label>
+                        <p className="text-sm sm:text-base text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg break-words">
+                          {selected.supplier || "—"}
+                        </p>
+                      </motion.div>
+
+                      <motion.div className="space-y-1.5" whileHover={{ x: 5 }}>
+                        <label className="text-xs sm:text-sm font-medium">Reorder Point</label>
+                        <p className="text-sm sm:text-base text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg break-words">
+                          {typeof selected.reorderPoint === "number" ? selected.reorderPoint : "—"}
+                        </p>
+                      </motion.div>
+
+                      <motion.div className="sm:col-span-2 space-y-1.5" whileHover={{ x: 5 }}>
+                        <label className="text-xs sm:text-sm font-medium">Daily Usage Rate</label>
+                        <p className="text-sm sm:text-base text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg break-words">
+                          {typeof selected.dailyUsageRate === "number" ? selected.dailyUsageRate : "—"}
+                        </p>
+                      </motion.div>
+                    </>
+                  )}
+
+                  {selected.inventoryType === "sellable" && (
+                    <>
+                      <motion.div className="space-y-1.5" whileHover={{ x: 5 }}>
+                        <label className="text-xs sm:text-sm font-medium">SKU</label>
+                        <p className="text-sm sm:text-base text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg break-words">
+                          {selected.sku || "—"}
+                        </p>
+                      </motion.div>
+
+                      <motion.div className="space-y-1.5" whileHover={{ x: 5 }}>
+                        <label className="text-xs sm:text-sm font-medium">Quantity</label>
+                        <p className="text-sm sm:text-base text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg break-words">
+                          {typeof selected.quantity === "number" ? selected.quantity : "—"}
+                        </p>
+                      </motion.div>
+
+                      <motion.div className="space-y-1.5" whileHover={{ x: 5 }}>
+                        <label className="text-xs sm:text-sm font-medium">Cost Price</label>
+                        <p className="text-sm sm:text-base text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg break-words">
+                          {typeof selected.costPrice === "number" ? selected.costPrice : "—"}
+                        </p>
+                      </motion.div>
+
+                      <motion.div className="space-y-1.5" whileHover={{ x: 5 }}>
+                        <label className="text-xs sm:text-sm font-medium">Selling Price</label>
+                        <p className="text-sm sm:text-base text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg break-words">
+                          {typeof selected.sellingPrice === "number" ? selected.sellingPrice : "—"}
+                        </p>
+                      </motion.div>
+
+                      <motion.div className="space-y-1.5" whileHover={{ x: 5 }}>
+                        <label className="text-xs sm:text-sm font-medium">Supplier</label>
+                        <p className="text-sm sm:text-base text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg break-words">
+                          {selected.supplier || "—"}
+                        </p>
+                      </motion.div>
+
+                      <motion.div className="space-y-1.5" whileHover={{ x: 5 }}>
+                        <label className="text-xs sm:text-sm font-medium">Reorder Point</label>
+                        <p className="text-sm sm:text-base text-muted-foreground bg-gradient-to-br from-muted/30 to-muted/10 p-2 rounded-lg break-words">
+                          {typeof selected.reorderPoint === "number" ? selected.reorderPoint : "—"}
+                        </p>
+                      </motion.div>
+                    </>
+                  )}
                   
                   <motion.div 
                     className="sm:col-span-2 space-y-1.5"
@@ -1530,40 +1869,38 @@ export default function Appliances() {
                 <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
                   <motion.div
                     className="w-full rounded-lg border px-3 py-3 text-sm sm:text-base bg-gradient-to-br from-muted/20 to-muted/5 hover:from-muted/30 hover:to-muted/10 transition-all cursor-pointer"
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                    }}
+                    onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) => {
                       e.preventDefault();
                       const f = e.dataTransfer.files?.[0];
                       if (f) {
-                        setEditTagPhotoFile(f);
+                        setEditPhotoFile(f);
                         void readFileAsDataUrl(f)
                           .then((dataUrl) => {
                             setEditFormData((prev) => ({
                               ...prev,
-                              tagPhotoFileName: f.name,
-                              tagPhotoDataUrl: dataUrl,
+                              photoFileName: f.name,
+                              photoDataUrl: dataUrl,
                             }));
                           })
                           .catch(() => {
                             setEditFormData((prev) => ({
                               ...prev,
-                              tagPhotoFileName: f.name,
-                              tagPhotoDataUrl: "",
+                              photoFileName: f.name,
+                              photoDataUrl: "",
                             }));
                           });
                       }
                     }}
                     onClick={() => {
-                      const el = document.getElementById("appliance-edit-tag-input") as HTMLInputElement | null;
+                      const el = document.getElementById("appliance-edit-photo-input") as HTMLInputElement | null;
                       el?.click();
                     }}
                     role="button"
                     tabIndex={0}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
-                        const el = document.getElementById("appliance-edit-tag-input") as HTMLInputElement | null;
+                        const el = document.getElementById("appliance-edit-photo-input") as HTMLInputElement | null;
                         el?.click();
                       }
                     }}
@@ -1573,10 +1910,10 @@ export default function Appliances() {
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-xs sm:text-sm font-medium truncate">
-                          {editTagPhotoFile
-                            ? editTagPhotoFile.name
-                            : editFormData.tagPhotoFileName
-                              ? editFormData.tagPhotoFileName
+                          {editPhotoFile
+                            ? editPhotoFile.name
+                            : editFormData.photoFileName
+                              ? editFormData.photoFileName
                               : "Click to choose or drag & drop a file"}
                         </p>
                         <p className="text-[10px] sm:text-xs text-muted-foreground">
@@ -1586,12 +1923,12 @@ export default function Appliances() {
                       <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     </div>
                     <input
-                      id="appliance-edit-tag-input"
+                      id="appliance-edit-photo-input"
                       type="file"
                       className="hidden"
                       onChange={(e) => {
                         const f = e.target.files?.[0] || null;
-                        setEditTagPhotoFile(f);
+                        setEditPhotoFile(f);
                         if (!f) {
                           return;
                         }
@@ -1599,32 +1936,32 @@ export default function Appliances() {
                           .then((dataUrl) => {
                             setEditFormData((prev) => ({
                               ...prev,
-                              tagPhotoFileName: f.name,
-                              tagPhotoDataUrl: dataUrl,
+                              photoFileName: f.name,
+                              photoDataUrl: dataUrl,
                             }));
                           })
                           .catch(() => {
                             setEditFormData((prev) => ({
                               ...prev,
-                              tagPhotoFileName: f.name,
-                              tagPhotoDataUrl: "",
+                              photoFileName: f.name,
+                              photoDataUrl: "",
                             }));
                           });
                       }}
                     />
                   </motion.div>
 
-                  {(editFormData.tagPhotoFileName || editFormData.tagPhotoDataUrl) && (
+                  {(editFormData.photoFileName || editFormData.photoDataUrl) && (
                     <Button
                       type="button"
                       variant="outline"
                       className="w-full sm:w-auto"
                       onClick={() => {
-                        setEditTagPhotoFile(null);
+                        setEditPhotoFile(null);
                         setEditFormData((prev) => ({
                           ...prev,
-                          tagPhotoFileName: "",
-                          tagPhotoDataUrl: "",
+                          photoFileName: "",
+                          photoDataUrl: "",
                         }));
                       }}
                     >
@@ -1645,65 +1982,231 @@ export default function Appliances() {
                   >
                     <option value="">Select assignee</option>
                     {employees.map((emp) => (
-                      <option key={emp.id} value={emp.name}>
-                        {emp.name}
-                      </option>
+                      <option key={emp.id} value={emp.name}>{emp.name}</option>
                     ))}
                   </select>
                 </div>
               </div>
 
-              {/* Type, Purchase, Warranty */}
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                <div className="flex-1 min-w-0">
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Type</label>
-                  <select
-                    value={editFormData.type}
-                    onChange={(e) =>
-                      setEditFormData({ ...editFormData, type: e.target.value as Appliance["type"] })
-                    }
-                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
-                  >
-                    <option value="commercial">Commercial</option>
-                    <option value="residential">Residential</option>
-                  </select>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Purchase Date</label>
-                  <input
-                    type="date"
-                    value={editFormData.purchaseDate}
-                    onChange={(e) => setEditFormData({ ...editFormData, purchaseDate: e.target.value })}
-                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                  />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Warranty Until</label>
-                  <input
-                    type="date"
-                    value={editFormData.warrantyUntil}
-                    onChange={(e) => setEditFormData({ ...editFormData, warrantyUntil: e.target.value })}
-                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
-                  />
-                </div>
+              {/* Inventory Type */}
+              <div className="min-w-0">
+                <label className="block text-xs sm:text-sm font-medium mb-1.5">Inventory Type</label>
+                <select
+                  value={editFormData.inventoryType}
+                  onChange={(e) =>
+                    setEditFormData({ ...editFormData, inventoryType: e.target.value as Appliance["inventoryType"] })
+                  }
+                  className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                >
+                  <option value="asset">Asset</option>
+                  <option value="consumable">Consumable</option>
+                  <option value="sellable">Sellable</option>
+                </select>
               </div>
 
-              {/* Status */}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                <div className="w-full sm:w-1/2">
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Status</label>
-                  <select
-                    value={editFormData.status}
-                    onChange={(e) =>
-                      setEditFormData({ ...editFormData, status: e.target.value as Appliance["status"] })
-                    }
-                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
+              {/* ASSET fields */}
+              {editFormData.inventoryType === "asset" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  <div className="min-w-0">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Serial Number</label>
+                    <input
+                      value={editFormData.serialNumber}
+                      onChange={(e) => setEditFormData({ ...editFormData, serialNumber: e.target.value })}
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Property Type</label>
+                    <select
+                      value={editFormData.propertyType}
+                      onChange={(e) => setEditFormData({ ...editFormData, propertyType: e.target.value as any })}
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                    >
+                      <option value="commercial">Commercial</option>
+                      <option value="residential">Residential</option>
+                    </select>
+                  </div>
+                  <div className="min-w-0">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Purchase Date</label>
+                    <input
+                      type="date"
+                      value={editFormData.purchaseDate}
+                      onChange={(e) => setEditFormData({ ...editFormData, purchaseDate: e.target.value })}
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Warranty Until</label>
+                    <input
+                      type="date"
+                      value={editFormData.warrantyUntil}
+                      onChange={(e) => setEditFormData({ ...editFormData, warrantyUntil: e.target.value })}
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Condition Status</label>
+                    <select
+                      value={editFormData.conditionStatus}
+                      onChange={(e) => setEditFormData({ ...editFormData, conditionStatus: e.target.value as any })}
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                    >
+                      <option value="excellent">Excellent</option>
+                      <option value="good">Good</option>
+                      <option value="fair">Fair</option>
+                      <option value="damaged">Damaged</option>
+                    </select>
+                  </div>
+                  <div className="min-w-0 sm:col-span-2">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Status</label>
+                    <select
+                      value={editFormData.status}
+                      onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* CONSUMABLE fields */}
+              {editFormData.inventoryType === "consumable" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  <div className="min-w-0">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Quantity</label>
+                    <input
+                      type="number"
+                      value={editFormData.quantity}
+                      onChange={(e) => setEditFormData({ ...editFormData, quantity: e.target.value })}
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Unit Type</label>
+                    <select
+                      value={editFormData.unitType}
+                      onChange={(e) => setEditFormData({ ...editFormData, unitType: e.target.value as any })}
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                    >
+                      <option value="pieces">Pieces</option>
+                      <option value="boxes">Boxes</option>
+                      <option value="liters">Liters</option>
+                      <option value="kg">Kg</option>
+                    </select>
+                  </div>
+                  <div className="min-w-0">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Supplier</label>
+                    <input
+                      value={editFormData.supplier}
+                      onChange={(e) => setEditFormData({ ...editFormData, supplier: e.target.value })}
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Reorder Point</label>
+                    <input
+                      type="number"
+                      value={editFormData.reorderPoint}
+                      onChange={(e) => setEditFormData({ ...editFormData, reorderPoint: e.target.value })}
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Daily Usage Rate</label>
+                    <input
+                      type="number"
+                      value={editFormData.dailyUsageRate}
+                      onChange={(e) => setEditFormData({ ...editFormData, dailyUsageRate: e.target.value })}
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                    />
+                  </div>
+                  <div className="min-w-0 sm:col-span-2">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Status</label>
+                    <select
+                      value={editFormData.status}
+                      onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                    >
+                      <option value="In Stock">In Stock</option>
+                      <option value="Low Stock">Low Stock</option>
+                      <option value="Out of Stock">Out of Stock</option>
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* SELLABLE fields */}
+              {editFormData.inventoryType === "sellable" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  <div className="min-w-0">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">SKU</label>
+                    <input
+                      value={editFormData.sku}
+                      onChange={(e) => setEditFormData({ ...editFormData, sku: e.target.value })}
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Quantity</label>
+                    <input
+                      type="number"
+                      value={editFormData.quantity}
+                      onChange={(e) => setEditFormData({ ...editFormData, quantity: e.target.value })}
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Cost Price</label>
+                    <input
+                      type="number"
+                      value={editFormData.costPrice}
+                      onChange={(e) => setEditFormData({ ...editFormData, costPrice: e.target.value })}
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Selling Price</label>
+                    <input
+                      type="number"
+                      value={editFormData.sellingPrice}
+                      onChange={(e) => setEditFormData({ ...editFormData, sellingPrice: e.target.value })}
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Supplier</label>
+                    <input
+                      value={editFormData.supplier}
+                      onChange={(e) => setEditFormData({ ...editFormData, supplier: e.target.value })}
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Reorder Point</label>
+                    <input
+                      type="number"
+                      value={editFormData.reorderPoint}
+                      onChange={(e) => setEditFormData({ ...editFormData, reorderPoint: e.target.value })}
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                    />
+                  </div>
+                  <div className="min-w-0 sm:col-span-2">
+                    <label className="block text-xs sm:text-sm font-medium mb-1.5">Status</label>
+                    <select
+                      value={editFormData.status}
+                      onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                    >
+                      <option value="Available">Available</option>
+                      <option value="Low Stock">Low Stock</option>
+                      <option value="Out of Stock">Out of Stock</option>
+                      <option value="Discontinued">Discontinued</option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </motion.form>
           </div>
         )}

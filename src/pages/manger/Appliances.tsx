@@ -69,12 +69,32 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 interface Appliance {
   id: string;
   name: string;
-  type: "residential" | "commercial";
+  inventoryType: "asset" | "consumable" | "sellable";
+  brand?: string;
+  model?: string;
+  serialNumber?: string;
   location: string;
-  purchaseDate: string;
-  warrantyUntil: string;
-  status: "operational" | "needs-repair" | "out-of-service";
+  status: string;
   assignedTo?: string;
+
+  // Asset
+  propertyType?: "commercial" | "residential";
+  purchaseDate?: string;
+  warrantyUntil?: string;
+  conditionStatus?: "excellent" | "good" | "fair" | "damaged";
+
+  // Consumable
+  quantity?: number;
+  unitType?: "pieces" | "boxes" | "liters" | "kg";
+  reorderPoint?: number;
+  dailyUsageRate?: number;
+
+  // Sellable
+  sku?: string;
+  costPrice?: number;
+  sellingPrice?: number;
+
+  supplier?: string;
   tagPhotoFileName?: string;
   tagPhotoDataUrl?: string;
 }
@@ -98,7 +118,10 @@ type ApplianceApi = {
   id?: string;
   _id?: string;
   name?: string;
-  type?: string;
+  inventoryType?: string;
+  brand?: string;
+  model?: string;
+  serialNumber?: string;
   location?: string;
   purchaseDate?: string;
   warrantyUntil?: string;
@@ -107,30 +130,70 @@ type ApplianceApi = {
   warrantyDate?: string;
   status?: string;
   assignedTo?: string;
+  propertyType?: string;
+  conditionStatus?: string;
+  quantity?: number;
+  unitType?: string;
+  reorderPoint?: number;
+  dailyUsageRate?: number;
+  sku?: string;
+  costPrice?: number;
+  sellingPrice?: number;
+  supplier?: string;
   tagPhotoFileName?: string;
   tagPhotoDataUrl?: string;
 };
 
 function normalizeAppliance(a: ApplianceApi): Appliance {
   const id = String(a.id || a._id || "");
-  const backendStatus = String(a.status || "operational");
-  let normalizedStatus: "operational" | "needs-repair" | "out-of-service" = "operational";
-  if (backendStatus === "needs-repair" || backendStatus === "out-of-service") {
-    normalizedStatus = backendStatus;
-  }
-  
+  const backendStatus = String(a.status || "");
+  const normalizedStatus = backendStatus === "operational" || backendStatus === "needs-repair" || backendStatus === "out-of-service" ? backendStatus : "operational";
+
   // Handle warranty date - check multiple possible field names from backend
   const warrantyDate = String(a.warrantyExpiry || a.warrantyUntil || a.warrantyExpiryDate || a.warrantyDate || "");
-  
+
   return {
     id,
     name: String(a.name || ""),
-    type: (String(a.type || "commercial") === "residential" ? "residential" : "commercial"),
+    inventoryType: (String(a.inventoryType || "asset") === "consumable"
+      ? "consumable"
+      : String(a.inventoryType || "asset") === "sellable"
+        ? "sellable"
+        : "asset"),
+    brand: String(a.brand || ""),
+    model: String(a.model || ""),
+    serialNumber: String(a.serialNumber || ""),
     location: String(a.location || ""),
-    purchaseDate: String(a.purchaseDate === "-" ? "" : (a.purchaseDate || "")),
-    warrantyUntil: warrantyDate,
     status: normalizedStatus,
     assignedTo: String(a.assignedTo || ""),
+
+    propertyType: (String(a.propertyType || "commercial") === "residential" ? "residential" : "commercial"),
+    purchaseDate: String(a.purchaseDate === "-" ? "" : (a.purchaseDate || "")),
+    warrantyUntil: warrantyDate,
+    conditionStatus: (String(a.conditionStatus || "good") === "excellent"
+      ? "excellent"
+      : String(a.conditionStatus || "good") === "fair"
+        ? "fair"
+        : String(a.conditionStatus || "good") === "damaged"
+          ? "damaged"
+          : "good"),
+
+    quantity: typeof a.quantity === "number" ? a.quantity : undefined,
+    unitType: (String(a.unitType || "pieces") === "boxes"
+      ? "boxes"
+      : String(a.unitType || "pieces") === "liters"
+        ? "liters"
+        : String(a.unitType || "pieces") === "kg"
+          ? "kg"
+          : "pieces"),
+    reorderPoint: typeof a.reorderPoint === "number" ? a.reorderPoint : undefined,
+    dailyUsageRate: typeof a.dailyUsageRate === "number" ? a.dailyUsageRate : undefined,
+
+    sku: String(a.sku || ""),
+    costPrice: typeof a.costPrice === "number" ? a.costPrice : undefined,
+    sellingPrice: typeof a.sellingPrice === "number" ? a.sellingPrice : undefined,
+    supplier: String(a.supplier || ""),
+
     tagPhotoFileName: String(a.tagPhotoFileName || ""),
     tagPhotoDataUrl: String(a.tagPhotoDataUrl || ""),
   };
@@ -139,7 +202,7 @@ function normalizeAppliance(a: ApplianceApi): Appliance {
 // Helper to format date for display
 function formatWarrantyDate(dateStr: string): string {
   if (!dateStr || dateStr.trim() === "") return "—";
-  
+
   // Check if it's already a valid date string
   const date = new Date(dateStr);
   if (isNaN(date.getTime())) return dateStr; // Return as-is if invalid date
@@ -162,12 +225,25 @@ const statusIcons = {
 
 const createApplianceSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  type: z.enum(["residential", "commercial"]),
+  inventoryType: z.enum(["asset", "consumable", "sellable"]),
+  brand: z.string().optional(),
+  model: z.string().optional(),
+  serialNumber: z.string().optional(),
   location: z.string().min(1, "Location is required"),
-  purchaseDate: z.string().optional(),
-  warrantyUntil: z.string().optional(),
   status: z.enum(["operational", "needs-repair", "out-of-service"]),
   assignedTo: z.string().optional(),
+  propertyType: z.enum(["commercial", "residential"]).optional(),
+  purchaseDate: z.string().optional(),
+  warrantyUntil: z.string().optional(),
+  conditionStatus: z.enum(["excellent", "good", "fair", "damaged"]).optional(),
+  quantity: z.coerce.number().optional(),
+  unitType: z.enum(["pieces", "boxes", "liters", "kg"]).optional(),
+  reorderPoint: z.coerce.number().optional(),
+  dailyUsageRate: z.coerce.number().optional(),
+  sku: z.string().optional(),
+  costPrice: z.coerce.number().optional(),
+  sellingPrice: z.coerce.number().optional(),
+  supplier: z.string().optional(),
   tagPhotoFileName: z.string().optional(),
   tagPhotoDataUrl: z.string().optional(),
 });
@@ -335,7 +411,7 @@ export default function Appliances() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [inventoryTypeFilter, setInventoryTypeFilter] = useState<string>("all");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isViewOpen, setIsViewOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
@@ -462,12 +538,25 @@ export default function Appliances() {
     resolver: zodResolver(createApplianceSchema),
     defaultValues: {
       name: "",
-      type: "commercial",
+      inventoryType: "asset",
       status: "operational",
+      brand: "",
+      model: "",
+      serialNumber: "",
       location: "",
+      propertyType: "commercial",
       purchaseDate: "",
       warrantyUntil: "",
       assignedTo: "",
+      conditionStatus: "good",
+      quantity: undefined,
+      unitType: "pieces",
+      reorderPoint: undefined,
+      dailyUsageRate: undefined,
+      sku: "",
+      costPrice: undefined,
+      sellingPrice: undefined,
+      supplier: "",
       tagPhotoFileName: "",
       tagPhotoDataUrl: "",
     },
@@ -477,12 +566,25 @@ export default function Appliances() {
     resolver: zodResolver(createApplianceSchema),
     defaultValues: {
       name: "",
-      type: "commercial",
+      inventoryType: "asset",
       status: "operational",
+      brand: "",
+      model: "",
+      serialNumber: "",
       location: "",
+      propertyType: "commercial",
       purchaseDate: "",
       warrantyUntil: "",
       assignedTo: "",
+      conditionStatus: "good",
+      quantity: undefined,
+      unitType: "pieces",
+      reorderPoint: undefined,
+      dailyUsageRate: undefined,
+      sku: "",
+      costPrice: undefined,
+      sellingPrice: undefined,
+      supplier: "",
       tagPhotoFileName: "",
       tagPhotoDataUrl: "",
     },
@@ -500,12 +602,25 @@ export default function Appliances() {
 
     const payload: Omit<Appliance, "id"> = {
       name: values.name,
-      type: values.type,
+      inventoryType: values.inventoryType,
+      brand: values.brand?.trim() ? values.brand.trim() : undefined,
+      model: values.model?.trim() ? values.model.trim() : undefined,
+      serialNumber: values.serialNumber?.trim() ? values.serialNumber.trim() : undefined,
       location: values.location,
-      purchaseDate: values.purchaseDate || "",
-      warrantyUntil: values.warrantyUntil || "",
       status: values.status,
       assignedTo: values.assignedTo?.trim() && values.assignedTo !== "__unassigned__" ? values.assignedTo.trim() : undefined,
+      propertyType: values.propertyType,
+      purchaseDate: values.purchaseDate?.trim() ? values.purchaseDate.trim() : undefined,
+      warrantyUntil: values.warrantyUntil?.trim() ? values.warrantyUntil.trim() : undefined,
+      conditionStatus: values.conditionStatus,
+      quantity: typeof values.quantity === "number" && !Number.isNaN(values.quantity) ? values.quantity : undefined,
+      unitType: values.unitType,
+      reorderPoint: typeof values.reorderPoint === "number" && !Number.isNaN(values.reorderPoint) ? values.reorderPoint : undefined,
+      dailyUsageRate: typeof values.dailyUsageRate === "number" && !Number.isNaN(values.dailyUsageRate) ? values.dailyUsageRate : undefined,
+      sku: values.sku?.trim() ? values.sku.trim() : undefined,
+      costPrice: typeof values.costPrice === "number" && !Number.isNaN(values.costPrice) ? values.costPrice : undefined,
+      sellingPrice: typeof values.sellingPrice === "number" && !Number.isNaN(values.sellingPrice) ? values.sellingPrice : undefined,
+      supplier: values.supplier?.trim() ? values.supplier.trim() : undefined,
       tagPhotoFileName: values.tagPhotoFileName?.trim() ? values.tagPhotoFileName.trim() : undefined,
       tagPhotoDataUrl: tagPhotoDataUrl || undefined,
     };
@@ -541,9 +656,22 @@ export default function Appliances() {
       name: appliance.name,
       status: appliance.status,
       location: appliance.location,
-      type: appliance.type,
-      purchaseDate: appliance.purchaseDate,
-      warrantyUntil: appliance.warrantyUntil,
+      inventoryType: appliance.inventoryType,
+      brand: appliance.brand ?? "",
+      model: appliance.model ?? "",
+      serialNumber: appliance.serialNumber ?? "",
+      propertyType: appliance.propertyType ?? "commercial",
+      purchaseDate: appliance.purchaseDate ?? "",
+      warrantyUntil: appliance.warrantyUntil ?? "",
+      conditionStatus: appliance.conditionStatus ?? "good",
+      quantity: appliance.quantity,
+      unitType: appliance.unitType ?? "pieces",
+      reorderPoint: appliance.reorderPoint,
+      dailyUsageRate: appliance.dailyUsageRate,
+      sku: appliance.sku ?? "",
+      costPrice: appliance.costPrice,
+      sellingPrice: appliance.sellingPrice,
+      supplier: appliance.supplier ?? "",
       assignedTo: appliance.assignedTo ?? "__unassigned__",
       tagPhotoFileName: appliance.tagPhotoFileName ?? "",
       tagPhotoDataUrl: appliance.tagPhotoDataUrl ?? "",
@@ -626,14 +754,17 @@ export default function Appliances() {
         String(appliance.assignedTo || "").toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus =
         statusFilter === "all" || appliance.status === statusFilter;
-      const matchesType =
-        typeFilter === "all" || appliance.type === typeFilter;
-      return matchesSearch && matchesStatus && matchesType;
+      const matchesInventoryType =
+        inventoryTypeFilter === "all" || appliance.inventoryType === inventoryTypeFilter;
+      return matchesSearch && matchesStatus && matchesInventoryType;
     });
-  }, [appliances, searchQuery, statusFilter, typeFilter, locations]);
+  }, [appliances, searchQuery, statusFilter, inventoryTypeFilter, locations]);
 
   const operationalCount = useMemo(() => appliances.filter((a) => a.status === "operational").length, [appliances]);
   const needsRepairCount = useMemo(() => appliances.filter((a) => a.status === "needs-repair").length, [appliances]);
+
+  const createInventoryType = form.watch("inventoryType");
+  const editInventoryType = editForm.watch("inventoryType");
 
   return (
     <motion.div
@@ -704,14 +835,15 @@ export default function Appliances() {
           }}
         >
           <motion.div variants={itemVariants}>
-            <Select value={typeFilter} onValueChange={setTypeFilter}>
+            <Select value={inventoryTypeFilter} onValueChange={setInventoryTypeFilter}>
               <SelectTrigger className="w-[140px] sm:w-[160px]">
-                <SelectValue placeholder="Type" />
+                <SelectValue placeholder="Inventory Type" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="commercial">Commercial</SelectItem>
-                <SelectItem value="residential">Residential</SelectItem>
+                <SelectItem value="asset">Assets</SelectItem>
+                <SelectItem value="consumable">Consumables</SelectItem>
+                <SelectItem value="sellable">Sellables</SelectItem>
               </SelectContent>
             </Select>
           </motion.div>
@@ -821,7 +953,7 @@ export default function Appliances() {
             <div className="block sm:hidden">
               <AnimatePresence mode="popLayout">
                 {filteredAppliances.map((appliance) => {
-                  const StatusIcon = statusIcons[appliance.status];
+                  const StatusIcon = statusIcons[appliance.status as keyof typeof statusIcons] ?? AlertCircle;
                   const tagSrc = getApplianceTagPhotoSrc(appliance);
 
                   return (
@@ -889,7 +1021,7 @@ export default function Appliances() {
                       >
                         <div>
                           <Badge variant="outline" className="text-xs">
-                            {appliance.type}
+                            {appliance.inventoryType}
                           </Badge>
                         </div>
                         <div>
@@ -897,7 +1029,7 @@ export default function Appliances() {
                             variant="secondary"
                             className={cn(
                               "capitalize gap-1 text-xs",
-                              statusStyles[appliance.status]
+                              statusStyles[appliance.status as keyof typeof statusStyles] ?? "bg-muted/10 text-muted-foreground"
                             )}
                           >
                             <StatusIcon className="w-3 h-3" />
@@ -933,7 +1065,7 @@ export default function Appliances() {
                 <thead>
                   <tr>
                     <th className="px-4 py-3 text-left">Appliance</th>
-                    <th className="px-4 py-3 text-left">Type</th>
+                    <th className="px-4 py-3 text-left">Inventory Type</th>
                     <th className="px-4 py-3 text-left">Status</th>
                     <th className="px-4 py-3 text-left">Location</th>
                     <th className="px-4 py-3 text-left">Warranty Until</th>
@@ -943,7 +1075,7 @@ export default function Appliances() {
                 <tbody>
                   <AnimatePresence mode="popLayout">
                     {filteredAppliances.map((appliance, index) => {
-                      const StatusIcon = statusIcons[appliance.status];
+                      const StatusIcon = statusIcons[appliance.status as keyof typeof statusIcons] ?? AlertCircle;
                       const tagSrc = getApplianceTagPhotoSrc(appliance);
 
                       return (
@@ -987,7 +1119,7 @@ export default function Appliances() {
                               whileHover={{ scale: 1.05 }}
                               transition={{ type: "spring", stiffness: 400, damping: 30 }}
                             >
-                              <Badge variant="outline">{appliance.type}</Badge>
+                              <Badge variant="outline">{appliance.inventoryType}</Badge>
                             </motion.div>
                           </td>
                           <td className="px-4 py-3">
@@ -999,7 +1131,7 @@ export default function Appliances() {
                                 variant="secondary"
                                 className={cn(
                                   "capitalize gap-1",
-                                  statusStyles[appliance.status]
+                                  statusStyles[appliance.status as keyof typeof statusStyles] ?? "bg-muted/10 text-muted-foreground"
                                 )}
                               >
                                 <StatusIcon className="w-3 h-3" />
@@ -1135,19 +1267,20 @@ export default function Appliances() {
 
                 <FormField
                   control={form.control}
-                  name="type"
+                  name="inventoryType"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Type</FormLabel>
+                      <FormLabel>Inventory Type</FormLabel>
                       <Select value={field.value} onValueChange={field.onChange}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Type" />
+                            <SelectValue placeholder="Inventory Type" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="commercial">Commercial</SelectItem>
-                          <SelectItem value="residential">Residential</SelectItem>
+                          <SelectItem value="asset">Asset</SelectItem>
+                          <SelectItem value="consumable">Consumable</SelectItem>
+                          <SelectItem value="sellable">Sellable</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -1241,33 +1374,255 @@ export default function Appliances() {
                   )}
                 />
 
-                <FormField
-                  control={form.control}
-                  name="purchaseDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Purchase Date</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {createInventoryType === "asset" && (
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="brand"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Brand</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. LG" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                <FormField
-                  control={form.control}
-                  name="warrantyUntil"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Warranty Until</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                    <FormField
+                      control={form.control}
+                      name="model"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Model</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. GR-X257" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="serialNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Serial Number</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. SN-12345" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="propertyType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Property Type</FormLabel>
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Property Type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="commercial">Commercial</SelectItem>
+                              <SelectItem value="residential">Residential</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="conditionStatus"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Condition</FormLabel>
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Condition" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="excellent">Excellent</SelectItem>
+                              <SelectItem value="good">Good</SelectItem>
+                              <SelectItem value="fair">Fair</SelectItem>
+                              <SelectItem value="damaged">Damaged</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="purchaseDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Purchase Date</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="warrantyUntil"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Warranty Until</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
+                )}
+
+                {createInventoryType === "consumable" && (
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="quantity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Quantity</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="e.g. 50" {...field} value={field.value ?? ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="unitType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Unit Type</FormLabel>
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Unit Type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="pieces">Pieces</SelectItem>
+                              <SelectItem value="boxes">Boxes</SelectItem>
+                              <SelectItem value="liters">Liters</SelectItem>
+                              <SelectItem value="kg">Kg</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="reorderPoint"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Reorder Point</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="e.g. 10" {...field} value={field.value ?? ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="dailyUsageRate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Daily Usage Rate</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="e.g. 2" {...field} value={field.value ?? ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
+                )}
+
+                {createInventoryType === "sellable" && (
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="sku"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>SKU</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. SKU-001" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="costPrice"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Cost Price</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="e.g. 100" {...field} value={field.value ?? ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="sellingPrice"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Selling Price</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="e.g. 150" {...field} value={field.value ?? ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="supplier"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Supplier</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. ABC Supplies" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
+                )}
 
                 <FormField
                   control={form.control}
@@ -1285,7 +1640,7 @@ export default function Appliances() {
                         </div>
                       )}
                       <FormControl>
-                        <div className="w-full">
+                        <div className="w-full flex flex-col sm:flex-row gap-2 sm:items-center">
                           <input
                             type="file"
                             accept="image/*"
@@ -1302,11 +1657,7 @@ export default function Appliances() {
                                 return;
                               }
                               setCreateTagPhotoFile(f);
-                              if (!f) {
-                                form.setValue("tagPhotoFileName", "");
-                                form.setValue("tagPhotoDataUrl", "");
-                                return;
-                              }
+                              if (!f) return;
                               form.setValue("tagPhotoFileName", f.name);
                               void readFileAsDataUrl(f)
                                 .then((dataUrl) => form.setValue("tagPhotoDataUrl", dataUrl))
@@ -1320,9 +1671,23 @@ export default function Appliances() {
                                 });
                             }}
                           />
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Max file size: {(MAX_IMAGE_SIZE / 1024 / 1024).toFixed(0)}MB. Images auto-compressed.
+                          <p className="text-xs text-muted-foreground sm:hidden">
+                            Max file size: {(MAX_IMAGE_SIZE / 1024 / 1024).toFixed(0)}MB. Auto-compressed.
                           </p>
+                          {(field.value || form.watch("tagPhotoDataUrl")) && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="w-full sm:w-auto"
+                              onClick={() => {
+                                setCreateTagPhotoFile(null);
+                                form.setValue("tagPhotoFileName", "");
+                                form.setValue("tagPhotoDataUrl", "");
+                              }}
+                            >
+                              Remove
+                            </Button>
+                          )}
                         </div>
                       </FormControl>
                       <FormMessage />
@@ -1403,9 +1768,18 @@ export default function Appliances() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <motion.div 
                   className="space-y-1"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.15 }}
+                >
+                  <p className="text-muted-foreground">Inventory Type</p>
+                  <p className="text-foreground">{selectedAppliance.inventoryType}</p>
+                </motion.div>
+                <motion.div 
+                  className="space-y-1"
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.1 }}
+                  transition={{ delay: 0.2 }}
                 >
                   <p className="text-muted-foreground">Status</p>
                   <p className="text-foreground capitalize">
@@ -1416,28 +1790,10 @@ export default function Appliances() {
                   className="space-y-1"
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.15 }}
-                >
-                  <p className="text-muted-foreground">Type</p>
-                  <p className="text-foreground">{selectedAppliance.type}</p>
-                </motion.div>
-                <motion.div 
-                  className="space-y-1"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.2 }}
+                  transition={{ delay: 0.25 }}
                 >
                   <p className="text-muted-foreground">Location</p>
                   <p className="text-foreground">{resolveLocationName(selectedAppliance.location)}</p>
-                </motion.div>
-                <motion.div 
-                  className="space-y-1"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.25 }}
-                >
-                  <p className="text-muted-foreground">Assigned To</p>
-                  <p className="text-foreground">{selectedAppliance.assignedTo ?? "—"}</p>
                 </motion.div>
                 <motion.div 
                   className="space-y-1"
@@ -1445,18 +1801,131 @@ export default function Appliances() {
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.3 }}
                 >
-                  <p className="text-muted-foreground">Purchase Date</p>
-                  <p className="text-foreground">{formatWarrantyDate(selectedAppliance.purchaseDate)}</p>
+                  <p className="text-muted-foreground">Assigned To</p>
+                  <p className="text-foreground">{selectedAppliance.assignedTo ?? "—"}</p>
                 </motion.div>
-                <motion.div 
-                  className="space-y-1"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.35 }}
-                >
-                  <p className="text-muted-foreground">Warranty Until</p>
-                  <p className="text-foreground">{formatWarrantyDate(selectedAppliance.warrantyUntil)}</p>
-                </motion.div>
+                {selectedAppliance.inventoryType === "asset" && (
+                  <>
+                    <motion.div 
+                      className="space-y-1"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.4 }}
+                    >
+                      <p className="text-muted-foreground">Purchase Date</p>
+                      <p className="text-foreground">{formatWarrantyDate(selectedAppliance.purchaseDate || "")}</p>
+                    </motion.div>
+                    <motion.div 
+                      className="space-y-1"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.45 }}
+                    >
+                      <p className="text-muted-foreground">Warranty Until</p>
+                      <p className="text-foreground">{formatWarrantyDate(selectedAppliance.warrantyUntil || "")}</p>
+                    </motion.div>
+                    <motion.div 
+                      className="space-y-1"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.5 }}
+                    >
+                      <p className="text-muted-foreground">Property Type</p>
+                      <p className="text-foreground">{selectedAppliance.propertyType || "—"}</p>
+                    </motion.div>
+                    <motion.div 
+                      className="space-y-1"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.55 }}
+                    >
+                      <p className="text-muted-foreground">Condition</p>
+                      <p className="text-foreground">{selectedAppliance.conditionStatus || "—"}</p>
+                    </motion.div>
+                  </>
+                )}
+
+                {selectedAppliance.inventoryType === "consumable" && (
+                  <>
+                    <motion.div 
+                      className="space-y-1"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.4 }}
+                    >
+                      <p className="text-muted-foreground">Quantity</p>
+                      <p className="text-foreground">{typeof selectedAppliance.quantity === "number" ? selectedAppliance.quantity : "—"}</p>
+                    </motion.div>
+                    <motion.div 
+                      className="space-y-1"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.45 }}
+                    >
+                      <p className="text-muted-foreground">Unit Type</p>
+                      <p className="text-foreground">{selectedAppliance.unitType || "—"}</p>
+                    </motion.div>
+                    <motion.div 
+                      className="space-y-1"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.5 }}
+                    >
+                      <p className="text-muted-foreground">Reorder Point</p>
+                      <p className="text-foreground">{typeof selectedAppliance.reorderPoint === "number" ? selectedAppliance.reorderPoint : "—"}</p>
+                    </motion.div>
+                    <motion.div 
+                      className="space-y-1"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.55 }}
+                    >
+                      <p className="text-muted-foreground">Daily Usage Rate</p>
+                      <p className="text-foreground">{typeof selectedAppliance.dailyUsageRate === "number" ? selectedAppliance.dailyUsageRate : "—"}</p>
+                    </motion.div>
+                  </>
+                )}
+
+                {selectedAppliance.inventoryType === "sellable" && (
+                  <>
+                    <motion.div 
+                      className="space-y-1"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.4 }}
+                    >
+                      <p className="text-muted-foreground">SKU</p>
+                      <p className="text-foreground">{selectedAppliance.sku || "—"}</p>
+                    </motion.div>
+                    <motion.div 
+                      className="space-y-1"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.45 }}
+                    >
+                      <p className="text-muted-foreground">Cost Price</p>
+                      <p className="text-foreground">{typeof selectedAppliance.costPrice === "number" ? selectedAppliance.costPrice : "—"}</p>
+                    </motion.div>
+                    <motion.div 
+                      className="space-y-1"
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.5 }}
+                    >
+                      <p className="text-muted-foreground">Selling Price</p>
+                      <p className="text-foreground">{typeof selectedAppliance.sellingPrice === "number" ? selectedAppliance.sellingPrice : "—"}</p>
+                    </motion.div>
+                    <motion.div 
+                      className="space-y-1"
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.55 }}
+                    >
+                      <p className="text-muted-foreground">Supplier</p>
+                      <p className="text-foreground">{selectedAppliance.supplier || "—"}</p>
+                    </motion.div>
+                  </>
+                )}
               </div>
 
               <DialogFooter className="flex-col sm:flex-row gap-2">
@@ -1514,19 +1983,20 @@ export default function Appliances() {
 
                 <FormField
                   control={editForm.control}
-                  name="type"
+                  name="inventoryType"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Type</FormLabel>
+                      <FormLabel>Inventory Type</FormLabel>
                       <Select value={field.value} onValueChange={field.onChange}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Type" />
+                            <SelectValue placeholder="Inventory Type" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="commercial">Commercial</SelectItem>
-                          <SelectItem value="residential">Residential</SelectItem>
+                          <SelectItem value="asset">Asset</SelectItem>
+                          <SelectItem value="consumable">Consumable</SelectItem>
+                          <SelectItem value="sellable">Sellable</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -1620,33 +2090,255 @@ export default function Appliances() {
                   )}
                 />
 
-                <FormField
-                  control={editForm.control}
-                  name="purchaseDate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Purchase Date</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {editInventoryType === "asset" && (
+                  <>
+                    <FormField
+                      control={editForm.control}
+                      name="brand"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Brand</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. LG" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                <FormField
-                  control={editForm.control}
-                  name="warrantyUntil"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Warranty Until</FormLabel>
-                      <FormControl>
-                        <Input type="date" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                    <FormField
+                      control={editForm.control}
+                      name="model"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Model</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. GR-X257" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={editForm.control}
+                      name="serialNumber"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Serial Number</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. SN-12345" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={editForm.control}
+                      name="propertyType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Property Type</FormLabel>
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Property Type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="commercial">Commercial</SelectItem>
+                              <SelectItem value="residential">Residential</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={editForm.control}
+                      name="conditionStatus"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Condition</FormLabel>
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Condition" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="excellent">Excellent</SelectItem>
+                              <SelectItem value="good">Good</SelectItem>
+                              <SelectItem value="fair">Fair</SelectItem>
+                              <SelectItem value="damaged">Damaged</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={editForm.control}
+                      name="purchaseDate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Purchase Date</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={editForm.control}
+                      name="warrantyUntil"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Warranty Until</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
+                )}
+
+                {editInventoryType === "consumable" && (
+                  <>
+                    <FormField
+                      control={editForm.control}
+                      name="quantity"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Quantity</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="e.g. 50" {...field} value={field.value ?? ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={editForm.control}
+                      name="unitType"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Unit Type</FormLabel>
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Unit Type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="pieces">Pieces</SelectItem>
+                              <SelectItem value="boxes">Boxes</SelectItem>
+                              <SelectItem value="liters">Liters</SelectItem>
+                              <SelectItem value="kg">Kg</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={editForm.control}
+                      name="reorderPoint"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Reorder Point</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="e.g. 10" {...field} value={field.value ?? ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={editForm.control}
+                      name="dailyUsageRate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Daily Usage Rate</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="e.g. 2" {...field} value={field.value ?? ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
+                )}
+
+                {editInventoryType === "sellable" && (
+                  <>
+                    <FormField
+                      control={editForm.control}
+                      name="sku"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>SKU</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. SKU-001" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={editForm.control}
+                      name="costPrice"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Cost Price</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="e.g. 100" {...field} value={field.value ?? ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={editForm.control}
+                      name="sellingPrice"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Selling Price</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="e.g. 150" {...field} value={field.value ?? ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={editForm.control}
+                      name="supplier"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Supplier</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. ABC Supplies" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
+                )}
 
                 <FormField
                   control={editForm.control}
@@ -1718,6 +2410,7 @@ export default function Appliances() {
                     </FormItem>
                   )}
                 />
+
               </div>
 
               <DialogFooter className="flex-col sm:flex-row gap-2">
