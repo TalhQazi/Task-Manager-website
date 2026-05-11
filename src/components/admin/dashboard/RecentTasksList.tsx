@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Clock, MapPin, AlertCircle, User } from "lucide-react";
-import { apiFetch } from "@/lib/manger/api";
+import { apiFetch } from "@/lib/admin/apiClient";
 
 interface Task {
   id: string;
@@ -32,31 +33,37 @@ const statusClasses = {
   overdue: "bg-destructive/10 text-destructive",
 };
 
-export function RecentTasksList() {
+export function RecentTasksList({ basePath = "/admin/tasks" }: { basePath?: string }) {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
 
   useEffect(() => {
     let mounted = true;
-    const load = async () => {
+    const load = async (isInitial = false) => {
       try {
-        setLoading(true);
-        setApiError(null);
+        if (isInitial) {
+          setLoading(true);
+          setApiError(null);
+        }
         const res = await apiFetch<{ items: Task[] }>("/api/tasks?limit=6&page=1");
         if (!mounted) return;
         setTasks(res.items ?? []);
       } catch (e) {
         if (!mounted) return;
-        setApiError(e instanceof Error ? e.message : "Failed to load tasks");
+        if (isInitial) setApiError(e instanceof Error ? e.message : "Failed to load tasks");
       } finally {
         if (!mounted) return;
-        setLoading(false);
+        if (isInitial) setLoading(false);
       }
     };
-    void load();
+    void load(true);
+    const interval = setInterval(() => load(false), 30000);
+
     return () => {
       mounted = false;
+      clearInterval(interval);
     };
   }, []);
 
@@ -78,14 +85,14 @@ export function RecentTasksList() {
         <CardTitle className="text-base sm:text-lg md:text-xl font-semibold">
           Recent Tasks
         </CardTitle>
-        <a 
-          href="/tasks" 
-          className="text-xs sm:text-sm text-accent hover:underline inline-flex items-center"
-        >
-          View all
-          <span className="ml-1 hidden sm:inline">→</span>
-        </a>
-      </CardHeader>
+          <a
+            href={basePath}
+            className="text-xs sm:text-sm text-accent hover:underline inline-flex items-center"
+          >
+            View all
+            <span className="ml-1 hidden sm:inline">→</span>
+          </a>
+        </CardHeader>
 
       {/* Card Content - Responsive */}
       <CardContent className="space-y-3 sm:space-y-4 px-4 sm:px-6 pb-5 sm:pb-6">
@@ -117,8 +124,8 @@ export function RecentTasksList() {
             <p className="text-xs sm:text-sm text-muted-foreground mt-1">
               Create your first task to get started
             </p>
-            <a 
-              href="/tasks" 
+            <a
+              href={basePath}
               className="mt-3 text-xs sm:text-sm text-accent hover:underline"
             >
               Create a task →
@@ -129,8 +136,9 @@ export function RecentTasksList() {
             {recentTasks.map((task) => (
               <div
                 key={task.id}
+                onClick={() => navigate(`${basePath}?view=${task.id}`)}
                 className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-lg 
-                         bg-muted/30 hover:bg-muted/50 transition-colors border border-transparent sm:border-0"
+                         bg-muted/30 hover:bg-muted/50 transition-colors border border-transparent sm:border-0 cursor-pointer"
               >
                 {/* Avatar - Hidden on mobile? No, keep visible but smaller */}
                 <div className="flex items-start gap-3 sm:items-center flex-1 min-w-0">
@@ -186,8 +194,8 @@ export function RecentTasksList() {
 
             {/* Mobile View All Link - Only visible on mobile */}
             <div className="block sm:hidden pt-2">
-              <a 
-                href="/tasks" 
+              <a
+                href={basePath}
                 className="text-xs text-accent hover:underline inline-flex items-center w-full justify-center py-2"
               >
                 View all tasks

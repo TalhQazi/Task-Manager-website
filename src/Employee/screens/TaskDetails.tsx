@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useSocket } from "@/contexts/SocketContext";
 import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
+import { useRewards } from "@/contexts/RewardContext";
 import { getAuthState } from "@/lib/auth";
 import { useRef } from "react";
 import { cn } from "@/lib/utils";
@@ -210,6 +211,7 @@ export default function EmployeeTaskDetails() {
   const currentUsername = getAuthState().username || "";
   const { socket, joinTask, leaveTask } = useSocket();
   const { triggerBlaster, incrementCompletedCount } = useTaskBlasterContext();
+  const { triggerReward } = useRewards();
 
   const priorityColor = (p: string) => {
     switch (p) {
@@ -383,8 +385,9 @@ export default function EmployeeTaskDetails() {
       toast.success("Status updated");
       await loadTask();
 
-      // Trigger TaskBlaster when task is marked as completed
+      // Trigger TaskBlaster & Reward System when task is marked as completed
       if (statusDraft === "completed" && previousStatus !== "completed" && task) {
+        // 1. Trigger Global Blaster (Legacy)
         const taskForBlaster = {
           id: task.id,
           title: task.title,
@@ -395,6 +398,10 @@ export default function EmployeeTaskDetails() {
         if (triggered) {
           incrementCompletedCount();
         }
+
+        // 2. Trigger Professional Reward System (Micro-animations, Haptics, Sound)
+        // Since this is a status dropdown/button update, trigger at center
+        triggerReward(window.innerWidth / 2, window.innerHeight / 2);
       }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Failed to update status");

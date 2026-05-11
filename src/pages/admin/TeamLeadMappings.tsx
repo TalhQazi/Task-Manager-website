@@ -56,6 +56,7 @@ interface User {
   username: string;
   name: string;
   role: string;
+  status?: string;
 }
 
 export default function TeamLeadMappings() {
@@ -167,8 +168,9 @@ export default function TeamLeadMappings() {
     }
   };
 
-  const teamLeads = users.filter((u) => u.role === "team-lead" || u.role === "admin" || u.role === "super-admin");
-  const regularUsers = users.filter((u) => u.role === "employee" || u.role === "manager" || u.role === "team-lead");
+  const activeUsers = users.filter((u) => !u.status || u.status === "active");
+  const teamLeads = activeUsers;
+  const regularUsers = activeUsers;
 
   return (
     <motion.div
@@ -191,15 +193,15 @@ export default function TeamLeadMappings() {
               Add Mapping
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Add Team Lead Mapping</DialogTitle>
-              <DialogDescription>
+          <DialogContent className="w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+            <DialogHeader className="space-y-1">
+              <DialogTitle className="text-lg sm:text-xl">Add Team Lead Mapping</DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm">
                 Map a user to a team lead to enable task delegation
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit}>
-              <div className="space-y-4 py-4">
+            <form onSubmit={handleSubmit} className="mt-2">
+              <div className="space-y-4 py-2 sm:py-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Team Lead</label>
                   <Select
@@ -209,7 +211,7 @@ export default function TeamLeadMappings() {
                     <SelectTrigger>
                       <SelectValue placeholder="Select team lead" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-[300px] overflow-y-auto">
                       {teamLeads.map((user) => (
                         <SelectItem key={user.id} value={user.username || user.name}>
                           {user.name || user.username} ({user.role})
@@ -224,7 +226,7 @@ export default function TeamLeadMappings() {
                     <SelectTrigger>
                       <SelectValue placeholder="Select user" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-[300px] overflow-y-auto">
                       {regularUsers.map((user) => (
                         <SelectItem key={user.id} value={user.username || user.name}>
                           {user.name || user.username} ({user.role})
@@ -329,53 +331,55 @@ export default function TeamLeadMappings() {
               <p className="text-sm">Add a mapping to enable team lead delegation</p>
             </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Team Lead</TableHead>
-                  <TableHead>User</TableHead>
-                  <TableHead>Override Admin</TableHead>
-                  <TableHead>Created At</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {mappings.map((mapping) => (
-                  <TableRow key={mapping.id}>
-                    <TableCell className="font-medium">{mapping.teamLead}</TableCell>
-                    <TableCell>{mapping.user}</TableCell>
-                    <TableCell>
-                      {mapping.allowOverrideAdminAssignments ? (
-                        <Badge className="bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/20">
-                          <ToggleRight className="w-3 h-3 mr-1" />
-                          Enabled
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary">
-                          <ToggleLeft className="w-3 h-3 mr-1" />
-                          Disabled
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-gray-500">
-                      {new Date(mapping.createdAt).toLocaleDateString()}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedMapping(mapping);
-                          setDeleteDialogOpen(true);
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4 text-red-500" />
-                      </Button>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Team Lead</TableHead>
+                    <TableHead>User</TableHead>
+                    <TableHead>Override Admin</TableHead>
+                    <TableHead>Created At</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {mappings.map((mapping) => (
+                    <TableRow key={mapping.id}>
+                      <TableCell className="font-medium">{mapping.teamLead}</TableCell>
+                      <TableCell>{mapping.user}</TableCell>
+                      <TableCell>
+                        {mapping.allowOverrideAdminAssignments ? (
+                          <Badge className="bg-green-500/20 text-green-700 dark:text-green-400 border-green-500/20">
+                            <ToggleRight className="w-3 h-3 mr-1" />
+                            Enabled
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary">
+                            <ToggleLeft className="w-3 h-3 mr-1" />
+                            Disabled
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-gray-500">
+                        {new Date(mapping.createdAt).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedMapping(mapping);
+                            setDeleteDialogOpen(true);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4 text-red-500" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>

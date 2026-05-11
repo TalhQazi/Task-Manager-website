@@ -406,9 +406,19 @@ const getThemeStorageKey = () => {
 
 // Helper function to apply theme to DOM
 const applyThemeToDOM = (theme: UITheme) => {
-  const root = document.documentElement;
+  // Never apply theme engine on login pages — keep them clean white
+  const isLoginPage = window.location.pathname.startsWith("/login");
+  if (isLoginPage) {
+    document.body.className = document.body.className.replace(/\btb-theme-[a-z-]+\b/g, "").trim();
+    document.documentElement.classList.remove("dark");
+    document.documentElement.removeAttribute("data-tb-card-style");
+    document.body.removeAttribute("data-tb-card-style");
+    document.body.style.backgroundColor = "";
+    document.body.style.color = "";
+    return;
+  }
 
-  console.log("Applying theme:", theme.theme, theme);
+  const root = document.documentElement;
 
   // Apply custom colors
   root.style.setProperty("--tb-primary", theme.customColors.primary);
@@ -423,31 +433,27 @@ const applyThemeToDOM = (theme: UITheme) => {
     ...(theme.panelColors || ({} as UITheme["panelColors"])),
   };
 
-  const shouldApplyPanelColors = !baseThemeIds.includes(theme.theme) || !isDefaultPanelColors(theme.panelColors);
-  if (shouldApplyPanelColors) {
-    root.style.setProperty("--tb-header-bg", panelColors.headerBackground);
-    root.style.setProperty("--tb-header-overlay-color", panelColors.headerOverlayColor);
-    root.style.setProperty(
-      "--tb-header-overlay-opacity",
-      `${Math.max(0, Math.min(100, panelColors.headerOverlayOpacity)) / 100}`,
-    );
-    root.style.setProperty("--tb-sidebar-bg", panelColors.sidebarBackground);
-    console.log("Sidebar background set to:", panelColors.sidebarBackground);
-    root.style.setProperty("--tb-dashboard-bg", panelColors.dashboardBackground);
-    root.style.setProperty("--tb-sidebar-icon-color", panelColors.sidebarIconColor);
-    root.style.setProperty("--tb-dashboard-icon-color", panelColors.dashboardIconColor);
-    root.style.setProperty("--tb-sidebar-text-color", panelColors.sidebarTextColor);
-    root.style.setProperty("--tb-sidebar-text-color", panelColors.sidebarTextColor);
-    console.log("Sidebar text color set to:", panelColors.sidebarTextColor);
-    root.style.setProperty("--tb-dashboard-card-bg", panelColors.dashboardCardBackground);
-  }
+  // Always apply panel colors — manager sidebar depends on these CSS variables
+  root.style.setProperty("--tb-header-bg", panelColors.headerBackground);
+  root.style.setProperty("--tb-header-overlay-color", panelColors.headerOverlayColor);
+  root.style.setProperty(
+    "--tb-header-overlay-opacity",
+    `${Math.max(0, Math.min(100, panelColors.headerOverlayOpacity)) / 100}`,
+  );
+  root.style.setProperty("--tb-sidebar-bg", panelColors.sidebarBackground);
+  root.style.setProperty("--tb-dashboard-bg", panelColors.dashboardBackground);
+  root.style.setProperty("--tb-sidebar-icon-color", panelColors.sidebarIconColor);
+  root.style.setProperty("--tb-dashboard-icon-color", panelColors.dashboardIconColor);
+  root.style.setProperty("--tb-sidebar-text-color", panelColors.sidebarTextColor);
+  root.style.setProperty("--tb-dashboard-card-bg", panelColors.dashboardCardBackground);
   root.style.setProperty("--tb-dashboard-text-color", resolvedDashboardTextColor);
   document.body.style.color = resolvedDashboardTextColor;
   
-  // Also set Tailwind CSS variables for consistent text colors across all pages
+  // Set foreground CSS variable for raw color usage (hex form is valid for color: var(--foreground))
   root.style.setProperty("--foreground", resolvedDashboardTextColor);
   root.style.setProperty("--card-foreground", resolvedDashboardTextColor);
-  root.style.setProperty("--muted-foreground", resolvedDashboardTextColor === "#000000" ? "#64748b" : "#94a3b8");
+  // NOTE: --muted-foreground is intentionally NOT set here — each theme's CSS class on body
+  // defines it as a proper HSL triple (e.g. "43 45% 62%") required by hsl(var(--muted-foreground)).
   
   // Also update Tailwind --card variable to match TaskBlaster card background
   // Convert hex to HSL format for Tailwind
@@ -472,9 +478,7 @@ const applyThemeToDOM = (theme: UITheme) => {
     }
     return `${Math.round(h * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
   };
-  if (shouldApplyPanelColors) {
-    root.style.setProperty("--card", hexToHSL(panelColors.dashboardCardBackground));
-  }
+  root.style.setProperty("--card", hexToHSL(panelColors.dashboardCardBackground));
 
   // Apply glow intensity
   root.style.setProperty("--tb-glow-intensity", `${theme.glowIntensity}%`);
@@ -487,9 +491,10 @@ const applyThemeToDOM = (theme: UITheme) => {
   };
   root.style.setProperty("--tb-animation-speed", speedMap[theme.animationSpeed]);
 
-  // Apply card style
+  // Apply card style — set on both html and body so all CSS selectors match
   root.style.setProperty("--tb-card-style", theme.cardStyle);
   root.setAttribute("data-tb-card-style", theme.cardStyle);
+  document.body.setAttribute("data-tb-card-style", theme.cardStyle);
 
   // Apply layout density
   const densityMap = {
@@ -506,11 +511,23 @@ const applyThemeToDOM = (theme: UITheme) => {
   root.setAttribute("data-tb-hover-effects", theme.animationSettings.hoverEffects ? "1" : "0");
   root.setAttribute("data-tb-click-effects", theme.animationSettings.clickEffects ? "1" : "0");
 
-  // Apply theme class to body (preserve other body classes)
+  // Apply theme class to body — guard against corrupted/null theme values
+  const safeTheme = baseThemeIds.includes(theme.theme) ? theme.theme : "dark-minimal";
   document.body.className = document.body.className.replace(/\btb-theme-[a-z-]+\b/g, "").trim();
-  document.body.classList.add(`tb-theme-${theme.theme}`);
+  document.body.classList.add(`tb-theme-${safeTheme}`);
 
-  console.log("Theme applied. Body class:", document.body.className);
+  // Sync Tailwind dark mode class
+  const darkThemes: UITheme["theme"][] = ["dark-minimal", "neon-tech", "metallic-elite", "executive-black", "high-contrast", "energy-mode"];
+
+  // Set background color from theme panel colors
+  document.body.style.backgroundColor = panelColors.dashboardBackground;
+
+  if (darkThemes.includes(theme.theme)) {
+    document.documentElement.classList.add("dark");
+  } else {
+    document.documentElement.classList.remove("dark");
+  }
+
 };
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
@@ -533,7 +550,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         setUITheme(merged);
         applyThemeToDOM(merged);
       } catch (e) {
-        console.error("Failed to parse saved theme:", e);
         applyThemeToDOM(defaultTheme);
       }
     } else {
@@ -545,19 +561,36 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   // Load from backend after initial mount (per-user, authoritative)
   useEffect(() => {
     if (!isLoaded) return;
+
+    // Determine which token/fetch function to use
+    const auth = getAuthState();
+    let apiFetchFn: ApiFetch | null = null;
+
+    if (auth.isAuthenticated && auth.token) {
+      if (auth.role === "admin" || auth.role === "super-admin") {
+        apiFetchFn = adminApiFetch as unknown as ApiFetch;
+      } else if (auth.role === "manager") {
+        apiFetchFn = apiFetch as unknown as ApiFetch;
+      } else {
+        apiFetchFn = adminApiFetch as unknown as ApiFetch;
+      }
+    } else {
+      // Check for employee portal token
+      try {
+        const raw = localStorage.getItem("employee_auth");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed?.token) apiFetchFn = employeeApiFetch as unknown as ApiFetch;
+        }
+      } catch { /* no token */ }
+    }
+
+    // No token available — skip backend fetch, keep local storage theme
+    if (!apiFetchFn) return;
+
     void (async () => {
       try {
-        // Use appropriate API fetch based on auth type
-        const auth = getAuthState();
-        let apiFetchFn: ApiFetch;
-        if (auth.isAuthenticated && (auth.role === "admin" || auth.role === "super-admin")) {
-          apiFetchFn = adminApiFetch as unknown as ApiFetch;
-        } else if (auth.isAuthenticated && auth.role === "manager") {
-          apiFetchFn = apiFetch as unknown as ApiFetch;
-        } else {
-          apiFetchFn = employeeApiFetch as unknown as ApiFetch;
-        }
-        const data = await apiFetchFn<{ item: UITheme }>("/api/ui-preferences");
+        const data = await apiFetchFn!<{ item: UITheme }>("/api/ui-preferences");
         if (data.item) {
           const merged: UITheme = {
             ...defaultTheme,
@@ -570,8 +603,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
           localStorage.setItem(getThemeStorageKey(), JSON.stringify(merged));
           applyThemeToDOM(merged);
         }
-      } catch (error) {
-        console.error("Failed to load preferences from backend:", error);
+
+      } catch {
+        // Backend unavailable or token invalid — silently fall back to local storage theme
       }
     })();
   }, [isLoaded]);
@@ -581,6 +615,21 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (isLoaded) {
       applyThemeToDOM(uiTheme);
     }
+  }, [uiTheme, isLoaded]);
+
+  // Re-apply theme on browser navigation (popstate)
+  useEffect(() => {
+    const handlePathChange = () => {
+      if (isLoaded) {
+        applyThemeToDOM(uiTheme);
+      }
+    };
+
+    window.addEventListener("popstate", handlePathChange);
+
+    return () => {
+      window.removeEventListener("popstate", handlePathChange);
+    };
   }, [uiTheme, isLoaded]);
 
   const updateTheme = (updates: Partial<UITheme>) => {
@@ -614,7 +663,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify(theme),
       });
     } catch (error) {
-      console.error("Failed to save preferences to backend:", error);
       throw error;
     }
   };
@@ -649,7 +697,6 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         applyThemeToDOM(merged);
       }
     } catch (error) {
-      console.error("Failed to load preferences from backend:", error);
       // Keep using localStorage theme as fallback
     }
   };

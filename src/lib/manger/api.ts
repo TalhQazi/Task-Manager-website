@@ -71,7 +71,7 @@ export async function deleteResource(resource: CrudResource, id: string) {
 function getApiBaseUrl(): string {
   const raw = String(import.meta.env.VITE_API_URL || "").trim();
   if (raw) return raw;
-   return "https://task.se7eninc.com";
+ return "https://task.se7eninc.com";
   //return "http://localhost:5000";
 }
 
@@ -303,6 +303,27 @@ export async function getEODReports(params?: { date?: string; employeeId?: strin
   }>(`/api/manager/eod-reports${queryString ? `?${queryString}` : ""}`);
 }
 
+export async function getEODReportById(id: string) {
+  return apiFetch<{
+    item: {
+      id: string;
+      userId: string;
+      employeeName: string;
+      date: string;
+      rawInput: string;
+      inputType: string;
+      status: "submitted" | "missing" | "late";
+      createdAt: string;
+      clockIn?: string;
+      clockOut?: string;
+      totalHours?: number;
+      aiSummary?: string;
+      productivityScore?: number;
+      flags?: string[];
+    };
+  }>(`/api/manager/eod-reports/${encodeURIComponent(id)}`);
+}
+
 export async function getEODStatus(date?: string) {
   const qs = date ? `?date=${date}` : "";
   return apiFetch<{
@@ -315,4 +336,33 @@ export async function getEODStatus(date?: string) {
       reportSubmittedAt?: string;
     }>;
   }>(`/api/manager/eod-status${qs}`);
+}
+
+export async function getTeamTimeEntries(params?: { date?: string; employeeId?: string; page?: number; limit?: number }) {
+  const qs = new URLSearchParams();
+  if (params?.date) qs.set("date", params.date);
+  if (params?.employeeId) qs.set("employeeId", params.employeeId);
+  if (params?.page) qs.set("page", String(params.page));
+  if (params?.limit) qs.set("limit", String(params.limit));
+  const queryString = qs.toString();
+  return apiFetch<{
+    items: Array<{
+      id: string;
+      userId: string;
+      employee: string;
+      avatar: string;
+      date: string;
+      clockIn: string;
+      clockOut: string;
+      clockInAt: string | null;
+      clockOutAt: string | null;
+      breakTime: string;
+      totalHours: number;
+      status: string;
+      location: string;
+    }>;
+    total: number;
+    page: number;
+    limit: number;
+  }>(`/api/manager/time-entries${queryString ? `?${queryString}` : ""}`);
 }

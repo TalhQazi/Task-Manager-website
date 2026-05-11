@@ -93,18 +93,20 @@ export function SocialMediaAccounts() {
 
   const accounts = useMemo(() => {
     let list = (accountsQuery.data || []).slice();
-    
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      list = list.filter(a => 
-        a.platform.toLowerCase().includes(q) || 
-        a.brand.toLowerCase().includes(q) || 
-        a.username.toLowerCase().includes(q) ||
-        a.accountHandle.toLowerCase().includes(q)
-      );
+      list = list.filter(a => {
+        const platform = String(a.platform || "").toLowerCase();
+        const brand = String(a.brand || "").toLowerCase();
+        const username = String(a.username || "").toLowerCase();
+        const handle = String(a.accountHandle || "").toLowerCase();
+        const notes = String(a.notes || "").toLowerCase();
+        return platform.includes(q) || brand.includes(q) || username.includes(q) || handle.includes(q) || notes.includes(q);
+      });
     }
-    
-    return list.sort((a, b) => a.platform.localeCompare(b.platform));
+
+    return list.sort((a, b) => String(a.platform || "").localeCompare(String(b.platform || "")));
   }, [accountsQuery.data, searchQuery]);
 
   const resetForm = () => {

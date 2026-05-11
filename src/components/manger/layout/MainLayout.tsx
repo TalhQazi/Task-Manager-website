@@ -133,7 +133,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       return apiFetch<{ item: {
         backgroundType: 'color' | 'image';
         colorConfig?: { from: string; via: string; to: string };
-        imageConfig?: { dataUrl: string; size: string; position: string };
+        imageConfig?: { dataUrl?: string; url?: string; size?: string; position?: string; repeat?: string };
         overlay?: { enabled: boolean; color: string };
         height: number;
       } }>("/api/header-settings");
@@ -142,7 +142,12 @@ export function MainLayout({ children }: MainLayoutProps) {
 
   const headerSettings = headerSettingsQuery.data?.item;
 
-  const hasImageBackground = headerSettings?.backgroundType === 'image' && headerSettings.imageConfig?.dataUrl;
+  const headerImageUrlRaw =
+    headerSettings?.backgroundType === "image"
+      ? headerSettings?.imageConfig?.url || headerSettings?.imageConfig?.dataUrl
+      : null;
+  const headerImageUrl = headerImageUrlRaw ? toProxiedUrl(headerImageUrlRaw) : null;
+  const hasImageBackground = Boolean(headerImageUrl);
 
   // Handle Image Upload for Header
   const [headerModalOpen, setHeaderModalOpen] = useState(false);
@@ -396,7 +401,7 @@ export function MainLayout({ children }: MainLayoutProps) {
           {hasImageBackground && (
             <>
               <img
-                src={headerSettings?.imageConfig?.dataUrl}
+                src={headerImageUrl || undefined}
                 alt="header background"
                 className="absolute inset-0 w-full h-full"
                 style={{
@@ -495,7 +500,16 @@ export function MainLayout({ children }: MainLayoutProps) {
                         <div className="p-4 text-center text-xs text-muted-foreground">No messages</div>
                       ) : (
                         messagesQuery.data?.map(c => (
-                          <DropdownMenuItem key={c.employee?.id} onClick={() => navigate("/manager/messages")}>
+                          <DropdownMenuItem
+                            key={c.employee?.id}
+                            onClick={() => {
+                              if (c.employee) {
+                                navigate("/manager/messages", { state: { selectedEmployee: c.employee } });
+                              } else {
+                                navigate("/manager/messages");
+                              }
+                            }}
+                          >
                             <div className="flex flex-col gap-0.5">
                               <span className="font-medium text-xs">{c.employee?.name}</span>
                               <span className="text-[10px] text-muted-foreground truncate">{c.lastMessage?.content}</span>
@@ -583,8 +597,8 @@ export function MainLayout({ children }: MainLayoutProps) {
             <div className="space-y-6 py-4">
               <div className="flex flex-col items-center gap-4">
                 <div className="w-full h-32 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center bg-muted/5 overflow-hidden relative group">
-                  {headerSettings?.imageConfig?.dataUrl ? (
-                    <img src={headerSettings.imageConfig.dataUrl} alt="Preview" className="w-full h-full object-cover" />
+                  {headerImageUrl ? (
+                    <img src={headerImageUrl} alt="Preview" className="w-full h-full object-cover" />
                   ) : (
                     <div className="text-center">
                       <Camera className="h-8 w-8 mx-auto text-muted-foreground/50" />

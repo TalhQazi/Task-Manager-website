@@ -37,6 +37,7 @@ const NotFound = lazy(() => import("@/pages/admin/NotFound"));
 const ArchiveData = lazy(() => import("@/pages/admin/ArchiveData"));
 const FounderMessages = lazy(() => import("@/pages/admin/FounderMessages"));
 const AssetLibrary = lazy(() => import("@/pages/admin/AssetLibrary"));
+const CompanyInformation = lazy(() => import("@/pages/admin/CompanyInformation"));
 const EODReports = lazy(() => import("@/pages/admin/EODReports"));
 const LeaveRequests = lazy(() => import("@/pages/admin/LeaveRequests"));
 const EmployeeEODHistory = lazy(() => import("@/pages/admin/EmployeeEODHistory"));
@@ -50,6 +51,9 @@ const TeamLeadMappings = lazy(() => import("@/pages/admin/TeamLeadMappings"));
 const TaskPermissions = lazy(() => import("@/pages/admin/TaskPermissions"));
 
 const ShoppingLists = lazy(() => import("@/pages/admin/ShoppingLists"));
+const SystemEmailSettings = lazy(() => import("@/pages/admin/SystemEmailSettings"));
+const CompanyRegistry = lazy(() => import("@/pages/admin/CompanyRegistry"));
+
 
 
 function PageLoader() {
@@ -100,6 +104,7 @@ export default function AdminRoutes() {
       { path: "digital-assets", element: <DigitalAssets /> },
       { path: "intellectual-property", element: <IntellectualProperty /> },
       { path: "asset-library", element: <AssetLibrary /> },
+      { path: "company-information", element: <CompanyInformation /> },
       { path: "settings", element: <Settings /> },
       { path: "asana-import", element: <AsanaImport /> },
       { path: "asana-data", element: <AsanaData /> },
@@ -117,6 +122,9 @@ export default function AdminRoutes() {
       { path: "bug-reports", element: <BugReport /> },
       { path: "theme-engine", element: <ThemeEngine /> },
       { path: "shopping-lists", element: <ShoppingLists /> },
+      { path: "system-email-settings", element: auth.role === "super-admin" ? <SystemEmailSettings /> : <Navigate to="/admin" replace /> },
+      { path: "company-registry", element: <CompanyRegistry /> },
+
       { path: "*", element: <NotFound /> },
     ],
     [],

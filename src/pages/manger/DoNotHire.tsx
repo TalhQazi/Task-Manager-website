@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type Variants } from "framer-motion";
 
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
@@ -66,7 +66,7 @@ const schema = z.object({
 type Values = z.infer<typeof schema>;
 
 // Animation variants
-const containerVariants = {
+const containerVariants: Variants = {
   hidden: { opacity: 0 },
   visible: {
     opacity: 1,
@@ -77,7 +77,7 @@ const containerVariants = {
   },
 };
 
-const headerVariants = {
+const headerVariants: Variants = {
   hidden: { opacity: 0, y: -20 },
   visible: {
     opacity: 1,
@@ -90,7 +90,7 @@ const headerVariants = {
   },
 };
 
-const searchVariants = {
+const searchVariants: Variants = {
   hidden: { opacity: 0, x: -20 },
   visible: {
     opacity: 1,
@@ -104,7 +104,7 @@ const searchVariants = {
   },
 };
 
-const tableVariants = {
+const tableVariants: Variants = {
   hidden: { opacity: 0, y: 20 },
   visible: {
     opacity: 1,
@@ -118,7 +118,7 @@ const tableVariants = {
   },
 };
 
-const rowVariants = {
+const rowVariants: Variants = {
   hidden: { opacity: 0, x: -20 },
   visible: (i: number) => ({
     opacity: 1,
@@ -142,7 +142,7 @@ const rowVariants = {
   },
 };
 
-const emptyStateVariants = {
+const emptyStateVariants: Variants = {
   hidden: { opacity: 0, scale: 0.9 },
   visible: {
     opacity: 1,
@@ -155,7 +155,7 @@ const emptyStateVariants = {
   },
 };
 
-const buttonVariants = {
+const buttonVariants: Variants = {
   hover: {
     scale: 1.05,
     transition: { type: "spring", stiffness: 400, damping: 30 },
@@ -270,13 +270,13 @@ export default function DoNotHire() {
       initial="hidden"
       animate="visible"
       variants={containerVariants}
-      className="pl-6 space-y-6"
+      className="w-full px-3 sm:px-4 md:px-6 lg:px-8 space-y-4 sm:space-y-6"
     >
       {/* Header */}
-      <motion.div variants={headerVariants} className="flex items-center justify-between">
+      <motion.div variants={headerVariants} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div className="page-header mb-0">
           <motion.h1 
-            className="page-title"
+            className="page-title text-xl sm:text-2xl md:text-3xl lg:text-4xl"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ type: "spring", stiffness: 400, damping: 30 }}
@@ -284,7 +284,7 @@ export default function DoNotHire() {
             Do Not Hire List
           </motion.h1>
           <motion.p 
-            className="page-subtitle"
+            className="page-subtitle text-xs sm:text-sm md:text-base mt-1"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.1 }}
@@ -296,8 +296,9 @@ export default function DoNotHire() {
           variants={buttonVariants}
           whileHover="hover"
           whileTap="tap"
+          className="w-full sm:w-auto"
         >
-          <Button className="gap-2" onClick={() => setOpen(true)}>
+          <Button className="gap-2 w-full sm:w-auto text-sm sm:text-base h-9 sm:h-10" onClick={() => setOpen(true)}>
             <Plus className="w-4 h-4" />
             Add Entry
           </Button>
@@ -309,7 +310,7 @@ export default function DoNotHire() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input
           placeholder="Search by name, phone, email, or reason..."
-          className="pl-10"
+          className="pl-10 text-xs sm:text-sm"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
         />
@@ -318,13 +319,13 @@ export default function DoNotHire() {
       {/* Table */}
       <motion.div 
         variants={tableVariants}
-        className="bg-card rounded-xl border border-border shadow-card overflow-hidden"
+        className="bg-card rounded-xl border border-border shadow-card overflow-hidden border-0 sm:border shadow-none sm:shadow"
       >
         {entriesQuery.isLoading ? (
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="p-6 text-sm text-muted-foreground flex items-center justify-center gap-2"
+            className="px-3 sm:px-6 py-4 sm:py-6 text-xs sm:text-sm text-muted-foreground flex items-center justify-center gap-2"
           >
             <motion.div
               animate={{ rotate: 360 }}
@@ -337,7 +338,7 @@ export default function DoNotHire() {
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="p-6 text-sm text-destructive flex items-center gap-2"
+            className="px-3 sm:px-6 py-4 sm:py-6 text-xs sm:text-sm text-destructive flex items-center gap-2"
           >
             <AlertTriangle className="w-4 h-4" />
             {entriesQuery.error instanceof Error
@@ -347,7 +348,7 @@ export default function DoNotHire() {
         ) : filtered.length === 0 ? (
           <motion.div 
             variants={emptyStateVariants}
-            className="p-12 text-center"
+            className="px-3 sm:px-6 py-8 sm:py-12 text-center"
           >
             <motion.div
               animate={{ 
@@ -359,12 +360,12 @@ export default function DoNotHire() {
                 repeat: Infinity,
                 repeatType: "reverse"
               }}
-              className="w-16 h-16 mx-auto mb-4 rounded-full bg-destructive/10 text-destructive flex items-center justify-center"
+              className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 rounded-full bg-destructive/10 text-destructive flex items-center justify-center"
             >
-              <UserX className="w-8 h-8" />
+              <UserX className="w-6 h-6 sm:w-8 sm:h-8" />
             </motion.div>
-            <h3 className="text-lg font-medium text-foreground mb-2">No entries found</h3>
-            <p className="text-sm text-muted-foreground mb-4">
+            <h3 className="text-base sm:text-lg font-medium text-foreground mb-2">No entries found</h3>
+            <p className="text-xs sm:text-sm text-muted-foreground mb-4">
               {searchQuery ? "Try adjusting your search" : "Get started by adding your first entry"}
             </p>
             {!searchQuery && (
@@ -373,7 +374,7 @@ export default function DoNotHire() {
                 whileHover="hover"
                 whileTap="tap"
               >
-                <Button onClick={() => setOpen(true)} className="gap-2">
+                <Button onClick={() => setOpen(true)} className="gap-2 text-xs sm:text-sm h-9 sm:h-10">
                   <Plus className="w-4 h-4" />
                   Add Entry
                 </Button>
@@ -381,93 +382,139 @@ export default function DoNotHire() {
             )}
           </motion.div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="data-table w-full min-w-[720px]">
-              <thead>
-                <tr>
-                  <th className="px-4 py-3 text-left">Name</th>
-                  <th className="px-4 py-3 text-left">Reason</th>
-                  <th className="px-4 py-3 text-left">Contact</th>
-                  <th className="px-4 py-3 text-left">Added</th>
-                </tr>
-              </thead>
-              <tbody>
-                <AnimatePresence mode="popLayout">
-                  {filtered.map((e, index) => (
-                    <motion.tr
-                      key={e.id}
-                      custom={index}
-                      variants={rowVariants}
-                      initial="hidden"
-                      animate="visible"
-                      exit="exit"
-                      whileHover="hover"
-                      layout
-                      className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors"
-                    >
-                      <td className="px-4 py-3">
+          <>
+            <div className="sm:hidden space-y-3 p-3">
+              <AnimatePresence mode="popLayout">
+                {filtered.map((e, index) => (
+                  <motion.div
+                    key={e.id}
+                    custom={index}
+                    variants={rowVariants}
+                    initial="hidden"
+                    animate="visible"
+                    exit="exit"
+                    layout
+                    className="w-full rounded-lg border bg-card px-3 py-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground text-sm truncate">{e.fullName}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{e.incidentNotes}</p>
+                      </div>
+                      <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                        {new Date(e.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 overflow-x-auto -mr-3 pr-3">
+                      <div className="min-w-[560px] grid grid-cols-3 gap-4 text-xs pr-3">
                         <div>
-                          <motion.p 
-                            className="font-medium text-foreground"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: index * 0.05 + 0.1 }}
-                          >
-                            {e.fullName}
-                          </motion.p>
-                          <motion.p 
-                            className="text-xs text-muted-foreground mt-0.5 line-clamp-1"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ delay: index * 0.05 + 0.15 }}
-                          >
-                            {e.incidentNotes}
-                          </motion.p>
+                          <p className="text-[11px] text-muted-foreground">Reason</p>
+                          <p className="text-foreground line-clamp-1">{e.reason}</p>
                         </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <motion.span 
-                          className="text-sm text-foreground"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ delay: index * 0.05 + 0.2 }}
-                        >
-                          {e.reason}
-                        </motion.span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <motion.div 
-                          className="text-sm text-muted-foreground space-y-1"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ delay: index * 0.05 + 0.25 }}
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <Phone className="w-3 h-3" />
-                            <span>{e.phone?.trim() || "—"}</span>
+                        <div>
+                          <p className="text-[11px] text-muted-foreground">Phone</p>
+                          <p className="text-foreground whitespace-nowrap">{e.phone?.trim() || "—"}</p>
+                        </div>
+                        <div>
+                          <p className="text-[11px] text-muted-foreground">Email</p>
+                          <p className="text-foreground whitespace-nowrap">{e.email?.trim() || "—"}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+
+            <div className="hidden sm:block rounded-lg border overflow-x-auto w-full">
+              <table className="data-table w-full min-w-[720px]">
+                <thead>
+                  <tr>
+                    <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium">Name</th>
+                    <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium">Reason</th>
+                    <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium">Contact</th>
+                    <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium">Added</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <AnimatePresence mode="popLayout">
+                    {filtered.map((e, index) => (
+                      <motion.tr
+                        key={e.id}
+                        custom={index}
+                        variants={rowVariants}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                        whileHover="hover"
+                        layout
+                        className="border-b border-border last:border-0 hover:bg-muted/50 transition-colors"
+                      >
+                        <td className="px-2 sm:px-4 py-2 sm:py-3">
+                          <div>
+                            <motion.p 
+                              className="font-medium text-foreground text-xs sm:text-sm"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ delay: index * 0.05 + 0.1 }}
+                            >
+                              {e.fullName}
+                            </motion.p>
+                            <motion.p 
+                              className="text-xs text-muted-foreground mt-0.5 line-clamp-1"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ delay: index * 0.05 + 0.15 }}
+                            >
+                              {e.incidentNotes}
+                            </motion.p>
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <Mail className="w-3 h-3" />
-                            <span>{e.email?.trim() || "—"}</span>
-                          </div>
-                        </motion.div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <motion.span 
-                          className="text-sm text-muted-foreground whitespace-nowrap"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ delay: index * 0.05 + 0.3 }}
-                        >
-                          {new Date(e.createdAt).toLocaleDateString()}
-                        </motion.span>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
-              </tbody>
-            </table>
-          </div>
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 sm:py-3">
+                          <motion.span 
+                            className="text-xs sm:text-sm text-foreground line-clamp-1"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: index * 0.05 + 0.2 }}
+                          >
+                            {e.reason}
+                          </motion.span>
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 sm:py-3">
+                          <motion.div 
+                            className="text-xs sm:text-sm text-muted-foreground space-y-1"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: index * 0.05 + 0.25 }}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <Phone className="w-3 h-3 flex-shrink-0" />
+                              <span className="truncate">{e.phone?.trim() || "—"}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <Mail className="w-3 h-3 flex-shrink-0" />
+                              <span className="truncate">{e.email?.trim() || "—"}</span>
+                            </div>
+                          </motion.div>
+                        </td>
+                        <td className="px-2 sm:px-4 py-2 sm:py-3">
+                          <motion.span 
+                            className="text-xs sm:text-sm text-muted-foreground whitespace-nowrap"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: index * 0.05 + 0.3 }}
+                          >
+                            {new Date(e.createdAt).toLocaleDateString()}
+                          </motion.span>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </AnimatePresence>
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </motion.div>
 
@@ -477,7 +524,7 @@ export default function DoNotHire() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="flex justify-between items-center text-sm text-muted-foreground"
+          className="flex flex-col sm:flex-row sm:justify-between items-center gap-2 text-sm text-muted-foreground"
         >
           <span>Showing {filtered.length} of {entries.length} entries</span>
           <motion.div 
@@ -499,35 +546,35 @@ export default function DoNotHire() {
 
       {/* Add Entry Dialog */}
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[600px] w-[95vw] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:w-full sm:max-w-[600px] max-h-[90vh] overflow-y-auto px-3 sm:px-6 py-4 sm:py-6">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
           >
             <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <UserX className="w-5 h-5 text-destructive" />
+              <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
+                <UserX className="w-4 h-4 sm:w-5 sm:h-5 text-destructive" />
                 Add Do Not Hire Entry
               </DialogTitle>
-              <DialogDescription>
+              <DialogDescription className="text-xs sm:text-sm">
                 Save an incident record to prevent future hiring.
               </DialogDescription>
             </DialogHeader>
 
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3 sm:space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                   <FormField
                     control={form.control}
                     name="fullName"
                     render={({ field }) => (
                       <FormItem className="sm:col-span-2">
-                        <FormLabel>Full Name</FormLabel>
+                        <FormLabel className="text-xs sm:text-sm">Full Name</FormLabel>
                         <FormControl>
-                          <Input placeholder="Candidate name" {...field} />
+                          <Input placeholder="Candidate name" {...field} className="text-xs sm:text-sm h-8 sm:h-10" />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs" />
                       </FormItem>
                     )}
                   />
@@ -537,11 +584,11 @@ export default function DoNotHire() {
                     name="phone"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Phone</FormLabel>
+                        <FormLabel className="text-xs sm:text-sm">Phone</FormLabel>
                         <FormControl>
-                          <Input placeholder="Optional" {...field} />
+                          <Input placeholder="Optional" {...field} className="text-xs sm:text-sm h-8 sm:h-10" />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs" />
                       </FormItem>
                     )}
                   />
@@ -551,11 +598,11 @@ export default function DoNotHire() {
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Email</FormLabel>
+                        <FormLabel className="text-xs sm:text-sm">Email</FormLabel>
                         <FormControl>
-                          <Input placeholder="Optional" type="email" {...field} />
+                          <Input placeholder="Optional" type="email" {...field} className="text-xs sm:text-sm h-8 sm:h-10" />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs" />
                       </FormItem>
                     )}
                   />
@@ -565,11 +612,11 @@ export default function DoNotHire() {
                     name="reason"
                     render={({ field }) => (
                       <FormItem className="sm:col-span-2">
-                        <FormLabel>Reason</FormLabel>
+                        <FormLabel className="text-xs sm:text-sm">Reason</FormLabel>
                         <FormControl>
-                          <Input placeholder="Why is this candidate restricted?" {...field} />
+                          <Input placeholder="Why is this candidate restricted?" {...field} className="text-xs sm:text-sm h-8 sm:h-10" />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs" />
                       </FormItem>
                     )}
                   />
@@ -579,22 +626,22 @@ export default function DoNotHire() {
                     name="incidentNotes"
                     render={({ field }) => (
                       <FormItem className="sm:col-span-2">
-                        <FormLabel>Incident Notes</FormLabel>
+                        <FormLabel className="text-xs sm:text-sm">Incident Notes</FormLabel>
                         <FormControl>
                           <Textarea 
-                            className="min-h-[120px]" 
+                            className="min-h-[80px] sm:min-h-[120px] text-xs sm:text-sm" 
                             placeholder="Details..." 
                             {...field} 
                           />
                         </FormControl>
-                        <FormMessage />
+                        <FormMessage className="text-xs" />
                       </FormItem>
                     )}
                   />
                 </div>
 
-                <DialogFooter className="flex-col sm:flex-row gap-2">
-                  <Button type="button" variant="outline" onClick={() => setOpen(false)} className="w-full sm:w-auto">
+                <DialogFooter className="flex flex-col sm:flex-row gap-2 pt-2 sm:pt-4">
+                  <Button type="button" variant="outline" onClick={() => setOpen(false)} className="w-full sm:w-auto text-xs sm:text-sm h-9 sm:h-10">
                     Cancel
                   </Button>
                   <motion.div
@@ -602,9 +649,9 @@ export default function DoNotHire() {
                     whileTap={{ scale: 0.95 }}
                     className="w-full sm:w-auto"
                   >
-                    <Button type="submit" className="gap-2 w-full">
+                    <Button type="submit" className="gap-2 w-full text-xs sm:text-sm h-9 sm:h-10">
                       <Plus className="w-4 h-4" />
-                      Save
+                      Add Entry
                     </Button>
                   </motion.div>
                 </DialogFooter>

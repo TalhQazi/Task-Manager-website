@@ -101,12 +101,12 @@ export default function ManagerLeaveRequests() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Leave Requests</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="space-y-1">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold">Leave Requests</h1>
           <p className="text-sm text-muted-foreground">View employee PTO/leave status (approved/rejected/pending).</p>
         </div>
-        <Calendar className="h-6 w-6 text-muted-foreground" />
+        <Calendar className="h-6 w-6 text-muted-foreground flex-shrink-0" />
       </div>
 
       <Card>
@@ -115,9 +115,18 @@ export default function ManagerLeaveRequests() {
           <CardDescription>Managers can view statuses; approvals are handled by admin.</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-3 mb-4">
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search by employee, type, status..." />
-            <Button variant="outline" onClick={() => void load()} disabled={loading}>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 mb-4">
+            <Input 
+              value={search} 
+              onChange={(e) => setSearch(e.target.value)} 
+              placeholder="Search by employee, type, status..." 
+            />
+            <Button 
+              variant="outline" 
+              onClick={() => void load()} 
+              disabled={loading}
+              className="shrink-0"
+            >
               Refresh
             </Button>
           </div>
@@ -126,7 +135,7 @@ export default function ManagerLeaveRequests() {
             <div className="text-sm text-muted-foreground">Loading...</div>
           ) : (
             <div className="rounded-lg border overflow-x-auto">
-              <Table>
+              <Table className="min-w-[900px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Employee</TableHead>
@@ -153,7 +162,9 @@ export default function ManagerLeaveRequests() {
                           {new Date(r.startDate).toLocaleDateString()} - {new Date(r.endDate).toLocaleDateString()}
                         </TableCell>
                         <TableCell>{statusBadge(r.status)}</TableCell>
-                        <TableCell>{r.exemptFromEOD ? <Badge variant="outline">Exempt</Badge> : <Badge variant="outline">Required</Badge>}</TableCell>
+                        <TableCell>
+                          {r.exemptFromEOD ? <Badge variant="outline">Exempt</Badge> : <Badge variant="outline">Required</Badge>}
+                        </TableCell>
                         <TableCell className="max-w-[360px] truncate">{r.reason || "—"}</TableCell>
                       </TableRow>
                     ))

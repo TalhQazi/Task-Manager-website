@@ -63,25 +63,31 @@ body[class*="tb-theme-"] div:not([class*="bg-"]):not([class*="btn"]):not([class*
   --background: 240 100% 5%;
   --foreground: 180 100% 90%;
   --tb-dashboard-bg: #030014;
-  --tb-dashboard-card-bg: rgba(0, 245, 255, 0.03);
+  --tb-dashboard-card-bg: rgba(0, 245, 255, 0.05);
   --tb-dashboard-text-color: #e0f7fa;
   --tb-sidebar-bg: #06061a;
-  --border: 180 100% 20%;
-  --muted-foreground: 180 100% 70%;
+  --border: 180 60% 22%;
+  --input: 180 60% 22%;
+  --ring: 180 100% 55%;
+  --muted-foreground: 180 70% 65%;
   --chart-1: 180 100% 50%;
   border-color: rgba(0, 245, 255, 0.2);
 }
 
 .tb-theme-metallic-elite {
-  --background: 0 0% 10%;
-  --foreground: 43 74% 49%;
-  --tb-dashboard-bg: #1a1a1a;
-  --tb-dashboard-card-bg: linear-gradient(145deg, #2a2a2a, #1a1a1a);
+  --background: 0 0% 9%;
+  --foreground: 43 65% 72%;
+  --tb-dashboard-bg: #181818;
+  --tb-dashboard-card-bg: #222222;
   --tb-dashboard-text-color: #d4af37;
-  --tb-sidebar-bg: rgba(17, 17, 17, 0.8);
-  --border: 43 74% 20%;
-  --muted-foreground: 43 74% 60%;
+  --tb-sidebar-bg: rgba(14, 14, 14, 0.96);
+  --border: 43 30% 22%;
+  --muted-foreground: 43 45% 62%;
+  --input: 43 30% 22%;
+  --ring: 43 74% 49%;
   --chart-1: 43 74% 49%;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   background-image: url('/hud_metallic_target_bg.png');
   background-size: cover;
   background-position: center top;
@@ -92,22 +98,26 @@ body[class*="tb-theme-"] div:not([class*="bg-"]):not([class*="btn"]):not([class*
   --background: 0 0% 5%;
   --foreground: 0 0% 90%;
   --tb-dashboard-bg: #0a0a0a;
-  --tb-dashboard-card-bg: rgba(20, 20, 20, 0.8);
+  --tb-dashboard-card-bg: #161616;
   --tb-dashboard-text-color: #f3f4f6;
   --tb-sidebar-bg: #050505;
-  --border: 0 0% 20%;
-  --muted-foreground: 0 0% 60%;
+  --border: 0 0% 18%;
+  --input: 0 0% 18%;
+  --ring: 0 0% 75%;
+  --muted-foreground: 0 0% 58%;
 }
 
 .tb-theme-dark-minimal {
   --background: 220 20% 8%;
   --foreground: 220 10% 90%;
   --tb-dashboard-bg: #0f172a;
-  --tb-dashboard-card-bg: rgba(30, 41, 59, 0.7);
+  --tb-dashboard-card-bg: rgba(30, 41, 59, 0.85);
   --tb-dashboard-text-color: #f8fafc;
   --tb-sidebar-bg: #020617;
-  --border: 220 20% 20%;
-  --muted-foreground: 220 10% 70%;
+  --border: 220 20% 22%;
+  --input: 220 20% 22%;
+  --ring: 221 83% 60%;
+  --muted-foreground: 220 12% 65%;
 }
 
 .tb-theme-high-contrast {
@@ -174,15 +184,167 @@ body[class*="tb-theme-"] div:not([class*="bg-"]):not([class*="btn"]):not([class*
 
 
 
+/* ── Metallic Elite: Comprehensive Readability Fixes ─────────────────────── */
+
+/* Hardcoded dark Tailwind text classes become invisible on #181818 background */
+.tb-theme-metallic-elite .text-slate-900,
+.tb-theme-metallic-elite .text-slate-800,
+.tb-theme-metallic-elite .text-slate-700,
+.tb-theme-metallic-elite .text-gray-900,
+.tb-theme-metallic-elite .text-gray-800,
+.tb-theme-metallic-elite .text-gray-700,
+.tb-theme-metallic-elite .text-zinc-900,
+.tb-theme-metallic-elite .text-zinc-800,
+.tb-theme-metallic-elite .text-zinc-700,
+.tb-theme-metallic-elite .text-neutral-900,
+.tb-theme-metallic-elite .text-neutral-800,
+.tb-theme-metallic-elite .text-neutral-700,
+.tb-theme-metallic-elite .text-black {
+  color: var(--tb-dashboard-text-color) !important;
+}
+
+.tb-theme-metallic-elite .text-slate-600,
+.tb-theme-metallic-elite .text-slate-500,
+.tb-theme-metallic-elite .text-gray-600,
+.tb-theme-metallic-elite .text-gray-500,
+.tb-theme-metallic-elite .text-zinc-600,
+.tb-theme-metallic-elite .text-zinc-500,
+.tb-theme-metallic-elite .text-neutral-600,
+.tb-theme-metallic-elite .text-neutral-500 {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.tb-theme-metallic-elite .text-slate-400,
+.tb-theme-metallic-elite .text-slate-300,
+.tb-theme-metallic-elite .text-gray-400,
+.tb-theme-metallic-elite .text-gray-300,
+.tb-theme-metallic-elite .text-zinc-400,
+.tb-theme-metallic-elite .text-zinc-300,
+.tb-theme-metallic-elite .text-neutral-400,
+.tb-theme-metallic-elite .text-neutral-300 {
+  color: rgba(212, 175, 55, 0.55) !important;
+}
+
+/* Labels and form text */
+.tb-theme-metallic-elite label {
+  color: var(--tb-dashboard-text-color) !important;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+/* Input, select, textarea: dark bg + gold text */
+.tb-theme-metallic-elite input:not([type="checkbox"]):not([type="radio"]),
+.tb-theme-metallic-elite textarea,
+.tb-theme-metallic-elite select {
+  background-color: #1e1e1e !important;
+  color: var(--tb-dashboard-text-color) !important;
+  border-color: rgba(212, 175, 55, 0.25) !important;
+  caret-color: #d4af37;
+}
+
+.tb-theme-metallic-elite input::placeholder,
+.tb-theme-metallic-elite textarea::placeholder {
+  color: rgba(212, 175, 55, 0.38) !important;
+  opacity: 1 !important;
+}
+
+.tb-theme-metallic-elite input:focus,
+.tb-theme-metallic-elite textarea:focus,
+.tb-theme-metallic-elite select:focus {
+  border-color: rgba(212, 175, 55, 0.55) !important;
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.15) !important;
+  outline: none !important;
+}
+
+/* Headings: sharper gold with proper weight */
+.tb-theme-metallic-elite h1,
+.tb-theme-metallic-elite h2,
+.tb-theme-metallic-elite h3,
+.tb-theme-metallic-elite h4,
+.tb-theme-metallic-elite h5,
+.tb-theme-metallic-elite h6 {
+  color: var(--tb-dashboard-text-color) !important;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Paragraph / body copy: slightly softer gold for long reads */
+.tb-theme-metallic-elite p,
+.tb-theme-metallic-elite li,
+.tb-theme-metallic-elite td,
+.tb-theme-metallic-elite th {
+  color: #c9a840 !important;
+  line-height: 1.65;
+}
+
+/* Table header: full gold */
+.tb-theme-metallic-elite th {
+  color: var(--tb-dashboard-text-color) !important;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+/* Badges / pills that use hardcoded bg-gray/bg-slate */
+.tb-theme-metallic-elite [class*="bg-gray-"]:not([class*="hover:"]):not(.stat-card-gradient),
+.tb-theme-metallic-elite [class*="bg-slate-"]:not([class*="hover:"]):not(.stat-card-gradient) {
+  background-color: rgba(212, 175, 55, 0.10) !important;
+  color: var(--tb-dashboard-text-color) !important;
+  border-color: rgba(212, 175, 55, 0.2) !important;
+}
+
+/* Metallic card style + Metallic Elite = premium dark metallic look */
+/* Extra [class*="tb-theme-"] attr selector bumps specificity to (0,5,2) so this wins over the general metallic rule (0,4,2) */
+body.tb-theme-metallic-elite[class*="tb-theme-"][data-tb-card-style="metallic"] main .rounded-xl:not(.stat-card-gradient),
+body.tb-theme-metallic-elite[class*="tb-theme-"][data-tb-card-style="metallic"] main .rounded-lg:not(.stat-card-gradient),
+body.tb-theme-metallic-elite[class*="tb-theme-"][data-tb-card-style="metallic"] main .card,
+body.tb-theme-metallic-elite[class*="tb-theme-"][data-tb-card-style="metallic"] main [class*="bg-card"] {
+  background-color: #222222 !important;
+  background-image: linear-gradient(145deg, rgba(212, 175, 55, 0.07) 0%, rgba(0, 0, 0, 0.25) 100%) !important;
+  border: 1px solid rgba(212, 175, 55, 0.20) !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.50), inset 0 1px 0 rgba(255, 215, 0, 0.06) !important;
+  color: var(--tb-dashboard-text-color) !important;
+}
+
+/* Dividers and separators */
+.tb-theme-metallic-elite hr,
+.tb-theme-metallic-elite [class*="border-t"],
+.tb-theme-metallic-elite [class*="border-b"],
+.tb-theme-metallic-elite [class*="border-l"],
+.tb-theme-metallic-elite [class*="border-r"],
+.tb-theme-metallic-elite [class*="divide-y"] > *,
+.tb-theme-metallic-elite [class*="divide-x"] > * {
+  border-color: rgba(212, 175, 55, 0.15) !important;
+}
+
+/* Scrollbar styling for metallic-elite */
+.tb-theme-metallic-elite ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.tb-theme-metallic-elite ::-webkit-scrollbar-track {
+  background: #1a1a1a;
+}
+.tb-theme-metallic-elite ::-webkit-scrollbar-thumb {
+  background: rgba(212, 175, 55, 0.30);
+  border-radius: 3px;
+}
+.tb-theme-metallic-elite ::-webkit-scrollbar-thumb:hover {
+  background: rgba(212, 175, 55, 0.50);
+}
+
+/* ── End Metallic Elite Fixes ─────────────────────────────────────────────── */
+
 .tb-theme-energy-mode {
   --background: 40 100% 10%;
   --foreground: 40 100% 90%;
   --tb-dashboard-bg: #1a0f00;
-  --tb-dashboard-card-bg: rgba(255, 150, 0, 0.1);
+  --tb-dashboard-card-bg: #1f1200;
   --tb-dashboard-text-color: #ffedd5;
   --tb-sidebar-bg: #0a0500;
-  --border: 40 100% 20%;
-  --muted-foreground: 40 100% 70%;
+  --border: 40 60% 22%;
+  --input: 40 60% 22%;
+  --ring: 40 100% 58%;
+  --muted-foreground: 40 80% 62%;
 }
 
 .tb-theme-crystal-white {
@@ -203,10 +365,10 @@ body[class*="tb-theme-"] div:not([class*="bg-"]):not([class*="btn"]):not([class*
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Metallic Card Style Logic */
+/* Metallic Card Style Logic - light themes only (dark themes are handled below) */
 [data-tb-card-style="metallic"] main .rounded-xl:not(.stat-card-gradient) {
-  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
-  border: 1px solid #cbd5e1;
+  background: var(--tb-dashboard-card-bg, linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%));
+  border: 1px solid hsl(var(--border));
 }
 
 /* Animations */
@@ -236,10 +398,12 @@ body[class*="tb-theme-"] .recharts-surface {
 
 /* Metallic Card Style - Override theme card colors */
 body[class*="tb-theme-"][data-tb-card-style="metallic"] main .rounded-xl:not(.stat-card-gradient),
+body[class*="tb-theme-"][data-tb-card-style="metallic"] main .rounded-lg:not(.stat-card-gradient),
 body[class*="tb-theme-"][data-tb-card-style="metallic"] main .card {
-  background-color: var(--tb-dashboard-card-bg) !important;
-  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.06) 100%) !important;
-  border: 1px solid rgba(203, 213, 225, 0.35) !important;
+  background: var(--tb-dashboard-card-bg) !important;
+  background-image: linear-gradient(135deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.03) 100%) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25) !important;
 }
 
 /* Glass Card Style - Ensure it works with all themes */
@@ -273,11 +437,12 @@ body[class*="tb-theme-"][data-tb-card-style="flat"] main .card {
 
 /* Ensure cards and dashboard containers follow the theme colors */
 body[class*="tb-theme-"] .rounded-xl,
+body[class*="tb-theme-"] .rounded-lg,
 body[class*="tb-theme-"] .card,
 body[class*="tb-theme-"] [class*="bg-card"] {
-  background-color: var(--tb-dashboard-card-bg) !important;
+  background: var(--tb-dashboard-card-bg) !important;
   color: var(--tb-dashboard-text-color) !important;
-  border-color: rgba(255, 255, 255, 0.1);
+  border-color: hsl(var(--border));
 }
 
 /* Ensure chart labels and tick marks follow theme text color */
@@ -366,13 +531,6 @@ body[data-tb-card-style="glass"] .tb-manager-panel [class*="rounded-xl"]:not(.st
   -webkit-backdrop-filter: blur(12px);
 }
 
-body[data-tb-card-style="metallic"] .tb-manager-panel .bg-card,
-body[data-tb-card-style="metallic"] .tb-manager-panel [class*="rounded-lg"]:not(.stat-card),
-body[data-tb-card-style="metallic"] .tb-manager-panel [class*="rounded-xl"]:not(.stat-card) {
-  background: linear-gradient(145deg, #2a2a2a, #1a1a1a) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
 body[data-tb-card-style="neon"] .tb-manager-panel .bg-card,
 body[data-tb-card-style="neon"] .tb-manager-panel [class*="rounded-lg"]:not(.stat-card),
 body[data-tb-card-style="neon"] .tb-manager-panel [class*="rounded-xl"]:not(.stat-card) {
@@ -402,3 +560,255 @@ body[class*="tb-theme-"] .tb-manager-panel [class*="to-card"] {
   --tw-gradient-to: var(--tb-dashboard-card-bg) !important;
   --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to) !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   UNIVERSAL DARK THEME READABILITY
+   Covers: neon-tech · executive-black · dark-minimal · high-contrast · energy-mode
+   (metallic-elite has its own dedicated section above)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Font smoothing */
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal,
+    .tb-theme-high-contrast, .tb-theme-energy-mode) {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Dark slate/gray/zinc/neutral → primary theme text ─────────────────── */
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal, .tb-theme-energy-mode)
+  :is(.text-slate-900, .text-slate-800, .text-slate-700,
+      .text-gray-900,  .text-gray-800,  .text-gray-700,
+      .text-zinc-900,  .text-zinc-800,  .text-zinc-700,
+      .text-neutral-900, .text-neutral-800, .text-neutral-700,
+      .text-black) {
+  color: var(--tb-dashboard-text-color) !important;
+}
+
+/* ── Mid-range grays → muted theme text ──────────────────────────────────── */
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal, .tb-theme-energy-mode)
+  :is(.text-slate-600, .text-slate-500,
+      .text-gray-600,  .text-gray-500,
+      .text-zinc-600,  .text-zinc-500,
+      .text-neutral-600, .text-neutral-500) {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+/* ── Light utility text → dimmed but visible ────────────────────────────── */
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal, .tb-theme-energy-mode)
+  :is(.text-slate-400, .text-slate-300, .text-slate-200,
+      .text-gray-400,  .text-gray-300,  .text-gray-200,
+      .text-zinc-400,  .text-zinc-300,
+      .text-neutral-400, .text-neutral-300) {
+  color: hsl(var(--muted-foreground) / 0.60) !important;
+}
+
+/* ── High-contrast: every shade maps to pure white ──────────────────────── */
+.tb-theme-high-contrast
+  :is(.text-slate-900, .text-slate-800, .text-slate-700, .text-slate-600,
+      .text-slate-500, .text-slate-400, .text-slate-300, .text-slate-200,
+      .text-gray-900,  .text-gray-800,  .text-gray-700,  .text-gray-600,
+      .text-gray-500,  .text-gray-400,  .text-gray-300,  .text-gray-200,
+      .text-zinc-900,  .text-zinc-800,  .text-zinc-700,  .text-zinc-600,
+      .text-zinc-500,  .text-zinc-400,
+      .text-neutral-900, .text-neutral-800, .text-neutral-700,
+      .text-black, .text-muted-foreground) {
+  color: #ffffff !important;
+}
+
+/* ── Headings ────────────────────────────────────────────────────────────── */
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal,
+    .tb-theme-high-contrast, .tb-theme-energy-mode)
+  :is(h1, h2, h3, h4, h5, h6) {
+  color: var(--tb-dashboard-text-color) !important;
+  font-weight: 600;
+}
+
+/* ── Labels ──────────────────────────────────────────────────────────────── */
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal,
+    .tb-theme-high-contrast, .tb-theme-energy-mode) label {
+  color: var(--tb-dashboard-text-color) !important;
+  font-weight: 500;
+}
+
+/* ── Paragraph and list line-height for readability ─────────────────────── */
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal,
+    .tb-theme-high-contrast, .tb-theme-energy-mode)
+  :is(p, li) {
+  line-height: 1.65;
+}
+
+/* ── Table headers ───────────────────────────────────────────────────────── */
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal,
+    .tb-theme-high-contrast, .tb-theme-energy-mode) th {
+  color: var(--tb-dashboard-text-color) !important;
+  font-weight: 600;
+}
+
+/* ── Inputs / Textareas / Selects ────────────────────────────────────────── */
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal,
+    .tb-theme-high-contrast, .tb-theme-energy-mode)
+  input:not([type="checkbox"]):not([type="radio"]),
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal,
+    .tb-theme-high-contrast, .tb-theme-energy-mode) textarea,
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal,
+    .tb-theme-high-contrast, .tb-theme-energy-mode) select {
+  background-color: var(--tb-dashboard-bg) !important;
+  color: var(--tb-dashboard-text-color) !important;
+  border-color: hsl(var(--border)) !important;
+  caret-color: var(--tb-dashboard-text-color);
+}
+
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal,
+    .tb-theme-high-contrast, .tb-theme-energy-mode)
+  input::placeholder,
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal,
+    .tb-theme-high-contrast, .tb-theme-energy-mode)
+  textarea::placeholder {
+  color: hsl(var(--muted-foreground) / 0.55) !important;
+  opacity: 1 !important;
+}
+
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal,
+    .tb-theme-high-contrast, .tb-theme-energy-mode)
+  input:focus,
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal,
+    .tb-theme-high-contrast, .tb-theme-energy-mode)
+  textarea:focus,
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal,
+    .tb-theme-high-contrast, .tb-theme-energy-mode)
+  select:focus {
+  border-color: hsl(var(--ring)) !important;
+  box-shadow: 0 0 0 2px hsl(var(--ring) / 0.20) !important;
+  outline: none !important;
+}
+
+/* ── HR / dividers ───────────────────────────────────────────────────────── */
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal,
+    .tb-theme-energy-mode) hr {
+  border-color: hsl(var(--border)) !important;
+}
+
+/* ── Scrollbars ──────────────────────────────────────────────────────────── */
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal,
+    .tb-theme-energy-mode) ::-webkit-scrollbar { width: 6px; height: 6px; }
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal,
+    .tb-theme-energy-mode) ::-webkit-scrollbar-track {
+  background: var(--tb-dashboard-bg);
+}
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal,
+    .tb-theme-energy-mode) ::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.30);
+  border-radius: 3px;
+}
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal,
+    .tb-theme-energy-mode) ::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.55);
+}
+
+/* ── End shared dark theme readability ─────────────────────────────────── */
+
+/* ── Per-theme badge / pill colors ──────────────────────────────────────── */
+
+/* Neon-tech: cyan-tinted pills */
+.tb-theme-neon-tech
+  :is([class*="bg-gray-"], [class*="bg-slate-"]):not([class*="hover:"]):not(.stat-card-gradient) {
+  background-color: rgba(0, 245, 255, 0.08) !important;
+  color: #e0f7fa !important;
+  border-color: rgba(0, 245, 255, 0.20) !important;
+}
+
+/* Energy-mode: warm orange pills */
+.tb-theme-energy-mode
+  :is([class*="bg-gray-"], [class*="bg-slate-"]):not([class*="hover:"]):not(.stat-card-gradient) {
+  background-color: rgba(255, 150, 0, 0.12) !important;
+  color: #ffedd5 !important;
+  border-color: rgba(255, 150, 0, 0.25) !important;
+}
+
+/* Executive-black / dark-minimal: neutral white-alpha pills */
+:is(.tb-theme-executive-black, .tb-theme-dark-minimal)
+  :is([class*="bg-gray-"], [class*="bg-slate-"]):not([class*="hover:"]):not(.stat-card-gradient) {
+  background-color: rgba(255, 255, 255, 0.07) !important;
+  color: var(--tb-dashboard-text-color) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* High-contrast: solid white pills */
+.tb-theme-high-contrast
+  :is([class*="bg-gray-"], [class*="bg-slate-"]):not([class*="hover:"]):not(.stat-card-gradient) {
+  background-color: transparent !important;
+  color: #ffffff !important;
+  border: 1px solid #ffffff !important;
+}
+
+/* ── bg-white / bg-gray-50 / bg-slate-50 in admin main → card bg ─────────
+   Prevents white boxes floating on dark backgrounds.
+   Scoped to main content only to protect popovers, modals outside main.
+   ─────────────────────────────────────────────────────────────────────── */
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal,
+    .tb-theme-metallic-elite, .tb-theme-energy-mode, .tb-theme-high-contrast)
+  main div[class*="bg-white"]:not(img):not(svg) {
+  background-color: var(--tb-dashboard-card-bg) !important;
+  color: var(--tb-dashboard-text-color) !important;
+}
+
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal,
+    .tb-theme-metallic-elite, .tb-theme-energy-mode, .tb-theme-high-contrast)
+  main div.bg-gray-50,
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal,
+    .tb-theme-metallic-elite, .tb-theme-energy-mode, .tb-theme-high-contrast)
+  main div.bg-slate-50,
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal,
+    .tb-theme-metallic-elite, .tb-theme-energy-mode, .tb-theme-high-contrast)
+  main div.bg-gray-100,
+:is(.tb-theme-neon-tech, .tb-theme-executive-black, .tb-theme-dark-minimal,
+    .tb-theme-metallic-elite, .tb-theme-energy-mode, .tb-theme-high-contrast)
+  main div.bg-slate-100 {
+  background-color: var(--tb-dashboard-card-bg) !important;
+  color: var(--tb-dashboard-text-color) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CRYSTAL WHITE — fix invisible light-on-light text
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Very light text is invisible on white backgrounds */
+.tb-theme-crystal-white
+  :is(.text-white, .text-slate-100, .text-slate-200,
+      .text-gray-100, .text-gray-200,
+      .text-zinc-100, .text-zinc-200,
+      .text-neutral-100, .text-neutral-200) {
+  color: #374151 !important;
+}
+
+/* Muted foreground should still contrast on white */
+.tb-theme-crystal-white {
+  --muted-foreground: 215 20% 42%;
+}
+
+/* Dark card backgrounds inside main on crystal-white → use card bg */
+.tb-theme-crystal-white main
+  div[class*="bg-gray-9"],
+.tb-theme-crystal-white main
+  div[class*="bg-slate-9"],
+.tb-theme-crystal-white main
+  div[class*="bg-zinc-9"],
+.tb-theme-crystal-white main
+  div[class*="bg-neutral-9"] {
+  background-color: var(--tb-dashboard-card-bg) !important;
+  color: var(--tb-dashboard-text-color) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MANAGER PANEL — metallic card gradient fix for crystal-white
+   (was hardcoded dark gradient, breaks on light themes)
+   ═══════════════════════════════════════════════════════════════════════════ */
+body[data-tb-card-style="metallic"] .tb-manager-panel .bg-card,
+body[data-tb-card-style="metallic"] .tb-manager-panel [class*="rounded-lg"]:not(.stat-card),
+body[data-tb-card-style="metallic"] .tb-manager-panel [class*="rounded-xl"]:not(.stat-card) {
+  background: var(--tb-dashboard-card-bg) !important;
+  background-image: linear-gradient(145deg, rgba(255,255,255,0.10) 0%, rgba(0,0,0,0.10) 100%) !important;
+  border: 1px solid hsl(var(--border)) !important;
+}
+
+/* ── End Universal Theme Readability ────────────────────────────────────── */

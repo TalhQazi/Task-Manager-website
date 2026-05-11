@@ -399,12 +399,12 @@ const Dashboard = () => {
         >
           <motion.div variants={itemVariants} whileHover={{ scale: 1.01 }} className="transition-all duration-300">
             <div className="rounded-xl border bg-card/50 backdrop-blur-sm p-4 shadow-lg hover:shadow-xl">
-              <RecentTasksList />
+              <RecentTasksList basePath="/manager/tasks" />
             </div>
           </motion.div>
           <motion.div variants={itemVariants} whileHover={{ scale: 1.01 }} className="transition-all duration-300">
             <div className="rounded-xl border bg-card/50 backdrop-blur-sm p-4 shadow-lg hover:shadow-xl">
-              <ActiveEmployees />
+              <ActiveEmployees basePath="/manager/employees" />
             </div>
           </motion.div>
         </motion.div>
@@ -414,7 +414,7 @@ const Dashboard = () => {
           variants={containerVariants}
         >
           <motion.div variants={itemVariants} whileHover={{ scale: 1.01 }} className="transition-all duration-300">
-            <DayAheadCard />
+            <DayAheadCard basePath="/manager/tasks" />
           </motion.div>
           <motion.div variants={itemVariants} whileHover={{ scale: 1.01 }} className="transition-all duration-300">
             <WeekAheadCard />

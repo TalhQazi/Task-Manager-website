@@ -19,6 +19,7 @@ import {
   LogOut,
   Building2,
   Landmark,
+  Building,
   Activity,
   History,
   Wallet,
@@ -40,7 +41,9 @@ import {
   UserPlus,
 
   ShoppingCart,
+  Mail,
 } from "lucide-react";
+
 
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -59,11 +62,12 @@ type NavItem = {
 
 const navItemsBase: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin", end: true },
-  { icon: Users, label: "User Management", path: "/admin/users" },
+  { icon: Users, label: "User Management", path: "/admin/users", end: true },
   { icon: CheckSquare, label: "Task Management", path: "/admin/tasks" },
   { icon: UserCircle, label: "Employee Directory", path: "/admin/employees" },
   { icon: Wallet, label: "Payroll", path: "/admin/payroll" },
    { icon: ClipboardList, label: "EOD Reports", path: "/admin/eod-reports" },
+     { icon: Building, label: "EIN list", path: "/admin/company-registry" },
   { icon: CalendarCheck, label: "Leave Requests", path: "/admin/leave-requests" },
   { icon: History, label: "Task History", path: "/admin/task-history" },
   {
@@ -93,7 +97,8 @@ const navItemsBase: NavItem[] = [
   { icon: Users, label: "Contributors", path: "/admin/contributors" },
   { icon: MessageSquare, label: "Messaging", path: "/admin/messaging" },
   { icon: ClipboardList, label: "Onboarding", path: "/admin/onboarding" },
-  { icon: FolderOpen, label: "Company Information/Images", path: "/admin/asset-library" },
+  { icon: FolderOpen, label: "Images", path: "/admin/asset-library" },
+  { icon: FileText, label: "Company Information", path: "/admin/company-information" },
   { icon: BarChart3, label: "Reports", path: "/admin/reports" },
   { icon: Globe, label: "Digital Assets", path: "/admin/digital-assets" },
   { icon: Lightbulb, label: "Intellectual Property", path: "/admin/intellectual-property" },
@@ -141,6 +146,8 @@ const navItemsBase: NavItem[] = [
 
 // Activity Logs only for super-admin
 const activityLogNavItem = { icon: Activity, label: "Activity Logs", path: "/admin/activity-logs" };
+const systemEmailSettingsNavItem = { icon: Mail, label: "System Email Settings", path: "/admin/system-email-settings" };
+
 
 type SidebarMode = "desktop" | "mobile";
 
@@ -155,13 +162,33 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
 
   // Build nav items based on role
   const navItems = useMemo(() => {
-    const items = [...navItemsBase];
-    // Insert Activity Logs before Settings (for super-admin only)
+    let items = [...navItemsBase];
+    
+    // Add super-admin items
     if (auth.role === "super-admin") {
-      const settingsIndex = items.findIndex((i) => i.label === "Settings");
-      items.splice(settingsIndex, 0, activityLogNavItem);
+      items.push(systemEmailSettingsNavItem, activityLogNavItem);
     }
-    return items;
+
+    // Sort children within items first
+    items.forEach(item => {
+      if (item.children) {
+        item.children = [...item.children].sort((a, b) => a.label.localeCompare(b.label));
+      }
+    });
+
+    // Separate Settings from the list to ensure it's always last
+    const settingsItem = items.find((i) => i.label === "Settings");
+    const otherItems = items.filter((i) => i.label !== "Settings");
+
+    // Sort all other items alphabetically
+    const sortedItems = [...otherItems].sort((a, b) => a.label.localeCompare(b.label));
+
+    // Combine sorted items with Settings at the end
+    if (settingsItem) {
+      sortedItems.push(settingsItem);
+    }
+
+    return sortedItems;
   }, [auth.role]);
 
   const onLogout = async () => {

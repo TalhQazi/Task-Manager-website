@@ -1,4 +1,5 @@
 import { clearAuthState, getAuthState, setAuthState } from "@/lib/auth";
+import { getEmployeeAuth, clearEmployeeAuth } from "@/Employee/lib/auth";
 
 type ApiErrorBody = {
   error?: {
@@ -77,6 +78,11 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 
   if (auth.isAuthenticated && auth.token) {
     headers.set("Authorization", `Bearer ${auth.token}`);
+  } else {
+    const empAuth = getEmployeeAuth();
+    if (empAuth?.token) {
+      headers.set("Authorization", `Bearer ${empAuth.token}`);
+    }
   }
 
   const res = await fetch(finalUrl, {
@@ -86,6 +92,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 
   if (res.status === 401) {
     clearAuthState();
+    clearEmployeeAuth();
   }
 
   if (!res.ok) {
@@ -145,7 +152,8 @@ export type CrudResource =
   | "time-entries"
   | "onboarding"
   | "do-not-hire"
-  | "companies";
+  | "companies"
+  | "company-registry";
 
 type ListResponse<T> = { items?: T[] } | T[];
 
@@ -153,6 +161,7 @@ function resourcePath(resource: CrudResource) {
   if (resource === "time-entries") return "/api/time-entries";
   if (resource === "do-not-hire") return "/api/do-not-hire";
   if (resource === "companies") return "/api/companies";
+  if (resource === "company-registry") return "/api/company-registry";
   return `/api/${resource}`;
 }
 
@@ -179,6 +188,11 @@ export async function listResource<T>(resource: CrudResource, params?: Record<st
   }
   
   return (res.items ?? []) as any;
+}
+
+export async function getResource<T>(resource: CrudResource, id: string) {
+  const res = await apiFetch<{ item: T }>(`${resourcePath(resource)}/${encodeURIComponent(id)}`);
+  return res?.item || res;
 }
 
 export async function createResource<T>(resource: CrudResource, payload: unknown) {

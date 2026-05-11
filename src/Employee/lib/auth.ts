@@ -2,7 +2,7 @@ export interface EmployeeAuthState {
   token: string;
   username: string;
   name?: string;
-  role: "employee";
+  role: "employee" | "team-lead" | "coder";
   expiresAt: number;
 }
 

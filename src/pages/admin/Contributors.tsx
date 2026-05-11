@@ -250,15 +250,28 @@ export default function ContributorsPage() {
               {contributors.map((contributor) => (
                 <div
                   key={contributor._id}
-                  className="flex items-center gap-4 p-4 border rounded-lg hover:bg-accent/50 transition-colors"
+                  className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-4 border rounded-lg hover:bg-accent/50 transition-colors"
                 >
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={contributor.avatar} alt={contributor.name} />
-                    <AvatarFallback className="bg-[#133767] text-white">
-                      {getInitials(contributor.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-4 w-full sm:w-auto">
+                    <Avatar className="h-12 w-12">
+                      <AvatarImage src={contributor.avatar} alt={contributor.name} />
+                      <AvatarFallback className="bg-[#133767] text-white">
+                        {getInitials(contributor.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0 sm:hidden">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium">{contributor.name || "Unknown"}</span>
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${getRoleColor(contributor.role)}`}
+                        >
+                          {contributor.role}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex-1 min-w-0 hidden sm:block w-full">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium">{contributor.name || "Unknown"}</span>
                       <Badge
@@ -279,7 +292,7 @@ export default function ContributorsPage() {
                       <p className="text-xs text-muted-foreground">{contributor.department}</p>
                     )}
                   </div>
-                  <div className="hidden sm:flex items-center gap-6 text-sm">
+                  <div className="flex flex-wrap sm:flex-nowrap items-center gap-4 sm:gap-6 text-sm w-full sm:w-auto mt-2 sm:mt-0 justify-between sm:justify-start">
                     <div className="text-center">
                       <div className="font-semibold">{contributor.stats?.totalTasksCreated || 0}</div>
                       <div className="text-xs text-muted-foreground">Created</div>
@@ -297,21 +310,23 @@ export default function ContributorsPage() {
                       <div className="text-xs text-muted-foreground">Projects</div>
                     </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Last active</p>
-                    <p className="text-sm font-medium">
-                      {formatDate(contributor.stats?.lastContributionAt)}
-                    </p>
+                  <div className="flex items-center justify-between w-full sm:w-auto mt-2 sm:mt-0 gap-4">
+                    <div className="text-left sm:text-right">
+                      <p className="text-xs text-muted-foreground">Last active</p>
+                      <p className="text-sm font-medium">
+                        {formatDate(contributor.stats?.lastContributionAt)}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openContributorDetails(contributor)}
+                      className="flex items-center gap-1 shrink-0"
+                    >
+                      <Eye className="h-4 w-4" />
+                      View Details
+                    </Button>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => openContributorDetails(contributor)}
-                    className="flex items-center gap-1"
-                  >
-                    <Eye className="h-4 w-4" />
-                    View Details
-                  </Button>
                 </div>
               ))}
             </div>

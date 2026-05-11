@@ -99,6 +99,8 @@ import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import jsPDF from "jspdf";
 import { Pagination } from "@/components/Pagination";
+import { DropboxIcon, formatBytes } from "@/components/admin/DropboxFilePicker";
+import { useRewards } from "@/contexts/RewardContext";
 
 interface Task {
   id: string;
@@ -128,6 +130,15 @@ interface Task {
     url: string;
     mimeType: string;
     size: number;
+  }>;
+  dropboxAttachments?: Array<{
+    file_name: string;
+    file_type?: string;
+    file_size?: number;
+    dropbox_file_id: string;
+    dropbox_path: string;
+    temporary_link?: string;
+    created_at?: string;
   }>;
 }
 
@@ -219,6 +230,15 @@ interface Project {
     mimeType: string;
     size: number;
   }>;
+  dropboxAttachments?: Array<{
+    file_name: string;
+    file_type?: string;
+    file_size?: number;
+    dropbox_file_id: string;
+    dropbox_path: string;
+    temporary_link?: string;
+    created_at?: string;
+  }>;
 }
 
 interface ProjectWithTasks extends Project {
@@ -256,15 +276,15 @@ function normalizeTask(t: TaskApi): Task {
     assignees,
     priority: t.priority,
     status: t.status,
-    executionPriority: (t as any).executionPriority ?? null,
+    executionPriority: t.executionPriority ?? null,
     dueDate: t.dueDate,
     dueTime: t.dueTime,
-    location: (t as any).location,
+    location: t.location,
     createdAt: t.createdAt,
     attachmentFileName: extra.attachmentFileName,
     attachmentNote: extra.attachmentNote,
     attachment: extra.attachment,
-    attachments: Array.isArray((t as any).attachments) ? (t as any).attachments : undefined,
+    attachments: Array.isArray(t.attachments) ? t.attachments : undefined,
   };
 }
 
@@ -327,11 +347,7 @@ function renderMessageWithMentions(text: string) {
     </>
   );
 }
-
-function ProjectLogoImg({ projectId, logoUrl, projectName }: { projectId: string; logoUrl?: string; projectName: string }) {
-  const [src, setSrc] = useState<string | null | undefined>(toProxiedUrl(logoUrl) || (logoUrl ? logoUrl : undefined));
-
-function getAttachmentCounts(attachments?: any[], attachment?: any) {
+function getAttachmentCounts(attachments?: Array<{ url?: string; mimeType?: string; fileName?: string }>, attachment?: { url?: string; mimeType?: string; fileName?: string }) {
   const allAttachments = Array.isArray(attachments) ? [...attachments] : [];
   if (attachment && attachment.url && !allAttachments.some(a => a.url === attachment.url)) {
     allAttachments.push(attachment);
@@ -603,6 +619,7 @@ export default function Tasks() {
 
   const queryClient = useQueryClient();
   const { triggerBlaster, incrementCompletedCount } = useTaskBlasterContext();
+  const { triggerReward } = useRewards();
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   const projectsQuery = useQuery({
@@ -772,7 +789,7 @@ export default function Tasks() {
 
   const updateProjectStatusMutation = useMutation({
     mutationFn: async ({ projectId, status }: { projectId: string; status: string }) => {
-      const res = await apiFetch<any>(`/api/projects/${projectId}`, {
+      const res = await apiFetch<{ id: string; status: string }>(`/api/projects/${projectId}`, {
         method: "PUT",
         body: JSON.stringify({ status }),
       });
@@ -997,7 +1014,7 @@ export default function Tasks() {
       const attachments = attachmentFiles.length > 0 ? await filesToAttachments(attachmentFiles) : [];
       const first = attachments[0];
 
-      const taskPayload: Record<string, any> = {
+      const taskPayload: Partial<Task> = {
         title: formData.title,
         description: formData.description,
         assignees: selectedAssignees,
@@ -1087,7 +1104,7 @@ export default function Tasks() {
     try {
       setProjectCommentsLoading(true);
       setCommentError(null);
-      const res = await apiFetch<{ items: any[] }>(`/api/projects/${encodeURIComponent(projectId)}/comments`);
+      const res = await apiFetch<{ items: TaskComment[] }>(`/api/projects/${encodeURIComponent(projectId)}/comments`);
       setProjectComments(Array.isArray(res.items) ? res.items : []);
       setIsViewProjectOpen(true);
     } catch (err) {
@@ -1131,7 +1148,7 @@ export default function Tasks() {
         )
       );
 
-      const res = await apiFetch<any>(endpoint, {
+      const res = await apiFetch<{ item: TaskComment }>(endpoint, {
         method: "POST",
         body: JSON.stringify({ message: msg, attachments: processedAttachments }),
       });
@@ -1171,7 +1188,7 @@ export default function Tasks() {
 
     socket.on("connect", () => console.log("✅ Socket connected:", socket.id));
     
-    socket.on("new-comment", (data: { taskId: string; comment: any }) => {
+    socket.on("new-comment", (data: { taskId: string; comment: TaskComment }) => {
       if (selectedTask && data.taskId === selectedTask.id) {
         setComments(prev => {
           if (prev.find(c => c.id === data.comment.id)) return prev;
@@ -1180,7 +1197,7 @@ export default function Tasks() {
       }
     });
 
-    socket.on("new-project-comment", (data: { projectId: string; comment: any }) => {
+    socket.on("new-project-comment", (data: { projectId: string; comment: TaskComment }) => {
       if (selectedProject && data.projectId === selectedProject.id) {
         setProjectComments(prev => {
           if (prev.find(c => c.id === data.comment.id)) return prev;
@@ -1192,7 +1209,7 @@ export default function Tasks() {
     return () => { socket.disconnect(); };
   }, [selectedTask?.id, selectedProject?.id]);
 
-  const updateStatus = async (next: Task["status"]) => {
+  const updateStatus = async (next: Task["status"], event?: React.MouseEvent | React.TouchEvent | { x: number; y: number }) => {
     if (!selectedTask) return;
     const previousStatus = selectedTask.status;
     try {
@@ -1206,17 +1223,37 @@ export default function Tasks() {
       setSelectedTask(normalized);
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
-      // Trigger TaskBlaster when task is marked as completed
+      // Trigger TaskBlaster & Reward System when task is marked as completed
       if (next === "completed" && previousStatus !== "completed") {
+        // 1. Trigger Global Blaster (Legacy)
         const taskForBlaster = {
           id: normalized.id,
           title: normalized.title,
-          priority: normalized.priority as any,
+          priority: normalized.priority,
           status: "completed",
         };
         const triggered = triggerBlaster(taskForBlaster);
         if (triggered) {
           incrementCompletedCount();
+        }
+
+        // 2. Trigger Professional Reward System (Micro-animations, Haptics, Sound)
+        if (event) {
+          let x = 0, y = 0;
+          if ('clientX' in event) {
+            x = event.clientX;
+            y = event.clientY;
+          } else if ('touches' in event && event.touches[0]) {
+            x = event.touches[0].clientX;
+            y = event.touches[0].clientY;
+          } else if ('x' in event) {
+            x = (event as any).x;
+            y = (event as any).y;
+          }
+          if (x || y) triggerReward(x, y);
+        } else {
+          // Fallback to center of screen if no event provided
+          triggerReward(window.innerWidth / 2, window.innerHeight / 2);
         }
       }
     } catch (e) {
@@ -1387,18 +1424,21 @@ export default function Tasks() {
             description: "Task has been updated.",
           });
 
-          // Trigger TaskBlaster when task is marked as completed via edit
+          // Trigger TaskBlaster & Reward System when task is marked as completed via edit
           if (values.status === "completed" && previousStatus !== "completed") {
             const taskForBlaster = {
               id: selectedTask.id,
               title: selectedTask.title,
-              priority: values.priority as any,
+              priority: values.priority,
               status: "completed",
             };
             const triggered = triggerBlaster(taskForBlaster);
             if (triggered) {
               incrementCompletedCount();
             }
+
+            // Trigger reward at center for form submission completion
+            triggerReward(window.innerWidth / 2, window.innerHeight / 2);
           }
         },
         onError: (err) => {
@@ -2289,6 +2329,47 @@ export default function Tasks() {
                             ))}
                           </div>
                           {selectedTask.attachmentNote && <p className="text-[11px] font-medium text-muted-foreground bg-muted/20 p-3 rounded-lg border border-dashed border-border/60 flex items-start gap-2"><AlertCircle className="w-3.5 h-3.5 mt-0.5" /> {selectedTask.attachmentNote}</p>}
+
+                          {/* Dropbox Attachments (View-only for employees) */}
+                          {((selectedTask as any).dropboxAttachments?.length > 0 || (selectedProject as any)?.dropboxAttachments?.length > 0) && (
+                            <div className="space-y-3 mt-4">
+                              <div className="flex items-center gap-2 text-blue-500">
+                                <DropboxIcon size={14} />
+                                <h5 className="text-[11px] font-bold uppercase tracking-widest">Dropbox Files</h5>
+                              </div>
+                              <div className="space-y-2">
+                                {(selectedTask as any).dropboxAttachments?.map((dbf: any, idx: number) => (
+                                  <a
+                                    key={`task-dbx-${idx}`}
+                                    href={dbf.temporary_link || `https://www.dropbox.com/home${dbf.dropbox_path}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-3 bg-blue-500/5 border border-blue-200/60 rounded-xl px-4 py-3 hover:bg-blue-500/10 transition-colors group"
+                                  >
+                                    <FileText className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                                    <span className="flex-1 text-sm font-semibold text-foreground truncate">{dbf.file_name}</span>
+                                    {dbf.file_size > 0 && <span className="text-xs text-muted-foreground">{formatBytes(dbf.file_size)}</span>}
+                                    <Download className="w-4 h-4 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </a>
+                                ))}
+                                {(selectedProject as any)?.dropboxAttachments?.map((dbf: any, idx: number) => (
+                                  <a
+                                    key={`proj-dbx-${idx}`}
+                                    href={dbf.temporary_link || `https://www.dropbox.com/home${dbf.dropbox_path}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center gap-3 bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 hover:bg-primary/10 transition-colors group"
+                                  >
+                                    <Badge className="text-[8px] h-4 bg-primary text-white font-black border-none px-1.5 uppercase flex-shrink-0">Project</Badge>
+                                    <DropboxIcon size={12} />
+                                    <span className="flex-1 text-sm font-semibold text-foreground truncate">{dbf.file_name}</span>
+                                    {dbf.file_size > 0 && <span className="text-xs text-muted-foreground">{formatBytes(dbf.file_size)}</span>}
+                                    <Download className="w-4 h-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ) : null}
 
@@ -2480,7 +2561,7 @@ export default function Tasks() {
                         <label className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest flex items-center gap-2">
                           <TrendingUp className="w-3.5 h-3.5" /> Collaborators
                         </label>
-                        <TaskContributorsList taskId={selectedTask.id} />
+                        <TaskContributorsList assignees={selectedTask.assignees} />
                       </div>
 
                       <div className="pt-8 space-y-3 border-t border-border/60 border-dashed">
@@ -2566,7 +2647,7 @@ export default function Tasks() {
                                     </div>
                                     {c.attachments && c.attachments.length > 0 && (
                                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
-                                        {c.attachments.map((att: any, attIdx: number) => (
+                                        {c.attachments.map((att: { url?: string; mimeType?: string; fileName?: string }, attIdx: number) => (
                                           <div key={attIdx} className="relative rounded-lg overflow-hidden border border-border/40 bg-background shadow-xs group/att aspect-square flex flex-col items-center justify-center cursor-pointer">
                                             {att.mimeType?.startsWith("image/") ? <img src={att.url} alt={att.fileName} className="w-full h-full object-cover" /> : <FileText className="h-6 w-6 text-muted-foreground/30" />}
                                             <a href={att.url || "#"} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]" title="Download attachment"><Download className="h-4 w-4 text-white" /></a>

@@ -56,7 +56,7 @@ function normalizeTask(t: TaskRowApi): TaskRow {
     assignee,
     status: t.status,
     priority: t.priority,
-    dueDate: typeof t.dueDate === "string" ? t.dueDate : (t.dueDate as any)?.toISOString?.()?.split("T")[0] ?? "",
+    dueDate: typeof t.dueDate === "string" ? t.dueDate : (typeof t.dueDate === "object" && t.dueDate && "toISOString" in t.dueDate) ? (t.dueDate as Date).toISOString().split("T")[0] : "",
   };
 }
 
@@ -207,32 +207,32 @@ export default function Reports() {
   };
 
   return (
-    <div className="pl-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="px-3 sm:px-4 md:px-6 space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="page-header mb-0">
-          <h1 className="page-title">Reports & Analytics</h1>
-          <p className="page-subtitle">Review task, attendance, and performance insights</p>
+          <h1 className="page-title text-xl sm:text-2xl md:text-3xl">Reports & Analytics</h1>
+          <p className="page-subtitle text-sm sm:text-base">Review task, attendance, and performance insights</p>
         </div>
       </div>
 
       <Tabs defaultValue="tasks" className="w-full">
-        <TabsList>
-          <TabsTrigger value="tasks">Task Analytics</TabsTrigger>
-          <TabsTrigger value="attendance">Time Clock Reports</TabsTrigger>
-          <TabsTrigger value="performance">Employee Performance</TabsTrigger>
+        <TabsList className="flex flex-wrap gap-1 h-auto">
+          <TabsTrigger value="tasks" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2">Task Analytics</TabsTrigger>
+          <TabsTrigger value="attendance" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2">Time Clock Reports</TabsTrigger>
+          <TabsTrigger value="performance" className="text-xs sm:text-sm px-2 sm:px-3 py-1.5 sm:py-2">Employee Performance</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="tasks" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-card rounded-xl border border-border shadow-card p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-foreground">Tasks by Status</h3>
+        <TabsContent value="tasks" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+            <div className="bg-card rounded-xl border border-border shadow-card p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <h3 className="font-semibold text-foreground text-base sm:text-lg">Tasks by Status</h3>
               </div>
               <ChartContainer
                 config={{
                   value: { label: "Tasks", color: "hsl(var(--primary))" },
                 }}
-                className="h-[260px]"
+                className="h-[220px] sm:h-[260px]"
               >
                 <BarChart data={statusAnalytics} margin={{ left: 8, right: 8 }}>
                   <CartesianGrid vertical={false} />
@@ -244,15 +244,15 @@ export default function Reports() {
               </ChartContainer>
             </div>
 
-            <div className="bg-card rounded-xl border border-border shadow-card p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-foreground">Tasks by Priority</h3>
+            <div className="bg-card rounded-xl border border-border shadow-card p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <h3 className="font-semibold text-foreground text-base sm:text-lg">Tasks by Priority</h3>
               </div>
               <ChartContainer
                 config={{
                   value: { label: "Tasks", color: "hsl(var(--info))" },
                 }}
-                className="h-[260px]"
+                className="h-[220px] sm:h-[260px]"
               >
                 <BarChart data={priorityAnalytics} margin={{ left: 8, right: 8 }}>
                   <CartesianGrid vertical={false} />
@@ -265,55 +265,56 @@ export default function Reports() {
             </div>
           </div>
 
-          <div className="bg-card rounded-xl border border-border shadow-card p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <div className="bg-card rounded-xl border border-border shadow-card p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4">
               <div className="relative w-full sm:max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
                 <Input
                   placeholder="Search tasks..."
-                  className="pl-10"
+                  className="pl-9 sm:pl-10 text-sm sm:text-base"
                   value={taskQuery}
                   onChange={(e) => setTaskQuery(e.target.value)}
                 />
               </div>
-              <Button variant="outline" className="gap-2" onClick={exportTasksCsv}>
-                <Download className="w-4 h-4" />
+              <Button variant="outline" className="gap-2 w-full sm:w-auto text-sm sm:text-base" onClick={exportTasksCsv}>
+                <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 Export CSV
               </Button>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="data-table">
+            <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+              <div className="min-w-[500px] sm:min-w-full">
+                <table className="data-table w-full">
                 <thead>
-                  <tr>
-                    <th>Task</th>
-                    <th>Assignee</th>
-                    <th>Priority</th>
-                    <th>Status</th>
-                    <th>Due Date</th>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium text-muted-foreground">Task</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium text-muted-foreground">Assignee</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium text-muted-foreground">Priority</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium text-muted-foreground">Status</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium text-muted-foreground">Due Date</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredTasks.map((t, index) => (
-                    <tr key={t.id} className="animate-fade-in" style={{ animationDelay: `${index * 20}ms` }}>
-                      <td>
-                        <span className="font-medium text-foreground">{t.title}</span>
+                    <tr key={t.id} className="animate-fade-in border-b border-border/50 hover:bg-muted/30 transition-colors" style={{ animationDelay: `${index * 20}ms` }}>
+                      <td className="py-2 sm:py-3 px-2 sm:px-3">
+                        <span className="font-medium text-foreground text-sm sm:text-base">{t.title}</span>
                       </td>
-                      <td>
-                        <span className="text-muted-foreground">{t.assignee}</span>
+                      <td className="py-2 sm:py-3 px-2 sm:px-3">
+                        <span className="text-muted-foreground text-sm sm:text-base">{t.assignee}</span>
                       </td>
-                      <td>
-                        <Badge variant="outline" className="capitalize">
+                      <td className="py-2 sm:py-3 px-2 sm:px-3">
+                        <Badge variant="outline" className="capitalize text-[10px] sm:text-xs">
                           {t.priority}
                         </Badge>
                       </td>
-                      <td>
-                        <Badge variant="secondary" className="capitalize">
+                      <td className="py-2 sm:py-3 px-2 sm:px-3">
+                        <Badge variant="secondary" className="capitalize text-[10px] sm:text-xs">
                           {t.status}
                         </Badge>
                       </td>
-                      <td>
-                        <span className="text-muted-foreground">
+                      <td className="py-2 sm:py-3 px-2 sm:px-3">
+                        <span className="text-muted-foreground text-sm sm:text-base">
                           {new Date(t.dueDate).toLocaleDateString()}
                         </span>
                       </td>
@@ -321,21 +322,22 @@ export default function Reports() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
         </TabsContent>
 
-        <TabsContent value="attendance" className="space-y-6">
-          <div className="bg-card rounded-xl border border-border shadow-card p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-foreground">Weekly Summary</h3>
+        <TabsContent value="attendance" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
+          <div className="bg-card rounded-xl border border-border shadow-card p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h3 className="font-semibold text-foreground text-base sm:text-lg">Weekly Summary</h3>
             </div>
             <ChartContainer
               config={{
                 tasksCompleted: { label: "Tasks Completed", color: "hsl(var(--primary))" },
                 hoursLogged: { label: "Hours Logged", color: "hsl(var(--success))" },
               }}
-              className="h-[280px]"
+              className="h-[240px] sm:h-[280px]"
             >
               <LineChart data={weeklyTrend} margin={{ left: 12, right: 12 }}>
                 <CartesianGrid vertical={false} />
@@ -349,80 +351,82 @@ export default function Reports() {
             </ChartContainer>
           </div>
 
-          <div className="bg-card rounded-xl border border-border shadow-card p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <div className="bg-card rounded-xl border border-border shadow-card p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4">
               <div className="relative w-full sm:max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground" />
                 <Input
                   placeholder="Search attendance..."
-                  className="pl-10"
+                  className="pl-9 sm:pl-10 text-sm sm:text-base"
                   value={attendanceQuery}
                   onChange={(e) => setAttendanceQuery(e.target.value)}
                 />
               </div>
-              <Button variant="outline" className="gap-2" onClick={exportAttendanceCsv}>
-                <Download className="w-4 h-4" />
+              <Button variant="outline" className="gap-2 w-full sm:w-auto text-sm sm:text-base" onClick={exportAttendanceCsv}>
+                <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 Export CSV
               </Button>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="data-table">
+            <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+              <div className="min-w-[650px] sm:min-w-full">
+                <table className="data-table w-full">
                 <thead>
-                  <tr>
-                    <th>Employee</th>
-                    <th>Date</th>
-                    <th>Clock In</th>
-                    <th>Clock Out</th>
-                    <th>Total Hours</th>
-                    <th>Status</th>
-                    <th>Location</th>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium text-muted-foreground">Employee</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium text-muted-foreground">Date</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium text-muted-foreground">Clock In</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium text-muted-foreground">Clock Out</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium text-muted-foreground">Total Hours</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium text-muted-foreground">Status</th>
+                    <th className="text-left py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium text-muted-foreground">Location</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredAttendance.map((a, index) => (
-                    <tr key={a.id} className="animate-fade-in" style={{ animationDelay: `${index * 20}ms` }}>
-                      <td>
-                        <span className="font-medium text-foreground">{a.employee}</span>
+                    <tr key={a.id} className="animate-fade-in border-b border-border/50 hover:bg-muted/30 transition-colors" style={{ animationDelay: `${index * 20}ms` }}>
+                      <td className="py-2 sm:py-3 px-2 sm:px-3">
+                        <span className="font-medium text-foreground text-sm sm:text-base">{a.employee}</span>
                       </td>
-                      <td>
-                        <span className="text-muted-foreground">{new Date(a.date).toLocaleDateString()}</span>
+                      <td className="py-2 sm:py-3 px-2 sm:px-3">
+                        <span className="text-muted-foreground text-sm sm:text-base">{new Date(a.date).toLocaleDateString()}</span>
                       </td>
-                      <td>
-                        <span className="text-muted-foreground">{a.clockIn}</span>
+                      <td className="py-2 sm:py-3 px-2 sm:px-3">
+                        <span className="text-muted-foreground text-sm sm:text-base">{a.clockIn}</span>
                       </td>
-                      <td>
-                        <span className="text-muted-foreground">{a.clockOut}</span>
+                      <td className="py-2 sm:py-3 px-2 sm:px-3">
+                        <span className="text-muted-foreground text-sm sm:text-base">{a.clockOut}</span>
                       </td>
-                      <td>
-                        <span className="text-muted-foreground">{a.totalHours}h</span>
+                      <td className="py-2 sm:py-3 px-2 sm:px-3">
+                        <span className="text-muted-foreground text-sm sm:text-base">{a.totalHours}h</span>
                       </td>
-                      <td>
-                        <Badge variant="secondary" className="capitalize">
+                      <td className="py-2 sm:py-3 px-2 sm:px-3">
+                        <Badge variant="secondary" className="capitalize text-[10px] sm:text-xs">
                           {a.status}
                         </Badge>
                       </td>
-                      <td>
-                        <span className="text-muted-foreground">{a.location}</span>
+                      <td className="py-2 sm:py-3 px-2 sm:px-3">
+                        <span className="text-muted-foreground text-sm sm:text-base">{a.location}</span>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
         </TabsContent>
 
-        <TabsContent value="performance" className="space-y-6">
-          <div className="bg-card rounded-xl border border-border shadow-card p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-foreground">Hours by Employee</h3>
+        <TabsContent value="performance" className="space-y-4 sm:space-y-6 mt-4 sm:mt-6">
+          <div className="bg-card rounded-xl border border-border shadow-card p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h3 className="font-semibold text-foreground text-base sm:text-lg">Hours by Employee</h3>
             </div>
             <ChartContainer
               config={{
                 hours: { label: "Hours", color: "hsl(var(--primary))" },
               }}
-              className="h-[320px]"
+              className="h-[260px] sm:h-[320px]"
             >
               <BarChart data={hoursByEmployee} margin={{ left: 12, right: 12 }}>
                 <CartesianGrid vertical={false} />
@@ -433,27 +437,29 @@ export default function Reports() {
               </BarChart>
             </ChartContainer>
 
-            <div className="mt-6 overflow-x-auto">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Employee</th>
-                    <th>Total Hours</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {hoursByEmployee.map((row, index) => (
-                    <tr key={row.employee} className="animate-fade-in" style={{ animationDelay: `${index * 20}ms` }}>
-                      <td>
-                        <span className="font-medium text-foreground">{row.employee}</span>
-                      </td>
-                      <td>
-                        <span className="text-muted-foreground">{row.hours}h</span>
-                      </td>
+            <div className="mt-4 sm:mt-6 overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+              <div className="min-w-[300px] sm:min-w-full">
+                <table className="data-table w-full">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium text-muted-foreground">Employee</th>
+                      <th className="text-left py-2 sm:py-3 px-2 sm:px-3 text-xs sm:text-sm font-medium text-muted-foreground">Total Hours</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {hoursByEmployee.map((row, index) => (
+                      <tr key={row.employee} className="animate-fade-in border-b border-border/50 hover:bg-muted/30 transition-colors" style={{ animationDelay: `${index * 20}ms` }}>
+                        <td className="py-2 sm:py-3 px-2 sm:px-3">
+                          <span className="font-medium text-foreground text-sm sm:text-base">{row.employee}</span>
+                        </td>
+                        <td className="py-2 sm:py-3 px-2 sm:px-3">
+                          <span className="text-muted-foreground text-sm sm:text-base">{row.hours}h</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </TabsContent>

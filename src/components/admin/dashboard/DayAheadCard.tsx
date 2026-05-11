@@ -54,7 +54,7 @@ const priorityConfig = {
   },
 };
 
-export function DayAheadCard() {
+export function DayAheadCard({ basePath = "/admin/tasks" }: { basePath?: string }) {
   const navigate = useNavigate();
   const [data, setData] = useState<TodayResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -84,18 +84,44 @@ export function DayAheadCard() {
       }
     };
     void load();
+    const interval = setInterval(load, 30000);
+
     return () => {
       mounted = false;
+      clearInterval(interval);
     };
   }, []);
 
-  const toggleComplete = (id: string) => {
+  const toggleComplete = async (id: string) => {
+    const isCompleted = completedIds.has(id);
+    const nextStatus = isCompleted ? "pending" : "completed";
+
+    // Optimistic update
     setCompletedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
+      if (isCompleted) next.delete(id);
       else next.add(id);
       return next;
     });
+
+    try {
+      await apiFetch(`/api/tasks/${encodeURIComponent(id)}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      // Optionally reload data to get updated stats
+      const res = await apiFetch<TodayResponse>("/api/dashboard/today");
+      setData(res);
+    } catch (err) {
+      // Revert on error
+      setCompletedIds((prev) => {
+        const next = new Set(prev);
+        if (isCompleted) next.add(id);
+        else next.delete(id);
+        return next;
+      });
+      console.error("Failed to update task status:", err);
+    }
   };
 
   const today = new Date().toLocaleDateString("en-US", {
@@ -122,7 +148,7 @@ export function DayAheadCard() {
             <span className="text-xs text-muted-foreground hidden md:inline">— {today}</span>
           </div>
           <button
-            onClick={() => navigate("/admin/tasks")}
+            onClick={() => navigate(`${basePath}?create=true`)}
             className="flex items-center gap-1 text-xs text-primary hover:underline font-medium"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -179,6 +205,7 @@ export function DayAheadCard() {
                       isCompleted={completedIds.has(task._id)}
                       onToggle={() => toggleComplete(task._id)}
                       isOverdue
+                      basePath={basePath}
                     />
                   ))}
                 </AnimatePresence>
@@ -198,6 +225,7 @@ export function DayAheadCard() {
                       task={task}
                       isCompleted={completedIds.has(task._id)}
                       onToggle={() => toggleComplete(task._id)}
+                      basePath={basePath}
                     />
                   ))}
                 </AnimatePresence>
@@ -226,12 +254,15 @@ function TaskRow({
   isCompleted,
   onToggle,
   isOverdue = false,
+  basePath = "/admin/tasks",
 }: {
   task: Task;
   isCompleted: boolean;
   onToggle: () => void;
   isOverdue?: boolean;
+  basePath?: string;
 }) {
+  const navigate = useNavigate();
   const pc = priorityConfig[task.priority] ?? priorityConfig.medium;
 
   return (
@@ -240,7 +271,8 @@ function TaskRow({
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, height: 0 }}
-      className={`flex items-center gap-3 p-2.5 rounded-lg border-l-2 transition-colors ${
+      onClick={() => navigate(`${basePath}?view=${task._id}`)}
+      className={`flex items-center gap-3 p-2.5 rounded-lg border-l-2 transition-colors cursor-pointer ${
         isOverdue
           ? "bg-destructive/5 border-l-destructive hover:bg-destructive/10"
           : `${pc.accent} bg-muted/30 hover:bg-muted/50`
@@ -248,7 +280,10 @@ function TaskRow({
     >
       {/* Checkbox toggle */}
       <button
-        onClick={onToggle}
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggle();
+        }}
         className="flex-shrink-0 text-muted-foreground hover:text-primary transition-colors"
         aria-label={isCompleted ? "Mark incomplete" : "Mark complete"}
       >

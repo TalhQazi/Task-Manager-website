@@ -27,8 +27,6 @@ export async function employeeApiFetch<T>(
     }
   }
 
-  console.log("[employeeApiFetch] Request:", endpoint, "URL:", url);
-
   if (!headers["Authorization"]) {
     const token = localStorage.getItem("token");
     if (token) {

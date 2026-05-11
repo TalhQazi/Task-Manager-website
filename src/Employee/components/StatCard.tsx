@@ -40,59 +40,40 @@ export function EmployeeStatCard({
     <div
       onClick={onClick}
       className={cn(
-        "relative rounded-xl border-[2px] border-[#5a5a5a] bg-[#111]",
-        "shadow-[inset_0_0_20px_rgba(0,0,0,0.8),_0_4px_10px_rgba(0,0,0,0.5)]",
-        "transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_15px_rgba(255,255,255,0.2)] cursor-pointer",
-        "overflow-hidden group"
+        "relative rounded-xl bg-gradient-to-br from-[#1a1a2e] to-[#16162a]",
+        "border border-white/10 shadow-lg",
+        "transition-all duration-300 hover:scale-[1.02] hover:shadow-xl cursor-pointer",
+        "overflow-hidden"
       )}
     >
-      {/* Dynamic Background Glow */}
+      {/* Subtle Glow */}
       <div
-        className="absolute inset-0 opacity-60 transition-opacity group-hover:opacity-100 mix-blend-screen"
+        className="absolute inset-0 opacity-40"
         style={{
           background: `radial-gradient(circle at 50% 120%, ${glowColor} 0%, transparent 70%)`
         }}
       />
 
-      {/* Horizontal Light Streak */}
-      <div
-        className="absolute inset-0 opacity-30 mix-blend-overlay"
-        style={{
-          background: `linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.8) 50%, transparent 100%)`,
-          height: '1px',
-          top: '50%'
-        }}
-      />
-
-      {/* Inner Metallic Frame Bevel */}
-      <div className="absolute inset-[2px] rounded-lg border border-white/10 pointer-events-none" />
-
-      <div className="relative p-3 sm:p-4 flex items-center justify-between gap-3 sm:gap-4 z-10">
+      <div className="relative p-4 sm:p-5 flex items-center justify-between gap-4 z-10">
         {/* Left Section - Text Content */}
         <div className="flex-1 min-w-0">
-          <p className="text-[#d0d0d0] text-xs sm:text-sm font-medium tracking-wide mb-1 truncate drop-shadow-md">
+          <p className="text-gray-400 text-xs font-medium tracking-wide mb-1 truncate">
             {title}
           </p>
-          <p className="text-white text-2xl sm:text-3xl font-bold tracking-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+          <p className="text-white text-2xl sm:text-3xl font-bold tracking-tight">
             {value}
           </p>
         </div>
 
-        {/* Right Section - Icon inside metallic badge */}
+        {/* Right Section - Icon */}
         <div className={cn(
           "relative flex items-center justify-center",
-          "h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg",
-          "border-2 border-[#666] bg-gradient-to-br from-[#444] to-[#111]",
-          "shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),_0_4px_8px_rgba(0,0,0,0.8)]"
+          "h-12 w-12 flex-shrink-0 rounded-lg",
+          "bg-black/30 border border-white/5"
         )}>
-          {/* Inner ring for the icon */}
-          <div className="absolute inset-[2px] rounded-md border border-black/80" />
           <Icon
-            className="h-5 w-5 sm:h-6 sm:w-6 relative z-10"
-            style={{
-              color: glowColor.replace(/,\s*[\d.]+\)$/, ', 1)'),
-              filter: `drop-shadow(0 0 6px ${glowColor.replace(/,\s*[\d.]+\)$/, ', 0.8)')})`
-            }}
+            className="h-6 w-6"
+            style={{ color: glowColor.replace(/,\s*[\d.]+\)$/, ', 1)') }}
           />
         </div>
       </div>
