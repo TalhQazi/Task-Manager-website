@@ -500,7 +500,16 @@ export function MainLayout({ children }: MainLayoutProps) {
                         <div className="p-4 text-center text-xs text-muted-foreground">No messages</div>
                       ) : (
                         messagesQuery.data?.map(c => (
-                          <DropdownMenuItem key={c.employee?.id} onClick={() => navigate("/manager/messages")}>
+                          <DropdownMenuItem
+                            key={c.employee?.id}
+                            onClick={() => {
+                              if (c.employee) {
+                                navigate("/manager/messages", { state: { selectedEmployee: c.employee } });
+                              } else {
+                                navigate("/manager/messages");
+                              }
+                            }}
+                          >
                             <div className="flex flex-col gap-0.5">
                               <span className="font-medium text-xs">{c.employee?.name}</span>
                               <span className="text-[10px] text-muted-foreground truncate">{c.lastMessage?.content}</span>

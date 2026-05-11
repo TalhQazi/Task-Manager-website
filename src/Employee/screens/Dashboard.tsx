@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getEmployeeDashboard, getEmployeeProfile, getOnboardingStatus } from "../lib/api";
 import { employeeApiFetch } from "../lib/api";
-import { CheckCircle, Clock, AlertCircle, MessageSquare, Calendar, Timer, ListTodo, AlertTriangle, DollarSign, CheckSquare2, Users, UserCog, ChevronDown, ChevronUp } from "lucide-react";
+import { CheckCircle, Clock, AlertCircle, MessageSquare, Calendar, Timer, ListTodo, AlertTriangle, DollarSign, CheckSquare2, Users, UserCog, ChevronDown, ChevronUp, Briefcase } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -239,6 +239,64 @@ export default function EmployeeDashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Stats Cards Row - Top of Page */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Link to="/employee/payroll">
+          <EmployeeStatCard
+            title="CURRENT PAY PERIOD"
+            value={`$${(dashboardQuery.data?.earnings || 0).toFixed(2)}`}
+            icon={DollarSign}
+            variant="green"
+          />
+        </Link>
+        <Link to="/employee/timeLogs">
+          <EmployeeStatCard
+            title="HOURS WORKED"
+            value={`${dashboardQuery.data?.hoursWorked || 0} hrs`}
+            icon={Clock}
+            variant="blue"
+          />
+        </Link>
+        <Link to="/employee/tasks">
+          <EmployeeStatCard
+            title="PENDING TASKS"
+            value={dashboardQuery.data?.tasks?.pending || 0}
+            icon={Briefcase}
+            variant="orange"
+          />
+        </Link>
+        <Link to="/employee/profile">
+          <EmployeeStatCard
+            title="ALERTS"
+            value={dashboardQuery.data?.alerts?.length || 0}
+            icon={AlertCircle}
+            variant={(dashboardQuery.data?.alerts?.length || 0) > 0 ? "red" : "primary"}
+          />
+        </Link>
+      </div>
+
+      {/* Alerts List */}
+      {(dashboardQuery.data?.alerts?.length || 0) > 0 && (
+        <Card className="border-red-200 dark:border-red-900">
+          <CardHeader>
+            <CardTitle className="text-red-600 dark:text-red-400 flex items-center gap-2">
+              <AlertCircle className="h-5 w-5" />
+              Important Alerts
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {dashboardQuery.data?.alerts?.map((alert: string, index: number) => (
+                <div key={index} className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-950/30 rounded-lg text-red-700 dark:text-red-300">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm">{alert}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Welcome Banner - Admin Style */}
       <div
         className="relative rounded-xl border-[2px] border-[#5a5a5a] bg-[#111] overflow-hidden group cursor-default shadow-[inset_0_0_20px_rgba(0,0,0,0.8),_0_4px_10px_rgba(0,0,0,0.5)]"

@@ -1,6 +1,6 @@
 import { NavLink } from "@/components/admin/NavLink";
 
-import { LayoutDashboard, ClipboardList, Calendar, UserCircle, Bell, Clock, MessageCircle, FileText, ClipboardCheck, Folder, Wallet, Palette, Calendar as CalendarIcon, ShoppingCart } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Calendar, UserCircle, Bell, Clock, MessageCircle, FileText, ClipboardCheck, Folder, Wallet, Palette, Calendar as CalendarIcon, ShoppingCart, History, FileStack } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -14,7 +14,9 @@ const navItemsBase = [
   { icon: ClipboardCheck, label: "Scrum Records", path: "/employee/scrum-records" },
 
   { icon: Clock, label: "Time Tracking", path: "/employee/clocked" },
+  { icon: History, label: "Time Logs", path: "/employee/timeLogs" },
   { icon: Wallet, label: "Payroll", path: "/employee/payroll" },
+  { icon: FileStack, label: "Documents", path: "/employee/documents" },
   { icon: CalendarIcon, label: "Leave Requests", path: "/employee/leave-requests" },
 
   { icon: MessageCircle, label: "Messages", path: "/employee/messages" },

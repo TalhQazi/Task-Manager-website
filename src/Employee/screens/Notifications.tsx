@@ -25,7 +25,7 @@ interface Notification {
   id: string;
   title: string;
   message: string;
-  type: "info" | "success" | "warning" | "task";
+  type: "info" | "success" | "warning" | "task" | "payroll" | "document";
   timestamp: string;
   read: boolean;
 }
@@ -66,6 +66,16 @@ const mockNotifications: Notification[] = [
     read: true,
   },
 ];
+
+// Add support for specific notification types
+const notificationIcons = {
+  info: <Info className="mr-2 text-blue-500" />,
+  success: <CheckCircle className="mr-2 text-green-500" />,
+  warning: <AlertTriangle className="mr-2 text-yellow-500" />,
+  task: <Clock className="mr-2 text-purple-500" />,
+  payroll: <CheckCheck className="mr-2 text-green-500" />,
+  document: <AlertTriangle className="mr-2 text-red-500" />,
+};
 
 export default function EmployeeNotifications() {
 const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -421,61 +431,22 @@ function NotificationList({
         <div
           key={notification.id}
           className={cn(
-            "p-4 hover:bg-white/[0.04] transition-colors group",
-            !notification.read && getTypeColor(notification.type)
+            "flex items-center p-3 border-b",
+            notification.read ? "bg-gray-100" : "bg-white"
           )}
         >
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5">{getTypeIcon(notification.type)}</div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h3
-                    className={cn(
-                      "font-semibold text-[color:var(--tb-dashboard-text-color)]",
-                      !notification.read && "text-[#133767]"
-                    )}
-                  >
-                    {notification.title}
-                  </h3>
-                  <p className="text-sm mt-1 opacity-70 text-[color:var(--tb-dashboard-text-color)]">
-                    {notification.message}
-                  </p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <Clock className="h-3 w-3 text-gray-400" />
-                    <span className="text-xs opacity-60 text-[color:var(--tb-dashboard-text-color)]">
-                      {formatTime(notification.timestamp)}
-                    </span>
-                    {!notification.read && (
-                      <Badge className="bg-[#133767] text-white text-xs">
-                        New
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {!notification.read && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => onMarkRead(notification.id)}
-                    >
-                      <CheckCheck className="h-4 w-4 text-green-500" />
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => onDelete(notification.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-red-500" />
-                  </Button>
-                </div>
-              </div>
-            </div>
+          {notificationIcons[notification.type]}
+          <div className="flex-1">
+            <p className="font-semibold">{notification.title}</p>
+            <p className="text-sm text-gray-500">{notification.message}</p>
           </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => markNotificationAsRead(notification.id)}
+          >
+            Mark as Read
+          </Button>
         </div>
       ))}
     </div>

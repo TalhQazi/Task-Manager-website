@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import {
   User,
@@ -30,6 +31,8 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
+  Shield,
+  FileText,
 } from "lucide-react";
 
 import { getEmployeeProfile, employeeApiFetch, updateBankInfo, updateTaxInfo, toProxiedUrl } from "../lib/api";
@@ -63,6 +66,15 @@ interface EmployeeProfileData {
     tds?: string | number;
     regime?: string;
   };
+
+  // New fields from Employee Backend Portal
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelation?: string;
+  filingStatus?: string;
+  allowances?: number;
+  additionalWithholding?: number;
+  mfaEnabled?: boolean;
 }
 
 export default function EmployeeProfile() {
@@ -88,6 +100,14 @@ const [tax, setTax] = useState({
 });
 
 const [uploading, setUploading] = useState(false);
+
+  // MFA state
+  const [mfaModalOpen, setMfaModalOpen] = useState(false);
+  const [mfaStep, setMfaStep] = useState<"setup" | "verify">("setup");
+  const [mfaSecret, setMfaSecret] = useState("");
+  const [mfaQrUrl, setMfaQrUrl] = useState("");
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaLoading, setMfaLoading] = useState(false);
 
   // Onboarding state
   const [onboardingData, setOnboardingData] = useState<any>(null);
@@ -610,6 +630,58 @@ const hasTaxInfo =
       toast.success("Notification preferences saved");
     } catch (err: any) {
       toast.error(err.message || "Failed to save preferences");
+    }
+  };
+
+  const handleMfaSetup = async () => {
+    try {
+      setMfaLoading(true);
+      const res = await employeeApiFetch<{ secret: string; otpauthUrl: string }>("/api/employees/me/mfa/setup", {
+        method: "POST",
+      });
+      setMfaSecret(res.secret);
+      setMfaQrUrl(res.otpauthUrl);
+      setMfaStep("verify");
+      setMfaModalOpen(true);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to start MFA setup");
+    } finally {
+      setMfaLoading(false);
+    }
+  };
+
+  const handleMfaVerify = async () => {
+    try {
+      setMfaLoading(true);
+      await employeeApiFetch("/api/employees/me/mfa/verify", {
+        method: "POST",
+        body: JSON.stringify({ code: mfaCode }),
+      });
+      toast.success("Two-factor authentication enabled!");
+      setEditedProfile({ ...editedProfile, mfaEnabled: true });
+      setMfaModalOpen(false);
+      setMfaCode("");
+      setMfaStep("setup");
+    } catch (err: any) {
+      toast.error(err.message || "Invalid code. Please try again.");
+    } finally {
+      setMfaLoading(false);
+    }
+  };
+
+  const handleMfaDisable = async () => {
+    try {
+      setMfaLoading(true);
+      await employeeApiFetch("/api/employees/me/mfa/disable", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      toast.success("Two-factor authentication disabled");
+      setEditedProfile({ ...editedProfile, mfaEnabled: false });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to disable MFA");
+    } finally {
+      setMfaLoading(false);
     }
   };
 
@@ -1602,8 +1674,205 @@ const hasTaxInfo =
               </Button>
             </CardContent>
           </Card>
+
+          <Separator />
+
+          {/* Emergency Contact */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Emergency Contact
+              </CardTitle>
+              <CardDescription>Contact person in case of emergency</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="emergencyName">Contact Name</Label>
+                  <Input
+                    id="emergencyName"
+                    placeholder="Full name"
+                    value={editedProfile?.emergencyContactName || ""}
+                    onChange={(e) => setEditedProfile({ ...editedProfile, emergencyContactName: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="emergencyRelation">Relationship</Label>
+                  <Input
+                    id="emergencyRelation"
+                    placeholder="e.g., Spouse, Parent, Sibling"
+                    value={editedProfile?.emergencyContactRelation || ""}
+                    onChange={(e) => setEditedProfile({ ...editedProfile, emergencyContactRelation: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="emergencyPhone">Phone Number</Label>
+                <Input
+                  id="emergencyPhone"
+                  placeholder="(555) 123-4567"
+                  value={editedProfile?.emergencyContactPhone || ""}
+                  onChange={(e) => setEditedProfile({ ...editedProfile, emergencyContactPhone: e.target.value })}
+                />
+              </div>
+              <Button
+                onClick={handleSaveProfile}
+                className="bg-[#133767] hover:bg-[#1a4585]"
+              >
+                Save Emergency Contact
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Separator />
+
+          {/* Tax Withholding (W-4) */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Tax Withholding (W-4)
+              </CardTitle>
+              <CardDescription>Federal tax withholding settings</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="filingStatus">Filing Status</Label>
+                  <select
+                    id="filingStatus"
+                    className="w-full px-3 py-2 border rounded-md"
+                    value={editedProfile?.filingStatus || ""}
+                    onChange={(e) => setEditedProfile({ ...editedProfile, filingStatus: e.target.value })}
+                  >
+                    <option value="">Select status</option>
+                    <option value="single">Single</option>
+                    <option value="married_filing_jointly">Married Filing Jointly</option>
+                    <option value="married_filing_separately">Married Filing Separately</option>
+                    <option value="head_of_household">Head of Household</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="allowances">Allowances</Label>
+                  <Input
+                    id="allowances"
+                    type="number"
+                    min="0"
+                    placeholder="0"
+                    value={editedProfile?.allowances || 0}
+                    onChange={(e) => setEditedProfile({ ...editedProfile, allowances: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="additionalWithholding">Additional Withholding ($)</Label>
+                <Input
+                  id="additionalWithholding"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={editedProfile?.additionalWithholding || 0}
+                  onChange={(e) => setEditedProfile({ ...editedProfile, additionalWithholding: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+              <Button
+                onClick={async () => {
+                  await updateTaxInfo({
+                    filingStatus: editedProfile?.filingStatus,
+                    allowances: editedProfile?.allowances,
+                    additionalWithholding: editedProfile?.additionalWithholding,
+                  });
+                  toast.success("Tax settings updated");
+                }}
+                className="bg-[#133767] hover:bg-[#1a4585]"
+              >
+                Save Tax Settings
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Separator />
+
+          {/* MFA / Two-Factor Authentication */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Two-Factor Authentication
+              </CardTitle>
+              <CardDescription>Add an extra layer of security to your account</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div className="space-y-0.5">
+                  <Label>Authenticator App</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Use an authenticator app to generate one-time codes
+                  </p>
+                </div>
+                {editedProfile?.mfaEnabled ? (
+                  <Button variant="destructive" size="sm" onClick={handleMfaDisable} disabled={mfaLoading}>
+                    Disable
+                  </Button>
+                ) : (
+                  <Switch
+                    onCheckedChange={() => handleMfaSetup()}
+                  />
+                )}
+              </div>
+              {editedProfile?.mfaEnabled && (
+                <div className="p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900 rounded-lg">
+                  <div className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                    <CheckCircle2 className="h-5 w-5" />
+                    <span className="font-medium">Two-factor authentication is enabled</span>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
+
+      {/* MFA Setup Dialog */}
+      <Dialog open={mfaModalOpen} onOpenChange={setMfaModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Set Up Two-Factor Authentication</DialogTitle>
+            <DialogDescription>
+              Scan the QR code with your authenticator app, then enter the 6-digit code
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {mfaQrUrl && (
+              <div className="flex justify-center p-4 bg-white rounded-lg">
+                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(mfaQrUrl)}`} alt="QR Code" className="w-48 h-48" />
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label>Manual Secret Key</Label>
+              <Input value={mfaSecret} readOnly className="font-mono text-sm" />
+            </div>
+            <div className="space-y-2">
+              <Label>Enter 6-digit code from authenticator app</Label>
+              <Input
+                value={mfaCode}
+                onChange={(e) => setMfaCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="000000"
+                maxLength={6}
+                className="text-center text-2xl font-mono tracking-widest"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMfaModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleMfaVerify} disabled={mfaCode.length !== 6 || mfaLoading}>
+              {mfaLoading ? "Verifying..." : "Verify & Enable"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

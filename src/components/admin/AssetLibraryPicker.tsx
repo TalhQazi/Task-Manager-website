@@ -3,7 +3,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Loader2, Search, Image as ImageIcon, Check, FolderOpen } from "lucide-react";
-import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
+import { apiFetch } from "@/lib/admin/apiClient";
+import { toProxiedUrl as employeeToProxiedUrl, getEmployeeAuth } from "@/Employee/lib/api";
 
 type AssetItem = {
   id: string;
@@ -241,3 +242,8 @@ export default function AssetLibraryPicker({ open, onOpenChange, onSelect, image
 function getAssetUrl(asset: AssetItem): string {
   return asset.urlOriginal || asset.attachment?.url || "";
 }
+
+// Use employee toProxiedUrl which uses employee auth tokens
+const toProxiedUrl = (url: string): string => {
+  return employeeToProxiedUrl(url);
+};
