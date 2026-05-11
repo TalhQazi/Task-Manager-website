@@ -17,8 +17,7 @@ import {
   CheckCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { listResource } from "@/lib/manger/api";
-import { markNotificationAsRead, markAllNotificationsAsRead, deleteNotification as deleteNotificationApi } from "../lib/api";
+import { markNotificationAsRead, markAllNotificationsAsRead, deleteNotification as deleteNotificationApi, employeeApiFetch } from "../lib/api";
 
 
 
@@ -137,8 +136,9 @@ useEffect(() => {
 
 const loadNotifications = useCallback(async () => {
   try {
-    const data = await listResource<Notification>("notifications");
-    const filteredData = (data || []).filter((n: any) => {
+    const res = await employeeApiFetch<{ items?: any[] } | any[]>("/api/messages?type=broadcast");
+    const rawItems = Array.isArray(res) ? res : (res?.items ?? []);
+    const filteredData = rawItems.filter((n: any) => {
       const recipient = n.recipient || "";
       return recipient.includes(userEmail) || recipient.includes(userName) || n.audience === "all";
     });
