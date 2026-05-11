@@ -91,6 +91,7 @@ import {
   Maximize2,
   Smile,
   Flame,
+  Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/admin/utils";
 import { apiFetch, downloadTaskAttachment, toProxiedUrl, downloadViaUrl } from "@/lib/admin/apiClient";
