@@ -69,12 +69,15 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         // Refresh notifications count
         queryClient.invalidateQueries({ queryKey: ["admin-notifications"] });
         
+        // Determine where to navigate when clicking "View"
+        const link = data.meta?.link || "/admin/notifications";
+        
         // Show toast
         toast(data.title || "New Notification", {
           description: data.content || data.message,
           action: {
             label: "View",
-            onClick: () => navigate("/admin/notifications")
+            onClick: () => navigate(link)
           }
         });
       }

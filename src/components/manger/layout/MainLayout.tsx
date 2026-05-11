@@ -97,9 +97,13 @@ export function MainLayout({ children }: MainLayoutProps) {
       if (resourceId) return `/manager/appliances?view=${encodeURIComponent(resourceId)}`;
       return "/manager/appliances";
     }
-    if (resourceType === "task") {
+    if (resourceType === "task" || resourceType === "task comment") {
       if (resourceId) return `/manager/tasks?view=${encodeURIComponent(resourceId)}`;
       return "/manager/tasks";
+    }
+    if (resourceType === "project" || resourceType === "project comment") {
+      if (resourceId) return `/manager/projects?view=${encodeURIComponent(resourceId)}`;
+      return "/manager/projects";
     }
     if (resourceType === "bug") {
       if (resourceId) return `/developer/bugs?view=${encodeURIComponent(resourceId)}`;
@@ -331,12 +335,17 @@ export function MainLayout({ children }: MainLayoutProps) {
         // Refresh notifications count
         queryClient.invalidateQueries({ queryKey: ["manager-notifications"] });
         
+        // Determine where to navigate when clicking "View"
+        const link = data.meta?.link 
+          ? data.meta.link.replace(/^\/admin\//, "/manager/") 
+          : "/manager/notifications";
+        
         // Show toast
         toast(data.title || "New Notification", {
           description: data.content || data.message,
           action: {
             label: "View",
-            onClick: () => navigate("/manager/notifications")
+            onClick: () => navigate(link)
           }
         });
       }

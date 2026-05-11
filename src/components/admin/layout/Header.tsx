@@ -103,8 +103,12 @@ export function Header({ onMenuClick }: HeaderProps) {
       if (resourceId) return `/admin/appliances?view=${encodeURIComponent(resourceId)}`;
       return "/admin/appliances";
     }
-    if (resourceType === "task") {
+    if (resourceType === "task" || resourceType === "task comment") {
       if (resourceId) return `/admin/tasks?view=${encodeURIComponent(resourceId)}`;
+      return "/admin/tasks";
+    }
+    if (resourceType === "project" || resourceType === "project comment") {
+      if (resourceId) return `/admin/tasks?projectView=${encodeURIComponent(resourceId)}`;
       return "/admin/tasks";
     }
     if (resourceType === "bug") {

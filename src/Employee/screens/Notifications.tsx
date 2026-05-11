@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,9 @@ interface Notification {
   type: "info" | "success" | "warning" | "task" | "payroll" | "document";
   timestamp: string;
   read: boolean;
+  category?: string;
+  link?: string;
+  meta?: { resourceType?: string; resourceId?: string; link?: string; category?: string };
 }
 
 
@@ -79,6 +83,7 @@ const notificationIcons = {
 
 export default function EmployeeNotifications() {
 const [notifications, setNotifications] = useState<Notification[]>([]);
+const navigate = useNavigate();
 
   const unreadCount = useMemo(() => {
   return notifications.filter((n) => !n.read).length;
@@ -111,6 +116,9 @@ useEffect(() => {
       type: data.type === "broadcast" ? "info" : (data.type || "info"),
       timestamp: data.timestamp || new Date().toISOString(),
       read: false,
+      category: data.meta?.category || "",
+      link: data.meta?.link || "",
+      meta: data.meta,
     };
 
     setNotifications((prev) => {
@@ -158,6 +166,9 @@ const formatted: Notification[] = filteredData.map((n: any) => {
             type: safeType,
             timestamp: n.timestamp,
             read: isRead,
+            category: n.meta?.category || "",
+            link: n.meta?.link || "",
+            meta: n.meta,
           };
         });
 
@@ -364,6 +375,7 @@ useEffect(() => {
                 getTypeIcon={getTypeIcon}
                 getTypeColor={getTypeColor}
                 formatTime={formatTime}
+                onNavigate={(link) => navigate(link)}
               />
             </TabsContent>
 
@@ -375,6 +387,7 @@ useEffect(() => {
                 getTypeIcon={getTypeIcon}
                 getTypeColor={getTypeColor}
                 formatTime={formatTime}
+                onNavigate={(link) => navigate(link)}
                 emptyMessage="No unread notifications"
               />
             </TabsContent>
@@ -387,6 +400,7 @@ useEffect(() => {
                 getTypeIcon={getTypeIcon}
                 getTypeColor={getTypeColor}
                 formatTime={formatTime}
+                onNavigate={(link) => navigate(link)}
                 emptyMessage="No read notifications"
               />
             </TabsContent>
@@ -404,6 +418,7 @@ interface NotificationListProps {
   getTypeIcon: (type: string) => React.ReactNode;
   getTypeColor: (type: string) => string;
   formatTime: (timestamp: string) => string;
+  onNavigate?: (link: string) => void;
   emptyMessage?: string;
 }
 
@@ -414,6 +429,7 @@ function NotificationList({
   getTypeIcon,
   getTypeColor,
   formatTime,
+  onNavigate,
   emptyMessage = "No notifications",
 }: NotificationListProps) {
   if (notifications.length === 0) {
@@ -425,28 +441,67 @@ function NotificationList({
     );
   }
 
+  const getCategoryBadge = (category?: string) => {
+    if (!category) return null;
+    const map: Record<string, { label: string; color: string }> = {
+      TASK_ASSIGNED: { label: "Task Assigned", color: "bg-blue-100 text-blue-700" },
+      PROJECT_ASSIGNED: { label: "Project Assigned", color: "bg-indigo-100 text-indigo-700" },
+      MENTIONED: { label: "Mentioned", color: "bg-yellow-100 text-yellow-700" },
+      COMMENT_ADDED: { label: "Comment", color: "bg-green-100 text-green-700" },
+      TASK_COMPLETED: { label: "Completed", color: "bg-emerald-100 text-emerald-700" },
+      SYSTEM: { label: "System", color: "bg-gray-100 text-gray-600" },
+    };
+    const entry = map[category];
+    if (!entry) return null;
+    return <Badge className={cn("text-[10px] px-1.5 py-0", entry.color)}>{entry.label}</Badge>;
+  };
+
   return (
     <div className="divide-y divide-white/10">
       {notifications.map((notification) => (
         <div
           key={notification.id}
           className={cn(
-            "flex items-center p-3 border-b",
-            notification.read ? "bg-gray-100" : "bg-white"
+            "flex items-start gap-3 p-3 border-b transition-colors",
+            notification.read ? "bg-gray-50" : "bg-white",
+            notification.link && "cursor-pointer hover:bg-gray-100"
           )}
+          onClick={() => {
+            if (notification.link && onNavigate) {
+              onMarkRead(notification.id);
+              onNavigate(notification.link);
+            }
+          }}
         >
-          {notificationIcons[notification.type]}
-          <div className="flex-1">
-            <p className="font-semibold">{notification.title}</p>
-            <p className="text-sm text-gray-500">{notification.message}</p>
+          <div className="mt-0.5">{notificationIcons[notification.type]}</div>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="font-semibold text-sm">{notification.title}</p>
+              {getCategoryBadge(notification.category)}
+            </div>
+            <p className="text-sm text-gray-500 mt-0.5 line-clamp-2">{notification.message}</p>
+            <p className="text-xs text-gray-400 mt-1">{formatTime(notification.timestamp)}</p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => markNotificationAsRead(notification.id)}
-          >
-            Mark as Read
-          </Button>
+          <div className="flex gap-1 shrink-0">
+            {!notification.read && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs h-7"
+                onClick={(e) => { e.stopPropagation(); onMarkRead(notification.id); }}
+              >
+                Mark Read
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs h-7 text-red-500 hover:text-red-700"
+              onClick={(e) => { e.stopPropagation(); onDelete(notification.id); }}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </div>
       ))}
     </div>
