@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Clock, DollarSign, TrendingUp, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { getEmployeeProfile, employeeApiFetch } from "../lib/api";
+import { EmployeeStatCard } from "../components/StatCard";
 
 interface TimeEntry {
   id: string;
@@ -69,11 +70,23 @@ function getMonthName(date: Date): string {
   return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
+interface PayrollRecord {
+  id: string;
+  payPeriod: string;
+  gross: number;
+  net: number;
+  taxes: number;
+  deductions: number;
+  pdfUrl: string;
+}
+
 export default function EmployeePayroll() {
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [employeeProfile, setEmployeeProfile] = useState<EmployeeProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>([]);
+  const [payrollLoading, setPayrollLoading] = useState(false);
 
   const loadData = async () => {
     try {
@@ -128,6 +141,22 @@ export default function EmployeePayroll() {
     }
   };
 
+  const loadPayrollRecords = async () => {
+    try {
+      setPayrollLoading(true);
+      const year = currentMonth.getFullYear();
+      const res = await employeeApiFetch<{ items: PayrollRecord[] }>(
+        `/api/employees/me/payroll?year=${year}`
+      );
+      setPayrollRecords(res.items || []);
+    } catch (err) {
+      console.error("Failed to load payroll records:", err);
+      setPayrollRecords([]);
+    } finally {
+      setPayrollLoading(false);
+    }
+  };
+
   useEffect(() => {
     loadData();
   }, []);
@@ -135,6 +164,7 @@ export default function EmployeePayroll() {
   useEffect(() => {
     if (employeeProfile) {
       loadTimeEntries();
+      loadPayrollRecords();
     }
   }, [employeeProfile, currentMonth]);
 
@@ -227,6 +257,10 @@ export default function EmployeePayroll() {
     window.print();
   };
 
+  const handleDownload = (url) => {
+    window.open(url, '_blank');
+  };
+
   if (loading) {
     return (
       <div className="p-6 text-center">
@@ -272,46 +306,31 @@ export default function EmployeePayroll() {
 
       {/* SUMMARY CARDS */}
       {calculatedPayroll && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Clock className="h-4 w-4 text-blue-500" />
-                <p className="text-sm text-muted-foreground">Total Hours</p>
-              </div>
-              <p className="text-xl font-bold">{formatHours(calculatedPayroll.totalHours)}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="h-4 w-4 text-green-500" />
-                <p className="text-sm text-muted-foreground">Regular Hours</p>
-              </div>
-              <p className="text-xl font-bold">{formatHours(calculatedPayroll.regularHours)}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Clock className="h-4 w-4 text-orange-500" />
-                <p className="text-sm text-muted-foreground">Overtime Hours</p>
-              </div>
-              <p className="text-xl font-bold text-orange-600">{formatHours(calculatedPayroll.overtimeHours)}</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <DollarSign className="h-4 w-4 text-green-500" />
-                <p className="text-sm text-muted-foreground">Total Pay</p>
-              </div>
-              <p className="text-xl font-bold text-green-600">{formatCurrency(calculatedPayroll.totalPay)}</p>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <EmployeeStatCard
+            title="TOTAL HOURS"
+            value={formatHours(calculatedPayroll.totalHours)}
+            icon={Clock}
+            variant="blue"
+          />
+          <EmployeeStatCard
+            title="REGULAR HOURS"
+            value={formatHours(calculatedPayroll.regularHours)}
+            icon={TrendingUp}
+            variant="green"
+          />
+          <EmployeeStatCard
+            title="OVERTIME HOURS"
+            value={formatHours(calculatedPayroll.overtimeHours)}
+            icon={Clock}
+            variant="orange"
+          />
+          <EmployeeStatCard
+            title="TOTAL PAY"
+            value={formatCurrency(calculatedPayroll.totalPay)}
+            icon={DollarSign}
+            variant="green"
+          />
         </div>
       )}
 
@@ -402,6 +421,44 @@ export default function EmployeePayroll() {
           </CardContent>
         </Card>
       )}
+
+      {/* PAY HISTORY - From API */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Pay History</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {payrollLoading ? (
+            <p className="text-muted-foreground">Loading pay history...</p>
+          ) : payrollRecords.length === 0 ? (
+            <p className="text-muted-foreground">No pay records found for {currentMonth.getFullYear()}</p>
+          ) : (
+            <div className="space-y-4">
+              {payrollRecords.map((record) => (
+                <div key={record.id} className="flex justify-between items-center p-4 border rounded-lg">
+                  <div>
+                    <p className="font-medium">{record.payPeriod}</p>
+                    <div className="text-sm text-muted-foreground space-y-1 mt-2">
+                      <p>Gross: {formatCurrency(record.gross)}</p>
+                      <p>Taxes: {formatCurrency(record.taxes)}</p>
+                      <p>Deductions: {formatCurrency(record.deductions)}</p>
+                      <p className="font-medium text-green-600">Net: {formatCurrency(record.net)}</p>
+                    </div>
+                  </div>
+                  {record.pdfUrl && (
+                    <Button
+                      variant="outline"
+                      onClick={() => handleDownload(record.pdfUrl)}
+                    >
+                      <Download className="mr-2 h-4 w-4" /> Download Pay Stub
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
