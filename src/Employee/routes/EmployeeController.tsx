@@ -19,6 +19,7 @@ const EmployeeNotifications = lazy(() => import("../screens/Notifications"));
 const EmployeePersonalNotes = lazy(() => import("../screens/PersonalNotes"));
 const EmployeeScrumRecords = lazy(() => import("../screens/ScrumRecords"));
 const EmployeeAssetLibrary = lazy(() => import("../screens/AssetLibrary"));
+const EmployeeCompanyInformation = lazy(() => import("../screens/CompanyInformation"));
 const EmployeeUICustomization = lazy(() => import("../screens/UICustomization"));
 const EmployeeLeaveRequests = lazy(() => import("../screens/LeaveRequests"));
 const ShoppingLists = lazy(() => import("@/pages/admin/ShoppingLists"));
@@ -58,6 +59,7 @@ function EmployeeController() {
           <Route path="/clocked" element={<EmployeeClocked />} />
           <Route path="/messages" element={<EmployeeMessages />} />
           <Route path="/asset-library" element={<EmployeeAssetLibrary />} />
+          <Route path="/company-information" element={<EmployeeCompanyInformation />} />
           <Route path="/profile" element={<EmployeeProfile />} />
           <Route path="/notifications" element={<EmployeeNotifications />} />
           <Route path="/personal-notes" element={<EmployeePersonalNotes />} />

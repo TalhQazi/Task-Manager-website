@@ -37,6 +37,7 @@ const NotFound = lazy(() => import("@/pages/admin/NotFound"));
 const ArchiveData = lazy(() => import("@/pages/admin/ArchiveData"));
 const FounderMessages = lazy(() => import("@/pages/admin/FounderMessages"));
 const AssetLibrary = lazy(() => import("@/pages/admin/AssetLibrary"));
+const CompanyInformation = lazy(() => import("@/pages/admin/CompanyInformation"));
 const EODReports = lazy(() => import("@/pages/admin/EODReports"));
 const LeaveRequests = lazy(() => import("@/pages/admin/LeaveRequests"));
 const EmployeeEODHistory = lazy(() => import("@/pages/admin/EmployeeEODHistory"));
@@ -103,6 +104,7 @@ export default function AdminRoutes() {
       { path: "digital-assets", element: <DigitalAssets /> },
       { path: "intellectual-property", element: <IntellectualProperty /> },
       { path: "asset-library", element: <AssetLibrary /> },
+      { path: "company-information", element: <CompanyInformation /> },
       { path: "settings", element: <Settings /> },
       { path: "asana-import", element: <AsanaImport /> },
       { path: "asana-data", element: <AsanaData /> },

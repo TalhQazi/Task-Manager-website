@@ -138,7 +138,7 @@ function formatBytes(bytes: number | undefined) {
   return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-function AssetLibraryHeader() {
+function AssetLibraryHeader({ title, description, hideCarousel }: { title: string, description: string, hideCarousel: boolean }) {
   const { data: settings, refetch } = useQuery({
     queryKey: ["asset-library-header-settings"],
     queryFn: async () => {
@@ -153,12 +153,12 @@ function AssetLibraryHeader() {
     return () => window.removeEventListener("asset-library-header-updated", handleUpdate);
   }, [refetch]);
 
-  if (!settings || !settings.images?.length) {
+  if (hideCarousel || !settings || !settings.images?.length) {
     return (
       <div className="space-y-1.5 py-4">
-        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Company Information/Images</h1>
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">{title}</h1>
         <p className="text-xs sm:text-sm md:text-base text-muted-foreground">
-          Upload, organize, preview, and download brand assets.
+          {description}
         </p>
       </div>
     );
@@ -206,17 +206,27 @@ function AssetLibraryHeader() {
 
       <div className="absolute inset-0 flex flex-col justify-center px-6 sm:px-10 pointer-events-none">
         <h1 className="text-xl sm:text-2xl md:text-4xl font-bold tracking-tight text-white drop-shadow-md">
-          Company Information/Images
+          {title}
         </h1>
         <p className="text-xs sm:text-sm md:text-lg text-white/90 max-w-2xl mt-1 drop-shadow-sm font-medium">
-          Upload, organize, preview, and download brand assets.
+          {description}
         </p>
       </div>
     </div>
   );
 }
 
-export default function AssetLibrary() {
+export default function AssetLibrary({ 
+  moduleName = "asset-library", 
+  title = "Images",
+  description = "Upload, organize, preview, and download assets.",
+  hideHeaderCarousel = false
+}: { 
+  moduleName?: string; 
+  title?: string;
+  description?: string;
+  hideHeaderCarousel?: boolean;
+} = {}) {
   const queryClient = useQueryClient();
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
@@ -273,17 +283,17 @@ export default function AssetLibrary() {
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const foldersQuery = useQuery({
-    queryKey: ["company-information-images", "folders"],
+    queryKey: ["company-information-images", "folders", moduleName],
     queryFn: async () => {
-      const res = await apiFetch<{ items: FolderNode[] }>("/api/asset-library/folders");
+      const res = await apiFetch<{ items: FolderNode[] }>(`/api/asset-library/folders?module=${moduleName}`);
       return res.items || [];
     },
   });
 
   const globalStatsQuery = useQuery({
-    queryKey: ["company-information-images", "stats"],
+    queryKey: ["company-information-images", "stats", moduleName],
     queryFn: async () => {
-      const data = await apiFetch<{ totalAssets: number }>("/api/asset-library/stats");
+      const data = await apiFetch<{ totalAssets: number }>(`/api/asset-library/stats?module=${moduleName}`);
       return data;
     },
   });
@@ -393,9 +403,10 @@ export default function AssetLibrary() {
   });
 
   const assetsQuery = useQuery({
-    queryKey: ["company-information-images", "assets", selectedFolderId, search, typeFilter, sort, page, limit],
+    queryKey: ["company-information-images", "assets", moduleName, selectedFolderId, search, typeFilter, sort, page, limit],
     queryFn: async () => {
       const params = new URLSearchParams();
+      params.set("module", moduleName);
       if (selectedFolderId) params.set("folderId", selectedFolderId);
       if (search.trim()) params.set("q", search.trim());
       if (typeFilter) params.set("type", typeFilter);
@@ -421,6 +432,7 @@ export default function AssetLibrary() {
       const payload = {
         name: newFolderName.trim(),
         parentFolderId: selectedFolderId,
+        module: moduleName,
       };
       return apiFetch<{ item: FolderNode }>("/api/asset-library/folders", {
         method: "POST",
@@ -441,6 +453,7 @@ export default function AssetLibrary() {
       const fd = new FormData();
       console.log("Uploading with folderId:", selectedFolderId);
       if (selectedFolderId) fd.append("folderId", selectedFolderId);
+      fd.append("module", moduleName);
       files.forEach((f) => fd.append("files", f));
       return apiFetch<{ items: Asset[] }>("/api/asset-library/assets/upload", {
         method: "POST",
@@ -617,7 +630,7 @@ export default function AssetLibrary() {
 
   return (
     <div className="pl-6 space-y-4 sm:space-y-5 md:space-y-6">
-      <AssetLibraryHeader />
+      <AssetLibraryHeader title={title} description={description} hideCarousel={hideHeaderCarousel} />
 
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">

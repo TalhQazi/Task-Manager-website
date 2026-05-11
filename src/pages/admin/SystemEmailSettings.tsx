@@ -31,6 +31,10 @@ type SystemSettings = {
     userRegistration: Template;
     managerRegistration: Template;
     forgotPassword: Template;
+    taskAssignment: Template;
+    fileAttachment: Template;
+    commentAdded: Template;
+    replyAdded: Template;
   };
 };
 
@@ -248,6 +252,42 @@ export default function SystemEmailSettings() {
               template={formData.templates.forgotPassword}
               onChange={(field, val) => handleTemplateChange("forgotPassword", field, val)}
               placeholders={["{name}", "{code}"]}
+            />
+
+            {/* Task Assignment */}
+            <TemplateCard
+              title="Task Assignment"
+              description="Sent when a user is assigned a new task"
+              template={formData.templates.taskAssignment}
+              onChange={(field, val) => handleTemplateChange("taskAssignment", field, val)}
+              placeholders={["{name}", "{taskTitle}"]}
+            />
+
+            {/* File Attachment */}
+            <TemplateCard
+              title="File Attachment"
+              description="Sent when a file is attached to a task"
+              template={formData.templates.fileAttachment}
+              onChange={(field, val) => handleTemplateChange("fileAttachment", field, val)}
+              placeholders={["{name}", "{taskTitle}", "{fileName}"]}
+            />
+
+            {/* Comment Added */}
+            <TemplateCard
+              title="Task Comment"
+              description="Sent when a comment is added to a task"
+              template={formData.templates.commentAdded}
+              onChange={(field, val) => handleTemplateChange("commentAdded", field, val)}
+              placeholders={["{name}", "{taskTitle}", "{authorName}", "{commentText}"]}
+            />
+
+            {/* Reply Added */}
+            <TemplateCard
+              title="Comment Reply / Mention"
+              description="Sent when a user is mentioned or replied to in a comment"
+              template={formData.templates.replyAdded}
+              onChange={(field, val) => handleTemplateChange("replyAdded", field, val)}
+              placeholders={["{name}", "{taskTitle}", "{authorName}", "{replyText}"]}
             />
           </div>
         </div>

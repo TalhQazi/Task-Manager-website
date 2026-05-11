@@ -61,30 +61,39 @@ function formatBytes(bytes: number | undefined) {
   return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
 }
 
-export default function EmployeeAssetLibrary() {
+export default function EmployeeAssetLibrary({
+  moduleName = "asset-library",
+  title = "Images",
+  description = "Browse and download approved brand assets.",
+}: {
+  moduleName?: string;
+  title?: string;
+  description?: string;
+} = {}) {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [preview, setPreview] = useState<Asset | null>(null);
 
   const [typeFilter, setTypeFilter] = useState<"" | "image" | "pdf">("");
-  const [sort, setSort] = useState<"newest" | "oldest" | "az" | "za" | "size-asc" | "size-desc">("newest");
+  const [sort, setSort] = useState<"newest" | "oldest" | "az" | "za" | "size-asc" | "size-desc">("az");
   const [page, setPage] = useState(1);
   const limit = 24;
 
   const [expandedFolderIds, setExpandedFolderIds] = useState<Record<string, boolean>>({});
 
   const foldersQuery = useQuery({
-    queryKey: ["asset-library", "folders", "employee"],
+    queryKey: ["asset-library", "folders", "employee", moduleName],
     queryFn: async () => {
-      const res = await employeeApiFetch<{ items: FolderNode[] }>("/api/asset-library/folders");
+      const res = await employeeApiFetch<{ items: FolderNode[] }>(`/api/asset-library/folders?module=${moduleName}`);
       return res.items || [];
     },
   });
 
   const assetsQuery = useQuery({
-    queryKey: ["asset-library", "assets", "employee", selectedFolderId, search, typeFilter, sort, page, limit],
+    queryKey: ["asset-library", "assets", "employee", moduleName, selectedFolderId, search, typeFilter, sort, page, limit],
     queryFn: async () => {
       const params = new URLSearchParams();
+      params.set("module", moduleName);
       if (selectedFolderId) params.set("folderId", selectedFolderId);
       if (search.trim()) params.set("q", search.trim());
       if (typeFilter) params.set("type", typeFilter);
@@ -166,8 +175,8 @@ export default function EmployeeAssetLibrary() {
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Company Information/Images</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground">Browse and download approved brand assets.</p>
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{title}</h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">{description}</p>
         </div>
       </div>
 

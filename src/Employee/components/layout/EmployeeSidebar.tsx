@@ -18,7 +18,8 @@ const navItemsBase = [
   { icon: CalendarIcon, label: "Leave Requests", path: "/employee/leave-requests" },
 
   { icon: MessageCircle, label: "Messages", path: "/employee/messages" },
-  { icon: Folder, label: "Company Information/Images", path: "/employee/asset-library" },
+  { icon: Folder, label: "Images", path: "/employee/asset-library" },
+  { icon: FileText, label: "Company Information", path: "/employee/company-information" },
   { icon: UserCircle, label: "Profile", path: "/employee/profile" },
   { icon: Bell, label: "Notifications", path: "/employee/notifications" },
   { icon: FileText, label: "My Notes", path: "/employee/personal-notes" },
