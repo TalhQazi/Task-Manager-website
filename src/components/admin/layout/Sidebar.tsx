@@ -74,7 +74,7 @@ const navItemsBase: NavItem[] = [
     icon: Layers,
     label: "Operations",
     children: [
-      { icon: Wrench, label: "Appliances", path: "/admin/appliances" },
+      { icon: Wrench, label: "Inventory/Appliances", path: "/admin/appliances" },
       { icon: Car, label: "Vehicles", path: "/admin/vehicles" },
       { icon: UserX, label: "Do Not Hire", path: "/admin/do-not-hire" },
       { icon: MapPin, label: "Locations", path: "/admin/locations" },

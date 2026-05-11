@@ -50,7 +50,7 @@ const navItemsBase: NavItem[] = [
   { icon: ClipboardCheck, label: "EOD Reports", path: "/manager/eod-reports" },
   { icon: Calendar, label: "Leave Requests", path: "/manager/leave-requests" },
   { icon: Car, label: "Vehicles", path: "/manager/vehicles" },
-  { icon: Wrench, label: "Appliances", path: "/manager/appliances" },
+  { icon: Wrench, label: "Inventory/Appliances", path: "/manager/appliances" },
   { icon: MapPin, label: "Locations", path: "/manager/locations" },
   { icon: Building2, label: "Vendors", path: "/manager/vendors" },
   { icon: UserX, label: "Do Not Hire", path: "/manager/do-not-hire" },
@@ -93,7 +93,7 @@ const navItemsBase: NavItem[] = [
   { icon: Settings, label: "UI Customization", path: "/manager/ui-customization" },
   { icon: ShoppingCart, label: "Shopping Lists", path: "/manager/shopping-lists" },
   { icon: Settings, label: "Settings", path: "/manager/settings" },
-];
+].sort((a, b) => a.label.localeCompare(b.label));
 
 type SidebarMode = "desktop" | "mobile";
 
