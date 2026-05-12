@@ -621,7 +621,7 @@ export default function Tasks() {
   const { triggerBlaster, incrementCompletedCount } = useTaskBlasterContext();
   const { triggerReward } = useRewards();
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const { socket, joinTask, leaveTask, joinProject, leaveProject } = useSocket();
+  const { socket } = useSocket();
 
   const projectsQuery = useQuery({
     queryKey: ["projects", projectPage, projectSearchQuery],
@@ -1180,10 +1180,15 @@ export default function Tasks() {
   // Real-time task comments via SocketContext
   useEffect(() => {
     if (!socket || !selectedTask) return;
-    joinTask(selectedTask.id);
+    const taskId = selectedTask.id;
+
+    socket.emit("join-task", taskId);
+
+    const handleConnect = () => socket.emit("join-task", taskId);
+    socket.on("connect", handleConnect);
 
     const handleNewComment = (comment: TaskComment) => {
-      if (comment.taskId !== selectedTask.id) return;
+      if (comment.taskId !== taskId) return;
       setComments(prev => {
         if (prev.find(c => c.id === comment.id)) return prev;
         return [...prev, comment];
@@ -1198,15 +1203,21 @@ export default function Tasks() {
     socket.on("new-comment", handleNewComment);
 
     return () => {
+      socket.off("connect", handleConnect);
       socket.off("new-comment", handleNewComment);
-      leaveTask(selectedTask.id);
+      socket.emit("leave-task", taskId);
     };
   }, [socket, selectedTask?.id]);
 
   // Real-time project comments via SocketContext
   useEffect(() => {
     if (!socket || !selectedProject) return;
-    joinProject(selectedProject.id);
+    const projectId = selectedProject.id;
+
+    socket.emit("join-project", projectId);
+
+    const handleConnect = () => socket.emit("join-project", projectId);
+    socket.on("connect", handleConnect);
 
     const handleNewProjectComment = (comment: TaskComment) => {
       setProjectComments(prev => {
@@ -1218,8 +1229,9 @@ export default function Tasks() {
     socket.on("new-project-comment", handleNewProjectComment);
 
     return () => {
+      socket.off("connect", handleConnect);
       socket.off("new-project-comment", handleNewProjectComment);
-      leaveProject(selectedProject.id);
+      socket.emit("leave-project", projectId);
     };
   }, [socket, selectedProject?.id]);
 

@@ -760,7 +760,7 @@ export default function Tasks() {
 
   const currentUsername = getAuthState().username || "";
   const isTeamLead = getAuthState().role === "team-lead";
-  const { socket, isConnected, joinTask, leaveTask, joinProject, leaveProject } = useSocket();
+  const { socket } = useSocket();
 
   // Lightbox / File Preview State
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -853,7 +853,12 @@ export default function Tasks() {
   // Real-time project comments via socket
   useEffect(() => {
     if (!socket || !selectedProject) return;
-    joinProject(selectedProject.id);
+    const projectId = selectedProject.id;
+
+    socket.emit("join-project", projectId);
+
+    const handleConnect = () => socket.emit("join-project", projectId);
+    socket.on("connect", handleConnect);
 
     const handleNewProjectComment = (comment: TaskComment) => {
       setProjectComments((prev) => {
@@ -868,18 +873,24 @@ export default function Tasks() {
     socket.on("new-project-comment", handleNewProjectComment);
 
     return () => {
+      socket.off("connect", handleConnect);
       socket.off("new-project-comment", handleNewProjectComment);
-      leaveProject(selectedProject.id);
+      socket.emit("leave-project", projectId);
     };
-  }, [socket, isConnected, selectedProject?.id]);
+  }, [socket, selectedProject?.id]);
 
   // Real-time task comments via socket
   useEffect(() => {
     if (!socket || !selectedTask) return;
-    joinTask(selectedTask.id);
+    const taskId = selectedTask.id;
+
+    socket.emit("join-task", taskId);
+
+    const handleConnect = () => socket.emit("join-task", taskId);
+    socket.on("connect", handleConnect);
+
     const handleNewComment = (comment: TaskComment) => {
       setComments((prev) => {
-        // Avoid duplicates (in case the sender already added it optimistically)
         if (prev.some((c) => c.id === comment.id)) return prev;
         return [...prev, comment];
       });
@@ -907,12 +918,13 @@ export default function Tasks() {
     socket.on("comment-reaction-updated", handleReactionUpdated);
 
     return () => {
+      socket.off("connect", handleConnect);
       socket.off("new-comment", handleNewComment);
       socket.off("typing", handleTyping);
       socket.off("comment-reaction-updated", handleReactionUpdated);
-      leaveTask(selectedTask.id);
+      socket.emit("leave-task", taskId);
     };
-  }, [socket, isConnected, selectedTask?.id]);
+  }, [socket, selectedTask?.id]);
 
   const loadProject = async (projectId: string) => {
     setIsLoadingProject(true);

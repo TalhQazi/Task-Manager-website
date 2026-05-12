@@ -584,7 +584,7 @@ const createTaskSchema = z.object({
 type CreateTaskValues = z.infer<typeof createTaskSchema>;
 
 export default function Tasks() {
-  const { socket, isConnected, joinTask, leaveTask } = useSocket();
+  const { socket } = useSocket();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -1719,49 +1719,55 @@ export default function Tasks() {
 
   // Socket logic for live messages
   useEffect(() => {
-    if (isViewOpen && selectedTask && socket) {
-      joinTask(selectedTask.id);
+    if (!isViewOpen || !selectedTask || !socket) return;
+    const taskId = selectedTask.id;
 
-      const handleNewComment = (comment: TaskComment) => {
-        setComments((prev) => {
-          if (prev.find((c) => c.id === comment.id)) return prev;
-          return [...prev, comment];
-        });
+    // Bypass the isConnected guard in joinTask — emit directly so the room join
+    // is not skipped if isConnected state lags behind the actual socket state.
+    socket.emit("join-task", taskId);
 
-        // Auto scroll to bottom smoothly
-        setTimeout(() => {
-          if (chatContainerRef.current) {
-            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-          }
-        }, 100);
-      };
+    // Re-join after any reconnection (socket.io resets rooms on reconnect)
+    const handleConnect = () => socket.emit("join-task", taskId);
+    socket.on("connect", handleConnect);
 
-      socket.on("new-comment", handleNewComment);
+    const handleNewComment = (comment: TaskComment) => {
+      setComments((prev) => {
+        if (prev.find((c) => c.id === comment.id)) return prev;
+        return [...prev, comment];
+      });
+      setTimeout(() => {
+        if (chatContainerRef.current) {
+          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+      }, 100);
+    };
 
-      const handleTyping = ({ username, typing }: { username: string; typing: boolean }) => {
-        if (username === currentUsername) return;
-        setOthersTyping(prev => {
-          if (typing) return prev.includes(username) ? prev : [...prev, username];
-          return prev.filter(u => u !== username);
-        });
-      };
+    socket.on("new-comment", handleNewComment);
 
-      socket.on("typing", handleTyping);
-      
-      const handleReactionUpdated = ({ commentId, reactions }: { commentId: string; reactions: any[] }) => {
-        setComments((prev) => prev.map(c => c.id === commentId ? { ...c, reactions } : c));
-      };
+    const handleTyping = ({ username, typing }: { username: string; typing: boolean }) => {
+      if (username === currentUsername) return;
+      setOthersTyping(prev => {
+        if (typing) return prev.includes(username) ? prev : [...prev, username];
+        return prev.filter(u => u !== username);
+      });
+    };
 
-      socket.on("comment-reaction-updated", handleReactionUpdated);
+    socket.on("typing", handleTyping);
 
-      return () => {
-        socket.off("new-comment", handleNewComment);
-        socket.off("typing", handleTyping);
-        socket.off("comment-reaction-updated", handleReactionUpdated);
-        leaveTask(selectedTask.id);
-      };
-    }
-  }, [isViewOpen, selectedTask?.id, socket, isConnected]);
+    const handleReactionUpdated = ({ commentId, reactions }: { commentId: string; reactions: any[] }) => {
+      setComments((prev) => prev.map(c => c.id === commentId ? { ...c, reactions } : c));
+    };
+
+    socket.on("comment-reaction-updated", handleReactionUpdated);
+
+    return () => {
+      socket.off("connect", handleConnect);
+      socket.off("new-comment", handleNewComment);
+      socket.off("typing", handleTyping);
+      socket.off("comment-reaction-updated", handleReactionUpdated);
+      socket.emit("leave-task", taskId);
+    };
+  }, [isViewOpen, selectedTask?.id, socket]);
 
   const toggleReaction = async (commentId: string, emoji: string) => {
     if (!selectedTask) return;
