@@ -1761,7 +1761,7 @@ export default function Tasks() {
         leaveTask(selectedTask.id);
       };
     }
-  }, [isViewOpen, selectedTask?.id, socket, isConnected, joinTask, leaveTask]);
+  }, [isViewOpen, selectedTask?.id, socket, isConnected]);
 
   const toggleReaction = async (commentId: string, emoji: string) => {
     if (!selectedTask) return;

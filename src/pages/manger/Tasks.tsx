@@ -3211,6 +3211,33 @@ export default function Tasks() {
                                           "flex flex-col group/bubble relative min-w-0",
                                           isMe ? "items-end" : "items-start"
                                         )}>
+                                          {/* Emoji reaction trigger — appears on hover */}
+                                          {editingCommentId !== c.id && (
+                                            <div className={cn(
+                                              "absolute -top-4 opacity-0 group-hover/bubble:opacity-100 transition-opacity flex items-center gap-1 bg-background border border-border shadow-sm rounded-full px-1.5 py-0.5 z-20",
+                                              isMe ? "right-0" : "left-0"
+                                            )}>
+                                              <Popover>
+                                                <PopoverTrigger asChild>
+                                                  <button className="p-1 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground">
+                                                    <Smile className="w-3.5 h-3.5" />
+                                                  </button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-fit p-1.5 grid grid-cols-4 gap-1" align={isMe ? "end" : "start"}>
+                                                  {["👍", "❤️", "🔥", "🚀", "👏", "🎉", "😮", "🙏"].map(emoji => (
+                                                    <button
+                                                      key={emoji}
+                                                      onClick={() => void toggleReaction(c.id, emoji)}
+                                                      className="p-1.5 hover:bg-muted rounded text-lg transition-transform hover:scale-125"
+                                                    >
+                                                      {emoji}
+                                                    </button>
+                                                  ))}
+                                                </PopoverContent>
+                                              </Popover>
+                                            </div>
+                                          )}
+
                                           <div className={cn(
                                             "relative px-4 py-2.5 rounded-2xl shadow-sm transition-all duration-200",
                                             isMe
@@ -3239,7 +3266,7 @@ export default function Tasks() {
                                                 {renderMessageWithMentions(c.message)}
                                               </div>
                                             )}
-                                            
+
                                             {c.attachments && c.attachments.length > 0 && editingCommentId !== c.id && (
                                               <div className={cn(
                                                 "grid gap-2 mt-2 max-w-[140px] sm:max-w-[180px]",
@@ -3247,13 +3274,13 @@ export default function Tasks() {
                                               )}>
                                                 {c.attachments.map((att, attIdx) => (
                                                   <div key={attIdx} className="relative rounded-lg overflow-hidden border border-white/20 bg-black/10 min-w-[120px] max-w-full h-auto">
-                                                    <CommentAttachmentImg 
-                                                      taskId={selectedTask!.id} 
-                                                      commentId={c.id} 
-                                                      index={attIdx} 
-                                                      mimeType={att.mimeType} 
-                                                      fileName={att.fileName} 
-                                                      fallbackUrl={att.url} 
+                                                    <CommentAttachmentImg
+                                                      taskId={selectedTask!.id}
+                                                      commentId={c.id}
+                                                      index={attIdx}
+                                                      mimeType={att.mimeType}
+                                                      fileName={att.fileName}
+                                                      fallbackUrl={att.url}
                                                       onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
                                                     />
                                                   </div>
@@ -3261,6 +3288,37 @@ export default function Tasks() {
                                               </div>
                                             )}
                                           </div>
+
+                                          {/* Reactions display */}
+                                          {c.reactions && c.reactions.length > 0 && (
+                                            <div className="flex flex-wrap gap-1 mt-1 px-1">
+                                              {Object.entries(
+                                                c.reactions.reduce((acc: Record<string, number>, r: { emoji: string }) => {
+                                                  acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+                                                  return acc;
+                                                }, {})
+                                              ).map(([emoji, count]) => {
+                                                const auth = getAuthState();
+                                                const userId = String(auth.sub || auth.id || "");
+                                                const hasReacted = c.reactions?.some((r: { emoji: string; userId: string }) => r.emoji === emoji && r.userId === userId);
+                                                return (
+                                                  <button
+                                                    key={emoji}
+                                                    onClick={() => void toggleReaction(c.id, emoji)}
+                                                    className={cn(
+                                                      "flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] border transition-all",
+                                                      hasReacted
+                                                        ? "bg-primary/20 border-primary/40 text-primary"
+                                                        : "bg-muted/30 border-border/40 text-muted-foreground hover:bg-muted/50"
+                                                    )}
+                                                  >
+                                                    <span>{emoji}</span>
+                                                    <span className="font-bold">{count as number}</span>
+                                                  </button>
+                                                );
+                                              })}
+                                            </div>
+                                          )}
 
                                           <div className={cn(
                                             "flex items-center gap-2 mt-1.5",
