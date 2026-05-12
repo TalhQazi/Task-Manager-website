@@ -107,6 +107,12 @@ interface Company {
     currency?: string;
   };
   logo?: string;
+  einNumber?: string;
+  charterNumber?: string;
+  stateOfIncorporation?: string;
+  foreignEntities?: Array<{ state: string; documentNumber: string }>;
+  originalFilingDate?: string;
+  annualReportDueDate?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -178,6 +184,12 @@ const Companies = () => {
     timezone: "UTC",
     dateFormat: "MM/DD/YYYY",
     currency: "USD",
+    einNumber: "",
+    charterNumber: "",
+    stateOfIncorporation: "",
+    foreignEntities: [] as Array<{ state: string; documentNumber: string }>,
+    originalFilingDate: "",
+    annualReportDueDate: "",
   });
 
   const [editFormData, setEditFormData] = useState({
@@ -197,6 +209,12 @@ const Companies = () => {
     timezone: "UTC",
     dateFormat: "MM/DD/YYYY",
     currency: "USD",
+    einNumber: "",
+    charterNumber: "",
+    stateOfIncorporation: "",
+    foreignEntities: [] as Array<{ state: string; documentNumber: string }>,
+    originalFilingDate: "",
+    annualReportDueDate: "",
   });
 
   useEffect(() => {
@@ -255,6 +273,12 @@ const Companies = () => {
           dateFormat: addFormData.dateFormat,
           currency: addFormData.currency,
         },
+        einNumber: addFormData.einNumber.trim(),
+        charterNumber: addFormData.charterNumber.trim(),
+        stateOfIncorporation: addFormData.stateOfIncorporation.trim(),
+        foreignEntities: addFormData.foreignEntities,
+        originalFilingDate: addFormData.originalFilingDate || undefined,
+        annualReportDueDate: addFormData.annualReportDueDate || undefined,
       };
 
       await createResource<Company>("companies", newCompany);
@@ -285,6 +309,12 @@ const Companies = () => {
       timezone: "UTC",
       dateFormat: "MM/DD/YYYY",
       currency: "USD",
+      einNumber: "",
+      charterNumber: "",
+      stateOfIncorporation: "",
+      foreignEntities: [],
+      originalFilingDate: "",
+      annualReportDueDate: "",
     });
   };
 
@@ -335,6 +365,12 @@ const Companies = () => {
       timezone: company.settings?.timezone || "UTC",
       dateFormat: company.settings?.dateFormat || "MM/DD/YYYY",
       currency: company.settings?.currency || "USD",
+      einNumber: company.einNumber || "",
+      charterNumber: company.charterNumber || "",
+      stateOfIncorporation: company.stateOfIncorporation || "",
+      foreignEntities: company.foreignEntities || [],
+      originalFilingDate: company.originalFilingDate ? new Date(company.originalFilingDate).toISOString().split('T')[0] : "",
+      annualReportDueDate: company.annualReportDueDate ? new Date(company.annualReportDueDate).toISOString().split('T')[0] : "",
     });
     setEditCompanyOpen(true);
   };
@@ -367,6 +403,12 @@ const Companies = () => {
           dateFormat: editFormData.dateFormat,
           currency: editFormData.currency,
         },
+        einNumber: editFormData.einNumber.trim(),
+        charterNumber: editFormData.charterNumber.trim(),
+        stateOfIncorporation: editFormData.stateOfIncorporation.trim(),
+        foreignEntities: editFormData.foreignEntities,
+        originalFilingDate: editFormData.originalFilingDate || undefined,
+        annualReportDueDate: editFormData.annualReportDueDate || undefined,
       });
 
       await refreshCompanies();
@@ -656,6 +698,128 @@ const Companies = () => {
                       className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
                     />
                     
+                    {/* Corporate Compliance */}
+                    <div className="space-y-3 pt-2 border-t">
+                      <h4 className="text-xs sm:text-sm font-medium text-primary flex items-center gap-2">
+                        <Sparkles className="h-4 w-4" /> Corporate Compliance
+                      </h4>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] sm:text-xs font-medium text-muted-foreground mb-1">EIN Number</label>
+                          <input
+                            type="text"
+                            value={addFormData.einNumber}
+                            onChange={(e) => setAddFormData({ ...addFormData, einNumber: e.target.value })}
+                            placeholder="XX-XXXXXXX"
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] sm:text-xs font-medium text-muted-foreground mb-1">Charter Number</label>
+                          <input
+                            type="text"
+                            value={addFormData.charterNumber}
+                            onChange={(e) => setAddFormData({ ...addFormData, charterNumber: e.target.value })}
+                            placeholder="Charter #"
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 gap-3">
+                        <div>
+                          <label className="block text-[10px] sm:text-xs font-medium text-muted-foreground mb-1">State of Incorporation</label>
+                          <input
+                            type="text"
+                            value={addFormData.stateOfIncorporation}
+                            onChange={(e) => setAddFormData({ ...addFormData, stateOfIncorporation: e.target.value })}
+                            placeholder="e.g., Delaware"
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-[10px] sm:text-xs font-medium text-muted-foreground mb-1">Original Filing Date</label>
+                          <input
+                            type="date"
+                            value={addFormData.originalFilingDate}
+                            onChange={(e) => setAddFormData({ ...addFormData, originalFilingDate: e.target.value })}
+                            className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 text-primary">Annual Report Due</label>
+                          <input
+                            type="date"
+                            value={addFormData.annualReportDueDate}
+                            onChange={(e) => setAddFormData({ ...addFormData, annualReportDueDate: e.target.value })}
+                            className="w-full rounded-lg border border-primary/30 px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Foreign Entities */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-[10px] sm:text-xs font-medium text-muted-foreground">Foreign Entity Filings</label>
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-6 text-[10px] px-2"
+                            onClick={() => setAddFormData({
+                              ...addFormData,
+                              foreignEntities: [...addFormData.foreignEntities, { state: "", documentNumber: "" }]
+                            })}
+                          >
+                            <Plus className="h-3 w-3 mr-1" /> Add State
+                          </Button>
+                        </div>
+                        {addFormData.foreignEntities.map((entity, idx) => (
+                          <div key={idx} className="flex gap-2 items-end bg-muted/30 p-2 rounded-lg relative">
+                            <div className="flex-1">
+                              <input
+                                type="text"
+                                value={entity.state}
+                                onChange={(e) => {
+                                  const newList = [...addFormData.foreignEntities];
+                                  newList[idx].state = e.target.value;
+                                  setAddFormData({ ...addFormData, foreignEntities: newList });
+                                }}
+                                placeholder="State"
+                                className="w-full rounded-md border bg-white px-2 py-1 text-xs"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <input
+                                type="text"
+                                value={entity.documentNumber}
+                                onChange={(e) => {
+                                  const newList = [...addFormData.foreignEntities];
+                                  newList[idx].documentNumber = e.target.value;
+                                  setAddFormData({ ...addFormData, foreignEntities: newList });
+                                }}
+                                placeholder="Doc #"
+                                className="w-full rounded-md border bg-white px-2 py-1 text-xs"
+                              />
+                            </div>
+                            <Button 
+                              type="button" 
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-6 w-6 text-destructive"
+                              onClick={() => {
+                                const newList = addFormData.foreignEntities.filter((_, i) => i !== idx);
+                                setAddFormData({ ...addFormData, foreignEntities: newList });
+                              }}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
                     {/* Logo Upload */}
                     <div className="space-y-2">
                       <label className="text-xs sm:text-sm font-medium text-muted-foreground">Company Logo</label>
@@ -1158,6 +1322,49 @@ const Companies = () => {
                     </div>
                   </motion.div>
                 )}
+
+                {/* Corporate Compliance Display */}
+                <motion.div className="sm:col-span-2 space-y-3 pt-3 border-t" whileHover={{ x: 5 }}>
+                  <label className="text-xs sm:text-sm font-medium text-primary flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" /> Corporate Compliance
+                  </label>
+                  <div className="grid grid-cols-2 gap-4 bg-muted/20 p-3 rounded-lg border">
+                    <div>
+                      <label className="text-[10px] text-muted-foreground block">EIN Number</label>
+                      <p className="text-sm font-medium">{selectedCompany.einNumber || "N/A"}</p>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground block">Charter Number</label>
+                      <p className="text-sm font-medium">{selectedCompany.charterNumber || "N/A"}</p>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground block">State of Incorporation</label>
+                      <p className="text-sm font-medium">{selectedCompany.stateOfIncorporation || "N/A"}</p>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-muted-foreground block">Original Filing Date</label>
+                      <p className="text-sm font-medium">{selectedCompany.originalFilingDate ? new Date(selectedCompany.originalFilingDate).toLocaleDateString() : "N/A"}</p>
+                    </div>
+                    <div className="col-span-2 p-2 bg-primary/5 rounded border border-primary/10">
+                      <label className="text-[10px] text-primary block font-semibold uppercase tracking-wider">Annual Report Due Date</label>
+                      <p className="text-sm font-bold text-primary">{selectedCompany.annualReportDueDate ? new Date(selectedCompany.annualReportDueDate).toLocaleDateString() : "N/A"}</p>
+                    </div>
+                  </div>
+
+                  {selectedCompany.foreignEntities && selectedCompany.foreignEntities.length > 0 && (
+                    <div className="space-y-2">
+                      <label className="text-[10px] text-muted-foreground block uppercase font-bold tracking-tighter">Foreign Entity Filings</label>
+                      <div className="grid grid-cols-1 gap-2">
+                        {selectedCompany.foreignEntities.map((entity, idx) => (
+                          <div key={idx} className="flex justify-between items-center bg-card border px-3 py-1.5 rounded-md shadow-sm">
+                            <span className="text-xs font-semibold">{entity.state}</span>
+                            <span className="text-[10px] text-muted-foreground">Doc: {entity.documentNumber}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
               </div>
             </motion.div>
           )}
@@ -1298,6 +1505,128 @@ const Companies = () => {
                   placeholder="Website URL"
                   className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
                 />
+                
+                {/* Corporate Compliance */}
+                <div className="space-y-3 pt-2 border-t">
+                  <h4 className="text-xs sm:text-sm font-medium text-primary flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" /> Corporate Compliance
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] sm:text-xs font-medium text-muted-foreground mb-1">EIN Number</label>
+                      <input
+                        type="text"
+                        value={editFormData.einNumber}
+                        onChange={(e) => setEditFormData({ ...editFormData, einNumber: e.target.value })}
+                        placeholder="XX-XXXXXXX"
+                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] sm:text-xs font-medium text-muted-foreground mb-1">Charter Number</label>
+                      <input
+                        type="text"
+                        value={editFormData.charterNumber}
+                        onChange={(e) => setEditFormData({ ...editFormData, charterNumber: e.target.value })}
+                        placeholder="Charter #"
+                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3">
+                    <div>
+                      <label className="block text-[10px] sm:text-xs font-medium text-muted-foreground mb-1">State of Incorporation</label>
+                      <input
+                        type="text"
+                        value={editFormData.stateOfIncorporation}
+                        onChange={(e) => setEditFormData({ ...editFormData, stateOfIncorporation: e.target.value })}
+                        placeholder="e.g., Delaware"
+                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] sm:text-xs font-medium text-muted-foreground mb-1">Original Filing Date</label>
+                      <input
+                        type="date"
+                        value={editFormData.originalFilingDate}
+                        onChange={(e) => setEditFormData({ ...editFormData, originalFilingDate: e.target.value })}
+                        className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] sm:text-xs font-medium text-muted-foreground mb-1 text-primary">Annual Report Due</label>
+                      <input
+                        type="date"
+                        value={editFormData.annualReportDueDate}
+                        onChange={(e) => setEditFormData({ ...editFormData, annualReportDueDate: e.target.value })}
+                        className="w-full rounded-lg border border-primary/30 px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Foreign Entities */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[10px] sm:text-xs font-medium text-muted-foreground">Foreign Entity Filings</label>
+                      <Button 
+                        type="button" 
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-6 text-[10px] px-2"
+                        onClick={() => setEditFormData({
+                          ...editFormData,
+                          foreignEntities: [...editFormData.foreignEntities, { state: "", documentNumber: "" }]
+                        })}
+                      >
+                        <Plus className="h-3 w-3 mr-1" /> Add State
+                      </Button>
+                    </div>
+                    {editFormData.foreignEntities.map((entity, idx) => (
+                      <div key={idx} className="flex gap-2 items-end bg-muted/30 p-2 rounded-lg relative">
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            value={entity.state}
+                            onChange={(e) => {
+                              const newList = [...editFormData.foreignEntities];
+                              newList[idx].state = e.target.value;
+                              setEditFormData({ ...editFormData, foreignEntities: newList });
+                            }}
+                            placeholder="State"
+                            className="w-full rounded-md border bg-white px-2 py-1 text-xs"
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            value={entity.documentNumber}
+                            onChange={(e) => {
+                              const newList = [...editFormData.foreignEntities];
+                              newList[idx].documentNumber = e.target.value;
+                              setEditFormData({ ...editFormData, foreignEntities: newList });
+                            }}
+                            placeholder="Doc #"
+                            className="w-full rounded-md border bg-white px-2 py-1 text-xs"
+                          />
+                        </div>
+                        <Button 
+                          type="button" 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-6 w-6 text-destructive"
+                          onClick={() => {
+                            const newList = editFormData.foreignEntities.filter((_, i) => i !== idx);
+                            setEditFormData({ ...editFormData, foreignEntities: newList });
+                          }}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
                 
                 {/* Logo Upload */}
                 <div className="space-y-2">
