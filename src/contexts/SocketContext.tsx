@@ -6,6 +6,8 @@ interface SocketContextType {
   isConnected: boolean;
   joinTask: (taskId: string) => void;
   leaveTask: (taskId: string) => void;
+  joinProject: (projectId: string) => void;
+  leaveProject: (projectId: string) => void;
   emitTyping: (taskId: string, username: string) => void;
   emitStopTyping: (taskId: string) => void;
 }
@@ -21,6 +23,8 @@ export function useSocket() {
       isConnected: false,
       joinTask: () => {},
       leaveTask: () => {},
+      joinProject: () => {},
+      leaveProject: () => {},
       emitTyping: () => {},
       emitStopTyping: () => {},
     } as SocketContextType;
@@ -115,6 +119,18 @@ export function SocketProvider({ children }: SocketProviderProps) {
     }
   };
 
+  const joinProject = (projectId: string) => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit("join-project", projectId);
+    }
+  };
+
+  const leaveProject = (projectId: string) => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit("leave-project", projectId);
+    }
+  };
+
   const emitTyping = (taskId: string, username: string) => {
     if (socketRef.current && isConnected) {
       socketRef.current.emit("typing", { taskId, username });
@@ -132,6 +148,8 @@ export function SocketProvider({ children }: SocketProviderProps) {
     isConnected,
     joinTask,
     leaveTask,
+    joinProject,
+    leaveProject,
     emitTyping,
     emitStopTyping,
   };
