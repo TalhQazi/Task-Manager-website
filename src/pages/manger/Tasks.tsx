@@ -760,7 +760,7 @@ export default function Tasks() {
 
   const currentUsername = getAuthState().username || "";
   const isTeamLead = getAuthState().role === "team-lead";
-  const { socket, joinTask, leaveTask } = useSocket();
+  const { socket, joinTask, leaveTask, joinProject, leaveProject } = useSocket();
 
   // Lightbox / File Preview State
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -850,6 +850,29 @@ export default function Tasks() {
     loadTopContributors();
   }, []);
 
+  // Real-time project comments via socket
+  useEffect(() => {
+    if (!socket || !selectedProject) return;
+    joinProject(selectedProject.id);
+
+    const handleNewProjectComment = (comment: TaskComment) => {
+      setProjectComments((prev) => {
+        if (prev.some((c) => c.id === comment.id)) return prev;
+        return [...prev, comment];
+      });
+      setTimeout(() => {
+        projectChatContainerRef.current?.scrollTo({ top: projectChatContainerRef.current.scrollHeight, behavior: 'smooth' });
+      }, 100);
+    };
+
+    socket.on("new-project-comment", handleNewProjectComment);
+
+    return () => {
+      socket.off("new-project-comment", handleNewProjectComment);
+      leaveProject(selectedProject.id);
+    };
+  }, [socket, selectedProject?.id]);
+
   // Real-time task comments via socket
   useEffect(() => {
     if (!socket || !selectedTask) return;
@@ -860,6 +883,9 @@ export default function Tasks() {
         if (prev.some((c) => c.id === comment.id)) return prev;
         return [...prev, comment];
       });
+      setTimeout(() => {
+        chatContainerRef.current?.scrollTo({ top: chatContainerRef.current.scrollHeight, behavior: 'smooth' });
+      }, 100);
     };
     socket.on("new-comment", handleNewComment);
 
