@@ -165,6 +165,19 @@ export async function apiFetch<T>(
   return (await parseJsonSafe(res)) as T;
 }
 
+// Get current logged-in user profile
+export async function getCurrentUser() {
+  return apiFetch<{
+    item: {
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+      status: string;
+    };
+  }>("/api/users/me");
+}
+
 // Contributor API functions
 export async function getTopContributors(limit = 5) {
   return apiFetch<{ contributors: Array<{
