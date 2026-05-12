@@ -46,6 +46,7 @@ const UphMaintenance = lazy(() => import("@/pages/admin/UphMaintenance"));
 const BugReport = lazy(() => import("@/pages/admin/BugReport"));
 const Contributors = lazy(() => import("@/pages/admin/Contributors"));
 const ThemeEngine = lazy(() => import("@/pages/admin/ThemeEngine"));
+const Memes = lazy(() => import("@/pages/admin/Memes"));
 
 const TeamLeadMappings = lazy(() => import("@/pages/admin/TeamLeadMappings"));
 const TaskPermissions = lazy(() => import("@/pages/admin/TaskPermissions"));
@@ -121,6 +122,7 @@ export default function AdminRoutes() {
 
       { path: "bug-reports", element: <BugReport /> },
       { path: "theme-engine", element: <ThemeEngine /> },
+      { path: "memes", element: <Memes /> },
       { path: "shopping-lists", element: <ShoppingLists /> },
       { path: "system-email-settings", element: auth.role === "super-admin" ? <SystemEmailSettings /> : <Navigate to="/admin" replace /> },
       { path: "company-registry", element: <CompanyRegistry /> },
