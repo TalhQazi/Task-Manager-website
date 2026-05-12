@@ -106,12 +106,12 @@ export function Header({ onMenuClick }: HeaderProps) {
   };
 
   const resolveNotificationLink = (n: MessageApi) => {
-    const direct = String(n.meta?.link || "").trim();
-    if (direct) return direct;
-
+    // Prioritise resourceType+resourceId — more reliable than meta.link which the
+    // backend sets as "/admin/tasks/:id" (a route that doesn't exist in the SPA).
     const resourceTypeRaw = String(n.meta?.resourceType || "").trim();
     const resourceType = resourceTypeRaw.toLowerCase();
     const resourceId = String(n.meta?.resourceId || "").trim();
+    const direct = String(n.meta?.link || "").trim();
 
     if (resourceType === "vehicle") {
       if (resourceId) return `/admin/vehicles?view=${encodeURIComponent(resourceId)}`;
@@ -165,6 +165,9 @@ export function Header({ onMenuClick }: HeaderProps) {
       if (resourceId) return `/developer/bugs?view=${encodeURIComponent(resourceId)}`;
       return "/developer/bugs";
     }
+
+    // Fall back to direct link if the backend provided one and it looks like a real SPA route
+    if (direct && direct.startsWith("/admin/")) return direct;
 
     const content = String(n.content || "").toLowerCase();
     if (content.includes(" employee")) return "/admin/employees";
@@ -670,8 +673,8 @@ export function Header({ onMenuClick }: HeaderProps) {
                             <DropdownMenuItem
                               key={n.id}
                               onClick={() => {
-                                markRead(n.id);
                                 navigate(resolveNotificationLink(n));
+                                markRead(n.id);
                               }}
                               className="flex items-start gap-3 px-3 py-2.5 cursor-pointer border-b border-slate-800 last:border-0 rounded-none text-white focus:bg-white/10 focus:text-white data-[highlighted]:bg-white/10 data-[highlighted]:text-white transition-colors"
                             >
