@@ -323,9 +323,19 @@ export function Header({ onMenuClick }: HeaderProps) {
     },
   });
 
-  // Only show unread notifications in the dropdown
+  const me = String(auth.username || "").trim();
+  const myName = String(auth.name || "").trim();
+
+  // Only show unread notifications in the dropdown.
+  // Backend tracks reads via a readBy[] array, not a status field — check both.
   const notifications = (notificationsQuery.data || [])
-    .filter((n) => n.status !== "read")
+    .filter((n: any) => {
+      if (n.status === "read") return false;
+      const readBy: string[] = Array.isArray(n.readBy) ? n.readBy : [];
+      if (me && readBy.includes(me)) return false;
+      if (myName && readBy.includes(myName)) return false;
+      return true;
+    })
     .slice()
     .sort((a, b) =>
       String(b.timestamp || b.createdAt || "").localeCompare(String(a.timestamp || a.createdAt || ""))
@@ -412,9 +422,17 @@ export function Header({ onMenuClick }: HeaderProps) {
   
 
   const markAllRead = async () => {
-    // Optimistic: immediately mark all as read in cache
+    // Optimistic: mark all as read via both status and readBy so the filter catches it
     queryClient.setQueryData(["admin-notifications"], (old: any) =>
-      Array.isArray(old) ? old.map((n) => ({ ...n, status: "read" })) : old
+      Array.isArray(old)
+        ? old.map((n) => ({
+            ...n,
+            status: "read",
+            readBy: Array.isArray(n.readBy)
+              ? [...new Set([...n.readBy, me, myName].filter(Boolean))]
+              : [me, myName].filter(Boolean),
+          }))
+        : old
     );
     try {
       await apiFetch("/api/messages/mark-all-read", { method: "POST" });
@@ -424,9 +442,21 @@ export function Header({ onMenuClick }: HeaderProps) {
   };
 
   const markRead = async (id: string) => {
-    // Optimistic: immediately remove this notification from the unread list
+    // Optimistic: mark read in cache via both status and readBy so the filter catches it
     queryClient.setQueryData(["admin-notifications"], (old: any) =>
-      Array.isArray(old) ? old.map((n) => (n.id === id ? { ...n, status: "read" } : n)) : old
+      Array.isArray(old)
+        ? old.map((n) =>
+            n.id === id
+              ? {
+                  ...n,
+                  status: "read",
+                  readBy: Array.isArray(n.readBy)
+                    ? [...new Set([...n.readBy, me, myName].filter(Boolean))]
+                    : [me, myName].filter(Boolean),
+                }
+              : n
+          )
+        : old
     );
     try {
       await apiFetch(`/api/messages/${id}/mark-read`, { method: "POST" });
