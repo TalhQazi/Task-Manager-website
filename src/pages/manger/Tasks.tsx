@@ -1567,17 +1567,17 @@ export default function Tasks() {
 
     if (!isTyping) {
       setIsTyping(true);
-      const payload: any = { typing: true };
+      const payload: any = { typing: true, username: currentUsername };
       if (isProject) payload.projectId = selectedProject!.id;
       else payload.taskId = selectedTask!.id;
       socket.emit("typing", payload);
     }
 
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    
+
     typingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false);
-      const payload: any = { typing: false };
+      const payload: any = { typing: false, username: currentUsername };
       if (isProject) payload.projectId = selectedProject!.id;
       else payload.taskId = selectedTask!.id;
       socket.emit("typing", payload);

@@ -1706,14 +1706,14 @@ export default function Tasks() {
 
     if (!isTyping) {
       setIsTyping(true);
-      socket.emit("typing", { taskId: selectedTask.id, typing: true });
+      socket.emit("typing", { taskId: selectedTask.id, username: currentUsername, typing: true });
     }
 
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    
+
     typingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false);
-      socket.emit("typing", { taskId: selectedTask.id, typing: false });
+      socket.emit("typing", { taskId: selectedTask.id, username: currentUsername, typing: false });
     }, 3000);
   };
 
@@ -1746,7 +1746,7 @@ export default function Tasks() {
         });
       };
 
-      socket.on("user-typing", handleTyping);
+      socket.on("typing", handleTyping);
       
       const handleReactionUpdated = ({ commentId, reactions }: { commentId: string; reactions: any[] }) => {
         setComments((prev) => prev.map(c => c.id === commentId ? { ...c, reactions } : c));
@@ -1756,7 +1756,7 @@ export default function Tasks() {
 
       return () => {
         socket.off("new-comment", handleNewComment);
-        socket.off("user-typing", handleTyping);
+        socket.off("typing", handleTyping);
         socket.off("comment-reaction-updated", handleReactionUpdated);
         leaveTask(selectedTask.id);
       };
