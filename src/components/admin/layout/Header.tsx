@@ -52,7 +52,57 @@ export function Header({ onMenuClick }: HeaderProps) {
       resourceType?: string;
       resourceId?: string;
       link?: string;
+      category?: string;
     };
+  };
+
+  const formatRelativeTime = (ts?: string) => {
+    if (!ts) return "";
+    const diff = Date.now() - new Date(ts).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days === 1) return "yesterday";
+    return `${days}d ago`;
+  };
+
+  const getCategoryIcon = (category?: string) => {
+    switch (category) {
+      case "TASK_ASSIGNED": return "📋";
+      case "PROJECT_ASSIGNED": return "📁";
+      case "TASK_COMPLETED": return "✅";
+      case "MENTIONED": return "💬";
+      case "COMMENT_ADDED": return "💬";
+      case "SYSTEM_ALERT": return "🔔";
+      default: return "🔔";
+    }
+  };
+
+  const getCategoryLabel = (category?: string) => {
+    switch (category) {
+      case "TASK_ASSIGNED": return "Task";
+      case "PROJECT_ASSIGNED": return "Project";
+      case "TASK_COMPLETED": return "Done";
+      case "MENTIONED": return "Mention";
+      case "COMMENT_ADDED": return "Comment";
+      case "SYSTEM_ALERT": return "Alert";
+      default: return null;
+    }
+  };
+
+  const getCategoryColor = (category?: string) => {
+    switch (category) {
+      case "TASK_ASSIGNED": return "bg-blue-500/20 text-blue-300";
+      case "PROJECT_ASSIGNED": return "bg-indigo-500/20 text-indigo-300";
+      case "TASK_COMPLETED": return "bg-emerald-500/20 text-emerald-300";
+      case "MENTIONED": return "bg-yellow-500/20 text-yellow-300";
+      case "COMMENT_ADDED": return "bg-green-500/20 text-green-300";
+      case "SYSTEM_ALERT": return "bg-orange-500/20 text-orange-300";
+      default: return "bg-slate-700/60 text-slate-300";
+    }
   };
 
   const resolveNotificationLink = (n: MessageApi) => {
@@ -582,31 +632,43 @@ export function Header({ onMenuClick }: HeaderProps) {
                           <p className="text-sm text-slate-300">You're all caught up!</p>
                         </div>
                       ) : (
-                        notifications.map(n => (
-                          <DropdownMenuItem
-                            key={n.id}
-                            onClick={() => {
-                              markRead(n.id);
-                              navigate(resolveNotificationLink(n));
-                            }}
-                            className="flex flex-col items-start gap-1 px-4 py-3 cursor-pointer border-b border-slate-700 last:border-0 hover:bg-white/10 bg-slate-800/40 transition-colors"
-                          >
-                            <div className="flex items-center gap-2 w-full">
-                              <span className="h-2 w-2 rounded-full flex-shrink-0 bg-[#00C6FF]" />
-                              <span className="text-[13px] font-semibold text-white truncate">
-                                {n.title || "Notification"}
+                        notifications.map(n => {
+                          const category = n.meta?.category;
+                          const label = getCategoryLabel(category);
+                          const relTime = formatRelativeTime(n.createdAt || n.timestamp);
+                          return (
+                            <DropdownMenuItem
+                              key={n.id}
+                              onClick={() => {
+                                markRead(n.id);
+                                navigate(resolveNotificationLink(n));
+                              }}
+                              className="flex items-start gap-3 px-3 py-2.5 cursor-pointer border-b border-slate-800 last:border-0 rounded-none text-white focus:bg-white/10 focus:text-white data-[highlighted]:bg-white/10 data-[highlighted]:text-white transition-colors"
+                            >
+                              <span className="text-base leading-none mt-0.5 flex-shrink-0">
+                                {getCategoryIcon(category)}
                               </span>
-                            </div>
-                            <p className="text-xs text-slate-200 line-clamp-2 pl-4 leading-relaxed">
-                              {n.content || n.message}
-                            </p>
-                            {(n.createdAt || n.timestamp) && (
-                              <span className="text-[10px] text-slate-400 pl-4 mt-0.5">
-                                {new Date(n.createdAt || n.timestamp).toLocaleString()}
-                              </span>
-                            )}
-                          </DropdownMenuItem>
-                        ))
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 mb-0.5">
+                                  <span className="text-[12px] font-semibold leading-tight truncate">
+                                    {n.title || "Notification"}
+                                  </span>
+                                  {label && (
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${getCategoryColor(category)}`}>
+                                      {label}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-slate-300 line-clamp-2 leading-relaxed">
+                                  {n.content}
+                                </p>
+                                {relTime && (
+                                  <span className="text-[10px] text-slate-500 mt-0.5 block">{relTime}</span>
+                                )}
+                              </div>
+                            </DropdownMenuItem>
+                          );
+                        })
                       )}
                     </div>
                     <DropdownMenuSeparator className="m-0 bg-slate-800" />
