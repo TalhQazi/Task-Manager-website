@@ -1,20 +1,19 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
-import { Calendar, MapPin, DollarSign, Plus, Edit, Trash2, Eye } from "lucide-react";
+import { Calendar, MapPin, DollarSign, Eye } from "lucide-react";
 import { travelCalendarApi, TravelCalendar, TravelCalendarFilters } from "@/lib/travelCalendarApi";
 import { Button } from "@/components/manger/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/manger/ui/card";
 import { Badge } from "@/components/manger/ui/badge";
 import { Input } from "@/components/manger/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/manger/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/manger/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/manger/ui/dialog";
 import { toast } from "sonner";
 
 const EmployeeTravelCalendar = () => {
   const [travelCalendars, setTravelCalendars] = useState<TravelCalendar[]>([]);
   const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState<TravelCalendarFilters>({});
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [selectedCalendar, setSelectedCalendar] = useState<TravelCalendar | null>(null);
   const [showViewDialog, setShowViewDialog] = useState(false);
 
@@ -37,23 +36,6 @@ const EmployeeTravelCalendar = () => {
   useEffect(() => {
     loadTravelCalendars();
   }, [filters]);
-
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this travel calendar?")) return;
-    
-    try {
-      const response = await travelCalendarApi.deleteTravelCalendar(id);
-      if (response.success) {
-        toast.success("Travel calendar deleted successfully");
-        loadTravelCalendars();
-      } else {
-        toast.error(response.error?.message || "Failed to delete travel calendar");
-      }
-    } catch (error) {
-      console.error("Failed to delete travel calendar:", error);
-      toast.error("Failed to delete travel calendar");
-    }
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -88,27 +70,9 @@ const EmployeeTravelCalendar = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">My Travel Calendar</h1>
-          <p className="text-gray-600 mt-1">Manage your personal travel schedules</p>
-        </div>
-        <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Travel
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Create Travel Calendar Entry</DialogTitle>
-            </DialogHeader>
-            <div className="p-4 text-center text-gray-500">
-              Travel calendar creation form will be implemented here
-            </div>
-          </DialogContent>
-        </Dialog>
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">My Travel Calendar</h1>
+        <p className="text-gray-600 mt-1">View your travel schedules</p>
       </div>
 
       {/* Filters */}
@@ -139,12 +103,11 @@ const EmployeeTravelCalendar = () => {
             </div>
             <div>
               <label className="block text-sm font-medium mb-1">Status</label>
-              <Select value={filters.status || ""} onValueChange={(value) => setFilters({ ...filters, status: value })}>
+              <Select value={filters.status || ""} onValueChange={(value) => setFilters({ ...filters, status: value || undefined })}>
                 <SelectTrigger>
                   <SelectValue placeholder="All Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Status</SelectItem>
                   <SelectItem value="planned">Planned</SelectItem>
                   <SelectItem value="approved">Approved</SelectItem>
                   <SelectItem value="in-progress">In Progress</SelectItem>
@@ -208,23 +171,6 @@ const EmployeeTravelCalendar = () => {
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedCalendar(calendar);
-                      // Edit functionality will be implemented
-                    }}
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleDelete(calendar._id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -236,11 +182,7 @@ const EmployeeTravelCalendar = () => {
             <CardContent className="p-8 text-center">
               <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">No travel calendars found</h3>
-              <p className="text-gray-600 mb-4">Get started by creating your first travel calendar entry</p>
-              <Button onClick={() => setShowCreateDialog(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Travel
-              </Button>
+              <p className="text-gray-600 mb-4">No travel schedules are currently available</p>
             </CardContent>
           </Card>
         )}

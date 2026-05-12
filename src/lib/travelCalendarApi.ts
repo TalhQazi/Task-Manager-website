@@ -92,6 +92,12 @@ export interface TravelCalendarApiResponse {
 class TravelCalendarApi {
   private baseUrl = "/api/travel-calendar";
 
+  private parseErrorMessage(error: unknown): string {
+    return error instanceof Error && error.message
+      ? error.message
+      : "Travel calendar feature not available";
+  }
+
   // Get all travel calendars with optional filters
   async getTravelCalendars(filters?: TravelCalendarFilters): Promise<TravelCalendarResponse> {
     try {
@@ -102,7 +108,7 @@ class TravelCalendarApi {
         });
       }
 
-      const response = await apiClient.get(`${this.baseUrl}?${params}`);
+      const response = await apiClient.get<TravelCalendarResponse>(`${this.baseUrl}?${params}`);
       return response.data;
     } catch (error) {
       console.warn("Travel calendar API not available, returning empty data");
@@ -120,7 +126,7 @@ class TravelCalendarApi {
   // Get single travel calendar by ID
   async getTravelCalendarById(id: string): Promise<TravelCalendarSingleResponse> {
     try {
-      const response = await apiClient.get(`${this.baseUrl}/${id}`);
+      const response = await apiClient.get<TravelCalendarSingleResponse>(`${this.baseUrl}/${id}`);
       return response.data;
     } catch (error) {
       console.warn("Travel calendar API not available for get by ID");
@@ -131,13 +137,13 @@ class TravelCalendarApi {
   // Create new travel calendar
   async createTravelCalendar(data: TravelCalendarCreateRequest): Promise<TravelCalendarApiResponse> {
     try {
-      const response = await apiClient.post(this.baseUrl, data);
+      const response = await apiClient.post<TravelCalendarApiResponse>(this.baseUrl, data);
       return response.data;
     } catch (error) {
       console.warn("Travel calendar API not available for create");
       return {
         success: false,
-        error: { message: "Travel calendar feature not available" }
+        error: { message: this.parseErrorMessage(error) }
       };
     }
   }
@@ -145,13 +151,13 @@ class TravelCalendarApi {
   // Update travel calendar
   async updateTravelCalendar(id: string, data: TravelCalendarUpdateRequest): Promise<TravelCalendarApiResponse> {
     try {
-      const response = await apiClient.put(`${this.baseUrl}/${id}`, data);
+      const response = await apiClient.put<TravelCalendarApiResponse>(`${this.baseUrl}/${id}`, data);
       return response.data;
     } catch (error) {
       console.warn("Travel calendar API not available for update");
       return {
         success: false,
-        error: { message: "Travel calendar feature not available" }
+        error: { message: this.parseErrorMessage(error) }
       };
     }
   }
@@ -159,13 +165,13 @@ class TravelCalendarApi {
   // Delete travel calendar
   async deleteTravelCalendar(id: string): Promise<TravelCalendarApiResponse> {
     try {
-      const response = await apiClient.delete(`${this.baseUrl}/${id}`);
+      const response = await apiClient.delete<TravelCalendarApiResponse>(`${this.baseUrl}/${id}`);
       return response.data;
     } catch (error) {
       console.warn("Travel calendar API not available for delete");
       return {
         success: false,
-        error: { message: "Travel calendar feature not available" }
+        error: { message: this.parseErrorMessage(error) }
       };
     }
   }
