@@ -11,6 +11,7 @@ import { SocketProvider } from "./contexts/SocketContext";
 import { TaskBlasterProvider } from "./contexts/TaskBlasterContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { RewardProvider } from "./contexts/RewardContext";
+import { MemeTimer } from "./components/meme/MemeTimer";
 
 
 // Lazy-load route controllers — each pulls in its own pages lazily
@@ -53,6 +54,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <ThemeProvider>
+            <MemeTimer />
             <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0a0a0f" }}>
               <div style={{ width: 40, height: 40, border: "3px solid rgba(255,255,255,0.1)", borderTopColor: "#6366f1", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
               <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
