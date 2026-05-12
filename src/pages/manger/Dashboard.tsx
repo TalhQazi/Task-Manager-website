@@ -190,79 +190,77 @@ const Dashboard = () => {
           variants={containerVariants}
         >
           {metrics && [
-
-
-            { 
-              title: "Total Employees", 
-              value: metrics.totalEmployees, 
-              icon: Users, 
-              variant: "cyan" as const, 
-              changeType: "positive" as const, 
-              onClick: () => navigate("/manager/employees"),
-              description: "Active workforce"
-            },
-            { 
-              title: "Active Tasks", 
-              value: metrics.activeTasks, 
-              icon: CheckSquare, 
-              variant: "success" as const, 
-              changeType: "neutral" as const, 
-              onClick: () => navigate("/manager/tasks"),
-              description: "In progress"
-            },
-            { 
-              title: "Active Projects", 
-              value: metrics.totalProjects, 
-              icon: FolderRoot, 
-              variant: "purple" as const, 
-              changeType: "positive" as const, 
+            {
+              title: "Active Projects",
+              value: metrics.totalProjects,
+              icon: FolderRoot,
+              variant: "purple" as const,
+              changeType: "positive" as const,
               onClick: () => navigate("/manager/tasks"),
               description: "Ongoing initiatives"
             },
-            { 
-              title: "Total Vehicles", 
-              value: metrics.totalVehicles, 
-              icon: Car, 
-              variant: "orange" as const, 
-              changeType: "positive" as const, 
-              onClick: () => navigate("/manager/vehicles"),
-              description: "Fleet size"
+            {
+              title: "Active Tasks",
+              value: metrics.activeTasks,
+              icon: CheckSquare,
+              variant: "success" as const,
+              changeType: "neutral" as const,
+              onClick: () => navigate("/manager/tasks"),
+              description: "In progress"
             },
-            { 
-              title: "Total Locations", 
-              value: metrics.totalLocations, 
-              icon: MapPin, 
-              variant: "teal" as const, 
-              changeType: "positive" as const, 
-              onClick: () => navigate("/manager/locations"),
-              description: "Service areas"
-            },
-            { 
-              title: "EOD Submitted", 
-              value: eodStats.submitted, 
-              icon: ClipboardList, 
-              variant: "success" as const, 
-              changeType: "positive" as const, 
-              onClick: () => navigate("/manager/eod-reports"),
-              description: `${eodStats.total > 0 ? Math.round((eodStats.submitted / eodStats.total) * 100) : 0}% compliance`
-            },
-            { 
-              title: "EOD Late", 
-              value: eodStats.late, 
-              icon: ClipboardList, 
-              variant: "warning" as const, 
-              changeType: "neutral" as const, 
+            {
+              title: "EOD Late",
+              value: eodStats.late,
+              icon: ClipboardList,
+              variant: "warning" as const,
+              changeType: "neutral" as const,
               onClick: () => navigate("/manager/eod-reports"),
               description: "Needs attention"
             },
-            { 
-              title: "EOD Missing", 
-              value: eodStats.missing, 
-              icon: ClipboardList, 
-              variant: "danger" as const, 
-              changeType: "negative" as const, 
+            {
+              title: "EOD Missing",
+              value: eodStats.missing,
+              icon: ClipboardList,
+              variant: "danger" as const,
+              changeType: "negative" as const,
               onClick: () => navigate("/manager/eod-reports"),
               description: "Action required"
+            },
+            {
+              title: "EOD Submitted",
+              value: eodStats.submitted,
+              icon: ClipboardList,
+              variant: "success" as const,
+              changeType: "positive" as const,
+              onClick: () => navigate("/manager/eod-reports"),
+              description: `${eodStats.total > 0 ? Math.round((eodStats.submitted / eodStats.total) * 100) : 0}% compliance`
+            },
+            {
+              title: "Total Employees",
+              value: metrics.totalEmployees,
+              icon: Users,
+              variant: "cyan" as const,
+              changeType: "positive" as const,
+              onClick: () => navigate("/manager/employees"),
+              description: "Active workforce"
+            },
+            {
+              title: "Total Locations",
+              value: metrics.totalLocations,
+              icon: MapPin,
+              variant: "teal" as const,
+              changeType: "positive" as const,
+              onClick: () => navigate("/manager/locations"),
+              description: "Service areas"
+            },
+            {
+              title: "Total Vehicles",
+              value: metrics.totalVehicles,
+              icon: Car,
+              variant: "orange" as const,
+              changeType: "positive" as const,
+              onClick: () => navigate("/manager/vehicles"),
+              description: "Fleet size"
             },
           ].map((stat) => (
             <motion.div

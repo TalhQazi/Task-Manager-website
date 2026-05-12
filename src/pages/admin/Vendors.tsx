@@ -49,7 +49,6 @@ import {
   CheckCircle,
   XCircle,
   Globe,
-  PlusCircle,
 } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useToast } from "@/components/admin/ui/use-toast";
@@ -228,11 +227,12 @@ export default function Vendors() {
   };
 
   const handleAddCategory = async () => {
-    if (!newCategoryName.trim()) return;
+    const name = newCategoryName.trim();
+    if (!name) return;
     try {
       const res = await apiFetch<{ item: VendorCategory }>("/api/vendor-categories", {
         method: "POST",
-        body: JSON.stringify({ name: newCategoryName }),
+        body: JSON.stringify({ name }),
       });
       setCategories([...categories, res.item].sort((a, b) => a.name.localeCompare(b.name)));
       setFormData({ ...formData, serviceType: res.item.name });
@@ -594,34 +594,11 @@ export default function Vendors() {
               
               <div className="space-y-2">
                 <Label>Service Category *</Label>
-                <div className="flex gap-2">
-                  <Select
-                    value={formData.serviceType}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, serviceType: value })
-                    }
-                  >
-                    <SelectTrigger className="flex-1">
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat._id} value={cat.name}>
-                          {cat.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="icon" 
-                    onClick={() => setIsNewCategoryOpen(true)}
-                    title="Add new category"
-                  >
-                    <PlusCircle className="w-4 h-4" />
-                  </Button>
-                </div>
+                <Input
+                  value={formData.serviceType}
+                  onChange={(e) => setFormData({ ...formData, serviceType: e.target.value })}
+                  placeholder="e.g., Electrical, Plumbing, HVAC"
+                />
               </div>
 
               <div className="space-y-2">
@@ -887,23 +864,11 @@ export default function Vendors() {
               </div>
               <div className="space-y-2">
                 <Label>Service Category *</Label>
-                <Select
+                <Input
                   value={formData.serviceType}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, serviceType: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat._id} value={cat.name}>
-                        {cat.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  onChange={(e) => setFormData({ ...formData, serviceType: e.target.value })}
+                  placeholder="e.g., Electrical, Plumbing, HVAC"
+                />
               </div>
               <div className="space-y-2">
                 <Label>Location *</Label>

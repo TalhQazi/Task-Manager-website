@@ -91,10 +91,10 @@ import {
   Flame,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { io, Socket } from "socket.io-client";
+import { useSocket } from "@/contexts/SocketContext";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch, downloadTaskAttachment, toProxiedUrl, updateComment, deleteComment } from "@/lib/manger/api";
-import { getAuthState } from "@/lib/auth";
+
 import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import jsPDF from "jspdf";
@@ -621,6 +621,7 @@ export default function Tasks() {
   const { triggerBlaster, incrementCompletedCount } = useTaskBlasterContext();
   const { triggerReward } = useRewards();
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const { socket, joinTask, leaveTask, joinProject, leaveProject } = useSocket();
 
   const projectsQuery = useQuery({
     queryKey: ["projects", projectPage, projectSearchQuery],
@@ -1176,38 +1177,51 @@ export default function Tasks() {
     }
   };
 
-  // Socket.io for Real-time
+  // Real-time task comments via SocketContext
   useEffect(() => {
-    const token = getAuthState().token;
-    if (!token) return;
+    if (!socket || !selectedTask) return;
+    joinTask(selectedTask.id);
 
-    const socket: Socket = io(import.meta.env.VITE_API_BASE_URL || "https://api.task.se7eninc.com", {
-      auth: { token },
-      transports: ["websocket"],
-    });
+    const handleNewComment = (comment: TaskComment) => {
+      if (comment.taskId !== selectedTask.id) return;
+      setComments(prev => {
+        if (prev.find(c => c.id === comment.id)) return prev;
+        return [...prev, comment];
+      });
+      setTimeout(() => {
+        if (chatContainerRef.current) {
+          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+      }, 100);
+    };
 
-    socket.on("connect", () => console.log("✅ Socket connected:", socket.id));
-    
-    socket.on("new-comment", (data: { taskId: string; comment: TaskComment }) => {
-      if (selectedTask && data.taskId === selectedTask.id) {
-        setComments(prev => {
-          if (prev.find(c => c.id === data.comment.id)) return prev;
-          return [...prev, data.comment];
-        });
-      }
-    });
+    socket.on("new-comment", handleNewComment);
 
-    socket.on("new-project-comment", (data: { projectId: string; comment: TaskComment }) => {
-      if (selectedProject && data.projectId === selectedProject.id) {
-        setProjectComments(prev => {
-          if (prev.find(c => c.id === data.comment.id)) return prev;
-          return [...prev, data.comment];
-        });
-      }
-    });
+    return () => {
+      socket.off("new-comment", handleNewComment);
+      leaveTask(selectedTask.id);
+    };
+  }, [socket, selectedTask?.id]);
 
-    return () => { socket.disconnect(); };
-  }, [selectedTask?.id, selectedProject?.id]);
+  // Real-time project comments via SocketContext
+  useEffect(() => {
+    if (!socket || !selectedProject) return;
+    joinProject(selectedProject.id);
+
+    const handleNewProjectComment = (comment: TaskComment) => {
+      setProjectComments(prev => {
+        if (prev.find(c => c.id === comment.id)) return prev;
+        return [...prev, comment];
+      });
+    };
+
+    socket.on("new-project-comment", handleNewProjectComment);
+
+    return () => {
+      socket.off("new-project-comment", handleNewProjectComment);
+      leaveProject(selectedProject.id);
+    };
+  }, [socket, selectedProject?.id]);
 
   const updateStatus = async (next: Task["status"], event?: React.MouseEvent | React.TouchEvent | { x: number; y: number }) => {
     if (!selectedTask) return;

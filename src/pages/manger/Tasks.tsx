@@ -760,7 +760,7 @@ export default function Tasks() {
 
   const currentUsername = getAuthState().username || "";
   const isTeamLead = getAuthState().role === "team-lead";
-  const { socket, joinTask, leaveTask, joinProject, leaveProject } = useSocket();
+  const { socket, isConnected, joinTask, leaveTask, joinProject, leaveProject } = useSocket();
 
   // Lightbox / File Preview State
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -871,7 +871,7 @@ export default function Tasks() {
       socket.off("new-project-comment", handleNewProjectComment);
       leaveProject(selectedProject.id);
     };
-  }, [socket, selectedProject?.id]);
+  }, [socket, isConnected, selectedProject?.id]);
 
   // Real-time task comments via socket
   useEffect(() => {
@@ -912,7 +912,7 @@ export default function Tasks() {
       socket.off("comment-reaction-updated", handleReactionUpdated);
       leaveTask(selectedTask.id);
     };
-  }, [socket, selectedTask?.id]);
+  }, [socket, isConnected, selectedTask?.id]);
 
   const loadProject = async (projectId: string) => {
     setIsLoadingProject(true);

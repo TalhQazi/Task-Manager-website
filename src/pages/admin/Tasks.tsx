@@ -584,7 +584,7 @@ const createTaskSchema = z.object({
 type CreateTaskValues = z.infer<typeof createTaskSchema>;
 
 export default function Tasks() {
-  const { socket, joinTask, leaveTask } = useSocket();
+  const { socket, isConnected, joinTask, leaveTask } = useSocket();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -1761,7 +1761,7 @@ export default function Tasks() {
         leaveTask(selectedTask.id);
       };
     }
-  }, [isViewOpen, selectedTask?.id, socket, joinTask, leaveTask]);
+  }, [isViewOpen, selectedTask?.id, socket, isConnected, joinTask, leaveTask]);
 
   const toggleReaction = async (commentId: string, emoji: string) => {
     if (!selectedTask) return;
