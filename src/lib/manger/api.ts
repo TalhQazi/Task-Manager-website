@@ -27,6 +27,12 @@ type StoredAuth = {
 async function parseJsonSafe(res: Response) {
   const text = await res.text();
   if (!text) return null;
+  
+  // Check if response is HTML (indicates API endpoint doesn't exist)
+  if (text.trim().startsWith('<!doctype html>') || text.trim().startsWith('<html>')) {
+    throw new Error('API endpoint not found');
+  }
+  
   try {
     return JSON.parse(text);
   } catch {
