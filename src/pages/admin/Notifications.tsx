@@ -21,7 +21,7 @@ import {
   DialogTrigger,
 } from "@/components/admin/ui/dialog";
 import { Plus, Search, Bell, Eye, EyeOff } from "lucide-react";
-import { createResource, listResource } from "@/lib/admin/apiClient";
+import { apiFetch, createResource, listResource } from "@/lib/admin/apiClient";
 import { useSocket } from "@/contexts/SocketContext";
 import { getAuthState } from "@/lib/auth";
 
@@ -58,7 +58,7 @@ export default function Notifications() {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [items, setItems] = useState<NotificationItem[]>(() => []);
-  const [unreadOnly, setUnreadOnly] = useState(false);
+  const [unreadOnly, setUnreadOnly] = useState(true);
   const { socket } = useSocket();
   const auth = getAuthState();
   const currentUser = auth.username || "";
@@ -99,6 +99,22 @@ export default function Notifications() {
   const refresh = async () => {
     const notificationsList = await listResource<NotificationItem>("notifications", { type: "broadcast" });
     setItems(notificationsList);
+  };
+
+  const markRead = async (id: string) => {
+    // Optimistic: immediately mark as read in local state so it disappears from unread view
+    setItems((prev) =>
+      prev.map((n) =>
+        n.id === id
+          ? { ...n, readBy: [...(Array.isArray(n.readBy) ? n.readBy : []), currentUser] }
+          : n
+      )
+    );
+    try {
+      await apiFetch(`/api/notifications/${encodeURIComponent(id)}/mark-read`, { method: "POST" });
+    } catch {
+      // ignore — optimistic update already applied
+    }
   };
 
   // Real-time: refresh list when a new notification arrives
@@ -310,15 +326,22 @@ export default function Notifications() {
                   {filteredNotifications.map((n) => {
                     const { date, time } = formatUSA(n.createdAt);
                     return (
-                      <div key={n.id} className="bg-white rounded-lg border p-4 space-y-3">
+                      <div
+                        key={n.id}
+                        className={`rounded-lg border p-4 space-y-3 cursor-pointer ${n.isRead ? "bg-white" : "bg-blue-50/40"}`}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => { if (!n.isRead) void markRead(n.id); }}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { if (!n.isRead) void markRead(n.id); } }}
+                      >
                         {/* Header with Icon and Title */}
                         <div className="flex items-start gap-3">
-                          <div className="h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
+                          <div className="relative h-8 w-8 rounded-lg bg-accent/10 flex items-center justify-center flex-shrink-0">
                             <Bell className="h-4 w-4 text-accent" />
+                            {!n.isRead && <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-blue-500" />}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{n.title}</p>
-                            <p className="text-xs text-muted-foreground">{n.id}</p>
+                            <p className={`text-sm truncate ${n.isRead ? "font-medium" : "font-semibold"}`}>{n.title}</p>
                           </div>
                         </div>
 
@@ -371,7 +394,11 @@ export default function Notifications() {
                         return (
                           <TableRow
                             key={n.id}
-                            className={`hover:bg-muted/30 ${isUnread ? "bg-blue-50/40" : ""}`}
+                            className={`cursor-pointer hover:bg-muted/30 ${isUnread ? "bg-blue-50/40" : ""}`}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => { if (isUnread) void markRead(n.id); }}
+                            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { if (isUnread) void markRead(n.id); } }}
                           >
                             <TableCell>
                               <div className="space-y-1">

@@ -70,7 +70,8 @@ export default function Notifications() {
 
   const resolveNotificationLink = (n: NotificationItem): string => {
     const direct = String(n.meta?.link || "").trim();
-    if (direct) return direct;
+    // Backend stores links as /admin/... — rewrite to manager equivalent
+    if (direct) return direct.replace(/^\/admin\//, "/manager/");
 
     const resourceType = String(n.meta?.resourceType || "").toLowerCase();
     const resourceId = String(n.meta?.resourceId || "").trim();
@@ -83,10 +84,18 @@ export default function Notifications() {
   };
 
   const markRead = async (id: string) => {
+    // Optimistic: mark as read in local state immediately so it disappears from unread view
+    setItems((prev) =>
+      prev.map((item) =>
+        (item.id === id || item._id === id)
+          ? { ...item, readBy: [...(Array.isArray(item.readBy) ? item.readBy : []), currentUser] }
+          : item
+      )
+    );
     try {
       await apiFetch(`/api/notifications/${encodeURIComponent(id)}/mark-read`, { method: "POST" });
     } catch {
-      // ignore
+      // ignore — optimistic update already applied
     }
   };
 

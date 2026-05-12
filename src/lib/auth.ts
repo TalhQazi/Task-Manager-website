@@ -105,6 +105,7 @@ export type AuthState = {
   isAuthenticated: boolean;
   role: UserRole | null;
   username: string | null;
+  name?: string | null;
   token: string | null;
 };
 
@@ -130,6 +131,7 @@ export function getAuthState(): AuthState {
           ? parsed.role
           : null,
       username: typeof parsed.username === "string" ? parsed.username : null,
+      name: typeof parsed.name === "string" ? parsed.name : null,
       token: typeof parsed.token === "string" ? parsed.token : null,
     };
   } catch {

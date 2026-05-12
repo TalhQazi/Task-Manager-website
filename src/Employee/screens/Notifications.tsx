@@ -91,10 +91,10 @@ const navigate = useNavigate();
 
 
 
-const user = JSON.parse(localStorage.getItem("employee") || "{}");
-const role = user?.role || "employees";
-const userEmail = user?.email || "";
-const userName = user?.name || user?.username || userEmail;
+const user = JSON.parse(localStorage.getItem("employee_auth") || "{}");
+const role = user?.role || "employee";
+const userEmail = user?.username || "";   // employee_auth stores email as "username"
+const userName = user?.name || userEmail;
 
 
 useEffect(() => {

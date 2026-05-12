@@ -59,14 +59,19 @@ export function SocketProvider({ children }: SocketProviderProps) {
       console.log("✅ Socket connected:", socket.id);
       setIsConnected(true);
 
-      // Register in a personal room + role room so the backend can send targeted notifications
+      // Register in a personal room + role room so the backend can send targeted notifications.
+      // Admin/manager: username=email (from JWT), name=display name — both rooms needed so
+      // @mentions (stored by display name) reach them via the name room.
+      // Employee: username=name (display name matches task.assignees storage).
       let username = "";
+      let name = "";
       let role = "";
       try {
         const authRaw = localStorage.getItem("taskflow_auth");
         if (authRaw) {
           const auth = JSON.parse(authRaw);
           username = auth.username || auth.name || "";
+          name = auth.name || "";
           role = auth.role || "";
         } else {
           const empRaw = localStorage.getItem("employee_auth");
@@ -80,7 +85,7 @@ export function SocketProvider({ children }: SocketProviderProps) {
         // ignore parse errors
       }
       if (username) {
-        socket.emit("register-user", { username, role });
+        socket.emit("register-user", { username, name, role });
       }
     });
 

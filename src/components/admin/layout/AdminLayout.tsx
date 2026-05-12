@@ -56,13 +56,15 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
     const handleNotification = (data: any) => {
       // Check if this notification is for me
-      const me = String(auth.username || auth.name || "").trim();
+      const me = String(auth.username || "").trim();
+      const myName = String(auth.name || "").trim();
       const myRole = String(auth.role || "").trim();
       const recipients = String(data.recipient || "").split(",").map(s => s.trim());
-      
-      const isForMe = recipients.includes(me) || 
-                      recipients.includes(myRole) || 
-                      myRole === "super-admin" || 
+
+      const isForMe = recipients.includes(me) ||
+                      (myName && recipients.includes(myName)) ||
+                      recipients.includes(myRole) ||
+                      myRole === "super-admin" ||
                       myRole === "admin";
 
       if (isForMe) {

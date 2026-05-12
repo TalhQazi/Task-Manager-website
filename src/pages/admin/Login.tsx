@@ -100,6 +100,7 @@ export default function Login() {
         isAuthenticated: true,
         role: role as UserRole,
         username,
+        name: name || username,
         token,
       });
       const defaultLanding =
