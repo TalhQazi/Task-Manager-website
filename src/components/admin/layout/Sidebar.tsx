@@ -69,6 +69,7 @@ const navItemsBase: NavItem[] = [
    { icon: ClipboardList, label: "EOD Reports", path: "/admin/eod-reports" },
      { icon: Building, label: "EIN list", path: "/admin/company-registry" },
   { icon: CalendarCheck, label: "Leave Requests", path: "/admin/leave-requests" },
+  { icon: Calendar, label: "Travel Calendar", path: "/admin/travel-calendar" },
   { icon: History, label: "Task History", path: "/admin/task-history" },
   {
     icon: Layers,

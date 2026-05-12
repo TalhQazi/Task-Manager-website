@@ -53,6 +53,7 @@ const TaskPermissions = lazy(() => import("@/pages/admin/TaskPermissions"));
 const ShoppingLists = lazy(() => import("@/pages/admin/ShoppingLists"));
 const SystemEmailSettings = lazy(() => import("@/pages/admin/SystemEmailSettings"));
 const CompanyRegistry = lazy(() => import("@/pages/admin/CompanyRegistry"));
+const TravelCalendar = lazy(() => import("@/pages/admin/TravelCalendar"));
 
 
 
@@ -124,6 +125,7 @@ export default function AdminRoutes() {
       { path: "shopping-lists", element: <ShoppingLists /> },
       { path: "system-email-settings", element: auth.role === "super-admin" ? <SystemEmailSettings /> : <Navigate to="/admin" replace /> },
       { path: "company-registry", element: <CompanyRegistry /> },
+      { path: "travel-calendar", element: <TravelCalendar /> },
 
       { path: "*", element: <NotFound /> },
     ],

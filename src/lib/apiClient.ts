@@ -1,5 +1,52 @@
 import { apiFetch } from "./api";
 
+// API client wrapper that provides axios-like interface
+export const apiClient = {
+  get: async <T>(url: string): Promise<{ data: T }> => {
+    try {
+      const data = await apiFetch<T>(url);
+      return { data };
+    } catch (error) {
+      throw error;
+    }
+  },
+  
+  post: async <T>(url: string, payload?: any): Promise<{ data: T }> => {
+    try {
+      const data = await apiFetch<T>(url, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      return { data };
+    } catch (error) {
+      throw error;
+    }
+  },
+  
+  put: async <T>(url: string, payload?: any): Promise<{ data: T }> => {
+    try {
+      const data = await apiFetch<T>(url, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+      return { data };
+    } catch (error) {
+      throw error;
+    }
+  },
+  
+  delete: async <T>(url: string): Promise<{ data: T }> => {
+    try {
+      const data = await apiFetch<T>(url, {
+        method: "DELETE",
+      });
+      return { data };
+    } catch (error) {
+      throw error;
+    }
+  },
+};
+
 export type LoginResult =
   | { status: "needs-password-setup"; identifier: string }
   | { status: "role-not-defined" }
