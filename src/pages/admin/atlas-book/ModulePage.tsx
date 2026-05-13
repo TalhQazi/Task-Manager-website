@@ -9,6 +9,10 @@ import AccountsPayable from "./modules/AccountsPayable";
 import AccountsReceivable from "./modules/AccountsReceivable";
 import TenantManagement from "./modules/TenantManagement";
 import ReceiptOCR from "./modules/ReceiptOCR";
+import InventoryManagement from "./modules/InventoryManagement";
+import PayrollManagement from "./modules/PayrollManagement";
+import BudgetManagement from "./modules/BudgetManagement";
+import FixedAssetManagement from "./modules/FixedAssetManagement";
 import { 
   Building2, Landmark, LayoutDashboard, Calculator, ListTree, Receipt, 
   ArrowRightLeft, FileText, Users, ScanLine, Box, Wallet, PieChart, 
@@ -96,19 +100,22 @@ const moduleData: Record<string, { title: string; features: string[]; accounts: 
     title: "Inventory Management",
     features: ["Raw Inventory", "Finished Inventory", "Warehouse Tracking"],
     accounts: ["Inventory Asset", "Cost of Goods Sold"],
-    icon: Box
+    icon: Box,
+    component: InventoryManagement
   },
   "payroll": {
     title: "Payroll Module",
     features: ["Employee Salaries", "Deductions", "Payroll Reports"],
     accounts: ["Salary Expense", "Payroll Liability"],
-    icon: Coins
+    icon: Coins,
+    component: PayrollManagement
   },
   "budget": {
     title: "Budget Management",
     features: ["Annual Budgets", "Budget vs Actual"],
     accounts: ["Budget Accounts", "Forecast Accounts"],
-    icon: PiggyBank
+    icon: PieChart,
+    component: BudgetManagement
   },
   "reporting": {
     title: "Financial Reporting",
@@ -162,7 +169,8 @@ const moduleData: Record<string, { title: string; features: string[]; accounts: 
     title: "Fixed Asset Management",
     features: ["Asset Purchase", "Depreciation", "Asset Register"],
     accounts: ["Fixed Assets", "Accumulated Depreciation"],
-    icon: Activity
+    icon: Building2,
+    component: FixedAssetManagement
   },
   "loans": {
     title: "Loan & Financing",
