@@ -60,7 +60,7 @@ export default function AtlasBookDashboard() {
           >
             <CardHeader className="pb-4">
               <div className={`h-12 w-12 rounded-2xl ${m.bg} flex items-center justify-center mb-2 group-hover:scale-110 transition-transform duration-300`}>
-                <m.icon className={`h-6 w-6 ${m.color}`} />
+                {m.icon && <m.icon className={`h-6 w-6 ${m.color}`} />}
               </div>
               <CardTitle className="text-lg font-bold group-hover:text-primary transition-colors">{m.title}</CardTitle>
             </CardHeader>

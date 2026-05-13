@@ -15,7 +15,7 @@ export default function AtlasModule({ title, features, accounts, icon: Icon = Bo
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
-            <Icon className="h-8 w-8 text-primary" />
+            {Icon && <Icon className="h-8 w-8 text-primary" />}
             {title}
           </h1>
           <p className="text-muted-foreground">Comprehensive module management within AtlasBook.</p>
@@ -58,7 +58,7 @@ export default function AtlasModule({ title, features, accounts, icon: Icon = Bo
       <Card className="shadow-soft border-dashed border-2 bg-muted/20">
         <CardContent className="flex flex-col items-center justify-center py-20 text-center space-y-4">
           <div className="p-4 rounded-full bg-primary/5">
-            <Icon className="h-12 w-12 text-primary opacity-20" />
+            {Icon && <Icon className="h-12 w-12 text-primary opacity-20" />}
           </div>
           <div className="space-y-1">
             <h3 className="text-xl font-bold">Module under active development</h3>

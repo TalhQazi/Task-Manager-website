@@ -298,7 +298,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
             )}
           >
             <div className="flex items-center gap-3">
-              <item.icon className={cn("h-5 w-5 flex-shrink-0 transition-all", hasActiveChild && "text-[#00C6FF]")} />
+              {item.icon && <item.icon className={cn("h-5 w-5 flex-shrink-0 transition-all", hasActiveChild && "text-[#00C6FF]")} />}
               <span className="text-sm font-medium truncate">{item.label}</span>
             </div>
             {isExpanded ? (
@@ -360,7 +360,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
 
             {item.customIcon ? (
               item.customIcon
-            ) : (
+            ) : item.icon ? (
               <item.icon
                 className={cn(
                   "flex-shrink-0 transition-all duration-100 linear relative z-10",
@@ -369,7 +369,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
                   "group-hover:brightness-[108%]"
                 )}
               />
-            )}
+            ) : null}
             {item.label === "SignaCore" ? (
               <span className="text-sm font-bold truncate">
                 <span className="text-[#38bdf8]">Signa</span>
