@@ -118,8 +118,7 @@ export default function EmployeeDashboard() {
       const res = await getEmployeeDashboard();
       return res.item;
     },
-    refetchInterval: 5000,
-    refetchOnWindowFocus: true,
+    refetchOnWindowFocus: false,
   });
 
 

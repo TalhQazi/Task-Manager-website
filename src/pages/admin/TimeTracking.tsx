@@ -37,6 +37,8 @@ interface TimeEntry {
   date: string;
   clockIn: string;
   clockOut: string | null;
+  clockInAt?: string;
+  clockOutAt?: string;
   status: "clocked-in" | "clocked-out" | "on-break";
 }
 
@@ -49,6 +51,8 @@ type TimeEntryApi = {
   date?: string;
   clockIn?: string;
   clockOut?: string | null;
+  clockInAt?: string;
+  clockOutAt?: string;
   status?: string;
   initials?: string;
   gpsLocation?: { lat: number; lng: number };
@@ -143,6 +147,15 @@ function formatDuration(totalMinutes: number) {
 }
 
 function calcEntryMinutes(entry: TimeEntry) {
+  if (entry.clockInAt && entry.clockOutAt) {
+    const inAt = new Date(entry.clockInAt);
+    const outAt = new Date(entry.clockOutAt);
+    if (Number.isFinite(inAt.getTime()) && Number.isFinite(outAt.getTime())) {
+      const diff = Math.floor((outAt.getTime() - inAt.getTime()) / 60000);
+      return diff > 0 ? diff : 0;
+    }
+  }
+
   const inMin = parseMinutes(entry.clockIn);
   if (inMin === null) return 0;
   const outMin = entry.clockOut ? parseMinutes(entry.clockOut) : null;
@@ -151,14 +164,43 @@ function calcEntryMinutes(entry: TimeEntry) {
   return diff > 0 ? diff : 0;
 }
 
-function formatEntryDate(value: string) {
+function getLocalDateInputValue(d = new Date()) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function toLocalDateKey(value: string) {
   const raw = String(value || "").trim();
-  if (!raw) return "—";
+  if (!raw) return "";
   const m = /^\d{4}-\d{2}-\d{2}/.exec(raw);
   if (m) return m[0];
   const d = new Date(raw);
-  if (Number.isFinite(d.getTime())) return d.toISOString().slice(0, 10);
-  return raw;
+  if (!Number.isFinite(d.getTime())) return raw;
+  return getLocalDateInputValue(d);
+}
+
+function formatEntryDate(value: string) {
+  const key = toLocalDateKey(value);
+  if (!key) return "—";
+  const d = new Date(`${key}T00:00:00`);
+  if (!Number.isFinite(d.getTime())) return key;
+  return d.toLocaleDateString();
+}
+
+function formatLocalTime(value: string) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const d = new Date(raw);
+  if (!Number.isFinite(d.getTime())) return "";
+  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function resolveClockTime(clockAt: string | undefined, hhmm: string | undefined) {
+  const localFromTimestamp = formatLocalTime(String(clockAt || ""));
+  if (localFromTimestamp) return localFromTimestamp;
+  return String(hhmm || "").trim();
 }
 
 function normalizeTimeEntry(e: TimeEntryApi): TimeEntry {
@@ -166,8 +208,11 @@ function normalizeTimeEntry(e: TimeEntryApi): TimeEntry {
   const id = String((e as any).id || e._id || "");
   const location = String(e.location || "");
   const date = String(e.date || "");
-  const clockIn = String(e.clockIn || "");
-  const clockOut = (e.clockOut === null ? null : String(e.clockOut || "")) || null;
+  const clockInAt = String(e.clockInAt || "").trim() || undefined;
+  const clockOutAt = String(e.clockOutAt || "").trim() || undefined;
+  const clockIn = resolveClockTime(clockInAt, String(e.clockIn || ""));
+  const clockOutResolved = resolveClockTime(clockOutAt, String(e.clockOut || ""));
+  const clockOut = (e.clockOut === null ? null : clockOutResolved) || null;
   const statusRaw = String(e.status || "");
   const status: TimeEntry["status"] =
     statusRaw === "clocked-in" || statusRaw === "on-break" || statusRaw === "clocked-out"
@@ -188,6 +233,8 @@ function normalizeTimeEntry(e: TimeEntryApi): TimeEntry {
     date,
     clockIn,
     clockOut,
+    clockInAt,
+    clockOutAt,
     status,
   };
 }
@@ -232,7 +279,7 @@ const TimeTracking = () => {
   const [formData, setFormData] = useState({
     employee: "",
     location: "",
-    date: new Date().toISOString().split("T")[0],
+    date: getLocalDateInputValue(),
     clockIn: "",
     clockOut: "",
     status: "clocked-in" as TimeEntry["status"],
@@ -468,7 +515,9 @@ const TimeTracking = () => {
     const byDay = new Map<string, number>();
     for (const e of sortedEntries) {
       const mins = calcEntryMinutes(e);
-      byDay.set(e.date, (byDay.get(e.date) ?? 0) + mins);
+      const dayKey = toLocalDateKey(e.date);
+      if (!dayKey) continue;
+      byDay.set(dayKey, (byDay.get(dayKey) ?? 0) + mins);
     }
 
     const daily = Array.from(byDay.entries())
@@ -515,7 +564,7 @@ const TimeTracking = () => {
       setFormData({
         employee: "",
         location: "",
-        date: new Date().toISOString().split("T")[0],
+        date: getLocalDateInputValue(),
         clockIn: "",
         clockOut: "",
         status: "clocked-in",

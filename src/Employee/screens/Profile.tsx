@@ -324,15 +324,15 @@ const hasTaxInfo =
   const calculateProgress = () => {
     if (!onboardingData) return 0;
     let completed = 0;
-    const total = 6; // 6 sections total including ClearHire
+    const total = 6;
 
     // Basic Information
     if (onboardingData.basicInfo?.completed) completed++;
 
-    // ClearHire Background Check (Step 2)
-    if (clearHireStatus) completed++;
+    // Work Information (New Step 2)
+    if (onboardingData.workInfo?.completed) completed++;
 
-    // Identity Verification (both primary and secondary must be submitted)
+    // Identity Verification
     if (onboardingData.identityVerification?.primaryId?.status === "submitted" ||
         onboardingData.identityVerification?.primaryId?.status === "verified") {
       if (onboardingData.identityVerification?.secondaryId?.status === "submitted" ||
@@ -603,12 +603,29 @@ const hasTaxInfo =
         toast.error("Employee ID not found");
         return;
       }
+      
+      // Save to employee profile
       await employeeApiFetch(`/api/employees/${employeeId}`, {
         method: "PUT",
         body: JSON.stringify(editedWorkInfo),
       });
+
+      // Save to onboarding record to update progress
+      await employeeApiFetch("/api/onboarding/me/work-info", {
+        method: "PUT",
+        body: JSON.stringify({
+          department: editedWorkInfo.department,
+          jobTitle: editedWorkInfo.jobTitle,
+          manager: editedWorkInfo.manager,
+        }),
+      });
+
       setProfile(editedWorkInfo);
       setEditingWorkInfo(false);
+      
+      // Refresh onboarding data to update progress bar
+      await fetchOnboardingData();
+      
       toast.success("Work information updated successfully");
     } catch (err: any) {
       toast.error(err.message || "Failed to update work information");
@@ -1124,8 +1141,6 @@ const hasTaxInfo =
             </CardContent>
           </Card>
 
-          {/* Step 2: Background Check (ClearHire) */}
-          <ClearHireOnboardingForm onStatusChange={loadOnboardingData} />
 
           {/* Step 3: Identity Verification */}
           <Card>
@@ -1570,230 +1585,7 @@ const hasTaxInfo =
             </CardContent>
           </Card>
  <Separator />
-            {/* Bank Information */}       
-          <Card>
-              <CardHeader>
-                <CardTitle>Bank Information</CardTitle>
-                <CardDescription>Secure payment details</CardDescription>
-              </CardHeader>
 
-              <CardContent className="space-y-3">
-                <Input
-  placeholder="Account Holder Name"
-  value={bank.accountName}
-  onChange={(e) => setBank({ ...bank, accountName: e.target.value })}
-/>
-
-<Input
-  placeholder="Account Number"
-  value={bank.accountNumber}
-  onChange={(e) => setBank({ ...bank, accountNumber: e.target.value })}
-/>
-
-<Input
-  placeholder="IFSC Code"
-  value={bank.ifsc}
-  onChange={(e) => setBank({ ...bank, ifsc: e.target.value })}
-/>
-
-<Input
-  placeholder="Bank Name"
-  value={bank.bankName}
-  onChange={(e) => setBank({ ...bank, bankName: e.target.value })}
-/>
-               <Button
-  className="bg-[#133767] hover:bg-[#1a4585]"
-  onClick={async () => {
-    await updateBankInfo({ bankInfo: bank });
-    toast.success("Bank info updated");
-  }}
->
- {hasBankInfo ? "Update Bank Info" : "Add Bank Info"}
-</Button>
-              </CardContent>
-          </Card>
-
-          <Separator />
-
-          {/* Notification Preferences */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Bell className="h-5 w-5" />
-                Notification Preferences
-              </CardTitle>
-              <CardDescription>Manage how you receive notifications</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="emailNotifications">Email Notifications</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Receive notifications via email
-                  </p>
-                </div>
-                <Switch
-                  id="emailNotifications"
-                  checked={emailNotifications}
-                  onCheckedChange={setEmailNotifications}
-                />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="pushNotifications">Push Notifications</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Receive push notifications in browser
-                  </p>
-                </div>
-                <Switch
-                  id="pushNotifications"
-                  checked={pushNotifications}
-                  onCheckedChange={setPushNotifications}
-                />
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label htmlFor="taskReminders">Task Reminders</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Get reminded about upcoming tasks
-                  </p>
-                </div>
-                <Switch
-                  id="taskReminders"
-                  checked={taskReminders}
-                  onCheckedChange={setTaskReminders}
-                />
-              </div>
-              <Button
-                onClick={handleSaveNotifications}
-                className="bg-[#133767] hover:bg-[#1a4585]"
-              >
-                Save Preferences
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Separator />
-
-          {/* Emergency Contact */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
-                Emergency Contact
-              </CardTitle>
-              <CardDescription>Contact person in case of emergency</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="emergencyName">Contact Name</Label>
-                  <Input
-                    id="emergencyName"
-                    placeholder="Full name"
-                    value={editedProfile?.emergencyContactName || ""}
-                    onChange={(e) => setEditedProfile({ ...editedProfile, emergencyContactName: e.target.value })}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="emergencyRelation">Relationship</Label>
-                  <Input
-                    id="emergencyRelation"
-                    placeholder="e.g., Spouse, Parent, Sibling"
-                    value={editedProfile?.emergencyContactRelation || ""}
-                    onChange={(e) => setEditedProfile({ ...editedProfile, emergencyContactRelation: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="emergencyPhone">Phone Number</Label>
-                <Input
-                  id="emergencyPhone"
-                  placeholder="(555) 123-4567"
-                  value={editedProfile?.emergencyContactPhone || ""}
-                  onChange={(e) => setEditedProfile({ ...editedProfile, emergencyContactPhone: e.target.value })}
-                />
-              </div>
-              <Button
-                onClick={handleSaveProfile}
-                className="bg-[#133767] hover:bg-[#1a4585]"
-              >
-                Save Emergency Contact
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Separator />
-
-          {/* Tax Withholding (W-4) */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
-                Tax Withholding (W-4)
-              </CardTitle>
-              <CardDescription>Federal tax withholding settings</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="filingStatus">Filing Status</Label>
-                  <select
-                    id="filingStatus"
-                    className="w-full px-3 py-2 border rounded-md"
-                    value={editedProfile?.filingStatus || ""}
-                    onChange={(e) => setEditedProfile({ ...editedProfile, filingStatus: e.target.value })}
-                  >
-                    <option value="">Select status</option>
-                    <option value="single">Single</option>
-                    <option value="married_filing_jointly">Married Filing Jointly</option>
-                    <option value="married_filing_separately">Married Filing Separately</option>
-                    <option value="head_of_household">Head of Household</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="allowances">Allowances</Label>
-                  <Input
-                    id="allowances"
-                    type="number"
-                    min="0"
-                    placeholder="0"
-                    value={editedProfile?.allowances || 0}
-                    onChange={(e) => setEditedProfile({ ...editedProfile, allowances: parseInt(e.target.value) || 0 })}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="additionalWithholding">Additional Withholding ($)</Label>
-                <Input
-                  id="additionalWithholding"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={editedProfile?.additionalWithholding || 0}
-                  onChange={(e) => setEditedProfile({ ...editedProfile, additionalWithholding: parseFloat(e.target.value) || 0 })}
-                />
-              </div>
-              <Button
-                onClick={async () => {
-                  await updateTaxInfo({
-                    filingStatus: editedProfile?.filingStatus,
-                    allowances: editedProfile?.allowances,
-                    additionalWithholding: editedProfile?.additionalWithholding,
-                  });
-                  toast.success("Tax settings updated");
-                }}
-                className="bg-[#133767] hover:bg-[#1a4585]"
-              >
-                Save Tax Settings
-              </Button>
-            </CardContent>
-          </Card>
-
-          <Separator />
 
           {/* MFA / Two-Factor Authentication */}
           <Card>
