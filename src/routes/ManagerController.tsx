@@ -45,6 +45,7 @@ const CRMDashboard = lazy(() => import("@/pages/manger/crm/CrmDashboard"));
 const CRMFiles = lazy(() => import("@/pages/manger/crm/Files"));
 
 const TravelCalendar = lazy(() => import("@/pages/manger/TravelCalendar"));
+const ManagerAnnouncements = lazy(() => import("@/pages/manger/Announcements"));
 
 function PageLoader() {
   return (
@@ -104,6 +105,9 @@ export default function ManagerController() {
       { path: "crm/tasks", element: <ManagerCRMTasks /> },
 
       { path: "travel-calendar", element: <TravelCalendar /> },
+
+      { path: "announcements", element: <ManagerAnnouncements /> },
+
 
       { path: "*", element: <NotFound /> },
       { path: "crm/dashboard", element: <CRMDashboard /> },

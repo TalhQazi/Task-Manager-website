@@ -22,6 +22,9 @@ import {
   ChevronDown,
   ChevronRight,
   ShoppingCart,
+ 
+  Megaphone,
+
    CheckSquare,
    Mail,
 FolderOpen,
@@ -50,6 +53,7 @@ const navItemsBase: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/manager", end: true },
   { icon: ClipboardList, label: "Tasks", path: "/manager/tasks" },
   { icon: Users, label: "Employees", path: "/manager/employees" },
+  { icon: Megaphone, label: "Announcements", path: "/manager/announcements" },
   { icon: Calendar, label: "Scheduling", path: "/manager/scheduling" },
   { icon: Clock, label: "Time Tracking", path: "/manager/time-tracking" },
   { icon: Clock, label: "Attendance", path: "/manager/attendance" },
