@@ -21,11 +21,16 @@ import MultiCurrency from "./modules/MultiCurrency";
 import TaxManagement from "./modules/TaxManagement";
 import LoanFinancing from "./modules/LoanFinancing";
 import InvestorReporting from "./modules/InvestorReporting";
+import TitleMonitoring from "./modules/TitleMonitoring";
+import ApprovalWorkflow from "./modules/ApprovalWorkflow";
+import SearchAnalytics from "./modules/SearchAnalytics";
+import ExecutiveDashboard from "./modules/ExecutiveDashboard";
 import { 
   Building2, Landmark, LayoutDashboard, Calculator, ListTree, Receipt, 
   ArrowRightLeft, FileText, Users, ScanLine, Box, Wallet, PieChart, 
   ShieldAlert, CreditCard, BarChart3, Activity, Globe, Scale, Coins, 
-  PiggyBank, UserCheck, Search, ShieldCheck, ClipboardCheck, Timer
+  PiggyBank, UserCheck, Search, ShieldCheck, ClipboardCheck, Timer, 
+  Shield, CheckCircle2, TrendingUp, Sparkles, Building
 } from "lucide-react";
 
 const moduleData: Record<string, { title: string; features: string[]; accounts: string[]; icon: any; component?: any }> = {
@@ -200,17 +205,33 @@ const moduleData: Record<string, { title: string; features: string[]; accounts: 
     icon: PieChart,
     component: InvestorReporting
   },
+  "dashboard": {
+    title: "Executive Dashboard",
+    features: ["Global Financial Summary", "Actionable Alerts", "Performance Analytics", "Audit Status"],
+    accounts: ["All Consolidated Accounts"],
+    icon: LayoutDashboard,
+    component: ExecutiveDashboard
+  },
+  "title": {
+    title: "Title & Lien Monitoring",
+    features: ["Mortgage Monitoring", "Ownership Changes"],
+    accounts: ["Mortgage Liability", "Legal Expense"],
+    icon: ShieldCheck,
+    component: TitleMonitoring
+  },
   "approval": {
     title: "Approval Workflow",
     features: ["Expense Approval", "Multi-Level Approval"],
     accounts: ["Pending Approval Accounts"],
-    icon: Timer
+    icon: Timer,
+    component: ApprovalWorkflow
   },
   "search": {
     title: "Search & Analytics",
     features: ["Global Search", "Financial Analytics", "AI Insights"],
     accounts: ["Search Metric Accounts"],
-    icon: Search
+    icon: Search,
+    component: SearchAnalytics
   }
 };
 
