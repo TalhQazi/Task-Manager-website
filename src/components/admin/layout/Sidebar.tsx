@@ -43,6 +43,7 @@ import {
 
   ShoppingCart,
   Mail,
+  Book,
 } from "lucide-react";
 
 
@@ -63,6 +64,40 @@ type NavItem = {
 
 const navItemsBase: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin", end: true },
+  {
+    icon: Book,
+    label: "AtlasBook",
+    children: [
+      { label: "AtlasBook Dashboard", path: "/admin/atlas-book" },
+      { label: "Company Management", path: "/admin/atlas-book/company" },
+      { label: "Property Management", path: "/admin/atlas-book/property" },
+      { label: "Unit Management", path: "/admin/atlas-book/unit" },
+      { label: "Chart of Accounts", path: "/admin/atlas-book/coa" },
+      { label: "General Ledger", path: "/admin/atlas-book/gl" },
+      { label: "Transaction Management", path: "/admin/atlas-book/transactions" },
+      { label: "Accounts Payable", path: "/admin/atlas-book/ap" },
+      { label: "Accounts Receivable", path: "/admin/atlas-book/ar" },
+      { label: "Vendor Management", path: "/admin/atlas-book/vendor" },
+      { label: "Customer/Tenant Management", path: "/admin/atlas-book/customer" },
+      { label: "Receipt & OCR Module", path: "/admin/atlas-book/ocr" },
+      { label: "Inventory Management", path: "/admin/atlas-book/inventory" },
+      { label: "Payroll Module", path: "/admin/atlas-book/payroll" },
+      { label: "Budget Management", path: "/admin/atlas-book/budget" },
+      { label: "Financial Reporting", path: "/admin/atlas-book/reporting" },
+      { label: "Fraud Detection", path: "/admin/atlas-book/fraud" },
+      { label: "Credit Monitoring", path: "/admin/atlas-book/credit" },
+      { label: "Title & Lien Monitoring", path: "/admin/atlas-book/title" },
+      { label: "Dashboard & Analytics", path: "/admin/atlas-book/analytics" },
+      { label: "Audit & Compliance", path: "/admin/atlas-book/audit" },
+      { label: "Multi-Currency Module", path: "/admin/atlas-book/currency" },
+      { label: "Tax Management", path: "/admin/atlas-book/tax" },
+      { label: "Fixed Asset Management", path: "/admin/atlas-book/fixed-assets" },
+      { label: "Loan & Financing", path: "/admin/atlas-book/loans" },
+      { label: "Investor Reporting", path: "/admin/atlas-book/investor" },
+      { label: "Approval Workflow", path: "/admin/atlas-book/approval" },
+      { label: "Search & Analytics", path: "/admin/atlas-book/search" },
+    ],
+  },
   { icon: Users, label: "User Management", path: "/admin/users", end: true },
   { icon: CheckSquare, label: "Task Management", path: "/admin/tasks" },
   { icon: UserCircle, label: "Employee Directory", path: "/admin/employees" },

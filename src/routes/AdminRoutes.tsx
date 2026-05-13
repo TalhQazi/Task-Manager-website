@@ -64,6 +64,8 @@ const CRMCommunication = lazy(() => import("@/pages/admin/crm/Communication"));
 const CRMFiles = lazy(() => import("@/pages/admin/crm/Files"));
 const TravelCalendar = lazy(() => import("@/pages/admin/TravelCalendar"));
 const Announcements = lazy(() => import("@/pages/admin/Announcements"));
+const AtlasBookDashboard = lazy(() => import("@/pages/admin/atlas-book/Dashboard"));
+const AtlasBookModulePage = lazy(() => import("@/pages/admin/atlas-book/ModulePage"));
 
 
 
@@ -146,6 +148,8 @@ export default function AdminRoutes() {
       { path: "system-email-settings", element: auth.role === "super-admin" ? <SystemEmailSettings /> : <Navigate to="/admin" replace /> },
       { path: "company-registry", element: <CompanyRegistry /> },
       { path: "travel-calendar", element: <TravelCalendar /> },
+      { path: "atlas-book", element: <AtlasBookDashboard /> },
+      { path: "atlas-book/:moduleId", element: <AtlasBookModulePage /> },
 
       { path: "*", element: <NotFound /> },
     ],
