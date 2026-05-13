@@ -28,6 +28,7 @@ import { cn } from "@/lib/manger/utils";
 import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSocket } from "@/contexts/SocketContext";
+import MilestoneBadge from "@/components/shared/MilestoneBadge";
 
 interface Employee {
   id: string;
@@ -39,6 +40,8 @@ interface Employee {
   department: string;
   status: string;
   avatarUrl?: string;
+  milestoneLevel?: string;
+  milestoneLabel?: string;
 }
 
 interface Message {
@@ -479,7 +482,12 @@ export default function Messages() {
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate text-sm sm:text-base">{employee.name}</p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-medium truncate text-sm sm:text-base">{employee.name}</p>
+                      {employee.milestoneLevel && employee.milestoneLabel && (
+                        <MilestoneBadge level={employee.milestoneLevel} label={employee.milestoneLabel} size="sm" />
+                      )}
+                    </div>
                     <p className="text-xs sm:text-sm text-muted-foreground truncate">{employee.email}</p>
                     <div className="flex items-center gap-1 sm:gap-2 mt-1">
                       <Badge variant="secondary" className="text-[10px] sm:text-xs">
@@ -530,7 +538,12 @@ export default function Messages() {
                 </AvatarFallback>
               </Avatar>
               <div>
-                <h1 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold">{selectedEmployee.name}</h1>
+                <div className="flex items-center gap-2 mb-1">
+                  <h1 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold">{selectedEmployee.name}</h1>
+                  {selectedEmployee.milestoneLevel && selectedEmployee.milestoneLabel && (
+                    <MilestoneBadge level={selectedEmployee.milestoneLevel} label={selectedEmployee.milestoneLabel} size="sm" />
+                  )}
+                </div>
                 <p className="text-xs sm:text-sm text-muted-foreground truncate max-w-[180px] sm:max-w-none">{selectedEmployee.email}</p>
               </div>
             </div>
