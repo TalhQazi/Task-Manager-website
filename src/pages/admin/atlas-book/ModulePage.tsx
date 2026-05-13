@@ -17,6 +17,10 @@ import FinancialReporting from "./modules/FinancialReporting";
 import FraudDetection from "./modules/FraudDetection";
 import CreditMonitoring from "./modules/CreditMonitoring";
 import AuditCompliance from "./modules/AuditCompliance";
+import MultiCurrency from "./modules/MultiCurrency";
+import TaxManagement from "./modules/TaxManagement";
+import LoanFinancing from "./modules/LoanFinancing";
+import InvestorReporting from "./modules/InvestorReporting";
 import { 
   Building2, Landmark, LayoutDashboard, Calculator, ListTree, Receipt, 
   ArrowRightLeft, FileText, Users, ScanLine, Box, Wallet, PieChart, 
@@ -165,13 +169,15 @@ const moduleData: Record<string, { title: string; features: string[]; accounts: 
     title: "Multi-Currency Module",
     features: ["Currency Exchange", "Exchange Gain/Loss"],
     accounts: ["Exchange Gain", "Exchange Loss"],
-    icon: Globe
+    icon: Globe,
+    component: MultiCurrency
   },
   "tax": {
     title: "Tax Management",
     features: ["VAT/GST", "Tax Filing"],
     accounts: ["Tax Payable", "Tax Expense"],
-    icon: Scale
+    icon: Scale,
+    component: TaxManagement
   },
   "fixed-assets": {
     title: "Fixed Asset Management",
@@ -184,13 +190,15 @@ const moduleData: Record<string, { title: string; features: string[]; accounts: 
     title: "Loan & Financing",
     features: ["Loan Tracking", "EMI Schedules"],
     accounts: ["Loan Liability", "Interest Expense"],
-    icon: Landmark
+    icon: Landmark,
+    component: LoanFinancing
   },
   "investor": {
     title: "Investor Reporting",
     features: ["Investor Statements", "ROI Reports"],
     accounts: ["Investor Equity", "Dividend Payable"],
-    icon: PieChart
+    icon: PieChart,
+    component: InvestorReporting
   },
   "approval": {
     title: "Approval Workflow",
