@@ -3,6 +3,7 @@ import { Navigate, useLocation, useRoutes } from "react-router-dom";
 import { MainLayout } from "@/components/manger/layout/MainLayout";
 import { getAuthState } from "@/lib/auth";
 
+
 // Lazy-loaded page components for code splitting
 const Dashboard = lazy(() => import("@/pages/manger/Dashboard"));
 const Tasks = lazy(() => import("@/pages/manger/Tasks"));
@@ -34,6 +35,15 @@ const UphMaintenance = lazy(() => import("@/pages/admin/UphMaintenance"));
 const ShoppingLists = lazy(() => import("@/pages/admin/ShoppingLists"));
 const ActivityLogs = lazy(() => import("@/pages/admin/ActivityLogs"));
 const TeamAttendance = lazy(() => import("@/pages/manger/TeamAttendance"));
+
+const CRMCommunication = lazy(() => import("@/pages/manger/crm/Communication"));
+const ManagerCRMCompanies = lazy(() => import("@/pages/manger/crm/Companies"));
+const ManagerCRMContacts = lazy(() => import("@/pages/manger/crm/CrmContacts"));
+const ManagerCRMDeals = lazy(() => import("@/pages/manger/crm/CrmDeals"));
+const ManagerCRMTasks = lazy(() => import("@/pages/manger/crm/CrmTasks"));
+const CRMDashboard = lazy(() => import("@/pages/manger/crm/CrmDashboard"));
+const CRMFiles = lazy(() => import("@/pages/manger/crm/Files"));
+
 const TravelCalendar = lazy(() => import("@/pages/manger/TravelCalendar"));
 
 function PageLoader() {
@@ -86,8 +96,18 @@ export default function ManagerController() {
       { path: "shopping-lists", element: <ShoppingLists /> },
       { path: "activity-logs", element: <ActivityLogs /> },
       { path: "team-attendance", element: <TeamAttendance /> },
+
+      { path: "crm/communication", element: <CRMCommunication /> },
+      { path: "crm/companies", element: <ManagerCRMCompanies /> },
+      { path: "crm/contacts", element: <ManagerCRMContacts /> },
+      { path: "crm/deals", element: <ManagerCRMDeals /> },
+      { path: "crm/tasks", element: <ManagerCRMTasks /> },
+
       { path: "travel-calendar", element: <TravelCalendar /> },
+
       { path: "*", element: <NotFound /> },
+      { path: "crm/dashboard", element: <CRMDashboard /> },
+      { path: "crm/files", element: <CRMFiles /> },
     ],
     [],
   );
