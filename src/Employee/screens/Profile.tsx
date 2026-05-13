@@ -288,19 +288,29 @@ const hasTaxInfo =
       reader.readAsDataURL(file);
     });
 
-  const loadOnboardingData = async () => {
-    try {
-      setLoadingOnboarding(true);
-      const res = await employeeApiFetch<any>("/api/onboarding/me");
-      setOnboardingData(res.item);
-      if (res.item) {
-        setPrimaryIdType(res.item.identityVerification?.primaryId?.idType || "");
-        setSecondaryIdType(res.item.identityVerification?.secondaryId?.idType || "");
-        // Set local file data from saved data
-        setPrimaryIdFrontData(res.item.identityVerification?.primaryId?.frontImage || "");
-        setPrimaryIdBackData(res.item.identityVerification?.primaryId?.backImage || "");
-        setSecondaryIdData(res.item.identityVerification?.secondaryId?.image || "");
+ const loadOnboardingData = async () => {
+  try {
+    setLoadingOnboarding(true);
+    const res = await employeeApiFetch<any>("/api/onboarding/me");
+    setOnboardingData(res.item);
+    if (res.item) {
+      setPrimaryIdType(res.item.identityVerification?.primaryId?.idType || "");
+      setSecondaryIdType(res.item.identityVerification?.secondaryId?.idType || "");
+      setPrimaryIdFrontData(res.item.identityVerification?.primaryId?.frontImage || "");
+      setPrimaryIdBackData(res.item.identityVerification?.primaryId?.backImage || "");
+      setSecondaryIdData(res.item.identityVerification?.secondaryId?.image || "");
+
+      // ✅ YEH ADD KARO — workInfo se editedWorkInfo populate karo
+      if (res.item.workInfo?.completed) {
+        setEditedWorkInfo((prev: any) => ({
+          ...prev,
+          jobTitle: res.item.workInfo.jobTitle || prev?.jobTitle || "",
+          department: res.item.workInfo.department || prev?.department || "",
+          manager: res.item.workInfo.manager || prev?.manager || "",
+          joinDate: res.item.workInfo.joinDate || prev?.joinDate || "",
+        }));
       }
+    }
 
       // Fetch ClearHire status concurrently
       try {
@@ -596,41 +606,41 @@ const hasTaxInfo =
     setEditingWorkInfo(false);
   };
 
-  const handleSaveWorkInfo = async () => {
-    try {
-      const employeeId = String((profile as any)._id || profile.id);
-      if (!employeeId) {
-        toast.error("Employee ID not found");
-        return;
-      }
-      
-      // Save to employee profile
-      await employeeApiFetch(`/api/employees/${employeeId}`, {
-        method: "PUT",
-        body: JSON.stringify(editedWorkInfo),
-      });
-
-      // Save to onboarding record to update progress
-      await employeeApiFetch("/api/onboarding/me/work-info", {
-        method: "PUT",
-        body: JSON.stringify({
-          department: editedWorkInfo.department,
-          jobTitle: editedWorkInfo.jobTitle,
-          manager: editedWorkInfo.manager,
-        }),
-      });
-
-      setProfile(editedWorkInfo);
-      setEditingWorkInfo(false);
-      
-      // Refresh onboarding data to update progress bar
-      await fetchOnboardingData();
-      
-      toast.success("Work information updated successfully");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to update work information");
+ const handleSaveWorkInfo = async () => {
+  try {
+    const employeeId = String((profile as any)._id || profile?.id);
+    if (!employeeId) {
+      toast.error("Employee ID not found");
+      return;
     }
-  };
+
+    // Employee profile update
+    await employeeApiFetch(`/api/employees/${employeeId}`, {
+      method: "PUT",
+      body: JSON.stringify(editedWorkInfo),
+    });
+
+    // Onboarding record update
+    await employeeApiFetch("/api/onboarding/me/work-info", {
+      method: "PUT",
+      body: JSON.stringify({
+        department: editedWorkInfo.department,
+        jobTitle: editedWorkInfo.jobTitle,
+        manager: editedWorkInfo.manager,
+        joinDate: editedWorkInfo.joinDate, // ← ADD
+      }),
+    });
+
+    setProfile(editedWorkInfo);
+    setEditingWorkInfo(false);
+
+    await loadOnboardingData(); // ✅ FIXED TYPO
+
+    toast.success("Work information updated successfully");
+  } catch (err: any) {
+    toast.error(err.message || "Failed to update work information");
+  }
+};
 
 
 
@@ -1098,18 +1108,32 @@ const hasTaxInfo =
                     className={!editingWorkInfo ? "bg-gray-50" : ""}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-gray-400" />
-                    Join Date
-                  </Label>
-                  <Input
-                    value={editedWorkInfo?.joinDate || ""}
-                    onChange={(e) => setEditedWorkInfo({ ...editedWorkInfo, joinDate: e.target.value })}
-                    disabled={!editingWorkInfo}
-                    className={!editingWorkInfo ? "bg-gray-50" : ""}
-                  />
-                </div>
+              {/* Join Date field — Work Information card mein replace karo */}
+<div className="space-y-2">
+  <Label className="flex items-center gap-2">
+    <Calendar className="h-4 w-4 text-gray-400" />
+    Join Date
+  </Label>
+  <Input
+    type={editingWorkInfo ? "date" : "text"}   // ← YEH CHANGE
+    value={
+      editingWorkInfo
+        ? (editedWorkInfo?.joinDate
+            ? new Date(editedWorkInfo.joinDate).toISOString().split("T")[0]
+            : "")
+        : (editedWorkInfo?.joinDate
+            ? new Date(editedWorkInfo.joinDate).toLocaleDateString("en-US", {
+                year: "numeric", month: "long", day: "numeric"
+              })
+            : "Not set")
+    }
+    onChange={(e) =>
+      setEditedWorkInfo({ ...editedWorkInfo, joinDate: e.target.value })
+    }
+    disabled={!editingWorkInfo}
+    className={!editingWorkInfo ? "bg-gray-50" : ""}
+  />
+</div>
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
                     <User className="h-4 w-4 text-gray-400" />
