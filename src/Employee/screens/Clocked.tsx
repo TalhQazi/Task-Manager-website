@@ -52,6 +52,8 @@ interface HistoryEntry {
   date: string;
   clockIn: string;
   clockOut: string;
+  clockInAt?: string | null;
+  clockOutAt?: string | null;
   totalHours: number;
   status: string;
   scrum?: string | null;
@@ -78,6 +80,15 @@ export default function EmployeeClocked() {
   const [isRecording, setIsRecording] = useState(false);
   const [transcription, setTranscription] = useState("");
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
+
+  const loadTodayAndHistory = async () => {
+    const [entryRes, historyRes] = await Promise.all([
+      getTodayTimeEntry(),
+      getEmployeeTimeEntryHistory(),
+    ]);
+    setTimeEntry(entryRes.item);
+    setHistory(historyRes.items || []);
+  };
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -124,8 +135,8 @@ export default function EmployeeClocked() {
   const handleClockIn = async () => {
     setActionLoading(true);
     try {
-      const res = await clockIn();
-      setTimeEntry(res.item as TimeEntry);
+      await clockIn();
+      await loadTodayAndHistory();
       toast.success("Clocked in successfully");
     } catch (err: any) {
       toast.error(err.message || "Failed to clock in");
@@ -185,11 +196,7 @@ export default function EmployeeClocked() {
         notes: "",
       });
       // Reload time entry to get fresh state
-      const entryRes = await getTodayTimeEntry();
-      setTimeEntry(entryRes.item);
-      // Refresh history
-      const historyRes = await getEmployeeTimeEntryHistory();
-      setHistory(historyRes.items || []);
+      await loadTodayAndHistory();
     } catch (err: any) {
       toast.error(err.message || "Failed to clock out");
     } finally {
@@ -198,7 +205,7 @@ export default function EmployeeClocked() {
   };
 
   const formatTime = (date: Date) => {
-    return date.toLocaleTimeString("en-US", {
+    return date.toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
       second: "2-digit",
@@ -206,7 +213,7 @@ export default function EmployeeClocked() {
   };
 
   const formatDate = (date: Date) => {
-    return date.toLocaleDateString("en-US", {
+    return date.toLocaleDateString([], {
       weekday: "long",
       year: "numeric",
       month: "long",
@@ -214,20 +221,14 @@ export default function EmployeeClocked() {
     });
   };
 
-  const toUSATime = (timeStr: string | null | undefined): string => {
-    if (!timeStr) return "--:--";
-    try {
-      const [hours, minutes] = timeStr.split(":").map(Number);
-      let usaHours = hours - 10;
-      let dayOffset = "";
-      if (usaHours < 0) {
-        usaHours += 24;
-        dayOffset = " (prev day)";
+  const formatLocalClock = (timeStr?: string | null, isoAt?: string | null): string => {
+    if (isoAt) {
+      const d = new Date(isoAt);
+      if (Number.isFinite(d.getTime())) {
+        return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       }
-      return `${usaHours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}${dayOffset}`;
-    } catch {
-      return timeStr;
     }
+    return String(timeStr || "").trim() || "--:--";
   };
 
   const getDuration = () => {
@@ -243,8 +244,10 @@ export default function EmployeeClocked() {
       .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
-  const isClockedIn = timeEntry?.clockIn && !timeEntry?.clockOut;
-  const isClockedOut = timeEntry?.clockIn && timeEntry?.clockOut;
+  const hasClockIn = Boolean(timeEntry?.clockInAt || timeEntry?.clockIn);
+  const hasClockOut = Boolean(timeEntry?.clockOutAt || timeEntry?.clockOut);
+  const isClockedIn = hasClockIn && !hasClockOut;
+  const isClockedOut = hasClockIn && hasClockOut;
   const isOnboardingApproved = onboardingStatus === "approved";
 
   // Voice recognition functions
@@ -422,8 +425,8 @@ export default function EmployeeClocked() {
                 <LogIn className="h-6 w-6 text-green-600" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Clock In (USA)</p>
-                <p className="text-xl font-bold">{toUSATime(timeEntry?.clockIn) || "--:--"}</p>
+                <p className="text-sm text-muted-foreground">Clock In</p>
+                <p className="text-xl font-bold">{formatLocalClock(timeEntry?.clockIn, timeEntry?.clockInAt)}</p>
               </div>
             </div>
           </CardContent>
@@ -436,8 +439,8 @@ export default function EmployeeClocked() {
                 <LogOut className="h-6 w-6 text-blue-600" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Clock Out (USA)</p>
-                <p className="text-xl font-bold">{toUSATime(timeEntry?.clockOut) || "--:--"}</p>
+                <p className="text-sm text-muted-foreground">Clock Out</p>
+                <p className="text-xl font-bold">{formatLocalClock(timeEntry?.clockOut, timeEntry?.clockOutAt)}</p>
               </div>
             </div>
           </CardContent>
@@ -530,14 +533,14 @@ export default function EmployeeClocked() {
                   {history.map((entry) => (
                     <TableRow key={entry.id}>
                       <TableCell className="font-medium">
-                        {new Date(entry.date).toLocaleDateString("en-US", {
+                        {new Date(entry.date).toLocaleDateString([], {
                           month: "short",
                           day: "numeric",
                           year: "numeric",
                         })}
                       </TableCell>
-                      <TableCell>{toUSATime(entry.clockIn) || "--:--"}</TableCell>
-                      <TableCell>{toUSATime(entry.clockOut) || "--:--"}</TableCell>
+                      <TableCell>{formatLocalClock(entry.clockIn, entry.clockInAt)}</TableCell>
+                      <TableCell>{formatLocalClock(entry.clockOut, entry.clockOutAt)}</TableCell>
                       <TableCell>{entry.totalHours?.toFixed(2) || "--"}</TableCell>
                       <TableCell>
                         <Badge

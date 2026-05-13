@@ -13,22 +13,23 @@ const navItemsBase = [
 
   { icon: ClipboardCheck, label: "Scrum Records", path: "/employee/scrum-records" },
 
-  { icon: Clock, label: "Time Tracking", path: "/employee/clocked" },
+  { icon: Clock, label: "Attendance", path: "/employee/clocked" },
   { icon: History, label: "Time Logs", path: "/employee/timeLogs" },
   { icon: Wallet, label: "Payroll", path: "/employee/payroll" },
-  { icon: FileStack, label: "Documents", path: "/employee/documents" },
+  // { icon: FileStack, label: "Documents", path: "/employee/documents" },
   { icon: CalendarIcon, label: "Leave Requests", path: "/employee/leave-requests" },
   { icon: Calendar, label: "Travel Calendar", path: "/employee/travel-calendar" },
 
   { icon: MessageCircle, label: "Messages", path: "/employee/messages" },
   { icon: Folder, label: "Images", path: "/employee/asset-library" },
   { icon: FileText, label: "Company Information", path: "/employee/company-information" },
-  { icon: UserCircle, label: "Profile", path: "/employee/profile" },
+  // { icon: UserCircle, label: "Profile", path: "/employee/profile" },
   { icon: Bell, label: "Notifications", path: "/employee/notifications" },
   { icon: FileText, label: "My Notes", path: "/employee/personal-notes" },
   { icon: Palette, label: "UI Customization", path: "/employee/ui-customization" },
   { icon: ShoppingCart, label: "Shopping Lists", path: "/employee/shopping-lists" },
 ];
+const navItems = [...navItemsBase].sort((a, b) => a.label.localeCompare(b.label));
 
 type SidebarMode = "desktop" | "mobile";
 
@@ -70,7 +71,7 @@ export function EmployeeSidebar({ mode = "desktop", onNavigate }: EmployeeSideba
         </div>
       </div>
       <nav className="flex-1 flex flex-col gap-1 px-2 py-2 overflow-y-auto overflow-x-hidden no-scrollbar">
-        {navItemsBase.map((item) => (
+        {navItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
