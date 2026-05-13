@@ -28,6 +28,7 @@ import {
   Lightbulb,
   Archive,
   Quote,
+  Image as ImageIcon,
   Layers,
   FolderOpen,
   ChevronDown,
@@ -69,6 +70,7 @@ const navItemsBase: NavItem[] = [
    { icon: ClipboardList, label: "EOD Reports", path: "/admin/eod-reports" },
      { icon: Building, label: "EIN list", path: "/admin/company-registry" },
   { icon: CalendarCheck, label: "Leave Requests", path: "/admin/leave-requests" },
+  { icon: Calendar, label: "Travel Calendar", path: "/admin/travel-calendar" },
   { icon: History, label: "Task History", path: "/admin/task-history" },
   {
     icon: Layers,
@@ -118,6 +120,7 @@ const navItemsBase: NavItem[] = [
   { icon: Database, label: "Imported Asana Data", path: "/admin/asana-data" },
   { icon: Archive, label: "Archive Data", path: "/admin/archive-data" },
   { icon: Quote, label: "Founder Messages", path: "/admin/founder-messages" },
+  { icon: ImageIcon, label: "Memes", path: "/admin/memes" },
   {
     label: "Personal Notes",
     path: "/admin/personal-notes",

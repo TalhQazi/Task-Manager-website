@@ -584,10 +584,11 @@ const createTaskSchema = z.object({
 type CreateTaskValues = z.infer<typeof createTaskSchema>;
 
 export default function Tasks() {
-  const { socket, joinTask, leaveTask } = useSocket();
+  const { socket } = useSocket();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [assignmentFilter, setAssignmentFilter] = useState<string>("all");
   const [showArchivedTasks, setShowArchivedTasks] = useState(false);
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [projectPage, setProjectPage] = useState(1);
@@ -726,7 +727,7 @@ export default function Tasks() {
 
   // Fetch tasks with server-side pagination
   const tasksQuery = useQuery({
-    queryKey: ["tasks", taskPage, searchQuery, statusFilter, priorityFilter],
+    queryKey: ["tasks", taskPage, searchQuery, statusFilter, priorityFilter, assignmentFilter],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: taskPage.toString(),
@@ -734,6 +735,7 @@ export default function Tasks() {
         search: searchQuery,
         status: statusFilter,
         priority: priorityFilter,
+        assignment: assignmentFilter,
         projectId: "none",
       });
       const res = await apiFetch<{ items: TaskApi[], totalPages: number, total: number }>(`/api/tasks?${params.toString()}`);
@@ -896,6 +898,53 @@ export default function Tasks() {
       return s === "active";
     });
   }, [employees]);
+
+  // Real-time task comments via socket
+  useEffect(() => {
+    if (!socket || !selectedTask) return;
+    const taskId = selectedTask.id;
+
+    socket.emit("join-task", taskId);
+
+    const handleConnect = () => socket.emit("join-task", taskId);
+    socket.on("connect", handleConnect);
+
+    const handleNewComment = (comment: TaskComment) => {
+      setComments((prev) => {
+        if (prev.some((c) => c.id === comment.id)) return prev;
+        return [...prev, comment];
+      });
+      setTimeout(() => {
+        chatContainerRef.current?.scrollTo({ top: chatContainerRef.current.scrollHeight, behavior: 'smooth' });
+      }, 100);
+    };
+    socket.on("new-comment", handleNewComment);
+
+    const handleTyping = ({ username, typing, taskId: tId }: { username: string; typing: boolean; taskId?: string }) => {
+      if (username === currentUsername) return;
+      if (tId !== selectedTask?.id) return;
+      setOthersTyping(prev => {
+        if (typing) return prev.includes(username) ? prev : [...prev, username];
+        return prev.filter(u => u !== username);
+      });
+    };
+
+    socket.on("typing", handleTyping);
+
+    const handleReactionUpdated = ({ commentId, reactions }: { commentId: string; reactions: any[] }) => {
+      setComments((prev) => prev.map(c => c.id === commentId ? { ...c, reactions } : c));
+    };
+
+    socket.on("comment-reaction-updated", handleReactionUpdated);
+
+    return () => {
+      socket.off("connect", handleConnect);
+      socket.off("new-comment", handleNewComment);
+      socket.off("typing", handleTyping);
+      socket.off("comment-reaction-updated", handleReactionUpdated);
+      socket.emit("leave-task", taskId);
+    };
+  }, [socket, selectedTask?.id, currentUsername]);
 
   useEffect(() => {
     if (isCreateOpen) {
@@ -1706,62 +1755,68 @@ export default function Tasks() {
 
     if (!isTyping) {
       setIsTyping(true);
-      socket.emit("typing", { taskId: selectedTask.id, typing: true });
+      socket.emit("typing", { taskId: selectedTask.id, username: currentUsername, typing: true });
     }
 
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    
+
     typingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false);
-      socket.emit("typing", { taskId: selectedTask.id, typing: false });
+      socket.emit("typing", { taskId: selectedTask.id, username: currentUsername, typing: false });
     }, 3000);
   };
 
   // Socket logic for live messages
   useEffect(() => {
-    if (isViewOpen && selectedTask && socket) {
-      joinTask(selectedTask.id);
+    if (!isViewOpen || !selectedTask || !socket) return;
+    const taskId = selectedTask.id;
 
-      const handleNewComment = (comment: TaskComment) => {
-        setComments((prev) => {
-          if (prev.find((c) => c.id === comment.id)) return prev;
-          return [...prev, comment];
-        });
+    // Bypass the isConnected guard in joinTask — emit directly so the room join
+    // is not skipped if isConnected state lags behind the actual socket state.
+    socket.emit("join-task", taskId);
 
-        // Auto scroll to bottom smoothly
-        setTimeout(() => {
-          if (chatContainerRef.current) {
-            chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
-          }
-        }, 100);
-      };
+    // Re-join after any reconnection (socket.io resets rooms on reconnect)
+    const handleConnect = () => socket.emit("join-task", taskId);
+    socket.on("connect", handleConnect);
 
-      socket.on("new-comment", handleNewComment);
+    const handleNewComment = (comment: TaskComment) => {
+      setComments((prev) => {
+        if (prev.find((c) => c.id === comment.id)) return prev;
+        return [...prev, comment];
+      });
+      setTimeout(() => {
+        if (chatContainerRef.current) {
+          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+      }, 100);
+    };
 
-      const handleTyping = ({ username, typing }: { username: string; typing: boolean }) => {
-        if (username === currentUsername) return;
-        setOthersTyping(prev => {
-          if (typing) return prev.includes(username) ? prev : [...prev, username];
-          return prev.filter(u => u !== username);
-        });
-      };
+    socket.on("new-comment", handleNewComment);
 
-      socket.on("user-typing", handleTyping);
-      
-      const handleReactionUpdated = ({ commentId, reactions }: { commentId: string; reactions: any[] }) => {
-        setComments((prev) => prev.map(c => c.id === commentId ? { ...c, reactions } : c));
-      };
+    const handleTyping = ({ username, typing }: { username: string; typing: boolean }) => {
+      if (username === currentUsername) return;
+      setOthersTyping(prev => {
+        if (typing) return prev.includes(username) ? prev : [...prev, username];
+        return prev.filter(u => u !== username);
+      });
+    };
 
-      socket.on("comment-reaction-updated", handleReactionUpdated);
+    socket.on("typing", handleTyping);
 
-      return () => {
-        socket.off("new-comment", handleNewComment);
-        socket.off("user-typing", handleTyping);
-        socket.off("comment-reaction-updated", handleReactionUpdated);
-        leaveTask(selectedTask.id);
-      };
-    }
-  }, [isViewOpen, selectedTask?.id, socket, joinTask, leaveTask]);
+    const handleReactionUpdated = ({ commentId, reactions }: { commentId: string; reactions: any[] }) => {
+      setComments((prev) => prev.map(c => c.id === commentId ? { ...c, reactions } : c));
+    };
+
+    socket.on("comment-reaction-updated", handleReactionUpdated);
+
+    return () => {
+      socket.off("connect", handleConnect);
+      socket.off("new-comment", handleNewComment);
+      socket.off("typing", handleTyping);
+      socket.off("comment-reaction-updated", handleReactionUpdated);
+      socket.emit("leave-task", taskId);
+    };
+  }, [isViewOpen, selectedTask?.id, socket]);
 
   const toggleReaction = async (commentId: string, emoji: string) => {
     if (!selectedTask) return;
@@ -2177,15 +2232,15 @@ export default function Tasks() {
         statusFilter === "all" || task.status === statusFilter;
       const matchesPriority =
         priorityFilter === "all" || task.priority === priorityFilter;
-
-      // Archive logic: Hide completed tasks if not showing archived
-      if (!showArchivedTasks && task.status === "completed") return false;
-      // If showing archived, maybe only show completed?
-      // Actually, user said archiving completed tasks "off the screen".
-      // So if showArchivedTasks is true, we probably want to see the archived ones.
+      const matchesAssignment =
+        assignmentFilter === "all" ||
+        (assignmentFilter === "assigned" && task.assignees.length > 0) ||
+        (assignmentFilter === "unassigned" && task.assignees.length === 0);
+ 
+      // Archive logic: only filter if specifically requested via showArchivedTasks toggle
       if (showArchivedTasks && task.status !== "completed") return false;
-
-      return matchesSearch && matchesStatus && matchesPriority;
+ 
+      return matchesSearch && matchesStatus && matchesPriority && matchesAssignment;
     });
 
     // Sort by execution priority when viewByPriority is enabled
@@ -2362,6 +2417,16 @@ export default function Tasks() {
               <SelectItem value="high">High</SelectItem>
               <SelectItem value="medium">Medium</SelectItem>
               <SelectItem value="low">Low</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={assignmentFilter} onValueChange={setAssignmentFilter}>
+            <SelectTrigger className="w-full sm:w-[150px] h-10">
+              <SelectValue placeholder="Assignment" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Assignment</SelectItem>
+              <SelectItem value="assigned">Assigned</SelectItem>
+              <SelectItem value="unassigned">Unassigned</SelectItem>
             </SelectContent>
           </Select>
           <Button 

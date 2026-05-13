@@ -52,16 +52,66 @@ export function Header({ onMenuClick }: HeaderProps) {
       resourceType?: string;
       resourceId?: string;
       link?: string;
+      category?: string;
     };
   };
 
-  const resolveNotificationLink = (n: MessageApi) => {
-    const direct = String(n.meta?.link || "").trim();
-    if (direct) return direct;
+  const formatRelativeTime = (ts?: string) => {
+    if (!ts) return "";
+    const diff = Date.now() - new Date(ts).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    if (days === 1) return "yesterday";
+    return `${days}d ago`;
+  };
 
+  const getCategoryIcon = (category?: string) => {
+    switch (category) {
+      case "TASK_ASSIGNED": return "📋";
+      case "PROJECT_ASSIGNED": return "📁";
+      case "TASK_COMPLETED": return "✅";
+      case "MENTIONED": return "💬";
+      case "COMMENT_ADDED": return "💬";
+      case "SYSTEM_ALERT": return "🔔";
+      default: return "🔔";
+    }
+  };
+
+  const getCategoryLabel = (category?: string) => {
+    switch (category) {
+      case "TASK_ASSIGNED": return "Task";
+      case "PROJECT_ASSIGNED": return "Project";
+      case "TASK_COMPLETED": return "Done";
+      case "MENTIONED": return "Mention";
+      case "COMMENT_ADDED": return "Comment";
+      case "SYSTEM_ALERT": return "Alert";
+      default: return null;
+    }
+  };
+
+  const getCategoryColor = (category?: string) => {
+    switch (category) {
+      case "TASK_ASSIGNED": return "bg-blue-500/20 text-blue-300";
+      case "PROJECT_ASSIGNED": return "bg-indigo-500/20 text-indigo-300";
+      case "TASK_COMPLETED": return "bg-emerald-500/20 text-emerald-300";
+      case "MENTIONED": return "bg-yellow-500/20 text-yellow-300";
+      case "COMMENT_ADDED": return "bg-green-500/20 text-green-300";
+      case "SYSTEM_ALERT": return "bg-orange-500/20 text-orange-300";
+      default: return "bg-slate-700/60 text-slate-300";
+    }
+  };
+
+  const resolveNotificationLink = (n: MessageApi) => {
+    // Prioritise resourceType+resourceId — more reliable than meta.link which the
+    // backend sets as "/admin/tasks/:id" (a route that doesn't exist in the SPA).
     const resourceTypeRaw = String(n.meta?.resourceType || "").trim();
     const resourceType = resourceTypeRaw.toLowerCase();
     const resourceId = String(n.meta?.resourceId || "").trim();
+    const direct = String(n.meta?.link || "").trim();
 
     if (resourceType === "vehicle") {
       if (resourceId) return `/admin/vehicles?view=${encodeURIComponent(resourceId)}`;
@@ -115,6 +165,9 @@ export function Header({ onMenuClick }: HeaderProps) {
       if (resourceId) return `/developer/bugs?view=${encodeURIComponent(resourceId)}`;
       return "/developer/bugs";
     }
+
+    // Fall back to direct link if the backend provided one and it looks like a real SPA route
+    if (direct && direct.startsWith("/admin/")) return direct;
 
     const content = String(n.content || "").toLowerCase();
     if (content.includes(" employee")) return "/admin/employees";
@@ -273,9 +326,19 @@ export function Header({ onMenuClick }: HeaderProps) {
     },
   });
 
-  // Only show unread notifications in the dropdown
+  const me = String(auth.username || "").trim();
+  const myName = String(auth.name || "").trim();
+
+  // Only show unread notifications in the dropdown.
+  // Backend tracks reads via a readBy[] array, not a status field — check both.
   const notifications = (notificationsQuery.data || [])
-    .filter((n) => n.status !== "read")
+    .filter((n: any) => {
+      if (n.status === "read") return false;
+      const readBy: string[] = Array.isArray(n.readBy) ? n.readBy : [];
+      if (me && readBy.includes(me)) return false;
+      if (myName && readBy.includes(myName)) return false;
+      return true;
+    })
     .slice()
     .sort((a, b) =>
       String(b.timestamp || b.createdAt || "").localeCompare(String(a.timestamp || a.createdAt || ""))
@@ -362,9 +425,17 @@ export function Header({ onMenuClick }: HeaderProps) {
   
 
   const markAllRead = async () => {
-    // Optimistic: immediately mark all as read in cache
+    // Optimistic: mark all as read via both status and readBy so the filter catches it
     queryClient.setQueryData(["admin-notifications"], (old: any) =>
-      Array.isArray(old) ? old.map((n) => ({ ...n, status: "read" })) : old
+      Array.isArray(old)
+        ? old.map((n) => ({
+            ...n,
+            status: "read",
+            readBy: Array.isArray(n.readBy)
+              ? [...new Set([...n.readBy, me, myName].filter(Boolean))]
+              : [me, myName].filter(Boolean),
+          }))
+        : old
     );
     try {
       await apiFetch("/api/messages/mark-all-read", { method: "POST" });
@@ -374,9 +445,21 @@ export function Header({ onMenuClick }: HeaderProps) {
   };
 
   const markRead = async (id: string) => {
-    // Optimistic: immediately remove this notification from the unread list
+    // Optimistic: mark read in cache via both status and readBy so the filter catches it
     queryClient.setQueryData(["admin-notifications"], (old: any) =>
-      Array.isArray(old) ? old.map((n) => (n.id === id ? { ...n, status: "read" } : n)) : old
+      Array.isArray(old)
+        ? old.map((n) =>
+            n.id === id
+              ? {
+                  ...n,
+                  status: "read",
+                  readBy: Array.isArray(n.readBy)
+                    ? [...new Set([...n.readBy, me, myName].filter(Boolean))]
+                    : [me, myName].filter(Boolean),
+                }
+              : n
+          )
+        : old
     );
     try {
       await apiFetch(`/api/messages/${id}/mark-read`, { method: "POST" });
@@ -552,7 +635,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                <DropdownMenu>
+                <DropdownMenu onOpenChange={(open) => { if (open) markAllRead(); }}>
                   <DropdownMenuTrigger asChild>
                     <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
                       <Bell className="h-5 w-5" />
@@ -582,31 +665,43 @@ export function Header({ onMenuClick }: HeaderProps) {
                           <p className="text-sm text-slate-300">You're all caught up!</p>
                         </div>
                       ) : (
-                        notifications.map(n => (
-                          <DropdownMenuItem
-                            key={n.id}
-                            onClick={() => {
-                              markRead(n.id);
-                              navigate(resolveNotificationLink(n));
-                            }}
-                            className="flex flex-col items-start gap-1 px-4 py-3 cursor-pointer border-b border-slate-700 last:border-0 hover:bg-white/10 bg-slate-800/40 transition-colors"
-                          >
-                            <div className="flex items-center gap-2 w-full">
-                              <span className="h-2 w-2 rounded-full flex-shrink-0 bg-[#00C6FF]" />
-                              <span className="text-[13px] font-semibold text-white truncate">
-                                {n.title || "Notification"}
+                        notifications.map(n => {
+                          const category = n.meta?.category;
+                          const label = getCategoryLabel(category);
+                          const relTime = formatRelativeTime(n.createdAt || n.timestamp);
+                          return (
+                            <DropdownMenuItem
+                              key={n.id}
+                              onSelect={() => {
+                                navigate(resolveNotificationLink(n));
+                                markRead(n.id);
+                              }}
+                              className="flex items-start gap-3 px-3 py-2.5 cursor-pointer border-b border-slate-800 last:border-0 rounded-none text-white focus:bg-white/10 focus:text-white data-[highlighted]:bg-white/10 data-[highlighted]:text-white transition-colors"
+                            >
+                              <span className="text-base leading-none mt-0.5 flex-shrink-0">
+                                {getCategoryIcon(category)}
                               </span>
-                            </div>
-                            <p className="text-xs text-slate-200 line-clamp-2 pl-4 leading-relaxed">
-                              {n.content || n.message}
-                            </p>
-                            {(n.createdAt || n.timestamp) && (
-                              <span className="text-[10px] text-slate-400 pl-4 mt-0.5">
-                                {new Date(n.createdAt || n.timestamp).toLocaleString()}
-                              </span>
-                            )}
-                          </DropdownMenuItem>
-                        ))
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 mb-0.5">
+                                  <span className="text-[12px] font-semibold leading-tight truncate">
+                                    {n.title || "Notification"}
+                                  </span>
+                                  {label && (
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${getCategoryColor(category)}`}>
+                                      {label}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11px] text-slate-300 line-clamp-2 leading-relaxed">
+                                  {n.content}
+                                </p>
+                                {relTime && (
+                                  <span className="text-[10px] text-slate-500 mt-0.5 block">{relTime}</span>
+                                )}
+                              </div>
+                            </DropdownMenuItem>
+                          );
+                        })
                       )}
                     </div>
                     <DropdownMenuSeparator className="m-0 bg-slate-800" />

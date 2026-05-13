@@ -50,7 +50,7 @@ export function StatCard({
     <div
       onClick={onClick}
       className={cn(
-        "relative rounded-xl border-[2px] border-[#5a5a5a] bg-[#111]",
+        "relative rounded-xl border-[2px] border-[#5a5a5a] bg-[#111] h-full",
         "shadow-[inset_0_0_20px_rgba(0,0,0,0.8),_0_4px_10px_rgba(0,0,0,0.5)]",
         "transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_15px_rgba(255,255,255,0.2)] cursor-pointer",
         "overflow-hidden group"

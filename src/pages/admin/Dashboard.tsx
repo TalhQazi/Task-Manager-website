@@ -126,22 +126,23 @@ const Dashboard = () => {
         >
           {metrics && [
             { title: "Active Employee", value: metrics.totalEmployees, icon: Users, variant: "dark-grey", changeType: "positive" as const, onClick: () => navigate("/admin/employees") },
-            { title: "Active Tasks", value: metrics.activeTasks, icon: CheckSquare, variant: "green", changeType: "neutral" as const, onClick: () => navigate("/admin/tasks") },
-            { title: "Due Today", value: metrics.dueToday, icon: CalendarCheck, variant: "teal", changeType: "neutral" as const, onClick: () => navigate("/admin/tasks?filter=today") },
             { title: "Active Projects", value: metrics.totalProjects, icon: FolderRoot, variant: "purple", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
-            { title: "Total Vehicles", value: metrics.totalVehicles, icon: Car, variant: "orange", changeType: "positive" as const, onClick: () => navigate("/admin/vehicles") },
-            { title: "Patents", value: `${metrics.patentFiled} / ${metrics.patentPending}`, change: "filed / pending", icon: FileSearch, variant: "amber", changeType: "neutral" as const, onClick: () => navigate("/admin/intellectual-property") },
-            { title: "Websites", value: `${metrics.websiteActive} / ${metrics.websiteFuture}`, change: "active / future", icon: Globe, variant: "teal", changeType: "positive" as const, onClick: () => navigate("/admin/websites") },
-            { title: "Overdue Tasks", value: metrics.overdueTasks, icon: AlertTriangle, variant: "red", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
+            { title: "Active Tasks", value: metrics.activeTasks, icon: CheckSquare, variant: "green", changeType: "neutral" as const, onClick: () => navigate("/admin/tasks") },
             { title: "Clocked In", value: metrics.clockedInEmployees, icon: Clock, variant: "gold", changeType: "neutral" as const, onClick: () => navigate("/admin/time-tracking") },
-            { title: "Pending Bugs", value: metrics.pendingBugs, icon: Bug, variant: "yellow", changeType: "neutral" as const, onClick: () => navigate("/admin/bug-reports") },
             { title: "Companies", value: metrics.totalCompanies, icon: Building2, variant: "dark-grey", changeType: "positive" as const, onClick: () => navigate("/admin/companies") },
+            { title: "Due Today", value: metrics.dueToday, icon: CalendarCheck, variant: "teal", changeType: "neutral" as const, onClick: () => navigate("/admin/tasks?filter=today") },
+            { title: "Overdue Tasks", value: metrics.overdueTasks, icon: AlertTriangle, variant: "red", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
+            { title: "Patents", value: `${metrics.patentFiled} / ${metrics.patentPending}`, change: "filed / pending", icon: FileSearch, variant: "amber", changeType: "neutral" as const, onClick: () => navigate("/admin/intellectual-property") },
+            { title: "Pending Bugs", value: metrics.pendingBugs, icon: Bug, variant: "yellow", changeType: "neutral" as const, onClick: () => navigate("/admin/bug-reports") },
+            { title: "Total Vehicles", value: metrics.totalVehicles, icon: Car, variant: "orange", changeType: "positive" as const, onClick: () => navigate("/admin/vehicles") },
+            { title: "Websites", value: `${metrics.websiteActive} / ${metrics.websiteFuture}`, change: "active / future", icon: Globe, variant: "teal", changeType: "positive" as const, onClick: () => navigate("/admin/websites") },
           ].map((stat, idx) => (
             <motion.div
               key={stat.title}
               variants={itemVariants}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
+              className="h-full"
             >
               <StatCard
                 title={stat.title}

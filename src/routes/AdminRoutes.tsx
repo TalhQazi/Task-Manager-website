@@ -46,6 +46,7 @@ const UphMaintenance = lazy(() => import("@/pages/admin/UphMaintenance"));
 const BugReport = lazy(() => import("@/pages/admin/BugReport"));
 const Contributors = lazy(() => import("@/pages/admin/Contributors"));
 const ThemeEngine = lazy(() => import("@/pages/admin/ThemeEngine"));
+const Memes = lazy(() => import("@/pages/admin/Memes"));
 
 const TeamLeadMappings = lazy(() => import("@/pages/admin/TeamLeadMappings"));
 const TaskPermissions = lazy(() => import("@/pages/admin/TaskPermissions"));
@@ -53,6 +54,7 @@ const TaskPermissions = lazy(() => import("@/pages/admin/TaskPermissions"));
 const ShoppingLists = lazy(() => import("@/pages/admin/ShoppingLists"));
 const SystemEmailSettings = lazy(() => import("@/pages/admin/SystemEmailSettings"));
 const CompanyRegistry = lazy(() => import("@/pages/admin/CompanyRegistry"));
+
 const CRMDashboard = lazy(() => import("@/pages/admin/crm/Dashboard"));
 const CRMContacts = lazy(() => import("@/pages/admin/crm/Contacts"));
 const CRMCompanies = lazy(() => import("@/pages/admin/crm/Companies"));
@@ -60,6 +62,8 @@ const CRMDeals = lazy(() => import("@/pages/admin/crm/Deals"));
 const CRMTasks = lazy(() => import("@/pages/admin/crm/Tasks"));
 const CRMCommunication = lazy(() => import("@/pages/admin/crm/Communication"));
 const CRMFiles = lazy(() => import("@/pages/admin/crm/Files"));
+const TravelCalendar = lazy(() => import("@/pages/admin/TravelCalendar"));
+
 
 
 
@@ -135,9 +139,11 @@ export default function AdminRoutes() {
       { path: "crm/files", element: <CRMFiles /> },
       { path: "bug-reports", element: <BugReport /> },
       { path: "theme-engine", element: <ThemeEngine /> },
+      { path: "memes", element: <Memes /> },
       { path: "shopping-lists", element: <ShoppingLists /> },
       { path: "system-email-settings", element: auth.role === "super-admin" ? <SystemEmailSettings /> : <Navigate to="/admin" replace /> },
       { path: "company-registry", element: <CompanyRegistry /> },
+      { path: "travel-calendar", element: <TravelCalendar /> },
 
       { path: "*", element: <NotFound /> },
     ],

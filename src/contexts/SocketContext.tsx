@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { io, type Socket } from "socket.io-client";
 
 interface SocketContextType {
@@ -6,6 +6,8 @@ interface SocketContextType {
   isConnected: boolean;
   joinTask: (taskId: string) => void;
   leaveTask: (taskId: string) => void;
+  joinProject: (projectId: string) => void;
+  leaveProject: (projectId: string) => void;
   emitTyping: (taskId: string, username: string) => void;
   emitStopTyping: (taskId: string) => void;
 }
@@ -21,6 +23,8 @@ export function useSocket() {
       isConnected: false,
       joinTask: () => {},
       leaveTask: () => {},
+      joinProject: () => {},
+      leaveProject: () => {},
       emitTyping: () => {},
       emitStopTyping: () => {},
     } as SocketContextType;
@@ -103,35 +107,49 @@ export function SocketProvider({ children }: SocketProviderProps) {
     };
   }, []);
 
-  const joinTask = (taskId: string) => {
+  const joinTask = useCallback((taskId: string) => {
     if (socketRef.current && isConnected) {
       socketRef.current.emit("join-task", taskId);
     }
-  };
+  }, [isConnected]);
 
-  const leaveTask = (taskId: string) => {
+  const leaveTask = useCallback((taskId: string) => {
     if (socketRef.current && isConnected) {
       socketRef.current.emit("leave-task", taskId);
     }
-  };
+  }, [isConnected]);
 
-  const emitTyping = (taskId: string, username: string) => {
+  const joinProject = useCallback((projectId: string) => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit("join-project", projectId);
+    }
+  }, [isConnected]);
+
+  const leaveProject = useCallback((projectId: string) => {
+    if (socketRef.current && isConnected) {
+      socketRef.current.emit("leave-project", projectId);
+    }
+  }, [isConnected]);
+
+  const emitTyping = useCallback((taskId: string, username: string) => {
     if (socketRef.current && isConnected) {
       socketRef.current.emit("typing", { taskId, username });
     }
-  };
+  }, [isConnected]);
 
-  const emitStopTyping = (taskId: string) => {
+  const emitStopTyping = useCallback((taskId: string) => {
     if (socketRef.current && isConnected) {
       socketRef.current.emit("stop-typing", { taskId });
     }
-  };
+  }, [isConnected]);
 
   const value: SocketContextType = {
     socket: socketRef.current,
     isConnected,
     joinTask,
     leaveTask,
+    joinProject,
+    leaveProject,
     emitTyping,
     emitStopTyping,
   };

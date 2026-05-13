@@ -26,6 +26,7 @@ import {
   Lightbulb,
   Archive,
   Quote,
+  Image as ImageIcon,
   Layers,
   ChevronDown,
   ChevronRight,
@@ -77,6 +78,7 @@ const navItemsBase: NavItem[] = [
   { icon: Database, label: "Imported Asana Data", path: "/admin/asana-data" },
   { icon: Archive, label: "Archive Data", path: "/admin/archive-data" },
   { icon: Quote, label: "Founder Messages", path: "/admin/founder-messages" },
+  { icon: ImageIcon, label: "Memes", path: "/admin/memes" },
   {
     label: "SignaCore",
     path: "/admin/contracts",

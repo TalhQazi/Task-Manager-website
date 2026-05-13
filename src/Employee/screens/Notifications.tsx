@@ -80,6 +80,19 @@ const notificationIcons = {
   document: <AlertTriangle className="mr-2 text-red-500" />,
 };
 
+function resolveEmployeeLink(meta?: { resourceType?: string; resourceId?: string; link?: string; category?: string }): string {
+  const resourceType = String(meta?.resourceType || "").toLowerCase().trim();
+  const resourceId = String(meta?.resourceId || "").trim();
+
+  if (resourceType === "task" || resourceType === "task comment") {
+    return resourceId ? `/employee/tasks/${resourceId}` : "/employee/tasks";
+  }
+  if (resourceType === "project" || resourceType === "project comment") {
+    return "/employee/tasks";
+  }
+  return "/employee/notifications";
+}
+
 export default function EmployeeNotifications() {
 const [notifications, setNotifications] = useState<Notification[]>([]);
 const navigate = useNavigate();
@@ -116,7 +129,7 @@ useEffect(() => {
       timestamp: data.timestamp || new Date().toISOString(),
       read: false,
       category: data.meta?.category || "",
-      link: data.meta?.link || "",
+      link: resolveEmployeeLink(data.meta),
       meta: data.meta,
     };
 
@@ -158,7 +171,7 @@ const loadNotifications = useCallback(async () => {
         timestamp: n.timestamp,
         read: isRead,
         category: n.meta?.category || "",
-        link: n.meta?.link || "",
+        link: resolveEmployeeLink(n.meta),
         meta: n.meta,
       };
     });

@@ -98,6 +98,7 @@ import { apiFetch, downloadTaskAttachment, toProxiedUrl, getTopContributors, dow
 import { getAuthState } from "@/lib/auth";
 import { ROLE_GROUPS } from "@/constants/roles";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import MilestoneBadge from "@/components/shared/MilestoneBadge";
 import { useSocket } from "@/contexts/SocketContext";
 import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import jsPDF from "jspdf";
@@ -177,6 +178,8 @@ interface Employee {
   initials: string;
   email: string;
   status: "active" | "inactive" | "on-leave";
+  milestoneLevel?: string;
+  milestoneLabel?: string;
 }
 
 type TaskComment = {
@@ -760,7 +763,7 @@ export default function Tasks() {
 
   const currentUsername = getAuthState().username || "";
   const isTeamLead = getAuthState().role === "team-lead";
-  const { socket, joinTask, leaveTask } = useSocket();
+  const { socket } = useSocket();
 
   // Lightbox / File Preview State
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -850,16 +853,53 @@ export default function Tasks() {
     loadTopContributors();
   }, []);
 
-  // Real-time task comments via socket
+  // Real-time project comments via socket
   useEffect(() => {
-    if (!socket || !selectedTask) return;
-    joinTask(selectedTask.id);
-    const handleNewComment = (comment: TaskComment) => {
-      setComments((prev) => {
-        // Avoid duplicates (in case the sender already added it optimistically)
+    if (!socket || !selectedProject) return;
+    const projectId = selectedProject.id;
+
+    socket.emit("join-project", projectId);
+
+    const handleConnect = () => socket.emit("join-project", projectId);
+    socket.on("connect", handleConnect);
+
+    const handleNewProjectComment = (comment: TaskComment) => {
+      setProjectComments((prev) => {
         if (prev.some((c) => c.id === comment.id)) return prev;
         return [...prev, comment];
       });
+      setTimeout(() => {
+        projectChatContainerRef.current?.scrollTo({ top: projectChatContainerRef.current.scrollHeight, behavior: 'smooth' });
+      }, 100);
+    };
+
+    socket.on("new-project-comment", handleNewProjectComment);
+
+    return () => {
+      socket.off("connect", handleConnect);
+      socket.off("new-project-comment", handleNewProjectComment);
+      socket.emit("leave-project", projectId);
+    };
+  }, [socket, selectedProject?.id]);
+
+  // Real-time task comments via socket
+  useEffect(() => {
+    if (!socket || !selectedTask) return;
+    const taskId = selectedTask.id;
+
+    socket.emit("join-task", taskId);
+
+    const handleConnect = () => socket.emit("join-task", taskId);
+    socket.on("connect", handleConnect);
+
+    const handleNewComment = (comment: TaskComment) => {
+      setComments((prev) => {
+        if (prev.some((c) => c.id === comment.id)) return prev;
+        return [...prev, comment];
+      });
+      setTimeout(() => {
+        chatContainerRef.current?.scrollTo({ top: chatContainerRef.current.scrollHeight, behavior: 'smooth' });
+      }, 100);
     };
     socket.on("new-comment", handleNewComment);
 
@@ -881,10 +921,11 @@ export default function Tasks() {
     socket.on("comment-reaction-updated", handleReactionUpdated);
 
     return () => {
+      socket.off("connect", handleConnect);
       socket.off("new-comment", handleNewComment);
       socket.off("typing", handleTyping);
       socket.off("comment-reaction-updated", handleReactionUpdated);
-      leaveTask(selectedTask.id);
+      socket.emit("leave-task", taskId);
     };
   }, [socket, selectedTask?.id]);
 
@@ -967,8 +1008,20 @@ export default function Tasks() {
     const byEmail = new Map(employees.map((e) => [e.email.toLowerCase(), e.name]));
     const byName  = new Map(employees.map((e) => [e.name.toLowerCase(),  e.name]));
     return (val: string): string => {
-      const v = (val || "").trim();
-      return byEmail.get(v.toLowerCase()) || byName.get(v.toLowerCase()) || v;
+      const emailKey = val.toLowerCase().trim();
+      const nameKey = val.toLowerCase().trim();
+      return byEmail.get(emailKey) || byName.get(nameKey) || val;
+    };
+  }, [employees]);
+
+  // Get milestone info for an assignee
+  const getAssigneeMilestone = useMemo(() => {
+    const byEmail = new Map(employees.map((e) => [e.email.toLowerCase(), { level: e.milestoneLevel, label: e.milestoneLabel }]));
+    const byName  = new Map(employees.map((e) => [e.name.toLowerCase(), { level: e.milestoneLevel, label: e.milestoneLabel }]));
+    return (val: string): { level?: string; label?: string } => {
+      const emailKey = val.toLowerCase().trim();
+      const nameKey = val.toLowerCase().trim();
+      return byEmail.get(emailKey) || byName.get(nameKey) || {};
     };
   }, [employees]);
 
@@ -1567,17 +1620,17 @@ export default function Tasks() {
 
     if (!isTyping) {
       setIsTyping(true);
-      const payload: any = { typing: true };
+      const payload: any = { typing: true, username: currentUsername };
       if (isProject) payload.projectId = selectedProject!.id;
       else payload.taskId = selectedTask!.id;
       socket.emit("typing", payload);
     }
 
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    
+
     typingTimeoutRef.current = setTimeout(() => {
       setIsTyping(false);
-      const payload: any = { typing: false };
+      const payload: any = { typing: false, username: currentUsername };
       if (isProject) payload.projectId = selectedProject!.id;
       else payload.taskId = selectedTask!.id;
       socket.emit("typing", payload);
@@ -3185,6 +3238,33 @@ export default function Tasks() {
                                           "flex flex-col group/bubble relative min-w-0",
                                           isMe ? "items-end" : "items-start"
                                         )}>
+                                          {/* Emoji reaction trigger — appears on hover */}
+                                          {editingCommentId !== c.id && (
+                                            <div className={cn(
+                                              "absolute -top-4 opacity-0 group-hover/bubble:opacity-100 transition-opacity flex items-center gap-1 bg-background border border-border shadow-sm rounded-full px-1.5 py-0.5 z-20",
+                                              isMe ? "right-0" : "left-0"
+                                            )}>
+                                              <Popover>
+                                                <PopoverTrigger asChild>
+                                                  <button className="p-1 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground">
+                                                    <Smile className="w-3.5 h-3.5" />
+                                                  </button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-fit p-1.5 grid grid-cols-4 gap-1" align={isMe ? "end" : "start"}>
+                                                  {["👍", "❤️", "🔥", "🚀", "👏", "🎉", "😮", "🙏"].map(emoji => (
+                                                    <button
+                                                      key={emoji}
+                                                      onClick={() => void toggleReaction(c.id, emoji)}
+                                                      className="p-1.5 hover:bg-muted rounded text-lg transition-transform hover:scale-125"
+                                                    >
+                                                      {emoji}
+                                                    </button>
+                                                  ))}
+                                                </PopoverContent>
+                                              </Popover>
+                                            </div>
+                                          )}
+
                                           <div className={cn(
                                             "relative px-4 py-2.5 rounded-2xl shadow-sm transition-all duration-200",
                                             isMe
@@ -3213,7 +3293,7 @@ export default function Tasks() {
                                                 {renderMessageWithMentions(c.message)}
                                               </div>
                                             )}
-                                            
+
                                             {c.attachments && c.attachments.length > 0 && editingCommentId !== c.id && (
                                               <div className={cn(
                                                 "grid gap-2 mt-2 max-w-[140px] sm:max-w-[180px]",
@@ -3221,13 +3301,13 @@ export default function Tasks() {
                                               )}>
                                                 {c.attachments.map((att, attIdx) => (
                                                   <div key={attIdx} className="relative rounded-lg overflow-hidden border border-white/20 bg-black/10 min-w-[120px] max-w-full h-auto">
-                                                    <CommentAttachmentImg 
-                                                      taskId={selectedTask!.id} 
-                                                      commentId={c.id} 
-                                                      index={attIdx} 
-                                                      mimeType={att.mimeType} 
-                                                      fileName={att.fileName} 
-                                                      fallbackUrl={att.url} 
+                                                    <CommentAttachmentImg
+                                                      taskId={selectedTask!.id}
+                                                      commentId={c.id}
+                                                      index={attIdx}
+                                                      mimeType={att.mimeType}
+                                                      fileName={att.fileName}
+                                                      fallbackUrl={att.url}
                                                       onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
                                                     />
                                                   </div>
@@ -3235,6 +3315,37 @@ export default function Tasks() {
                                               </div>
                                             )}
                                           </div>
+
+                                          {/* Reactions display */}
+                                          {c.reactions && c.reactions.length > 0 && (
+                                            <div className="flex flex-wrap gap-1 mt-1 px-1">
+                                              {Object.entries(
+                                                c.reactions.reduce((acc: Record<string, number>, r: { emoji: string }) => {
+                                                  acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+                                                  return acc;
+                                                }, {})
+                                              ).map(([emoji, count]) => {
+                                                const auth = getAuthState();
+                                                const userId = String(auth.sub || auth.id || "");
+                                                const hasReacted = c.reactions?.some((r: { emoji: string; userId: string }) => r.emoji === emoji && r.userId === userId);
+                                                return (
+                                                  <button
+                                                    key={emoji}
+                                                    onClick={() => void toggleReaction(c.id, emoji)}
+                                                    className={cn(
+                                                      "flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] border transition-all",
+                                                      hasReacted
+                                                        ? "bg-primary/20 border-primary/40 text-primary"
+                                                        : "bg-muted/30 border-border/40 text-muted-foreground hover:bg-muted/50"
+                                                    )}
+                                                  >
+                                                    <span>{emoji}</span>
+                                                    <span className="font-bold">{count as number}</span>
+                                                  </button>
+                                                );
+                                              })}
+                                            </div>
+                                          )}
 
                                           <div className={cn(
                                             "flex items-center gap-2 mt-1.5",
@@ -3386,16 +3497,24 @@ export default function Tasks() {
                         <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Assignees</label>
                         <div className="flex flex-col gap-2">
                           {selectedTask.assignees && selectedTask.assignees.length > 0 ? (
-                            selectedTask.assignees.map((assignee, idx) => (
-                              <div key={idx} className="flex items-center gap-2.5 bg-background border border-border/60 rounded-lg px-3 py-2 shadow-sm transition-colors hover:border-border">
-                                <Avatar className="w-6 h-6">
-                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
-                                    {assignee.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span className="text-sm font-medium text-foreground/80">{resolveAssigneeName(assignee)}</span>
-                              </div>
-                            ))
+                            selectedTask.assignees.map((assignee, idx) => {
+                              const milestone = getAssigneeMilestone(assignee);
+                              return (
+                                <div key={idx} className="flex items-center gap-2.5 bg-background border border-border/60 rounded-lg px-3 py-2 shadow-sm transition-colors hover:border-border">
+                                  <Avatar className="w-6 h-6">
+                                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
+                                      {assignee.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-foreground/80">{resolveAssigneeName(assignee)}</span>
+                                    {milestone.level && milestone.label && (
+                                      <MilestoneBadge level={milestone.level} label={milestone.label} size="sm" />
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })
                           ) : (
                             <div className="text-sm text-muted-foreground italic bg-muted/20 border border-dashed rounded-lg p-3 text-center">Unassigned</div>
                           )}

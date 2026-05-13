@@ -35,6 +35,7 @@ const UphMaintenance = lazy(() => import("@/pages/admin/UphMaintenance"));
 const ShoppingLists = lazy(() => import("@/pages/admin/ShoppingLists"));
 const ActivityLogs = lazy(() => import("@/pages/admin/ActivityLogs"));
 const TeamAttendance = lazy(() => import("@/pages/manger/TeamAttendance"));
+
 const CRMCommunication = lazy(() => import("@/pages/manger/crm/Communication"));
 const ManagerCRMCompanies = lazy(() => import("@/pages/manger/crm/Companies"));
 const ManagerCRMContacts = lazy(() => import("@/pages/manger/crm/CrmContacts"));
@@ -42,6 +43,9 @@ const ManagerCRMDeals = lazy(() => import("@/pages/manger/crm/CrmDeals"));
 const ManagerCRMTasks = lazy(() => import("@/pages/manger/crm/CrmTasks"));
 const CRMDashboard = lazy(() => import("@/pages/manger/crm/CrmDashboard"));
 const CRMFiles = lazy(() => import("@/pages/manger/crm/Files"));
+
+const TravelCalendar = lazy(() => import("@/pages/manger/TravelCalendar"));
+
 function PageLoader() {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh" }}>
@@ -92,11 +96,15 @@ export default function ManagerController() {
       { path: "shopping-lists", element: <ShoppingLists /> },
       { path: "activity-logs", element: <ActivityLogs /> },
       { path: "team-attendance", element: <TeamAttendance /> },
+
       { path: "crm/communication", element: <CRMCommunication /> },
       { path: "crm/companies", element: <ManagerCRMCompanies /> },
       { path: "crm/contacts", element: <ManagerCRMContacts /> },
       { path: "crm/deals", element: <ManagerCRMDeals /> },
       { path: "crm/tasks", element: <ManagerCRMTasks /> },
+
+      { path: "travel-calendar", element: <TravelCalendar /> },
+
       { path: "*", element: <NotFound /> },
       { path: "crm/dashboard", element: <CRMDashboard /> },
       { path: "crm/files", element: <CRMFiles /> },

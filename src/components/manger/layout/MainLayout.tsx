@@ -54,21 +54,46 @@ export function MainLayout({ children }: MainLayoutProps) {
     timestamp?: string;
     createdAt?: string;
     status?: "sent" | "delivered" | "read";
+    readBy?: string[];
     meta?: {
       resourceType?: string;
       resourceId?: string;
       link?: string;
+      category?: string;
     };
   };
 
+  const formatRelativeTime = (ts?: string) => {
+    if (!ts) return "";
+    const diff = Date.now() - new Date(ts).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    const days = Math.floor(hrs / 24);
+    return days === 1 ? "yesterday" : `${days}d ago`;
+  };
+
+  const getCategoryIcon = (category?: string) => {
+    switch (category) {
+      case "TASK_ASSIGNED": return "📋";
+      case "PROJECT_ASSIGNED": return "📁";
+      case "TASK_COMPLETED": return "✅";
+      case "MENTIONED": return "💬";
+      case "COMMENT_ADDED": return "💬";
+      case "SYSTEM_ALERT": return "🔔";
+      default: return "🔔";
+    }
+  };
+
   const resolveNotificationLink = (n: MessageApi) => {
-    // meta.link is stored with /admin/ prefix by the backend — rewrite to /manager/
-    const direct = String(n.meta?.link || "").trim();
-    if (direct) return direct.replace(/^\/admin\//, "/manager/");
+    // Prioritise resourceType+resourceId — meta.link uses /admin/ prefix which is wrong here.
 
     const resourceTypeRaw = String(n.meta?.resourceType || "").trim();
     const resourceType = resourceTypeRaw.toLowerCase();
     const resourceId = String(n.meta?.resourceId || "").trim();
+    const direct = String(n.meta?.link || "").trim();
 
     if (resourceType === "vehicle") {
       if (resourceId) return `/manager/vehicles?view=${encodeURIComponent(resourceId)}`;
@@ -110,6 +135,8 @@ export function MainLayout({ children }: MainLayoutProps) {
       if (resourceId) return `/developer/bugs?view=${encodeURIComponent(resourceId)}`;
       return "/developer/bugs";
     }
+
+    if (direct && direct.startsWith("/manager/")) return direct;
 
     const content = String(n.content || "").toLowerCase();
     if (content.includes(" employee")) return "/manager/employees";
@@ -241,12 +268,24 @@ export function MainLayout({ children }: MainLayoutProps) {
     },
   });
 
+  const me = String(auth.username || "").trim();
+  const myName = String(auth.name || "").trim();
+
+  const isUnread = (n: any) => {
+    if (n.status === "read") return false;
+    const readBy: string[] = Array.isArray(n.readBy) ? n.readBy : [];
+    if (me && readBy.includes(me)) return false;
+    if (myName && readBy.includes(myName)) return false;
+    return true;
+  };
+
   const notifications = (notificationsQuery.data || [])
+    .filter(isUnread)
     .slice()
     .sort((a, b) => String(b.timestamp || b.createdAt || "").localeCompare(String(a.timestamp || a.createdAt || "")))
-    .slice(0, 4);
+    .slice(0, 8);
 
-  const unreadCount = (notificationsQuery.data || []).filter((n) => n.status !== "read").length;
+  const unreadCount = notifications.length;
   const unreadMessageCount = (messagesQuery.data || []).reduce((sum, c) => sum + (c.unreadCount || 0), 0);
 
   const [reportOpen, setReportOpen] = useState(false);
@@ -361,18 +400,42 @@ export function MainLayout({ children }: MainLayoutProps) {
   }, [socket, auth, queryClient, navigate]);
 
   const markAllRead = async () => {
+    queryClient.setQueryData(["manager-notifications"], (old: any) =>
+      Array.isArray(old)
+        ? old.map((n) => ({
+            ...n,
+            status: "read",
+            readBy: Array.isArray(n.readBy)
+              ? [...new Set([...n.readBy, me, myName].filter(Boolean))]
+              : [me, myName].filter(Boolean),
+          }))
+        : old
+    );
     try {
       await apiFetch("/api/messages/mark-all-read", { method: "POST" });
-      await notificationsQuery.refetch();
     } catch {
-      // ignore errors
+      await notificationsQuery.refetch();
     }
   };
 
   const markRead = async (id: string) => {
+    queryClient.setQueryData(["manager-notifications"], (old: any) =>
+      Array.isArray(old)
+        ? old.map((n) =>
+            n.id === id
+              ? {
+                  ...n,
+                  status: "read",
+                  readBy: Array.isArray(n.readBy)
+                    ? [...new Set([...n.readBy, me, myName].filter(Boolean))]
+                    : [me, myName].filter(Boolean),
+                }
+              : n
+          )
+        : old
+    );
     try {
-      await apiFetch(`/api/notifications/${id}/mark-read`, { method: "POST" });
-      await notificationsQuery.refetch();
+      await apiFetch(`/api/messages/${id}/mark-read`, { method: "POST" });
     } catch {
       // ignore errors
     }
@@ -543,38 +606,57 @@ export function MainLayout({ children }: MainLayoutProps) {
                         )}
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
-                      <DropdownMenuLabel className="text-xs">Notifications</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      {notificationsQuery.isLoading ? (
-                        <div className="p-4 text-center text-xs text-muted-foreground">Loading...</div>
-                      ) : (notificationsQuery.data || []).length === 0 ? (
-                        <div className="p-4 text-center text-xs text-muted-foreground">No notifications</div>
-                      ) : (
-                        (notificationsQuery.data || []).slice(0, 5).map((n) => (
-                          <DropdownMenuItem
-                            key={n.id}
-                            className="text-xs"
-                            onClick={() => {
-                              void markRead(String(n.id));
-                              navigate(resolveNotificationLink(n));
-                            }}
+                    <DropdownMenuContent align="start" side="bottom" className="w-80 mt-2 p-0 shadow-2xl border-slate-700 bg-[#0f172a]">
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+                        <DropdownMenuLabel className="text-sm font-bold text-white p-0">Notifications</DropdownMenuLabel>
+                        {unreadCount > 0 && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); void markAllRead(); }}
+                            className="text-[10px] font-bold uppercase tracking-wider text-[#00C6FF] hover:text-white transition-colors"
                           >
-                            {n.content}
-                          </DropdownMenuItem>
-                        ))
-                      )}
-                      {(notificationsQuery.data || []).length > 0 && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className="text-xs text-center justify-center"
-                            onClick={() => navigate("/manager/notifications")}
-                          >
-                            View All Notifications
-                          </DropdownMenuItem>
-                        </>
-                      )}
+                            Mark all read
+                          </button>
+                        )}
+                      </div>
+                      <div className="max-h-[380px] overflow-y-auto">
+                        {notificationsQuery.isLoading ? (
+                          <div className="p-6 text-center text-xs text-slate-400">Loading...</div>
+                        ) : notifications.length === 0 ? (
+                          <div className="p-6 text-center">
+                            <Bell className="h-7 w-7 text-slate-600 mx-auto mb-2" />
+                            <p className="text-xs text-slate-400">You're all caught up!</p>
+                          </div>
+                        ) : (
+                          notifications.map((n) => {
+                            const category = n.meta?.category;
+                            const relTime = formatRelativeTime(n.createdAt || n.timestamp);
+                            return (
+                              <DropdownMenuItem
+                                key={n.id}
+                                onClick={() => {
+                                  navigate(resolveNotificationLink(n));
+                                  void markRead(String(n.id));
+                                }}
+                                className="flex items-start gap-3 px-3 py-2.5 cursor-pointer border-b border-slate-800 last:border-0 rounded-none text-white focus:bg-white/10 focus:text-white data-[highlighted]:bg-white/10 data-[highlighted]:text-white transition-colors"
+                              >
+                                <span className="text-base leading-none mt-0.5 flex-shrink-0">{getCategoryIcon(category)}</span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[12px] font-semibold leading-tight truncate">{n.title || "Notification"}</p>
+                                  <p className="text-[11px] text-slate-300 line-clamp-2 leading-relaxed mt-0.5">{n.content}</p>
+                                  {relTime && <span className="text-[10px] text-slate-500 mt-0.5 block">{relTime}</span>}
+                                </div>
+                              </DropdownMenuItem>
+                            );
+                          })
+                        )}
+                      </div>
+                      <DropdownMenuSeparator className="m-0 bg-slate-800" />
+                      <DropdownMenuItem
+                        onClick={() => navigate("/manager/notifications")}
+                        className="justify-center py-2.5 text-xs font-bold text-slate-400 hover:text-white data-[highlighted]:text-white data-[highlighted]:bg-slate-800/50 transition-all"
+                      >
+                        View all notifications
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
 
