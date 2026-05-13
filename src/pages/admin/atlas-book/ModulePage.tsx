@@ -13,6 +13,10 @@ import InventoryManagement from "./modules/InventoryManagement";
 import PayrollManagement from "./modules/PayrollManagement";
 import BudgetManagement from "./modules/BudgetManagement";
 import FixedAssetManagement from "./modules/FixedAssetManagement";
+import FinancialReporting from "./modules/FinancialReporting";
+import FraudDetection from "./modules/FraudDetection";
+import CreditMonitoring from "./modules/CreditMonitoring";
+import AuditCompliance from "./modules/AuditCompliance";
 import { 
   Building2, Landmark, LayoutDashboard, Calculator, ListTree, Receipt, 
   ArrowRightLeft, FileText, Users, ScanLine, Box, Wallet, PieChart, 
@@ -121,19 +125,22 @@ const moduleData: Record<string, { title: string; features: string[]; accounts: 
     title: "Financial Reporting",
     features: ["Profit & Loss", "Balance Sheet", "Cash Flow", "Tax Reports"],
     accounts: ["All Financial Accounts"],
-    icon: PieChart
+    icon: PieChart,
+    component: FinancialReporting
   },
   "fraud": {
     title: "Fraud Detection",
     features: ["Duplicate Payment Detection", "Expense Spike Alerts", "Missing Receipt Detection"],
     accounts: ["Risk Adjustment Accounts"],
-    icon: ShieldAlert
+    icon: ShieldAlert,
+    component: FraudDetection
   },
   "credit": {
     title: "Credit Monitoring",
     features: ["Business Credit Tracking", "Debt Ratio Monitoring"],
     accounts: ["Credit Accounts", "Loan Accounts"],
-    icon: CreditCard
+    icon: CreditCard,
+    component: CreditMonitoring
   },
   "title": {
     title: "Title & Lien Monitoring",
@@ -151,7 +158,8 @@ const moduleData: Record<string, { title: string; features: string[]; accounts: 
     title: "Audit & Compliance",
     features: ["Audit Trails", "Transaction History"],
     accounts: ["Audit Adjustments"],
-    icon: ClipboardCheck
+    icon: ShieldCheck,
+    component: AuditCompliance
   },
   "currency": {
     title: "Multi-Currency Module",
