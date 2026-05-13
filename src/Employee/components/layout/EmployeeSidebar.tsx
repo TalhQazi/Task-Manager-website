@@ -1,6 +1,26 @@
 import { NavLink } from "@/components/admin/NavLink";
 
-import { LayoutDashboard, ClipboardList, Calendar, UserCircle, Bell, Clock, MessageCircle, FileText, ClipboardCheck, Folder, Wallet, Palette, Calendar as CalendarIcon, ShoppingCart, History, FileStack, Bug, Megaphone } from "lucide-react";
+import { 
+  LayoutDashboard, 
+  ClipboardList, 
+  Calendar, 
+  UserCircle, 
+  Bell, 
+  Clock, 
+  MessageCircle, 
+  FileText, 
+  ClipboardCheck, 
+  Folder, 
+  Wallet, 
+  Palette, 
+  Calendar as CalendarIcon, 
+  ShoppingCart, 
+  History, 
+  FileStack, 
+  Bug, 
+  Megaphone,
+  Settings  // 👈 Settings icon import karein
+} from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -11,27 +31,35 @@ const navItemsBase = [
   { icon: Megaphone, label: "Announcements", path: "/employee/announcements" },
   { icon: ClipboardList, label: "My Tasks", path: "/employee/tasks" },
   { icon: Calendar, label: "Events", path: "/employee/schedule" },
-
   { icon: ClipboardCheck, label: "Scrum Records", path: "/employee/scrum-records" },
-
   { icon: Clock, label: "Attendance", path: "/employee/clocked" },
   { icon: History, label: "Time Logs", path: "/employee/timeLogs" },
   { icon: Wallet, label: "Payroll", path: "/employee/payroll" },
   // { icon: FileStack, label: "Documents", path: "/employee/documents" },
   { icon: CalendarIcon, label: "Leave Requests", path: "/employee/leave-requests" },
   { icon: Calendar, label: "Travel Calendar", path: "/employee/travel-calendar" },
-
   { icon: MessageCircle, label: "Messages", path: "/employee/messages" },
   { icon: Folder, label: "Images", path: "/employee/asset-library" },
   { icon: FileText, label: "Company Information", path: "/employee/company-information" },
   // { icon: UserCircle, label: "Profile", path: "/employee/profile" },
   { icon: Bell, label: "Notifications", path: "/employee/notifications" },
   { icon: FileText, label: "My Notes", path: "/employee/personal-notes" },
-  { icon: Palette, label: "UI Customization", path: "/employee/ui-customization" },
+  { icon: Palette, label: "Theme Engine", path: "/employee/ui-customization" },
   { icon: ShoppingCart, label: "Shopping Lists", path: "/employee/shopping-lists" },
   { icon: Bug, label: "Bug Reports", path: "/employee/bugs" },
+  
+  // 👇 Settings item ko yahan add karein (ye sort se pehle filter ho jayega)
+  { icon: Settings, label: "Settings", path: "/employee/settings" },
 ];
-const navItems = [...navItemsBase].sort((a, b) => a.label.localeCompare(b.label));
+
+// 🔥 Logic: Settings ko alag karein → baki ko sort karein → Settings ko end mein lagayein
+const settingsItem = navItemsBase.find(item => item.label === "Settings");
+const otherItems = navItemsBase.filter(item => item.label !== "Settings");
+
+const navItems = [
+  ...otherItems.sort((a, b) => a.label.localeCompare(b.label)),
+  ...(settingsItem ? [settingsItem] : [])  // Settings hamesha last mein
+];
 
 type SidebarMode = "desktop" | "mobile";
 
