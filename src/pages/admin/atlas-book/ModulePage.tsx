@@ -1,5 +1,9 @@
 import { useParams } from "react-router-dom";
 import AtlasModule from "./ModuleTemplate";
+import PropertyManagement from "./modules/PropertyManagement";
+import UnitManagement from "./modules/UnitManagement";
+import ChartOfAccounts from "./modules/ChartOfAccounts";
+import GeneralLedger from "./modules/GeneralLedger";
 import { 
   Building2, Landmark, LayoutDashboard, Calculator, ListTree, Receipt, 
   ArrowRightLeft, FileText, Users, ScanLine, Box, Wallet, PieChart, 
@@ -7,7 +11,7 @@ import {
   PiggyBank, UserCheck, Search, ShieldCheck, ClipboardCheck, Timer
 } from "lucide-react";
 
-const moduleData: Record<string, { title: string; features: string[]; accounts: string[]; icon: any }> = {
+const moduleData: Record<string, { title: string; features: string[]; accounts: string[]; icon: any; component?: any }> = {
   "company": {
     title: "Company Management",
     features: ["Company Creation", "Legal Entity Information", "Tax Information", "Base Currency", "Branch Management", "Fiscal Year Setup"],
@@ -18,25 +22,29 @@ const moduleData: Record<string, { title: string; features: string[]; accounts: 
     title: "Property Management",
     features: ["Property Registration", "Address & Parcel Information", "Purchase Details", "Ownership Tracking", "Property Status"],
     accounts: ["Property Assets", "Land Assets", "Building Assets", "Property Depreciation"],
-    icon: Landmark
+    icon: Landmark,
+    component: PropertyManagement
   },
   "unit": {
     title: "Unit Management",
     features: ["Unit Creation", "Unit Status", "Rental Information", "Occupancy Tracking", "Unit Profitability"],
     accounts: ["Unit Revenue", "Unit Maintenance Expense", "Unit Utility Expense"],
-    icon: LayoutDashboard
+    icon: LayoutDashboard,
+    component: UnitManagement
   },
   "coa": {
     title: "Chart of Accounts",
     features: ["Assets Management", "Liabilities Management", "Equity Management", "Revenue Management", "Expenses Management"],
     accounts: ["Cash", "Bank Accounts", "Accounts Receivable", "Inventory", "Fixed Assets", "Accounts Payable", "Loans Payable", "Mortgage Payable", "Owner Equity", "Retained Earnings", "Rental Income", "Sales Revenue", "Other Income", "Salaries", "Utilities", "Repairs & Maintenance", "Insurance", "Depreciation"],
-    icon: ListTree
+    icon: ListTree,
+    component: ChartOfAccounts
   },
   "gl": {
     title: "General Ledger",
     features: ["Double Entry Accounting", "Journal Entries", "Reversal Entries", "Trial Balance"],
     accounts: ["Debit/Credit Accounts", "Adjustment Accounts"],
-    icon: Calculator
+    icon: Calculator,
+    component: GeneralLedger
   },
   "transactions": {
     title: "Transaction Management",
@@ -180,6 +188,15 @@ export default function AtlasModulePage() {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground italic">Module not found.</p>
+      </div>
+    );
+  }
+
+  if (data.component) {
+    const Component = data.component;
+    return (
+      <div className="pl-6">
+        <Component />
       </div>
     );
   }
