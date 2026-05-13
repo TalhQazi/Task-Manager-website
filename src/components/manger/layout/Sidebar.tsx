@@ -22,7 +22,17 @@ import {
   ChevronDown,
   ChevronRight,
   ShoppingCart,
+ 
   Megaphone,
+
+   CheckSquare,
+   Mail,
+FolderOpen,
+Building,
+CalendarCheck,
+
+
+  
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -47,6 +57,19 @@ const navItemsBase: NavItem[] = [
   { icon: Calendar, label: "Scheduling", path: "/manager/scheduling" },
   { icon: Clock, label: "Time Tracking", path: "/manager/time-tracking" },
   { icon: Clock, label: "Attendance", path: "/manager/attendance" },
+   {
+      icon: FileText,
+      label: "CRM",
+      children: [
+        { icon: CalendarCheck, label: "CRM Dashboard", path: "/manager/crm/dashboard" },
+        { icon: Users, label: "Contacts", path: "/manager/crm/contacts" },
+        { icon: Building, label: "Companies", path: "/manager/crm/companies" },
+        { icon: CheckSquare, label: "CRM Deals", path: "/manager/crm/deals" },
+        { icon: ClipboardList, label: "CRM Tasks", path: "/manager/crm/tasks" },
+        { icon: Mail, label: "Communication", path: "/manager/crm/communication" },
+        { icon: FolderOpen, label: "Files", path: "/manager/crm/files" },
+      ],
+    },
   { icon: DollarSign, label: "Payroll", path: "/manager/payroll" },
   { icon: User, label: "Profile", path: "/manager/profile" },
   { icon: ClipboardCheck, label: "EOD Reports", path: "/manager/eod-reports" },

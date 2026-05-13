@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/manger/api";
 import { useQueryClient } from "@tanstack/react-query";
+import MilestoneBadge from "@/components/shared/MilestoneBadge";
 
 interface ProfileData {
   id: string;
@@ -35,6 +36,8 @@ interface ProfileData {
   status?: string;
   avatarUrl?: string;
   role?: string;
+  milestoneLevel?: string;
+  milestoneLabel?: string;
 }
 
 interface OnboardingData {
@@ -437,7 +440,12 @@ export default function Profile() {
                   />
                 </div>
                 <div className="text-center sm:text-left flex-1">
-                  <h3 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900">{profile?.name}</h3>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-base sm:text-lg md:text-xl font-semibold text-gray-900">{profile?.name}</h3>
+                    {profile?.milestoneLevel && profile?.milestoneLabel && (
+                      <MilestoneBadge level={profile.milestoneLevel} label={profile.milestoneLabel} size="sm" />
+                    )}
+                  </div>
                   <p className="text-xs sm:text-sm text-muted-foreground mt-1">{profile?.email}</p>
                   <Badge variant="outline" className="mt-2 text-xs sm:text-sm">{profile?.role}</Badge>
                 </div>

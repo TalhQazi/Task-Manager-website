@@ -63,6 +63,7 @@ import {
 import { cn } from "@/lib/manger/utils";
 import { apiFetch, listResource } from "@/lib/manger/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import MilestoneBadge from "@/components/shared/MilestoneBadge";
 
 interface Employee {
   id: string;
@@ -80,6 +81,8 @@ interface Employee {
   joinDate: string;
   avatar: string;
   imageUrl?: string;
+  milestoneLevel?: string;
+  milestoneLabel?: string;
 }
 
 interface Company {
@@ -110,6 +113,8 @@ function normalizeEmployee(e: EmployeeApi): Employee {
     joinDate: e.joinDate,
     avatar: e.avatar,
     imageUrl: (e as unknown as { avatarUrl?: string; imageUrl?: string }).avatarUrl || (e as unknown as { imageUrl?: string }).imageUrl,
+    milestoneLevel: (e as unknown as { milestoneLevel?: string }).milestoneLevel,
+    milestoneLabel: (e as unknown as { milestoneLabel?: string }).milestoneLabel,
   };
 }
 
@@ -727,14 +732,19 @@ export default function Employees() {
                       />
                     </motion.div>
                     <div className="min-w-0">
-                      <motion.h3
-                        className="font-semibold text-foreground truncate"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: index * 0.1 + 0.1 }}
-                      >
-                        {employee.name}
-                      </motion.h3>
+                      <div className="flex items-center gap-2 mb-1">
+                        <motion.h3
+                          className="font-semibold text-foreground truncate"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: index * 0.1 + 0.1 }}
+                        >
+                          {employee.name}
+                        </motion.h3>
+                        {employee.milestoneLevel && employee.milestoneLabel && (
+                          <MilestoneBadge level={employee.milestoneLevel} label={employee.milestoneLabel} size="sm" />
+                        )}
+                      </div>
                       <motion.p
                         className="text-sm text-muted-foreground truncate"
                         initial={{ opacity: 0 }}

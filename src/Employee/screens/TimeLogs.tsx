@@ -24,13 +24,13 @@ export default function TimeLogs() {
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "N/A";
     const date = new Date(dateStr);
-    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    return date.toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
   };
 
   const formatTime = (dateStr: string) => {
     if (!dateStr) return "N/A";
     const date = new Date(dateStr);
-    return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+    return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
   if (loading) {

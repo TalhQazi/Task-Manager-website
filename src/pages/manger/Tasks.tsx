@@ -98,6 +98,7 @@ import { apiFetch, downloadTaskAttachment, toProxiedUrl, getTopContributors, dow
 import { getAuthState } from "@/lib/auth";
 import { ROLE_GROUPS } from "@/constants/roles";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import MilestoneBadge from "@/components/shared/MilestoneBadge";
 import { useSocket } from "@/contexts/SocketContext";
 import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import jsPDF from "jspdf";
@@ -177,6 +178,8 @@ interface Employee {
   initials: string;
   email: string;
   status: "active" | "inactive" | "on-leave";
+  milestoneLevel?: string;
+  milestoneLabel?: string;
 }
 
 type TaskComment = {
@@ -1005,8 +1008,20 @@ export default function Tasks() {
     const byEmail = new Map(employees.map((e) => [e.email.toLowerCase(), e.name]));
     const byName  = new Map(employees.map((e) => [e.name.toLowerCase(),  e.name]));
     return (val: string): string => {
-      const v = (val || "").trim();
-      return byEmail.get(v.toLowerCase()) || byName.get(v.toLowerCase()) || v;
+      const emailKey = val.toLowerCase().trim();
+      const nameKey = val.toLowerCase().trim();
+      return byEmail.get(emailKey) || byName.get(nameKey) || val;
+    };
+  }, [employees]);
+
+  // Get milestone info for an assignee
+  const getAssigneeMilestone = useMemo(() => {
+    const byEmail = new Map(employees.map((e) => [e.email.toLowerCase(), { level: e.milestoneLevel, label: e.milestoneLabel }]));
+    const byName  = new Map(employees.map((e) => [e.name.toLowerCase(), { level: e.milestoneLevel, label: e.milestoneLabel }]));
+    return (val: string): { level?: string; label?: string } => {
+      const emailKey = val.toLowerCase().trim();
+      const nameKey = val.toLowerCase().trim();
+      return byEmail.get(emailKey) || byName.get(nameKey) || {};
     };
   }, [employees]);
 
@@ -3482,16 +3497,24 @@ export default function Tasks() {
                         <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Assignees</label>
                         <div className="flex flex-col gap-2">
                           {selectedTask.assignees && selectedTask.assignees.length > 0 ? (
-                            selectedTask.assignees.map((assignee, idx) => (
-                              <div key={idx} className="flex items-center gap-2.5 bg-background border border-border/60 rounded-lg px-3 py-2 shadow-sm transition-colors hover:border-border">
-                                <Avatar className="w-6 h-6">
-                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
-                                    {assignee.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span className="text-sm font-medium text-foreground/80">{resolveAssigneeName(assignee)}</span>
-                              </div>
-                            ))
+                            selectedTask.assignees.map((assignee, idx) => {
+                              const milestone = getAssigneeMilestone(assignee);
+                              return (
+                                <div key={idx} className="flex items-center gap-2.5 bg-background border border-border/60 rounded-lg px-3 py-2 shadow-sm transition-colors hover:border-border">
+                                  <Avatar className="w-6 h-6">
+                                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
+                                      {assignee.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-foreground/80">{resolveAssigneeName(assignee)}</span>
+                                    {milestone.level && milestone.label && (
+                                      <MilestoneBadge level={milestone.level} label={milestone.label} size="sm" />
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })
                           ) : (
                             <div className="text-sm text-muted-foreground italic bg-muted/20 border border-dashed rounded-lg p-3 text-center">Unassigned</div>
                           )}

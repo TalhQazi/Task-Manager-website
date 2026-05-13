@@ -54,8 +54,17 @@ const TaskPermissions = lazy(() => import("@/pages/admin/TaskPermissions"));
 const ShoppingLists = lazy(() => import("@/pages/admin/ShoppingLists"));
 const SystemEmailSettings = lazy(() => import("@/pages/admin/SystemEmailSettings"));
 const CompanyRegistry = lazy(() => import("@/pages/admin/CompanyRegistry"));
+
+const CRMDashboard = lazy(() => import("@/pages/admin/crm/Dashboard"));
+const CRMContacts = lazy(() => import("@/pages/admin/crm/Contacts"));
+const CRMCompanies = lazy(() => import("@/pages/admin/crm/Companies"));
+const CRMDeals = lazy(() => import("@/pages/admin/crm/Deals"));
+const CRMTasks = lazy(() => import("@/pages/admin/crm/Tasks"));
+const CRMCommunication = lazy(() => import("@/pages/admin/crm/Communication"));
+const CRMFiles = lazy(() => import("@/pages/admin/crm/Files"));
 const TravelCalendar = lazy(() => import("@/pages/admin/TravelCalendar"));
 const Announcements = lazy(() => import("@/pages/admin/Announcements"));
+
 
 
 
@@ -122,7 +131,14 @@ export default function AdminRoutes() {
       { path: "contributors", element: <Contributors /> },
       { path: "team-lead-mappings", element: <TeamLeadMappings /> },
       { path: "task-permissions", element: <TaskPermissions /> },
-
+      { path: "crm", element: <Navigate to="/admin/crm/dashboard" replace /> },
+      { path: "crm/dashboard", element: <CRMDashboard /> },
+      { path: "crm/contacts", element: <CRMContacts /> },
+      { path: "crm/companies", element: <CRMCompanies /> },
+      { path: "crm/deals", element: <CRMDeals /> },
+      { path: "crm/tasks", element: <CRMTasks /> },
+      { path: "crm/communication", element: <CRMCommunication /> },
+      { path: "crm/files", element: <CRMFiles /> },
       { path: "bug-reports", element: <BugReport /> },
       { path: "theme-engine", element: <ThemeEngine /> },
       { path: "memes", element: <Memes /> },
