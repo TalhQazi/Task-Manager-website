@@ -93,7 +93,7 @@ const navItemsBase: NavItem[] = [
       />
     ),
   },
-  { icon: Settings, label: "UI Customization", path: "/manager/ui-customization" },
+  { icon: Settings, label: "Theme Engine", path: "/manager/ui-engine" },
   { icon: ShoppingCart, label: "Shopping Lists", path: "/manager/shopping-lists" },
   { icon: Settings, label: "Settings", path: "/manager/settings" },
 ].sort((a, b) => a.label.localeCompare(b.label));

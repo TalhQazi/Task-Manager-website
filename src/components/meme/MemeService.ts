@@ -1,4 +1,4 @@
-import { apiFetch } from "@/lib/admin/apiClient";
+import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 
 export type MemePayload = {
   id: string;
@@ -65,9 +65,18 @@ export async function preloadImage(url: string): Promise<void> {
   });
 }
 
+function proxiedMemeImageUrl(url: string): string {
+  const proxied = toProxiedUrl(url);
+  return proxied && proxied.length > 0 ? proxied : url;
+}
+
 export async function fetchNextMeme(): Promise<MemePayload> {
   async function attempt() {
-    return apiFetch<MemePayload>("/api/meme/next", { method: "GET" });
+    const raw = await apiFetch<MemePayload>("/api/meme/next", { method: "GET" });
+    return {
+      ...raw,
+      imageUrl: proxiedMemeImageUrl(raw.imageUrl),
+    };
   }
 
   try {

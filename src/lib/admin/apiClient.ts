@@ -38,8 +38,14 @@ export function toProxiedUrl(url: string | undefined | null): string | undefined
   
   const s3Key = s3Match[1];
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
-  const token = getAuthState().token;
-  return `${baseUrl}/api/s3-proxy/${s3Key}${token ? `?token=${token}` : ""}`;
+  const auth = getAuthState();
+  let token = auth.isAuthenticated && auth.token ? auth.token : "";
+  if (!token) {
+    const emp = getEmployeeAuth();
+    if (emp?.token) token = emp.token;
+  }
+  const q = token ? `?token=${encodeURIComponent(token)}` : "";
+  return `${baseUrl}/api/s3-proxy/${s3Key}${q}`;
 }
 
 async function parseJsonSafe(res: Response) {
