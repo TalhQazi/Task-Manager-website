@@ -4,6 +4,11 @@ import PropertyManagement from "./modules/PropertyManagement";
 import UnitManagement from "./modules/UnitManagement";
 import ChartOfAccounts from "./modules/ChartOfAccounts";
 import GeneralLedger from "./modules/GeneralLedger";
+import TransactionManagement from "./modules/TransactionManagement";
+import AccountsPayable from "./modules/AccountsPayable";
+import AccountsReceivable from "./modules/AccountsReceivable";
+import TenantManagement from "./modules/TenantManagement";
+import ReceiptOCR from "./modules/ReceiptOCR";
 import { 
   Building2, Landmark, LayoutDashboard, Calculator, ListTree, Receipt, 
   ArrowRightLeft, FileText, Users, ScanLine, Box, Wallet, PieChart, 
@@ -50,19 +55,22 @@ const moduleData: Record<string, { title: string; features: string[]; accounts: 
     title: "Transaction Management",
     features: ["Income Transactions", "Expense Transactions", "Vendor Payments", "Customer Payments"],
     accounts: ["Cash Account", "Bank Account", "Expense Accounts", "Revenue Accounts"],
-    icon: ArrowRightLeft
+    icon: ArrowRightLeft,
+    component: TransactionManagement
   },
   "ap": {
     title: "Accounts Payable",
     features: ["Vendor Bills", "Outstanding Payables", "Aging Reports"],
     accounts: ["Accounts Payable", "Vendor Liability"],
-    icon: Receipt
+    icon: Receipt,
+    component: AccountsPayable
   },
   "ar": {
     title: "Accounts Receivable",
     features: ["Customer Invoices", "Payment Collection", "Due Tracking"],
     accounts: ["Accounts Receivable", "Bad Debt Expense"],
-    icon: Wallet
+    icon: Wallet,
+    component: AccountsReceivable
   },
   "vendor": {
     title: "Vendor Management",
@@ -74,13 +82,15 @@ const moduleData: Record<string, { title: string; features: string[]; accounts: 
     title: "Customer / Tenant Management",
     features: ["Tenant Profiles", "Lease Agreements", "Rent Tracking"],
     accounts: ["Rental Income", "Security Deposits"],
-    icon: UserCheck
+    icon: UserCheck,
+    component: TenantManagement
   },
   "ocr": {
     title: "Receipt & OCR Module",
     features: ["Receipt Upload", "OCR Processing", "Expense Auto Entry"],
     accounts: ["Expense Accounts", "Reimbursement Accounts"],
-    icon: ScanLine
+    icon: ScanLine,
+    component: ReceiptOCR
   },
   "inventory": {
     title: "Inventory Management",
