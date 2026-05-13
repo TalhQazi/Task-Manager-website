@@ -1,12 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
-
-// Initial mock data (replace with API fetch later)
-const INITIAL_DEALS = [
-  { id: 1, name: 'Enterprise SaaS License', company: 'TechCorp Solutions', value: 45000, stage: 'Proposal', probability: 60, closeDate: '2026-08-15', owner: 'Alice Johnson' },
-  { id: 2, name: 'Cloud Migration Project', company: 'GreenLeaf Finance', value: 120000, stage: 'Negotiation', probability: 80, closeDate: '2026-07-30', owner: 'Bob Smith' },
-  { id: 3, name: 'Annual Support Renewal', company: 'HealthFirst Clinics', value: 15000, stage: 'Closed Won', probability: 100, closeDate: '2026-06-01', owner: 'Carol White' },
-  { id: 4, name: 'Fleet Telematics Upgrade', company: 'SwiftLogix', value: 78000, stage: 'Needs Analysis', probability: 40, closeDate: '2026-09-20', owner: 'Alice Johnson' },
-];
+import { crmDealsApi, type CRMDeal, type CRMDealsResponse } from '@/lib/crmDealsApi';
+import { getAuthState } from '@/lib/auth';
 
 const STAGES = ['Qualification', 'Needs Analysis', 'Proposal', 'Negotiation', 'Closed Won', 'Closed Lost'];
 const OWNERS = ['Alice Johnson', 'Bob Smith', 'Carol White', 'David Lee', 'Unassigned'];
@@ -36,19 +30,48 @@ const formatCurrency = (val) => new Intl.NumberFormat('en-US', { style: 'currenc
 const formatDate = (dateStr) => new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
 export default function CRMDeals() {
-  const [deals, setDeals] = useState(INITIAL_DEALS);
+  const auth = getAuthState();
+  const [deals, setDeals] = useState<CRMDeal[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [stageFilter, setStageFilter] = useState('All');
   
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showStageModal, setShowStageModal] = useState(false);
   const [showOwnerModal, setShowOwnerModal] = useState(false);
-  const [selectedDeal, setSelectedDeal] = useState(null);
+  const [selectedDeal, setSelectedDeal] = useState<CRMDeal | null>(null);
   
   const [formData, setFormData] = useState({
     name: '', company: '', value: '', stage: STAGES[0], probability: 50, closeDate: '', owner: OWNERS[0]
   });
-  const [formErrors, setFormErrors] = useState({});
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [pipelineMetrics, setPipelineMetrics] = useState({
+    totalValue: 0,
+    weightedValue: 0,
+    wonDeals: 0,
+    activeDeals: 0,
+  });
+
+  // Fetch deals from API
+  useEffect(() => {
+    const fetchDeals = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const response = await crmDealsApi.list({ page: 1, limit: 100 });
+        setDeals(response.items);
+        if (response.metrics) {
+          setPipelineMetrics(response.metrics);
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load deals');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDeals();
+  }, []);
 
   // Filter & Search Logic
   const filteredDeals = useMemo(() => {
@@ -62,15 +85,6 @@ export default function CRMDeals() {
       return matchesSearch && matchesStage;
     });
   }, [deals, searchQuery, stageFilter]);
-
-  // Calculate pipeline metrics
-  const pipelineMetrics = useMemo(() => {
-    const totalValue = deals.reduce((sum, deal) => sum + deal.value, 0);
-    const weightedValue = deals.reduce((sum, deal) => sum + (deal.value * deal.probability / 100), 0);
-    const wonDeals = deals.filter(deal => deal.stage === 'Closed Won').length;
-    const activeDeals = deals.filter(deal => !['Closed Won', 'Closed Lost'].includes(deal.stage)).length;
-    return { totalValue, weightedValue, wonDeals, activeDeals };
-  }, [deals]);
 
   // Modal Handlers
   const openCreate = () => {
@@ -97,7 +111,7 @@ export default function CRMDeals() {
     setFormErrors({});
   };
 
-  const handleCreateChange = (e) => {
+  const handleCreateChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -115,29 +129,52 @@ export default function CRMDeals() {
     return Object.keys(errors).length === 0;
   };
 
-  const handleCreateSave = (e) => {
-    e.preventDefault(); // Prevent form submission reload
+  const handleCreateSave = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!validateCreateForm()) return;
-    const newId = Math.max(...deals.map(d => d.id), 0) + 1;
-    setDeals(prev => [...prev, { ...formData, value: Number(formData.value), probability: Number(formData.probability), id: newId }]);
-    closeAllModals();
-  };
-
-  const handleStageSave = () => {
-    const stageSelect = document.getElementById('stageSelect');
-    if (stageSelect && selectedDeal) {
-      const newStage = stageSelect.value;
-      setDeals(prev => prev.map(d => d.id === selectedDeal.id ? { ...d, stage: newStage } : d));
+    
+    try {
+      const newDeal = await crmDealsApi.create({
+        name: formData.name,
+        company: formData.company,
+        value: Number(formData.value),
+        stage: formData.stage as any,
+        probability: Number(formData.probability),
+        closeDate: formData.closeDate,
+        owner: formData.owner,
+      });
+      setDeals(prev => [newDeal.item, ...prev]);
       closeAllModals();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create deal');
     }
   };
 
-  const handleOwnerSave = () => {
-    const ownerSelect = document.getElementById('ownerSelect');
+  const handleStageSave = async () => {
+    const stageSelect = document.getElementById('stageSelect') as HTMLSelectElement;
+    if (stageSelect && selectedDeal) {
+      const newStage = stageSelect.value;
+      try {
+        const updated = await crmDealsApi.update(selectedDeal.id, { stage: newStage as any });
+        setDeals(prev => prev.map(d => d.id === selectedDeal.id ? updated.item : d));
+        closeAllModals();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to update stage');
+      }
+    }
+  };
+
+  const handleOwnerSave = async () => {
+    const ownerSelect = document.getElementById('ownerSelect') as HTMLSelectElement;
     if (ownerSelect && selectedDeal) {
       const newOwner = ownerSelect.value;
-      setDeals(prev => prev.map(d => d.id === selectedDeal.id ? { ...d, owner: newOwner } : d));
-      closeAllModals();
+      try {
+        const updated = await crmDealsApi.update(selectedDeal.id, { owner: newOwner });
+        setDeals(prev => prev.map(d => d.id === selectedDeal.id ? updated.item : d));
+        closeAllModals();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to update owner');
+      }
     }
   };
 
@@ -150,7 +187,7 @@ export default function CRMDeals() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const ModalOverlay = ({ children, onClose }) => (
+  const ModalOverlay = ({ children, onClose }: { children: React.ReactNode; onClose: () => void }) => (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={onClose}>
       <div className="bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5 border border-neutral-800 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         {children}
@@ -161,6 +198,23 @@ export default function CRMDeals() {
   return (
     <div className="min-h-screen bg-black">
       <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
+        {/* Error Display */}
+        {error && (
+          <div className="bg-red-900/80 border border-red-700 rounded-xl p-4 text-red-200">
+            {error}
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loading ? (
+          <div className="flex items-center justify-center h-96">
+            <div className="text-center">
+              <div className="h-12 w-12 rounded-full border-4 border-neutral-700 border-t-neutral-300 animate-spin mx-auto mb-4"></div>
+              <p className="text-neutral-400">Loading deals...</p>
+            </div>
+          </div>
+        ) : (
+          <>
         {/* Header Section - Dark Theme */}
         <div className="bg-gradient-to-r from-neutral-900 to-neutral-950 rounded-2xl border border-neutral-800 shadow-xl p-6">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -566,6 +620,8 @@ export default function CRMDeals() {
               </button>
             </div>
           </ModalOverlay>
+        )}
+          </>
         )}
       </div>
     </div>
