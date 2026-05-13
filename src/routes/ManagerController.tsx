@@ -35,6 +35,7 @@ const ShoppingLists = lazy(() => import("@/pages/admin/ShoppingLists"));
 const ActivityLogs = lazy(() => import("@/pages/admin/ActivityLogs"));
 const TeamAttendance = lazy(() => import("@/pages/manger/TeamAttendance"));
 const TravelCalendar = lazy(() => import("@/pages/manger/TravelCalendar"));
+const ManagerAnnouncements = lazy(() => import("@/pages/manger/Announcements"));
 
 function PageLoader() {
   return (
@@ -87,6 +88,7 @@ export default function ManagerController() {
       { path: "activity-logs", element: <ActivityLogs /> },
       { path: "team-attendance", element: <TeamAttendance /> },
       { path: "travel-calendar", element: <TravelCalendar /> },
+      { path: "announcements", element: <ManagerAnnouncements /> },
       { path: "*", element: <NotFound /> },
     ],
     [],

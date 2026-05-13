@@ -37,7 +37,7 @@ import {
   Bug,
   Palette,
   CalendarCheck,
-
+  Megaphone,
   Shield,
   UserPlus,
 
@@ -66,9 +66,10 @@ const navItemsBase: NavItem[] = [
   { icon: Users, label: "User Management", path: "/admin/users", end: true },
   { icon: CheckSquare, label: "Task Management", path: "/admin/tasks" },
   { icon: UserCircle, label: "Employee Directory", path: "/admin/employees" },
+  { icon: Megaphone, label: "Announcements", path: "/admin/announcements" },
   { icon: Wallet, label: "Payroll", path: "/admin/payroll" },
-   { icon: ClipboardList, label: "EOD Reports", path: "/admin/eod-reports" },
-     { icon: Building, label: "EIN list", path: "/admin/company-registry" },
+  { icon: ClipboardList, label: "EOD Reports", path: "/admin/eod-reports" },
+  { icon: Building, label: "EIN list", path: "/admin/company-registry" },
   { icon: CalendarCheck, label: "Leave Requests", path: "/admin/leave-requests" },
   { icon: Calendar, label: "Travel Calendar", path: "/admin/travel-calendar" },
   { icon: History, label: "Task History", path: "/admin/task-history" },
@@ -166,7 +167,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
   // Build nav items based on role
   const navItems = useMemo(() => {
     let items = [...navItemsBase];
-    
+
     // Add super-admin items
     if (auth.role === "super-admin") {
       items.push(systemEmailSettingsNavItem, activityLogNavItem);
@@ -238,7 +239,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
     if (item.children) {
       const isExpanded = expandedGroups[item.label];
       const hasActiveChild = item.children.some(child => child.path && location.pathname.startsWith(child.path));
-      
+
       return (
         <div key={item.label} className="flex flex-col mb-1">
           <button
@@ -258,7 +259,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
               <ChevronRight className="h-4 w-4 opacity-50 transition-transform" />
             )}
           </button>
-          
+
           {isExpanded && (
             <div className="mt-1 flex flex-col gap-1 pl-4 ml-2 border-l border-white/10">
               {item.children.map(child => renderNavItem(child, true))}
@@ -286,29 +287,29 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
           <>
             {/* Active indicator bar */}
             {!isChild && (
-              <span 
+              <span
                 className={cn(
                   "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full",
                   "bg-gradient-to-b from-[#00C6FF] to-[#0072FF]",
                   "transition-all duration-[120ms] ease-in-out",
                   isActive ? "opacity-100" : "opacity-0"
-                )} 
+                )}
               />
             )}
             {isChild && isActive && (
-              <span 
+              <span
                 className="absolute left-[-17px] top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#00C6FF]"
               />
             )}
-            
+
             {/* Dashboard Pulse */}
             {item.label === "Dashboard" && (
-              <span 
+              <span
                 className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gradient-to-b from-[#00C6FF] to-[#0072FF] animate-dashboard-pulse pointer-events-none"
                 aria-hidden="true"
               />
             )}
-            
+
             {item.customIcon ? (
               item.customIcon
             ) : (

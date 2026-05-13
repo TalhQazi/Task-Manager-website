@@ -22,6 +22,7 @@ import {
   ChevronDown,
   ChevronRight,
   ShoppingCart,
+  Megaphone,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,7 @@ const navItemsBase: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/manager", end: true },
   { icon: ClipboardList, label: "Tasks", path: "/manager/tasks" },
   { icon: Users, label: "Employees", path: "/manager/employees" },
+  { icon: Megaphone, label: "Announcements", path: "/manager/announcements" },
   { icon: Calendar, label: "Scheduling", path: "/manager/scheduling" },
   { icon: Clock, label: "Time Tracking", path: "/manager/time-tracking" },
   { icon: Clock, label: "Attendance", path: "/manager/attendance" },
