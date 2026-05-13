@@ -4,7 +4,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getEmployeeDashboard, getEmployeeProfile, getOnboardingStatus } from "../lib/api";
 import { employeeApiFetch } from "../lib/api";
-import { CheckCircle, Clock, AlertCircle, MessageSquare, Calendar, Timer, ListTodo, AlertTriangle, DollarSign, CheckSquare2, Users, UserCog, ChevronDown, ChevronUp, Briefcase } from "lucide-react";
+import { getEmployeeAuth } from "../lib/auth";
+import { CheckCircle, Clock, AlertCircle, MessageSquare, Calendar, Timer, ListTodo, AlertTriangle, DollarSign, CheckSquare2, Users, UserCog, ChevronDown, ChevronUp, Briefcase, Bug } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -142,6 +143,25 @@ export default function EmployeeDashboard() {
     refetchOnWindowFocus: false,
   });
 
+  // Bug count state
+  const [myBugCount, setMyBugCount] = useState(0);
+
+  useEffect(() => {
+    const fetchBugCount = async () => {
+      try {
+        const auth = getEmployeeAuth();
+        const username = auth?.username || "";
+        const res = await employeeApiFetch<{ items?: any[] }>("/api/bugs");
+        const items = Array.isArray(res?.items) ? res.items : [];
+        const mine = items.filter((b: any) => b.createdByUsername === username && b.status !== "closed");
+        setMyBugCount(mine.length);
+      } catch {
+        // silently ignore
+      }
+    };
+    fetchBugCount();
+  }, []);
+
   // Team info state
   const [teamMappings, setTeamMappings] = useState<TeamLeadMapping[]>([]);
   const [teamLoading, setTeamLoading] = useState(false);
@@ -239,7 +259,7 @@ export default function EmployeeDashboard() {
   return (
     <div className="space-y-6">
       {/* Stats Cards Row - Top of Page */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         <Link to="/employee/payroll">
           <EmployeeStatCard
             title="CURRENT PAY PERIOD"
@@ -262,6 +282,14 @@ export default function EmployeeDashboard() {
             value={dashboardQuery.data?.tasks?.pending || 0}
             icon={Briefcase}
             variant="orange"
+          />
+        </Link>
+        <Link to="/employee/bugs">
+          <EmployeeStatCard
+            title="MY OPEN BUGS"
+            value={myBugCount}
+            icon={Bug}
+            variant={myBugCount > 0 ? "red" : "primary"}
           />
         </Link>
         <Link to="/employee/profile">

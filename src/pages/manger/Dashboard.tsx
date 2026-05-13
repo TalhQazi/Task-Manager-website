@@ -7,7 +7,7 @@ import { TaskCharts } from "@/components/manger/dashboard/TaskCharts";
 import { DayAheadCard } from "@/components/admin/dashboard/DayAheadCard";
 import { WeekAheadCard } from "@/components/admin/dashboard/WeekAheadCard";
 
-import { Users, CheckSquare, FolderRoot, Car, MapPin, AlertTriangle, Clock, Sparkles, TrendingUp, ClipboardList, UserCog, ChevronDown, ChevronUp } from "lucide-react";
+import { Users, CheckSquare, FolderRoot, Car, MapPin, AlertTriangle, Clock, Sparkles, TrendingUp, ClipboardList, UserCog, ChevronDown, ChevronUp, Bug } from "lucide-react";
 import { apiFetch, getEODStatus } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
 
@@ -65,6 +65,7 @@ const Dashboard = () => {
 
   const [onboardingStatus, setOnboardingStatus] = useState<string>("not_started");
   const [eodStats, setEodStats] = useState({ submitted: 0, late: 0, missing: 0, total: 0 });
+  const [pendingBugs, setPendingBugs] = useState(0);
   
   // Team visibility state
   const [teamMappings, setTeamMappings] = useState<TeamLeadMapping[]>([]);
@@ -120,15 +121,16 @@ const Dashboard = () => {
         setApiError(null);
 
 
-        const [data, onboardingRes, eodRes] = await Promise.all([
+        const [data, onboardingRes, eodRes, bugsRes] = await Promise.all([
           apiFetch<DashboardSummary>("/api/dashboard/summary").catch(() => null),
           apiFetch<{ item: { overallStatus: string } }>("/api/onboarding/me").catch(() => ({ item: { overallStatus: "not_started" } })),
           getEODStatus().catch(() => ({ items: [] })),
+          apiFetch<{ items?: any[] }>("/api/bugs").catch(() => ({ items: [] })),
         ]);
         if (!mounted) return;
         if (data) setSummary(data);
         setOnboardingStatus(onboardingRes.item.overallStatus);
-        
+
         // Calculate EOD stats
         const eodItems = eodRes.items || [];
         const submitted = eodItems.filter((i: any) => i.status === "submitted").length;
@@ -140,6 +142,10 @@ const Dashboard = () => {
           missing,
           total: eodItems.length,
         });
+
+        // Count open bugs
+        const bugItems = Array.isArray(bugsRes?.items) ? bugsRes.items : [];
+        setPendingBugs(bugItems.filter((b: any) => b.status !== "closed").length);
 
       } catch (e) {
         if (mounted) setApiError(e instanceof Error ? e.message : "Failed to load dashboard");
@@ -261,6 +267,15 @@ const Dashboard = () => {
               changeType: "positive" as const,
               onClick: () => navigate("/manager/vehicles"),
               description: "Fleet size"
+            },
+            {
+              title: "Pending Bugs",
+              value: pendingBugs,
+              icon: Bug,
+              variant: "danger" as const,
+              changeType: pendingBugs > 0 ? "negative" as const : "neutral" as const,
+              onClick: () => navigate("/manager/bugs"),
+              description: "Open bug reports"
             },
           ].map((stat) => (
             <motion.div

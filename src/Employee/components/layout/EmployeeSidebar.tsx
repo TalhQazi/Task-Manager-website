@@ -1,6 +1,6 @@
 import { NavLink } from "@/components/admin/NavLink";
 
-import { LayoutDashboard, ClipboardList, Calendar, UserCircle, Bell, Clock, MessageCircle, FileText, ClipboardCheck, Folder, Wallet, Palette, Calendar as CalendarIcon, ShoppingCart, History, FileStack } from "lucide-react";
+import { LayoutDashboard, ClipboardList, Calendar, UserCircle, Bell, Clock, MessageCircle, FileText, ClipboardCheck, Folder, Wallet, Palette, Calendar as CalendarIcon, ShoppingCart, History, FileStack, Bug } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,7 @@ const navItemsBase = [
   { icon: FileText, label: "My Notes", path: "/employee/personal-notes" },
   { icon: Palette, label: "UI Customization", path: "/employee/ui-customization" },
   { icon: ShoppingCart, label: "Shopping Lists", path: "/employee/shopping-lists" },
+  { icon: Bug, label: "Bug Reports", path: "/employee/bugs" },
 ];
 const navItems = [...navItemsBase].sort((a, b) => a.label.localeCompare(b.label));
 
