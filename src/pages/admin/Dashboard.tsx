@@ -142,6 +142,7 @@ const Dashboard = () => {
               variants={itemVariants}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
+              className="h-full"
             >
               <StatCard
                 title={stat.title}

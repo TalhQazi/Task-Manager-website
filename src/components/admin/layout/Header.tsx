@@ -635,7 +635,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                <DropdownMenu>
+                <DropdownMenu onOpenChange={(open) => { if (open) markAllRead(); }}>
                   <DropdownMenuTrigger asChild>
                     <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
                       <Bell className="h-5 w-5" />
@@ -672,7 +672,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                           return (
                             <DropdownMenuItem
                               key={n.id}
-                              onClick={() => {
+                              onSelect={() => {
                                 navigate(resolveNotificationLink(n));
                                 markRead(n.id);
                               }}
