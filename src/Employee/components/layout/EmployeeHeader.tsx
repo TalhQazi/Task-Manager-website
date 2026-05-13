@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bell, Menu, Mail, User, Settings, LogOut, Camera, Palette, Loader2 } from "lucide-react";
+import { Bell, Menu, Mail, User, Settings, LogOut, Camera, Palette, Loader2, Megaphone } from "lucide-react";
 import { useSocket } from "@/contexts/SocketContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useNavigate } from "react-router-dom";
 import { getEmployeeAuth, clearEmployeeAuth } from "@/Employee/lib/auth";
-import { getEmployeeProfile, toProxiedUrl } from "@/Employee/lib/api";
+import { getEmployeeProfile, toProxiedUrl, employeeApiFetch } from "@/Employee/lib/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/manger/api";
 import AssetLibraryPicker from "@/components/admin/AssetLibraryPicker";
@@ -103,6 +103,17 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
       .toUpperCase() || "E";
 
   const { socket } = useSocket();
+
+  const announcementUnreadQuery = useQuery({
+    queryKey: ["employee-announcement-unread"],
+    queryFn: async () => {
+      const res = await employeeApiFetch<{ unread?: number }>("/api/announcements/unread-count");
+      return typeof res?.unread === "number" ? res.unread : 0;
+    },
+    refetchInterval: 60000,
+    retry: 1,
+  });
+  const announcementUnread = announcementUnreadQuery.data ?? 0;
 
   const notificationsQuery = useQuery({
     queryKey: ["employee-notifications"],
@@ -311,6 +322,21 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                     <div className="p-4 text-center text-xs text-muted-foreground">No messages</div>
                   </DropdownMenuContent>
                 </DropdownMenu>
+
+                <button
+                  type="button"
+                  title="Announcements"
+                  onClick={() => navigate("/employee/announcements")}
+                  className="relative group p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-black/40"
+                  style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, white)', opacity: 0.7 }}
+                >
+                  <Megaphone className="h-5 w-5" />
+                  {announcementUnread > 0 && (
+                    <Badge className="absolute -top-1 -right-1 h-4 min-w-4 px-0.5 flex items-center justify-center bg-[#00C6FF] text-[9px] border-black text-black font-bold">
+                      {announcementUnread > 9 ? "9+" : announcementUnread}
+                    </Badge>
+                  )}
+                </button>
 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>

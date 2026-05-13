@@ -63,6 +63,7 @@ const CRMTasks = lazy(() => import("@/pages/admin/crm/Tasks"));
 const CRMCommunication = lazy(() => import("@/pages/admin/crm/Communication"));
 const CRMFiles = lazy(() => import("@/pages/admin/crm/Files"));
 const TravelCalendar = lazy(() => import("@/pages/admin/TravelCalendar"));
+const Announcements = lazy(() => import("@/pages/admin/Announcements"));
 
 
 
@@ -107,6 +108,7 @@ export default function AdminRoutes() {
       { path: "time-tracking", element: <TimeTracking /> },
       { path: "time-tracking/history/:employee", element: <EmployeeTimeHistory /> },
       { path: "messaging", element: <Messaging /> },
+      { path: "announcements", element: <Announcements /> },
       { path: "notifications", element: <Notifications /> },
       { path: "do-not-hire", element: <DoNotHire /> },
       { path: "onboarding", element: <Onboarding /> },

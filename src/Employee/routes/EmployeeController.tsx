@@ -25,6 +25,7 @@ const EmployeeLeaveRequests = lazy(() => import("../screens/LeaveRequests"));
 const ShoppingLists = lazy(() => import("@/pages/admin/ShoppingLists"));
 const TravelCalendar = lazy(() => import("../screens/TravelCalendar"));
 const EmployeeBugs = lazy(() => import("../screens/Bugs"));
+const EmployeeAnnouncements = lazy(() => import("@/pages/employee/Announcements"));
 
 function PageLoader() {
   return (
@@ -77,7 +78,7 @@ function EmployeeController() {
           <Route path="/shopping-lists" element={<ShoppingLists />} />
           <Route path="/travel-calendar" element={<TravelCalendar />} />
           <Route path="/bugs" element={<EmployeeBugs />} />
-
+          <Route path="/announcements" element={<EmployeeAnnouncements />} />
         </Route>
         <Route path="*" element={<Navigate to="/employee" replace />} />
       </Routes>
