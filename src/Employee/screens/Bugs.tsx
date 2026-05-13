@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { employeeApiFetch } from "../lib/api";
 import { getEmployeeAuth } from "../lib/auth";
 import { toProxiedUrl } from "@/lib/manger/api";
@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Bug, Upload, X } from "lucide-react";
 
 type BugStatus = "open" | "closed";
 
@@ -38,9 +39,19 @@ type BugItem = {
   attachments?: { fileName?: string; url?: string; mimeType?: string; size?: number }[];
 };
 
+type StatusFilter = "all" | "open" | "closed";
+
 function toText(v: unknown) {
   return typeof v === "string" ? v : "";
 }
+
+const toDataUrl = (file: File) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
 
 export default function EmployeeBugs() {
   const auth = getEmployeeAuth();
@@ -50,14 +61,27 @@ export default function EmployeeBugs() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [items, setItems] = useState<BugItem[]>([]);
   const [q, setQ] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+
+  // View dialog
   const [viewOpen, setViewOpen] = useState(false);
   const [selected, setSelected] = useState<BugItem | null>(null);
   const [updating, setUpdating] = useState(false);
 
+  // Submit dialog
+  const [submitOpen, setSubmitOpen] = useState(false);
+  const [submitTitle, setSubmitTitle] = useState("");
+  const [submitDesc, setSubmitDesc] = useState("");
+  const [submitFiles, setSubmitFiles] = useState<File[]>([]);
+  const [submitPreviews, setSubmitPreviews] = useState<string[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const load = async () => {
     const res = await employeeApiFetch<{ items?: any[] }>("/api/bugs");
     const list = Array.isArray(res?.items) ? res.items : [];
-
     const mapped: BugItem[] = list
       .map((x: any) => ({
         id: String(x.id || x._id || ""),
@@ -71,8 +95,7 @@ export default function EmployeeBugs() {
         source: x.source && typeof x.source === "object" ? x.source : undefined,
         attachments: Array.isArray(x.attachments) ? x.attachments : [],
       }))
-      .filter((x) => Boolean(x.id) && x.createdByUsername === currentUsername);
-
+      .filter((x) => Boolean(x.id));
     setItems(mapped);
   };
 
@@ -95,40 +118,38 @@ export default function EmployeeBugs() {
   }, []);
 
   const filtered = useMemo(() => {
+    let list = items;
+    if (statusFilter !== "all") list = list.filter((b) => b.status === statusFilter);
     const query = q.trim().toLowerCase();
-    if (!query) return items;
-    return items.filter((b) => {
-      const where = `${b.title} ${b.description} ${b.taskTitle || ""} ${b.source?.path || ""}`.toLowerCase();
+    if (!query) return list;
+    return list.filter((b) => {
+      const where = `${b.title} ${b.description} ${b.taskTitle || ""} ${b.createdByUsername || ""} ${b.source?.path || ""}`.toLowerCase();
       return where.includes(query);
     });
-  }, [items, q]);
+  }, [items, q, statusFilter]);
+
+  const openCount = items.filter((b) => b.status === "open").length;
 
   const openBug = async (b: BugItem) => {
     setSelected(b);
     setViewOpen(true);
     try {
       const res = await employeeApiFetch<{ item: BugItem }>(`/api/bugs/${encodeURIComponent(b.id)}`);
-      if (res?.item) {
-        setSelected((prev) => (prev?.id === b.id ? { ...prev, ...res.item } : prev));
-      }
-    } catch (e) {
-      console.error("Failed to load bug details", e);
-    }
+      if (res?.item) setSelected((prev) => (prev?.id === b.id ? { ...prev, ...res.item } : prev));
+    } catch { /* ignore */ }
   };
 
   const updateStatus = async (next: BugStatus) => {
     if (!selected) return;
     try {
       setUpdating(true);
-      setApiError(null);
       const res = await employeeApiFetch<{ item?: any }>(`/api/bugs/${encodeURIComponent(selected.id)}`, {
         method: "PUT",
         body: JSON.stringify({ status: next }),
       });
-      const updated = res?.item;
       const merged: BugItem = {
         ...selected,
-        status: (updated?.status === "closed" ? "closed" : "open") as BugStatus,
+        status: (res?.item?.status === "closed" ? "closed" : "open") as BugStatus,
       };
       setSelected(merged);
       setItems((prev) => prev.map((x) => (x.id === merged.id ? { ...x, status: merged.status } : x)));
@@ -139,20 +160,94 @@ export default function EmployeeBugs() {
     }
   };
 
-  const openCount = items.filter((b) => b.status === "open").length;
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []).slice(0, 5 - submitFiles.length);
+    setSubmitFiles((p) => [...p, ...files]);
+    setSubmitPreviews((p) => [...p, ...files.map((f) => URL.createObjectURL(f))]);
+    e.target.value = "";
+  };
+
+  const removeFile = (i: number) => {
+    URL.revokeObjectURL(submitPreviews[i]);
+    setSubmitFiles((p) => p.filter((_, idx) => idx !== i));
+    setSubmitPreviews((p) => p.filter((_, idx) => idx !== i));
+  };
+
+  const resetSubmit = () => {
+    setSubmitTitle("");
+    setSubmitDesc("");
+    submitPreviews.forEach((u) => URL.revokeObjectURL(u));
+    setSubmitFiles([]);
+    setSubmitPreviews([]);
+    setSubmitError(null);
+    setSubmitSuccess(null);
+  };
+
+  const handleSubmit = async () => {
+    if (!submitTitle.trim() || !submitDesc.trim()) {
+      setSubmitError("Title and description are required.");
+      return;
+    }
+    try {
+      setSubmitting(true);
+      setSubmitError(null);
+      const attachments = await Promise.all(
+        submitFiles.map(async (f) => ({
+          fileName: f.name,
+          url: await toDataUrl(f),
+          mimeType: f.type,
+          size: f.size,
+        }))
+      );
+      await employeeApiFetch("/api/bugs", {
+        method: "POST",
+        body: JSON.stringify({
+          title: submitTitle.trim(),
+          description: submitDesc.trim(),
+          attachments,
+          source: { panel: "employee", path: window.location.pathname },
+        }),
+      });
+      setSubmitSuccess("Bug report submitted successfully!");
+      await load();
+      setTimeout(() => {
+        setSubmitOpen(false);
+        resetSubmit();
+      }, 1200);
+    } catch (e) {
+      setSubmitError(e instanceof Error ? e.message : "Failed to submit bug report.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const statusTabs: { label: string; value: StatusFilter }[] = [
+    { label: `All (${items.length})`, value: "all" },
+    { label: `Open (${openCount})`, value: "open" },
+    { label: `Closed (${items.length - openCount})`, value: "closed" },
+  ];
 
   return (
     <div className="space-y-4 sm:space-y-5 md:space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
         <div className="space-y-1.5 sm:space-y-2">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">My Bug Reports</h1>
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
+            <Bug className="h-6 w-6 text-primary" />
+            Bug Reports
+          </h1>
           <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl">
-            Bugs you have submitted. {openCount > 0 ? `${openCount} open.` : ""}
+            View all bug reports and submit new ones.{" "}
+            {openCount > 0 ? `${openCount} open bug${openCount !== 1 ? "s" : ""}.` : ""}
           </p>
         </div>
-        <Button variant="outline" onClick={() => void load()} disabled={loading} className="w-full sm:w-auto">
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => void load()} disabled={loading} className="w-full sm:w-auto">
+            Refresh
+          </Button>
+          <Button onClick={() => { resetSubmit(); setSubmitOpen(true); }} className="w-full sm:w-auto">
+            + Report Bug
+          </Button>
+        </div>
       </div>
 
       {apiError && (
@@ -162,20 +257,35 @@ export default function EmployeeBugs() {
       )}
 
       <Card>
-        <CardContent className="p-3 sm:p-6">
+        <CardContent className="p-3 sm:p-6 flex flex-col sm:flex-row gap-3 sm:items-center">
           <Input
-            placeholder="Search your bugs..."
-            className="h-9 sm:h-10 text-sm sm:text-base max-w-md"
+            placeholder="Search bugs..."
+            className="h-9 sm:h-10 text-sm sm:text-base sm:max-w-md"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
+          <div className="flex gap-1">
+            {statusTabs.map((tab) => (
+              <button
+                key={tab.value}
+                onClick={() => setStatusFilter(tab.value)}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  statusFilter === tab.value
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
           <CardTitle className="text-base sm:text-lg font-semibold">
-            My Bugs ({filtered.length})
+            Bug Reports ({filtered.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0 sm:p-6">
@@ -185,38 +295,35 @@ export default function EmployeeBugs() {
             </div>
           ) : (
             <div className="w-full">
-              {/* Desktop Table View */}
+              {/* Desktop Table */}
               <div className="hidden md:block overflow-x-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Title</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Reported From</TableHead>
+                      <TableHead>Posted By</TableHead>
+                      <TableHead>Where</TableHead>
                       <TableHead>Date</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filtered.map((b) => (
-                      <TableRow
-                        key={b.id}
-                        className="hover:bg-muted/30 cursor-pointer"
-                        onClick={() => openBug(b)}
-                      >
+                      <TableRow key={b.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => openBug(b)}>
                         <TableCell>
-                          <div className="space-y-1">
-                            <p className="font-semibold text-base line-clamp-1">{b.title}</p>
-                            {b.taskTitle && (
-                              <p className="text-sm text-muted-foreground line-clamp-1">
-                                Task: {b.taskTitle}
-                              </p>
-                            )}
-                          </div>
+                          <p className="font-semibold text-sm line-clamp-1">{b.title}</p>
+                          {b.taskTitle && (
+                            <p className="text-xs text-muted-foreground line-clamp-1">Task: {b.taskTitle}</p>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge variant={b.status === "closed" ? "secondary" : "default"} className="text-xs">
                             {b.status === "closed" ? "Closed" : "Open"}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {b.createdByUsername || "-"}
+                          {b.createdByRole ? ` (${b.createdByRole})` : ""}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {b.source?.path || b.source?.panel || "-"}
@@ -228,10 +335,8 @@ export default function EmployeeBugs() {
                     ))}
                     {filtered.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center py-10 text-muted-foreground text-sm italic">
-                          {items.length === 0
-                            ? "You haven't reported any bugs yet."
-                            : "No bugs match your search."}
+                        <TableCell colSpan={5} className="text-center py-10 text-muted-foreground text-sm italic">
+                          No bugs found.
                         </TableCell>
                       </TableRow>
                     )}
@@ -239,28 +344,24 @@ export default function EmployeeBugs() {
                 </Table>
               </div>
 
-              {/* Mobile Card View */}
+              {/* Mobile Cards */}
               <div className="md:hidden space-y-3 p-3">
                 {filtered.map((b) => (
                   <div
                     key={b.id}
-                    className="p-4 rounded-xl border bg-card hover:border-blue-500/50 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
+                    className="p-4 rounded-xl border bg-card hover:border-primary/50 transition-all cursor-pointer shadow-sm active:scale-[0.98]"
                     onClick={() => openBug(b)}
                   >
                     <div className="flex justify-between items-start mb-2">
-                      <Badge
-                        variant={b.status === "closed" ? "secondary" : "default"}
-                        className="text-[10px] uppercase"
-                      >
+                      <Badge variant={b.status === "closed" ? "secondary" : "default"} className="text-[10px] uppercase">
                         {b.status === "closed" ? "Closed" : "Open"}
                       </Badge>
-                      <span className="text-[10px] text-muted-foreground font-medium">
-                        {b.source?.path?.split("/").pop() || "System"}
-                      </span>
+                      <span className="text-[10px] text-muted-foreground">{b.source?.path?.split("/").pop() || "System"}</span>
                     </div>
-                    <h3 className="font-bold text-base leading-tight mb-1">{b.title}</h3>
-                    <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{b.description}</p>
-                    <div className="text-right">
+                    <h3 className="font-bold text-sm leading-tight mb-1">{b.title}</h3>
+                    <p className="text-xs text-muted-foreground mb-2 line-clamp-2">{b.description}</p>
+                    <div className="flex items-center justify-between pt-2 border-t">
+                      <span className="text-[10px] text-muted-foreground">{b.createdByUsername}</span>
                       <span className="text-[10px] text-muted-foreground">
                         {b.createdAt ? new Date(b.createdAt).toLocaleDateString() : ""}
                       </span>
@@ -268,11 +369,7 @@ export default function EmployeeBugs() {
                   </div>
                 ))}
                 {filtered.length === 0 && (
-                  <div className="text-center py-10 text-muted-foreground text-sm italic">
-                    {items.length === 0
-                      ? "You haven't reported any bugs yet."
-                      : "No bugs match your search."}
-                  </div>
+                  <div className="text-center py-10 text-muted-foreground text-sm italic">No bugs found.</div>
                 )}
               </div>
             </div>
@@ -280,38 +377,33 @@ export default function EmployeeBugs() {
         </CardContent>
       </Card>
 
+      {/* View Dialog */}
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
         <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl">
-          <DialogHeader className="space-y-1.5 sm:space-y-2">
-            <DialogTitle className="text-lg sm:text-xl">{selected?.title || "Bug"}</DialogTitle>
-            <DialogDescription className="text-xs sm:text-sm">
-              {selected?.source?.path || selected?.source?.panel || ""}
-            </DialogDescription>
+          <DialogHeader>
+            <DialogTitle>{selected?.title || "Bug"}</DialogTitle>
+            <DialogDescription>{selected?.source?.path || selected?.source?.panel || ""}</DialogDescription>
           </DialogHeader>
-
           {selected && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
                 <Badge variant={selected.status === "closed" ? "secondary" : "default"}>
                   {selected.status === "closed" ? "Closed" : "Open"}
                 </Badge>
-                {selected.taskTitle && (
-                  <span className="text-xs text-muted-foreground">Task: {selected.taskTitle}</span>
-                )}
+                <span className="text-xs text-muted-foreground">
+                  {selected.createdByUsername ? `Posted by ${selected.createdByUsername}` : ""}
+                  {selected.createdByRole ? ` (${selected.createdByRole})` : ""}
+                </span>
               </div>
-
               <div className="rounded-md border p-3 bg-muted/30">
                 <p className="text-sm whitespace-pre-wrap">{selected.description}</p>
               </div>
-
               {selected.attachments && selected.attachments.length > 0 && (
-                <div className="space-y-4">
-                  <p className="text-xs sm:text-sm font-medium">
-                    Attachments ({selected.attachments.length})
-                  </p>
+                <div className="space-y-3">
+                  <p className="text-sm font-medium">Attachments ({selected.attachments.length})</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {selected.attachments.map((att, i) => (
-                      <div key={i} className="w-full overflow-hidden rounded-lg border bg-muted/20">
+                      <div key={i} className="overflow-hidden rounded-lg border bg-muted/20">
                         <img
                           src={toProxiedUrl(String(att.url))}
                           alt={String(att.fileName || `Attachment ${i + 1}`)}
@@ -324,33 +416,90 @@ export default function EmployeeBugs() {
               )}
             </div>
           )}
-
-          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-            <Button
-              variant="outline"
-              onClick={() => setViewOpen(false)}
-              className="w-full sm:w-auto"
-              disabled={updating}
-            >
-              Close
-            </Button>
-            {selected?.status === "closed" ? (
-              <Button
-                onClick={() => void updateStatus("open")}
-                className="w-full sm:w-auto"
-                disabled={updating}
-              >
-                Reopen
-              </Button>
-            ) : (
-              <Button
-                onClick={() => void updateStatus("closed")}
-                className="w-full sm:w-auto"
-                disabled={updating}
-              >
-                Mark Resolved
-              </Button>
+          <DialogFooter className="flex-col sm:flex-row gap-2 mt-4">
+            <Button variant="outline" onClick={() => setViewOpen(false)} disabled={updating}>Close</Button>
+            {selected?.createdByUsername === currentUsername && (
+              selected?.status === "closed" ? (
+                <Button onClick={() => void updateStatus("open")} disabled={updating}>Reopen</Button>
+              ) : (
+                <Button onClick={() => void updateStatus("closed")} disabled={updating}>Mark Resolved</Button>
+              )
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Submit Dialog */}
+      <Dialog open={submitOpen} onOpenChange={(o) => { if (!o) resetSubmit(); setSubmitOpen(o); }}>
+        <DialogContent className="w-[95vw] max-w-lg mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bug className="h-5 w-5 text-primary" />
+              Report a Bug
+            </DialogTitle>
+            <DialogDescription>Describe the issue you encountered. Screenshots are helpful.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Title <span className="text-destructive">*</span></label>
+              <Input
+                placeholder="Brief summary of the issue"
+                value={submitTitle}
+                onChange={(e) => setSubmitTitle(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Description <span className="text-destructive">*</span></label>
+              <textarea
+                className="w-full min-h-[100px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-y"
+                placeholder="Steps to reproduce, expected vs actual behavior..."
+                value={submitDesc}
+                onChange={(e) => setSubmitDesc(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Screenshots (up to 5)</label>
+              <div className="flex flex-wrap gap-2">
+                {submitPreviews.map((url, i) => (
+                  <div key={i} className="relative w-20 h-20 rounded-md overflow-hidden border">
+                    <img src={url} alt={`preview ${i}`} className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => removeFile(i)}
+                      className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full bg-black/70 flex items-center justify-center hover:bg-black"
+                    >
+                      <X className="h-3 w-3 text-white" />
+                    </button>
+                  </div>
+                ))}
+                {submitFiles.length < 5 && (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-20 h-20 rounded-md border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-1 hover:border-primary/50 transition-colors"
+                  >
+                    <Upload className="h-5 w-5 text-muted-foreground" />
+                    <span className="text-[10px] text-muted-foreground">Add</span>
+                  </button>
+                )}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={handleFileChange}
+              />
+            </div>
+            {submitError && <p className="text-sm text-destructive">{submitError}</p>}
+            {submitSuccess && <p className="text-sm text-green-600">{submitSuccess}</p>}
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2 mt-4">
+            <Button variant="outline" onClick={() => { resetSubmit(); setSubmitOpen(false); }} disabled={submitting}>
+              Cancel
+            </Button>
+            <Button onClick={() => void handleSubmit()} disabled={submitting}>
+              {submitting ? "Submitting..." : "Submit Report"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

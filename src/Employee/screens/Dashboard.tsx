@@ -149,12 +149,10 @@ export default function EmployeeDashboard() {
   useEffect(() => {
     const fetchBugCount = async () => {
       try {
-        const auth = getEmployeeAuth();
-        const username = auth?.username || "";
         const res = await employeeApiFetch<{ items?: any[] }>("/api/bugs");
         const items = Array.isArray(res?.items) ? res.items : [];
-        const mine = items.filter((b: any) => b.createdByUsername === username && b.status !== "closed");
-        setMyBugCount(mine.length);
+        const open = items.filter((b: any) => b.status !== "closed");
+        setMyBugCount(open.length);
       } catch {
         // silently ignore
       }
@@ -286,7 +284,7 @@ export default function EmployeeDashboard() {
         </Link>
         <Link to="/employee/bugs">
           <EmployeeStatCard
-            title="MY OPEN BUGS"
+            title="OPEN BUGS"
             value={myBugCount}
             icon={Bug}
             variant={myBugCount > 0 ? "red" : "primary"}
