@@ -232,14 +232,6 @@ export default function SystemEmailSettings() {
                   {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Most providers require an <strong>App Password</strong>, not your regular login password.&nbsp;
-                <span className="text-primary">
-                  Fastmail: Settings → Privacy &amp; Security → App Passwords.&nbsp;
-                  Gmail: myaccount.google.com/apppasswords (2FA required).&nbsp;
-                  Outlook: account.microsoft.com → Security → App passwords.
-                </span>
-              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="fromAddress">From Address</Label>
