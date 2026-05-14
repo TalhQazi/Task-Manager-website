@@ -35,6 +35,8 @@ type SystemSettings = {
     fileAttachment: Template;
     commentAdded: Template;
     replyAdded: Template;
+    projectAssignment: Template;
+    projectReassignment: Template;
   };
 };
 
@@ -328,6 +330,24 @@ export default function SystemEmailSettings() {
               template={formData.templates.replyAdded}
               onChange={(field, val) => handleTemplateChange("replyAdded", field, val)}
               placeholders={["{name}", "{taskTitle}", "{authorName}", "{replyText}"]}
+            />
+
+            {/* Project Assignment */}
+            <TemplateCard
+              title="Project Assignment"
+              description="Sent when a user is assigned to a new project"
+              template={formData.templates.projectAssignment}
+              onChange={(field, val) => handleTemplateChange("projectAssignment", field, val)}
+              placeholders={["{name}", "{projectName}"]}
+            />
+
+            {/* Project Reassignment */}
+            <TemplateCard
+              title="Project Reassignment"
+              description="Sent when a project is reassigned to a user"
+              template={formData.templates.projectReassignment}
+              onChange={(field, val) => handleTemplateChange("projectReassignment", field, val)}
+              placeholders={["{name}", "{projectName}"]}
             />
           </div>
         </div>
