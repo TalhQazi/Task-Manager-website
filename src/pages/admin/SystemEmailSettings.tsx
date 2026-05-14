@@ -59,9 +59,16 @@ export default function SystemEmailSettings() {
       setTestResult({ ok: true, message: res.message || "Test email sent successfully!" });
       toast.success("Test email sent!");
     } catch (err: any) {
-      const msg = err?.message || "Failed to send test email.";
+      let msg = err?.message || "Failed to send test email.";
+      if (msg.toLowerCase().includes("app password") || msg.includes("535")) {
+        msg += "\n\n→ Your provider requires an App Password. Use the provider-specific link in the Password field above to create one.";
+      } else if (msg.toLowerCase().includes("self signed") || msg.toLowerCase().includes("certificate")) {
+        msg += "\n\n→ Certificate error — this is usually safe to ignore for internal SMTP servers. If it persists, check your host/port settings.";
+      } else if (msg.toLowerCase().includes("econnrefused") || msg.toLowerCase().includes("timeout")) {
+        msg += "\n\n→ Could not connect. Check that the SMTP Host and Port are correct, and that port " + (formData?.emailConfig?.port || 587) + " is not blocked by your firewall.";
+      }
       setTestResult({ ok: false, message: msg });
-      toast.error(msg);
+      toast.error("Test failed — see details below");
     } finally {
       setTestLoading(false);
     }
@@ -223,6 +230,14 @@ export default function SystemEmailSettings() {
                   {showPass ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Most providers require an <strong>App Password</strong>, not your regular login password.&nbsp;
+                <span className="text-primary">
+                  Fastmail: Settings → Privacy &amp; Security → App Passwords.&nbsp;
+                  Gmail: myaccount.google.com/apppasswords (2FA required).&nbsp;
+                  Outlook: account.microsoft.com → Security → App passwords.
+                </span>
+              </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="fromAddress">From Address</Label>
@@ -397,7 +412,7 @@ export default function SystemEmailSettings() {
                   : <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />}
                 <div>
                   <p className="font-semibold">{testResult.ok ? "Success" : "Failed"}</p>
-                  <p className="mt-0.5 font-mono text-xs break-all">{testResult.message}</p>
+                  <p className="mt-0.5 font-mono text-xs break-all whitespace-pre-wrap">{testResult.message}</p>
                 </div>
               </div>
             )}

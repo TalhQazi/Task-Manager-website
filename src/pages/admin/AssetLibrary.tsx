@@ -35,6 +35,7 @@ import {
   Archive,
   Share2,
   File,
+  X,
 } from "lucide-react";
 
 type FolderNode = {
@@ -251,6 +252,7 @@ export default function AssetLibrary({
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
   const [preview, setPreview] = useState<Asset | null>(null);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const [isEditAssetOpen, setIsEditAssetOpen] = useState(false);
   const [editAssetTitle, setEditAssetTitle] = useState("");
   const [editAssetDescription, setEditAssetDescription] = useState("");
@@ -947,7 +949,7 @@ export default function AssetLibrary({
                       <div
                         key={a.id}
                         className={cn(
-                          "group rounded-lg border bg-card hover:bg-muted/40 transition-colors overflow-hidden text-left",
+                          "relative group rounded-lg border bg-card hover:bg-muted/40 transition-colors overflow-hidden text-left",
                           isSelected && "ring-2 ring-ring"
                         )}
                         role="button"
@@ -974,7 +976,7 @@ export default function AssetLibrary({
                             className="h-4 w-4 rounded border-input bg-background/90"
                           />
                         </div>
-                        <div className="absolute z-10 right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                        <div className="absolute z-10 right-2 top-2 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                           <Button
                             type="button"
                             variant="outline"
@@ -1328,109 +1330,84 @@ export default function AssetLibrary({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(preview)} onOpenChange={(o) => (!o ? setPreview(null) : null)}>
-        <DialogContent className="max-w-4xl">
+      <Dialog open={Boolean(preview)} onOpenChange={(o) => { if (!o) setPreview(null); }}>
+        <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6 rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center justify-between gap-2 pr-10">
-              <span className="truncate">{preview?.originalFilename || preview?.attachment?.fileName || "Asset"}</span>
-              {preview ? (
-                <div className="flex items-center gap-2 flex-wrap justify-end">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="gap-2"
-                    onClick={() => {
-                      setShareExpiresIn(24);
-                      setShareUrl("");
-                      setIsShareOpen(true);
-                    }}
-                  >
-                    <Share2 className="h-4 w-4" />
-                    Share
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="gap-2"
-                    onClick={() => setIsVersionHistoryOpen(true)}
-                  >
-                    <History className="h-4 w-4" />
-                    History
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="gap-2"
-                    onClick={() => setIsReplaceVersionOpen(true)}
-                  >
-                    <Upload className="h-4 w-4" />
-                    Replace
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="gap-2"
-                    onClick={async () => {
-                      const url = preview.attachment?.url || "";
-                      const link = toProxiedUrl(url) || url;
-                      if (!link) return;
-                      await navigator.clipboard.writeText(link);
-                    }}
-                  >
-                    <LinkIcon className="h-4 w-4" />
-                    Copy Link
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="gap-2"
-                    onClick={() => {
-                      setEditAssetTitle(preview.title || "");
-                      setEditAssetDescription(preview.description || "");
-                      setEditAssetTags((preview.tags || []).join(", "));
-                      setEditAssetFolderId(preview.folderId || "");
-                      setIsEditAssetOpen(true);
-                    }}
-                  >
-                    <Pencil className="h-4 w-4" />
-                    Edit
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    className="gap-2"
-                    onClick={() => deleteAssetMutation.mutate(preview.id)}
-                    disabled={deleteAssetMutation.isPending}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Delete
-                  </Button>
-                  <Button type="button" variant="outline" className="gap-2" onClick={() => downloadAsset(preview)}>
-                    <Download className="h-4 w-4" />
-                    Download
-                  </Button>
-                </div>
-              ) : null}
+            <DialogTitle className="truncate pr-8 text-base sm:text-lg">
+              {preview?.originalFilename || preview?.attachment?.fileName || "Asset"}
             </DialogTitle>
           </DialogHeader>
 
+          {/* Action buttons — horizontally scrollable on mobile */}
+          {preview && (
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar -mx-1 px-1">
+              <Button type="button" variant="outline" size="sm" className="gap-1.5 shrink-0"
+                onClick={() => { setShareExpiresIn(24); setShareUrl(""); setIsShareOpen(true); }}>
+                <Share2 className="h-3.5 w-3.5" /> Share
+              </Button>
+              <Button type="button" variant="outline" size="sm" className="gap-1.5 shrink-0"
+                onClick={() => setIsVersionHistoryOpen(true)}>
+                <History className="h-3.5 w-3.5" /> History
+              </Button>
+              <Button type="button" variant="outline" size="sm" className="gap-1.5 shrink-0"
+                onClick={() => setIsReplaceVersionOpen(true)}>
+                <Upload className="h-3.5 w-3.5" /> Replace
+              </Button>
+              <Button type="button" variant="outline" size="sm" className="gap-1.5 shrink-0"
+                onClick={async () => {
+                  const url = preview.attachment?.url || "";
+                  const link = toProxiedUrl(url) || url;
+                  if (link) await navigator.clipboard.writeText(link);
+                }}>
+                <LinkIcon className="h-3.5 w-3.5" /> Copy Link
+              </Button>
+              <Button type="button" variant="outline" size="sm" className="gap-1.5 shrink-0"
+                onClick={() => {
+                  setEditAssetTitle(preview.title || "");
+                  setEditAssetDescription(preview.description || "");
+                  setEditAssetTags((preview.tags || []).join(", "));
+                  setEditAssetFolderId(preview.folderId || "");
+                  setIsEditAssetOpen(true);
+                }}>
+                <Pencil className="h-3.5 w-3.5" /> Edit
+              </Button>
+              <Button type="button" variant="outline" size="sm" className="gap-1.5 shrink-0"
+                onClick={() => downloadAsset(preview)}>
+                <Download className="h-3.5 w-3.5" /> Download
+              </Button>
+              <Button type="button" variant="destructive" size="sm" className="gap-1.5 shrink-0"
+                onClick={() => deleteAssetMutation.mutate(preview.id)}
+                disabled={deleteAssetMutation.isPending}>
+                <Trash2 className="h-3.5 w-3.5" /> Delete
+              </Button>
+            </div>
+          )}
+
           {preview ? (
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_280px] gap-4">
-              <div className="rounded-md border bg-muted overflow-hidden flex items-center justify-center min-h-[360px]">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_220px] gap-4 mt-2">
+              {/* Image / PDF area */}
+              <div className="rounded-md border bg-muted overflow-hidden flex items-center justify-center min-h-[200px]">
                 {(() => {
                   const url = preview.attachment?.url || "";
                   const mime = preview.attachment?.mimeType || preview.mimeType || "";
                   const isImage = mime.startsWith("image/");
                   const safeUrl = toProxiedUrl(url) || url;
                   if (isImage && safeUrl) {
-                    return <img src={safeUrl} alt={preview.originalFilename || "asset"} className="w-full max-h-[70vh] object-contain" />;
+                    return (
+                      <img
+                        src={safeUrl}
+                        alt={preview.originalFilename || "asset"}
+                        className="w-full h-auto block cursor-zoom-in"
+                        onClick={() => setLightboxSrc(safeUrl)}
+                      />
+                    );
                   }
                   if (mime === "application/pdf" && safeUrl) {
                     return (
                       <iframe
                         title={preview.originalFilename || "pdf"}
                         src={safeUrl}
-                        className="w-full h-[70vh] bg-white"
+                        className="w-full h-[60vh] bg-white"
                       />
                     );
                   }
@@ -1441,9 +1418,11 @@ export default function AssetLibrary({
                   );
                 })()}
               </div>
+
+              {/* Details */}
               <div className="space-y-2">
                 <div className="text-sm font-medium">Details</div>
-                <div className="text-xs text-muted-foreground break-words">
+                <div className="text-xs text-muted-foreground space-y-1 break-words">
                   <div><span className="font-medium text-foreground">File:</span> {preview.originalFilename || preview.attachment?.fileName || "—"}</div>
                   <div><span className="font-medium text-foreground">Type:</span> {preview.mimeType || preview.attachment?.mimeType || "—"}</div>
                   <div><span className="font-medium text-foreground">Size:</span> {formatBytes(preview.sizeBytes || preview.attachment?.size)}</div>
@@ -1465,6 +1444,28 @@ export default function AssetLibrary({
           ) : null}
         </DialogContent>
       </Dialog>
+
+      {/* Full-screen image lightbox */}
+      {lightboxSrc && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black flex items-center justify-center"
+          onClick={() => setLightboxSrc(null)}
+        >
+          <button
+            className="absolute top-4 right-4 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center z-10"
+            onClick={() => setLightboxSrc(null)}
+          >
+            <X className="h-6 w-6 text-white" />
+          </button>
+          <img
+            src={lightboxSrc}
+            alt="Full size preview"
+            className="max-w-full max-h-full object-contain select-none"
+            style={{ maxWidth: "100vw", maxHeight: "100dvh" }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       <Dialog open={isEditAssetOpen} onOpenChange={setIsEditAssetOpen}>
         <DialogContent className="max-w-2xl">

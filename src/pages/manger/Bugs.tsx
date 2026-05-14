@@ -21,7 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/admin/ui/dialog";
-import { Bug, Upload, X } from "lucide-react";
+import { Bug, Upload, X, ZoomIn, ChevronLeft, ChevronRight } from "lucide-react";
 
 type BugStatus = "open" | "closed";
 
@@ -60,6 +60,9 @@ export default function ManagerBugs() {
   const [items, setItems] = useState<BugItem[]>([]);
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+
+  // Lightbox
+  const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null);
 
   // View dialog
   const [viewOpen, setViewOpen] = useState(false);
@@ -398,16 +401,27 @@ export default function ManagerBugs() {
               {selected.attachments && selected.attachments.length > 0 && (
                 <div className="space-y-3">
                   <p className="text-sm font-medium">Attachments ({selected.attachments.length})</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {selected.attachments.map((att, i) => (
-                      <div key={i} className="overflow-hidden rounded-lg border bg-muted/20">
-                        <img
-                          src={toProxiedUrl(String(att.url)) ?? ""}
-                          alt={String(att.fileName || `Attachment ${i + 1}`)}
-                          className="w-full h-auto block"
-                        />
-                      </div>
-                    ))}
+                  <div className="grid grid-cols-2 gap-2">
+                    {selected.attachments.map((att, i) => {
+                      const src = toProxiedUrl(String(att.url)) ?? "";
+                      const allUrls = selected.attachments!.map(a => toProxiedUrl(String(a.url)) ?? "");
+                      return (
+                        <div
+                          key={i}
+                          className="relative group overflow-hidden rounded-lg border bg-muted/20 cursor-zoom-in"
+                          onClick={() => setLightbox({ urls: allUrls, index: i })}
+                        >
+                          <img
+                            src={src}
+                            alt={String(att.fileName || `Attachment ${i + 1}`)}
+                            className="w-full h-32 object-cover"
+                          />
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                            <ZoomIn className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -498,6 +512,58 @@ export default function ManagerBugs() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black flex items-center justify-center"
+          onClick={() => setLightbox(null)}
+        >
+          {/* Close */}
+          <button
+            className="absolute top-4 right-4 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors z-10"
+            onClick={() => setLightbox(null)}
+          >
+            <X className="h-6 w-6 text-white" />
+          </button>
+
+          {/* Counter */}
+          {lightbox.urls.length > 1 && (
+            <span className="absolute top-4 left-1/2 -translate-x-1/2 text-white/70 text-sm">
+              {lightbox.index + 1} / {lightbox.urls.length}
+            </span>
+          )}
+
+          {/* Prev */}
+          {lightbox.urls.length > 1 && lightbox.index > 0 && (
+            <button
+              className="absolute left-2 sm:left-4 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors z-10"
+              onClick={(e) => { e.stopPropagation(); setLightbox(lb => lb ? { ...lb, index: lb.index - 1 } : null); }}
+            >
+              <ChevronLeft className="h-6 w-6 text-white" />
+            </button>
+          )}
+
+          {/* Image */}
+          <img
+            src={lightbox.urls[lightbox.index]}
+            alt={`Attachment ${lightbox.index + 1}`}
+            className="max-w-full max-h-full object-contain select-none"
+            style={{ maxWidth: "100vw", maxHeight: "100dvh" }}
+            onClick={(e) => e.stopPropagation()}
+          />
+
+          {/* Next */}
+          {lightbox.urls.length > 1 && lightbox.index < lightbox.urls.length - 1 && (
+            <button
+              className="absolute right-2 sm:right-4 h-10 w-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors z-10"
+              onClick={(e) => { e.stopPropagation(); setLightbox(lb => lb ? { ...lb, index: lb.index + 1 } : null); }}
+            >
+              <ChevronRight className="h-6 w-6 text-white" />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
