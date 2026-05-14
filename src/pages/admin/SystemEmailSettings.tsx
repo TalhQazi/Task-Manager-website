@@ -302,7 +302,7 @@ export default function SystemEmailSettings() {
               description="Sent when a user is assigned a new task"
               template={formData.templates.taskAssignment}
               onChange={(field, val) => handleTemplateChange("taskAssignment", field, val)}
-              placeholders={["{name}", "{taskTitle}"]}
+              placeholders={["{name}", "{taskTitle}", "{projectName}", "{priority}", "{dueDate}", "{description}"]}
             />
 
             {/* File Attachment */}
@@ -338,7 +338,7 @@ export default function SystemEmailSettings() {
               description="Sent when a user is assigned to a new project"
               template={formData.templates.projectAssignment}
               onChange={(field, val) => handleTemplateChange("projectAssignment", field, val)}
-              placeholders={["{name}", "{projectName}"]}
+              placeholders={["{name}", "{projectName}", "{description}"]}
             />
 
             {/* Project Reassignment */}
