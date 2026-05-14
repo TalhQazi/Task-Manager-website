@@ -67,7 +67,6 @@ const navItemsBase: NavItem[] = [
         { icon: Building, label: "Companies", path: "/manager/crm/companies" },
         { icon: CheckSquare, label: "CRM Deals", path: "/manager/crm/deals" },
         { icon: ClipboardList, label: "CRM Tasks", path: "/manager/crm/tasks" },
-        { icon: Mail, label: "Communication", path: "/manager/crm/communication" },
         { icon: FolderOpen, label: "Files", path: "/manager/crm/files" },
       ],
     },

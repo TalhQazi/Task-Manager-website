@@ -1,304 +1,595 @@
-import { useState, useMemo } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
+import { apiGet } from '@/lib/admin/apiClient';
 
-// ─── Mock Data (replace with API endpoints) ───
-const KPI_STATS = [
-  { id: 'contacts', label: 'Total Contacts', value: 1248, icon: '👥', trend: '+12%', color: 'text-blue-400', bg: 'bg-blue-950/30', border: 'border-blue-800' },
-  { id: 'companies', label: 'Total Companies', value: 86, icon: '🏢', trend: '+4%', color: 'text-indigo-400', bg: 'bg-indigo-950/30', border: 'border-indigo-800' },
-  { id: 'active_deals', label: 'Active Deals', value: 42, icon: '⚡', trend: '+8%', color: 'text-amber-400', bg: 'bg-amber-950/30', border: 'border-amber-800' },
-  { id: 'won_deals', label: 'Won Deals', value: 28, icon: '🏆', trend: '+15%', color: 'text-emerald-400', bg: 'bg-emerald-950/30', border: 'border-emerald-800' },
-  { id: 'lost_deals', label: 'Lost Deals', value: 14, icon: '📉', trend: '-5%', color: 'text-red-400', bg: 'bg-red-950/30', border: 'border-red-800' },
-  { id: 'tasks', label: 'Upcoming Tasks', value: 37, icon: '📝', trend: '3 high priority', color: 'text-purple-400', bg: 'bg-purple-950/30', border: 'border-purple-800' },
-  { id: 'pipeline', label: 'Revenue Pipeline', value: '$2.4M', icon: '💰', trend: '+$340K', color: 'text-teal-400', bg: 'bg-teal-950/30', border: 'border-teal-800' },
-];
-
-const MONTHLY_DEALS = [
-  { month: 'Jan', deals: 18 }, { month: 'Feb', deals: 24 }, { month: 'Mar', deals: 22 },
-  { month: 'Apr', deals: 31 }, { month: 'May', deals: 28 }, { month: 'Jun', deals: 35 },
-];
-
-const CONVERSION_DATA = [
-  { stage: 'Leads', count: 450, percent: 100 },
-  { stage: 'Qualified', count: 180, percent: 40 },
-  { stage: 'Proposal', count: 95, percent: 21 },
-  { stage: 'Won', count: 42, percent: 9.3 },
-];
-
-const RECENT_ACTIVITIES = [
-  { id: 1, type: 'deal', text: 'Closed Enterprise SaaS License', user: 'Alice Johnson', time: '2 hours ago', avatar: 'AJ' },
-  { id: 2, type: 'contact', text: 'Added 3 new contacts from TechCorp', user: 'Bob Smith', time: '4 hours ago', avatar: 'BS' },
-  { id: 3, type: 'task', text: 'Completed follow-up call with HealthFirst', user: 'Carol White', time: 'Yesterday', avatar: 'CW' },
-  { id: 4, type: 'campaign', text: 'Launched Q3 Email Blast campaign', user: 'David Lee', time: '2 days ago', avatar: 'DL' },
-  { id: 5, type: 'deal', text: 'Moved Fleet Upgrade to Negotiation', user: 'Alice Johnson', time: '3 days ago', avatar: 'AJ' },
-];
-
-const UPCOMING_FOLLOWUPS = [
-  { id: 1, contact: 'John Doe (TechCorp)', task: 'Review contract terms', date: 'May 14', time: '10:00 AM', priority: 'High' },
-  { id: 2, contact: 'Jane Smith (GreenLeaf)', task: 'Demo scheduling', date: 'May 15', time: '02:00 PM', priority: 'Medium' },
-  { id: 3, contact: 'Alex Chen (HealthFirst)', task: 'Send renewal invoice', date: 'May 16', time: '09:30 AM', priority: 'Low' },
-  { id: 4, contact: 'Maria Lopez (SwiftLogix)', task: 'Quarterly check-in', date: 'May 18', time: '11:00 AM', priority: 'High' },
-];
-
-const TYPE_COLORS = {
-  deal: 'bg-blue-950/50 text-blue-400 border border-blue-800',
-  contact: 'bg-indigo-950/50 text-indigo-400 border border-indigo-800',
-  task: 'bg-emerald-950/50 text-emerald-400 border border-emerald-800',
-  campaign: 'bg-amber-950/50 text-amber-400 border border-amber-800',
+type DashboardMetrics = {
+  contacts: number;
+  companies: number;
+  totalDeals: number;
+  activeDeals: number;
+  lostDeals: number;
+  activeTasks: number;
+  pipelineValue: number;
+  revenue: number;
+  averageDealSize: number;
 };
 
-const PRIORITY_COLORS = { 
-  High: 'text-red-400 bg-red-950/50 border-red-800', 
-  Medium: 'text-amber-400 bg-amber-950/50 border-amber-800', 
-  Low: 'text-gray-400 bg-neutral-800 border-neutral-700' 
+type MonthlyDeal = {
+  month: string;
+  deals: number;
 };
 
-export default function CRMDashboard() {
-  const maxDeals = Math.max(...MONTHLY_DEALS.map(d => d.deals), 1);
+type ConversionStage = {
+  stage: string;
+  count: number;
+  percent: number;
+};
 
-  // SVG Path Calculation for Conversion Line Chart
-  const svgWidth = 500; const svgHeight = 120;
-  const points = CONVERSION_DATA.map((d, i) => {
-    const x = (i / (CONVERSION_DATA.length - 1)) * svgWidth;
-    const y = svgHeight - (d.percent / 100) * svgHeight;
-    return `${x},${y}`;
-  }).join(' ');
-  const fillPath = `0,${svgHeight} ${points} ${svgWidth},${svgHeight}`;
+type RecentActivity = {
+  id: string;
+  type: 'deal' | 'task' | 'communication';
+  text: string;
+  user: string;
+  time: string;
+  avatar: string;
+};
+
+type FollowupItem = {
+  id: string;
+  contact: string;
+  task: string;
+  date: string;
+  time: string;
+  priority: 'High' | 'Medium' | 'Low' | 'Urgent';
+};
+
+type DashboardData = {
+  metrics: DashboardMetrics;
+  monthlyDeals: MonthlyDeal[];
+  conversionStages: ConversionStage[];
+  recentActivities: RecentActivity[];
+  upcomingFollowups: FollowupItem[];
+};
+
+const TYPE_CONFIG = {
+  deal: {
+    classes: 'bg-blue-500/10 text-blue-400 border border-blue-500/30',
+    icon: '💼',
+    label: 'Deal',
+  },
+  task: {
+    classes: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30',
+    icon: '✅',
+    label: 'Task',
+  },
+  communication: {
+    classes: 'bg-violet-500/10 text-violet-400 border border-violet-500/30',
+    icon: '💬',
+    label: 'Comm',
+  },
+};
+
+const PRIORITY_CONFIG = {
+  Urgent: { classes: 'text-red-300 bg-red-500/15 border-red-500/40', dot: 'bg-red-400' },
+  High: { classes: 'text-orange-300 bg-orange-500/15 border-orange-500/40', dot: 'bg-orange-400' },
+  Medium: { classes: 'text-amber-300 bg-amber-500/15 border-amber-500/40', dot: 'bg-amber-400' },
+  Low: { classes: 'text-slate-400 bg-slate-500/10 border-slate-500/30', dot: 'bg-slate-500' },
+};
+
+function formatCurrency(value: number) {
+  if (value >= 1_000_000) {
+    return `$${(value / 1_000_000).toFixed(1)}M`;
+  }
+  if (value >= 1_000) {
+    return `$${(value / 1_000).toFixed(0)}K`;
+  }
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatNumber(value: number) {
+  if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
+  return value.toString();
+}
+
+// Animated counter hook
+function useCountUp(target: number | string, duration = 1200) {
+  const [display, setDisplay] = useState<number | string>(typeof target === 'number' ? 0 : target);
+
+  useEffect(() => {
+    if (typeof target !== 'number') {
+      setDisplay(target);
+      return;
+    }
+    let start = 0;
+    const startTime = performance.now();
+    const tick = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const current = Math.round(eased * target);
+      setDisplay(current);
+      if (progress < 1) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [target, duration]);
+
+  return display;
+}
+
+// Mini sparkline bar chart
+function SparkBar({ value, max }: { value: number; max: number }) {
+  const pct = max > 0 ? (value / max) * 100 : 0;
+  return (
+    <div className="flex items-end h-8 gap-0.5">
+      {[0.4, 0.6, 0.5, 0.8, 0.7, pct / 100].map((v, i) => (
+        <div
+          key={i}
+          className="w-1.5 rounded-t-sm bg-current opacity-40 transition-all duration-700"
+          style={{ height: `${v * 100}%` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// KPI Card
+function KPICard({
+  stat,
+  delay = 0,
+}: {
+  stat: {
+    id: string;
+    label: string;
+    value: number | string;
+    icon: string;
+    color: string;
+    bg: string;
+    border: string;
+    glow: string;
+    sparkValue?: number;
+    sparkMax?: number;
+  };
+  delay?: number;
+}) {
+  const displayed = useCountUp(
+    typeof stat.value === 'number' ? stat.value : stat.value === '—' ? 0 : 0,
+    1000 + delay
+  );
 
   return (
-    <div className="min-h-screen bg-black">
-      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
-        {/* Header Section */}
-        <div className="bg-gradient-to-r from-neutral-900 to-neutral-950 rounded-2xl border border-neutral-800 shadow-xl p-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-white tracking-tight">CRM Dashboard</h1>
-              <p className="text-neutral-400 mt-1 text-sm">High-level overview of pipeline health, team performance, and customer relationships.</p>
+    <div
+      className={`
+        relative overflow-hidden rounded-2xl border ${stat.border} bg-neutral-900/80 backdrop-blur-sm
+        p-5 shadow-lg transition-all duration-300
+        hover:shadow-2xl hover:-translate-y-1 hover:border-opacity-70
+        group cursor-default
+      `}
+      style={{ animationDelay: `${delay}ms` }}
+    >
+      {/* Glow effect */}
+      <div className={`absolute -top-6 -right-6 w-24 h-24 rounded-full blur-2xl opacity-20 ${stat.glow} transition-opacity duration-300 group-hover:opacity-40`} />
+
+      {/* Top row */}
+      <div className="flex items-start justify-between mb-4">
+        <div className={`w-11 h-11 rounded-xl ${stat.bg} border ${stat.border} flex items-center justify-center text-xl shadow-inner transition-transform duration-200 group-hover:scale-110`}>
+          {stat.icon}
+        </div>
+        {stat.sparkValue !== undefined && stat.sparkMax !== undefined && (
+          <div className={`${stat.color} opacity-60`}>
+            <SparkBar value={stat.sparkValue} max={stat.sparkMax} />
+          </div>
+        )}
+      </div>
+
+      {/* Value */}
+      <div className={`text-3xl font-black tracking-tight ${stat.color} mb-1 tabular-nums`}>
+        {stat.value === '—' ? '—' : typeof stat.value === 'string' ? stat.value : displayed.toLocaleString()}
+      </div>
+
+      {/* Label */}
+      <p className="text-xs font-medium text-neutral-500 uppercase tracking-widest">{stat.label}</p>
+
+      {/* Live indicator */}
+      <div className="absolute top-3 right-3 flex items-center gap-1.5">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+        <span className="text-[10px] text-neutral-600 font-medium">LIVE</span>
+      </div>
+    </div>
+  );
+}
+
+export default function CRMDashboard() {
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'activities' | 'tasks'>('activities');
+
+  useEffect(() => {
+    let active = true;
+    setIsLoading(true);
+
+    apiGet<DashboardData>('/api/crm-dashboard')
+      .then((result) => {
+        if (!active) return;
+        setData(result);
+        setError(null);
+      })
+      .catch((err) => {
+        if (!active) return;
+        setError(err.message || 'Unable to load dashboard');
+      })
+      .finally(() => {
+        if (active) setIsLoading(false);
+      });
+
+    return () => { active = false; };
+  }, []);
+
+  const kpiStats = useMemo(() => {
+    const m = data?.metrics;
+    return [
+      {
+        id: 'contacts', label: 'Total Contacts',
+        value: m ? m.contacts : '—',
+        icon: '👥', color: 'text-sky-400', bg: 'bg-sky-500/10',
+        border: 'border-sky-500/25', glow: 'bg-sky-500',
+        sparkValue: m?.contacts, sparkMax: m ? m.contacts + 50 : 100,
+      },
+      {
+        id: 'companies', label: 'Companies',
+        value: m ? m.companies : '—',
+        icon: '🏢', color: 'text-indigo-400', bg: 'bg-indigo-500/10',
+        border: 'border-indigo-500/25', glow: 'bg-indigo-500',
+        sparkValue: m?.companies, sparkMax: m ? m.companies + 20 : 50,
+      },
+      {
+        id: 'active_deals', label: 'Active Deals',
+        value: m ? m.activeDeals : '—',
+        icon: '⚡', color: 'text-amber-400', bg: 'bg-amber-500/10',
+        border: 'border-amber-500/25', glow: 'bg-amber-500',
+        sparkValue: m?.activeDeals, sparkMax: m?.totalDeals,
+      },
+      {
+        id: 'tasks', label: 'Open Tasks',
+        value: m ? m.activeTasks : '—',
+        icon: '📋', color: 'text-violet-400', bg: 'bg-violet-500/10',
+        border: 'border-violet-500/25', glow: 'bg-violet-500',
+        sparkValue: m?.activeTasks, sparkMax: m ? m.activeTasks + 10 : 30,
+      },
+      {
+        id: 'pipeline', label: 'Pipeline Value',
+        value: m ? formatCurrency(m.pipelineValue) : '—',
+        icon: '💰', color: 'text-teal-400', bg: 'bg-teal-500/10',
+        border: 'border-teal-500/25', glow: 'bg-teal-500',
+      },
+      {
+        id: 'revenue', label: 'Closed Revenue',
+        value: m ? formatCurrency(m.revenue) : '—',
+        icon: '📈', color: 'text-emerald-400', bg: 'bg-emerald-500/10',
+        border: 'border-emerald-500/25', glow: 'bg-emerald-500',
+      },
+    ];
+  }, [data]);
+
+  const recentActivities = useMemo(() => data?.recentActivities ?? [], [data]);
+  const upcomingFollowups = useMemo(() => data?.upcomingFollowups ?? [], [data]);
+  const conversionData = useMemo(() => data?.conversionStages ?? [], [data]);
+
+  // Win rate calculation
+  const winRate = useMemo(() => {
+    if (!data) return 0;
+    const total = data.metrics.activeDeals + data.metrics.lostDeals;
+    return total > 0 ? Math.round((data.metrics.activeDeals / total) * 100) : 0;
+  }, [data]);
+
+  return (
+    <div className="min-h-screen bg-[#080b10] font-sans">
+      {/* Subtle grid background */}
+      <div
+        className="fixed inset-0 pointer-events-none"
+        style={{
+          backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255,255,255,0.03) 1px, transparent 0)`,
+          backgroundSize: '32px 32px',
+        }}
+      />
+
+      {/* Top accent line */}
+      <div className="fixed top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-sky-500 via-violet-500 to-teal-500 z-50" />
+
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-7">
+
+        {/* ── Header ── */}
+        <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-500 to-violet-600 flex items-center justify-center text-white font-black text-sm shadow-lg shadow-sky-500/20">
+                CRM
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                Sales Dashboard
+              </h1>
             </div>
-            <div className="flex items-center gap-2 text-sm text-neutral-400 bg-neutral-800/50 px-4 py-2 rounded-xl border border-neutral-700 shadow-sm">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              Last synced: Just now
+            <p className="text-neutral-500 text-sm ml-12">
+              Live metrics · Contacts, Deals, Tasks & Communications
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3 flex-wrap">
+            {error && (
+              <span className="text-xs text-red-400 bg-red-500/10 border border-red-500/30 px-3 py-1.5 rounded-lg">
+                ⚠ {error}
+              </span>
+            )}
+            <div className="flex items-center gap-2 text-xs text-neutral-400 bg-neutral-900 border border-neutral-800 px-4 py-2 rounded-xl">
+              {isLoading ? (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  Syncing data…
+                </>
+              ) : (
+                <>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  Live · Just updated
+                </>
+              )}
             </div>
           </div>
-        </div>
+        </header>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-          {KPI_STATS.map((stat, idx) => (
-            <div 
-              key={stat.id} 
-              className={`bg-neutral-900 p-5 rounded-xl border ${stat.border} shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-0.5 group ${idx >= 4 ? 'lg:col-span-2' : ''}`}
+        {/* ── KPI Grid ── */}
+        <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          {kpiStats.map((stat, i) => (
+            <KPICard key={stat.id} stat={stat} delay={i * 80} />
+          ))}
+        </section>
+
+        {/* ── Secondary stats bar ── */}
+        <section className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {[
+            {
+              label: 'Avg. Deal Size',
+              value: data ? formatCurrency(data.metrics.averageDealSize) : '—',
+              icon: '📊',
+              color: 'text-white',
+            },
+            {
+              label: 'Win Rate',
+              value: data ? `${winRate}%` : '—',
+              icon: '🎯',
+              color: winRate >= 50 ? 'text-emerald-400' : 'text-orange-400',
+              bar: winRate,
+            },
+            {
+              label: 'Lost Deals',
+              value: data ? data.metrics.lostDeals : '—',
+              icon: '📉',
+              color: 'text-red-400',
+            },
+          ].map((item) => (
+            <div
+              key={item.label}
+              className="bg-neutral-900/60 border border-neutral-800/80 rounded-2xl p-4 flex items-center gap-4 hover:bg-neutral-800/50 transition-colors duration-200"
             >
-              <div className="flex items-center justify-between mb-3">
-                <div className={`w-10 h-10 rounded-xl ${stat.bg} border ${stat.border} flex items-center justify-center text-xl group-hover:scale-110 transition-transform duration-200`}>
-                  {stat.icon}
-                </div>
-                <span className={`text-xs font-semibold px-2 py-1 rounded-full ${stat.bg} ${stat.color} border ${stat.border}`}>
-                  {stat.trend}
-                </span>
+              <span className="text-2xl">{item.icon}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-neutral-500 font-medium truncate">{item.label}</p>
+                <p className={`text-xl font-black ${item.color} tabular-nums`}>{item.value}</p>
+                {'bar' in item && item.bar !== undefined && (
+                  <div className="mt-1.5 h-1 rounded-full bg-neutral-800 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-1000"
+                      style={{ width: `${item.bar}%` }}
+                    />
+                  </div>
+                )}
               </div>
-              <h3 className={`text-3xl font-bold ${stat.color} mt-2`}>{stat.value}</h3>
-              <p className="text-sm text-neutral-400 mt-1">{stat.label}</p>
             </div>
           ))}
-        </div>
+        </section>
 
-        {/* Charts Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Monthly Deals Chart */}
-          <div className="bg-neutral-900 rounded-xl border border-neutral-800 shadow-xl overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-950/30 to-neutral-900 px-6 py-4 border-b border-neutral-800">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-white">Monthly Deals</h2>
-                <select className="text-sm bg-neutral-800 border border-neutral-700 rounded-lg px-3 py-1.5 text-white outline-none focus:ring-2 focus:ring-blue-500">
-                  <option>Last 6 Months</option>
-                  <option>Last Year</option>
-                  <option>This Quarter</option>
-                </select>
+        {/* ── Pipeline Funnel ── */}
+        {conversionData.length > 0 && (
+          <section className="bg-neutral-900/60 border border-neutral-800/80 rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-base font-bold text-white">Pipeline Funnel</h2>
+                <p className="text-xs text-neutral-500 mt-0.5">Stage-by-stage conversion</p>
               </div>
+              <span className="text-xs font-medium text-neutral-500 bg-neutral-800 border border-neutral-700 px-3 py-1 rounded-full">
+                {conversionData.length} stages
+              </span>
             </div>
-            <div className="p-6">
-              <div className="flex items-end justify-between gap-3 h-52 px-2">
-                {MONTHLY_DEALS.map((m, i) => {
-                  const heightPercent = (m.deals / maxDeals) * 100;
-                  return (
-                    <div key={i} className="flex flex-col items-center flex-1 group">
-                      <div className="relative w-full flex justify-center">
-                        <div className="absolute -top-10 bg-neutral-800 text-white text-xs px-2 py-1 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10 border border-neutral-700">
-                          {m.deals} deals
-                        </div>
-                        <div
-                          className="w-full max-w-[50px] bg-gradient-to-t from-blue-600 to-blue-500 rounded-lg transition-all duration-300 hover:from-blue-500 hover:to-blue-400 shadow-lg"
-                          style={{ height: `${heightPercent}%`, minHeight: '4px' }}
-                        />
+            <div className="space-y-3">
+              {conversionData.map((stage, i) => {
+                const colors = [
+                  'from-sky-500 to-blue-600',
+                  'from-indigo-500 to-violet-600',
+                  'from-violet-500 to-purple-600',
+                  'from-amber-500 to-orange-600',
+                  'from-emerald-500 to-teal-600',
+                ];
+                const color = colors[i % colors.length];
+                return (
+                  <div key={stage.stage} className="flex items-center gap-4">
+                    <div className="w-28 sm:w-36 text-xs text-neutral-400 font-medium truncate text-right">{stage.stage}</div>
+                    <div className="flex-1 h-7 bg-neutral-800 rounded-lg overflow-hidden relative">
+                      <div
+                        className={`h-full bg-gradient-to-r ${color} rounded-lg transition-all duration-1000 flex items-center justify-end pr-3`}
+                        style={{ width: `${Math.max(stage.percent, 4)}%` }}
+                      >
+                        <span className="text-[10px] font-bold text-white/90">{stage.count}</span>
                       </div>
-                      <span className="mt-2 text-xs text-neutral-500 font-medium">{m.month}</span>
+                    </div>
+                    <div className="w-10 text-xs font-bold text-neutral-400 tabular-nums">{stage.percent}%</div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* ── Activities + Tasks ── */}
+        <section className="bg-neutral-900/60 border border-neutral-800/80 rounded-2xl overflow-hidden">
+          {/* Tabs */}
+          <div className="flex border-b border-neutral-800">
+            {(['activities', 'tasks'] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`
+                  flex-1 px-6 py-4 text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2
+                  ${activeTab === tab
+                    ? 'text-white border-b-2 border-sky-500 bg-sky-500/5'
+                    : 'text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800/40'
+                  }
+                `}
+              >
+                {tab === 'activities' ? (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Recent Activities
+                    {recentActivities.length > 0 && (
+                      <span className="text-[10px] bg-sky-500/20 text-sky-400 border border-sky-500/30 px-1.5 py-0.5 rounded-full font-bold">
+                        {recentActivities.length}
+                      </span>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Upcoming Tasks
+                    {upcomingFollowups.length > 0 && (
+                      <span className="text-[10px] bg-amber-500/20 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded-full font-bold">
+                        {upcomingFollowups.length}
+                      </span>
+                    )}
+                  </>
+                )}
+              </button>
+            ))}
+          </div>
+
+          {/* Activities Tab */}
+          {activeTab === 'activities' && (
+            <div className="p-4 sm:p-6">
+              <div className="space-y-2 max-h-[380px] overflow-y-auto scrollbar-thin scrollbar-track-neutral-900 scrollbar-thumb-neutral-700 pr-1">
+                {(recentActivities.length
+                  ? recentActivities
+                  : [{ id: 'empty', type: 'communication' as const, text: 'No recent CRM activity', user: 'System', time: '', avatar: 'S' }]
+                ).map((act) => {
+                  const cfg = TYPE_CONFIG[act.type];
+                  return (
+                    <div
+                      key={act.id}
+                      className="flex items-start gap-3 p-3 rounded-xl hover:bg-neutral-800/50 transition-all duration-150 group border border-transparent hover:border-neutral-700/50"
+                    >
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 ${cfg.classes}`}>
+                        {cfg.icon}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-neutral-200 group-hover:text-white transition-colors leading-snug truncate">{act.text}</p>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <div className="w-4 h-4 rounded-full bg-neutral-700 flex items-center justify-center shrink-0">
+                            <span className="text-[8px] font-bold text-neutral-400">{act.avatar}</span>
+                          </div>
+                          <span className="text-xs text-neutral-500">{act.user}</span>
+                          {act.time && (
+                            <>
+                              <span className="text-xs text-neutral-700">·</span>
+                              <span className="text-xs text-neutral-600">{act.time}</span>
+                            </>
+                          )}
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded-md font-bold uppercase tracking-wide ${cfg.classes}`}>
+                            {cfg.label}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   );
                 })}
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Conversion Graph */}
-          <div className="bg-neutral-900 rounded-xl border border-neutral-800 shadow-xl overflow-hidden">
-            <div className="bg-gradient-to-r from-purple-950/30 to-neutral-900 px-6 py-4 border-b border-neutral-800">
-              <h2 className="text-lg font-semibold text-white">Sales Funnel & Conversion</h2>
-              <p className="text-xs text-neutral-500 mt-0.5">Lead to customer conversion tracking</p>
-            </div>
-            <div className="p-6">
-              <div className="flex items-end justify-between gap-4 mb-6">
-                {CONVERSION_DATA.map((d, i) => {
-                  let gradientColor = '';
-                  if (i === 0) gradientColor = 'from-blue-600 to-blue-500';
-                  else if (i === 1) gradientColor = 'from-indigo-600 to-indigo-500';
-                  else if (i === 2) gradientColor = 'from-purple-600 to-purple-500';
-                  else gradientColor = 'from-emerald-600 to-emerald-500';
-                  
+          {/* Tasks Tab */}
+          {activeTab === 'tasks' && (
+            <div className="p-4 sm:p-6">
+              <div className="space-y-2 max-h-[380px] overflow-y-auto scrollbar-thin scrollbar-track-neutral-900 scrollbar-thumb-neutral-700 pr-1">
+                {(upcomingFollowups.length
+                  ? upcomingFollowups
+                  : [{ id: 'empty', contact: 'No follow-ups scheduled', task: '', date: '', time: '', priority: 'Low' as const }]
+                ).map((item) => {
+                  const pCfg = PRIORITY_CONFIG[item.priority];
+                  const [month, day] = item.date ? item.date.split(' ') : ['', ''];
                   return (
-                    <div key={i} className="flex flex-col items-center flex-1">
-                      <div className={`w-full bg-gradient-to-t ${gradientColor} rounded-xl p-3 text-center hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5`}>
-                        <p className="text-xl font-bold text-white">{d.count}</p>
-                        <p className="text-[10px] text-white/80 uppercase tracking-wide font-semibold">{d.stage}</p>
-                      </div>
-                      {i < CONVERSION_DATA.length - 1 && (
-                        <div className="text-xs text-neutral-500 mt-2 flex items-center gap-1">
-                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                          </svg>
-                          {(CONVERSION_DATA[i].percent - CONVERSION_DATA[i+1].percent).toFixed(1)}%
+                    <div
+                      key={item.id}
+                      className="flex items-center gap-3 p-3 rounded-xl hover:bg-neutral-800/50 transition-all duration-150 border border-transparent hover:border-neutral-700/50 group"
+                    >
+                      {/* Date block */}
+                      {month ? (
+                        <div className="w-12 h-12 rounded-xl bg-neutral-800 border border-neutral-700 flex flex-col items-center justify-center shrink-0">
+                          <span className="text-[9px] font-bold text-neutral-500 uppercase tracking-wider">{month}</span>
+                          <span className="text-lg font-black text-white leading-none">{day}</span>
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 rounded-xl bg-neutral-800 border border-neutral-700 flex items-center justify-center shrink-0">
+                          <span className="text-xl">📅</span>
                         </div>
                       )}
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-neutral-200 group-hover:text-white transition-colors truncate">{item.contact}</p>
+                        {item.task && <p className="text-xs text-neutral-500 mt-0.5 truncate">{item.task}</p>}
+                      </div>
+
+                      {/* Meta */}
+                      <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+                        {item.time && (
+                          <span className="text-xs font-medium text-neutral-400 bg-neutral-800 border border-neutral-700 px-2 py-1 rounded-lg">
+                            {item.time}
+                          </span>
+                        )}
+                        <span className={`text-[10px] px-2 py-1 rounded-lg font-bold border flex items-center gap-1 ${pCfg.classes}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${pCfg.dot}`} />
+                          {item.priority}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
               </div>
-              
-              {/* SVG Conversion Trend Line */}
-              <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full h-24 mt-4">
-                <defs>
-                  <linearGradient id="grad" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.3" />
-                    <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-                <polygon points={fillPath} fill="url(#grad)" />
-                <polyline points={points} fill="none" stroke="#8b5cf6" strokeWidth="2.5" />
-                {CONVERSION_DATA.map((d, i) => {
-                  const x = (i / (CONVERSION_DATA.length - 1)) * svgWidth;
-                  const y = svgHeight - (d.percent / 100) * svgHeight;
-                  return (
-                    <circle key={i} cx={x} cy={y} r="5" fill="#1f1f1f" stroke="#8b5cf6" strokeWidth="3" />
-                  );
-                })}
-              </svg>
-              
-              <div className="flex justify-between mt-3 text-xs text-neutral-500">
-                <span>Leads</span>
-                <span>Qualified</span>
-                <span>Proposal</span>
-                <span>Won</span>
-              </div>
             </div>
-          </div>
-        </div>
+          )}
+        </section>
 
-        {/* Lists Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Recent Activities */}
-          <div className="bg-neutral-900 rounded-xl border border-neutral-800 shadow-xl overflow-hidden">
-            <div className="bg-gradient-to-r from-emerald-950/30 to-neutral-900 px-6 py-4 border-b border-neutral-800">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-white">Recent Activities</h2>
-                <svg className="w-5 h-5 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+        {/* ── Footer ── */}
+        <footer className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 pb-4">
+          <p className="text-xs text-neutral-700">
+            CRM Dashboard · All metrics from live database
+          </p>
+          <div className="flex items-center gap-4">
+            {[
+              { label: 'Contacts', color: 'bg-sky-500' },
+              { label: 'Deals', color: 'bg-amber-500' },
+              { label: 'Tasks', color: 'bg-violet-500' },
+              { label: 'Revenue', color: 'bg-emerald-500' },
+            ].map((l) => (
+              <div key={l.label} className="flex items-center gap-1.5">
+                <div className={`w-2 h-2 rounded-full ${l.color}`} />
+                <span className="text-xs text-neutral-600">{l.label}</span>
               </div>
-            </div>
-            <div className="p-6">
-              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2">
-                {RECENT_ACTIVITIES.map((act) => (
-                  <div key={act.id} className="flex items-start gap-3 pb-4 border-b border-neutral-800 last:border-0 last:pb-0 group hover:bg-neutral-800/30 rounded-lg p-2 transition-colors">
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold ${TYPE_COLORS[act.type]}`}>
-                      {act.type[0].toUpperCase()}
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-white font-medium group-hover:text-blue-400 transition-colors">{act.text}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <div className="w-5 h-5 rounded-full bg-gradient-to-br from-neutral-700 to-neutral-800 flex items-center justify-center">
-                          <span className="text-[9px] font-bold text-neutral-400">{act.avatar}</span>
-                        </div>
-                        <span className="text-xs text-neutral-500">{act.user}</span>
-                        <span className="text-xs text-neutral-700">•</span>
-                        <span className="text-xs text-neutral-600">{act.time}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <button className="w-full mt-4 text-sm text-blue-400 hover:text-blue-300 font-medium py-2.5 border border-dashed border-neutral-700 rounded-xl hover:bg-neutral-800 transition-all duration-200">
-                View All Activity Log
-              </button>
-            </div>
+            ))}
           </div>
-
-          {/* Upcoming Follow-ups */}
-          <div className="bg-neutral-900 rounded-xl border border-neutral-800 shadow-xl overflow-hidden">
-            <div className="bg-gradient-to-r from-amber-950/30 to-neutral-900 px-6 py-4 border-b border-neutral-800">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-white">Upcoming Follow-ups</h2>
-                <svg className="w-5 h-5 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
-                {UPCOMING_FOLLOWUPS.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between p-3 bg-neutral-800/30 rounded-xl hover:bg-neutral-800/50 transition-all duration-200 group border border-neutral-800/50">
-                    <div className="flex items-center gap-3 flex-1">
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-neutral-800 to-neutral-900 border border-neutral-700 flex flex-col items-center justify-center text-xs font-bold text-white shadow-sm">
-                        <span className="text-[9px] text-neutral-500 uppercase">{item.date.split(' ')[0]}</span>
-                        <span className="text-sm font-bold">{item.date.split(' ')[1]}</span>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-white group-hover:text-blue-400 transition-colors">{item.contact}</p>
-                        <p className="text-xs text-neutral-500 mt-0.5">{item.task}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-neutral-400 bg-neutral-800 px-2 py-1 rounded-md">{item.time}</span>
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${PRIORITY_COLORS[item.priority]}`}>
-                        {item.priority}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <button className="w-full mt-4 text-sm text-blue-400 hover:text-blue-300 font-medium py-2.5 border border-dashed border-neutral-700 rounded-xl hover:bg-neutral-800 transition-all duration-200">
-                View Full Task Calendar
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Stats Footer */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-4 text-center">
-            <p className="text-xs text-neutral-500">Avg. Deal Size</p>
-            <p className="text-xl font-bold text-white mt-1">$42.5K</p>
-          </div>
-          <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-4 text-center">
-            <p className="text-xs text-neutral-500">Avg. Sales Cycle</p>
-            <p className="text-xl font-bold text-white mt-1">24 days</p>
-          </div>
-          <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-4 text-center">
-            <p className="text-xs text-neutral-500">Active Contacts</p>
-            <p className="text-xl font-bold text-emerald-400 mt-1">892</p>
-          </div>
-          <div className="bg-neutral-900 rounded-xl border border-neutral-800 p-4 text-center">
-            <p className="text-xs text-neutral-500">Team Members</p>
-            <p className="text-xl font-bold text-blue-400 mt-1">12</p>
-          </div>
-        </div>
+        </footer>
       </div>
     </div>
   );
