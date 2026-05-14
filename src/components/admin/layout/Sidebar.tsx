@@ -193,7 +193,7 @@ const navItemsBase: NavItem[] = [
   { icon: ShoppingCart, label: "Shopping Lists", path: "/admin/shopping-lists" },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
   { icon: Palette, label: "Theme Engine", path: "/admin/theme-engine" },
-  { icon: Bug, label: "Bug Reports", path: "/admin/bug-reports" },
+  { icon: Bug, label: "Bug", path: "/admin/bug-reports" },
 ];
 
 // Activity Logs only for super-admin
