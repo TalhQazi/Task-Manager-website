@@ -85,6 +85,7 @@ const DetailModal = ({ company, onClose }) => {
 
   const fields = [
     { label: 'Industry',      value: company.industry || '—' },
+    { label: 'Entity Type',   value: company.entityType || '—' },
     { label: 'Status',        value: <StatusBadge status={company.status} /> },
     { label: 'Website',       value: company.website
         ? <a href={`https://${company.website}`} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline break-all">{company.website}</a>

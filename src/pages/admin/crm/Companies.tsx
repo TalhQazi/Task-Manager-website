@@ -4,6 +4,7 @@ import { getApiBaseUrl } from '@/lib/admin/apiClient';
 
 const STATUS_OPTIONS = ['All', 'Active', 'Prospect', 'Inactive'];
 const INDUSTRY_OPTIONS = ['All', 'Technology', 'Finance', 'Healthcare', 'Retail', 'Manufacturing', 'Logistics', 'Other'];
+const ENTITY_TYPE_OPTIONS = ['LLC single member', 'LLC multi member', 'S Corp', 'C Corp', 'DBA', 'Other'];
 
 const COUNTRIES = [
   'USA/US', 'United Kingdom/UK', 'Canada', 'Australia', 'Germany', 'France', 'India', 'Pakistan',
@@ -72,7 +73,7 @@ export default function CRMCompanies() {
   const [viewingCompany, setViewingCompany] = useState(null);
 
   const [formData, setFormData] = useState({
-    name: '', industry: '', contactCount: '', activeDeals: '',
+    name: '', industry: '', entityType: 'LLC single member', contactCount: '', activeDeals: '',
     status: 'Active', website: '', location: '', description: '',
   });
   const [formErrors, setFormErrors] = useState({});
@@ -130,14 +131,14 @@ export default function CRMCompanies() {
 
   const openAddModal = () => {
     setEditingCompany(null);
-    setFormData({ name: '', industry: '', contactCount: '', activeDeals: '', status: 'Active', website: '', location: '', description: '' });
+    setFormData({ name: '', industry: '', entityType: 'LLC single member', contactCount: '', activeDeals: '', status: 'Active', website: '', location: '', description: '' });
     setFormErrors({}); setCountrySearch(''); setShowCountryDropdown(false);
     setIsFormModalOpen(true);
   };
 
   const openEditModal = (company) => {
     setEditingCompany(company);
-    setFormData({ ...company, contactCount: company.contactCount?.toString() || '', activeDeals: company.activeDeals?.toString() || '' });
+    setFormData({ ...company, entityType: company.entityType || 'LLC single member', contactCount: company.contactCount?.toString() || '', activeDeals: company.activeDeals?.toString() || '' });
     setFormErrors({}); setCountrySearch(company.location || ''); setShowCountryDropdown(false);
     setIsFormModalOpen(true);
   };
@@ -475,6 +476,15 @@ export default function CRMCompanies() {
                   </div>
                 </div>
 
+                {/* Entity Type */}
+                <div>
+                  <label className={labelCls}>Entity Type</label>
+                  <select name="entityType" value={formData.entityType} onChange={handleInputChange}
+                    className={inputCls(false)}>
+                    {ENTITY_TYPE_OPTIONS.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+
                 {/* Country */}
                 <div id="country-container" className="relative">
                   <label className={labelCls}>Country</label>
@@ -578,6 +588,7 @@ export default function CRMCompanies() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   {[
                     { label: 'Industry', value: viewingCompany.industry, color: 'text-white' },
+                    { label: 'Entity Type', value: viewingCompany.entityType || '—', color: 'text-white' },
                     { label: 'Location', value: viewingCompany.location || '—', color: 'text-white' },
                     { label: 'Contacts', value: viewingCompany.contactCount, color: 'text-white' },
                     { label: 'Active Deals', value: viewingCompany.activeDeals, color: 'text-violet-300' },
