@@ -245,7 +245,7 @@ export default function SystemEmailSettings() {
               <Label htmlFor="fromAddress">From Address</Label>
               <Input
                 id="fromAddress"
-                placeholder="Task Manager <noreply@example.com>"
+                placeholder="Task Manager By Reardon <noreply@reardon.com>"
                 value={formData.emailConfig.fromAddress}
                 onChange={(e) => handleConfigChange("fromAddress", e.target.value)}
               />
