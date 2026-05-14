@@ -120,7 +120,7 @@ const navItemsBase: NavItem[] = [
   { icon: Settings, label: "UI Customization", path: "/manager/ui-customization" },
   { icon: ShoppingCart, label: "Shopping Lists", path: "/manager/shopping-lists" },
   { icon: Settings, label: "Settings", path: "/manager/settings" },
-  { icon: Bug, label: "Bug Reports", path: "/manager/bugs" },
+  { icon: Bug, label: "Bugs", path: "/manager/bugs" },
 ].sort((a, b) => a.label.localeCompare(b.label));
 
 type SidebarMode = "desktop" | "mobile";

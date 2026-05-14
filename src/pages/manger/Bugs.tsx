@@ -402,9 +402,9 @@ export default function ManagerBugs() {
                     {selected.attachments.map((att, i) => (
                       <div key={i} className="overflow-hidden rounded-lg border bg-muted/20">
                         <img
-                          src={toProxiedUrl(String(att.url))}
+                          src={toProxiedUrl(String(att.url)) ?? ""}
                           alt={String(att.fileName || `Attachment ${i + 1}`)}
-                          className="w-full h-auto max-h-[65vh] object-contain"
+                          className="w-full h-auto block"
                         />
                       </div>
                     ))}

@@ -7,7 +7,7 @@ import { Switch } from "@/components/admin/ui/switch";
 import { Label } from "@/components/admin/ui/label";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Mail, Shield, Save, CheckCircle, AlertCircle, Eye, EyeOff } from "lucide-react";
+import { Loader2, Mail, Shield, Save, CheckCircle, AlertCircle, Eye, EyeOff, Send, FlaskConical } from "lucide-react";
 import { toast } from "sonner";
 
 type EmailConfig = {
@@ -41,6 +41,31 @@ type SystemSettings = {
 export default function SystemEmailSettings() {
   const queryClient = useQueryClient();
   const [showPass, setShowPass] = useState(false);
+
+  // Test email state
+  const [testTo, setTestTo] = useState("");
+  const [testLoading, setTestLoading] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const handleTestEmail = async () => {
+    if (!testTo.trim()) { toast.error("Enter a recipient email address"); return; }
+    try {
+      setTestLoading(true);
+      setTestResult(null);
+      const res = await apiFetch<{ ok: boolean; message: string }>("/api/system-settings/test-email", {
+        method: "POST",
+        body: JSON.stringify({ to: testTo.trim() }),
+      });
+      setTestResult({ ok: true, message: res.message || "Test email sent successfully!" });
+      toast.success("Test email sent!");
+    } catch (err: any) {
+      const msg = err?.message || "Failed to send test email.";
+      setTestResult({ ok: false, message: msg });
+      toast.error(msg);
+    } finally {
+      setTestLoading(false);
+    }
+  };
 
   const { data, isLoading, error } = useQuery({
     queryKey: ["system-settings"],
@@ -322,8 +347,64 @@ export default function SystemEmailSettings() {
           </CardContent>
         </Card>
 
-        <div className="flex justify-end pt-4">
+        {/* Test Email */}
+        <Card className="shadow-md border-primary/10 overflow-hidden">
+          <CardHeader className="bg-primary/5 border-b border-primary/10">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <FlaskConical className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle>Test Email Configuration</CardTitle>
+                <CardDescription>
+                  Send a test email to verify your SMTP settings are working correctly.
+                  Make sure you <strong>Save All Settings</strong> first before testing.
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6 space-y-4">
+            <div className="flex gap-3 items-end">
+              <div className="flex-1 space-y-2">
+                <Label htmlFor="testTo">Recipient Email</Label>
+                <Input
+                  id="testTo"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={testTo}
+                  onChange={(e) => { setTestTo(e.target.value); setTestResult(null); }}
+                />
+              </div>
+              <Button
+                type="button"
+                onClick={() => void handleTestEmail()}
+                disabled={testLoading || !testTo.trim()}
+                className="gap-2 shrink-0"
+              >
+                {testLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {testLoading ? "Sending..." : "Send Test Email"}
+              </Button>
+            </div>
 
+            {testResult && (
+              <div className={`flex items-start gap-3 rounded-lg p-4 border text-sm ${
+                testResult.ok
+                  ? "bg-green-50 border-green-200 text-green-800 dark:bg-green-950/30 dark:border-green-800 dark:text-green-300"
+                  : "bg-destructive/10 border-destructive/20 text-destructive"
+              }`}>
+                {testResult.ok
+                  ? <CheckCircle className="h-5 w-5 shrink-0 mt-0.5" />
+                  : <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />}
+                <div>
+                  <p className="font-semibold">{testResult.ok ? "Success" : "Failed"}</p>
+                  <p className="mt-0.5 font-mono text-xs break-all">{testResult.message}</p>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-end pt-4">
           <Button
             type="submit"
             size="lg"

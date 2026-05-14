@@ -46,7 +46,7 @@ const navItemsBase = [
   { icon: FileText, label: "My Notes", path: "/employee/personal-notes" },
   { icon: Palette, label: "Theme Engine", path: "/employee/ui-customization" },
   { icon: ShoppingCart, label: "Shopping Lists", path: "/employee/shopping-lists" },
-  { icon: Bug, label: "Bug Reports", path: "/employee/bugs" },
+  { icon: Bug, label: "Bugs", path: "/employee/bugs" },
   
   // 👇 Settings item ko yahan add karein (ye sort se pehle filter ho jayega)
   { icon: Settings, label: "Settings", path: "/employee/settings" },
