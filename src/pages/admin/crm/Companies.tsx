@@ -14,44 +14,66 @@ const COUNTRIES = [
   'Sri Lanka', 'Nepal', 'New Zealand', 'Ireland', 'Portugal', 'Greece', 'Finland', 'Ukraine'
 ];
 
-// Enhanced status colors for dark theme
-const getStatusBadgeClasses = (status) => {
-  const baseClasses = "inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold transition-all duration-200";
-  switch(status) {
-    case 'Active':
-      return `${baseClasses} bg-emerald-900/80 text-emerald-300 border border-emerald-600 shadow-sm`;
-    case 'Prospect':
-      return `${baseClasses} bg-blue-900/80 text-blue-300 border border-blue-600 shadow-sm`;
-    case 'Inactive':
-      return `${baseClasses} bg-gray-800 text-gray-300 border border-gray-600 shadow-sm`;
-    default:
-      return `${baseClasses} bg-gray-800 text-gray-300 border border-gray-600`;
-  }
+const STATUS_CONFIG = {
+  Active:   { badge: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30', dot: 'bg-emerald-400' },
+  Prospect: { badge: 'bg-sky-500/15 text-sky-300 border-sky-500/30',             dot: 'bg-sky-400' },
+  Inactive: { badge: 'bg-slate-500/15 text-slate-400 border-slate-500/30',        dot: 'bg-slate-500' },
 };
+
+const getStatusBadgeClasses = (status) => {
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.Inactive;
+  return `inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border ${cfg.badge}`;
+};
+
+const CompanyAvatar = ({ name }) => {
+  const initials = name?.split(' ').slice(0, 2).map(w => w[0]).join('').toUpperCase() || '?';
+  const colors = [
+    'from-violet-600 to-violet-800',
+    'from-sky-600 to-sky-800',
+    'from-emerald-600 to-emerald-800',
+    'from-amber-600 to-amber-800',
+    'from-rose-600 to-rose-800',
+    'from-indigo-600 to-indigo-800',
+  ];
+  const color = colors[name?.charCodeAt(0) % colors.length] || colors[0];
+  return (
+    <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center text-xs font-bold text-white flex-shrink-0 shadow-lg`}>
+      {initials}
+    </div>
+  );
+};
+
+const ModalOverlay = ({ children, onClose }) => (
+  <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={onClose}>
+    <div
+      className="bg-[#0f1117] rounded-2xl shadow-2xl w-full max-w-2xl border border-white/8 max-h-[90vh] overflow-y-auto scrollbar-thin"
+      style={{ animation: 'modalIn 0.18s ease' }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {children}
+    </div>
+  </div>
+);
+
+const inputCls = (err) =>
+  `w-full px-3 py-2.5 bg-white/5 border rounded-lg text-sm text-white placeholder-slate-500 outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30 transition-all ${err ? 'border-red-500/40' : 'border-white/10'}`;
+
+const labelCls = 'block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5';
 
 export default function CRMCompanies() {
   const [companies, setCompanies] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [industryFilter, setIndustryFilter] = useState('All');
-  
+
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState(null);
   const [viewingCompany, setViewingCompany] = useState(null);
-  
-  const [formData, setFormData] = useState<{
-    name: string;
-    industry: string;
-    contactCount: string;
-    activeDeals: string;
-    status: string;
-    website: string;
-    location: string;
-    description: string;
-  }>({
-    name: '', industry: '', contactCount: '', activeDeals: '', status: 'Active',
-    website: '', location: '', description: ''
+
+  const [formData, setFormData] = useState({
+    name: '', industry: '', contactCount: '', activeDeals: '',
+    status: 'Active', website: '', location: '', description: '',
   });
   const [formErrors, setFormErrors] = useState({});
   const [loading, setLoading] = useState(true);
@@ -60,103 +82,83 @@ export default function CRMCompanies() {
   const [countrySearch, setCountrySearch] = useState('');
   const [showCountryDropdown, setShowCountryDropdown] = useState(false);
 
-  // Filter & Search Logic (client-side for now, can be moved to API)
-  const filteredCompanies = useMemo(() => {
-    return companies.filter((company) => {
-      const q = searchQuery.toLowerCase();
-      const matchesSearch =
-        company.name.toLowerCase().includes(q) ||
-        company.industry.toLowerCase().includes(q) ||
-        company.website?.toLowerCase().includes(q);
-      const matchesStatus = statusFilter === 'All' || company.status === statusFilter;
-      const matchesIndustry = industryFilter === 'All' || company.industry === industryFilter;
-      return matchesSearch && matchesStatus && matchesIndustry;
-    });
-  }, [companies, searchQuery, statusFilter, industryFilter]);
+  const filteredCompanies = useMemo(() => companies.filter((c) => {
+    const q = searchQuery.toLowerCase();
+    return (
+      (c.name.toLowerCase().includes(q) || c.industry.toLowerCase().includes(q) || c.website?.toLowerCase().includes(q)) &&
+      (statusFilter === 'All' || c.status === statusFilter) &&
+      (industryFilter === 'All' || c.industry === industryFilter)
+    );
+  }), [companies, searchQuery, statusFilter, industryFilter]);
 
-  // Fetch companies from API
+  const stats = useMemo(() => ({
+    total: companies.length,
+    active: companies.filter(c => c.status === 'Active').length,
+    prospect: companies.filter(c => c.status === 'Prospect').length,
+    totalDeals: companies.reduce((s, c) => s + (Number(c.activeDeals) || 0), 0),
+  }), [companies]);
+
   const fetchCompanies = async () => {
     try {
-      setLoading(true);
-      setError(null);
-      const response = await fetch(`${getApiBaseUrl()}/api/crm-company`, {
-        headers: { Authorization: `Bearer ${getAuthState().token || ""}` },
+      setLoading(true); setError(null);
+      const res = await fetch(`${getApiBaseUrl()}/api/crm-company`, {
+        headers: { Authorization: `Bearer ${getAuthState().token || ''}` },
       });
-      if (!response.ok) throw new Error('Failed to fetch companies');
-      const data = await response.json();
+      if (!res.ok) throw new Error('Failed to fetch companies');
+      const data = await res.json();
       setCompanies(data.items || []);
-    } catch (err) {
-      setError(err.message);
-      console.error('Error fetching companies:', err);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
   };
 
-  // Load companies on mount
+  useEffect(() => { fetchCompanies(); }, []);
+
   useEffect(() => {
-    fetchCompanies();
+    const onKey = (e) => { if (e.key === 'Escape') { closeFormModal(); closeDetailsModal(); } };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
 
-  // Modal Handlers
+  // Close country dropdown on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (!e.target.closest('#country-container')) setShowCountryDropdown(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
   const openAddModal = () => {
     setEditingCompany(null);
     setFormData({ name: '', industry: '', contactCount: '', activeDeals: '', status: 'Active', website: '', location: '', description: '' });
-    setFormErrors({});
-    setCountrySearch('');
-    setShowCountryDropdown(false);
+    setFormErrors({}); setCountrySearch(''); setShowCountryDropdown(false);
     setIsFormModalOpen(true);
   };
 
   const openEditModal = (company) => {
     setEditingCompany(company);
-    setFormData({ 
-      ...company, 
-      contactCount: company.contactCount?.toString() || '', 
-      activeDeals: company.activeDeals?.toString() || '' 
-    });
-    setFormErrors({});
-    setCountrySearch(company.location || '');
-    setShowCountryDropdown(false);
+    setFormData({ ...company, contactCount: company.contactCount?.toString() || '', activeDeals: company.activeDeals?.toString() || '' });
+    setFormErrors({}); setCountrySearch(company.location || ''); setShowCountryDropdown(false);
     setIsFormModalOpen(true);
   };
 
-  const openDetailsModal = (company) => {
-    setViewingCompany(company);
-    setIsDetailsModalOpen(true);
-  };
-
-  const closeFormModal = () => {
-    setIsFormModalOpen(false);
-    setEditingCompany(null);
-    setFormErrors({});
-  };
-
-  const closeDetailsModal = () => {
-    setIsDetailsModalOpen(false);
-    setViewingCompany(null);
-  };
+  const openDetailsModal = (company) => { setViewingCompany(company); setIsDetailsModalOpen(true); };
+  const closeFormModal = () => { setIsFormModalOpen(false); setEditingCompany(null); setFormErrors({}); };
+  const closeDetailsModal = () => { setIsDetailsModalOpen(false); setViewingCompany(null); };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData((p) => ({ ...p, [name]: value }));
   };
 
   const handleCountrySelect = (country) => {
-    setFormData(prev => ({ ...prev, location: country }));
-    setCountrySearch(country);
-    setShowCountryDropdown(false);
+    setFormData((p) => ({ ...p, location: country }));
+    setCountrySearch(country); setShowCountryDropdown(false);
   };
 
-  const filteredCountries = useMemo(() => {
-    if (!countrySearch) return COUNTRIES;
-    return COUNTRIES.filter(country =>
-      country.toLowerCase().includes(countrySearch.toLowerCase())
-    );
-  }, [countrySearch]);
+  const filteredCountries = useMemo(() =>
+    !countrySearch ? COUNTRIES : COUNTRIES.filter(c => c.toLowerCase().includes(countrySearch.toLowerCase())),
+    [countrySearch]);
 
   const validateForm = () => {
     const errors = {};
@@ -168,534 +170,449 @@ export default function CRMCompanies() {
 
   const handleSave = async () => {
     if (!validateForm()) return;
-
     try {
-      setSaving(true);
-      setError(null);
-
+      setSaving(true); setError(null);
       const payload = {
         ...formData,
         contactCount: formData.contactCount ? parseInt(formData.contactCount, 10) : 0,
         activeDeals: formData.activeDeals ? parseInt(formData.activeDeals, 10) : 0,
       };
-
-      const url = editingCompany 
-        ? `${getApiBaseUrl()}/api/crm-company/${editingCompany.id}`
-        : `${getApiBaseUrl()}/api/crm-company`;
-      
-      const method = editingCompany ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAuthState().token || ""}`,
-        },
+      const url = editingCompany ? `${getApiBaseUrl()}/api/crm-company/${editingCompany.id}` : `${getApiBaseUrl()}/api/crm-company`;
+      const res = await fetch(url, {
+        method: editingCompany ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getAuthState().token || ''}` },
         body: JSON.stringify(payload),
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to save company');
-      }
-
-      const data = await response.json();
-      
-      // Update local state
-      if (editingCompany) {
-        setCompanies((prev) =>
-          prev.map((c) => (c.id === editingCompany.id ? data.item : c))
-        );
-      } else {
-        setCompanies((prev) => [data.item, ...prev]);
-      }
-
+      if (!res.ok) { const d = await res.json(); throw new Error(d.error?.message || 'Failed to save'); }
+      const data = await res.json();
+      setCompanies((p) => editingCompany ? p.map((c) => c.id === editingCompany.id ? data.item : c) : [data.item, ...p]);
       closeFormModal();
-    } catch (err) {
-      setError(err.message);
-      console.error('Error saving company:', err);
-    } finally {
-      setSaving(false);
-    }
+    } catch (err) { setError(err.message); }
+    finally { setSaving(false); }
   };
 
-  // Close modals on Escape key
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        closeFormModal();
-        closeDetailsModal();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  const EmptyState = () => (
+    <div className="flex flex-col items-center justify-center py-16 text-center">
+      <div className="w-16 h-16 rounded-2xl bg-white/4 border border-white/8 flex items-center justify-center mb-4">
+        <svg className="w-8 h-8 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+        </svg>
+      </div>
+      <p className="font-semibold text-slate-300 text-base">No companies found</p>
+      <p className="text-sm text-slate-500 mt-1">Try adjusting your search or filters</p>
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-black">
-      <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
-        {/* Error Alert */}
+    <div className="min-h-screen bg-[#080a0f] text-white">
+      <style>{`
+        @keyframes modalIn { from { opacity:0; transform:scale(0.96) translateY(8px); } to { opacity:1; transform:scale(1) translateY(0); } }
+        .scrollbar-thin::-webkit-scrollbar { width:4px; height:4px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background:transparent; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background:#334155; border-radius:2px; }
+        select option { background:#0f1117; color:#fff; }
+      `}</style>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-5">
+
+        {/* ── Header ── */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">Companies</h1>
+            <p className="text-slate-400 text-sm mt-1">Track organizations, relationships, and deal pipelines</p>
+          </div>
+          <button
+            onClick={openAddModal}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition-all duration-150 shadow-lg shadow-violet-900/40 self-start sm:self-auto"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add Company
+          </button>
+        </div>
+
+        {/* ── Error Banner ── */}
         {error && (
-          <div className="bg-red-950/50 border border-red-800 text-red-300 px-4 py-3 rounded-xl flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>{error}</span>
-            </div>
-            <button onClick={() => setError(null)} className="text-red-400 hover:text-red-300">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+          <div className="flex items-start gap-3 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-red-300 text-sm">
+            <svg className="w-4 h-4 mt-0.5 flex-shrink-0 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span className="flex-1">{error}</span>
+            <button onClick={() => setError(null)} className="text-red-400 hover:text-red-200 flex-shrink-0">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
           </div>
         )}
 
-        {/* Header Section - Dark Theme */}
-        <div className="bg-gradient-to-r from-neutral-900 to-neutral-950 rounded-2xl border border-neutral-800 shadow-xl p-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-white tracking-tight">Companies</h1>
-              <p className="text-neutral-400 mt-1 text-sm">External companies database. Track organizations, relationships, and deal pipelines.</p>
+        {/* ── Stats ── */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: 'Total Companies', value: stats.total, color: 'text-white' },
+            { label: 'Active', value: stats.active, color: 'text-emerald-400' },
+            { label: 'Prospects', value: stats.prospect, color: 'text-sky-400' },
+            { label: 'Total Deals', value: stats.totalDeals, color: 'text-violet-400' },
+          ].map(({ label, value, color }) => (
+            <div key={label} className="bg-white/3 border border-white/7 rounded-xl p-4 hover:bg-white/5 transition-colors">
+              <p className="text-xs text-slate-500 font-medium uppercase tracking-wider mb-1">{label}</p>
+              <p className={`text-2xl font-bold ${color}`}>{value}</p>
             </div>
-            <button
-              onClick={openAddModal}
-              className="inline-flex items-center justify-center px-5 py-2.5 bg-neutral-800 hover:bg-neutral-700 text-white font-semibold rounded-xl transition-all duration-200 border border-neutral-700 shadow-lg hover:shadow-neutral-900/50 transform hover:-translate-y-0.5"
+          ))}
+        </div>
+
+        {/* ── Search & Filters ── */}
+        <div className="bg-white/3 border border-white/7 rounded-xl p-3 flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search company, industry, website…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-4 py-2.5 bg-white/5 border border-white/8 rounded-lg text-sm text-white placeholder-slate-500 outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30 transition-all"
+            />
+          </div>
+          <div className="flex gap-2">
+            <select
+              value={industryFilter}
+              onChange={(e) => setIndustryFilter(e.target.value)}
+              className="flex-1 sm:flex-none px-3 py-2.5 bg-white/5 border border-white/8 rounded-lg text-sm text-white outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30 transition-all min-w-[130px]"
             >
-              <svg className="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Add Company
-            </button>
+              {INDUSTRY_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="flex-1 sm:flex-none px-3 py-2.5 bg-white/5 border border-white/8 rounded-lg text-sm text-white outline-none focus:border-violet-500/50 focus:ring-1 focus:ring-violet-500/30 transition-all min-w-[110px]"
+            >
+              {STATUS_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
           </div>
         </div>
 
-        {/* Search & Filters - Dark Theme */}
-        <div className="bg-neutral-900 rounded-xl border border-neutral-800 shadow-xl p-4 transition-all duration-200">
-          <div className="flex flex-col lg:flex-row gap-4">
-            <div className="flex-1 relative">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search by company, industry, or website..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg focus:ring-2 focus:ring-neutral-600 focus:border-neutral-600 outline-none transition-all duration-200 text-white placeholder-neutral-500"
-              />
-            </div>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <select
-                value={industryFilter}
-                onChange={(e) => setIndustryFilter(e.target.value)}
-                className="px-4 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg focus:ring-2 focus:ring-neutral-600 focus:border-neutral-600 outline-none text-white min-w-[160px]"
-              >
-                {INDUSTRY_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-4 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg focus:ring-2 focus:ring-neutral-600 focus:border-neutral-600 outline-none text-white min-w-[160px]"
-              >
-                {STATUS_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>{opt}</option>
-                ))}
-              </select>
-            </div>
+        {/* ── Table ── */}
+        {loading ? (
+          <div className="flex items-center justify-center py-20 text-slate-500 text-sm">
+            <svg className="w-5 h-5 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+            </svg>
+            Loading companies…
           </div>
-        </div>
-
-        {/* Companies Table - Dark Theme */}
-        <div className="bg-neutral-900 rounded-xl border border-neutral-800 shadow-xl overflow-hidden transition-all duration-200">
-          {/* Loading State */}
-          {loading && (
-            <div className="p-12 text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-              <p className="text-neutral-400 mt-3">Loading companies...</p>
-            </div>
-          )}
-
-          {/* Desktop Table View */}
-          {!loading && (
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-left">
-                <thead className="bg-neutral-950 border-b border-neutral-800">
-                  <tr>
-                    <th className="px-6 py-4 text-xs font-semibold text-neutral-400 uppercase tracking-wider">Company Name</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-neutral-400 uppercase tracking-wider">Industry</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-neutral-400 uppercase tracking-wider text-center">Contact Count</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-neutral-400 uppercase tracking-wider text-center">Active Deals</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-neutral-400 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-4 text-xs font-semibold text-neutral-400 uppercase tracking-wider text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-800">
-                  {filteredCompanies.length === 0 ? (
-                    <tr>
-                      <td colSpan="6" className="px-6 py-12 text-center">
-                        <div className="flex flex-col items-center">
-                          <svg className="w-12 h-12 text-neutral-700 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                          </svg>
-                          <p className="font-medium text-neutral-300">No companies found</p>
-                          <p className="text-sm text-neutral-500">Try adjusting your search or filters.</p>
-                        </div>
-                      </td>
+        ) : (
+          <>
+            {/* Desktop Table */}
+            <div className="hidden md:block bg-white/2 border border-white/7 rounded-xl overflow-hidden">
+              <div className="overflow-x-auto scrollbar-thin">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-white/7">
+                      <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Company</th>
+                      <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Industry</th>
+                      <th className="px-5 py-3.5 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Contacts</th>
+                      <th className="px-5 py-3.5 text-center text-xs font-semibold text-slate-400 uppercase tracking-wider">Deals</th>
+                      <th className="px-5 py-3.5 text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">Status</th>
+                      <th className="px-5 py-3.5 text-right text-xs font-semibold text-slate-400 uppercase tracking-wider">Actions</th>
                     </tr>
-                  ) : (
-                    filteredCompanies.map((company) => (
-                      <tr key={company.id} className="hover:bg-neutral-800/50 transition-colors duration-150">
-                        <td className="px-6 py-4">
-                          <div className="font-medium text-white">{company.name}</div>
-                          <div className="text-xs text-neutral-400 truncate max-w-[180px]">{company.website}</div>
+                  </thead>
+                  <tbody>
+                    {filteredCompanies.length === 0 ? (
+                      <tr><td colSpan="6"><EmptyState /></td></tr>
+                    ) : filteredCompanies.map((company) => (
+                      <tr key={company.id} className="border-b border-white/4 hover:bg-white/3 transition-colors">
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <CompanyAvatar name={company.name} />
+                            <div className="min-w-0">
+                              <p className="font-semibold text-white truncate max-w-[180px]">{company.name}</p>
+                              {company.website && (
+                                <p className="text-xs text-slate-500 truncate max-w-[180px]">{company.website}</p>
+                              )}
+                            </div>
+                          </div>
                         </td>
-                        <td className="px-6 py-4 text-neutral-300">{company.industry}</td>
-                        <td className="px-6 py-4 text-center">
-                          <span className="inline-flex items-center justify-center px-3 py-1 bg-neutral-800 text-neutral-300 text-sm font-medium rounded-md border border-neutral-700">
+                        <td className="px-5 py-3.5 text-slate-300">{company.industry}</td>
+                        <td className="px-5 py-3.5 text-center">
+                          <span className="inline-flex items-center justify-center w-9 h-7 bg-white/5 border border-white/8 text-slate-300 text-xs font-semibold rounded-lg">
                             {company.contactCount}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className="inline-flex items-center justify-center px-3 py-1 bg-blue-950/50 text-blue-300 text-sm font-medium rounded-md border border-blue-800">
+                        <td className="px-5 py-3.5 text-center">
+                          <span className="inline-flex items-center justify-center w-9 h-7 bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs font-semibold rounded-lg">
                             {company.activeDeals}
                           </span>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-5 py-3.5">
                           <span className={getStatusBadgeClasses(company.status)}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[company.status]?.dot || 'bg-slate-500'}`} />
                             {company.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-right space-x-3">
-                          <button
-                            onClick={() => openDetailsModal(company)}
-                            className="text-neutral-300 hover:text-white font-medium text-sm transition-colors"
-                            title="View Details"
-                          >
-                            View
-                          </button>
-                          <button
-                            onClick={() => openEditModal(company)}
-                            className="text-blue-400 hover:text-blue-300 font-medium text-sm transition-colors"
-                            title="Edit Company"
-                          >
-                            Edit
-                          </button>
+                        <td className="px-5 py-3.5 text-right">
+                          <div className="inline-flex items-center gap-2">
+                            <button
+                              onClick={() => openDetailsModal(company)}
+                              className="px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/8 text-slate-300 hover:text-white text-xs font-semibold transition-all"
+                            >
+                              View
+                            </button>
+                            <button
+                              onClick={() => openEditModal(company)}
+                              className="px-3 py-1.5 rounded-lg bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 text-violet-300 hover:text-violet-200 text-xs font-semibold transition-all"
+                            >
+                              Edit
+                            </button>
+                          </div>
                         </td>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* Mobile Card View - Dark Theme */}
-          {!loading && (
-            <div className="md:hidden divide-y divide-neutral-800">
-              {filteredCompanies.length === 0 ? (
-                <div className="p-8 text-center">
-                  <svg className="w-12 h-12 text-neutral-700 mx-auto mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                  </svg>
-                  <p className="font-medium text-neutral-300">No companies found</p>
-                  <p className="text-sm text-neutral-500">Try adjusting your search or filters.</p>
-                </div>
-              ) : (
-                filteredCompanies.map((company) => (
-                  <div key={company.id} className="p-4 hover:bg-neutral-800/50 transition-colors duration-150">
-                    <div className="flex justify-between items-start mb-3">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-white text-lg">{company.name}</h3>
-                        <p className="text-xs text-neutral-400 mt-0.5">{company.website}</p>
-                      </div>
-                      <span className={getStatusBadgeClasses(company.status)}>
-                        {company.status}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 mb-3">
-                      <div className="bg-neutral-800/50 rounded-lg p-2">
-                        <p className="text-xs text-neutral-400">Industry</p>
-                        <p className="text-sm text-white font-medium">{company.industry}</p>
-                      </div>
-                      <div className="bg-neutral-800/50 rounded-lg p-2">
-                        <p className="text-xs text-neutral-400">Location</p>
-                        <p className="text-sm text-white font-medium truncate">{company.location || 'N/A'}</p>
-                      </div>
-                      <div className="bg-neutral-800/50 rounded-lg p-2">
-                        <p className="text-xs text-neutral-400">Contacts</p>
-                        <p className="text-sm text-white font-medium">{company.contactCount}</p>
-                      </div>
-                      <div className="bg-neutral-800/50 rounded-lg p-2">
-                        <p className="text-xs text-neutral-400">Active Deals</p>
-                        <p className="text-sm text-blue-300 font-medium">{company.activeDeals}</p>
-                      </div>
-                    </div>
-                    <div className="flex justify-end space-x-4 mt-2 pt-2 border-t border-neutral-800">
-                      <button
-                        onClick={() => openDetailsModal(company)}
-                        className="text-neutral-300 hover:text-white font-medium text-sm transition-colors"
-                      >
-                        View Details
-                      </button>
-                      <button
-                        onClick={() => openEditModal(company)}
-                        className="text-blue-400 hover:text-blue-300 font-medium text-sm transition-colors"
-                      >
-                        Edit
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Add/Edit Modal - Dark Theme */}
-        {isFormModalOpen && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={closeFormModal}>
-            <div
-              className="bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-2xl p-6 space-y-5 border border-neutral-800 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h2 className="text-2xl font-bold text-white">
-                {editingCompany ? 'Edit Company' : 'Add New Company'}
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-neutral-300 mb-1">Company Name *</label>
-                  <input
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2.5 bg-neutral-800 border rounded-lg outline-none focus:ring-2 focus:ring-neutral-600 transition-all text-white placeholder-neutral-500 ${
-                      formErrors.name ? 'border-red-700' : 'border-neutral-700'
-                    }`}
-                    placeholder="Enter company name"
-                  />
-                  {formErrors.name && <p className="text-xs text-red-400 mt-1">{formErrors.name}</p>}
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-neutral-300 mb-1">Industry *</label>
-                  <select
-                    name="industry"
-                    value={formData.industry}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2.5 bg-neutral-800 border rounded-lg outline-none focus:ring-2 focus:ring-neutral-600 text-white ${
-                      formErrors.industry ? 'border-red-700' : 'border-neutral-700'
-                    }`}
-                  >
-                    <option value="">Select Industry</option>
-                    {INDUSTRY_OPTIONS.filter(i => i !== 'All').map(opt => (
-                      <option key={opt} value={opt}>{opt}</option>
                     ))}
-                  </select>
-                  {formErrors.industry && <p className="text-xs text-red-400 mt-1">{formErrors.industry}</p>}
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-neutral-300 mb-1">Website</label>
-                  <input
-                    name="website"
-                    value={formData.website}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg outline-none focus:ring-2 focus:ring-neutral-600 text-white placeholder-neutral-500"
-                    placeholder="example.com"
-                  />
-                </div>
-                
-                <div className="relative">
-                  <label className="block text-sm font-medium text-neutral-300 mb-1">Country</label>
-                  <input
-                    name="location"
-                    value={countrySearch}
-                    onChange={(e) => {
-                      setCountrySearch(e.target.value);
-                      setFormData(prev => ({ ...prev, location: e.target.value }));
-                      setShowCountryDropdown(true);
-                    }}
-                    onFocus={() => setShowCountryDropdown(true)}
-                    className="w-full px-3 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg outline-none focus:ring-2 focus:ring-neutral-600 text-white placeholder-neutral-500"
-                    placeholder="Search country..."
-                  />
-                  {showCountryDropdown && (
-                    <div className="absolute z-10 w-full mt-1 bg-neutral-800 border border-neutral-700 rounded-lg shadow-xl max-h-48 overflow-y-auto">
-                      {filteredCountries.length === 0 ? (
-                        <div className="px-3 py-2 text-neutral-400 text-sm">No countries found</div>
-                      ) : (
-                        filteredCountries.map((country) => (
-                          <div
-                            key={country}
-                            onClick={() => handleCountrySelect(country)}
-                            className="px-3 py-2 text-white hover:bg-neutral-700 cursor-pointer text-sm"
-                          >
-                            {country}
-                          </div>
-                        ))
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Mobile Cards */}
+            <div className="md:hidden space-y-3">
+              {filteredCompanies.length === 0 ? (
+                <div className="bg-white/2 border border-white/7 rounded-xl"><EmptyState /></div>
+              ) : filteredCompanies.map((company) => (
+                <div key={company.id} className="bg-white/3 border border-white/7 rounded-xl p-4 hover:border-violet-500/20 hover:bg-white/5 transition-all">
+                  {/* Card Header */}
+                  <div className="flex items-start gap-3 mb-3">
+                    <CompanyAvatar name={company.name} />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-white text-base truncate">{company.name}</p>
+                      {company.website && (
+                        <p className="text-xs text-slate-500 truncate mt-0.5">{company.website}</p>
                       )}
                     </div>
-                  )}
+                    <span className={getStatusBadgeClasses(company.status)}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[company.status]?.dot || 'bg-slate-500'}`} />
+                      {company.status}
+                    </span>
+                  </div>
+
+                  {/* Card Meta Grid */}
+                  <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div className="bg-white/3 border border-white/6 rounded-lg px-3 py-2">
+                      <p className="text-xs text-slate-500 mb-0.5">Industry</p>
+                      <p className="text-sm font-medium text-white truncate">{company.industry}</p>
+                    </div>
+                    <div className="bg-white/3 border border-white/6 rounded-lg px-3 py-2">
+                      <p className="text-xs text-slate-500 mb-0.5">Location</p>
+                      <p className="text-sm font-medium text-white truncate">{company.location || '—'}</p>
+                    </div>
+                    <div className="bg-white/3 border border-white/6 rounded-lg px-3 py-2">
+                      <p className="text-xs text-slate-500 mb-0.5">Contacts</p>
+                      <p className="text-sm font-semibold text-white">{company.contactCount}</p>
+                    </div>
+                    <div className="bg-white/3 border border-white/6 rounded-lg px-3 py-2">
+                      <p className="text-xs text-slate-500 mb-0.5">Active Deals</p>
+                      <p className="text-sm font-semibold text-violet-300">{company.activeDeals}</p>
+                    </div>
+                  </div>
+
+                  {/* Card Actions — always visible */}
+                  <div className="flex gap-2 pt-3 border-t border-white/6">
+                    <button
+                      onClick={() => openDetailsModal(company)}
+                      className="flex-1 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/8 text-slate-300 hover:text-white text-xs font-semibold transition-all text-center"
+                    >
+                      View Details
+                    </button>
+                    <button
+                      onClick={() => openEditModal(company)}
+                      className="flex-1 py-2 rounded-lg bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 text-violet-300 hover:text-violet-200 text-xs font-semibold transition-all text-center"
+                    >
+                      Edit
+                    </button>
+                  </div>
                 </div>
-                
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-neutral-300 mb-1">Description</label>
-                  <textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    rows="3"
-                    className="w-full px-3 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg outline-none focus:ring-2 focus:ring-neutral-600 text-white placeholder-neutral-500"
-                    placeholder="Brief company overview..."
-                  />
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* ── Add / Edit Modal ── */}
+        {isFormModalOpen && (
+          <ModalOverlay onClose={closeFormModal}>
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-5">
+                <h2 className="text-xl font-bold text-white">{editingCompany ? 'Edit Company' : 'Add New Company'}</h2>
+                <button onClick={closeFormModal} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/8 transition-all">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {/* Company Name */}
+                <div>
+                  <label className={labelCls}>Company Name <span className="text-red-400 normal-case tracking-normal">*</span></label>
+                  <input name="name" value={formData.name} onChange={handleInputChange}
+                    className={inputCls(formErrors.name)} placeholder="Enter company name" />
+                  {formErrors.name && <p className="text-xs text-red-400 mt-1">{formErrors.name}</p>}
                 </div>
 
-                <div className="grid grid-cols-3 gap-3 md:col-span-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Industry */}
                   <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-1">Contacts</label>
-                    <input
-                      type="number"
-                      name="contactCount"
-                      value={formData.contactCount}
-                      onChange={handleInputChange}
-                      min="0"
-                      placeholder="0"
-                      className="w-full px-3 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg outline-none focus:ring-2 focus:ring-neutral-600 text-white placeholder-neutral-500"
-                    />
+                    <label className={labelCls}>Industry <span className="text-red-400 normal-case tracking-normal">*</span></label>
+                    <select name="industry" value={formData.industry} onChange={handleInputChange}
+                      className={inputCls(formErrors.industry)}>
+                      <option value="">Select Industry</option>
+                      {INDUSTRY_OPTIONS.filter(i => i !== 'All').map(o => <option key={o} value={o}>{o}</option>)}
+                    </select>
+                    {formErrors.industry && <p className="text-xs text-red-400 mt-1">{formErrors.industry}</p>}
                   </div>
+
+                  {/* Website */}
                   <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-1">Deals</label>
-                    <input
-                      type="number"
-                      name="activeDeals"
-                      value={formData.activeDeals}
-                      onChange={handleInputChange}
-                      min="0"
-                      placeholder="0"
-                      className="w-full px-3 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg outline-none focus:ring-2 focus:ring-neutral-600 text-white placeholder-neutral-500"
-                    />
+                    <label className={labelCls}>Website</label>
+                    <input name="website" value={formData.website} onChange={handleInputChange}
+                      className={inputCls(false)} placeholder="example.com" />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-neutral-300 mb-1">Status</label>
-                    <select
-                      name="status"
-                      value={formData.status}
-                      onChange={handleInputChange}
-                      className="w-full px-3 py-2.5 bg-neutral-800 border border-neutral-700 rounded-lg outline-none focus:ring-2 focus:ring-neutral-600 text-white"
-                    >
-                      {STATUS_OPTIONS.filter(s => s !== 'All').map(opt => (
-                        <option key={opt} value={opt}>{opt}</option>
+                </div>
+
+                {/* Country */}
+                <div id="country-container" className="relative">
+                  <label className={labelCls}>Country</label>
+                  <input
+                    value={countrySearch}
+                    onChange={(e) => { setCountrySearch(e.target.value); setFormData(p => ({ ...p, location: e.target.value })); setShowCountryDropdown(true); }}
+                    onFocus={() => setShowCountryDropdown(true)}
+                    className={inputCls(false)}
+                    placeholder="Search country…"
+                  />
+                  {showCountryDropdown && (
+                    <div className="absolute z-20 w-full mt-1 bg-[#0f1117] border border-white/10 rounded-xl shadow-2xl max-h-44 overflow-y-auto scrollbar-thin">
+                      {filteredCountries.length === 0 ? (
+                        <div className="px-3 py-2 text-slate-400 text-sm">No countries found</div>
+                      ) : filteredCountries.map((c) => (
+                        <div key={c} onClick={() => handleCountrySelect(c)}
+                          className="px-3 py-2 text-sm text-slate-300 hover:bg-white/5 hover:text-white cursor-pointer transition-colors">
+                          {c}
+                        </div>
                       ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className={labelCls}>Description</label>
+                  <textarea name="description" value={formData.description} onChange={handleInputChange} rows={3}
+                    className={inputCls(false)} placeholder="Brief company overview…" style={{ resize: 'vertical' }} />
+                </div>
+
+                {/* Contacts / Deals / Status */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className={labelCls}>Contacts</label>
+                    <input type="number" name="contactCount" value={formData.contactCount} onChange={handleInputChange}
+                      min="0" placeholder="0" className={inputCls(false)} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Deals</label>
+                    <input type="number" name="activeDeals" value={formData.activeDeals} onChange={handleInputChange}
+                      min="0" placeholder="0" className={inputCls(false)} />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Status</label>
+                    <select name="status" value={formData.status} onChange={handleInputChange} className={inputCls(false)}>
+                      {STATUS_OPTIONS.filter(s => s !== 'All').map(o => <option key={o} value={o}>{o}</option>)}
                     </select>
                   </div>
                 </div>
               </div>
-              <div className="flex justify-end gap-3 pt-4 border-t border-neutral-800">
-                <button
-                  onClick={closeFormModal}
-                  disabled={saving}
-                  className="px-4 py-2 text-neutral-300 hover:bg-neutral-800 rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                >
+
+              <div className="flex gap-3 pt-5 mt-1 border-t border-white/7">
+                <button onClick={closeFormModal} disabled={saving}
+                  className="flex-1 py-2.5 rounded-xl text-slate-300 bg-white/5 hover:bg-white/8 border border-white/8 text-sm font-semibold transition-all disabled:opacity-50">
                   Cancel
                 </button>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="px-6 py-2 bg-neutral-800 hover:bg-neutral-700 text-white font-semibold rounded-lg transition-all duration-200 border border-neutral-700 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
+                <button onClick={handleSave} disabled={saving}
+                  className="flex-1 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition-all shadow-lg shadow-violet-900/40 disabled:opacity-50 flex items-center justify-center gap-2">
                   {saving ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                      Saving...
-                    </>
-                  ) : (
-                    editingCompany ? 'Save Changes' : 'Add Company'
-                  )}
+                    <><svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg> Saving…</>
+                  ) : editingCompany ? 'Save Changes' : 'Add Company'}
                 </button>
               </div>
             </div>
-          </div>
+          </ModalOverlay>
         )}
 
-        {/* View Details Modal - Dark Theme */}
+        {/* ── Details Modal ── */}
         {isDetailsModalOpen && viewingCompany && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={closeDetailsModal}>
-            <div
-              className="bg-neutral-900 rounded-2xl shadow-2xl w-full max-w-2xl border border-neutral-800 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="bg-neutral-950 px-6 py-4 border-b border-neutral-800 flex justify-between items-center">
-                <h2 className="text-lg font-semibold text-white">Company Details</h2>
-                <button onClick={closeDetailsModal} className="text-neutral-400 hover:text-white transition-colors">
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+          <ModalOverlay onClose={closeDetailsModal}>
+            <div>
+              {/* Modal Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-white/7">
+                <h2 className="text-lg font-bold text-white">Company Details</h2>
+                <button onClick={closeDetailsModal} className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/8 transition-all">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
-              <div className="p-6 space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                  <h3 className="text-xl font-bold text-white">{viewingCompany.name}</h3>
+
+              <div className="p-6 space-y-5">
+                {/* Company Identity */}
+                <div className="flex items-center gap-4">
+                  <CompanyAvatar name={viewingCompany.name} />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-xl font-bold text-white truncate">{viewingCompany.name}</h3>
+                    {viewingCompany.website && (
+                      <a href={`https://${viewingCompany.website}`} target="_blank" rel="noopener noreferrer"
+                        className="text-sm text-sky-400 hover:text-sky-300 transition-colors truncate block">
+                        {viewingCompany.website}
+                      </a>
+                    )}
+                  </div>
                   <span className={getStatusBadgeClasses(viewingCompany.status)}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${STATUS_CONFIG[viewingCompany.status]?.dot || 'bg-slate-500'}`} />
                     {viewingCompany.status}
                   </span>
                 </div>
-                
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-neutral-800/50 p-3 rounded-lg border border-neutral-800">
-                    <p className="text-xs text-neutral-400">Industry</p>
-                    <p className="font-medium text-white">{viewingCompany.industry}</p>
-                  </div>
-                  <div className="bg-neutral-800/50 p-3 rounded-lg border border-neutral-800">
-                    <p className="text-xs text-neutral-400">Location</p>
-                    <p className="font-medium text-white">{viewingCompany.location || 'N/A'}</p>
-                  </div>
-                  <div className="bg-neutral-800/50 p-3 rounded-lg border border-neutral-800">
-                    <p className="text-xs text-neutral-400">Contacts</p>
-                    <p className="font-medium text-white">{viewingCompany.contactCount}</p>
-                  </div>
-                  <div className="bg-neutral-800/50 p-3 rounded-lg border border-neutral-800">
-                    <p className="text-xs text-neutral-400">Active Deals</p>
-                    <p className="font-medium text-blue-300">{viewingCompany.activeDeals}</p>
-                  </div>
+
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { label: 'Industry', value: viewingCompany.industry, color: 'text-white' },
+                    { label: 'Location', value: viewingCompany.location || '—', color: 'text-white' },
+                    { label: 'Contacts', value: viewingCompany.contactCount, color: 'text-white' },
+                    { label: 'Active Deals', value: viewingCompany.activeDeals, color: 'text-violet-300' },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} className="bg-white/3 border border-white/6 rounded-xl p-3">
+                      <p className="text-xs text-slate-500 font-medium mb-0.5">{label}</p>
+                      <p className={`text-sm font-semibold ${color} truncate`}>{value}</p>
+                    </div>
+                  ))}
                 </div>
 
-                <div>
-                  <p className="text-xs text-neutral-400 mb-1">Website</p>
-                  <a
-                    href={`https://${viewingCompany.website}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-400 hover:text-blue-300 underline text-sm break-all"
-                  >
-                    {viewingCompany.website || 'Not provided'}
-                  </a>
-                </div>
-
-                <div>
-                  <p className="text-xs text-neutral-400 mb-1">Description</p>
-                  <p className="text-sm text-neutral-300 leading-relaxed">{viewingCompany.description || 'No description available.'}</p>
-                </div>
+                {/* Description */}
+                {viewingCompany.description && (
+                  <div className="bg-white/2 border border-white/6 rounded-xl p-4">
+                    <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-2">Description</p>
+                    <p className="text-sm text-slate-300 leading-relaxed">{viewingCompany.description}</p>
+                  </div>
+                )}
               </div>
-              <div className="px-6 py-4 bg-neutral-950 border-t border-neutral-800 flex justify-end gap-3">
-                <button
-                  onClick={closeDetailsModal}
-                  className="px-4 py-2 text-neutral-300 hover:bg-neutral-800 rounded-lg transition-colors font-medium"
-                >
+
+              {/* Modal Footer */}
+              <div className="flex gap-3 px-6 pb-6">
+                <button onClick={closeDetailsModal}
+                  className="flex-1 py-2.5 rounded-xl text-slate-300 bg-white/5 hover:bg-white/8 border border-white/8 text-sm font-semibold transition-all">
                   Close
                 </button>
-                <button
-                  onClick={() => { closeDetailsModal(); openEditModal(viewingCompany); }}
-                  className="px-4 py-2 bg-neutral-800 hover:bg-neutral-700 text-white font-semibold rounded-lg transition-all duration-200 border border-neutral-700 shadow-lg"
-                >
+                <button onClick={() => { closeDetailsModal(); openEditModal(viewingCompany); }}
+                  className="flex-1 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold transition-all shadow-lg shadow-violet-900/40">
                   Edit Company
                 </button>
               </div>
             </div>
-          </div>
+          </ModalOverlay>
         )}
+
       </div>
     </div>
   );
