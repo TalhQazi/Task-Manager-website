@@ -17,6 +17,7 @@ type EmailConfig = {
   pass: string;
   secure: boolean;
   fromAddress: string;
+  senderName: string;
 };
 
 type Template = {
@@ -234,13 +235,28 @@ export default function SystemEmailSettings() {
               </div>
             </div>
             <div className="space-y-2">
+              <Label htmlFor="senderName">Sender Name</Label>
+              <Input
+                id="senderName"
+                placeholder="Task Manager"
+                value={formData.emailConfig.senderName ?? ""}
+                onChange={(e) => handleConfigChange("senderName", e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                The name recipients see in their inbox — e.g. "Task Manager".
+              </p>
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="fromAddress">From Address</Label>
               <Input
                 id="fromAddress"
-                placeholder="Task Manager By Reardon <noreply@reardon.com>"
+                placeholder="noreply@example.com"
                 value={formData.emailConfig.fromAddress}
                 onChange={(e) => handleConfigChange("fromAddress", e.target.value)}
               />
+              <p className="text-xs text-muted-foreground">
+                Leave blank to use the Username above as the from address.
+              </p>
             </div>
             <div className="flex items-center space-x-2 pt-8">
               <Switch
