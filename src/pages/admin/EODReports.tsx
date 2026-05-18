@@ -53,7 +53,9 @@ export default function AdminEODReports() {
   };
 
   const handleViewEmployee = (employee: EmployeeEODData) => {
-    navigate(`/admin/eod-reports/${encodeURIComponent(employee.employeeName)}`);
+    navigate(`/admin/eod-reports/${encodeURIComponent(employee.employeeName)}`, {
+      state: { avatar: employee.avatar },
+    });
   };
 
   const filteredEmployees = employees.filter((emp) =>

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Table,
   TableBody,
@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ClipboardList, Calendar, Clock, ChevronLeft, CheckCircle, AlertCircle } from "lucide-react";
-import { getAdminEmployeeEODReports } from "@/lib/admin/apiClient";
+import { getAdminEmployeeEODReports, toProxiedUrl } from "@/lib/admin/apiClient";
 import { toast } from "sonner";
 
 interface EODReport {
@@ -33,6 +33,8 @@ interface EODReport {
 export default function EmployeeEODHistory() {
   const { employeeName } = useParams<{ employeeName: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const avatar: string | undefined = (location.state as any)?.avatar;
   const [reports, setReports] = useState<EODReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState<EODReport | null>(null);
@@ -120,7 +122,10 @@ export default function EmployeeEODHistory() {
       <Card className="bg-gradient-to-r from-[#133767] to-[#1a4a8c] text-white">
         <CardContent className="p-6">
           <div className="flex items-center gap-4">
-            <Avatar className="h-16 w-16 bg-white/20 border-2 border-white/30">
+            <Avatar className="h-16 w-16 border-2 border-white/30">
+              {avatar ? (
+                <AvatarImage src={toProxiedUrl(avatar)} alt={employeeName} className="object-cover" />
+              ) : null}
               <AvatarFallback className="bg-white/20 text-white text-xl font-bold">
                 {getInitials(employeeName || "")}
               </AvatarFallback>
