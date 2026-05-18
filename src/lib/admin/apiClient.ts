@@ -453,6 +453,7 @@ export async function getAdminEODStatus(date?: string) {
     items: Array<{
       employeeId: string;
       employeeName: string;
+      avatar?: string;
       status: "submitted" | "missing" | "late" | "not_clocked_in";
       clockIn?: string;
       clockOut?: string;

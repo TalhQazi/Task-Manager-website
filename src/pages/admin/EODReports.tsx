@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Table,
   TableBody,
@@ -20,6 +20,7 @@ import { toast } from "sonner";
 interface EmployeeEODData {
   employeeId: string;
   employeeName: string;
+  avatar?: string;
   status: "submitted" | "missing" | "late" | "not_clocked_in";
   clockIn?: string;
   clockOut?: string;
@@ -198,7 +199,10 @@ export default function AdminEODReports() {
                     <TableRow key={emp.employeeId} className="cursor-pointer hover:bg-gray-50">
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <Avatar className="h-10 w-10 bg-[#133767]">
+                          <Avatar className="h-10 w-10">
+                            {emp.avatar ? (
+                              <AvatarImage src={emp.avatar} alt={emp.employeeName} className="object-cover" />
+                            ) : null}
                             <AvatarFallback className="bg-[#133767] text-white text-sm">
                               {getInitials(emp.employeeName)}
                             </AvatarFallback>
