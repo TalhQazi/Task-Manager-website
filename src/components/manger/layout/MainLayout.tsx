@@ -190,12 +190,24 @@ export function MainLayout({ children }: MainLayoutProps) {
     return "/manager/notifications";
   };
 
+  let cachedProfile: any = null;
+  try {
+    const cachedRaw = localStorage.getItem("manager_cached_profile");
+    if (cachedRaw) cachedProfile = JSON.parse(cachedRaw);
+  } catch (e) {}
+
   const settingsQuery = useQuery({
     queryKey: ["settings"],
     queryFn: async () => {
-      return apiFetch<{ item: { fullName?: string; email?: string; avatarUrl?: string } }>("/api/settings");
+      return apiFetch<{ item: { fullName?: string; email?: string; avatarUrl?: string; avatarDataUrl?: string } }>("/api/settings");
     },
   });
+
+  useEffect(() => {
+    if (settingsQuery.data?.item) {
+      localStorage.setItem("manager_cached_profile", JSON.stringify(settingsQuery.data.item));
+    }
+  }, [settingsQuery.data]);
 
   // Header settings from admin panel
   const headerSettingsQuery = useQuery({
@@ -479,9 +491,10 @@ export function MainLayout({ children }: MainLayoutProps) {
   };
 
   const settings = settingsQuery.data?.item;
-  const fullName = (settings?.fullName || auth.name || auth.username || "Manager").trim();
-  const email = (settings?.email || "").trim();
-  const avatarUrl = toProxiedUrl((settings as any)?.avatarDataUrl || (settings as any)?.avatarUrl as string | undefined);
+  const fullName = (settings?.fullName || cachedProfile?.fullName || auth.name || auth.username || "Manager").trim();
+  const email = (settings?.email || cachedProfile?.email || "").trim();
+  const avatarUrlRaw = (settings as any)?.avatarDataUrl || (settings as any)?.avatarUrl || cachedProfile?.avatarDataUrl || cachedProfile?.avatarUrl;
+  const avatarUrl = avatarUrlRaw ? toProxiedUrl(avatarUrlRaw) : "";
   const initials =
     fullName
       .split(" ")

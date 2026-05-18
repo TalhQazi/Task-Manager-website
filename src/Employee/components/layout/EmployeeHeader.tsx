@@ -53,7 +53,13 @@ interface Notification {
 export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [profile, setProfile] = useState<ProfileData | null>(() => {
+    try {
+      const cachedRaw = localStorage.getItem("employee_cached_profile");
+      if (cachedRaw) return JSON.parse(cachedRaw);
+    } catch {}
+    return null;
+  });
 
   // Header image upload states
   const [headerModalOpen, setHeaderModalOpen] = useState(false);
@@ -123,6 +129,9 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
       try {
         const res = await getEmployeeProfile();
         setProfile(res.item);
+        if (res.item) {
+          localStorage.setItem("employee_cached_profile", JSON.stringify(res.item));
+        }
       } catch (err) {
         console.error("Failed to load profile for header:", err);
       }
