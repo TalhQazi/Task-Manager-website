@@ -1015,7 +1015,9 @@ export default function AssetLibrary({
                             onClick={(e) => {
                               e.preventDefault();
                               e.stopPropagation();
-                              deleteAssetMutation.mutate(a.id);
+                              if (window.confirm("Are you sure you want to delete this image?")) {
+                                deleteAssetMutation.mutate(a.id);
+                              }
                             }}
                             disabled={deleteAssetMutation.isPending}
                             aria-label="Delete asset"
@@ -1376,7 +1378,11 @@ export default function AssetLibrary({
                 <Download className="h-3.5 w-3.5" /> Download
               </Button>
               <Button type="button" variant="destructive" size="sm" className="gap-1.5 shrink-0"
-                onClick={() => deleteAssetMutation.mutate(preview.id)}
+                onClick={() => {
+                  if (window.confirm("Are you sure you want to delete this image?")) {
+                    deleteAssetMutation.mutate(preview.id);
+                  }
+                }}
                 disabled={deleteAssetMutation.isPending}>
                 <Trash2 className="h-3.5 w-3.5" /> Delete
               </Button>

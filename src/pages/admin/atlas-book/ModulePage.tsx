@@ -151,12 +151,7 @@ const moduleData: Record<string, { title: string; features: string[]; accounts: 
     icon: CreditCard,
     component: CreditMonitoring
   },
-  "title": {
-    title: "Title & Lien Monitoring",
-    features: ["Mortgage Monitoring", "Ownership Changes"],
-    accounts: ["Mortgage Liability", "Legal Expense"],
-    icon: ShieldCheck
-  },
+
   "analytics": {
     title: "Dashboard & Analytics",
     features: ["Global Dashboard", "Financial KPIs"],

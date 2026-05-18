@@ -133,7 +133,7 @@ const Dashboard = () => {
             { title: "Due Today", value: metrics.dueToday, icon: CalendarCheck, variant: "teal", changeType: "neutral" as const, onClick: () => navigate("/admin/tasks?filter=today") },
             { title: "Overdue Tasks", value: metrics.overdueTasks, icon: AlertTriangle, variant: "red", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
             { title: "Patents", value: `${metrics.patentFiled} / ${metrics.patentPending}`, change: "filed / pending", icon: FileSearch, variant: "amber", changeType: "neutral" as const, onClick: () => navigate("/admin/intellectual-property") },
-            { title: "Pending Bugs", value: metrics.pendingBugs, icon: Bug, variant: "yellow", changeType: "neutral" as const, onClick: () => navigate("/admin/bug-reports") },
+            { title: "Pending Bugs", value: metrics.pendingBugs, icon: Bug, variant: "red", changeType: "neutral" as const, onClick: () => navigate("/admin/bug-reports") },
             { title: "Total Vehicles", value: metrics.totalVehicles, icon: Car, variant: "orange", changeType: "positive" as const, onClick: () => navigate("/admin/vehicles") },
             { title: "Websites", value: `${metrics.websiteActive} / ${metrics.websiteFuture}`, change: "active / future", icon: Globe, variant: "teal", changeType: "positive" as const, onClick: () => navigate("/admin/websites") },
           ].map((stat, idx) => (
