@@ -1,4 +1,7 @@
-import { apiFetch } from "@/lib/admin/apiClient";
+import { apiFetch, toProxiedUrl as toProxiedUrlAdmin } from "@/lib/admin/apiClient";
+import { toProxiedUrl as toProxiedUrlEmployee } from "@/Employee/lib/api";
+import { getAuthState } from "@/lib/auth";
+import { getEmployeeAuth } from "@/Employee/lib/auth";
 
 export type MemePayload = {
   id: string;
@@ -6,6 +9,17 @@ export type MemePayload = {
   caption?: string;
   category?: string;
 };
+
+/**
+ * Get the appropriate toProxiedUrl based on current auth context
+ */
+function getToProxiedUrl() {
+  const empAuth = getEmployeeAuth();
+  if (empAuth?.token) {
+    return toProxiedUrlEmployee;
+  }
+  return toProxiedUrlAdmin;
+}
 
 export const FALLBACK_IMAGE_URL = `data:image/svg+xml,${encodeURIComponent(`
 <svg xmlns="http://www.w3.org/2000/svg" width="1080" height="1080" viewBox="0 0 1080 1080">
@@ -67,7 +81,13 @@ export async function preloadImage(url: string): Promise<void> {
 
 export async function fetchNextMeme(): Promise<MemePayload> {
   async function attempt() {
-    return apiFetch<MemePayload>("/api/meme/next", { method: "GET" });
+    const meme = await apiFetch<MemePayload>("/api/meme/next", { method: "GET" });
+    // Apply URL proxy to S3 URLs to avoid CORS issues
+    const toProxiedUrl = getToProxiedUrl();
+    return {
+      ...meme,
+      imageUrl: toProxiedUrl(meme.imageUrl) || meme.imageUrl,
+    };
   }
 
   try {

@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { FALLBACK_IMAGE_URL } from "./MemeService";
+import { toProxiedUrl as toProxiedUrlAdmin } from "@/lib/admin/apiClient";
+import { toProxiedUrl as toProxiedUrlEmployee } from "@/Employee/lib/api";
+import { getEmployeeAuth } from "@/Employee/lib/auth";
 
 export type MemeModalProps = {
   isOpen: boolean;
@@ -8,12 +11,26 @@ export type MemeModalProps = {
   onClose: () => void;
 };
 
+/**
+ * Get the appropriate toProxiedUrl based on current auth context
+ */
+function getToProxiedUrl() {
+  const empAuth = getEmployeeAuth();
+  if (empAuth?.token) {
+    return toProxiedUrlEmployee;
+  }
+  return toProxiedUrlAdmin;
+}
+
 export function MemeModal({ isOpen, imageUrl, caption, onClose }: MemeModalProps) {
   const [imgFailed, setImgFailed] = useState(false);
 
   const src = useMemo(() => {
     if (imgFailed) return FALLBACK_IMAGE_URL;
-    return imageUrl;
+    // Apply URL proxy to S3 URLs to avoid CORS issues
+    const toProxiedUrl = getToProxiedUrl();
+    const proxiedUrl = toProxiedUrl(imageUrl) || imageUrl;
+    return proxiedUrl;
   }, [imageUrl, imgFailed]);
 
   useEffect(() => {
