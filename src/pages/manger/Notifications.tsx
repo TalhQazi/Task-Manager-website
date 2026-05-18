@@ -112,7 +112,7 @@ export default function Notifications() {
       }
       if (direct.includes("/projects/")) {
         const match = direct.match(/\/projects\/([a-f0-9]+)/i);
-        return match ? `/manager/projects?view=${match[1]}` : "/manager/projects";
+        return match ? `/manager/tasks?project=${match[1]}` : "/manager/tasks";
       }
 
       if (direct.startsWith("/manager/")) return direct;

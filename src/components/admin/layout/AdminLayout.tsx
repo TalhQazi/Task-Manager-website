@@ -72,7 +72,23 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         queryClient.invalidateQueries({ queryKey: ["admin-notifications"] });
         
         // Determine where to navigate when clicking "View"
-        const link = data.meta?.link || "/admin/notifications";
+        let link = "/admin/notifications";
+        const direct = String(data.meta?.link || "").trim();
+        const resourceType = String(data.meta?.resourceType || "").toLowerCase().trim();
+        const resourceId = String(data.meta?.resourceId || "").trim();
+
+        if (resourceType === "task" || resourceType === "task comment") {
+          link = resourceId ? `/admin/tasks?view=${encodeURIComponent(resourceId)}` : "/admin/tasks";
+        } else if (resourceType === "project" || resourceType === "project comment") {
+          link = resourceId ? `/admin/tasks?projectView=${encodeURIComponent(resourceId)}` : "/admin/tasks";
+        } else if (direct) {
+          if (direct.includes("/tasks/")) {
+            const match = direct.match(/\/tasks\/([a-f0-9]+)/i);
+            link = match ? `/admin/tasks?view=${match[1]}` : "/admin/tasks";
+          } else {
+            link = direct;
+          }
+        }
         
         // Show toast
         toast(data.title || "New Notification", {

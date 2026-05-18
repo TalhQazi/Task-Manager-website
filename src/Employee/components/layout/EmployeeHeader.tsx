@@ -91,6 +91,9 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
         const match = direct.match(/\/tasks\/([a-f0-9]+)/i);
         return match ? `/employee/tasks/${match[1]}` : "/employee/tasks";
       }
+      if (direct.includes("/projects")) {
+        return "/employee/tasks";
+      }
       if (direct.includes("/time-tracking") || direct.includes("/time-logs") || direct.includes("/timelogs")) {
         return "/employee/timeLogs";
       }

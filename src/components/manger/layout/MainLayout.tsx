@@ -128,8 +128,8 @@ export function MainLayout({ children }: MainLayoutProps) {
       return "/manager/tasks";
     }
     if (resourceType === "project" || resourceType === "project comment") {
-      if (resourceId) return `/manager/projects?view=${encodeURIComponent(resourceId)}`;
-      return "/manager/projects";
+      if (resourceId) return `/manager/tasks?project=${encodeURIComponent(resourceId)}`;
+      return "/manager/tasks";
     }
     if (resourceType === "bug") {
       if (resourceId) return `/developer/bugs?view=${encodeURIComponent(resourceId)}`;
@@ -171,7 +171,7 @@ export function MainLayout({ children }: MainLayoutProps) {
       }
       if (direct.includes("/projects/")) {
         const match = direct.match(/\/projects\/([a-f0-9]+)/i);
-        return match ? `/manager/projects?view=${match[1]}` : "/manager/projects";
+        return match ? `/manager/tasks?project=${match[1]}` : "/manager/tasks";
       }
 
       if (direct.startsWith("/manager/")) return direct;
@@ -416,10 +416,8 @@ export function MainLayout({ children }: MainLayoutProps) {
         // Refresh notifications count
         queryClient.invalidateQueries({ queryKey: ["manager-notifications"] });
         
-        // Determine where to navigate when clicking "View"
-        const link = data.meta?.link 
-          ? data.meta.link.replace(/^\/admin\//, "/manager/") 
-          : "/manager/notifications";
+        // Determine where to navigate when clicking "View" using robust resolver
+        const link = resolveNotificationLink(data);
         
         // Show toast
         toast(data.title || "New Notification", {
