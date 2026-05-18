@@ -245,7 +245,7 @@ export default function EmployeeTimeHistory() {
                               variant="secondary"
                               className={`text-xs capitalize ${statusColors[r.status] ?? "bg-gray-100 text-gray-700"}`}
                             >
-                              {statusLabels[r.status] ?? r.status || "—"}
+                              {(statusLabels[r.status] ?? r.status) || "—"}
                             </Badge>
                           </td>
                         </tr>
