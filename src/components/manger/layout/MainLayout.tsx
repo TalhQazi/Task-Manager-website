@@ -93,7 +93,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     const resourceTypeRaw = String(n.meta?.resourceType || "").trim();
     const resourceType = resourceTypeRaw.toLowerCase();
     const resourceId = String(n.meta?.resourceId || "").trim();
-    const direct = String(n.meta?.link || "").trim();
+    const direct = String(n.meta?.link || "").trim().replace(/^\/admin\//, "/manager/");
 
     if (resourceType === "vehicle") {
       if (resourceId) return `/manager/vehicles?view=${encodeURIComponent(resourceId)}`;

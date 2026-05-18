@@ -42,6 +42,12 @@ interface Notification {
   content: string;
   timestamp?: string;
   status?: string;
+  meta?: {
+    resourceType?: string;
+    resourceId?: string;
+    link?: string;
+    category?: string;
+  };
 }
 
 export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
@@ -55,6 +61,22 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
   const [isHeaderPickerOpen, setIsHeaderPickerOpen] = useState(false);
 
   const auth = getEmployeeAuth();
+
+  const resolveEmployeeLink = (n: Notification): string => {
+    const direct = String(n.meta?.link || "").trim();
+    if (direct) return direct.replace(/^\/admin\//, "/employee/").replace(/^\/manager\//, "/employee/");
+
+    const resourceType = String(n.meta?.resourceType || "").toLowerCase().trim();
+    const resourceId = String(n.meta?.resourceId || "").trim();
+
+    if (resourceType === "task" || resourceType === "task comment") {
+      return resourceId ? `/employee/tasks/${resourceId}` : "/employee/tasks";
+    }
+    if (resourceType === "project" || resourceType === "project comment") {
+      return "/employee/tasks";
+    }
+    return "/employee/notifications";
+  };
 
   // Fetch profile for avatar image
   useEffect(() => {
@@ -356,7 +378,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                       <div className="p-4 text-center text-xs text-muted-foreground">No notifications</div>
                     ) : (
                       notifications.map((n: Notification) => (
-                        <DropdownMenuItem key={n.id} className="text-xs" onClick={() => { void markRead(n.id); navigate("/employee/notifications"); }}>
+                        <DropdownMenuItem key={n.id} className="text-xs cursor-pointer focus:bg-white/10" onClick={() => { void markRead(n.id); navigate(resolveEmployeeLink(n)); }}>
                           {String(n.content || "")}
                         </DropdownMenuItem>
                       ))

@@ -81,6 +81,10 @@ const notificationIcons = {
 };
 
 function resolveEmployeeLink(meta?: { resourceType?: string; resourceId?: string; link?: string; category?: string }): string {
+  const direct = String(meta?.link || "").trim();
+  // Backend stores links as /admin/... or /manager/... — rewrite to employee equivalent
+  if (direct) return direct.replace(/^\/admin\//, "/employee/").replace(/^\/manager\//, "/employee/");
+
   const resourceType = String(meta?.resourceType || "").toLowerCase().trim();
   const resourceId = String(meta?.resourceId || "").trim();
 

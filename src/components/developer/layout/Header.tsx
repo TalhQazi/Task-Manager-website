@@ -38,7 +38,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   const resolveNotificationLink = (n: MessageApi) => {
     const direct = String(n.meta?.link || "").trim();
-    if (direct) return direct;
+    if (direct) return direct.replace(/^\/admin\//, "/developer/");
 
     const resourceType = String(n.meta?.resourceType || "").trim().toLowerCase();
     const resourceId = String(n.meta?.resourceId || "").trim();
