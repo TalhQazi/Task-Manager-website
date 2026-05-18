@@ -65,8 +65,14 @@ type NavItem = {
 const navItemsBase: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin", end: true },
   {
-    icon: Book,
     label: "AtlasBook",
+    customIcon: (
+      <img
+        src="/atlas.png"
+        alt="AtlasBook"
+        className="h-5 w-5 flex-shrink-0 object-contain rounded opacity-80 group-hover:opacity-100 transition-opacity"
+      />
+    ),
     children: [
       { label: "AtlasBook Dashboard", path: "/admin/atlas-book" },
       { label: "Company Management", path: "/admin/atlas-book/company" },
@@ -297,7 +303,11 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
             )}
           >
             <div className="flex items-center gap-3">
-              {item.icon && <item.icon className={cn("h-5 w-5 flex-shrink-0 transition-all", hasActiveChild && "text-[#00C6FF]")} />}
+              {item.customIcon ? (
+                item.customIcon
+              ) : item.icon ? (
+                <item.icon className={cn("h-5 w-5 flex-shrink-0 transition-all", hasActiveChild && "text-[#00C6FF]")} />
+              ) : null}
               <span className="text-sm font-medium truncate">{item.label}</span>
             </div>
             {isExpanded ? (
