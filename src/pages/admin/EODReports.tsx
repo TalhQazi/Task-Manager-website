@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ClipboardList, Search, Calendar, Building, Phone, Mail } from "lucide-react";
-import { getAdminEODStatus } from "@/lib/admin/apiClient";
+import { getAdminEODStatus, toProxiedUrl } from "@/lib/admin/apiClient";
 import { toast } from "sonner";
 
 interface EmployeeEODData {
@@ -201,7 +201,7 @@ export default function AdminEODReports() {
                         <div className="flex items-center gap-3">
                           <Avatar className="h-10 w-10">
                             {emp.avatar ? (
-                              <AvatarImage src={emp.avatar} alt={emp.employeeName} className="object-cover" />
+                              <AvatarImage src={toProxiedUrl(emp.avatar)} alt={emp.employeeName} className="object-cover" />
                             ) : null}
                             <AvatarFallback className="bg-[#133767] text-white text-sm">
                               {getInitials(emp.employeeName)}
