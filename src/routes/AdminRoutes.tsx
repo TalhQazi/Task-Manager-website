@@ -36,6 +36,7 @@ const IntellectualProperty = lazy(() => import("@/pages/admin/IntellectualProper
 const NotFound = lazy(() => import("@/pages/admin/NotFound"));
 const ArchiveData = lazy(() => import("@/pages/admin/ArchiveData"));
 const FounderMessages = lazy(() => import("@/pages/admin/FounderMessages"));
+const VideoMessages = lazy(() => import("@/pages/admin/VideoMessages"));
 const AssetLibrary = lazy(() => import("@/pages/admin/AssetLibrary"));
 const CompanyInformation = lazy(() => import("@/pages/admin/CompanyInformation"));
 const EODReports = lazy(() => import("@/pages/admin/EODReports"));
@@ -111,6 +112,7 @@ export default function AdminRoutes() {
       { path: "time-tracking/history/:employee", element: <EmployeeTimeHistory /> },
       { path: "messaging", element: <Messaging /> },
       { path: "announcements", element: <Announcements /> },
+      { path: "video-messages", element: <VideoMessages /> },
       { path: "notifications", element: <Notifications /> },
       { path: "do-not-hire", element: <DoNotHire /> },
       { path: "onboarding", element: <Onboarding /> },
