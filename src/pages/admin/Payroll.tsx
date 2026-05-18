@@ -155,18 +155,22 @@ function parsePayRate(rate: string): number {
 }
 
 function parseMinutes(hhmm: string) {
-  const [h, m] = String(hhmm || "").split(":").map((x) => Number(x));
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
-  return h * 60 + m;
+  const parts = String(hhmm || "").split(":");
+  if (parts.length < 2) return null;
+  const h = Number(parts[0]);
+  const m = Number(parts[1]);
+  const s = parts.length > 2 ? Number(parts[2]) : 0;
+  if (!Number.isFinite(h) || !Number.isFinite(m) || !Number.isFinite(s)) return null;
+  return h * 3600 + m * 60 + s; // Return total seconds instead of minutes
 }
 
 function calcHoursWorked(clockIn: string, clockOut: string | null): number {
   if (!clockOut) return 0;
-  const inMin = parseMinutes(clockIn);
-  const outMin = parseMinutes(clockOut);
-  if (inMin === null || outMin === null) return 0;
-  const diff = outMin - inMin;
-  return diff > 0 ? diff / 60 : 0;
+  const inSec = parseMinutes(clockIn);
+  const outSec = parseMinutes(clockOut);
+  if (inSec === null || outSec === null) return 0;
+  const diff = outSec - inSec;
+  return diff > 0 ? diff / 3600 : 0; // Convert seconds to hours
 }
 
 function formatCurrency(amount: number): string {
@@ -240,7 +244,7 @@ const Payroll = () => {
         setEmployees(empList);
         setTimeEntries(timeList);
       } catch (e) {
-        console.error("Failed to load payroll data:", e);
+        // Silently handle error - user sees loading state
       } finally {
         setLoading(false);
       }
@@ -262,7 +266,9 @@ const Payroll = () => {
 
     const data: PayrollData[] = employees.map((emp) => {
       const empEntries = monthlyEntries.filter(
-        (e) => e.employee === emp.name || e.employeeId === emp.id
+        (e) => e.employee?.toLowerCase().trim() === emp.name?.toLowerCase().trim() || 
+               e.employeeId === emp.id ||
+               String(e.employeeId || "").toLowerCase() === String(emp.id || "").toLowerCase()
       );
 
       const totalHours = empEntries.reduce((sum, entry) => {
@@ -347,7 +353,11 @@ const Payroll = () => {
       
       const entryDate = new Date(entry.date);
       if (entryDate.getMonth() === month && entryDate.getFullYear() === year) {
-        const employee = employees.find(e => e.name === entry.employee || e.id === entry.employeeId);
+        const employee = employees.find(e => 
+          e.name?.toLowerCase().trim() === entry.employee?.toLowerCase().trim() || 
+          e.id === entry.employeeId ||
+          String(e.id || "").toLowerCase() === String(entry.employeeId || "").toLowerCase()
+        );
         if (!employee) return;
         
         const hours = calcHoursWorked(entry.clockIn, entry.clockOut);
@@ -416,8 +426,9 @@ const Payroll = () => {
 
       const dayEntries = timeEntries.filter(
         (e) =>
-          (e.employee === selectedEmployee.employee.name ||
-            e.employeeId === selectedEmployee.employee.id) &&
+          (e.employee?.toLowerCase().trim() === selectedEmployee.employee.name?.toLowerCase().trim() ||
+            e.employeeId === selectedEmployee.employee.id ||
+            String(e.employeeId || "").toLowerCase() === String(selectedEmployee.employee.id || "").toLowerCase()) &&
           e.date === dateStr &&
           e.clockOut
       );

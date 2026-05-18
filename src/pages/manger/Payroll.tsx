@@ -79,12 +79,9 @@ export default function Payroll() {
     try {
       setLoading(true);
       const profileRes = await apiFetch<{ item: EmployeeProfile }>("/api/employees/me");
-      console.log("Employee profile from API:", profileRes.item);
-      console.log("PayRate field:", profileRes.item.payRate);
-      console.log("PayType field:", profileRes.item.payType);
       setEmployeeProfile(profileRes.item);
     } catch (err) {
-      console.error("Failed to load employee data:", err);
+      // Silently handle error - user sees loading state
     } finally {
       setLoading(false);
     }
@@ -99,32 +96,20 @@ export default function Payroll() {
       );
       const allEntries = res.items || [];
       
-      console.log("All time entries from API:", allEntries);
-      
       // Filter entries for current month
       const year = currentMonth.getFullYear();
       const month = currentMonth.getMonth();
       const startOfMonth = new Date(year, month, 1);
       const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59);
       
-      console.log("Current month filter:", {
-        currentMonth: currentMonth.toISOString(),
-        year,
-        month,
-        startOfMonth: startOfMonth.toISOString(),
-        endOfMonth: endOfMonth.toISOString()
-      });
-      
       const monthEntries = allEntries.filter((entry) => {
         const entryDate = new Date(entry.date);
-        console.log(`Entry date check: ${entry.date} -> ${entryDate.toISOString()}, in range: ${entryDate >= startOfMonth && entryDate <= endOfMonth}`);
         return entryDate >= startOfMonth && entryDate <= endOfMonth;
       });
       
-      console.log("Filtered month entries:", monthEntries);
       setTimeEntries(monthEntries);
     } catch (err) {
-      console.error("Failed to load time entries:", err);
+      // Silently handle error
     }
   };
 
@@ -141,22 +126,13 @@ export default function Payroll() {
   const calculatedPayroll = useMemo(() => {
     if (!employeeProfile) return null;
 
-    console.log("Time entries:", timeEntries);
-    console.log("Employee profile:", employeeProfile);
-
     const totalHours = timeEntries.reduce((sum, entry) => {
       const hours = calcHoursWorked(entry.clockIn, entry.clockOut);
-      console.log(`Entry ${entry.id}: clockIn=${entry.clockIn}, clockOut=${entry.clockOut}, hours=${hours}`);
       return sum + hours;
     }, 0);
 
-    console.log("Total hours:", totalHours);
-
     const isMonthly = employeeProfile.payType === "monthly";
     const payRateValue = parsePayRate(employeeProfile.payRate || "0");
-    
-    console.log("Pay type:", isMonthly ? "monthly" : "hourly");
-    console.log("Pay rate value:", payRateValue);
     
     let regularHours = 0;
     let overtimeHours = 0;
@@ -193,16 +169,6 @@ export default function Payroll() {
     const medicare = totalPay * 0.0145; // 1.45% Medicare
     const totalDeductions = federalTax + stateTax + socialSecurity + medicare;
     const netPay = totalPay - totalDeductions;
-
-    console.log("Calculated payroll:", {
-      totalHours,
-      regularHours,
-      overtimeHours,
-      regularPay,
-      overtimePay,
-      totalPay,
-      hourlyRate,
-    });
 
     return {
       totalHours,
