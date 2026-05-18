@@ -186,7 +186,7 @@ function formatEntryDate(value: string) {
   if (!key) return "—";
   const d = new Date(`${key}T00:00:00`);
   if (!Number.isFinite(d.getTime())) return key;
-  return d.toLocaleDateString();
+  return d.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 }
 
 function formatLocalTime(value: string) {
@@ -838,7 +838,7 @@ const TimeTracking = () => {
                         {o.weekStart} - {o.weekEnd}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
-                        Total {Number(o.totalHours || 0).toFixed(2)}h | OT {Number(o.overtimeHours || 0).toFixed(2)}h
+                        Total {formatDuration(Math.round(Number(o.totalHours || 0) * 60))} | OT {formatDuration(Math.round(Number(o.overtimeHours || 0) * 60))}
                       </p>
                     </div>
                   ))}
