@@ -1491,32 +1491,41 @@ const hasTaxInfo =
                   {profile?.jobTitle && profile?.department ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-red-500" />}
                   <span>Work Information - {profile?.jobTitle && profile?.department ? "Completed" : "Not completed"}</span>
                 </div>
-                <div className="flex items-center gap-2 text-sm">
-                  {onboardingData?.identityVerification?.primaryId?.status === "submitted" && onboardingData?.identityVerification?.secondaryId?.status === "submitted" ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-red-500" />}
-                  <span>Identity Verification - {onboardingData?.identityVerification?.primaryId?.status === "submitted" && onboardingData?.identityVerification?.secondaryId?.status === "submitted" ? "Completed" : "Not completed"}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  {onboardingData?.w4Form?.status === "submitted" ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-red-500" />}
-                  <span>W-4 Form - {onboardingData?.w4Form?.status === "submitted" ? "Completed" : "Not completed"}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  {onboardingData?.employeeHandbook?.status === "submitted" ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-red-500" />}
-                  <span>Employee Handbook - {onboardingData?.employeeHandbook?.status === "submitted" ? "Completed" : "Not completed"}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  {onboardingData?.digitalSignature?.status === "submitted" ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-red-500" />}
-                  <span>Digital Signature - {onboardingData?.digitalSignature?.status === "submitted" ? "Completed" : "Not completed"}</span>
-                </div>
+                {(() => {
+                  const docDone = (s?: string | null) => s === "submitted" || s === "verified";
+                  const idDone = docDone(onboardingData?.identityVerification?.primaryId?.status) &&
+                                 docDone(onboardingData?.identityVerification?.secondaryId?.status);
+                  return (
+                    <>
+                      <div className="flex items-center gap-2 text-sm">
+                        {idDone ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-red-500" />}
+                        <span>Identity Verification - {idDone ? "Completed" : "Not completed"}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        {docDone(onboardingData?.w4Form?.status) ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-red-500" />}
+                        <span>W-4 Form - {docDone(onboardingData?.w4Form?.status) ? "Completed" : "Not completed"}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        {docDone(onboardingData?.employeeHandbook?.status) ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-red-500" />}
+                        <span>Employee Handbook - {docDone(onboardingData?.employeeHandbook?.status) ? "Completed" : "Not completed"}</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        {docDone(onboardingData?.digitalSignature?.status) ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-red-500" />}
+                        <span>Digital Signature - {docDone(onboardingData?.digitalSignature?.status) ? "Completed" : "Not completed"}</span>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
               <Button
                 className="w-full bg-[#133767] hover:bg-[#1a4585]"
                 disabled={
                   !onboardingData?.basicInfo?.completed ||
-                  onboardingData?.identityVerification?.primaryId?.status !== "submitted" ||
-                  onboardingData?.identityVerification?.secondaryId?.status !== "submitted" ||
-                  onboardingData?.w4Form?.status !== "submitted" ||
-                  onboardingData?.employeeHandbook?.status !== "submitted" ||
-                  onboardingData?.digitalSignature?.status !== "submitted" ||
+                  !["submitted", "verified"].includes(onboardingData?.identityVerification?.primaryId?.status ?? "") ||
+                  !["submitted", "verified"].includes(onboardingData?.identityVerification?.secondaryId?.status ?? "") ||
+                  !["submitted", "verified"].includes(onboardingData?.w4Form?.status ?? "") ||
+                  !["submitted", "verified"].includes(onboardingData?.employeeHandbook?.status ?? "") ||
+                  !["submitted", "verified"].includes(onboardingData?.digitalSignature?.status ?? "") ||
                   onboardingData?.overallStatus === "submitted" ||
                   onboardingData?.overallStatus === "approved"
                 }
