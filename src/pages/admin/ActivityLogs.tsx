@@ -195,13 +195,17 @@ export default function ActivityLogs() {
       if (dateTo) params.append("to", `${dateTo}T23:59:59.999Z`);
       if (searchQuery) params.append("search", searchQuery);
       
-      const res = await apiFetch<{ items: ActivityLog[]; pagination: { totalPages: number; totalItems: number; currentPage: number } }>(
-        `/api/activity-logs?${params.toString()}`
-      );
+      const res = await apiFetch<{
+        items: ActivityLog[];
+        totalPages?: number;
+        total?: number;
+        pagination?: { totalPages: number; totalItems: number; currentPage: number };
+      }>(`/api/activity-logs?${params.toString()}`);
       
-      setLogs(res.items);
-      setTotalPages(res.pagination.totalPages || 1);
-      setTotalItems(res.pagination.totalItems || 0);
+      setLogs(res.items || []);
+      const pagination = res.pagination || {};
+      setTotalPages(pagination.totalPages || res.totalPages || 1);
+      setTotalItems(pagination.totalItems || res.total || 0);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load activity logs");
     } finally {
