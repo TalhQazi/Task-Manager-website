@@ -113,6 +113,7 @@ const [uploading, setUploading] = useState(false);
   const [onboardingData, setOnboardingData] = useState<any>(null);
   const [clearHireStatus, setClearHireStatus] = useState<any>(null);
   const [loadingOnboarding, setLoadingOnboarding] = useState(false);
+  const [submittingOnboarding, setSubmittingOnboarding] = useState(false);
 
   // File input refs
   const primaryIdFrontRef = useRef<HTMLInputElement>(null);
@@ -550,12 +551,15 @@ const hasTaxInfo =
   };
 
   const handleSubmitOnboarding = async () => {
+    setSubmittingOnboarding(true);
     try {
       await employeeApiFetch("/api/onboarding/me/submit", { method: "POST" });
-      toast.success("Onboarding submitted for review");
+      toast.success("Onboarding submitted for admin review. You will be notified once reviewed.");
       await loadOnboardingData();
     } catch (err: any) {
       toast.error(err.message || "Failed to submit onboarding");
+    } finally {
+      setSubmittingOnboarding(false);
     }
   };
 
@@ -1520,20 +1524,22 @@ const hasTaxInfo =
               <Button
                 className="w-full bg-[#133767] hover:bg-[#1a4585]"
                 disabled={
+                  submittingOnboarding ||
                   !onboardingData?.basicInfo?.completed ||
                   !["submitted", "verified"].includes(onboardingData?.identityVerification?.primaryId?.status ?? "") ||
                   !["submitted", "verified"].includes(onboardingData?.identityVerification?.secondaryId?.status ?? "") ||
                   !["submitted", "verified"].includes(onboardingData?.w4Form?.status ?? "") ||
                   !["submitted", "verified"].includes(onboardingData?.employeeHandbook?.status ?? "") ||
                   !["submitted", "verified"].includes(onboardingData?.digitalSignature?.status ?? "") ||
-                  onboardingData?.overallStatus === "submitted" ||
                   onboardingData?.overallStatus === "approved"
                 }
                 onClick={handleSubmitOnboarding}
               >
-                {onboardingData?.overallStatus === "submitted" ? "Submitted for Review" :
-                 onboardingData?.overallStatus === "approved" ? "Already Approved" :
-                 "Submit for Admin Approval"}
+                {submittingOnboarding
+                  ? "Submitting..."
+                  : onboardingData?.overallStatus === "approved"
+                  ? "Already Approved"
+                  : "Submit for Admin Approval"}
               </Button>
             </CardContent>
           </Card>
