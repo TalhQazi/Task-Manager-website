@@ -278,7 +278,7 @@ export default function EmployeeClocked() {
 
       setTranscription(finalTranscript || interimTranscript);
       if (finalTranscript) {
-        setEodData({ ...eodData, tasksCompleted: finalTranscript });
+        setEodData((prev) => ({ ...prev, tasksCompleted: finalTranscript }));
       }
     };
 
@@ -546,14 +546,14 @@ export default function EmployeeClocked() {
                         <Badge
                           variant="outline"
                           className={
-                            entry.status === "completed"
+                            entry.status === "complete" || entry.status === "completed"
                               ? "border-green-500 text-green-700 bg-green-50"
-                              : entry.status === "active"
-                              ? "border-green-500 text-green-700 bg-green-50"
+                              : entry.status === "active" || entry.status === "incomplete"
+                              ? "border-blue-500 text-blue-700 bg-blue-50"
                               : "border-gray-500 text-gray-700 bg-gray-50"
                           }
                         >
-                          {entry.status === "completed" ? "Complete" : entry.status}
+                          {entry.status === "complete" || entry.status === "completed" ? "Complete" : entry.status === "incomplete" ? "In Progress" : entry.status}
                         </Badge>
                       </TableCell>
                     </TableRow>

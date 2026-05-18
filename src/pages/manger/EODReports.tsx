@@ -421,7 +421,11 @@ export default function ManagerEODReports() {
                           {report.totalHours ? `${report.totalHours.toFixed(2)}h` : "—"}
                         </TableCell>
                         <TableCell className="text-sm md:text-base text-muted-foreground max-w-[200px] truncate">
-                          {parseEODData(report.rawInput).tasksCompleted?.substring(0, 50) || "—"}...
+                          {(() => {
+                            const text = parseEODData(report.rawInput).tasksCompleted;
+                            if (!text) return "—";
+                            return text.length > 50 ? `${text.substring(0, 50)}...` : text;
+                          })()}
                         </TableCell>
                         <TableCell className="text-right">
                           <DropdownMenu>

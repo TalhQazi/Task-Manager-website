@@ -70,6 +70,8 @@ interface TimeEntry {
 
   scrum?: string | null;
 
+  employee?: string;
+
 }
 
 
@@ -83,6 +85,10 @@ interface HistoryEntry {
   clockIn: string;
 
   clockOut: string;
+
+  clockInAt?: string | null;
+
+  clockOutAt?: string | null;
 
   totalHours: number;
 
@@ -466,6 +472,26 @@ export default function Attendance() {
 
 
 
+  const formatLocalClock = (timeStr?: string | null, isoAt?: string | null): string => {
+
+    if (isoAt) {
+
+      const d = new Date(isoAt);
+
+      if (Number.isFinite(d.getTime())) {
+
+        return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+      }
+
+    }
+
+    return String(timeStr || "").trim() || "--:--";
+
+  };
+
+
+
   const getDuration = () => {
 
     if (!timeEntry?.clockInAt) return "--:--:--";
@@ -492,9 +518,13 @@ export default function Attendance() {
 
 
 
-  const isClockedIn = timeEntry?.clockIn && !timeEntry?.clockOut;
+  const hasClockIn = Boolean(timeEntry?.clockInAt || timeEntry?.clockIn);
 
-  const isClockedOut = timeEntry?.clockIn && timeEntry?.clockOut;
+  const hasClockOut = Boolean(timeEntry?.clockOutAt || timeEntry?.clockOut);
+
+  const isClockedIn = hasClockIn && !hasClockOut;
+
+  const isClockedOut = hasClockIn && hasClockOut;
 
 
 
@@ -662,7 +692,7 @@ export default function Attendance() {
 
                 <p className="text-xs sm:text-sm text-muted-foreground">Clock In</p>
 
-                <p className="text-base sm:text-lg md:text-xl font-bold">{timeEntry?.clockIn || "--:--"}</p>
+                <p className="text-base sm:text-lg md:text-xl font-bold">{formatLocalClock(timeEntry?.clockIn, timeEntry?.clockInAt)}</p>
 
               </div>
 
@@ -690,7 +720,7 @@ export default function Attendance() {
 
                 <p className="text-xs sm:text-sm text-muted-foreground">Clock Out</p>
 
-                <p className="text-base sm:text-lg md:text-xl font-bold">{timeEntry?.clockOut || "--:--"}</p>
+                <p className="text-base sm:text-lg md:text-xl font-bold">{formatLocalClock(timeEntry?.clockOut, timeEntry?.clockOutAt)}</p>
 
               </div>
 
@@ -888,9 +918,9 @@ export default function Attendance() {
 
                         </TableCell>
 
-                        <TableCell className="text-xs sm:text-sm">{entry.clockIn || "--:--"}</TableCell>
+                        <TableCell className="text-xs sm:text-sm">{formatLocalClock(entry.clockIn, entry.clockInAt)}</TableCell>
 
-                        <TableCell className="text-xs sm:text-sm">{entry.clockOut || "--:--"}</TableCell>
+                        <TableCell className="text-xs sm:text-sm">{formatLocalClock(entry.clockOut, entry.clockOutAt)}</TableCell>
 
                         <TableCell className="text-xs sm:text-sm">{entry.totalHours?.toFixed(2) || "--"}</TableCell>
 
@@ -904,13 +934,13 @@ export default function Attendance() {
 
                               "text-xs sm:text-sm " + (
 
-                                entry.status === "completed"
+                                entry.status === "complete" || entry.status === "completed"
 
                                   ? "border-green-500 text-green-700 bg-green-50"
 
-                                  : entry.status === "active"
+                                  : entry.status === "active" || entry.status === "incomplete"
 
-                                  ? "border-green-500 text-green-700 bg-green-50"
+                                  ? "border-blue-500 text-blue-700 bg-blue-50"
 
                                   : "border-gray-500 text-gray-700 bg-gray-50"
 
@@ -920,7 +950,7 @@ export default function Attendance() {
 
                           >
 
-                            {entry.status === "completed" ? "Complete" : entry.status}
+                            {entry.status === "complete" || entry.status === "completed" ? "Complete" : entry.status === "incomplete" ? "In Progress" : entry.status}
 
                           </Badge>
 

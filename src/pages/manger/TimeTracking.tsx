@@ -26,6 +26,14 @@ type TimeEntryApi = Omit<TimeEntry, "id"> & {
   _id: string;
 };
 
+function initialsFromName(name: string) {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "??";
+  const first = parts[0]?.[0] ?? "?";
+  const last = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? "" : "";
+  return (first + last).toUpperCase();
+}
+
 function normalizeEntry(e: TimeEntryApi): TimeEntry {
   return {
     id: e._id,
@@ -145,7 +153,7 @@ export default function TimeTracking() {
               <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs sm:text-sm text-muted-foreground">Total Hours Today</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Total Hours</p>
               <p className="text-lg sm:text-xl md:text-2xl font-bold text-foreground">
                 {totalHours.toFixed(1)}h
               </p>
@@ -241,7 +249,7 @@ export default function TimeTracking() {
                     <td className="px-2 py-2 sm:px-4 sm:py-3">
                       <div className="flex items-center gap-1.5 sm:gap-2">
                         <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs sm:text-sm font-medium flex-shrink-0">
-                          {entry.avatar}
+                          {entry.avatar && !entry.avatar.startsWith("http") ? entry.avatar : initialsFromName(entry.employee)}
                         </div>
                         <span className="font-medium text-foreground text-xs sm:text-sm truncate max-w-[80px] sm:max-w-none">
                           {entry.employee}

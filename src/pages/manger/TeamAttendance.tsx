@@ -48,6 +48,25 @@ function initialsFromName(name: string) {
   return (first + last).toUpperCase();
 }
 
+function formatClockTime(value: string | null | undefined): string {
+  const raw = String(value || "").trim();
+  if (!raw) return "—";
+  const hhmm = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(raw);
+  if (hhmm) {
+    const hour = Number(hhmm[1]);
+    const minute = hhmm[2];
+    if (!Number.isFinite(hour) || hour < 0 || hour > 23) return raw;
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const h12 = hour % 12 === 0 ? 12 : hour % 12;
+    return `${String(h12).padStart(2, "0")}:${minute} ${ampm}`;
+  }
+  const d = new Date(raw);
+  if (Number.isFinite(d.getTime())) {
+    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+  return raw;
+}
+
 function formatDate(dateStr: string) {
   const d = new Date(dateStr);
   return d.toLocaleDateString("en-US", {
@@ -105,7 +124,7 @@ export default function TeamAttendance() {
 
   const stats = {
     total: entries.length,
-    clockedIn: entries.filter((e) => e.clockIn && !e.clockOut).length,
+    clockedIn: entries.filter((e) => e.status === "incomplete").length,
     complete: entries.filter((e) => e.status === "complete").length,
     totalHours: entries.reduce((sum, e) => sum + (e.totalHours || 0), 0),
   };
@@ -275,10 +294,10 @@ export default function TeamAttendance() {
                           {formatDate(entry.date)}
                         </TableCell>
                         <TableCell className="text-sm md:text-base">
-                          {entry.clockIn || "—"}
+                          {formatClockTime(entry.clockIn)}
                         </TableCell>
                         <TableCell className="text-sm md:text-base">
-                          {entry.clockOut || (
+                          {entry.clockOut ? formatClockTime(entry.clockOut) : (
                             <span className="text-warning flex items-center gap-1">
                               <Clock className="h-3 w-3" />
                               In Progress

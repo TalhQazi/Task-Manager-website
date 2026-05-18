@@ -6,7 +6,15 @@ import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/manger/ui/badge";
 import { Button } from "@/components/manger/ui/button";
 import { apiFetch } from "@/lib/manger/api";
+import { cn } from "@/lib/manger/utils";
 import { ArrowLeft } from "lucide-react";
+
+const statusStyles: Record<string, string> = {
+  complete: "bg-success/10 text-success",
+  completed: "bg-success/10 text-success",
+  incomplete: "bg-warning/10 text-warning",
+  overtime: "bg-info/10 text-info",
+};
 
 type Location = {
   id: string;
@@ -174,8 +182,11 @@ export default function EmployeeTimeHistory() {
                       <span className="text-muted-foreground whitespace-nowrap">{resolveLocationName(r.location)}</span>
                     </td>
                     <td>
-                      <Badge variant="secondary" className="text-xs capitalize whitespace-nowrap">
-                        {r.status || "—"}
+                      <Badge
+                        variant="secondary"
+                        className={cn("text-xs capitalize whitespace-nowrap", statusStyles[r.status] ?? "")}
+                      >
+                        {r.status === "complete" || r.status === "completed" ? "Complete" : r.status === "incomplete" ? "In Progress" : r.status || "—"}
                       </Badge>
                     </td>
                   </tr>

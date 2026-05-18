@@ -433,7 +433,7 @@ const confirmArchiveUser = async () => {
   const confirmChangeRole = async () => {
     if (!selectedUser) return;
     try {
-      await updateResource<User>("users", selectedUser.id, { ...selectedUser, role: newRole });
+      await updateResource<User>("users", selectedUser.id, { role: newRole } as any);
       await refreshUsers();
       setChangeRoleOpen(false);
       setSelectedUser(null);
