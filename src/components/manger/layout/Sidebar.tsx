@@ -133,6 +133,15 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
   const navigate = useNavigate();
   const auth = getAuthState();
 
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+
+  const toggleExpand = (label: string) => {
+    setExpandedItems((prev) => ({
+      ...prev,
+      [label]: !prev[label],
+    }));
+  };
+
   const onLogout = async () => {
     try {
       await apiFetch("/api/auth/logout", { method: "POST" });
@@ -155,9 +164,9 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
 
   const renderNavItem = (item: NavItem, isChild = false) => {
     if (item.children) {
-      const isExpanded = true;
+      const isExpanded = expandedItems[item.label] || false;
       const hasActiveChild = item.children.some(child => child.path && location.pathname.startsWith(child.path));
-      
+
       return (
         <div key={item.label} className="flex flex-col mb-1">
           <button
@@ -165,6 +174,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
               "group relative flex h-10 w-full items-center justify-between rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white transition-all duration-100 linear",
               hasActiveChild && "text-white bg-white/[0.02]"
             )}
+            onClick={() => toggleExpand(item.label)}
           >
             <div className="flex items-center gap-3">
               <item.icon className={cn("h-5 w-5 flex-shrink-0 transition-all")} style={{ color: hasActiveChild ? "var(--tb-primary)" : "var(--tb-primary)" }} />
@@ -176,7 +186,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
               <ChevronRight className="h-4 w-4 opacity-50 transition-transform" />
             )}
           </button>
-          
+
           {isExpanded && (
             <div className="mt-1 flex flex-col gap-1 pl-4 ml-2 border-l border-white/10">
               {item.children.map(child => renderNavItem(child, true))}
@@ -219,7 +229,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
                 className="absolute left-[-17px] top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[var(--tb-primary)] shadow-[0_0_5px_var(--tb-primary)]"
               />
             )}
-            
+
             {/* Dashboard Pulse */}
             {item.label === "Dashboard" && (
               <span 
@@ -227,7 +237,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
                 aria-hidden="true"
               />
             )}
-            
+
             {item.customIcon ? (
               item.customIcon
             ) : (

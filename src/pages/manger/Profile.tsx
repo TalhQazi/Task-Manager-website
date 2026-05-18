@@ -179,7 +179,7 @@ export default function Profile() {
 
   const handleSaveProfile = async () => {
     if (!editedProfile) return;
-    
+
     setSaving(true);
     try {
       await apiFetch(`/api/employees/${editedProfile.id}`, {
@@ -190,10 +190,22 @@ export default function Profile() {
           location: editedProfile.location,
         }),
       });
-      
+
+      // Also update settings endpoint to ensure header shows the updated name
+      await apiFetch("/api/settings", {
+        method: "PUT",
+        body: JSON.stringify({
+          fullName: editedProfile.name,
+        }),
+      });
+
       setProfile(editedProfile);
       setIsEditing(false);
       toast.success("Profile updated successfully");
+
+      // Invalidate the query cache to ensure the updated name is reflected in the header
+      await queryClient.invalidateQueries({ queryKey: ["settings"] });
+      window.dispatchEvent(new CustomEvent("header-settings-updated"));
       loadProfile();
     } catch (err: any) {
       toast.error(err.message || "Failed to update profile");

@@ -442,8 +442,10 @@ export function MainLayout({ children }: MainLayoutProps) {
   };
 
   const settings = settingsQuery.data?.item;
-  const fullName = (settings?.fullName || auth.username || "Manager").trim();
+  const fullName = (settings?.fullName || auth.name || auth.username || "Manager").trim();
   const email = (settings?.email || "").trim();
+  const displayName = fullName !== "Manager" ? fullName : email;
+
   const avatarUrl = toProxiedUrl((settings as any)?.avatarDataUrl || (settings as any)?.avatarUrl as string | undefined);
   const initials =
     fullName
@@ -534,7 +536,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                         <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-black rounded-full" />
                       </div>
                       <div className="flex flex-col min-w-0 pr-4">
-                        <span className="text-base font-bold text-white truncate leading-tight drop-shadow-md">{fullName}</span>
+                        <span className="text-base font-bold text-white truncate leading-tight drop-shadow-md">{displayName}</span>
                         <span className="text-[11px] text-white/60 truncate tracking-wide uppercase font-semibold">{auth.role || "Manager"}</span>
                       </div>
                     </div>
