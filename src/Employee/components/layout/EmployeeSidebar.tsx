@@ -19,7 +19,8 @@ import {
   FileStack, 
   Bug, 
   Megaphone,
-  Settings  // 👈 Settings icon import karein
+  Settings,
+  Mail
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
@@ -47,6 +48,7 @@ const navItemsBase = [
   { icon: Palette, label: "Theme Engine", path: "/employee/ui-customization" },
   { icon: ShoppingCart, label: "Shopping Lists", path: "/employee/shopping-lists" },
   { icon: Bug, label: "Bugs", path: "/employee/bugs" },
+  { icon: Mail, label: "Email Settings", path: "/employee/email-settings" },
   
   // 👇 Settings item ko yahan add karein (ye sort se pehle filter ho jayega)
   { icon: Settings, label: "Settings", path: "/employee/settings" },
