@@ -136,7 +136,46 @@ export function MainLayout({ children }: MainLayoutProps) {
       return "/developer/bugs";
     }
 
-    if (direct && direct.startsWith("/manager/")) return direct;
+    if (direct) {
+      if (direct.includes("/tasks/")) {
+        const match = direct.match(/\/tasks\/([a-f0-9]+)/i);
+        return match ? `/manager/tasks?view=${match[1]}` : "/manager/tasks";
+      }
+      if (direct.includes("/employees/")) {
+        const match = direct.match(/\/employees\/([a-f0-9]+)/i);
+        return match ? `/manager/employees?view=${match[1]}` : "/manager/employees";
+      }
+      if (direct.includes("/vehicles/")) {
+        const match = direct.match(/\/vehicles\/([a-f0-9]+)/i);
+        return match ? `/manager/vehicles?view=${match[1]}` : "/manager/vehicles";
+      }
+      if (direct.includes("/locations/")) {
+        const match = direct.match(/\/locations\/([a-f0-9]+)/i);
+        return match ? `/manager/locations?view=${match[1]}` : "/manager/locations";
+      }
+      if (direct.includes("/vendors/")) {
+        const match = direct.match(/\/vendors\/([a-f0-9]+)/i);
+        return match ? `/manager/vendors?view=${match[1]}` : "/manager/vendors";
+      }
+      if (direct.includes("/onboarding/")) {
+        const match = direct.match(/\/onboarding\/([a-f0-9]+)/i);
+        return match ? `/manager/onboarding?view=${match[1]}` : "/manager/onboarding";
+      }
+      if (direct.includes("/do-not-hire/")) {
+        const match = direct.match(/\/do-not-hire\/([a-f0-9]+)/i);
+        return match ? `/manager/do-not-hire?view=${match[1]}` : "/manager/do-not-hire";
+      }
+      if (direct.includes("/appliances/")) {
+        const match = direct.match(/\/appliances\/([a-f0-9]+)/i);
+        return match ? `/manager/appliances?view=${match[1]}` : "/manager/appliances";
+      }
+      if (direct.includes("/projects/")) {
+        const match = direct.match(/\/projects\/([a-f0-9]+)/i);
+        return match ? `/manager/projects?view=${match[1]}` : "/manager/projects";
+      }
+
+      if (direct.startsWith("/manager/")) return direct;
+    }
 
     const content = String(n.content || "").toLowerCase();
     if (content.includes(" employee")) return "/manager/employees";

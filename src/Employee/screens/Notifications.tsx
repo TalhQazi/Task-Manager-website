@@ -81,12 +81,9 @@ const notificationIcons = {
 };
 
 function resolveEmployeeLink(meta?: { resourceType?: string; resourceId?: string; link?: string; category?: string }): string {
-  const direct = String(meta?.link || "").trim();
-  // Backend stores links as /admin/... or /manager/... — rewrite to employee equivalent
-  if (direct) return direct.replace(/^\/admin\//, "/employee/").replace(/^\/manager\//, "/employee/");
-
   const resourceType = String(meta?.resourceType || "").toLowerCase().trim();
   const resourceId = String(meta?.resourceId || "").trim();
+  const direct = String(meta?.link || "").trim();
 
   if (resourceType === "task" || resourceType === "task comment") {
     return resourceId ? `/employee/tasks/${resourceId}` : "/employee/tasks";
@@ -94,6 +91,44 @@ function resolveEmployeeLink(meta?: { resourceType?: string; resourceId?: string
   if (resourceType === "project" || resourceType === "project comment") {
     return "/employee/tasks";
   }
+  if (resourceType === "time entry" || resourceType === "timeentry" || resourceType === "time_entry") {
+    return "/employee/timeLogs";
+  }
+  if (resourceType === "payroll") {
+    return "/employee/payroll";
+  }
+  if (resourceType === "leave_request" || resourceType === "leaverequest") {
+    return "/employee/leave-requests";
+  }
+  if (resourceType === "announcement") {
+    return "/employee/announcements";
+  }
+
+  if (direct) {
+    if (direct.includes("/tasks")) {
+      const match = direct.match(/\/tasks\/([a-f0-9]+)/i);
+      return match ? `/employee/tasks/${match[1]}` : "/employee/tasks";
+    }
+    if (direct.includes("/time-tracking") || direct.includes("/time-logs") || direct.includes("/timelogs")) {
+      return "/employee/timeLogs";
+    }
+    if (direct.includes("/payroll")) {
+      return "/employee/payroll";
+    }
+    if (direct.includes("/leave-requests")) {
+      return "/employee/leave-requests";
+    }
+    if (direct.includes("/announcements")) {
+      return "/employee/announcements";
+    }
+    if (direct.includes("/shopping-lists")) {
+      return "/employee/shopping-lists";
+    }
+    if (direct.includes("/travel-calendar")) {
+      return "/employee/travel-calendar";
+    }
+  }
+
   return "/employee/notifications";
 }
 

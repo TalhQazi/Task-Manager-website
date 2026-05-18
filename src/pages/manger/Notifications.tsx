@@ -69,16 +69,54 @@ export default function Notifications() {
   const currentUser = auth.username || "";
 
   const resolveNotificationLink = (n: NotificationItem): string => {
-    const direct = String(n.meta?.link || "").trim();
-    // Backend stores links as /admin/... — rewrite to manager equivalent
-    if (direct) return direct.replace(/^\/admin\//, "/manager/");
-
+    const direct = String(n.meta?.link || "").trim().replace(/^\/admin\//, "/manager/");
     const resourceType = String(n.meta?.resourceType || "").toLowerCase();
     const resourceId = String(n.meta?.resourceId || "").trim();
 
     if (resourceType.includes("task") && resourceId) return `/manager/tasks?view=${encodeURIComponent(resourceId)}`;
     if (resourceType.includes("project") && resourceId) return `/manager/tasks?project=${encodeURIComponent(resourceId)}`;
     if (resourceType.includes("time") && resourceId) return `/manager/time-tracking?view=${encodeURIComponent(resourceId)}`;
+
+    if (direct) {
+      if (direct.includes("/tasks/")) {
+        const match = direct.match(/\/tasks\/([a-f0-9]+)/i);
+        return match ? `/manager/tasks?view=${match[1]}` : "/manager/tasks";
+      }
+      if (direct.includes("/employees/")) {
+        const match = direct.match(/\/employees\/([a-f0-9]+)/i);
+        return match ? `/manager/employees?view=${match[1]}` : "/manager/employees";
+      }
+      if (direct.includes("/vehicles/")) {
+        const match = direct.match(/\/vehicles\/([a-f0-9]+)/i);
+        return match ? `/manager/vehicles?view=${match[1]}` : "/manager/vehicles";
+      }
+      if (direct.includes("/locations/")) {
+        const match = direct.match(/\/locations\/([a-f0-9]+)/i);
+        return match ? `/manager/locations?view=${match[1]}` : "/manager/locations";
+      }
+      if (direct.includes("/vendors/")) {
+        const match = direct.match(/\/vendors\/([a-f0-9]+)/i);
+        return match ? `/manager/vendors?view=${match[1]}` : "/manager/vendors";
+      }
+      if (direct.includes("/onboarding/")) {
+        const match = direct.match(/\/onboarding\/([a-f0-9]+)/i);
+        return match ? `/manager/onboarding?view=${match[1]}` : "/manager/onboarding";
+      }
+      if (direct.includes("/do-not-hire/")) {
+        const match = direct.match(/\/do-not-hire\/([a-f0-9]+)/i);
+        return match ? `/manager/do-not-hire?view=${match[1]}` : "/manager/do-not-hire";
+      }
+      if (direct.includes("/appliances/")) {
+        const match = direct.match(/\/appliances\/([a-f0-9]+)/i);
+        return match ? `/manager/appliances?view=${match[1]}` : "/manager/appliances";
+      }
+      if (direct.includes("/projects/")) {
+        const match = direct.match(/\/projects\/([a-f0-9]+)/i);
+        return match ? `/manager/projects?view=${match[1]}` : "/manager/projects";
+      }
+
+      if (direct.startsWith("/manager/")) return direct;
+    }
 
     return "/manager/notifications";
   };
