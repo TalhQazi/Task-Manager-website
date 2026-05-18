@@ -1525,13 +1525,14 @@ const hasTaxInfo =
                 className="w-full bg-[#133767] hover:bg-[#1a4585]"
                 disabled={
                   submittingOnboarding ||
+                  onboardingData?.overallStatus === "submitted" ||
+                  onboardingData?.overallStatus === "approved" ||
                   !onboardingData?.basicInfo?.completed ||
                   !["submitted", "verified"].includes(onboardingData?.identityVerification?.primaryId?.status ?? "") ||
                   !["submitted", "verified"].includes(onboardingData?.identityVerification?.secondaryId?.status ?? "") ||
                   !["submitted", "verified"].includes(onboardingData?.w4Form?.status ?? "") ||
                   !["submitted", "verified"].includes(onboardingData?.employeeHandbook?.status ?? "") ||
-                  !["submitted", "verified"].includes(onboardingData?.digitalSignature?.status ?? "") ||
-                  onboardingData?.overallStatus === "approved"
+                  !["submitted", "verified"].includes(onboardingData?.digitalSignature?.status ?? "")
                 }
                 onClick={handleSubmitOnboarding}
               >
@@ -1539,6 +1540,10 @@ const hasTaxInfo =
                   ? "Submitting..."
                   : onboardingData?.overallStatus === "approved"
                   ? "Already Approved"
+                  : onboardingData?.overallStatus === "submitted"
+                  ? "Submitted - Awaiting Review"
+                  : onboardingData?.overallStatus === "rejected"
+                  ? "Resubmit for Review"
                   : "Submit for Admin Approval"}
               </Button>
             </CardContent>
