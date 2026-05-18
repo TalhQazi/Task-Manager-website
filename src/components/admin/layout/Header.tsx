@@ -475,7 +475,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   } catch (e) {}
 
   const settings = settingsQuery.data?.item;
-  const fullName = (settings?.fullName || cachedProfile?.fullName || auth.username || "Admin").trim();
+  const fullName = (settings?.fullName || cachedProfile?.fullName || auth.name || auth.username || "Admin").trim();
   const email = (settings?.email || "").trim();
   const avatarUrl = toProxiedUrl((settings as any)?.avatarDataUrl || (settings as any)?.avatarUrl || cachedProfile?.avatarUrl as string | undefined);
   const initials =

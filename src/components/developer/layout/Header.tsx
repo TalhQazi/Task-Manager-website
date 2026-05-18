@@ -93,7 +93,7 @@ export function Header({ onMenuClick }: HeaderProps) {
   };
 
   const settings = settingsQuery.data?.item;
-  const fullName = (settings?.fullName || auth.username || "Developer").trim();
+  const fullName = (settings?.fullName || auth.name || auth.username || "Developer").trim();
   const email = (settings?.email || "").trim();
   const avatarUrl = (settings as any)?.avatarDataUrl || ((settings as any)?.avatarUrl as string | undefined);
   const initials =

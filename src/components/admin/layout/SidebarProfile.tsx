@@ -40,7 +40,7 @@ export function SidebarProfile() {
   });
 
   const settings = settingsQuery.data?.item;
-  const fullName = (settings?.fullName || auth.username || "Admin").trim();
+  const fullName = (settings?.fullName || auth.name || auth.username || "Admin").trim();
   const email = (settings?.email || "").trim();
   const avatarUrl = toProxiedUrl(settings?.avatarDataUrl || settings?.avatarUrl);
   const initials =

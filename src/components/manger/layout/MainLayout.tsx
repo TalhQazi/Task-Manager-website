@@ -479,7 +479,7 @@ export function MainLayout({ children }: MainLayoutProps) {
   };
 
   const settings = settingsQuery.data?.item;
-  const fullName = (settings?.fullName || auth.username || "Manager").trim();
+  const fullName = (settings?.fullName || auth.name || auth.username || "Manager").trim();
   const email = (settings?.email || "").trim();
   const avatarUrl = toProxiedUrl((settings as any)?.avatarDataUrl || (settings as any)?.avatarUrl as string | undefined);
   const initials =
