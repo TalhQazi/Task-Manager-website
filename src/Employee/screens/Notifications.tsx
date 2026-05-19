@@ -389,7 +389,7 @@ useEffect(() => {
         </CardHeader>
         <CardContent className="p-0">
           <Tabs defaultValue="unread" className="w-full">
-            <TabsList className="w-full grid grid-cols-3 rounded-none border-b">
+            <TabsList className="w-full grid grid-cols-3 rounded-none border-b text-xs sm:text-sm">
               <TabsTrigger value="all">
                 All ({notifications.length})
               </TabsTrigger>

@@ -435,7 +435,7 @@ export default function EmployeePayroll() {
           ) : (
             <div className="space-y-4">
               {payrollRecords.map((record) => (
-                <div key={record.id} className="flex justify-between items-center p-4 border rounded-lg">
+                <div key={record.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 border rounded-lg">
                   <div>
                     <p className="font-medium">{record.payPeriod}</p>
                     <div className="text-sm text-muted-foreground space-y-1 mt-2">

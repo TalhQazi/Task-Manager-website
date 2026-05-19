@@ -335,11 +335,11 @@ export default function EmployeeClocked() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-bold">Attendance</h1>
         <div className="text-right">
-          <p className="text-3xl font-bold text-[#133767]">{formatTime(currentTime)}</p>
-          <p className="text-sm text-muted-foreground">{formatDate(currentTime)}</p>
+          <p className="text-xl sm:text-3xl font-bold text-[#133767]">{formatTime(currentTime)}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground">{formatDate(currentTime)}</p>
         </div>
       </div>
 
@@ -347,9 +347,9 @@ export default function EmployeeClocked() {
       {!isOnboardingApproved && (
         <Card className="border-l-4 border-l-orange-500 bg-orange-50">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
                   <AlertTriangle className="h-5 w-5 text-orange-600" />
                 </div>
                 <div>
@@ -363,7 +363,7 @@ export default function EmployeeClocked() {
                   </p>
                 </div>
               </div>
-              <Button asChild className="bg-orange-600 hover:bg-orange-700">
+              <Button asChild className="bg-orange-600 hover:bg-orange-700 w-full sm:w-auto flex-shrink-0">
                 <Link to="/employee/profile">Complete Onboarding</Link>
               </Button>
             </div>
@@ -417,7 +417,7 @@ export default function EmployeeClocked() {
       </Card>
 
       {/* Time Details */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center gap-4">

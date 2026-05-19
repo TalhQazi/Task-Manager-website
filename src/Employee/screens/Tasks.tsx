@@ -553,7 +553,7 @@ function TaskContributorsList({ assignees }: { assignees: string[] }) {
           <Avatar className="h-6 w-6">
             <AvatarFallback className="text-[10px] font-bold">{String(name).slice(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
-          <span className="text-xs font-medium max-w-[220px] truncate">{name}</span>
+          <span className="text-xs font-medium max-w-[120px] sm:max-w-[220px] truncate">{name}</span>
         </div>
       ))}
     </div>

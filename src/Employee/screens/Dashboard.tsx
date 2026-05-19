@@ -345,9 +345,9 @@ export default function EmployeeDashboard() {
         {/* Inner Bevel */}
         <div className="absolute inset-[2px] rounded-lg border border-white/10 pointer-events-none" />
 
-        <div className="relative p-6 flex items-center justify-between z-10">
+        <div className="relative p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 z-10">
           <div>
-            <h1 className="text-2xl font-bold mb-2 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+            <h1 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-2 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
               Welcome{employeeName ? `, ${employeeName}` : " to Employee Portal"}
             </h1>
             <p className="text-[#d0d0d0] text-sm drop-shadow-md">View your tasks and manage your work efficiently.</p>
@@ -380,9 +380,9 @@ export default function EmployeeDashboard() {
       {!isOnboardingApproved && (
         <Card className="border-l-4 border-l-orange-500 bg-orange-50">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
                   <AlertTriangle className="h-5 w-5 text-orange-600" />
                 </div>
                 <div>
@@ -396,7 +396,7 @@ export default function EmployeeDashboard() {
                   </p>
                 </div>
               </div>
-              <Button asChild className="bg-orange-600 hover:bg-orange-700">
+              <Button asChild className="bg-orange-600 hover:bg-orange-700 w-full sm:w-auto flex-shrink-0">
                 <Link to="/employee/profile">Complete Onboarding</Link>
               </Button>
             </div>
@@ -725,15 +725,15 @@ export default function EmployeeDashboard() {
               {data?.recentTasks?.map((task) => (
                 <div
                   key={task.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 border rounded-lg hover:bg-slate-50 transition-colors gap-2"
                 >
-                  <div>
-                    <p className="font-medium">{task.title}</p>
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{task.title}</p>
                     <p className="text-sm text-muted-foreground">
                       Due: {task.dueDate || "No due date"}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Badge
                       variant={
                         task.status === "completed"

@@ -142,78 +142,139 @@ export default function ScrumRecords() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Clock In</TableHead>
-                    <TableHead>Clock Out</TableHead>
-                    <TableHead>Hours</TableHead>
-                    <TableHead className="w-1/2">Scrum Details</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredRecords.map((record) => (
-                    <TableRow key={record.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
+            <>
+              {/* Mobile card view */}
+              <div className="md:hidden space-y-4">
+                {filteredRecords.map((record) => {
+                  const details = parseScrumDetails(record.scrum);
+                  return (
+                    <div key={record.id} className="border rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-sm font-medium">
                           <Calendar className="h-4 w-4 text-gray-400" />
                           {formatDate(record.date)}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3 text-green-500" />
-                          {record.clockIn || "--:--"}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Clock className="h-3 w-3 text-blue-500" />
-                          {record.clockOut || "--:--"}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="font-mono">
+                        <Badge variant="outline" className="font-mono text-xs">
                           {record.totalHours?.toFixed(2) || "--"}h
                         </Badge>
-                      </TableCell>
-                      <TableCell className="max-w-md">
-                        {(() => {
-                          const details = parseScrumDetails(record.scrum);
-                          return (
-                            <div className="space-y-1.5">
-                              {details.tasksCompleted && (
-                                <div className="text-sm">
-                                  <span className="font-semibold text-gray-900">Tasks Done:</span>{" "}
-                                  <span className="text-gray-700">{details.tasksCompleted}</span>
-                                </div>
-                              )}
-                              {details.issuesBlockers && (
-                                <div className="text-sm">
-                                  <span className="font-semibold text-gray-900">Issues/Blockers:</span>{" "}
-                                  <span className="text-red-600">{details.issuesBlockers}</span>
-                                </div>
-                              )}
-                              {details.notes && (
-                                <div className="text-sm">
-                                  <span className="font-semibold text-gray-900">Notes:</span>{" "}
-                                  <span className="text-gray-600">{details.notes}</span>
-                                </div>
-                              )}
-                              {!details.tasksCompleted && !details.issuesBlockers && !details.notes && (
-                                <p className="text-sm text-gray-400 italic">No details</p>
-                              )}
-                            </div>
-                          );
-                        })()}
-                      </TableCell>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Clock In</p>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <Clock className="h-3 w-3 text-green-500" />
+                            <span>{record.clockIn || "--:--"}</span>
+                          </div>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Clock Out</p>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <Clock className="h-3 w-3 text-blue-500" />
+                            <span>{record.clockOut || "--:--"}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5 bg-gray-50 rounded-md p-3">
+                        {details.tasksCompleted && (
+                          <div className="text-sm">
+                            <span className="font-semibold text-gray-900">Tasks Done:</span>{" "}
+                            <span className="text-gray-700">{details.tasksCompleted}</span>
+                          </div>
+                        )}
+                        {details.issuesBlockers && (
+                          <div className="text-sm">
+                            <span className="font-semibold text-gray-900">Issues:</span>{" "}
+                            <span className="text-red-600">{details.issuesBlockers}</span>
+                          </div>
+                        )}
+                        {details.notes && (
+                          <div className="text-sm">
+                            <span className="font-semibold text-gray-900">Notes:</span>{" "}
+                            <span className="text-gray-600">{details.notes}</span>
+                          </div>
+                        )}
+                        {!details.tasksCompleted && !details.issuesBlockers && !details.notes && (
+                          <p className="text-sm text-gray-400 italic">No details</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {/* Desktop table view */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Clock In</TableHead>
+                      <TableHead>Clock Out</TableHead>
+                      <TableHead>Hours</TableHead>
+                      <TableHead className="w-1/2">Scrum Details</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredRecords.map((record) => (
+                      <TableRow key={record.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-gray-400" />
+                            {formatDate(record.date)}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3 text-green-500" />
+                            {record.clockIn || "--:--"}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3 text-blue-500" />
+                            {record.clockOut || "--:--"}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="font-mono">
+                            {record.totalHours?.toFixed(2) || "--"}h
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="max-w-md">
+                          {(() => {
+                            const details = parseScrumDetails(record.scrum);
+                            return (
+                              <div className="space-y-1.5">
+                                {details.tasksCompleted && (
+                                  <div className="text-sm">
+                                    <span className="font-semibold text-gray-900">Tasks Done:</span>{" "}
+                                    <span className="text-gray-700">{details.tasksCompleted}</span>
+                                  </div>
+                                )}
+                                {details.issuesBlockers && (
+                                  <div className="text-sm">
+                                    <span className="font-semibold text-gray-900">Issues/Blockers:</span>{" "}
+                                    <span className="text-red-600">{details.issuesBlockers}</span>
+                                  </div>
+                                )}
+                                {details.notes && (
+                                  <div className="text-sm">
+                                    <span className="font-semibold text-gray-900">Notes:</span>{" "}
+                                    <span className="text-gray-600">{details.notes}</span>
+                                  </div>
+                                )}
+                                {!details.tasksCompleted && !details.issuesBlockers && !details.notes && (
+                                  <p className="text-sm text-gray-400 italic">No details</p>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

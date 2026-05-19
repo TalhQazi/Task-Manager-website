@@ -360,7 +360,7 @@ export default function EmployeeMessages() {
           </Dialog>
         ) : null}
 
-        <div className="h-[calc(100vh-12rem)] flex flex-col">
+        <div className="h-[calc(100vh-11rem)] sm:h-[calc(100vh-12rem)] flex flex-col">
         {/* Chat Header */}
         <Card className="mb-4 border-b-2 border-[#133767]/10">
           <CardContent className="p-4">
@@ -430,7 +430,7 @@ export default function EmployeeMessages() {
                     >
                       <div
                         className={cn(
-                          "max-w-[70%] min-w-0 rounded-2xl p-3 shadow-sm",
+                          "max-w-[85%] sm:max-w-[70%] min-w-0 rounded-2xl p-2 sm:p-3 shadow-sm",
                           isSentByMe
                             ? "bg-[#133767] text-white rounded-br-sm"
                             : "bg-white border border-gray-200 text-gray-900 rounded-bl-sm"

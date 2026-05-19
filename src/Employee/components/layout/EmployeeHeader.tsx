@@ -284,8 +284,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
 
   return (
     <header
-      className="fixed top-0 left-0 right-0 z-50 shadow-floating"
-      style={{ height: '300px' }}
+      className="fixed top-0 left-0 right-0 z-50 shadow-floating h-40 sm:h-[220px] md:h-[300px]"
     >
       <div
         className="w-full h-full relative overflow-hidden group"
@@ -320,7 +319,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
         <div className="absolute inset-0 flex flex-col pointer-events-none">
           {/* Header Content Area */}
           <div
-            className="flex-1 relative flex flex-col justify-end px-3 sm:px-6 lg:px-8 md:pl-64 pb-8 sm:pb-12 md:pb-16 animate-fade-in pointer-events-auto"
+            className="flex-1 relative flex flex-col justify-end px-3 sm:px-6 lg:px-8 md:pl-64 pb-3 sm:pb-6 md:pb-16 animate-fade-in pointer-events-auto"
           >
             {/* Header Picture Edit Buttons */}
             <div className="absolute top-4 right-4 z-20 flex gap-2">
@@ -341,7 +340,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
             </div>
 
             {/* LEFT SIDE: Branding and Profile Stacking */}
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2 sm:gap-4">
               {/* Profile Card (Top) */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

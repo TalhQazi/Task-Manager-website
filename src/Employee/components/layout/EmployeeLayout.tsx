@@ -10,7 +10,6 @@ import { applyFullTheme, themeDefaults } from "@/Employee/lib/theme";
 
 export function EmployeeLayout() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const headerHeight = 300;
   const [dashboardBg, setDashboardBg] = useState("var(--tb-dashboard-bg, #e6f0ff)");
 
   // Apply user UI preferences on load - same as AdminLayout (full applyThemeToDOM)
@@ -52,8 +51,8 @@ export function EmployeeLayout() {
 
   return (
     <div
-      className="min-h-screen tb-employee-panel"
-      style={{ paddingTop: `${headerHeight}px`, background: dashboardBg }}
+      className="min-h-screen tb-employee-panel pt-40 sm:pt-[220px] md:pt-[300px]"
+      style={{ background: dashboardBg }}
     >
       <EmployeeHeader onMenuClick={() => setMobileSidebarOpen(true)} />
 

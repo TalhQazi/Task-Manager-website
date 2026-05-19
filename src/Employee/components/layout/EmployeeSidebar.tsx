@@ -89,7 +89,7 @@ export function EmployeeSidebar({ mode = "desktop", onNavigate }: EmployeeSideba
         "flex flex-col z-40 bg-[#0b1323]",
         isMobile
           ? "h-full w-64"
-          : "fixed left-0 top-[300px] bottom-0 w-56 shadow-floating"
+          : "fixed left-0 top-40 sm:top-[220px] md:top-[300px] bottom-0 w-56 shadow-floating"
       )}
     >
       <div className="px-5 py-6 mb-3 flex flex-col items-center border-b border-white/5 bg-white/[0.03] backdrop-blur-md">
