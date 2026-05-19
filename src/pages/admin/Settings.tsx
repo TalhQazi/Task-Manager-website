@@ -19,6 +19,7 @@ import { Label } from "@/components/admin/ui/label";
 import { Switch } from "@/components/admin/ui/switch";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import AssetLibraryPicker from "@/components/admin/AssetLibraryPicker";
 
 type UploadStatus = "idle" | "uploading" | "success" | "error";
@@ -429,6 +430,7 @@ export default function Settings() {
         body: JSON.stringify({ currentPassword, newPassword }),
       });
       setPasswordDraft({ currentPassword: "", newPassword: "", confirmNewPassword: "" });
+      toast.success("Password changed successfully. Please use your new password next time you log in.");
     } catch (e) {
       setPasswordError(e instanceof Error ? e.message : "Failed to change password");
     } finally {
