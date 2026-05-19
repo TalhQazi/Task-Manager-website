@@ -107,7 +107,9 @@ function formatClockTime(value: string | null | undefined): string {
 
 const statusStyles = {
   complete: "bg-success/10 text-success",
+  completed: "bg-success/10 text-success",
   incomplete: "bg-warning/10 text-warning",
+  active: "bg-warning/10 text-warning",
   overtime: "bg-info/10 text-info",
 };
 
@@ -225,7 +227,7 @@ export default function TimeTracking() {
             <div className="min-w-0 flex-1">
               <p className="text-xs sm:text-sm text-muted-foreground">Incomplete</p>
               <p className="text-lg sm:text-xl md:text-2xl font-bold text-foreground">
-                {timeEntries.filter((e) => e.status === "incomplete").length}
+                {timeEntries.filter((e) => e.status === "incomplete" || e.status === "active").length}
               </p>
             </div>
           </div>

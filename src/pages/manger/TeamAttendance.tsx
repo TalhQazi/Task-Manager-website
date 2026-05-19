@@ -68,7 +68,12 @@ function formatClockTime(value: string | null | undefined): string {
 }
 
 function formatDate(dateStr: string) {
-  const d = new Date(dateStr);
+  const raw = String(dateStr || "").trim();
+  if (!raw) return "—";
+  const m = /^\d{4}-\d{2}-\d{2}/.exec(raw);
+  const localStr = m ? `${m[0]}T00:00:00` : raw;
+  const d = new Date(localStr);
+  if (!Number.isFinite(d.getTime())) return raw;
   return d.toLocaleDateString("en-US", {
     weekday: "short",
     month: "short",
@@ -82,7 +87,17 @@ const statusConfig = {
     class: "bg-success/10 text-success border-success/20",
     icon: CheckCircle,
   },
+  completed: {
+    label: "Complete",
+    class: "bg-success/10 text-success border-success/20",
+    icon: CheckCircle,
+  },
   incomplete: {
+    label: "In Progress",
+    class: "bg-warning/10 text-warning border-warning/20",
+    icon: Clock,
+  },
+  active: {
     label: "In Progress",
     class: "bg-warning/10 text-warning border-warning/20",
     icon: Clock,
@@ -124,8 +139,8 @@ export default function TeamAttendance() {
 
   const stats = {
     total: entries.length,
-    clockedIn: entries.filter((e) => e.status === "incomplete").length,
-    complete: entries.filter((e) => e.status === "complete").length,
+    clockedIn: entries.filter((e) => e.status === "incomplete" || e.status === "active").length,
+    complete: entries.filter((e) => e.status === "complete" || e.status === "completed").length,
     totalHours: entries.reduce((sum, e) => sum + (e.totalHours || 0), 0),
   };
 

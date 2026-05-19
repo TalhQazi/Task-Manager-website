@@ -490,7 +490,19 @@ export default function Attendance() {
 
   };
 
-
+  const formatHistoryDate = (value: string | null | undefined): string => {
+    const raw = String(value || "").trim();
+    if (!raw) return "—";
+    const m = /^\d{4}-\d{2}-\d{2}/.exec(raw);
+    const dateStr = m ? `${m[0]}T00:00:00` : raw;
+    const d = new Date(dateStr);
+    if (!Number.isFinite(d.getTime())) return raw;
+    return d.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
 
   const formatLocalClock = (timeStr?: string | null, isoAt?: string | null): string => {
 
@@ -926,16 +938,7 @@ export default function Attendance() {
 
                         <TableCell className="font-medium text-xs sm:text-sm">
 
-                          {new Date(entry.date).toLocaleDateString(undefined, {
-
-                            month: "short",
-
-                            day: "numeric",
-
-                            year: "numeric",
-
-                          })}
-
+                          {formatHistoryDate(entry.date)}
                         </TableCell>
 
                         <TableCell className="text-xs sm:text-sm">{formatLocalClock(entry.clockIn, entry.clockInAt)}</TableCell>
