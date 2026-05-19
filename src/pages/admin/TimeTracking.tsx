@@ -543,6 +543,22 @@ const TimeTracking = () => {
       console.error("Failed to capture metadata:", e);
     }
 
+    let clockInAt: string | undefined = undefined;
+    if (formData.clockIn) {
+      const dt = new Date(`${formData.date}T${formData.clockIn}`);
+      if (Number.isFinite(dt.getTime())) {
+        clockInAt = dt.toISOString();
+      }
+    }
+
+    let clockOutAt: string | undefined = undefined;
+    if (formData.clockOut) {
+      const dt = new Date(`${formData.date}T${formData.clockOut}`);
+      if (Number.isFinite(dt.getTime())) {
+        clockOutAt = dt.toISOString();
+      }
+    }
+
     const entry: TimeEntryApi = {
       id: `TIME-${Date.now().toString().slice(-6)}`,
       employee: formData.employee,
@@ -551,6 +567,8 @@ const TimeTracking = () => {
       date: formData.date,
       clockIn: formData.clockIn,
       clockOut: formData.clockOut || null,
+      clockInAt,
+      clockOutAt,
       status: formData.clockOut ? "clocked-out" : formData.status,
       gpsLocation: gps || undefined,
       ipAddress: ip,
