@@ -88,6 +88,13 @@ export default function EmployeeClocked() {
     ]);
     setTimeEntry(entryRes.item);
     setHistory(historyRes.items || []);
+    const today = new Date().toISOString().split("T")[0];
+    const cacheKey = `employee_attendance_${today}`;
+    if (entryRes.item) {
+      sessionStorage.setItem(cacheKey, JSON.stringify(entryRes.item));
+    } else {
+      sessionStorage.removeItem(cacheKey);
+    }
   };
 
   useEffect(() => {
@@ -97,6 +104,15 @@ export default function EmployeeClocked() {
 
   useEffect(() => {
     const loadData = async () => {
+      const today = new Date().toISOString().split("T")[0];
+      const cacheKey = `employee_attendance_${today}`;
+
+      // Restore cached entry immediately so the page doesn't flash "Not Clocked In"
+      try {
+        const cached = sessionStorage.getItem(cacheKey);
+        if (cached) setTimeEntry(JSON.parse(cached));
+      } catch {}
+
       try {
         const [entryRes, profileRes, onboardingRes] = await Promise.all([
           getTodayTimeEntry(),
@@ -106,6 +122,12 @@ export default function EmployeeClocked() {
         setTimeEntry(entryRes.item);
         setEmployeeName(profileRes.item.name);
         setOnboardingStatus(onboardingRes.item.overallStatus);
+
+        if (entryRes.item) {
+          sessionStorage.setItem(cacheKey, JSON.stringify(entryRes.item));
+        } else {
+          sessionStorage.removeItem(cacheKey);
+        }
       } catch (err) {
         console.error("Failed to load time entry:", err);
         toast.error("Failed to load time entry data");

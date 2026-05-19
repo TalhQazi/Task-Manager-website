@@ -148,17 +148,35 @@ export default function Attendance() {
 
     const loadData = async () => {
 
+      const auth = getAuthState();
+
+      const currentUser = (auth.name || auth.username || "Manager").trim();
+
+      setManagerName(currentUser);
+
+      const today = new Date().toISOString().split("T")[0];
+
+      const cacheKey = `attendance_entry_${today}_${currentUser}`;
+
+
+
+      // Restore cached entry immediately so the page doesn't flash "Not Clocked In"
+
       try {
 
-        const auth = getAuthState();
+        const cached = sessionStorage.getItem(cacheKey);
 
-        const currentUser = (auth.name || auth.username || "Manager").trim();
+        if (cached) {
 
-        setManagerName(currentUser);
+          setTimeEntry(JSON.parse(cached));
+
+        }
+
+      } catch {}
 
 
 
-        const today = new Date().toISOString().split("T")[0];
+      try {
 
         const res = await apiFetch<{ items: TimeEntry[] }>(`/api/time-entries?employee=${encodeURIComponent(currentUser)}&limit=50`);
 
@@ -168,11 +186,21 @@ export default function Attendance() {
 
         setTimeEntry(todayEntry);
 
+        // Persist to sessionStorage so refresh restores correct state
+
+        if (todayEntry) {
+
+          sessionStorage.setItem(cacheKey, JSON.stringify(todayEntry));
+
+        } else {
+
+          sessionStorage.removeItem(cacheKey);
+
+        }
+
       } catch (err) {
 
         console.warn("Time entry not available:", err);
-
-        setTimeEntry(null);
 
       } finally {
 
@@ -240,9 +268,15 @@ export default function Attendance() {
 
       const currentUser = (auth.name || auth.username || "Manager").trim();
 
+      const now = new Date();
+
+      const date = now.toISOString().split("T")[0];
+
+      const clockIn = now.toTimeString().slice(0, 5);
 
 
-      const res = await apiFetch<{ item: TimeEntry }>("/api/time-entries/clock-in", {
+
+      const res = await apiFetch<{ item: TimeEntry }>("/api/time-entries", {
 
         method: "POST",
 
@@ -250,11 +284,29 @@ export default function Attendance() {
 
           employee: currentUser,
 
+          date,
+
+          clockIn,
+
+          clockInAt: now.toISOString(),
+
+          status: "incomplete",
+
         }),
 
       });
 
       setTimeEntry(res.item);
+
+      // Persist so refresh restores clocked-in state
+
+      const today = new Date().toISOString().split("T")[0];
+
+      const auth2 = getAuthState();
+
+      const name2 = (auth2.name || auth2.username || "Manager").trim();
+
+      sessionStorage.setItem(`attendance_entry_${today}_${name2}`, JSON.stringify(res.item));
 
       toast.success("Clocked in successfully");
 
@@ -371,6 +423,16 @@ export default function Attendance() {
       });
 
       setTimeEntry(res.item);
+
+      // Update session cache with clocked-out entry
+
+      const today2 = new Date().toISOString().split("T")[0];
+
+      const auth3 = getAuthState();
+
+      const name3 = (auth3.name || auth3.username || "Manager").trim();
+
+      sessionStorage.setItem(`attendance_entry_${today2}_${name3}`, JSON.stringify(res.item));
 
 
 
