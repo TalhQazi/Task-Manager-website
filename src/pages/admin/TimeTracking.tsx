@@ -585,20 +585,9 @@ const TimeTracking = () => {
   };
 
   const clockOutNow = async (id: string) => {
-    const now = new Date();
-    const hh = now.getHours().toString().padStart(2, "0");
-    const mm = now.getMinutes().toString().padStart(2, "0");
-    const out = `${hh}:${mm}`;
-
-    const entry = entries.find((e) => e.id === id);
-    if (!entry) return;
     try {
       setApiError(null);
-      await updateResource<TimeEntry>("time-entries", id, {
-        ...entry,
-        clockOut: out,
-        status: "clocked-out",
-      });
+      await apiFetch(`/api/time-entries/${id}/clock-out`, { method: "POST" });
       await refresh();
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "Failed to clock out");

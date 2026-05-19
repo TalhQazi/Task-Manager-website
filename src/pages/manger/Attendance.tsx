@@ -152,19 +152,19 @@ export default function Attendance() {
 
         const auth = getAuthState();
 
-        const currentUser = auth.username || "Manager";
+        const currentUser = (auth.name || auth.username || "Manager").trim();
 
         setManagerName(currentUser);
 
-        
+
 
         const today = new Date().toISOString().split("T")[0];
 
-        const res = await apiFetch<{ items: TimeEntry[] }>(`/api/time-entries?date=${today}`);
+        const res = await apiFetch<{ items: TimeEntry[] }>(`/api/time-entries?employee=${encodeURIComponent(currentUser)}&limit=50`);
 
-        // Filter to only show current user's entry
+        // Filter to only show today's entry
 
-        const todayEntry = res.items?.find(e => e.employee?.toLowerCase() === currentUser.toLowerCase()) || null;
+        const todayEntry = res.items?.find(e => new Date(e.date).toISOString().split("T")[0] === today) || null;
 
         setTimeEntry(todayEntry);
 
@@ -200,19 +200,13 @@ export default function Attendance() {
 
         const auth = getAuthState();
 
-        const currentUser = auth.username || "";
+        const currentUser = (auth.name || auth.username || "").trim();
 
-        
 
-        const res = await apiFetch<{ items: TimeEntry[] }>("/api/time-entries?limit=30");
 
-        // Filter to only show current user's history
+        const res = await apiFetch<{ items: TimeEntry[] }>(`/api/time-entries?employee=${encodeURIComponent(currentUser)}&limit=30`);
 
-        const userHistory = (res.items || []).filter(e => 
-
-          e.employee?.toLowerCase() === currentUser.toLowerCase()
-
-        );
+        const userHistory = res.items || [];
 
         setHistory(userHistory);
 
@@ -244,31 +238,15 @@ export default function Attendance() {
 
       const auth = getAuthState();
 
-      const currentUser = auth.username || "Manager";
+      const currentUser = (auth.name || auth.username || "Manager").trim();
 
-      
 
-      const now = new Date();
 
-      const date = now.toISOString().split("T")[0];
-
-      const clockIn = now.toTimeString().split(" ")[0];
-
-      
-
-      const res = await apiFetch<{ item: TimeEntry }>("/api/time-entries", {
+      const res = await apiFetch<{ item: TimeEntry }>("/api/time-entries/clock-in", {
 
         method: "POST",
 
         body: JSON.stringify({
-
-          date,
-
-          clockIn,
-
-          clockInAt: now.toISOString(),
-
-          status: "incomplete",
 
           employee: currentUser,
 
@@ -340,12 +318,6 @@ export default function Attendance() {
 
     try {
 
-      const auth = getAuthState();
-
-      const currentUser = auth.username || "";
-
-      
-
       // Use existing timeEntry state instead of fetching
 
       if (!timeEntry) {
@@ -356,25 +328,17 @@ export default function Attendance() {
 
 
 
-      const now = new Date();
+      const auth = getAuthState();
 
-      const clockOut = now.toTimeString().split(" ")[0];
+      const currentUser = (auth.name || auth.username || "").trim();
 
-      
 
-      // Update the time entry with clock out
 
-      const res = await apiFetch<{ item: TimeEntry }>(`/api/time-entries/${timeEntry.id}`, {
+      const res = await apiFetch<{ item: TimeEntry }>(`/api/time-entries/${timeEntry.id}/clock-out`, {
 
-        method: "PUT",
+        method: "POST",
 
         body: JSON.stringify({
-
-          clockOut,
-
-          clockOutAt: now.toISOString(),
-
-          status: "complete",
 
           eodReport: {
 
@@ -390,7 +354,7 @@ export default function Attendance() {
 
       });
 
-      
+
 
       toast.success("Clocked out successfully");
 
@@ -408,19 +372,13 @@ export default function Attendance() {
 
       setTimeEntry(res.item);
 
-      
 
-      // Refresh history - filter by current user
 
-      const historyRes = await apiFetch<{ items: TimeEntry[] }>("/api/time-entries?limit=30");
+      // Refresh history
 
-      const userHistory = (historyRes.items || []).filter(e => 
+      const historyRes = await apiFetch<{ items: TimeEntry[] }>(`/api/time-entries?employee=${encodeURIComponent(currentUser)}&limit=30`);
 
-        e.employee?.toLowerCase() === currentUser.toLowerCase()
-
-      );
-
-      setHistory(userHistory);
+      setHistory(historyRes.items || []);
 
     } catch (err) {
 
