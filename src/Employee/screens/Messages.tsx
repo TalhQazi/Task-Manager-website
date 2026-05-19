@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { useSocket } from "@/contexts/SocketContext";
+import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
 import {
   MessageCircle,
   Send,
@@ -24,6 +25,7 @@ import {
   CheckCheck,
   Paperclip,
   Download,
+  Smile,
 } from "lucide-react";
 import {
   getEmployeeConversations,
@@ -80,6 +82,8 @@ export default function EmployeeMessages() {
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<{ url: string; fileName: string } | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
@@ -281,6 +285,23 @@ export default function EmployeeMessages() {
       handleSendMessage();
     }
   };
+
+  const onEmojiClick = (emojiData: EmojiClickData) => {
+    setMessageInput((prev) => prev + emojiData.emoji);
+  };
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    if (showEmojiPicker) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showEmojiPicker]);
 
   useEffect(() => {
     const el = messageInputRef.current;
@@ -487,7 +508,12 @@ export default function EmployeeMessages() {
           <Separator />
 
           {/* Input */}
-          <div className="p-4">
+          <div className="p-4 relative">
+            {showEmojiPicker && (
+              <div ref={emojiPickerRef} className="absolute bottom-full right-4 mb-2 z-50">
+                <EmojiPicker onEmojiClick={onEmojiClick} width={300} height={380} />
+              </div>
+            )}
             <div className="flex gap-2">
               <input
                 ref={fileInputRef}
@@ -504,6 +530,14 @@ export default function EmployeeMessages() {
                 onClick={() => fileInputRef.current?.click()}
               >
                 <Paperclip className="h-4 w-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                onClick={() => setShowEmojiPicker((prev) => !prev)}
+              >
+                <Smile className="h-4 w-4" />
               </Button>
               <textarea
                 ref={messageInputRef}

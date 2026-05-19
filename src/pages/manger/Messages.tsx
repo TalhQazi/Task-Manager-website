@@ -23,11 +23,13 @@ import {
   Bookmark,
   Paperclip,
   Download,
+  Smile,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSocket } from "@/contexts/SocketContext";
+import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
 import MilestoneBadge from "@/components/shared/MilestoneBadge";
 
 interface Employee {
@@ -108,6 +110,8 @@ export default function Messages() {
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<{ url: string; fileName: string } | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const location = useLocation();
@@ -396,6 +400,23 @@ export default function Messages() {
       setSending(false);
     }
   };
+
+  const onEmojiClick = (emojiData: EmojiClickData) => {
+    setNewMessageContent((prev) => prev + emojiData.emoji);
+  };
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    if (showEmojiPicker) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showEmojiPicker]);
 
   const formatMessageTime = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -956,7 +977,12 @@ export default function Messages() {
           </CardContent>
 
           {/* Message Input */}
-          <div className="p-2 sm:p-3 md:p-4 border-t">
+          <div className="p-2 sm:p-3 md:p-4 border-t relative">
+            {showEmojiPicker && (
+              <div ref={emojiPickerRef} className="absolute bottom-full right-4 mb-2 z-50">
+                <EmojiPicker onEmojiClick={onEmojiClick} width={300} height={380} />
+              </div>
+            )}
             <div className="flex flex-col gap-2 sm:gap-2.5 md:gap-3">
               <div className="flex gap-1.5 sm:gap-2 md:gap-3">
                 <input
@@ -975,6 +1001,15 @@ export default function Messages() {
                   className="h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 flex-shrink-0"
                 >
                   <Paperclip className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setShowEmojiPicker((prev) => !prev)}
+                  className="h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 flex-shrink-0"
+                >
+                  <Smile className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
                 </Button>
                 <Textarea
                   placeholder={`Message ${selectedEmployee.name}...`}

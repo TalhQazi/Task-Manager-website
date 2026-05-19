@@ -6,13 +6,14 @@ import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/admin/ui/avatar";
 import { useSocket } from "@/contexts/SocketContext";
+import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/admin/ui/dialog";
-import { Plus, Search, Send, ArrowLeft, MessageCircle, User, Archive, Bookmark, Paperclip, Download } from "lucide-react";
+import { Plus, Search, Send, ArrowLeft, MessageCircle, User, Archive, Bookmark, Paperclip, Download, Smile } from "lucide-react";
 import { apiFetch, listResource, toProxiedUrl } from "@/lib/admin/apiClient";
 import { Textarea } from "@/components/admin/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -174,6 +175,8 @@ export default function Messaging() {
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<{ url: string; fileName: string } | null>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -263,7 +266,10 @@ export default function Messaging() {
 
       if (res?.item) {
         const newMsg = normalizeMessage(res.item);
-        setConversationMessages((prev) => [...prev, newMsg]);
+        setConversationMessages((prev) => {
+          if (prev.some((m) => m.id === newMsg.id)) return prev;
+          return [...prev, newMsg];
+        });
         setNewMessageContent("");
         await loadConversations();
       }
@@ -384,7 +390,12 @@ export default function Messaging() {
 
       if (res?.item) {
         const newMsg = normalizeMessage(res.item);
+        setConversationMessages((prev) => {
+          if (prev.some((m) => m.id === newMsg.id)) return prev;
+          return [...prev, newMsg];
+        });
         setNewMessageContent("");
+        setShowEmojiPicker(false);
         await loadConversations();
       }
     } catch (e) {
@@ -393,6 +404,23 @@ export default function Messaging() {
       setSending(false);
     }
   };
+
+  const onEmojiClick = (emojiData: EmojiClickData) => {
+    setNewMessageContent((prev) => prev + emojiData.emoji);
+  };
+
+  // Close emoji picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (emojiPickerRef.current && !emojiPickerRef.current.contains(e.target as Node)) {
+        setShowEmojiPicker(false);
+      }
+    };
+    if (showEmojiPicker) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showEmojiPicker]);
 
   const formatMessageTime = (timestamp: string) => {
     const date = new Date(timestamp);
@@ -895,7 +923,12 @@ export default function Messaging() {
               </CardContent>
 
               {/* Message Input */}
-              <div className="p-4 border-t">
+              <div className="p-4 border-t relative">
+                {showEmojiPicker && (
+                  <div ref={emojiPickerRef} className="absolute bottom-full right-4 mb-2 z-50">
+                    <EmojiPicker onEmojiClick={onEmojiClick} width={320} height={400} />
+                  </div>
+                )}
                 <div className="flex gap-3">
                   <input
                     ref={fileInputRef}
@@ -912,6 +945,14 @@ export default function Messaging() {
                     onClick={() => fileInputRef.current?.click()}
                   >
                     <Paperclip className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setShowEmojiPicker((prev) => !prev)}
+                  >
+                    <Smile className="h-4 w-4" />
                   </Button>
                   <Textarea
                     placeholder={`Message ${selectedEmployee.name}...`}
