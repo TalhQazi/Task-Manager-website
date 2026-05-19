@@ -52,7 +52,63 @@ export default function EmployeeEODHistory() {
     try {
       const decodedName = decodeURIComponent(employeeName || "");
       const res = await getAdminEmployeeEODReports(decodedName);
-      setReports(res.items || []);
+      let loadedReports = res.items || [];
+
+      // Proactively fetch today's EOD status to see if today's report is missing/not submitted
+      try {
+        const todayStatusRes = await apiFetch<Array<{
+          employeeId: string;
+          employeeName: string;
+          avatar?: string;
+          status: string; // "submitted" | "missing" | "late" | "not_clocked_in"
+          clockIn?: string;
+          clockOut?: string;
+          clockInAt?: string | null;
+          clockOutAt?: string | null;
+          reportSubmittedAt?: string;
+        }>>("/api/admin/eod-status");
+
+        const myTodayStatus = todayStatusRes.find(
+          (emp) => emp.employeeName.toLowerCase() === decodedName.toLowerCase()
+        );
+
+        if (myTodayStatus && myTodayStatus.status !== "submitted") {
+          const todayStr = new Date().toISOString().slice(0, 10);
+          const hasTodayReport = loadedReports.some(
+            (r) => new Date(r.date).toISOString().slice(0, 10) === todayStr
+          );
+
+          if (!hasTodayReport) {
+            const virtualTodayReport: EODReport = {
+              id: "virtual-today",
+              userId: myTodayStatus.employeeId,
+              employeeName: myTodayStatus.employeeName,
+              date: new Date().toISOString(),
+              rawInput: JSON.stringify({
+                tasksCompleted: myTodayStatus.status === "not_clocked_in"
+                  ? "Employee has not clocked in today."
+                  : "End-of-day report has not been submitted yet.",
+                issuesBlockers: "",
+                notes: ""
+              }),
+              inputType: "text",
+              status: myTodayStatus.status,
+              createdAt: new Date().toISOString(),
+              clockIn: myTodayStatus.clockIn,
+              clockOut: myTodayStatus.clockOut,
+              clockInAt: myTodayStatus.clockInAt,
+              clockOutAt: myTodayStatus.clockOutAt,
+              totalHours: undefined,
+            };
+
+            loadedReports = [virtualTodayReport, ...loadedReports];
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load today's EOD status for virtual row:", err);
+      }
+
+      setReports(loadedReports);
     } catch (err) {
       console.error("Failed to load employee EOD reports:", err);
       toast.error("Failed to load employee EOD reports");
@@ -100,18 +156,30 @@ export default function EmployeeEODHistory() {
     switch (status) {
       case "submitted":
         return (
-          <Badge variant="outline" className="border-green-500 text-green-700 bg-green-50">
+          <Badge variant="outline" className="border-green-500 text-green-700 bg-green-50 capitalize">
             Submitted
           </Badge>
         );
       case "late":
         return (
-          <Badge variant="outline" className="border-yellow-500 text-yellow-700 bg-yellow-50">
+          <Badge variant="outline" className="border-yellow-500 text-yellow-700 bg-yellow-50 capitalize">
             Late
           </Badge>
         );
+      case "missing":
+        return (
+          <Badge variant="outline" className="border-red-500 text-red-700 bg-red-50 capitalize">
+            Missing
+          </Badge>
+        );
+      case "not_clocked_in":
+        return (
+          <Badge variant="outline" className="border-gray-500 text-gray-700 bg-gray-50 capitalize">
+            Not Clocked In
+          </Badge>
+        );
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return <Badge variant="outline" className="capitalize">{status.replace(/_/g, " ")}</Badge>;
     }
   };
 
