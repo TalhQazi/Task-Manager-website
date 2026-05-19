@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ClipboardList, Calendar, Clock, ChevronLeft, CheckCircle, AlertCircle } from "lucide-react";
-import { getAdminEmployeeEODReports, toProxiedUrl } from "@/lib/admin/apiClient";
+import { apiFetch, getAdminEmployeeEODReports, toProxiedUrl } from "@/lib/admin/apiClient";
 import { toast } from "sonner";
 
 interface EODReport {
