@@ -75,18 +75,18 @@ interface Conversation {
   unreadCount: number;
 }
 
-function normalizeMessage(m: MessageApi): Message {
+function normalizeMessage(m: any): Message {
   return {
-    id: m._id,
-    sender: m.sender,
-    senderAvatar: m.senderAvatar,
-    recipient: m.recipient,
-    content: m.content,
-    timestamp: m.timestamp,
-    type: m.type,
-    status: m.status,
+    id: String(m._id || m.id || ""),
+    sender: m.sender || "",
+    senderAvatar: m.senderAvatar || "",
+    recipient: m.recipient || "",
+    content: m.content || "",
+    timestamp: m.timestamp || m.createdAt || new Date().toISOString(),
+    type: m.type || "direct",
+    status: m.status || "sent",
     createdAt: m.createdAt,
-    attachment: (m as unknown as { attachment?: Message["attachment"] }).attachment,
+    attachment: m.attachment,
   };
 }
 
@@ -304,8 +304,9 @@ export default function Messages() {
   // Real-time new message via socket
   useEffect(() => {
     if (!socket) return;
-    const handleNewMessage = (msg: MessageApi) => {
+    const handleNewMessage = (msg: any) => {
       const normalized = normalizeMessage(msg);
+      if (!normalized.id) return;
       // Refresh conversation list (unread counts, last message)
       void queryClient.invalidateQueries({ queryKey: ["conversations", currentUser] });
       // If we're currently in the conversation with this sender, append the message
@@ -323,6 +324,15 @@ export default function Messages() {
     socket.on("new-message", handleNewMessage);
     return () => { socket.off("new-message", handleNewMessage); };
   }, [socket, view, selectedEmployee?.name]);
+
+  // Polling fallback: refresh messages every 3s when conversation is open
+  useEffect(() => {
+    if (view !== "conversation" || !selectedEmployee) return;
+    const interval = setInterval(() => {
+      loadConversationMessages(selectedEmployee.name);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [view, selectedEmployee?.name]);
 
   // Scroll to bottom of messages
   useEffect(() => {

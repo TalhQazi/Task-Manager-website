@@ -61,18 +61,18 @@ interface Conversation {
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-function normalizeMessage(m: MessageApi): Message {
+function normalizeMessage(m: any): Message {
   return {
-    id: m._id,
-    sender: m.sender,
-    senderAvatar: m.senderAvatar,
-    recipient: m.recipient,
-    content: m.content,
-    timestamp: m.timestamp,
-    type: m.type,
-    status: m.status,
+    id: String(m._id || m.id || ""),
+    sender: m.sender || "",
+    senderAvatar: m.senderAvatar || "",
+    recipient: m.recipient || "",
+    content: m.content || "",
+    timestamp: m.timestamp || m.createdAt || new Date().toISOString(),
+    type: m.type || "direct",
+    status: m.status || "sent",
     createdAt: m.createdAt,
-    attachment: (m as unknown as { attachment?: Message["attachment"] }).attachment,
+    attachment: m.attachment,
   };
 }
 
@@ -111,9 +111,12 @@ export default function Messaging() {
   // Real-time new message via socket
   useEffect(() => {
     if (!socket) return;
-    const handleNewMessage = (msg: MessageApi) => {
+    const handleNewMessage = (msg: any) => {
       const normalized = normalizeMessage(msg);
+      if (!normalized.id) return;
+      // Always refresh the conversation list sidebar
       loadConversations();
+      // Append to current conversation if applicable
       if (
         view === "conversation" &&
         selectedEmployee &&
@@ -128,6 +131,15 @@ export default function Messaging() {
     socket.on("new-message", handleNewMessage);
     return () => { socket.off("new-message", handleNewMessage); };
   }, [socket, view, selectedEmployee?.name]);
+
+  // Polling fallback: refresh messages every 3s when conversation is open
+  useEffect(() => {
+    if (view !== "conversation" || !selectedEmployee) return;
+    const interval = setInterval(() => {
+      loadConversationMessages(selectedEmployee.name);
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [view, selectedEmployee?.name]);
 
   // Save to localStorage when changed
   useEffect(() => {
@@ -201,7 +213,7 @@ export default function Messaging() {
   }, [location.state]);
 
   useEffect(() => {
-    loadConversations();
+    loadConversations(true);
     loadEmployees();
   }, []);
 
@@ -281,9 +293,9 @@ export default function Messaging() {
     }
   };
 
-  const loadConversations = async () => {
+  const loadConversations = async (isInitial = false) => {
     try {
-      setLoading(true);
+      if (isInitial) setLoading(true);
       setApiError(null);
       const res = await apiFetch<{ items?: ConversationFromApi[] }>(`/api/messages/conversations/${encodeURIComponent(currentUser)}`);
       const convs = res.items ?? [];
@@ -295,7 +307,7 @@ export default function Messaging() {
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "Failed to load conversations");
     } finally {
-      setLoading(false);
+      if (isInitial) setLoading(false);
     }
   };
 

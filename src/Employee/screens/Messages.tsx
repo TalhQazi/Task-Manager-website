@@ -147,6 +147,18 @@ export default function EmployeeMessages() {
     return () => { socket.off("new-message", handleNewMessage); };
   }, [socket, employeeName]);
 
+  // Polling fallback: refresh messages every 3s when conversation is open
+  useEffect(() => {
+    if (!selectedConversation || !employeeName) return;
+    const interval = setInterval(async () => {
+      try {
+        const res = await getConversation(employeeName, selectedConversation.employee.name);
+        setMessages(res.items || []);
+      } catch { /* ignore polling errors */ }
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [selectedConversation?.employee?.name, employeeName]);
+
   // Load messages when conversation is selected
   useEffect(() => {
     if (!selectedConversation || !employeeName) return;
