@@ -52,6 +52,8 @@ interface EODReport {
   createdAt: string;
   clockIn?: string;
   clockOut?: string;
+  clockInAt?: string | null;
+  clockOutAt?: string | null;
   totalHours?: number;
   aiSummary?: string;
   productivityScore?: number;
@@ -64,6 +66,8 @@ interface EODStatus {
   status: "submitted" | "missing" | "late" | "not_clocked_in";
   clockIn?: string;
   clockOut?: string;
+  clockInAt?: string | null;
+  clockOutAt?: string | null;
   reportSubmittedAt?: string;
 }
 
@@ -160,6 +164,16 @@ export default function ManagerEODReports() {
       day: "numeric",
       year: "numeric",
     });
+  };
+
+  const formatLocalClock = (timeStr?: string | null, isoAt?: string | null): string => {
+    if (isoAt) {
+      const d = new Date(isoAt);
+      if (Number.isFinite(d.getTime())) {
+        return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      }
+    }
+    return String(timeStr || "").trim() || "—";
   };
 
   if (loading) {
@@ -330,7 +344,7 @@ export default function ManagerEODReports() {
                         <div className="flex-1 min-w-0">
                           <p className="font-semibold text-sm truncate">{status.employeeName}</p>
                           <p className="text-xs text-muted-foreground">
-                            {status.clockIn ? `In: ${status.clockIn}` : "Not clocked in"}
+                            {status.clockIn ? `In: ${formatLocalClock(status.clockIn, status.clockInAt)}` : "Not clocked in"}
                           </p>
                         </div>
                       </div>
@@ -343,7 +357,7 @@ export default function ManagerEODReports() {
                       {/* Clock Out */}
                       {status.clockOut && (
                         <p className="text-xs text-muted-foreground">
-                          Out: {status.clockOut}
+                          Out: {formatLocalClock(status.clockOut, status.clockOutAt)}
                         </p>
                       )}
 
@@ -478,11 +492,11 @@ export default function ManagerEODReports() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Clock In</p>
-                  <p className="text-sm font-medium">{selectedReport.clockIn || "—"}</p>
+                  <p className="text-sm font-medium">{formatLocalClock(selectedReport.clockIn, selectedReport.clockInAt)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Clock Out</p>
-                  <p className="text-sm font-medium">{selectedReport.clockOut || "—"}</p>
+                  <p className="text-sm font-medium">{formatLocalClock(selectedReport.clockOut, selectedReport.clockOutAt)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Total Hours</p>

@@ -27,6 +27,8 @@ interface EODReport {
   createdAt: string;
   clockIn?: string;
   clockOut?: string;
+  clockInAt?: string | null;
+  clockOutAt?: string | null;
   totalHours?: number;
 }
 
@@ -65,6 +67,16 @@ export default function EmployeeEODHistory() {
       day: "numeric",
       year: "numeric",
     });
+  };
+
+  const formatLocalClock = (timeStr?: string | null, isoAt?: string | null): string => {
+    if (isoAt) {
+      const d = new Date(isoAt);
+      if (Number.isFinite(d.getTime())) {
+        return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      }
+    }
+    return String(timeStr || "").trim() || "--:--";
   };
 
   const getInitials = (name: string) => {
@@ -196,13 +208,13 @@ export default function EmployeeEODHistory() {
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Clock className="h-4 w-4 text-green-500" />
-                            <span className="font-medium">{report.clockIn || "--:--"}</span>
+                            <span className="font-medium">{formatLocalClock(report.clockIn, report.clockInAt)}</span>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Clock className="h-4 w-4 text-blue-500" />
-                            <span className="font-medium">{report.clockOut || "--:--"}</span>
+                            <span className="font-medium">{formatLocalClock(report.clockOut, report.clockOutAt)}</span>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -268,11 +280,11 @@ export default function EmployeeEODHistory() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Clock In</p>
-                    <p className="text-sm font-medium">{selectedReport.clockIn || "—"}</p>
+                    <p className="text-sm font-medium">{formatLocalClock(selectedReport.clockIn, selectedReport.clockInAt)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Clock Out</p>
-                    <p className="text-sm font-medium">{selectedReport.clockOut || "—"}</p>
+                    <p className="text-sm font-medium">{formatLocalClock(selectedReport.clockOut, selectedReport.clockOutAt)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Total Hours</p>
