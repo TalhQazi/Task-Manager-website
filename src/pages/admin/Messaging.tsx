@@ -5,8 +5,7 @@ import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/admin/ui/avatar";
-import { io } from "socket.io-client";
-
+import { useSocket } from "@/contexts/SocketContext";
 import {
   Dialog,
   DialogContent,
@@ -91,7 +90,8 @@ export default function Messaging() {
   const [conversationMessages, setConversationMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
- const socketRef = useRef<any>(null);
+  const { socket } = useSocket();
+
   // View state
   const [view, setView] = useState<"list" | "conversation" | "employees">("list");
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -107,44 +107,26 @@ export default function Messaging() {
     return saved ? new Set(JSON.parse(saved)) : new Set();
   });
 
-
+  // Real-time new message via socket
   useEffect(() => {
-
-
-  socketRef.current = io(API_BASE_URL, { 
-    path: "/api/socket.io",
-    transports: ["websocket"],
-  });
-
-  socketRef.current.on("connect", () => {
-    console.log("✅ Admin connected to socket");
-  });
-
- 
-  socketRef.current.on("new-message", (data: any) => {
-    console.log("📩 New message received:", data);
-
-  
-    if (selectedEmployee && 
-        (data.sender === selectedEmployee.name || data.recipient === selectedEmployee.name)) {
-      
-      //setConversationMessages((prev) => [...prev, data]);
-      setConversationMessages((prev) => {
-        const exists = prev.find((m) => m.id === data.id);
-        if (exists) return prev;
-
-        return [...prev, data];
-      });
-    }
-
-  
-    loadConversations();
-  });
-
-  return () => {
-    socketRef.current.disconnect();
-  };
-}, [selectedEmployee]);
+    if (!socket) return;
+    const handleNewMessage = (msg: MessageApi) => {
+      const normalized = normalizeMessage(msg);
+      loadConversations();
+      if (
+        view === "conversation" &&
+        selectedEmployee &&
+        (normalized.sender === selectedEmployee.name || normalized.recipient === selectedEmployee.name)
+      ) {
+        setConversationMessages((prev) => {
+          if (prev.some((m) => m.id === normalized.id)) return prev;
+          return [...prev, normalized];
+        });
+      }
+    };
+    socket.on("new-message", handleNewMessage);
+    return () => { socket.off("new-message", handleNewMessage); };
+  }, [socket, view, selectedEmployee?.name]);
 
   // Save to localStorage when changed
   useEffect(() => {

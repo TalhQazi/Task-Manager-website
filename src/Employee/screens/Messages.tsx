@@ -13,8 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-import { io } from "socket.io-client";
-
+import { useSocket } from "@/contexts/SocketContext";
 import {
   MessageCircle,
   Send,
@@ -85,7 +84,7 @@ export default function EmployeeMessages() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
   
-  const socketRef = useRef<ReturnType<typeof io> | null>(null);
+  const { socket } = useSocket();
 
   // Load conversations on mount
   useEffect(() => {
@@ -107,49 +106,42 @@ export default function EmployeeMessages() {
     loadConversations();
   }, []);
 
-
+  // Real-time new message via socket
   useEffect(() => {
+    if (!socket || !employeeName) return;
 
-  socketRef.current = io("https://task.se7eninc.com", {
- //socketRef.current = io("http://192.168.31.13:5000", {
-    path: "/api/socket.io",
-    transports: ["websocket"],
-  });
+    const handleNewMessage = (data: { id?: string; _id?: string; sender: string; recipient: string; content: string; timestamp: string; type: string; status: string; attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number } }) => {
+      console.log("📩 Incoming:", data);
 
-  socketRef.current.on("connect", () => {
-    console.log("✅ Employee connected",employeeName);
-  });
+      if (
+        data.sender === employeeName ||
+        data.recipient === employeeName
+      ) {
+        const normalized: Message = {
+          id: String(data?.id || data?._id || ""),
+          sender: String(data?.sender || ""),
+          recipient: String(data?.recipient || ""),
+          content: String(data?.content || ""),
+          timestamp: String(data?.timestamp || new Date().toISOString()),
+          type: String(data?.type || "direct"),
+          status: String(data?.status || "sent"),
+          attachment: data?.attachment,
+        };
 
-  socketRef.current.on("new-message", (data: { id?: string; _id?: string; sender: string; recipient: string; content: string; timestamp: string; type: string; status: string; attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number } }) => {
-    console.log("📩 Incoming:", data);
+        if (!normalized.id) return;
 
-    if (
-      data.sender === employeeName ||
-      data.recipient === employeeName
-    ) {
-      const normalized: Message = {
-        id: String(data?.id || data?._id || ""),
-        sender: String(data?.sender || ""),
-        recipient: String(data?.recipient || ""),
-        content: String(data?.content || ""),
-        timestamp: String(data?.timestamp || new Date().toISOString()),
-        type: String(data?.type || "direct"),
-        status: String(data?.status || "sent"),
-        attachment: data?.attachment,
-      };
+        setMessages((prev) => {
+          const alreadyExists = prev.some((m) => m.id === normalized.id);
+          if (alreadyExists) return prev;
+          return [...prev, normalized];
+        });
+      }
+    };
 
-      if (!normalized.id) return;
+    socket.on("new-message", handleNewMessage);
 
-      setMessages((prev) => {
-        const alreadyExists = prev.some((m) => m.id === normalized.id);
-        if (alreadyExists) return prev;
-        return [...prev, normalized];
-      });
-    }
-  });
-
-  return () => socketRef.current.disconnect();
-}, [employeeName]);
+    return () => { socket.off("new-message", handleNewMessage); };
+  }, [socket, employeeName]);
 
   // Load messages when conversation is selected
   useEffect(() => {
