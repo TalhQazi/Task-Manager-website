@@ -508,9 +508,8 @@ export function MainLayout({ children }: MainLayoutProps) {
     <div className="min-h-screen" style={{ background: "var(--tb-dashboard-bg)" }}>
       {/* Top header with dynamic background from admin settings - FULL WIDTH */}
       <header 
-        className="fixed top-0 left-0 right-0 z-50 shadow-floating h-[300px]"
+        className="fixed top-0 left-0 right-0 z-50 shadow-floating h-[180px] sm:h-[240px] md:h-[300px]"
         style={{ 
-         // height: '300px',
           left: '0',
         }}
       >
@@ -547,7 +546,7 @@ export function MainLayout({ children }: MainLayoutProps) {
           <div className="absolute inset-0 flex flex-col pointer-events-none">
             {/* Header Content Area */}
             <div 
-              className="flex-1 relative flex flex-col justify-end px-3 sm:px-6 lg:px-8 md:pl-64 pb-8 sm:pb-12 md:pb-16 animate-fade-in pointer-events-auto"
+              className="flex-1 relative flex flex-col justify-end px-3 sm:px-6 lg:px-8 md:pl-60 lg:pl-68 pb-4 sm:pb-8 md:pb-12 lg:pb-16 animate-fade-in pointer-events-auto"
             >
               {/* LEFT SIDE: Branding and Profile Stacking */}
               <div className="flex flex-col gap-4">
@@ -907,8 +906,8 @@ export function MainLayout({ children }: MainLayoutProps) {
           <Sidebar />
         </div>
         <main
-          className="flex-1 min-h-screen md:ml-56 lg:ml-64"
-          style={{ paddingTop: '300px', background: 'var(--tb-dashboard-bg)' }}
+          className="flex-1 min-h-screen md:ml-56 lg:ml-64 pt-[180px] sm:pt-[240px] md:pt-[300px]"
+          style={{ background: 'var(--tb-dashboard-bg)' }}
         >
           <div className="w-full px-4 py-4 sm:py-8 animate-fade-in">
             {children}
