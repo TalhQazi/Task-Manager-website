@@ -637,12 +637,12 @@ export default function Tasks() {
   });
 
   const tasksQuery = useQuery({
-    queryKey: ["tasks", taskPage, searchQuery, statusFilter, priorityFilter, viewByPriority],
+    queryKey: ["tasks", taskPage, projectSearchQuery, statusFilter, priorityFilter, viewByPriority],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: taskPage.toString(),
         limit: PAGE_SIZE.toString(),
-        search: searchQuery,
+        search: projectSearchQuery,
         status: statusFilter,
         priority: priorityFilter,
       });
@@ -656,8 +656,8 @@ export default function Tasks() {
     },
   });
 
-  useEffect(() => { setTaskPage(1); }, [searchQuery, statusFilter, priorityFilter, viewByPriority]);
-  useEffect(() => { setProjectPage(1); }, [searchQuery]);
+  useEffect(() => { setTaskPage(1); }, [projectSearchQuery, statusFilter, priorityFilter, viewByPriority]);
+  useEffect(() => { setProjectPage(1); }, [projectSearchQuery]);
 
   useEffect(() => {
     if (!selectedProject && tasksQuery.data) {
@@ -1541,6 +1541,9 @@ export default function Tasks() {
             <>
               <Button variant="outline" onClick={() => {
                 setSelectedProject(null);
+                // Clear both project list search and in-project task search when returning
+                setProjectSearchQuery("");
+                setSearchQuery("");
                 setTaskPage(1);
               }}>
                 Back to Projects

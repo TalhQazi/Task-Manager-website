@@ -29,6 +29,7 @@ import { cn } from "@/lib/manger/utils";
 import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSocket } from "@/contexts/SocketContext";
+import { getAuthState } from "@/lib/auth";
 import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
 import MilestoneBadge from "@/components/shared/MilestoneBadge";
 
@@ -164,7 +165,8 @@ export default function Messages() {
   };
 
   const { socket } = useSocket();
-  const currentUser = "Manager"; // Current logged in user
+  const auth = getAuthState();
+  const currentUser = auth.name?.trim() || auth.username?.trim() || "";
 
   // Handle navigation state - auto-open conversation from header dropdown
   useEffect(() => {

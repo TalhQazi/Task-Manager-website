@@ -586,6 +586,8 @@ type CreateTaskValues = z.infer<typeof createTaskSchema>;
 export default function Tasks() {
   const { socket } = useSocket();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [projectSearchQuery, setProjectSearchQuery] = useState("");
+  const [projectTaskSearchQuery, setProjectTaskSearchQuery] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [assignmentFilter, setAssignmentFilter] = useState<string>("all");
@@ -727,12 +729,12 @@ export default function Tasks() {
 
   // Fetch tasks with server-side pagination
   const tasksQuery = useQuery({
-    queryKey: ["tasks", taskPage, searchQuery, statusFilter, priorityFilter, assignmentFilter],
+    queryKey: ["tasks", taskPage, projectSearchQuery, statusFilter, priorityFilter, assignmentFilter],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: taskPage.toString(),
         limit: PAGE_SIZE.toString(),
-        search: searchQuery,
+        search: projectSearchQuery,
         status: statusFilter,
         priority: priorityFilter,
         assignment: assignmentFilter,
@@ -750,12 +752,12 @@ export default function Tasks() {
 
   // Fetch projects with server-side pagination
   const projectsQuery = useQuery({
-    queryKey: ["projects", projectPage, searchQuery],
+    queryKey: ["projects", projectPage, projectSearchQuery],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: projectPage.toString(),
         limit: PAGE_SIZE.toString(),
-        search: searchQuery,
+        search: projectSearchQuery,
       });
       const res = await apiFetch<{ items: Project[], totalPages: number, total: number }>(`/api/projects?${params.toString()}`);
       return {
@@ -780,7 +782,7 @@ export default function Tasks() {
   }, [projectsQuery.data]);
 
   const loadProject = async (projectId: string, partialProject?: Project) => {
-    setSearchQuery(""); // Clear search bar when opening a project
+    setProjectTaskSearchQuery(""); // Clear project-task search when opening a project
     try {
       setIsLoadingProject(true);
       if (partialProject) {
@@ -819,7 +821,7 @@ export default function Tasks() {
     const searchVal = String(searchParams.get("search") || "").trim();
 
     if (searchVal) {
-      setSearchQuery(searchVal);
+      setProjectSearchQuery(searchVal);
       const next = new URLSearchParams(searchParams);
       next.delete("search");
       setSearchParams(next, { replace: true });
@@ -1651,7 +1653,11 @@ export default function Tasks() {
   };
 
   const openView = (task: Task) => {
-    setSearchQuery(""); // Clear search bar when viewing a task
+    if (selectedProject) {
+      setProjectTaskSearchQuery("");
+    } else {
+      setProjectSearchQuery("");
+    }
     setSelectedTask(task);
     setTaskViewTitle(task.title);
     setTaskViewDesc(task.description);
@@ -1952,7 +1958,11 @@ export default function Tasks() {
   };
 
   const openEdit = (task: Task) => {
-    setSearchQuery(""); // Clear search bar when editing a task
+    if (selectedProject) {
+      setProjectTaskSearchQuery("");
+    } else {
+      setProjectSearchQuery("");
+    }
     setSelectedTask(task);
     setEditSelectedAssignees(task.assignees || []);
     setEditTaskTeamLead(task.teamLead || "");
@@ -1973,7 +1983,11 @@ export default function Tasks() {
   };
 
   const openDelete = (task: Task) => {
-    setSearchQuery(""); // Clear search bar when deleting a task
+    if (selectedProject) {
+      setProjectTaskSearchQuery("");
+    } else {
+      setProjectSearchQuery("");
+    }
     setSelectedTask(task);
     setIsDeleteOpen(true);
   };
@@ -2225,9 +2239,10 @@ export default function Tasks() {
   const filteredTasks = useMemo(() => {
     const filtered = sourceTasks.filter((task) => {
       const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
+      const taskSearch = selectedProject ? projectTaskSearchQuery : projectSearchQuery;
       const matchesSearch =
-        task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        assigneesText.toLowerCase().includes(searchQuery.toLowerCase());
+        task.title.toLowerCase().includes(taskSearch.toLowerCase()) ||
+        assigneesText.toLowerCase().includes(taskSearch.toLowerCase());
       const matchesStatus =
         statusFilter === "all" || task.status === statusFilter;
       const matchesPriority =
@@ -2265,10 +2280,10 @@ export default function Tasks() {
     }
 
     return filtered;
-  }, [sourceTasks, searchQuery, statusFilter, priorityFilter, showArchivedTasks, viewByPriority]);
+  }, [sourceTasks, projectTaskSearchQuery, statusFilter, priorityFilter, showArchivedTasks, viewByPriority]);
 
   const filteredProjects = useMemo(() => {
-    const qMain = searchQuery.trim().toLowerCase();
+    const qMain = projectSearchQuery.trim().toLowerCase();
     const sFilter = statusFilter.toLowerCase();
 
     return projects.filter((p) => {
@@ -2289,12 +2304,12 @@ export default function Tasks() {
 
       return true;
     });
-  }, [projects, searchQuery, statusFilter]);
+  }, [projects, projectSearchQuery, statusFilter]);
 
   const filteredStandaloneTasks = useMemo(() => {
     let standalone = tasksQuery.data?.items || [];
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
+    if (projectSearchQuery.trim()) {
+      const q = projectSearchQuery.toLowerCase();
       standalone = standalone.filter((task) => {
         const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
         return task.title.toLowerCase().includes(q) || assigneesText.toLowerCase().includes(q);
@@ -2312,7 +2327,7 @@ export default function Tasks() {
       });
     }
     return standalone;
-  }, [tasksQuery.data, searchQuery, viewByPriority]);
+  }, [tasksQuery.data, projectSearchQuery, viewByPriority]);
 
   // Project & Task counts from server data
   const projectTotalPages = projectsQuery.data?.totalPages || 1;
@@ -2348,7 +2363,9 @@ export default function Tasks() {
             <>
               <Button variant="outline" size="sm" onClick={() => { 
                 setSelectedProject(null); 
-                setSearchQuery(""); 
+                // Clear both project-level and in-project searches when returning
+                setProjectSearchQuery("");
+                setProjectTaskSearchQuery("");
                 // Explicitly clear filters if needed
                 setStatusFilter("all");
                 setPriorityFilter("all");
@@ -2390,10 +2407,20 @@ export default function Tasks() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search projects, tasks, or assignee..."
+            placeholder={selectedProject ? "Search tasks in this project..." : "Search projects, tasks, or assignee..."}
             className="pl-10 h-10 w-full"
-            value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setProjectPage(1); setTaskPage(1); }}
+            value={selectedProject ? projectTaskSearchQuery : projectSearchQuery}
+            onChange={(e) => {
+              const next = e.target.value;
+              if (selectedProject) {
+                setProjectTaskSearchQuery(next);
+                setProjectTaskPage(1);
+              } else {
+                setProjectSearchQuery(next);
+                setProjectPage(1);
+                setTaskPage(1);
+              }
+            }}
           />
         </div>
         <div className="flex flex-wrap gap-2">
@@ -2652,8 +2679,8 @@ export default function Tasks() {
                 <Input
                   placeholder="Search projects..."
                   className="pl-10 h-9 w-full"
-                  value={searchQuery}
-                  onChange={(e) => { setSearchQuery(e.target.value); setProjectPage(1); }}
+                  value={projectSearchQuery}
+                  onChange={(e) => { setProjectSearchQuery(e.target.value); setProjectPage(1); }}
                 />
               </div>
             </div>
@@ -2662,7 +2689,7 @@ export default function Tasks() {
             ) : projectsQuery.isError ? (
               <p className="text-destructive">{(() => { const msg = projectsQuery.error instanceof Error ? projectsQuery.error.message : "Failed to load projects"; return msg.startsWith("<") ? "Server error: failed to load projects. The server may be temporarily unavailable (504 Gateway Timeout). Please try again later." : msg; })()}</p>
             ) : projectsQuery.data?.items.length === 0 ? (
-              <p className="text-muted-foreground">{searchQuery ? "No projects match your search." : "No projects found. Create one to begin."}</p>
+              <p className="text-muted-foreground">{projectSearchQuery ? "No projects match your search." : "No projects found. Create one to begin."}</p>
             ) : (
               <>
                 <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
@@ -2805,7 +2832,7 @@ export default function Tasks() {
             ) : tasksQuery.isError ? (
               <p className="text-destructive">Failed to load tasks</p>
             ) : filteredStandaloneTasks.length === 0 ? (
-              <p className="text-muted-foreground">{searchQuery ? "No tasks match your search." : "No standalone tasks found. Create one to begin."}</p>
+              <p className="text-muted-foreground">{projectSearchQuery ? "No tasks match your search." : "No standalone tasks found. Create one to begin."}</p>
             ) : (
               <>
                 <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">

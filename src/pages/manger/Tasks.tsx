@@ -774,12 +774,12 @@ export default function Tasks() {
 
   // Fetch tasks with server-side pagination
   const tasksQuery = useQuery({
-    queryKey: ["tasks", taskPage, searchQuery, statusFilter, priorityFilter, viewByPriority],
+    queryKey: ["tasks", taskPage, projectSearchQuery, statusFilter, priorityFilter, viewByPriority],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: taskPage.toString(),
         limit: PAGE_SIZE.toString(),
-        search: searchQuery,
+        search: projectSearchQuery,
         status: statusFilter,
         priority: priorityFilter,
       });
@@ -797,12 +797,12 @@ export default function Tasks() {
 
   // Fetch projects with server-side pagination
   const projectsQuery = useQuery({
-    queryKey: ["projects", projectPage, searchQuery],
+    queryKey: ["projects", projectPage, projectSearchQuery],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: projectPage.toString(),
         limit: PAGE_SIZE.toString(),
-        search: searchQuery,
+        search: projectSearchQuery,
       });
       const res = await apiFetch<{ items: Project[], totalPages: number, total: number }>(`/api/projects?${params.toString()}`);
       return {
@@ -816,8 +816,8 @@ export default function Tasks() {
   });
 
   // Reset pages when filters change
-  useEffect(() => { setTaskPage(1); }, [searchQuery, statusFilter, priorityFilter, viewByPriority]);
-  useEffect(() => { setProjectPage(1); }, [searchQuery]);
+  useEffect(() => { setTaskPage(1); }, [projectSearchQuery, statusFilter, priorityFilter, viewByPriority]);
+  useEffect(() => { setProjectPage(1); }, [projectSearchQuery]);
 
   useEffect(() => {
     if (tasksQuery.data) {
@@ -2023,6 +2023,8 @@ export default function Tasks() {
             <>
               <Button variant="outline" onClick={() => {
                 setSelectedProject(null);
+                // Clear both project list search and project-task search when returning
+                setProjectSearchQuery("");
                 setSearchQuery("");
                 setStatusFilter("all");
                 setPriorityFilter("all");
@@ -2076,10 +2078,17 @@ export default function Tasks() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search tasks or assignee..."
+            placeholder={selectedProject ? "Search tasks in this project..." : "Search projects or tasks..."}
             className="pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={selectedProject ? searchQuery : projectSearchQuery}
+            onChange={(e) => {
+              const next = e.target.value;
+              if (selectedProject) {
+                setSearchQuery(next);
+              } else {
+                setProjectSearchQuery(next);
+              }
+            }}
           />
         </div>
         <div className="flex flex-wrap gap-2 sm:gap-3 sm:flex-nowrap sm:overflow-x-auto sm:pb-0">

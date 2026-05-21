@@ -132,6 +132,7 @@ interface SidebarProps {
 export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
   const navigate = useNavigate();
   const auth = getAuthState();
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
 
   const onLogout = async () => {
     try {
@@ -153,14 +154,22 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
     }
   };
 
+  const toggleMenu = (menuLabel: string) => {
+    setExpandedMenus(prev => ({
+      ...prev,
+      [menuLabel]: !prev[menuLabel]
+    }));
+  };
+
   const renderNavItem = (item: NavItem, isChild = false) => {
     if (item.children) {
-      const isExpanded = true;
+      const isExpanded = expandedMenus[item.label] ?? false;
       const hasActiveChild = item.children.some(child => child.path && location.pathname.startsWith(child.path));
       
       return (
         <div key={item.label} className="flex flex-col mb-1">
           <button
+            onClick={() => toggleMenu(item.label)}
             className={cn(
               "group relative flex h-10 w-full items-center justify-between rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white transition-all duration-100 linear",
               hasActiveChild && "text-white bg-white/[0.02]"
@@ -171,7 +180,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
               <span className="text-sm font-medium truncate">{item.label}</span>
             </div>
             {isExpanded ? (
-              <ChevronDown className="h-4 w-4 opacity-50 transition-transform" />
+              <ChevronDown className="h-4 w-4 opacity-50 transition-transform rotate-0" />
             ) : (
               <ChevronRight className="h-4 w-4 opacity-50 transition-transform" />
             )}
