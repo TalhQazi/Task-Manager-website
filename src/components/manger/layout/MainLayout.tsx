@@ -209,6 +209,40 @@ export function MainLayout({ children }: MainLayoutProps) {
     }
   }, [settingsQuery.data]);
 
+  const profileQuery = useQuery({
+    queryKey: ["manager-profile-status"],
+    queryFn: async () => {
+      return apiFetch<{ item: { current_status?: string; lunch_start_time?: string; lunch_expected_end?: string; break_start_time?: string; id: string } }>("/api/employees/me");
+    },
+  });
+
+  useEffect(() => {
+    if (!socket || !profileQuery.data?.item?.id) return;
+
+    const handleStatusUpdate = (data: { userId: string; current_status: string; lunch_start_time?: string | null; lunch_expected_end?: string | null; break_start_time?: string | null }) => {
+      if (data.userId === profileQuery.data.item.id) {
+        queryClient.setQueryData(["manager-profile-status"], (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            item: {
+              ...old.item,
+              current_status: data.current_status,
+              lunch_start_time: data.lunch_start_time || null,
+              lunch_expected_end: data.lunch_expected_end || null,
+              break_start_time: data.break_start_time || null,
+            },
+          };
+        });
+      }
+    };
+
+    socket.on("status-update", handleStatusUpdate);
+    return () => {
+      socket.off("status-update", handleStatusUpdate);
+    };
+  }, [socket, profileQuery.data?.item?.id, queryClient]);
+
   // Header settings from admin panel
   const headerSettingsQuery = useQuery({
     queryKey: ["header-settings"],
@@ -504,6 +538,21 @@ export function MainLayout({ children }: MainLayoutProps) {
       .join("")
       .toUpperCase() || "M";
 
+  const currentStatus = profileQuery.data?.item?.current_status || "AVAILABLE";
+
+  let statusRingClass = "border border-white/20 shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20 transition-all";
+  let dotClass = "absolute -bottom-0.5 -right-0.5 h-3 w-3 border-2 border-black rounded-full";
+
+  if (currentStatus === "LUNCH") {
+    statusRingClass = "border-2 border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.5)] transition-all animate-[pulse_2s_infinite]";
+    dotClass += " bg-amber-500 shadow-[0_0_6px_#f59e0b] animate-pulse";
+  } else if (currentStatus === "BREAK") {
+    statusRingClass = "border-2 border-purple-500 shadow-[0_0_12px_rgba(139,92,246,0.5)] transition-all animate-[pulse_2s_infinite]";
+    dotClass += " bg-purple-500 shadow-[0_0_6px_#8b5cf6] animate-pulse";
+  } else {
+    dotClass += " bg-green-500";
+  }
+
   return (
     <div className="min-h-screen" style={{ background: "var(--tb-dashboard-bg)" }}>
       {/* Top header with dynamic background from admin settings - FULL WIDTH */}
@@ -573,14 +622,14 @@ export function MainLayout({ children }: MainLayoutProps) {
                   <DropdownMenuTrigger asChild>
                     <div className="flex items-center gap-3 p-2 rounded-xl bg-black/20 backdrop-blur-md border border-white/10 hover:bg-black/30 transition-all cursor-pointer group w-fit">
                       <div className="relative">
-                        <Avatar className="h-10 w-10 border border-white/20 shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20 transition-all">
+                        <Avatar className={cn("h-10 w-10", statusRingClass)}>
                           {avatarUrl ? (
                             <AvatarImage src={avatarUrl} alt={fullName} className="object-cover" />
                           ) : (
                             <AvatarFallback className="bg-gradient-to-br from-[#00C6FF] to-[#0072FF] text-white text-xs font-bold">{initials}</AvatarFallback>
                           )}
                         </Avatar>
-                        <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-black rounded-full" />
+                        <div className={dotClass} />
                       </div>
                       <div className="flex flex-col min-w-0 pr-4">
                         <span className="text-base font-bold text-white truncate leading-tight drop-shadow-md">{fullName}</span>

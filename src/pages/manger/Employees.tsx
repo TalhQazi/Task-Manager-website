@@ -64,6 +64,7 @@ import { cn } from "@/lib/manger/utils";
 import { apiFetch, listResource } from "@/lib/manger/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import MilestoneBadge from "@/components/shared/MilestoneBadge";
+import { useSocket } from "@/contexts/SocketContext";
 
 interface Employee {
   id: string;
@@ -83,6 +84,10 @@ interface Employee {
   imageUrl?: string;
   milestoneLevel?: string;
   milestoneLabel?: string;
+  current_status?: "AVAILABLE" | "LUNCH" | "BREAK";
+  lunch_start_time?: string | null;
+  lunch_expected_end?: string | null;
+  break_start_time?: string | null;
 }
 
 interface Company {
@@ -115,6 +120,10 @@ function normalizeEmployee(e: EmployeeApi): Employee {
     imageUrl: (e as unknown as { avatarUrl?: string; imageUrl?: string }).avatarUrl || (e as unknown as { imageUrl?: string }).imageUrl,
     milestoneLevel: (e as unknown as { milestoneLevel?: string }).milestoneLevel,
     milestoneLabel: (e as unknown as { milestoneLabel?: string }).milestoneLabel,
+    current_status: (e as any).current_status || "AVAILABLE",
+    lunch_start_time: (e as any).lunch_start_time || null,
+    lunch_expected_end: (e as any).lunch_expected_end || null,
+    break_start_time: (e as any).break_start_time || null,
   };
 }
 
@@ -280,6 +289,16 @@ const statsVariants: Variants = {
   },
 };
 
+function formatStatusTime(timeStr?: string | null) {
+  if (!timeStr) return "";
+  try {
+    const date = new Date(timeStr);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    return "";
+  }
+}
+
 export default function Employees() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
@@ -290,6 +309,41 @@ export default function Employees() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const queryClient = useQueryClient();
+  const { socket } = useSocket();
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleStatusUpdate = (payload: {
+      userId: string;
+      current_status: "AVAILABLE" | "LUNCH" | "BREAK";
+      lunch_start_time: string | null;
+      lunch_expected_end: string | null;
+      break_start_time: string | null;
+      name: string;
+    }) => {
+      queryClient.setQueryData<Employee[]>(["employees"], (old) => {
+        if (!old) return old;
+        return old.map((emp) => {
+          if (emp.id === payload.userId) {
+            return {
+              ...emp,
+              current_status: payload.current_status,
+              lunch_start_time: payload.lunch_start_time,
+              lunch_expected_end: payload.lunch_expected_end,
+              break_start_time: payload.break_start_time,
+            };
+          }
+          return emp;
+        });
+      });
+    };
+
+    socket.on("status-update", handleStatusUpdate);
+    return () => {
+      socket.off("status-update", handleStatusUpdate);
+    };
+  }, [socket, queryClient]);
 
   const companiesQuery = useQuery({
     queryKey: ["companies"],
@@ -702,8 +756,28 @@ export default function Employees() {
                 animate="visible"
                 exit="exit"
                 whileHover="hover"
-                className="bg-card rounded-xl border border-border shadow-card p-4 sm:p-6"
+                className={cn(
+                  "bg-card rounded-xl border border-border shadow-card p-4 sm:p-6 transition-all duration-300 relative overflow-hidden",
+                  (employee.current_status === "LUNCH" || employee.current_status === "BREAK") && "opacity-60"
+                )}
               >
+                {employee.current_status && employee.current_status !== "AVAILABLE" && (
+                  <div className="absolute top-3 right-3 z-10">
+                    <Badge 
+                      className={cn(
+                        "animate-pulse text-white font-semibold flex items-center gap-1 shadow-sm px-2 py-0.5 rounded-full text-[10px] sm:text-xs border",
+                        employee.current_status === "LUNCH" ? "bg-amber-500 hover:bg-amber-600 border-amber-600" : "bg-purple-600 hover:bg-purple-700 border-purple-700"
+                      )}
+                      title={`${employee.current_status === "LUNCH" ? "On Lunch since" : "On Break since"} ${formatStatusTime(employee.current_status === "LUNCH" ? employee.lunch_start_time : employee.break_start_time)}`}
+                    >
+                      <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
+                      {employee.current_status === "LUNCH" ? "On Lunch" : "On Break"}
+                      <span className="text-[9px] opacity-80 ml-0.5">
+                        ({formatStatusTime(employee.current_status === "LUNCH" ? employee.lunch_start_time : employee.break_start_time)})
+                      </span>
+                    </Badge>
+                  </div>
+                )}
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                     <motion.div
@@ -711,7 +785,16 @@ export default function Employees() {
                       whileHover="hover"
                       variants={iconVariants}
                     >
-                      <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold overflow-hidden">
+                      <div 
+                        className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold overflow-hidden border-2 transition-all duration-300"
+                        style={
+                          employee.current_status === "LUNCH"
+                            ? { borderColor: "#F59E0B", boxShadow: "0 0 8px rgba(245, 158, 11, 0.4)" }
+                            : employee.current_status === "BREAK"
+                            ? { borderColor: "#8B5CF6", boxShadow: "0 0 8px rgba(139, 92, 246, 0.4)" }
+                            : {}
+                        }
+                      >
                         {employee.imageUrl ? (
                           <img
                             src={employee.imageUrl}
@@ -722,14 +805,24 @@ export default function Employees() {
                           <span>{getInitials(employee.name)}</span>
                         )}
                       </div>
-                      <motion.div
-                        variants={statusDotVariants}
-                        animate={employee.status}
-                        className={cn(
-                          "absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-card",
-                          statusColors[employee.status]
-                        )}
-                      />
+                      {employee.current_status && employee.current_status !== "AVAILABLE" ? (
+                        <div 
+                          className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-card animate-pulse"
+                          style={{
+                            backgroundColor: employee.current_status === "LUNCH" ? "#F59E0B" : "#8B5CF6"
+                          }}
+                          title={employee.current_status === "LUNCH" ? `On Lunch since ${formatStatusTime(employee.lunch_start_time)}` : `On Break since ${formatStatusTime(employee.break_start_time)}`}
+                        />
+                      ) : (
+                        <motion.div
+                          variants={statusDotVariants}
+                          animate={employee.status}
+                          className={cn(
+                            "absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full border-2 border-card",
+                            statusColors[employee.status]
+                          )}
+                        />
+                      )}
                     </motion.div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 mb-1">

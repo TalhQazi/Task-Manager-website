@@ -10,6 +10,7 @@ const Tasks = lazy(() => import("@/pages/manger/Tasks"));
 const Employees = lazy(() => import("@/pages/manger/Employees"));
 const Scheduling = lazy(() => import("@/pages/manger/Scheduling"));
 const TimeTracking = lazy(() => import("@/pages/manger/TimeTracking"));
+const BreakTracking = lazy(() => import("@/pages/admin/BreakTracking"));
 const Attendance = lazy(() => import("@/pages/manger/Attendance"));
 const Payroll = lazy(() => import("@/pages/manger/Payroll"));
 const Profile = lazy(() => import("@/pages/manger/Profile"));
@@ -76,6 +77,7 @@ export default function ManagerController() {
       { path: "employees", element: <Employees /> },
       { path: "scheduling", element: <Scheduling /> },
       { path: "time-tracking", element: <TimeTracking /> },
+      { path: "break-history", element: <BreakTracking /> },
       { path: "attendance", element: <Attendance /> },
       { path: "payroll", element: <Payroll /> },
       { path: "profile", element: <Profile /> },

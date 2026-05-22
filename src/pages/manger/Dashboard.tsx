@@ -7,9 +7,12 @@ import { TaskCharts } from "@/components/manger/dashboard/TaskCharts";
 import { DayAheadCard } from "@/components/admin/dashboard/DayAheadCard";
 import { WeekAheadCard } from "@/components/admin/dashboard/WeekAheadCard";
 
-import { Users, CheckSquare, FolderRoot, Car, MapPin, AlertTriangle, Clock, Sparkles, TrendingUp, ClipboardList, UserCog, ChevronDown, ChevronUp, Bug } from "lucide-react";
+import { Users, CheckSquare, FolderRoot, Car, MapPin, AlertTriangle, Clock, Sparkles, TrendingUp, ClipboardList, UserCog, ChevronDown, ChevronUp, Bug, Utensils, Coffee, Timer, CheckCircle } from "lucide-react";
 import { apiFetch, getEODStatus } from "@/lib/manger/api";
 import { getAuthState } from "@/lib/auth";
+import { useSocket } from "@/contexts/SocketContext";
+import { Badge } from "@/components/manger/ui/badge";
+import { cn } from "@/lib/utils";
 
 import { useNavigate } from "react-router-dom";
 
@@ -59,9 +62,13 @@ const itemVariants: Variants = {
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { socket } = useSocket();
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+  const [statusActionLoading, setStatusActionLoading] = useState(false);
 
   const [onboardingStatus, setOnboardingStatus] = useState<string>("not_started");
   const [eodStats, setEodStats] = useState({ submitted: 0, late: 0, missing: 0, total: 0 });
@@ -121,15 +128,29 @@ const Dashboard = () => {
         setApiError(null);
 
 
-        const [data, onboardingRes, eodRes, bugsRes] = await Promise.all([
+        const normalizeProfile = (emp: any) => {
+          if (!emp) return null;
+          return {
+            ...emp,
+            id: emp.id || String(emp._id || ""),
+            current_status: emp.current_status || "AVAILABLE",
+            lunch_start_time: emp.lunch_start_time || null,
+            lunch_expected_end: emp.lunch_expected_end || null,
+            break_start_time: emp.break_start_time || null,
+          };
+        };
+
+        const [data, onboardingRes, eodRes, bugsRes, profileRes] = await Promise.all([
           apiFetch<DashboardSummary>("/api/dashboard/summary").catch(() => null),
           apiFetch<{ item: { overallStatus: string } }>("/api/onboarding/me").catch(() => ({ item: { overallStatus: "not_started" } })),
           getEODStatus().catch(() => ({ items: [] })),
           apiFetch<{ items?: any[] }>("/api/bugs").catch(() => ({ items: [] })),
+          apiFetch<{ item: any }>("/api/employees/me").catch(() => null),
         ]);
         if (!mounted) return;
         if (data) setSummary(data);
         setOnboardingStatus(onboardingRes.item.overallStatus);
+        if (profileRes?.item) setProfile(normalizeProfile(profileRes.item));
 
         // Calculate EOD stats
         const eodItems = eodRes.items || [];
@@ -159,6 +180,151 @@ const Dashboard = () => {
       mounted = false;
     };
   }, []);
+
+  // Time remaining tick effect for lunch/break countdown
+  useEffect(() => {
+    if (!profile) {
+      setTimeLeft(null);
+      return;
+    }
+
+    const currentStatus = profile.current_status || "AVAILABLE";
+    if (currentStatus === "AVAILABLE") {
+      setTimeLeft(null);
+      return;
+    }
+
+    const tick = () => {
+      const now = Date.now();
+      let targetTime = 0;
+
+      if (currentStatus === "LUNCH") {
+        targetTime = profile.lunch_expected_end ? new Date(profile.lunch_expected_end).getTime() : 0;
+      } else if (currentStatus === "BREAK") {
+        const startTime = profile.break_start_time ? new Date(profile.break_start_time).getTime() : 0;
+        targetTime = startTime + 15 * 60 * 1000; // 15 mins for break
+      }
+
+      if (!targetTime) {
+        setTimeLeft(null);
+        return;
+      }
+
+      const diff = Math.max(0, Math.round((targetTime - now) / 1000));
+      setTimeLeft(diff);
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [profile]);
+
+  // Socket listener for real-time status updates matching current user
+  useEffect(() => {
+    if (!socket || !profile?.id) return;
+
+    const handleStatusUpdate = (payload: {
+      userId: string;
+      current_status: "AVAILABLE" | "LUNCH" | "BREAK";
+      lunch_start_time: string | null;
+      lunch_expected_end: string | null;
+      break_start_time: string | null;
+      name: string;
+    }) => {
+      if (payload.userId === profile.id) {
+        setProfile((prev: any) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            current_status: payload.current_status,
+            lunch_start_time: payload.lunch_start_time,
+            lunch_expected_end: payload.lunch_expected_end,
+            break_start_time: payload.break_start_time,
+          };
+        });
+      }
+    };
+
+    socket.on("status-update", handleStatusUpdate);
+    return () => {
+      socket.off("status-update", handleStatusUpdate);
+    };
+  }, [socket, profile?.id]);
+
+  const normalizeProfile = (emp: any) => {
+    if (!emp) return null;
+    return {
+      ...emp,
+      id: emp.id || String(emp._id || ""),
+      current_status: emp.current_status || "AVAILABLE",
+      lunch_start_time: emp.lunch_start_time || null,
+      lunch_expected_end: emp.lunch_expected_end || null,
+      break_start_time: emp.break_start_time || null,
+    };
+  };
+
+  const handleStartLunch = async () => {
+    try {
+      setStatusActionLoading(true);
+      const res = await apiFetch<{ ok: boolean; employee: any }>("/api/user/status/start-lunch", { method: "POST" });
+      if (res.ok) {
+        setProfile(normalizeProfile(res.employee));
+      }
+    } catch (e) {
+      console.error("Failed to start lunch:", e);
+    } finally {
+      setStatusActionLoading(false);
+    }
+  };
+
+  const handleEndLunch = async () => {
+    try {
+      setStatusActionLoading(true);
+      const res = await apiFetch<{ ok: boolean; employee: any }>("/api/user/status/end-lunch", { method: "POST" });
+      if (res.ok) {
+        setProfile(normalizeProfile(res.employee));
+      }
+    } catch (e) {
+      console.error("Failed to end lunch:", e);
+    } finally {
+      setStatusActionLoading(false);
+    }
+  };
+
+  const handleStartBreak = async () => {
+    try {
+      setStatusActionLoading(true);
+      const res = await apiFetch<{ ok: boolean; employee: any }>("/api/user/status/start-break", { method: "POST" });
+      if (res.ok) {
+        setProfile(normalizeProfile(res.employee));
+      }
+    } catch (e) {
+      console.error("Failed to start break:", e);
+    } finally {
+      setStatusActionLoading(false);
+    }
+  };
+
+  const handleEndBreak = async () => {
+    try {
+      setStatusActionLoading(true);
+      const res = await apiFetch<{ ok: boolean; employee: any }>("/api/user/status/end-break", { method: "POST" });
+      if (res.ok) {
+        setProfile(normalizeProfile(res.employee));
+      }
+    } catch (e) {
+      console.error("Failed to end break:", e);
+    } finally {
+      setStatusActionLoading(false);
+    }
+  };
+
+  const formatTimeLeft = (sec: number | null) => {
+    if (sec === null) return "";
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
 
   const metrics = useMemo(() => {
     if (!summary) return null;
@@ -297,6 +463,123 @@ const Dashboard = () => {
             </motion.div>
           ))}
         </motion.div>
+
+        {/* Availability Status Control Panel */}
+        {profile && (
+          <motion.div variants={itemVariants}>
+            {(() => {
+              const currentStatus = profile.current_status || "AVAILABLE";
+
+              let bgStyle = "bg-[#1e293b]/60 border-[#475569]/50 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]";
+              let glowColor = "rgba(71, 85, 105, 0.3)";
+              let accentColor = "text-[#94a3b8]";
+              let statusLabel = "Available";
+              let statusDesc = "Ready for tasks and coordination";
+              let IconComponent = CheckCircle;
+              let iconClass = "text-green-400";
+
+              if (currentStatus === "LUNCH") {
+                bgStyle = "bg-[#7c2d12]/40 border-[#b45309]/30 shadow-[0_8px_32px_0_rgba(251,146,60,0.15)]";
+                glowColor = "rgba(251, 146, 60, 0.25)";
+                accentColor = "text-[#fdba74]";
+                statusLabel = "On Lunch Break";
+                statusDesc = "Dining or away from station";
+                IconComponent = Utensils;
+                iconClass = "text-[#f97316] animate-pulse duration-1000";
+              } else if (currentStatus === "BREAK") {
+                bgStyle = "bg-[#4c1d95]/40 border-[#7c3aed]/30 shadow-[0_8px_32px_0_rgba(167,139,250,0.15)]";
+                glowColor = "rgba(167, 139, 250, 0.25)";
+                accentColor = "text-[#ddd6fe]";
+                statusLabel = "On Short Break";
+                statusDesc = "Stepped away for a moment";
+                IconComponent = Coffee;
+                iconClass = "text-[#8b5cf6] animate-bounce duration-1000";
+              }
+
+              return (
+                <div
+                  className={cn(
+                    "relative rounded-xl border-[2px] backdrop-blur-md p-6 overflow-hidden transition-all duration-500",
+                    bgStyle
+                  )}
+                  style={{
+                    boxShadow: `inset 0 0 20px rgba(0,0,0,0.4), 0 0 30px ${glowColor}`,
+                  }}
+                >
+                  <div className="absolute inset-[2px] rounded-lg border border-white/5 pointer-events-none" />
+
+                  <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6 z-10">
+                    <div className="flex items-center gap-4">
+                      <div className={cn("p-4 rounded-xl bg-black/40 border border-white/10 flex items-center justify-center", currentStatus !== "AVAILABLE" && "animate-pulse")}>
+                        <IconComponent className={cn("h-8 w-8", iconClass)} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-lg font-bold text-white tracking-wide">{statusLabel}</h3>
+                          {currentStatus !== "AVAILABLE" && (
+                            <Badge variant="outline" className={cn("border-white/20 text-xs px-2 py-0.5", accentColor)}>
+                              Active
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-gray-300 mt-0.5">{statusDesc}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+                      {currentStatus !== "AVAILABLE" && timeLeft !== null && (
+                        <div className="flex items-center justify-center gap-2 px-4 py-2 bg-black/50 border border-white/10 rounded-xl">
+                          <Timer className="h-4 w-4 text-gray-400" />
+                          <span className="text-sm font-semibold text-gray-400">Time Remaining:</span>
+                          <span className={cn("text-lg font-bold tracking-wider tabular-nums font-mono", accentColor)}>
+                            {formatTimeLeft(timeLeft)}
+                          </span>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2">
+                        {currentStatus === "AVAILABLE" ? (
+                          <>
+                            <button
+                              onClick={handleStartLunch}
+                              disabled={statusActionLoading}
+                              className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-bold px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg transition-all"
+                            >
+                              <Utensils className="h-4 w-4" /> Go to Lunch
+                            </button>
+                            <button
+                              onClick={handleStartBreak}
+                              disabled={statusActionLoading}
+                              className="bg-[#8b5cf6] hover:bg-purple-700 disabled:opacity-50 text-white font-bold px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg transition-all"
+                            >
+                              <Coffee className="h-4 w-4" /> Go on Break
+                            </button>
+                          </>
+                        ) : currentStatus === "LUNCH" ? (
+                          <button
+                            onClick={handleEndLunch}
+                            disabled={statusActionLoading}
+                            className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg transition-all"
+                          >
+                            <CheckCircle className="h-4 w-4" /> End Lunch
+                          </button>
+                        ) : (
+                          <button
+                            onClick={handleEndBreak}
+                            disabled={statusActionLoading}
+                            className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white font-bold px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg transition-all"
+                          >
+                            <CheckCircle className="h-4 w-4" /> End Break
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </motion.div>
+        )}
 
         <motion.div className="w-full overflow-x-auto pb-1" variants={itemVariants}>
           <div className="min-w-[300px] sm:min-w-0">

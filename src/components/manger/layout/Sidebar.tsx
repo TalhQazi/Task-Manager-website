@@ -6,6 +6,7 @@ import {
   Users,
   Calendar,
   Clock,
+  Coffee,
   DollarSign,
   User,
   Car,
@@ -57,6 +58,7 @@ const navItemsBase: NavItem[] = [
   { icon: Megaphone, label: "Announcements", path: "/manager/announcements" },
   { icon: Calendar, label: "Scheduling", path: "/manager/scheduling" },
   { icon: Clock, label: "Time Tracking", path: "/manager/time-tracking" },
+  { icon: Coffee, label: "Break History", path: "/manager/break-history" },
   { icon: Clock, label: "Attendance", path: "/manager/attendance" },
    {
       icon: FileText,

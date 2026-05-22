@@ -19,6 +19,7 @@ const Vendors = lazy(() => import("@/pages/admin/Vendors"));
 const Scheduling = lazy(() => import("@/pages/admin/Scheduling"));
 const TimeTracking = lazy(() => import("@/pages/admin/TimeTracking"));
 const EmployeeTimeHistory = lazy(() => import("@/pages/admin/EmployeeTimeHistory"));
+const BreakTracking = lazy(() => import("@/pages/admin/BreakTracking"));
 const Messaging = lazy(() => import("@/pages/admin/Messaging"));
 const Notifications = lazy(() => import("@/pages/admin/Notifications"));
 const DoNotHire = lazy(() => import("@/pages/admin/DoNotHire"));
@@ -109,6 +110,7 @@ export default function AdminRoutes() {
       { path: "scheduling", element: <Scheduling /> },
       { path: "time-tracking", element: <TimeTracking /> },
       { path: "time-tracking/history/:employee", element: <EmployeeTimeHistory /> },
+      { path: "break-history", element: <BreakTracking /> },
       { path: "messaging", element: <Messaging /> },
       { path: "announcements", element: <Announcements /> },
       { path: "notifications", element: <Notifications /> },

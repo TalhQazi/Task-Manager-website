@@ -130,7 +130,22 @@ export async function employeeLogin(username: string, password: string) {
 }
 
 export async function getEmployeeProfile() {
-  return employeeApiFetch<{ item: { id: string; name: string; email: string; role: string; phone?: string; company?: string; location?: string; status?: string } }>("/api/employees/me");
+  return employeeApiFetch<{
+    item: {
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+      phone?: string;
+      company?: string;
+      location?: string;
+      status?: string;
+      current_status?: "AVAILABLE" | "LUNCH" | "BREAK";
+      lunch_start_time?: string | null;
+      lunch_expected_end?: string | null;
+      break_start_time?: string | null;
+    };
+  }>("/api/employees/me");
 }
 
 export async function getEmployeeTasks() {
@@ -626,5 +641,52 @@ export async function deleteNotification(notificationId: string): Promise<void> 
   return employeeApiFetch<void>(`/api/messages/${encodeURIComponent(notificationId)}`, {
     method: "DELETE"
   });
+}
+
+// Availability Status System APIs
+export async function startLunch() {
+  return employeeApiFetch<{ ok: boolean; employee: any }>("/api/user/status/start-lunch", {
+    method: "POST",
+  });
+}
+
+export async function endLunch() {
+  return employeeApiFetch<{ ok: boolean; employee: any }>("/api/user/status/end-lunch", {
+    method: "POST",
+  });
+}
+
+export async function startBreak() {
+  return employeeApiFetch<{ ok: boolean; employee: any }>("/api/user/status/start-break", {
+    method: "POST",
+  });
+}
+
+export async function endBreak() {
+  return employeeApiFetch<{ ok: boolean; employee: any }>("/api/user/status/end-break", {
+    method: "POST",
+  });
+}
+
+export async function getUserStatus(userId: string) {
+  return employeeApiFetch<{
+    current_status: "AVAILABLE" | "LUNCH" | "BREAK";
+    lunch_start_time: string | null;
+    lunch_expected_end: string | null;
+    break_start_time: string | null;
+  }>(`/api/user/${encodeURIComponent(userId)}/status`);
+}
+
+export async function getTeamStatuses() {
+  return employeeApiFetch<{
+    items: Array<{
+      _id: string;
+      name: string;
+      current_status: "AVAILABLE" | "LUNCH" | "BREAK";
+      lunch_start_time: string | null;
+      lunch_expected_end: string | null;
+      break_start_time: string | null;
+    }>;
+  }>("/api/team/statuses");
 }
 

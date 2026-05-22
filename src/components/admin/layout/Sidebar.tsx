@@ -10,6 +10,7 @@ import {
   MapPin,
   Calendar,
   Clock,
+  Coffee,
   ClipboardList,
   UserX,
   BarChart3,
@@ -114,6 +115,8 @@ const navItemsBase: NavItem[] = [
   { icon: CalendarCheck, label: "Leave Requests", path: "/admin/leave-requests" },
   { icon: Calendar, label: "Travel Calendar", path: "/admin/travel-calendar" },
   { icon: History, label: "Task History", path: "/admin/task-history" },
+  { icon: Clock, label: "Time Tracking", path: "/admin/time-tracking" },
+  { icon: Coffee, label: "Break History", path: "/admin/break-history" },
   {
     icon: Layers,
     label: "Operations",
@@ -124,8 +127,6 @@ const navItemsBase: NavItem[] = [
       { icon: MapPin, label: "Locations", path: "/admin/locations" },
       { icon: Calendar, label: "Scheduling", path: "/admin/scheduling" },
       { icon: Bell, label: "Notifications", path: "/admin/notifications" },
-      { icon: Clock, label: "Time Tracking", path: "/admin/time-tracking" },
-
     ],
   },
   {
