@@ -266,12 +266,14 @@ const Dashboard = () => {
   const handleStartLunch = async () => {
     try {
       setStatusActionLoading(true);
+      setApiError(null);
       const res = await apiFetch<{ ok: boolean; employee: any }>("/api/user/status/start-lunch", { method: "POST" });
       if (res.ok) {
         setProfile(normalizeProfile(res.employee));
       }
     } catch (e) {
       console.error("Failed to start lunch:", e);
+      setApiError(e instanceof Error ? e.message : "Failed to start lunch");
     } finally {
       setStatusActionLoading(false);
     }
@@ -280,12 +282,14 @@ const Dashboard = () => {
   const handleEndLunch = async () => {
     try {
       setStatusActionLoading(true);
+      setApiError(null);
       const res = await apiFetch<{ ok: boolean; employee: any }>("/api/user/status/end-lunch", { method: "POST" });
       if (res.ok) {
         setProfile(normalizeProfile(res.employee));
       }
     } catch (e) {
       console.error("Failed to end lunch:", e);
+      setApiError(e instanceof Error ? e.message : "Failed to end lunch");
     } finally {
       setStatusActionLoading(false);
     }
@@ -294,12 +298,14 @@ const Dashboard = () => {
   const handleStartBreak = async () => {
     try {
       setStatusActionLoading(true);
+      setApiError(null);
       const res = await apiFetch<{ ok: boolean; employee: any }>("/api/user/status/start-break", { method: "POST" });
       if (res.ok) {
         setProfile(normalizeProfile(res.employee));
       }
     } catch (e) {
       console.error("Failed to start break:", e);
+      setApiError(e instanceof Error ? e.message : "Failed to start break");
     } finally {
       setStatusActionLoading(false);
     }
@@ -308,12 +314,14 @@ const Dashboard = () => {
   const handleEndBreak = async () => {
     try {
       setStatusActionLoading(true);
+      setApiError(null);
       const res = await apiFetch<{ ok: boolean; employee: any }>("/api/user/status/end-break", { method: "POST" });
       if (res.ok) {
         setProfile(normalizeProfile(res.employee));
       }
     } catch (e) {
       console.error("Failed to end break:", e);
+      setApiError(e instanceof Error ? e.message : "Failed to end break");
     } finally {
       setStatusActionLoading(false);
     }
