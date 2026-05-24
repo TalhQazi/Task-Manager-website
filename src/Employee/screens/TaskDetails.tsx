@@ -22,6 +22,7 @@ import {
   getEmployeeProfile,
 } from "../lib/api";
 import { toast } from "sonner";
+import FollowUpControlCenter from "@/components/shared/FollowUpControlCenter";
 import {
   ArrowLeft,
   Download,
@@ -487,234 +488,244 @@ export default function EmployeeTaskDetails() {
         {headerBadges}
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl">{task.title}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="text-sm text-muted-foreground whitespace-pre-wrap">{task.description}</div>
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left column: Task Details and Comments */}
+        <div className="lg:col-span-8 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl">{task.title}</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="text-sm text-muted-foreground whitespace-pre-wrap">{task.description}</div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Calendar className="h-4 w-4" />
-              <span>Due: {task.dueDate || "—"} {task.dueTime ? `(${task.dueTime})` : ""}</span>
-            </div>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Flag className="h-4 w-4" />
-              <span>Created: {task.createdAt || "—"}</span>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2">
-              <label className="text-sm font-medium">Status</label>
-              <select
-                value={statusDraft}
-                onChange={(e) => setStatusDraft(e.target.value as TaskStatus)}
-                className="border rounded-md px-3 py-2 text-sm bg-white"
-                aria-label="Select status"
-              >
-                <option value="pending">Pending</option>
-                <option value="in-progress">In Progress</option>
-                <option value="completed">Completed</option>
-              </select>
-              <Button
-                onClick={onUpdateStatus}
-                disabled={statusUpdating}
-                className="bg-[#133767] hover:bg-[#1a4585]"
-              >
-                {statusUpdating ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Save className="h-4 w-4 mr-2" />
-                )}
-                Save
-              </Button>
-            </div>
-
-            <div>
-              <Button
-                variant="outline"
-                onClick={downloadAttachment}
-                disabled={!canDownloadAttachment}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Download Attachment
-              </Button>
-            </div>
-          </div>
-
-          {task.attachments && task.attachments.length > 0 ? (
-            <div className="space-y-2">
-              <div className="text-xs font-medium text-muted-foreground">Attachments ({task.attachments.length})</div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {task.attachments.map((att, idx) => (
-                  <AttachmentItem key={idx} att={att} idx={idx} onDownload={(url, fileName) => void downloadViaUrl(url, fileName)} />
-                ))}
-              </div>
-            </div>
-          ) : task.attachmentFileName ? (
-            <div className="text-xs text-muted-foreground">File: {task.attachmentFileName}</div>
-          ) : null}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
-            Comments
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col flex-1 min-h-[500px] h-full bg-muted/5 rounded-2xl border border-border/40 overflow-hidden shadow-inner">
-            <div 
-              ref={chatContainerRef} 
-              className="flex-1 overflow-y-auto p-4 space-y-1.5 scroll-smooth custom-scrollbar"
-            >
-              {commentsLoading && comments.length === 0 ? (
-                <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-              ) : comments.length === 0 ? (
-                <div className="text-center p-8 text-muted-foreground border-2 border-dashed border-border/50 rounded-2xl bg-muted/5">
-                  <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                  <p className="text-sm font-medium">No activity here yet. Start the conversation!</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Calendar className="h-4 w-4" />
+                  <span>Due: {task.dueDate || "—"} {task.dueTime ? `(${task.dueTime})` : ""}</span>
                 </div>
-              ) : (
-                <div className="flex flex-col gap-1">
-                  {comments.map((c, idx) => {
-                    const isMe = c.authorUsername === currentUsername;
-                    const prevComment = idx > 0 ? comments[idx - 1] : null;
-                    const isSameAuthor = prevComment?.authorUsername === c.authorUsername;
-                    const showSenderName = !isMe && !isSameAuthor;
-                    
-                    return (
-                      <div 
-                        key={c.id} 
-                        className={cn(
-                          "flex flex-col group",
-                          isMe ? "items-end" : "items-start",
-                          !isSameAuthor && idx !== 0 ? "mt-4" : "mt-0"
-                        )}
-                      >
-                        {showSenderName && (
-                          <span className="chat-sender-name ml-10">
-                            {c.authorUsername}
-                          </span>
-                        )}
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Flag className="h-4 w-4" />
+                  <span>Created: {task.createdAt || "—"}</span>
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium">Status</label>
+                  <select
+                    value={statusDraft}
+                    onChange={(e) => setStatusDraft(e.target.value as TaskStatus)}
+                    className="border rounded-md px-3 py-2 text-sm bg-white"
+                    aria-label="Select status"
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                  <Button
+                    onClick={onUpdateStatus}
+                    disabled={statusUpdating}
+                    className="bg-[#133767] hover:bg-[#1a4585]"
+                  >
+                    {statusUpdating ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    Save
+                  </Button>
+                </div>
+
+                <div>
+                  <Button
+                    variant="outline"
+                    onClick={downloadAttachment}
+                    disabled={!canDownloadAttachment}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Download Attachment
+                  </Button>
+                </div>
+              </div>
+
+              {task.attachments && task.attachments.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="text-xs font-medium text-muted-foreground">Attachments ({task.attachments.length})</div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {task.attachments.map((att, idx) => (
+                      <AttachmentItem key={idx} att={att} idx={idx} onDownload={(url, fileName) => void downloadViaUrl(url, fileName)} />
+                    ))}
+                  </div>
+                </div>
+              ) : task.attachmentFileName ? (
+                <div className="text-xs text-muted-foreground">File: {task.attachmentFileName}</div>
+              ) : null}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5" />
+                Comments
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-col flex-1 min-h-[500px] h-full bg-muted/5 rounded-2xl border border-border/40 overflow-hidden shadow-inner">
+                <div 
+                  ref={chatContainerRef} 
+                  className="flex-1 overflow-y-auto p-4 space-y-1.5 scroll-smooth custom-scrollbar"
+                >
+                  {commentsLoading && comments.length === 0 ? (
+                    <div className="flex justify-center p-8"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+                  ) : comments.length === 0 ? (
+                    <div className="text-center p-8 text-muted-foreground border-2 border-dashed border-border/50 rounded-2xl bg-muted/5">
+                      <MessageSquare className="h-8 w-8 mx-auto mb-2 opacity-20" />
+                      <p className="text-sm font-medium">No activity here yet. Start the conversation!</p>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col gap-1">
+                      {comments.map((c, idx) => {
+                        const isMe = c.authorUsername === currentUsername;
+                        const prevComment = idx > 0 ? comments[idx - 1] : null;
+                        const isSameAuthor = prevComment?.authorUsername === c.authorUsername;
+                        const showSenderName = !isMe && !isSameAuthor;
                         
-                        <div className={cn(
-                          "flex items-end gap-2 max-w-[85%] w-fit",
-                          isMe ? "flex-row-reverse" : "flex-row"
-                        )}>
-                          {!isMe && (
-                            <div className="w-8 flex-shrink-0">
-                              {!isSameAuthor ? (
-                                <Avatar className="w-8 h-8 border shadow-sm flex-shrink-0 mb-1">
-                                  <AvatarImage src={toProxiedUrl(c.authorAvatar)} alt={c.authorUsername} crossOrigin="anonymous" />
-                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                                    {(c.authorUsername || "??").substring(0, 2).toUpperCase()}
-                                  </AvatarFallback>
-                                </Avatar>
-                              ) : null}
-                            </div>
-                          )}
-                          
-                          <div className={cn(
-                            "flex flex-col group/bubble relative min-w-0",
-                            isMe ? "items-end" : "items-start"
-                          )}>
+                        return (
+                          <div 
+                            key={c.id} 
+                            className={cn(
+                              "flex flex-col group",
+                              isMe ? "items-end" : "items-start",
+                              !isSameAuthor && idx !== 0 ? "mt-4" : "mt-0"
+                            )}
+                          >
+                            {showSenderName && (
+                              <span className="chat-sender-name ml-10">
+                                {c.authorUsername}
+                              </span>
+                            )}
+                            
                             <div className={cn(
-                              "chat-bubble",
-                              isMe ? "chat-bubble-me" : "chat-bubble-others"
+                              "flex items-end gap-2 max-w-[85%] w-fit",
+                              isMe ? "flex-row-reverse" : "flex-row"
                             )}>
-                              <div className="whitespace-pre-wrap break-words overflow-hidden leading-snug">
-                                {renderMessageWithMentions(c.message)}
+                              {!isMe && (
+                                <div className="w-8 flex-shrink-0">
+                                  {!isSameAuthor ? (
+                                    <Avatar className="w-8 h-8 border shadow-sm flex-shrink-0 mb-1">
+                                      <AvatarImage src={toProxiedUrl(c.authorAvatar)} alt={c.authorUsername} crossOrigin="anonymous" />
+                                      <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                                        {(c.authorUsername || "??").substring(0, 2).toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                  ) : null}
+                                </div>
+                              )}
+                              
+                              <div className={cn(
+                                "flex flex-col group/bubble relative min-w-0",
+                                isMe ? "items-end" : "items-start"
+                              )}>
+                                <div className={cn(
+                                  "chat-bubble",
+                                  isMe ? "chat-bubble-me" : "chat-bubble-others"
+                                )}>
+                                  <div className="whitespace-pre-wrap break-words overflow-hidden leading-snug">
+                                    {renderMessageWithMentions(c.message)}
+                                  </div>
+                                  
+                                  {c.attachments && c.attachments.length > 0 && (
+                                    <div className={cn(
+                                      "grid gap-2 mt-2 max-w-[140px] sm:max-w-[180px]",
+                                      c.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"
+                                    )}>
+                                      {c.attachments.map((att, attIdx) => (
+                                        <div key={attIdx} className="relative rounded-lg overflow-hidden border border-white/20 bg-black/10 min-w-[120px] max-w-full h-auto">
+                                          <CommentAttachmentImg
+                                            taskId={taskId || task?.id || ""}
+                                            commentId={c.id}
+                                            index={attIdx}
+                                            mimeType={att.mimeType}
+                                            fileName={att.fileName}
+                                            fallbackUrl={att.url}
+                                            onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
+                                          />
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                <div className={cn(
+                                  "chat-timestamp",
+                                  isMe ? "text-right mr-1" : "text-left ml-1"
+                                )}>
+                                  {formatMessageTime(c.createdAt)}
+                                </div>
                               </div>
                               
-                              {c.attachments && c.attachments.length > 0 && (
-                                <div className={cn(
-                                  "grid gap-2 mt-2 max-w-[140px] sm:max-w-[180px]",
-                                  c.attachments.length === 1 ? "grid-cols-1" : "grid-cols-2"
-                                )}>
-                                  {c.attachments.map((att, attIdx) => (
-                                    <div key={attIdx} className="relative rounded-lg overflow-hidden border border-white/20 bg-black/10 min-w-[120px] max-w-full h-auto">
-                                      <CommentAttachmentImg
-                                        taskId={taskId || task?.id || ""}
-                                        commentId={c.id}
-                                        index={attIdx}
-                                        mimeType={att.mimeType}
-                                        fileName={att.fileName}
-                                        fallbackUrl={att.url}
-                                        onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
-                                      />
-                                    </div>
-                                  ))}
+                              {isMe && (
+                                <div className="w-8 flex-shrink-0">
+                                  {!isSameAuthor ? (
+                                    <Avatar className="w-8 h-8 border shadow-sm flex-shrink-0 mb-1">
+                                      <AvatarImage src={toProxiedUrl(profile?.avatarUrl)} alt={currentUsername} crossOrigin="anonymous" />
+                                      <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                                        {(currentUsername || "??").substring(0, 2).toUpperCase()}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                  ) : null}
                                 </div>
                               )}
                             </div>
-                            
-                            <div className={cn(
-                              "chat-timestamp",
-                              isMe ? "text-right mr-1" : "text-left ml-1"
-                            )}>
-                              {formatMessageTime(c.createdAt)}
-                            </div>
                           </div>
-                          
-                          {isMe && (
-                            <div className="w-8 flex-shrink-0">
-                              {!isSameAuthor ? (
-                                <Avatar className="w-8 h-8 border shadow-sm flex-shrink-0 mb-1">
-                                  <AvatarImage src={toProxiedUrl(profile?.avatarUrl)} alt={currentUsername} crossOrigin="anonymous" />
-                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
-                                    {(currentUsername || "??").substring(0, 2).toUpperCase()}
-                                  </AvatarFallback>
-                                </Avatar>
-                              ) : null}
-                            </div>
-                          )}
+                        );
+                      })}
+                      
+                      {othersTyping.length > 0 && (
+                        <div className="flex items-center gap-2 max-w-[85%] self-start pt-2">
+                          <div className="typing-indicator scale-75 origin-left">
+                            <div className="typing-dot" />
+                            <div className="typing-dot" />
+                            <div className="typing-dot" />
+                          </div>
+                          <span className="text-[10px] text-muted-foreground/40 italic font-medium">
+                            {othersTyping.join(", ")} typing...
+                          </span>
                         </div>
-                      </div>
-                    );
-                  })}
-                  
-                  {othersTyping.length > 0 && (
-                    <div className="flex items-center gap-2 max-w-[85%] self-start pt-2">
-                      <div className="typing-indicator scale-75 origin-left">
-                        <div className="typing-dot" />
-                        <div className="typing-dot" />
-                        <div className="typing-dot" />
-                      </div>
-                      <span className="text-[10px] text-muted-foreground/40 italic font-medium">
-                        {othersTyping.join(", ")} typing...
-                      </span>
+                      )}
                     </div>
                   )}
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
 
-          <div className="space-y-2">
-            <Textarea
-              placeholder="Write a comment..."
-              value={commentDraft}
-              onChange={handleTypingIndicator}
-              className="rounded-xl border-2 border-border/50 focus-visible:ring-primary/20 transition-all min-h-[80px]"
-            />
-            <div className="flex justify-end">
-              <Button
-                onClick={onSendComment}
-                disabled={commentSending || !commentDraft.trim()}
-                className="bg-[#133767] hover:bg-[#1a4585]"
-              >
-                {commentSending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
-                Send
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+              <div className="space-y-2">
+                <Textarea
+                  placeholder="Write a comment..."
+                  value={commentDraft}
+                  onChange={handleTypingIndicator}
+                  className="rounded-xl border-2 border-border/50 focus-visible:ring-primary/20 transition-all min-h-[80px]"
+                />
+                <div className="flex justify-end">
+                  <Button
+                    onClick={onSendComment}
+                    disabled={commentSending || !commentDraft.trim()}
+                    className="bg-[#133767] hover:bg-[#1a4585]"
+                  >
+                    {commentSending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                    Send
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right column: Follow-Up Control center widget */}
+        <div className="lg:col-span-4">
+          <FollowUpControlCenter taskId={task.id} isManager={false} />
+        </div>
+      </div>
 
       {/* Preview Dialog */}
       {previewUrl && (

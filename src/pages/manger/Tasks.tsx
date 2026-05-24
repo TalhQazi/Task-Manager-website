@@ -104,6 +104,7 @@ import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import jsPDF from "jspdf";
 import { Pagination } from "@/components/Pagination";
 import { useRewards } from "@/contexts/RewardContext";
+import FollowUpControlCenter from "@/components/shared/FollowUpControlCenter";
 import { useGlobalTimer } from "@/hooks/useGlobalTimer";
 import { getRemainingTime, getTimerState } from "@/lib/manger/time";
 import CreateExpenseSheet from "@/components/expense/CreateExpenseSheet";
@@ -3585,6 +3586,11 @@ export default function Tasks() {
                             </div>
                           );
                         })()}
+
+                        {/* Task Follow-Up Control Center */}
+                        <div className="pt-4 border-t border-border/20">
+                          <FollowUpControlCenter taskId={selectedTask.id} isManager={true} />
+                        </div>
                       </div>
 
                       <div className="pt-4 space-y-3">

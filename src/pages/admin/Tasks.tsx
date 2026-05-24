@@ -106,6 +106,7 @@ import AssetLibraryPicker from "@/components/admin/AssetLibraryPicker";
 import { TaskContributors } from "@/components/admin/tasks/TaskContributors";
 import DropboxFilePicker, { type DropboxSelectedFile, formatBytes, DropboxIcon } from "@/components/admin/DropboxFilePicker";
 import { useRewards } from "@/contexts/RewardContext";
+import FollowUpControlCenter from "@/components/shared/FollowUpControlCenter";
 
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
   const [src, setSrc] = useState<string | null | undefined>(undefined);
@@ -3967,6 +3968,13 @@ export default function Tasks() {
 
                     {/* Task Contributors */}
                     {selectedTask && <TaskContributors taskId={selectedTask.id} />}
+
+                    {/* Task Follow-Up Control Center */}
+                    {selectedTask && (
+                      <div className="pt-4 border-t border-border/20">
+                        <FollowUpControlCenter taskId={selectedTask.id} isManager={true} isAdmin={true} />
+                      </div>
+                    )}
 
                   </div>
                 </div>

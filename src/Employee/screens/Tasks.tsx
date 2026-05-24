@@ -101,6 +101,7 @@ import jsPDF from "jspdf";
 import { Pagination } from "@/components/Pagination";
 import { DropboxIcon, formatBytes } from "@/components/admin/DropboxFilePicker";
 import { useRewards } from "@/contexts/RewardContext";
+import FollowUpControlCenter from "@/components/shared/FollowUpControlCenter";
 
 interface Task {
   id: string;
@@ -2565,6 +2566,7 @@ export default function Tasks() {
                           {selectedTask.dueTime && <span className="text-[11px] text-primary/70 font-black uppercase tracking-widest">{selectedTask.dueTime}</span>}
                         </div>
                       </div>
+                      <FollowUpControlCenter taskId={selectedTask.id} isManager={false} />
                       {selectedTask.location && (
                         <div className="space-y-3">
                           <label className="text-[11px] font-bold text-muted-foreground/80 uppercase tracking-widest flex items-center gap-2"><MapPin className="w-3.5 h-3.5" /> Workspace</label>
