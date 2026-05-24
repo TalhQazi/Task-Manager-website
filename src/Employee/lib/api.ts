@@ -690,3 +690,48 @@ export async function getTeamStatuses() {
   }>("/api/team/statuses");
 }
 
+// Itinerary API functions
+export interface ItineraryStop {
+  _id: string;
+  title: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  estimatedDurationMinutes: number;
+  sequenceOrder: number;
+  travelTimeToNext: number;
+  taskId?: string | null;
+  locationId?: string | null;
+  completed: boolean;
+  completedAt?: string | null;
+}
+
+export interface Itinerary {
+  id: string;
+  _id: string;
+  userId: string;
+  date: string;
+  startTime: string;
+  stops: ItineraryStop[];
+  optimized: boolean;
+}
+
+export async function getMyItinerary(date: string): Promise<{ item: Itinerary | null }> {
+  return employeeApiFetch<{ item: Itinerary | null }>(`/api/itineraries/me?date=${encodeURIComponent(date)}`);
+}
+
+export async function completeItineraryStop(
+  itineraryId: string,
+  stopId: string,
+  completed: boolean
+): Promise<{ item: Itinerary }> {
+  return employeeApiFetch<{ item: Itinerary }>(
+    `/api/itineraries/${encodeURIComponent(itineraryId)}/stops/${encodeURIComponent(stopId)}/complete`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ completed }),
+    }
+  );
+}
+
+

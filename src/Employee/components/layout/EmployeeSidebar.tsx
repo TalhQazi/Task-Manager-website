@@ -20,7 +20,8 @@ import {
   Bug, 
   Megaphone,
   Settings,
-  Mail
+  Mail,
+  MapPin
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
@@ -31,6 +32,7 @@ const navItemsBase = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/employee", end: true },
   { icon: Megaphone, label: "Announcements", path: "/employee/announcements" },
   { icon: ClipboardList, label: "My Tasks", path: "/employee/tasks" },
+  { icon: MapPin, label: "Daily Itinerary", path: "/employee/itinerary" },
   { icon: Calendar, label: "Events", path: "/employee/schedule" },
   { icon: ClipboardCheck, label: "Scrum Records", path: "/employee/scrum-records" },
   { icon: Clock, label: "Attendance", path: "/employee/clocked" },

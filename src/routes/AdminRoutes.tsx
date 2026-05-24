@@ -10,6 +10,7 @@ const Tasks = lazy(() => import("@/pages/admin/Tasks"));
 const Employees = lazy(() => import("@/pages/admin/Employees"));
 const Payroll = lazy(() => import("@/pages/admin/Payroll"));
 const TaskHistory = lazy(() => import("@/pages/admin/TaskHistory"));
+const ItineraryHistory = lazy(() => import("@/pages/admin/ItineraryHistory"));
 const EmployeeTaskHistory = lazy(() => import("@/pages/admin/EmployeeTaskHistory"));
 const Appliances = lazy(() => import("@/pages/admin/Appliances"));
 const Vehicles = lazy(() => import("@/pages/admin/Vehicles"));
@@ -99,6 +100,7 @@ export default function AdminRoutes() {
       { path: "roles", element: <RolesPermissions /> },
       { path: "tasks", element: <Tasks /> },
       { path: "employees", element: <Employees /> },
+      { path: "itineraries", element: <ItineraryHistory /> },
       { path: "payroll", element: <Payroll /> },
       { path: "task-history", element: <TaskHistory /> },
       { path: "task-history/:employee", element: <EmployeeTaskHistory /> },
