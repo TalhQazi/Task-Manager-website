@@ -72,6 +72,7 @@ const navItemsBase: NavItem[] = [
   { icon: Building2, label: "Vendors", path: "/admin/vendors" },
   { icon: MessageSquare, label: "Messaging", path: "/admin/messaging" },
   { icon: ClipboardList, label: "Onboarding", path: "/admin/onboarding" },
+  { icon: ClipboardList, label: "New Hire Reporting", path: "/admin/new-hire-reporting" },
   { icon: BarChart3, label: "Reports", path: "/admin/reports" },
   { icon: Globe, label: "Digital Assets", path: "/admin/digital-assets" },
   { icon: Lightbulb, label: "Intellectual Property", path: "/admin/intellectual-property" },

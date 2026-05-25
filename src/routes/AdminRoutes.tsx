@@ -25,6 +25,7 @@ const Messaging = lazy(() => import("@/pages/admin/Messaging"));
 const Notifications = lazy(() => import("@/pages/admin/Notifications"));
 const DoNotHire = lazy(() => import("@/pages/admin/DoNotHire"));
 const Onboarding = lazy(() => import("@/pages/admin/Onboarding"));
+const NewHireReporting = lazy(() => import("@/pages/admin/NewHireReporting"));
 const Reports = lazy(() => import("@/pages/admin/Reports"));
 const ActivityLogs = lazy(() => import("@/pages/admin/ActivityLogs"));
 const Settings = lazy(() => import("@/pages/admin/Settings"));
@@ -118,6 +119,7 @@ export default function AdminRoutes() {
       { path: "notifications", element: <Notifications /> },
       { path: "do-not-hire", element: <DoNotHire /> },
       { path: "onboarding", element: <Onboarding /> },
+      { path: "new-hire-reporting", element: <NewHireReporting /> },
       { path: "reports", element: <Reports /> },
       { path: "activity-logs", element: auth.role === "super-admin" ? <ActivityLogs /> : <Navigate to="/admin" replace /> },
       { path: "digital-assets", element: <DigitalAssets /> },
