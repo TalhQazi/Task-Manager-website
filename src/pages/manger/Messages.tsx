@@ -29,6 +29,7 @@ import { cn } from "@/lib/manger/utils";
 import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSocket } from "@/contexts/SocketContext";
+import { getAuthState } from "@/lib/auth";
 import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
 import MilestoneBadge from "@/components/shared/MilestoneBadge";
 
@@ -44,6 +45,10 @@ interface Employee {
   avatarUrl?: string;
   milestoneLevel?: string;
   milestoneLabel?: string;
+  current_status?: "AVAILABLE" | "LUNCH" | "BREAK";
+  lunch_start_time?: string | null;
+  lunch_expected_end?: string | null;
+  break_start_time?: string | null;
 }
 
 interface Message {
@@ -103,6 +108,81 @@ export default function Messages() {
   const queryClient = useQueryClient();
   const [view, setView] = useState<"list" | "conversation" | "employees">("list");
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+
+  const [nowTime, setNowTime] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNowTime(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const getAvatarRingStyles = (empStatus: string | undefined) => {
+    if (empStatus === "LUNCH") {
+      return {
+        border: "2.5px solid #F59E0B",
+        boxShadow: "0 0 10px rgba(245, 158, 11, 0.6)",
+      };
+    }
+    if (empStatus === "BREAK") {
+      return {
+        border: "2.5px solid #8B5CF6",
+        boxShadow: "0 0 10px rgba(139, 92, 246, 0.6)",
+      };
+    }
+    return {};
+  };
+
+  const getAvatarDotClassAndStyle = (empStatus: string | undefined, isActive: boolean) => {
+    if (!isActive) return null;
+    if (empStatus === "LUNCH") {
+      return (
+        <div 
+          className="absolute bottom-0 right-0 w-3 h-3 border-2 border-white rounded-full shadow-md animate-pulse" 
+          style={{ backgroundColor: "#F59E0B", animationDuration: "1s" }}
+        />
+      );
+    }
+    if (empStatus === "BREAK") {
+      return (
+        <div 
+          className="absolute bottom-0 right-0 w-3 h-3 border-2 border-white rounded-full shadow-md animate-pulse" 
+          style={{ backgroundColor: "#8B5CF6", animationDuration: "1s" }}
+        />
+      );
+    }
+    return (
+      <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
+    );
+  };
+
+  const getSubtitle = (emp: any) => {
+    if (emp.current_status === "LUNCH" && emp.lunch_start_time) {
+      const start = new Date(emp.lunch_start_time).getTime();
+      const expectedEnd = emp.lunch_expected_end ? new Date(emp.lunch_expected_end).getTime() : start + 30 * 60 * 1000;
+      const diff = expectedEnd - nowTime;
+      const timeStr = new Date(start).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+      if (diff > 0) {
+        const m = Math.floor(diff / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        return `On Lunch since ${timeStr} (${m}m ${s}s remaining)`;
+      }
+      const overdue = Math.floor(-diff / 60000);
+      return `Overdue Lunch since ${timeStr} (${overdue}m overdue)`;
+    }
+    if (emp.current_status === "BREAK" && emp.break_start_time) {
+      const start = new Date(emp.break_start_time).getTime();
+      const expectedEnd = start + 15 * 60 * 1000;
+      const diff = expectedEnd - nowTime;
+      const timeStr = new Date(start).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+      if (diff > 0) {
+        const m = Math.floor(diff / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        return `On Break since ${timeStr} (${m}m ${s}s remaining)`;
+      }
+      const overdue = Math.floor(-diff / 60000);
+      return `Overdue Break since ${timeStr} (${overdue}m overdue)`;
+    }
+    return emp.department || "No department";
+  };
   const [listFilter, setListFilter] = useState<"all" | "archived" | "bookmarked">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [employeeSearchQuery, setEmployeeSearchQuery] = useState("");
@@ -164,7 +244,8 @@ export default function Messages() {
   };
 
   const { socket } = useSocket();
-  const currentUser = "Manager"; // Current logged in user
+  const auth = getAuthState();
+  const currentUser = auth.name?.trim() || auth.username?.trim() || "";
 
   // Handle navigation state - auto-open conversation from header dropdown
   useEffect(() => {
@@ -324,6 +405,79 @@ export default function Messages() {
     socket.on("new-message", handleNewMessage);
     return () => { socket.off("new-message", handleNewMessage); };
   }, [socket, view, selectedEmployee?.name]);
+
+  // Real-time status updates via socket
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleStatusUpdate = (payload: {
+      userId: string;
+      current_status: "AVAILABLE" | "LUNCH" | "BREAK";
+      lunch_start_time: string | null;
+      lunch_expected_end: string | null;
+      break_start_time: string | null;
+      name: string;
+    }) => {
+      console.log("⚡ Status update received in Manager Messages:", payload);
+
+      // Update conversations list query cache
+      queryClient.setQueryData<Conversation[]>(["conversations", currentUser], (old) => {
+        if (!old) return old;
+        return old.map((conv) => {
+          if (conv.employee.id === payload.userId || conv.employee.name === payload.name) {
+            return {
+              ...conv,
+              employee: {
+                ...conv.employee,
+                current_status: payload.current_status,
+                lunch_start_time: payload.lunch_start_time,
+                lunch_expected_end: payload.lunch_expected_end,
+                break_start_time: payload.break_start_time,
+              },
+            };
+          }
+          return conv;
+        });
+      });
+
+      // Update employees list query cache
+      queryClient.setQueryData<Employee[]>(["employees"], (old) => {
+        if (!old) return old;
+        return old.map((emp) => {
+          if (emp.id === payload.userId || emp.name === payload.name) {
+            return {
+              ...emp,
+              current_status: payload.current_status,
+              lunch_start_time: payload.lunch_start_time,
+              lunch_expected_end: payload.lunch_expected_end,
+              break_start_time: payload.break_start_time,
+            };
+          }
+          return emp;
+        });
+      });
+
+      // Update selected employee status in state
+      setSelectedEmployee((prev) => {
+        if (prev && (prev.id === payload.userId || prev.name === payload.name)) {
+          return {
+            ...prev,
+            current_status: payload.current_status,
+            lunch_start_time: payload.lunch_start_time,
+            lunch_expected_end: payload.lunch_expected_end,
+            break_start_time: payload.break_start_time,
+          };
+        }
+        return prev;
+      });
+    };
+
+    socket.on("status-update", handleStatusUpdate);
+
+    return () => {
+      socket.off("status-update", handleStatusUpdate);
+    };
+  }, [socket, queryClient, currentUser]);
 
   // Polling fallback: refresh messages every 3s when conversation is open
   useEffect(() => {
@@ -560,22 +714,40 @@ export default function Messages() {
               <Button variant="ghost" size="icon" onClick={() => { setView("list"); setSelectedEmployee(null); }} className="h-8 w-8 sm:h-9 sm:w-9">
                 <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
-              <Avatar className="h-8 w-8 sm:h-10 sm:w-10">
-                {selectedEmployee.avatarUrl ? (
-                  <AvatarImage src={selectedEmployee.avatarUrl} alt={selectedEmployee.name} className="object-cover" />
-                ) : null}
-                <AvatarFallback className="bg-primary text-primary-foreground text-xs sm:text-sm">
-                  {getInitials(selectedEmployee.name)}
-                </AvatarFallback>
-              </Avatar>
+              <div className="relative flex-shrink-0">
+                <Avatar className="h-8 w-8 sm:h-10 sm:w-10" style={getAvatarRingStyles(selectedEmployee.current_status)}>
+                  {selectedEmployee.avatarUrl ? (
+                    <AvatarImage src={selectedEmployee.avatarUrl} alt={selectedEmployee.name} className="object-cover" />
+                  ) : null}
+                  <AvatarFallback className="bg-primary text-primary-foreground text-xs sm:text-sm">
+                    {getInitials(selectedEmployee.name)}
+                  </AvatarFallback>
+                </Avatar>
+                {getAvatarDotClassAndStyle(selectedEmployee.current_status, selectedEmployee.status === "active")}
+              </div>
               <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <h1 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold">{selectedEmployee.name}</h1>
+                <div className="flex flex-wrap items-center gap-2 mb-0.5 sm:mb-1">
+                  <h1 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold leading-tight">{selectedEmployee.name}</h1>
+                  {selectedEmployee.current_status && selectedEmployee.current_status !== "AVAILABLE" && (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[10px] py-0 px-1.5 animate-pulse shrink-0 font-medium",
+                        selectedEmployee.current_status === "LUNCH"
+                          ? "border-amber-500 text-amber-700 bg-amber-50"
+                          : "border-purple-500 text-purple-700 bg-purple-50"
+                      )}
+                    >
+                      {selectedEmployee.current_status === "LUNCH" ? "On Lunch" : "On Break"}
+                    </Badge>
+                  )}
                   {selectedEmployee.milestoneLevel && selectedEmployee.milestoneLabel && (
                     <MilestoneBadge level={selectedEmployee.milestoneLevel} label={selectedEmployee.milestoneLabel} size="sm" />
                   )}
                 </div>
-                <p className="text-xs sm:text-sm text-muted-foreground truncate max-w-[180px] sm:max-w-none">{selectedEmployee.email}</p>
+                <p className="text-xs sm:text-sm text-muted-foreground truncate max-w-[180px] sm:max-w-none">
+                  {getSubtitle(selectedEmployee)}
+                </p>
               </div>
             </div>
           ) : (
@@ -726,7 +898,7 @@ export default function Messages() {
                           className="flex-1 flex items-center gap-2 sm:gap-3 text-left min-w-0"
                         >
                           <div className="relative flex-shrink-0">
-                            <Avatar className="h-9 w-9 sm:h-10 sm:w-10 md:h-12 md:w-12">
+                            <Avatar className="h-9 w-9 sm:h-10 sm:w-10 md:h-12 md:w-12" style={getAvatarRingStyles(conv.employee.current_status)}>
                               {conv.employee.avatarUrl ? (
                                 <AvatarImage src={conv.employee.avatarUrl} alt={conv.employee.name} className="object-cover" />
                               ) : null}
@@ -734,8 +906,9 @@ export default function Messages() {
                                 {getInitials(conv.employee.name)}
                               </AvatarFallback>
                             </Avatar>
+                            {getAvatarDotClassAndStyle(conv.employee.current_status, conv.employee.status === "active")}
                             {conv.unreadCount > 0 && !isArchived && (
-                              <span className="absolute -top-1 -right-1 h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-red-500 text-white text-[9px] sm:text-[10px] flex items-center justify-center">
+                              <span className="absolute -top-1 -right-1 h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-red-500 text-white text-[9px] sm:text-[10px] flex items-center justify-center z-10">
                                 {conv.unreadCount}
                               </span>
                             )}
@@ -744,6 +917,19 @@ export default function Messages() {
                             <div className="flex items-center justify-between gap-1 sm:gap-2">
                               <div className="flex items-center gap-1 sm:gap-2 min-w-0">
                                 <p className="font-medium truncate text-xs sm:text-sm md:text-base">{conv.employee.name}</p>
+                                {conv.employee.current_status && conv.employee.current_status !== "AVAILABLE" && (
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      "text-[9px] py-0 px-1 animate-pulse shrink-0 font-medium",
+                                      conv.employee.current_status === "LUNCH"
+                                        ? "border-amber-500 text-amber-700 bg-amber-50"
+                                        : "border-purple-500 text-purple-700 bg-purple-50"
+                                    )}
+                                  >
+                                    {conv.employee.current_status === "LUNCH" ? "Lunch" : "Break"}
+                                  </Badge>
+                                )}
                                 {isBookmarked && (
                                   <Bookmark className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-500 flex-shrink-0" fill="currentColor" />
                                 )}
@@ -826,16 +1012,34 @@ export default function Messages() {
                 onClick={() => startConversation(employee)}
                 className="w-full flex items-center gap-2 sm:gap-3 md:gap-4 p-2 sm:p-2.5 md:p-3 rounded-lg hover:bg-muted transition-colors text-left"
               >
-                <Avatar className="h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10 flex-shrink-0">
-                  {employee.avatarUrl ? (
-                    <AvatarImage src={employee.avatarUrl} alt={employee.name} className="object-cover" />
-                  ) : null}
-                  <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                    {getInitials(employee.name)}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="relative flex-shrink-0">
+                  <Avatar className="h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10" style={getAvatarRingStyles(employee.current_status)}>
+                    {employee.avatarUrl ? (
+                      <AvatarImage src={employee.avatarUrl} alt={employee.name} className="object-cover" />
+                    ) : null}
+                    <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                      {getInitials(employee.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  {getAvatarDotClassAndStyle(employee.current_status, employee.status === "active")}
+                </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate text-xs sm:text-sm md:text-base">{employee.name}</p>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <p className="font-medium truncate text-xs sm:text-sm md:text-base">{employee.name}</p>
+                    {employee.current_status && employee.current_status !== "AVAILABLE" && (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-[9px] py-0 px-1 animate-pulse shrink-0 font-medium",
+                          employee.current_status === "LUNCH"
+                            ? "border-amber-500 text-amber-700 bg-amber-50"
+                            : "border-purple-500 text-purple-700 bg-purple-50"
+                        )}
+                      >
+                        {employee.current_status === "LUNCH" ? "Lunch" : "Break"}
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-[11px] sm:text-xs md:text-sm text-muted-foreground truncate">{employee.email}</p>
                   <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 mt-1">
                     <Badge variant="secondary" className="text-[9px] sm:text-[10px] md:text-xs">

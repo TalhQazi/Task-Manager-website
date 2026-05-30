@@ -8,8 +8,10 @@ import {
   Wrench,
   Car,
   MapPin,
+  Compass,
   Calendar,
   Clock,
+  Coffee,
   ClipboardList,
   UserX,
   BarChart3,
@@ -107,6 +109,7 @@ const navItemsBase: NavItem[] = [
   { icon: Users, label: "User Management", path: "/admin/users", end: true },
   { icon: CheckSquare, label: "Task Management", path: "/admin/tasks" },
   { icon: UserCircle, label: "Employee Directory", path: "/admin/employees" },
+  { icon: Compass, label: "Itinerary History", path: "/admin/itineraries" },
   { icon: Megaphone, label: "Announcements", path: "/admin/announcements" },
   { icon: Wallet, label: "Payroll", path: "/admin/payroll" },
   { icon: ClipboardList, label: "EOD Reports", path: "/admin/eod-reports" },
@@ -114,6 +117,8 @@ const navItemsBase: NavItem[] = [
   { icon: CalendarCheck, label: "Leave Requests", path: "/admin/leave-requests" },
   { icon: Calendar, label: "Travel Calendar", path: "/admin/travel-calendar" },
   { icon: History, label: "Task History", path: "/admin/task-history" },
+  { icon: Clock, label: "Time Tracking", path: "/admin/time-tracking" },
+  { icon: Coffee, label: "Break History", path: "/admin/break-history" },
   {
     icon: Layers,
     label: "Operations",
@@ -124,8 +129,6 @@ const navItemsBase: NavItem[] = [
       { icon: MapPin, label: "Locations", path: "/admin/locations" },
       { icon: Calendar, label: "Scheduling", path: "/admin/scheduling" },
       { icon: Bell, label: "Notifications", path: "/admin/notifications" },
-      { icon: Clock, label: "Time Tracking", path: "/admin/time-tracking" },
-
     ],
   },
   {
@@ -141,6 +144,7 @@ const navItemsBase: NavItem[] = [
   { icon: Users, label: "Contributors", path: "/admin/contributors" },
   { icon: MessageSquare, label: "Messaging", path: "/admin/messaging" },
   { icon: ClipboardList, label: "Onboarding", path: "/admin/onboarding" },
+  { icon: ClipboardList, label: "New Hire Reporting", path: "/admin/new-hire-reporting" },
   {
     icon: FileText,
     label: "CRM",

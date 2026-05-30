@@ -28,6 +28,10 @@ interface Employee {
   department: string;
   status: string;
   avatarUrl?: string;
+  current_status?: "AVAILABLE" | "LUNCH" | "BREAK";
+  lunch_start_time?: string | null;
+  lunch_expected_end?: string | null;
+  break_start_time?: string | null;
 }
 
 interface Message {
@@ -93,6 +97,81 @@ export default function Messaging() {
   const [apiError, setApiError] = useState<string | null>(null);
   const { socket } = useSocket();
 
+  const [nowTime, setNowTime] = useState(Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNowTime(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const getAvatarRingStyles = (empStatus: string | undefined) => {
+    if (empStatus === "LUNCH") {
+      return {
+        border: "2.5px solid #F59E0B",
+        boxShadow: "0 0 10px rgba(245, 158, 11, 0.6)",
+      };
+    }
+    if (empStatus === "BREAK") {
+      return {
+        border: "2.5px solid #8B5CF6",
+        boxShadow: "0 0 10px rgba(139, 92, 246, 0.6)",
+      };
+    }
+    return {};
+  };
+
+  const getAvatarDotClassAndStyle = (empStatus: string | undefined, isActive: boolean) => {
+    if (!isActive) return null;
+    if (empStatus === "LUNCH") {
+      return (
+        <div 
+          className="absolute bottom-0 right-0 w-3 h-3 border-2 border-white rounded-full shadow-md animate-pulse animate-duration-1000" 
+          style={{ backgroundColor: "#F59E0B" }}
+        />
+      );
+    }
+    if (empStatus === "BREAK") {
+      return (
+        <div 
+          className="absolute bottom-0 right-0 w-3 h-3 border-2 border-white rounded-full shadow-md animate-pulse animate-duration-1000" 
+          style={{ backgroundColor: "#8B5CF6" }}
+        />
+      );
+    }
+    return (
+      <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
+    );
+  };
+
+  const getSubtitle = (emp: any) => {
+    if (emp.current_status === "LUNCH" && emp.lunch_start_time) {
+      const start = new Date(emp.lunch_start_time).getTime();
+      const expectedEnd = emp.lunch_expected_end ? new Date(emp.lunch_expected_end).getTime() : start + 30 * 60 * 1000;
+      const diff = expectedEnd - nowTime;
+      const timeStr = new Date(start).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+      if (diff > 0) {
+        const m = Math.floor(diff / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        return `On Lunch since ${timeStr} (${m}m ${s}s remaining)`;
+      }
+      const overdue = Math.floor(-diff / 60000);
+      return `Overdue Lunch since ${timeStr} (${overdue}m overdue)`;
+    }
+    if (emp.current_status === "BREAK" && emp.break_start_time) {
+      const start = new Date(emp.break_start_time).getTime();
+      const expectedEnd = start + 15 * 60 * 1000;
+      const diff = expectedEnd - nowTime;
+      const timeStr = new Date(start).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+      if (diff > 0) {
+        const m = Math.floor(diff / 60000);
+        const s = Math.floor((diff % 60000) / 1000);
+        return `On Break since ${timeStr} (${m}m ${s}s remaining)`;
+      }
+      const overdue = Math.floor(-diff / 60000);
+      return `Overdue Break since ${timeStr} (${overdue}m overdue)`;
+    }
+    return emp.department || "No department";
+  };
+
   // View state
   const [view, setView] = useState<"list" | "conversation" | "employees">("list");
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -131,6 +210,84 @@ export default function Messaging() {
     socket.on("new-message", handleNewMessage);
     return () => { socket.off("new-message", handleNewMessage); };
   }, [socket, view, selectedEmployee?.name]);
+
+  // Real-time status updates via socket
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleStatusUpdate = (payload: {
+      userId: string;
+      current_status: "AVAILABLE" | "LUNCH" | "BREAK";
+      lunch_start_time: string | null;
+      lunch_expected_end: string | null;
+      break_start_time: string | null;
+      name: string;
+    }) => {
+      console.log("⚡ Status update received in Admin Messaging:", payload);
+
+      // Update conversations list state
+      setConversations((old) => {
+        if (!old) return old;
+        return old.map((conv) => {
+          const empId = conv.employee.id || conv.employee._id;
+          if (empId === payload.userId || conv.employee.name === payload.name) {
+            return {
+              ...conv,
+              employee: {
+                ...conv.employee,
+                current_status: payload.current_status,
+                lunch_start_time: payload.lunch_start_time,
+                lunch_expected_end: payload.lunch_expected_end,
+                break_start_time: payload.break_start_time,
+              },
+            };
+          }
+          return conv;
+        });
+      });
+
+      // Update employees list state
+      setEmployees((old) => {
+        if (!old) return old;
+        return old.map((emp) => {
+          const empId = emp.id || emp._id;
+          if (empId === payload.userId || emp.name === payload.name) {
+            return {
+              ...emp,
+              current_status: payload.current_status,
+              lunch_start_time: payload.lunch_start_time,
+              lunch_expected_end: payload.lunch_expected_end,
+              break_start_time: payload.break_start_time,
+            };
+          }
+          return emp;
+        });
+      });
+
+      // Update selected employee status in state
+      setSelectedEmployee((prev) => {
+        if (prev) {
+          const prevId = prev.id || prev._id;
+          if (prevId === payload.userId || prev.name === payload.name) {
+            return {
+              ...prev,
+              current_status: payload.current_status,
+              lunch_start_time: payload.lunch_start_time,
+              lunch_expected_end: payload.lunch_expected_end,
+              break_start_time: payload.break_start_time,
+            };
+          }
+        }
+        return prev;
+      });
+    };
+
+    socket.on("status-update", handleStatusUpdate);
+
+    return () => {
+      socket.off("status-update", handleStatusUpdate);
+    };
+  }, [socket]);
 
   // Polling fallback: refresh messages every 3s when conversation is open
   useEffect(() => {
@@ -493,17 +650,30 @@ export default function Messaging() {
                 >
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
-                <Avatar className="h-10 w-10">
+                <Avatar className="h-10 w-10" style={getAvatarRingStyles(selectedEmployee.current_status)}>
                   {selectedEmployee.avatarUrl ? (
                     <AvatarImage src={selectedEmployee.avatarUrl} alt={selectedEmployee.name} className="object-cover" />
                   ) : null}
                   <AvatarFallback className="bg-primary text-primary-foreground text-sm">
                     {getInitials(selectedEmployee.name)}
                   </AvatarFallback>
+                  {getAvatarDotClassAndStyle(selectedEmployee.current_status, true)}
                 </Avatar>
                 <div>
-                  <h1 className="text-xl sm:text-2xl font-bold">{selectedEmployee.name}</h1>
-                  <p className="text-sm text-muted-foreground">{selectedEmployee.email}</p>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-xl sm:text-2xl font-bold">{selectedEmployee.name}</h1>
+                    {selectedEmployee.current_status === "LUNCH" && (
+                      <Badge className="bg-amber-500 hover:bg-amber-600 text-white font-semibold">On Lunch</Badge>
+                    )}
+                    {selectedEmployee.current_status === "BREAK" && (
+                      <Badge className="bg-purple-600 hover:bg-purple-700 text-white font-semibold">On Break</Badge>
+                    )}
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedEmployee.current_status && selectedEmployee.current_status !== "AVAILABLE"
+                      ? getSubtitle(selectedEmployee)
+                      : selectedEmployee.email}
+                  </p>
                 </div>
               </div>
             ) : (
@@ -661,7 +831,7 @@ export default function Messaging() {
                             className="flex-1 flex items-center gap-3 text-left min-w-0"
                           >
                             <div className="relative flex-shrink-0">
-                              <Avatar className="h-12 w-12">
+                              <Avatar className="h-12 w-12" style={getAvatarRingStyles(conv.employee.current_status)}>
                                 {conv.employee.avatarUrl ? (
                                   <AvatarImage src={conv.employee.avatarUrl} alt={conv.employee.name} className="object-cover" />
                                 ) : null}
@@ -669,6 +839,7 @@ export default function Messaging() {
                                   {getInitials(conv.employee.name)}
                                 </AvatarFallback>
                               </Avatar>
+                              {getAvatarDotClassAndStyle(conv.employee.current_status, true)}
                               {conv.unreadCount > 0 && !isArchived && (
                                 <span className="absolute -top-1 -right-1 h-5 w-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
                                   {conv.unreadCount}
@@ -679,6 +850,12 @@ export default function Messaging() {
                               <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2">
                                   <p className="font-medium truncate">{conv.employee.name}</p>
+                                  {conv.employee.current_status === "LUNCH" && (
+                                    <Badge className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] h-4 py-0 px-1 font-semibold">Lunch</Badge>
+                                  )}
+                                  {conv.employee.current_status === "BREAK" && (
+                                    <Badge className="bg-purple-600 hover:bg-purple-700 text-white text-[10px] h-4 py-0 px-1 font-semibold">Break</Badge>
+                                  )}
                                   {isBookmarked && (
                                     <Bookmark className="h-3.5 w-3.5 text-amber-500 flex-shrink-0" fill="currentColor" />
                                   )}
@@ -761,17 +938,32 @@ export default function Messaging() {
                   onClick={() => startConversation(employee)}
                   className="w-full flex items-center gap-4 p-3 rounded-lg hover:bg-muted transition-colors text-left"
                 >
-                  <Avatar className="h-12 w-12">
-                    {employee.avatarUrl ? (
-                      <AvatarImage src={employee.avatarUrl} alt={employee.name} className="object-cover" />
-                    ) : null}
-                    <AvatarFallback className="bg-primary text-primary-foreground">
-                      {getInitials(employee.name)}
-                    </AvatarFallback>
-                  </Avatar>
+                  <div className="relative flex-shrink-0">
+                    <Avatar className="h-12 w-12" style={getAvatarRingStyles(employee.current_status)}>
+                      {employee.avatarUrl ? (
+                        <AvatarImage src={employee.avatarUrl} alt={employee.name} className="object-cover" />
+                      ) : null}
+                      <AvatarFallback className="bg-primary text-primary-foreground">
+                        {getInitials(employee.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    {getAvatarDotClassAndStyle(employee.current_status, true)}
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{employee.name}</p>
-                    <p className="text-sm text-muted-foreground truncate">{employee.email}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium truncate">{employee.name}</p>
+                      {employee.current_status === "LUNCH" && (
+                        <Badge className="bg-amber-500 text-white text-[10px] h-4 py-0 px-1 font-semibold">Lunch</Badge>
+                      )}
+                      {employee.current_status === "BREAK" && (
+                        <Badge className="bg-purple-600 text-white text-[10px] h-4 py-0 px-1 font-semibold">Break</Badge>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground truncate">
+                      {employee.current_status && employee.current_status !== "AVAILABLE"
+                        ? getSubtitle(employee)
+                        : employee.email}
+                    </p>
                     <div className="flex items-center gap-2 mt-1">
                       <Badge variant="secondary" className="text-xs">
                         {employee.department || "No Department"}

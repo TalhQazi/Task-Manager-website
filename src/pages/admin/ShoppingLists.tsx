@@ -141,7 +141,7 @@ export default function ShoppingLists() {
   const renderListCard = (list: ShoppingList) => (
     <Card 
       key={list.id}
-      className="group relative overflow-hidden bg-[#161B22]/40 border-white/10 hover:border-[#00C6FF]/30 transition-all duration-300 cursor-pointer"
+      className="group relative overflow-hidden bg-background/40 border-border/10 hover:border-primary/30 transition-all duration-300 cursor-pointer"
       onClick={() => {
         setSelectedList(list);
         setIsDetailOpen(true);
@@ -150,12 +150,12 @@ export default function ShoppingLists() {
       <div className="p-5">
         <div className="flex justify-between items-start mb-3">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-gradient-to-br from-[#00C6FF]/10 to-[#0072FF]/10 text-[#00C6FF]">
+            <div className="p-2.5 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 text-primary">
               <ShoppingCart className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-white group-hover:text-[#00C6FF] transition-colors">{list.name}</h3>
-              <p className="text-xs text-white/40">{format(new Date(list.createdAt), "MMM d, yyyy")}</p>
+              <h3 className="text-base font-semibold text-foreground group-hover:text-primary transition-colors">{list.name}</h3>
+              <p className="text-xs text-muted-foreground">{format(new Date(list.createdAt), "MMM d, yyyy")}</p>
             </div>
           </div>
           <Badge className={cn(
@@ -169,19 +169,19 @@ export default function ShoppingLists() {
 
         <div className="space-y-2.5">
           {list.locationId && (
-            <div className="flex items-center gap-2 text-sm text-white/60">
-              <MapPin className="w-4 h-4 text-white/30" />
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <MapPin className="w-4 h-4 text-muted-foreground" />
               <span className="truncate">{list.locationId.name}</span>
             </div>
           )}
           {list.assignedEmployeeId && (
-            <div className="flex items-center gap-2 text-sm text-white/60">
-              <User className="w-4 h-4 text-white/30" />
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <User className="w-4 h-4 text-muted-foreground" />
               <span className="truncate">Assigned to: {list.assignedEmployeeId.name || list.assignedEmployeeId.username}</span>
             </div>
           )}
-          <div className="flex items-center gap-2 text-sm text-white/60">
-            <Store className="w-4 h-4 text-white/30" />
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Store className="w-4 h-4 text-muted-foreground" />
             <span className="truncate">
               {list.vendors?.length ? list.vendors.map(v => v.name).join(", ") : "No vendors specified"}
             </span>
@@ -190,7 +190,7 @@ export default function ShoppingLists() {
       </div>
       
       {/* Decorative gradient overlay on hover */}
-      <div className="absolute inset-0 bg-gradient-to-r from-[#00C6FF]/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
     </Card>
   );
 
@@ -218,7 +218,7 @@ export default function ShoppingLists() {
   });
 
   return (
-    <div className="min-h-screen bg-[#0D1117] text-white p-4 md:p-8">
+    <div className="min-h-screen bg-background text-foreground p-4 md:p-8">
       {/* Header Section */}
       <div className="max-w-7xl mx-auto space-y-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -226,7 +226,7 @@ export default function ShoppingLists() {
             <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
               Shopping & Procurement
             </h1>
-            <p className="text-white/40 mt-1">Manage vendor lists, assignments, and real-time store tracking.</p>
+            <p className="text-muted-foreground mt-1">Manage vendor lists, assignments, and real-time store tracking.</p>
           </div>
           
           <div className="flex items-center gap-3">
@@ -244,17 +244,17 @@ export default function ShoppingLists() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
           <div className="md:col-span-8">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="bg-[#161B22] border-white/5 p-1 h-12">
+              <TabsList className="bg-background border-border/10 p-1 h-12">
                 <TabsTrigger 
                   value="my-lists" 
-                  className="px-6 data-[state=active]:bg-[#0D1117] data-[state=active]:text-[#00C6FF]"
+                  className="px-6 data-[state=active]:bg-background data-[state=active]:text-primary"
                 >
                   My Assigned Lists
                 </TabsTrigger>
                 {isAdmin && (
                   <TabsTrigger 
                     value="all-lists" 
-                    className="px-6 data-[state=active]:bg-[#0D1117] data-[state=active]:text-[#00C6FF]"
+                    className="px-6 data-[state=active]:bg-background data-[state=active]:text-primary"
                   >
                     All Company Lists
                   </TabsTrigger>
@@ -264,12 +264,12 @@ export default function ShoppingLists() {
           </div>
           
           <div className="md:col-span-4 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input 
               placeholder="Search lists..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 bg-[#161B22] border-white/10 focus:border-[#00C6FF]/50 transition-all h-11"
+              className="pl-10 bg-background border-border/10 focus:border-primary/50 transition-all h-11"
             />
           </div>
         </div>

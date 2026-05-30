@@ -32,9 +32,14 @@ interface EmployeeHeaderProps {
 }
 
 interface ProfileData {
+  id?: string;
   name: string;
   email: string;
   avatarUrl?: string;
+  current_status?: "AVAILABLE" | "LUNCH" | "BREAK";
+  lunch_start_time?: string | null;
+  lunch_expected_end?: string | null;
+  break_start_time?: string | null;
 }
 
 interface Notification {
@@ -200,8 +205,38 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
     if (!socket) return;
     const handleNew = () => { queryClient.invalidateQueries({ queryKey: ["employee-notifications"] }); };
     socket.on("new-notification", handleNew);
-    return () => { socket.off("new-notification", handleNew); };
-  }, [socket, queryClient]);
+
+    const handleStatusUpdate = (payload: {
+      userId: string;
+      current_status: "AVAILABLE" | "LUNCH" | "BREAK";
+      lunch_start_time: string | null;
+      lunch_expected_end: string | null;
+      break_start_time: string | null;
+      name: string;
+    }) => {
+      if (profile && profile.id === payload.userId) {
+        setProfile((prev) => {
+          if (!prev) return null;
+          const updated = {
+            ...prev,
+            current_status: payload.current_status,
+            lunch_start_time: payload.lunch_start_time,
+            lunch_expected_end: payload.lunch_expected_end,
+            break_start_time: payload.break_start_time,
+          };
+          localStorage.setItem("employee_cached_profile", JSON.stringify(updated));
+          return updated;
+        });
+      }
+    };
+
+    socket.on("status-update", handleStatusUpdate);
+
+    return () => {
+      socket.off("new-notification", handleNew);
+      socket.off("status-update", handleStatusUpdate);
+    };
+  }, [socket, queryClient, profile]);
 
   const notifications = (notificationsQuery.data || [])
     .slice()
@@ -282,6 +317,51 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
     }
   };
 
+  const getStatusDot = () => {
+    const status = profile?.current_status || "AVAILABLE";
+    if (status === "LUNCH") {
+      return (
+        <div 
+          className="absolute -bottom-0.5 -right-0.5 h-3 w-3 border-2 border-black rounded-full shadow-md animate-pulse"
+          style={{ backgroundColor: "#F59E0B", animationDuration: "1s" }}
+          title="On Lunch"
+        />
+      );
+    }
+    if (status === "BREAK") {
+      return (
+        <div 
+          className="absolute -bottom-0.5 -right-0.5 h-3 w-3 border-2 border-black rounded-full shadow-md animate-pulse"
+          style={{ backgroundColor: "#8B5CF6", animationDuration: "1s" }}
+          title="On Break"
+        />
+      );
+    }
+    return (
+      <div 
+        className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-black rounded-full shadow-md"
+        title="Available"
+      />
+    );
+  };
+
+  const getAvatarStyles = () => {
+    const status = profile?.current_status || "AVAILABLE";
+    if (status === "LUNCH") {
+      return {
+        borderColor: "#F59E0B",
+        boxShadow: "0 0 10px rgba(245, 158, 11, 0.5)",
+      };
+    }
+    if (status === "BREAK") {
+      return {
+        borderColor: "#8B5CF6",
+        boxShadow: "0 0 10px rgba(139, 92, 246, 0.5)",
+      };
+    }
+    return {};
+  };
+
   return (
     <header
       className="fixed top-0 left-0 right-0 z-50 shadow-floating h-40 sm:h-[220px] md:h-[300px]"
@@ -346,14 +426,14 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                 <DropdownMenuTrigger asChild>
                   <div className="flex items-center gap-3 p-2 rounded-xl backdrop-blur-md border hover:bg-black/30 transition-all cursor-pointer group w-fit" style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', borderColor: 'var(--tb-header-border, rgba(255,255,255,0.1))' }}>
                     <div className="relative">
-                      <Avatar className="h-10 w-10 border shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20 transition-all" style={{ borderColor: 'var(--tb-header-border, rgba(255,255,255,0.2))' }}>
+                      <Avatar className="h-10 w-10 border shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20 transition-all" style={{ borderColor: 'var(--tb-header-border, rgba(255,255,255,0.2))', ...getAvatarStyles() }}>
                         {profile?.avatarUrl ? (
                           <AvatarImage src={toProxiedUrl(profile.avatarUrl)} alt={fullName} crossOrigin="anonymous" className="object-cover" />
                         ) : (
                           <AvatarFallback className="bg-gradient-to-br from-[#00C6FF] to-[#0072FF] text-white text-xs font-bold">{initials}</AvatarFallback>
                         )}
                       </Avatar>
-                      <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-black rounded-full" />
+                      {getStatusDot()}
                     </div>
                     <div className="flex flex-col min-w-0 pr-4">
                       <span className="text-base font-bold truncate leading-tight drop-shadow-md" style={{ color: 'var(--tb-sidebar-text-color, white)' }}>{fullName}</span>

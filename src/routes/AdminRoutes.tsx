@@ -10,6 +10,7 @@ const Tasks = lazy(() => import("@/pages/admin/Tasks"));
 const Employees = lazy(() => import("@/pages/admin/Employees"));
 const Payroll = lazy(() => import("@/pages/admin/Payroll"));
 const TaskHistory = lazy(() => import("@/pages/admin/TaskHistory"));
+const ItineraryHistory = lazy(() => import("@/pages/admin/ItineraryHistory"));
 const EmployeeTaskHistory = lazy(() => import("@/pages/admin/EmployeeTaskHistory"));
 const Appliances = lazy(() => import("@/pages/admin/Appliances"));
 const Vehicles = lazy(() => import("@/pages/admin/Vehicles"));
@@ -19,10 +20,12 @@ const Vendors = lazy(() => import("@/pages/admin/Vendors"));
 const Scheduling = lazy(() => import("@/pages/admin/Scheduling"));
 const TimeTracking = lazy(() => import("@/pages/admin/TimeTracking"));
 const EmployeeTimeHistory = lazy(() => import("@/pages/admin/EmployeeTimeHistory"));
+const BreakTracking = lazy(() => import("@/pages/admin/BreakTracking"));
 const Messaging = lazy(() => import("@/pages/admin/Messaging"));
 const Notifications = lazy(() => import("@/pages/admin/Notifications"));
 const DoNotHire = lazy(() => import("@/pages/admin/DoNotHire"));
 const Onboarding = lazy(() => import("@/pages/admin/Onboarding"));
+const NewHireReporting = lazy(() => import("@/pages/admin/NewHireReporting"));
 const Reports = lazy(() => import("@/pages/admin/Reports"));
 const ActivityLogs = lazy(() => import("@/pages/admin/ActivityLogs"));
 const Settings = lazy(() => import("@/pages/admin/Settings"));
@@ -98,6 +101,7 @@ export default function AdminRoutes() {
       { path: "roles", element: <RolesPermissions /> },
       { path: "tasks", element: <Tasks /> },
       { path: "employees", element: <Employees /> },
+      { path: "itineraries", element: <ItineraryHistory /> },
       { path: "payroll", element: <Payroll /> },
       { path: "task-history", element: <TaskHistory /> },
       { path: "task-history/:employee", element: <EmployeeTaskHistory /> },
@@ -109,11 +113,13 @@ export default function AdminRoutes() {
       { path: "scheduling", element: <Scheduling /> },
       { path: "time-tracking", element: <TimeTracking /> },
       { path: "time-tracking/history/:employee", element: <EmployeeTimeHistory /> },
+      { path: "break-history", element: <BreakTracking /> },
       { path: "messaging", element: <Messaging /> },
       { path: "announcements", element: <Announcements /> },
       { path: "notifications", element: <Notifications /> },
       { path: "do-not-hire", element: <DoNotHire /> },
       { path: "onboarding", element: <Onboarding /> },
+      { path: "new-hire-reporting", element: <NewHireReporting /> },
       { path: "reports", element: <Reports /> },
       { path: "activity-logs", element: auth.role === "super-admin" ? <ActivityLogs /> : <Navigate to="/admin" replace /> },
       { path: "digital-assets", element: <DigitalAssets /> },

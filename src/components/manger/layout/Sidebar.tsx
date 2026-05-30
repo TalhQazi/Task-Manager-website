@@ -6,6 +6,7 @@ import {
   Users,
   Calendar,
   Clock,
+  Coffee,
   DollarSign,
   User,
   Car,
@@ -57,6 +58,7 @@ const navItemsBase: NavItem[] = [
   { icon: Megaphone, label: "Announcements", path: "/manager/announcements" },
   { icon: Calendar, label: "Scheduling", path: "/manager/scheduling" },
   { icon: Clock, label: "Time Tracking", path: "/manager/time-tracking" },
+  { icon: Coffee, label: "Break History", path: "/manager/break-history" },
   { icon: Clock, label: "Attendance", path: "/manager/attendance" },
    {
       icon: FileText,
@@ -78,6 +80,7 @@ const navItemsBase: NavItem[] = [
   { icon: Car, label: "Vehicles", path: "/manager/vehicles" },
   { icon: Wrench, label: "Inventory/Appliances", path: "/manager/appliances" },
   { icon: MapPin, label: "Locations", path: "/manager/locations" },
+  { icon: MapPin, label: "Daily Itinerary", path: "/manager/itinerary" },
   { icon: Building2, label: "Vendors", path: "/manager/vendors" },
   { icon: UserX, label: "Do Not Hire", path: "/manager/do-not-hire" },
   { icon: ClipboardCheck, label: "Onboarding", path: "/manager/onboarding" },
@@ -132,6 +135,7 @@ interface SidebarProps {
 export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
   const navigate = useNavigate();
   const auth = getAuthState();
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({});
 
   const onLogout = async () => {
     try {
@@ -153,14 +157,22 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
     }
   };
 
+  const toggleMenu = (menuLabel: string) => {
+    setExpandedMenus(prev => ({
+      ...prev,
+      [menuLabel]: !prev[menuLabel]
+    }));
+  };
+
   const renderNavItem = (item: NavItem, isChild = false) => {
     if (item.children) {
-      const isExpanded = true;
+      const isExpanded = expandedMenus[item.label] ?? false;
       const hasActiveChild = item.children.some(child => child.path && location.pathname.startsWith(child.path));
       
       return (
         <div key={item.label} className="flex flex-col mb-1">
           <button
+            onClick={() => toggleMenu(item.label)}
             className={cn(
               "group relative flex h-10 w-full items-center justify-between rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white transition-all duration-100 linear",
               hasActiveChild && "text-white bg-white/[0.02]"
@@ -171,7 +183,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
               <span className="text-sm font-medium truncate">{item.label}</span>
             </div>
             {isExpanded ? (
-              <ChevronDown className="h-4 w-4 opacity-50 transition-transform" />
+              <ChevronDown className="h-4 w-4 opacity-50 transition-transform rotate-0" />
             ) : (
               <ChevronRight className="h-4 w-4 opacity-50 transition-transform" />
             )}
