@@ -150,6 +150,7 @@ const navItemsBase: NavItem[] = [
     label: "CRM",
     children: [
       { icon: CalendarCheck, label: "CRM Dashboard", path: "/admin/crm/dashboard" },
+      { icon: Activity, label: "CommandCore®", path: "/admin/crm/commandcore" },
       { icon: Users, label: "Contacts", path: "/admin/crm/contacts" },
       { icon: Building, label: "Companies", path: "/admin/crm/companies" },
       { icon: CheckSquare, label: "CRM Deals", path: "/admin/crm/deals" },

@@ -65,6 +65,7 @@ const CRMDeals = lazy(() => import("@/pages/admin/crm/Deals"));
 const CRMTasks = lazy(() => import("@/pages/admin/crm/Tasks"));
 const CRMCommunication = lazy(() => import("@/pages/admin/crm/Communication"));
 const CRMFiles = lazy(() => import("@/pages/admin/crm/Files"));
+const CRMCommandCore = lazy(() => import("@/pages/admin/crm/CommandCore"));
 const TravelCalendar = lazy(() => import("@/pages/admin/TravelCalendar"));
 const Announcements = lazy(() => import("@/pages/admin/Announcements"));
 const AtlasBookDashboard = lazy(() => import("@/pages/admin/atlas-book/Dashboard"));
@@ -147,6 +148,7 @@ export default function AdminRoutes() {
       { path: "crm/tasks", element: <CRMTasks /> },
       { path: "crm/communication", element: <CRMCommunication /> },
       { path: "crm/files", element: <CRMFiles /> },
+      { path: "crm/commandcore", element: <CRMCommandCore /> },
       { path: "bug-reports", element: <BugReport /> },
       { path: "theme-engine", element: <ThemeEngine /> },
       { path: "memes", element: <Memes /> },
