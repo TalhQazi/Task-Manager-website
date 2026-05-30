@@ -148,6 +148,47 @@ export async function getEmployeeProfile() {
   }>("/api/employees/me");
 }
 
+export async function deliverVideoMessage() {
+  return employeeApiFetch<{
+    item: {
+      deliveryId: string;
+      messageType: string;
+      title: string;
+      subtitle?: string;
+      videoUrl: string;
+      deliveredAt?: string;
+      acknowledgedAt?: string | null;
+    } | null;
+  }>("/api/video/deliver", {
+    method: "POST",
+  });
+}
+
+export async function acknowledgeVideoMessage(deliveryId: string, response?: string, watchDuration?: number, replayCount?: number) {
+  return employeeApiFetch<{ item: any }>("/api/video/acknowledge", {
+    method: "POST",
+    body: JSON.stringify({
+      deliveryId,
+      response: response || "",
+      ...(typeof watchDuration === "number" ? { watchDuration } : {}),
+      ...(typeof replayCount === "number" ? { replayCount } : {}),
+    }),
+  });
+}
+
+export async function replayVideoMessage(deliveryId: string) {
+  return employeeApiFetch<{ item: { replayCount: number } }>("/api/video/replay", {
+    method: "POST",
+    body: JSON.stringify({ deliveryId }),
+  });
+}
+
+export async function getVideoHistory(employeeId: string) {
+  return employeeApiFetch<{ items: Array<{ id: string; employeeId: string; videoMessageId: string; messageType: string; deliveredAt: string; acknowledgedAt?: string | null; watchDuration?: number; response?: string; replayCount?: number; videoTitle: string; videoSubtitle: string; videoUrl: string }> }>(
+    `/api/user/${encodeURIComponent(employeeId)}/video-history`
+  );
+}
+
 export async function getEmployeeTasks() {
   return employeeApiFetch<{
     items: Array<{

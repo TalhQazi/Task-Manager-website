@@ -42,6 +42,7 @@ import {
   Megaphone,
   Shield,
   UserPlus,
+  Video,
 
   ShoppingCart,
   Mail,
@@ -111,6 +112,7 @@ const navItemsBase: NavItem[] = [
   { icon: UserCircle, label: "Employee Directory", path: "/admin/employees" },
   { icon: Compass, label: "Itinerary History", path: "/admin/itineraries" },
   { icon: Megaphone, label: "Announcements", path: "/admin/announcements" },
+  { icon: Video, label: "Video Messages", path: "/admin/video-messages" },
   { icon: Wallet, label: "Payroll", path: "/admin/payroll" },
   { icon: ClipboardList, label: "EOD Reports", path: "/admin/eod-reports" },
   { icon: Building, label: "EIN list", path: "/admin/company-registry" },
