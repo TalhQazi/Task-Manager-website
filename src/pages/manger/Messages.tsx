@@ -748,7 +748,7 @@ export default function Messages() {
               <div className="relative flex-shrink-0">
                 <Avatar className="h-8 w-8 sm:h-10 sm:w-10" style={getAvatarRingStyles(selectedEmployee.current_status)}>
                   {selectedEmployee.avatarUrl ? (
-                    <AvatarImage src={selectedEmployee.avatarUrl} alt={selectedEmployee.name} className="object-cover" />
+                    <AvatarImage src={toProxiedUrl(selectedEmployee.avatarUrl) || selectedEmployee.avatarUrl} alt={selectedEmployee.name} className="object-cover" />
                   ) : null}
                   <AvatarFallback className="bg-primary text-primary-foreground text-xs sm:text-sm">
                     {getInitials(selectedEmployee.name)}
@@ -931,7 +931,7 @@ export default function Messages() {
                           <div className="relative flex-shrink-0">
                             <Avatar className="h-9 w-9 sm:h-10 sm:w-10 md:h-12 md:w-12" style={getAvatarRingStyles(conv.employee.current_status)}>
                               {conv.employee.avatarUrl ? (
-                                <AvatarImage src={conv.employee.avatarUrl} alt={conv.employee.name} className="object-cover" />
+                                <AvatarImage src={toProxiedUrl(conv.employee.avatarUrl) || conv.employee.avatarUrl} alt={conv.employee.name} className="object-cover" />
                               ) : null}
                               <AvatarFallback className="bg-primary text-primary-foreground text-xs sm:text-sm">
                                 {getInitials(conv.employee.name)}
@@ -1046,7 +1046,7 @@ export default function Messages() {
                 <div className="relative flex-shrink-0">
                   <Avatar className="h-8 w-8 sm:h-9 sm:w-9 md:h-10 md:w-10" style={getAvatarRingStyles(employee.current_status)}>
                     {employee.avatarUrl ? (
-                      <AvatarImage src={employee.avatarUrl} alt={employee.name} className="object-cover" />
+                      <AvatarImage src={toProxiedUrl(employee.avatarUrl) || employee.avatarUrl} alt={employee.name} className="object-cover" />
                     ) : null}
                     <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                       {getInitials(employee.name)}
@@ -1157,7 +1157,7 @@ export default function Messages() {
                       {showAvatar ? (
                         <Avatar className="h-5 w-5 sm:h-6 sm:w-6 md:h-8 md:w-8 flex-shrink-0">
                           {isMe ? null : selectedEmployee?.avatarUrl ? (
-                            <AvatarImage src={selectedEmployee.avatarUrl} alt={selectedEmployee.name} className="object-cover" />
+                            <AvatarImage src={toProxiedUrl(selectedEmployee.avatarUrl) || selectedEmployee.avatarUrl} alt={selectedEmployee.name} className="object-cover" />
                           ) : null}
                           <AvatarFallback className={cn("text-[9px] sm:text-xs", isMe ? "bg-primary text-primary-foreground" : "bg-muted")}>
                             {getInitials(isMe ? currentUser : msg.sender)}

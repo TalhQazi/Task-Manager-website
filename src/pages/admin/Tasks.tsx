@@ -95,6 +95,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/admin/utils";
 import { apiFetch, downloadTaskAttachment, toProxiedUrl, downloadViaUrl } from "@/lib/admin/apiClient";
+import { resizeImageIfNeeded } from "@/lib/imageResizer";
 import { getAuthState } from "@/lib/auth";
 import { ROLE_GROUPS } from "@/constants/roles";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -159,6 +160,58 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
 
   return (
     <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary flex-shrink-0 border border-primary/20 uppercase">
+      {projectName.slice(0, 2).toUpperCase()}
+    </div>
+  );
+}
+
+function ProjectLogoImgLarge({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
+  const [src, setSrc] = useState<string | null | undefined>(undefined);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    if (logoUrl && logoUrl.length > 0) {
+      setSrc(toProxiedUrl(logoUrl) || logoUrl);
+      setError(false);
+      return;
+    }
+    let cancelled = false;
+    setSrc(undefined);
+
+    apiFetch<{ logo: { url: string } }>(`/api/projects/${encodeURIComponent(projectId)}/logo`)
+      .then(d => { 
+        if (!cancelled) {
+          setSrc(toProxiedUrl(d.logo?.url) || null);
+          setError(false);
+        }
+      })
+      .catch(() => { 
+        if (!cancelled) {
+          setSrc(null);
+          setError(true);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [projectId, logoUrl]);
+
+  if (src && !error) {
+    return (
+      <img 
+        src={src} 
+        alt={`${projectName} logo`} 
+        className="w-full h-full object-cover rounded-xl border border-border" 
+        crossOrigin="anonymous"
+        onError={() => setError(true)}
+      />
+    );
+  }
+
+  if (src === undefined) {
+    return <div className="w-full h-full bg-muted/40 animate-pulse rounded-xl" />;
+  }
+
+  return (
+    <div className="w-full h-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-3xl font-black text-white uppercase rounded-xl">
       {projectName.slice(0, 2).toUpperCase()}
     </div>
   );
@@ -2502,17 +2555,53 @@ export default function Tasks() {
 
       {/* Project/Tasks sections - same as before, omitted for brevity but all code remains */}
       {selectedProject ? (
-        <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
-          <div className="flex flex-col sm:flex-row sm:items-start gap-3">
-            <ProjectLogoImg 
-              projectId={selectedProject.id} 
-              projectName={selectedProject.name} 
-              logoUrl={selectedProject.logo?.url} 
-            />
-            <div className="flex-1 min-w-0 space-y-1">
-              <div className="flex items-center gap-2">
+        <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden mb-4">
+          {/* Modern SaaS Header Banner */}
+          <div className="h-32 sm:h-40 bg-gradient-to-r from-indigo-955 via-purple-955 to-slate-955 relative overflow-hidden flex items-end p-4">
+            {/* SaaS Glow Decorative background */}
+            <div className="absolute top-[-55px] left-[5%] w-56 h-56 bg-indigo-500/10 rounded-full blur-3xl" />
+            <div className="absolute bottom-[-55px] right-[15%] w-72 h-72 bg-purple-500/10 rounded-full blur-3xl" />
+
+            {/* Premium action header overlay */}
+            <div className="absolute top-4 right-4 flex gap-2">
+              {isAdminRole && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="bg-white/10 hover:bg-white/20 border border-white/10 text-white backdrop-blur-sm shadow-md font-semibold text-xs gap-1.5 transition-all"
+                  onClick={() => {
+                    setEditingProject(selectedProject);
+                    setEditProjectName(selectedProject.name);
+                    setEditProjectDescription(selectedProject.description || "");
+                    setEditProjectIntroVideoUrl(selectedProject.introVideoUrl || "");
+                    setEditProjectLogoPreview(selectedProject.logo?.url || "");
+                    setEditProjectLogoFile(null);
+                    setIsEditProjectOpen(true);
+                  }}
+                >
+                  <Edit className="w-3.5 h-3.5" />
+                  Edit Project
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Banner Overlapping Logo & Main details */}
+          <div className="px-6 pb-6 pt-16 relative flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border/40">
+            {/* Oversized logo container */}
+            <div className="absolute top-0 left-6 -translate-y-1/2 w-28 h-28 rounded-2xl bg-card border-4 border-card shadow-xl overflow-hidden flex-shrink-0 flex items-center justify-center">
+              <ProjectLogoImgLarge 
+                projectId={selectedProject.id} 
+                projectName={selectedProject.name} 
+                logoUrl={selectedProject.logo?.url} 
+              />
+            </div>
+
+            {/* Project info details */}
+            <div className="flex-1 min-w-0 space-y-1.5 mt-2 sm:mt-0">
+              <div className="flex items-center gap-3">
                 <Input
-                  className="font-semibold text-lg border-transparent hover:border-border focus:border-primary px-1 -ml-1 bg-transparent h-auto py-0"
+                  className="font-extrabold text-2xl tracking-tight text-foreground border-transparent hover:border-border focus:border-primary px-1 -ml-1 bg-transparent h-auto py-0 shadow-none focus-visible:ring-0"
                   value={projectViewName}
                   onChange={(e) => {
                     setProjectViewName(e.target.value);
@@ -2520,9 +2609,10 @@ export default function Tasks() {
                   }}
                   placeholder="Project Name"
                 />
+                <Badge className="capitalize font-semibold text-xs" variant="secondary">{selectedProject.status || "No tasks"}</Badge>
               </div>
               <Textarea
-                className="text-sm text-muted-foreground border-transparent hover:border-border focus:border-primary px-1 -ml-1 bg-transparent resize-none min-h-[40px] py-0"
+                className="text-sm text-muted-foreground border-transparent hover:border-border focus:border-primary px-1 -ml-1 bg-transparent resize-none min-h-[40px] py-0 shadow-none focus-visible:ring-0"
                 value={projectViewDesc}
                 onChange={(e) => {
                   setProjectViewDesc(e.target.value);
@@ -2530,7 +2620,14 @@ export default function Tasks() {
                 }}
                 placeholder="Add project description..."
               />
-              <p className="text-xs text-muted-foreground mt-1 break-words">{selectedProject.assignees && selectedProject.assignees.length > 0 ? selectedProject.assignees.join(", ") : "No assignees"}</p>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground pt-1">
+                <span className="flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-primary/60" />
+                  {selectedProject.assignees && selectedProject.assignees.length > 0 ? selectedProject.assignees.join(", ") : "No assignees"}
+                </span>
+                <span className="border-l border-border h-3 hidden sm:inline" />
+                <span>Created {selectedProject.createdAt ? new Date(selectedProject.createdAt).toLocaleDateString() : ""}</span>
+              </div>
               
               {projectViewEdited && (
                 <div className="flex gap-2 mt-2">
@@ -2573,96 +2670,100 @@ export default function Tasks() {
               )}
             </div>
           </div>
-          {selectedProject.introVideoUrl && (
-            <div className="mt-3 p-3 bg-primary/5 border border-primary/10 rounded-lg flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-                  <RefreshCw className="h-4 w-4 animate-spin-slow" />
-                </div>
-                <div>
-                  <p className="text-xs font-bold text-primary uppercase tracking-wider">Project Synopsis</p>
-                  <p className="text-sm font-medium">Watch the introductory video for this project.</p>
-                </div>
-              </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="bg-white border-primary/20 hover:bg-primary/5 text-primary font-bold"
-                onClick={() => window.open(selectedProject.introVideoUrl, "_blank")}
-              >
-                Watch Video
-              </Button>
-            </div>
-          )}
-          {selectedProject.attachments && selectedProject.attachments.length > 0 && (
-            <div className="mt-3">
-              <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({selectedProject.attachments.length})</p>
-              <div className="flex flex-wrap gap-2">
-                {selectedProject.attachments.map((att, idx) => {
-                  const proxied = toProxiedUrl(att.url) || att.url;
-                  return att.mimeType?.startsWith("image/") ? (
-                    <button key={idx} onClick={() => { setPreviewUrl(proxied); setPreviewName(att.fileName); }}>
-                      <img src={proxied} alt={att.fileName} className="h-16 w-16 object-cover rounded-md border border-border" />
-                    </button>
-                  ) : (
-                    <button key={idx} onClick={() => void downloadViaUrl(proxied, att.fileName)}
-                      className="flex items-center gap-1 px-2 py-1 rounded-md border border-border text-xs hover:bg-muted truncate max-w-[160px]">
-                      📄 {att.fileName}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-          <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-muted-foreground mt-3 pt-3 border-t border-border/40">
-            <div className="flex items-center gap-4">
-              <span>{selectedProject.tasks.length} tasks</span>
-              {(() => {
-                const projectAtts = getAttachmentCounts(selectedProject.attachments);
-                const taskAtts = (selectedProject.tasks || []).reduce((acc, t) => {
-                  const { images, files } = getAttachmentCounts(t.attachments, t.attachment);
-                  return { images: acc.images + images, files: acc.files + files };
-                }, { images: 0, files: 0 });
-                
-                const images = projectAtts.images + taskAtts.images;
-                const files = projectAtts.files + taskAtts.files;
-                
-                return (images > 0 || files > 0) && (
-                  <div className="flex items-center gap-3 border-l pl-4 border-border/40">
-                    {images > 0 && (
-                      <span className="flex items-center gap-1.5 text-primary font-semibold" title={`${projectAtts.images} from project, ${taskAtts.images} from tasks`}>
-                        <Paperclip className="w-3.5 h-3.5" /> {images} Image{images !== 1 ? "s" : ""}
-                      </span>
-                    )}
-                    {files > 0 && (
-                      <span className="flex items-center gap-1.5 text-indigo-600 font-semibold" title={`${projectAtts.files} from project, ${taskAtts.files} from tasks`}>
-                        <FileText className="w-3.5 h-3.5" /> {files} File{files !== 1 ? "s" : ""}
-                      </span>
-                    )}
+
+          {/* Intro video & attachments list inside premium header */}
+          <div className="p-4 sm:p-6 space-y-4">
+            {selectedProject.introVideoUrl && (
+              <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                    <RefreshCw className="h-4 w-4 animate-spin-slow" />
                   </div>
-                );
-              })()}
-            </div>
-            <div className="flex items-center gap-3">
-              <Select value={selectedProject.status || "No status"} onValueChange={(value) => {
-                updateProjectStatusMutation.mutate({ projectId: selectedProject.id, status: value }, {
-                  onSuccess: () => {
-                    setSelectedProject({ ...selectedProject, status: value });
-                  }
-                });
-              }}>
-                <SelectTrigger className="w-[120px] h-8">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="No tasks">No tasks</SelectItem>
-                  <SelectItem value="Pending">Pending</SelectItem>
-                  <SelectItem value="In Progress">In Progress</SelectItem>
-                  <SelectItem value="Completed">Completed</SelectItem>
-                  <SelectItem value="Overdue">Overdue</SelectItem>
-                </SelectContent>
-              </Select>
-              <span className="text-xs">{selectedProject.createdAt ? new Date(selectedProject.createdAt).toLocaleDateString() : ""}</span>
+                  <div>
+                    <p className="text-xs font-bold text-primary uppercase tracking-wider">Project Synopsis</p>
+                    <p className="text-sm font-medium">Watch the introductory video for this project.</p>
+                  </div>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="bg-white border-primary/20 hover:bg-primary/5 text-primary font-bold"
+                  onClick={() => window.open(selectedProject.introVideoUrl, "_blank")}
+                >
+                  Watch Video
+                </Button>
+              </div>
+            )}
+            {selectedProject.attachments && selectedProject.attachments.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({selectedProject.attachments.length})</p>
+                <div className="flex flex-wrap gap-2">
+                  {selectedProject.attachments.map((att, idx) => {
+                    const proxied = toProxiedUrl(att.url) || att.url;
+                    return att.mimeType?.startsWith("image/") ? (
+                      <button key={idx} onClick={() => { setPreviewUrl(proxied); setPreviewName(att.fileName); }}>
+                        <img src={proxied} alt={att.fileName} className="h-16 w-16 object-cover rounded-md border border-border" />
+                      </button>
+                    ) : (
+                      <button key={idx} onClick={() => void downloadViaUrl(proxied, att.fileName)}
+                        className="flex items-center gap-1 px-2 py-1 rounded-md border border-border text-xs hover:bg-muted truncate max-w-[160px]">
+                        📄 {att.fileName}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-muted-foreground pt-3 border-t border-border/40">
+              <div className="flex items-center gap-4">
+                <span>{selectedProject.tasks.length} tasks</span>
+                {(() => {
+                  const projectAtts = getAttachmentCounts(selectedProject.attachments);
+                  const taskAtts = (selectedProject.tasks || []).reduce((acc, t) => {
+                    const { images, files } = getAttachmentCounts(t.attachments, t.attachment);
+                    return { images: acc.images + images, files: acc.files + files };
+                  }, { images: 0, files: 0 });
+                  
+                  const images = projectAtts.images + taskAtts.images;
+                  const files = projectAtts.files + taskAtts.files;
+                  
+                  return (images > 0 || files > 0) && (
+                    <div className="flex items-center gap-3 border-l pl-4 border-border/40">
+                      {images > 0 && (
+                        <span className="flex items-center gap-1.5 text-primary font-semibold" title={`${projectAtts.images} from project, ${taskAtts.images} from tasks`}>
+                          <Paperclip className="w-3.5 h-3.5" /> {images} Image{images !== 1 ? "s" : ""}
+                        </span>
+                      )}
+                      {files > 0 && (
+                        <span className="flex items-center gap-1.5 text-indigo-600 font-semibold" title={`${projectAtts.files} from project, ${taskAtts.files} from tasks`}>
+                          <FileText className="w-3.5 h-3.5" /> {files} File{files !== 1 ? "s" : ""}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+              <div className="flex items-center gap-3">
+                <Select value={selectedProject.status || "No status"} onValueChange={(value) => {
+                  updateProjectStatusMutation.mutate({ projectId: selectedProject.id, status: value }, {
+                    onSuccess: () => {
+                      setSelectedProject({ ...selectedProject, status: value });
+                    }
+                  });
+                }}>
+                  <SelectTrigger className="w-[120px] h-8">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="No tasks">No tasks</SelectItem>
+                    <SelectItem value="Pending">Pending</SelectItem>
+                    <SelectItem value="In Progress">In Progress</SelectItem>
+                    <SelectItem value="Completed">Completed</SelectItem>
+                    <SelectItem value="Overdue">Overdue</SelectItem>
+                  </SelectContent>
+                </Select>
+                <span className="text-xs">{selectedProject.createdAt ? new Date(selectedProject.createdAt).toLocaleDateString() : ""}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -3067,7 +3168,32 @@ export default function Tasks() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Name *</label>
-                <Input placeholder="Project name" value={projectName} onChange={(e) => { setProjectName(e.target.value); if (validationErrors.projectName) { setValidationErrors({ ...validationErrors, projectName: undefined }); } }} className={validationErrors.projectName ? "border-destructive ring-1 ring-destructive" : ""} />
+                <div className="flex gap-2">
+                  <Input placeholder="Project name" value={projectName} onChange={(e) => { setProjectName(e.target.value); if (validationErrors.projectName) { setValidationErrors({ ...validationErrors, projectName: undefined }); } }} className={cn("flex-1", validationErrors.projectName ? "border-destructive ring-1 ring-destructive" : "")} />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button type="button" variant="outline" size="icon" className="h-10 w-10 shrink-0" title="Add Emoji">
+                        <Smile className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-2 z-[150]" align="end">
+                      <div className="grid grid-cols-6 gap-1 max-h-48 overflow-y-auto custom-scrollbar">
+                        {["📁", "🚀", "💻", "🎨", "📈", "⚙️", "🔧", "💡", "📅", "✏️", "🔥", "✨", "🌟", "🎯", "🏆", "🔒", "🔑", "📦", "📝", "📊", "💰", "📢", "💬", "❤️", "👍", "🍀", "🌍", "🍕", "☕", "🎮", "🎵", "🚗", "🏠", "🏢"].map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => {
+                              setProjectName((prev) => emoji + " " + prev);
+                            }}
+                            className="p-1.5 hover:bg-muted rounded text-lg text-center transition-all duration-100 hover:scale-110 active:scale-95"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
                 {validationErrors.projectName && <p className="text-xs text-destructive">{validationErrors.projectName}</p>}
               </div>
               <div className="sm:col-span-2 space-y-1.5">
@@ -3099,7 +3225,7 @@ export default function Tasks() {
                   </button>
                   {projectLogoPreview ? <img src={projectLogoPreview} alt="Project Logo" className="w-10 h-10 rounded-md object-cover" /> : <div className="w-10 h-10 rounded-md bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">No logo</div>}
                 </div>
-                <input id="project-logo-input" type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0] ?? null; setProjectLogoFile(file); if (file) { const reader = new FileReader(); reader.onload = () => { setProjectLogoPreview(typeof reader.result === "string" ? reader.result : ""); }; reader.readAsDataURL(file); } else { setProjectLogoPreview(""); } }} />
+                <input id="project-logo-input" type="file" accept="image/*" className="hidden" onChange={async (e) => { const file = e.target.files?.[0] ?? null; if (file) { const compressed = await resizeImageIfNeeded(file, 400, 400, 0.85); setProjectLogoFile(compressed); const reader = new FileReader(); reader.onload = () => { setProjectLogoPreview(typeof reader.result === "string" ? reader.result : ""); }; reader.readAsDataURL(compressed); } else { setProjectLogoFile(null); setProjectLogoPreview(""); } }} />
               </div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Attachments</label>
@@ -3112,7 +3238,7 @@ export default function Tasks() {
                       </button>
                     )}
                   </div>
-                  <input id="project-attachments-input" type="file" accept="*" multiple className="hidden" onChange={(e) => { const files = Array.from(e.target.files ?? []); setProjectAttachmentFiles((prev) => [...prev, ...files]); files.forEach((file) => { const reader = new FileReader(); reader.onload = () => { const result = typeof reader.result === "string" ? reader.result : ""; setProjectAttachmentPreviews((prev) => [...prev, result]); }; if (file.type.startsWith("image/")) { reader.readAsDataURL(file); } else { setProjectAttachmentPreviews((prev) => [...prev, ""]); } }); }} />
+                  <input id="project-attachments-input" type="file" accept="*" multiple className="hidden" onChange={async (e) => { const files = Array.from(e.target.files ?? []); const processedFiles = await Promise.all(files.map(async (f) => { if (f.type.startsWith("image/")) { return await resizeImageIfNeeded(f, 1200, 1200, 0.8); } return f; })); setProjectAttachmentFiles((prev) => [...prev, ...processedFiles]); processedFiles.forEach((file) => { const reader = new FileReader(); reader.onload = () => { const result = typeof reader.result === "string" ? reader.result : ""; setProjectAttachmentPreviews((prev) => [...prev, result]); }; if (file.type.startsWith("image/")) { reader.readAsDataURL(file); } else { setProjectAttachmentPreviews((prev) => [...prev, ""]); } }); }} />
                   {projectAttachmentFiles.length > 0 && (<div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">{projectAttachmentFiles.map((file, idx) => (<div key={idx} className="relative group">{projectAttachmentPreviews[idx] ? (<img src={projectAttachmentPreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />) : (<div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">📄 {file.name}</div>)}<button type="button" onClick={() => { setProjectAttachmentFiles((prev) => prev.filter((_, i) => i !== idx)); setProjectAttachmentPreviews((prev) => prev.filter((_, i) => i !== idx)); }} className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs">✕</button></div>))}</div>)}
                   {projectDropboxSelectedFiles.length > 0 && (
                     <div className="border border-border rounded-md p-2 space-y-1.5 bg-muted/30">
@@ -3270,6 +3396,12 @@ export default function Tasks() {
                   autoComplete="on"
                 />
                 {validationErrors.description && <p className="text-xs text-destructive">{validationErrors.description}</p>}
+                <div className="pt-2 flex gap-2">
+                  <Button type="submit" disabled={isCreating} className="gap-2 h-9 px-4 text-xs font-semibold">
+                    {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Create Task (Quick)
+                  </Button>
+                </div>
               </div>
               <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Assignees</label><Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}><PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{selectedAssignees.length > 0 ? selectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] max-w-[380px] p-0 z-[150]" align="start" collisionPadding={20}><Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); }}><Check className={cn("mr-2 h-4 w-4", selectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover></div>
               <div className="sm:col-span-2 space-y-1.5">
@@ -3323,7 +3455,7 @@ export default function Tasks() {
                 />
               </div>
             </div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Task Attachments</label><div className="space-y-2"><div className="flex gap-2"><button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1" onClick={() => { const el = document.getElementById("task-attachments-input") as HTMLInputElement | null; el?.click(); }}>+ Add Files/Images</button>{ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (<button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1 flex items-center justify-center gap-2" onClick={() => { setDropboxPickerTarget("task"); setIsDropboxPickerOpen(true); }}><DropboxIcon size={14} />Dropbox</button>)}</div><input id="task-attachments-input" type="file" accept="*" multiple className="hidden" onChange={(e) => { const files = Array.from(e.target.files ?? []); setAttachmentFiles((prev) => [...prev, ...files]); files.forEach((file) => { const reader = new FileReader(); reader.onload = () => { const result = typeof reader.result === "string" ? reader.result : ""; setAttachmentFilePreviews((prev) => [...prev, result]); }; if (file.type.startsWith("image/")) { reader.readAsDataURL(file); } else { setAttachmentFilePreviews((prev) => [...prev, ""]); } }); }} />{attachmentFiles.length > 0 && (<div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">{attachmentFiles.map((file, idx) => (<div key={idx} className="relative group">{attachmentFilePreviews[idx] ? (<img src={attachmentFilePreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />) : (<div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">📄 {file.name}</div>)}<button type="button" onClick={() => { setAttachmentFiles((prev) => prev.filter((_, i) => i !== idx)); setAttachmentFilePreviews((prev) => prev.filter((_, i) => i !== idx)); }} className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs">✕</button></div>))}</div>)}{dropboxSelectedFiles.length > 0 && (<div className="border border-border rounded-md p-2 space-y-1.5 bg-muted/30"><p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><DropboxIcon size={12} />Dropbox Files (External)</p>{dropboxSelectedFiles.map((dbf, idx) => (<div key={idx} className="flex items-center gap-2 bg-background rounded-md px-2.5 py-1.5 border border-border text-sm"><FileText className="w-4 h-4 text-blue-400 flex-shrink-0" /><span className="flex-1 truncate text-foreground">{dbf.file_name}</span><span className="text-xs text-muted-foreground">{dbf.file_size > 0 ? formatBytes(dbf.file_size) : ""}</span><button type="button" onClick={() => setDropboxSelectedFiles((prev) => prev.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive transition-colors">✕</button></div>))}</div>)}</div></div>
+            <div className="space-y-1.5"><label className="text-sm font-medium">Task Attachments</label><div className="space-y-2"><div className="flex gap-2"><button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1" onClick={() => { const el = document.getElementById("task-attachments-input") as HTMLInputElement | null; el?.click(); }}>+ Add Files/Images</button>{ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (<button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1 flex items-center justify-center gap-2" onClick={() => { setDropboxPickerTarget("task"); setIsDropboxPickerOpen(true); }}><DropboxIcon size={14} />Dropbox</button>)}</div><input id="task-attachments-input" type="file" accept="*" multiple className="hidden" onChange={async (e) => { const files = Array.from(e.target.files ?? []); const processedFiles = await Promise.all(files.map(async (f) => { if (f.type.startsWith("image/")) { return await resizeImageIfNeeded(f, 1200, 1200, 0.8); } return f; })); setAttachmentFiles((prev) => [...prev, ...processedFiles]); processedFiles.forEach((file) => { const reader = new FileReader(); reader.onload = () => { const result = typeof reader.result === "string" ? reader.result : ""; setAttachmentFilePreviews((prev) => [...prev, result]); }; if (file.type.startsWith("image/")) { reader.readAsDataURL(file); } else { setAttachmentFilePreviews((prev) => [...prev, ""]); } }); }} />{attachmentFiles.length > 0 && (<div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">{attachmentFiles.map((file, idx) => (<div key={idx} className="relative group">{attachmentFilePreviews[idx] ? (<img src={attachmentFilePreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />) : (<div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">📄 {file.name}</div>)}<button type="button" onClick={() => { setAttachmentFiles((prev) => prev.filter((_, i) => i !== idx)); setAttachmentFilePreviews((prev) => prev.filter((_, i) => i !== idx)); }} className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs">✕</button></div>))}</div>)}{dropboxSelectedFiles.length > 0 && (<div className="border border-border rounded-md p-2 space-y-1.5 bg-muted/30"><p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><DropboxIcon size={12} />Dropbox Files (External)</p>{dropboxSelectedFiles.map((dbf, idx) => (<div key={idx} className="flex items-center gap-2 bg-background rounded-md px-2.5 py-1.5 border border-border text-sm"><FileText className="w-4 h-4 text-blue-400 flex-shrink-0" /><span className="flex-1 truncate text-foreground">{dbf.file_name}</span><span className="text-xs text-muted-foreground">{dbf.file_size > 0 ? formatBytes(dbf.file_size) : ""}</span><button type="button" onClick={() => setDropboxSelectedFiles((prev) => prev.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive transition-colors">✕</button></div>))}</div>)}</div></div>
             <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end"><Button type="button" variant="outline" onClick={() => { setIsCreateTaskOpen(false); setIsDirectTask(false); }} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button><Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">{isCreating && <Loader2 className="h-4 w-4 animate-spin" />}{isDirectTask ? "Create Task" : "Create Task"}</Button></DialogFooter>
           </form>
         </DialogContent>
@@ -3883,7 +4015,70 @@ export default function Tasks() {
 
                     {/* Assignees */}
                     <div className="space-y-2">
-                      <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Assignees</label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Assignees</label>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-6 px-2 text-xs font-semibold text-primary hover:bg-primary/10 flex items-center gap-1"
+                            >
+                              <Edit className="w-3.5 h-3.5" /> Edit
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-64 p-0 z-[150]" align="end">
+                            <Command>
+                              <CommandInput placeholder="Search employees..." />
+                              <CommandList>
+                                <CommandEmpty>No employee found.</CommandEmpty>
+                                <CommandGroup>
+                                  {activeEmployees.map((employee) => {
+                                    const isAssigned = (selectedTask.assignees || []).includes(employee.name);
+                                    return (
+                                      <CommandItem
+                                        key={employee.id}
+                                        value={employee.name}
+                                        onSelect={async () => {
+                                          const currentAssignees = selectedTask.assignees || [];
+                                          const nextAssignees = isAssigned
+                                            ? currentAssignees.filter((name) => name !== employee.name)
+                                            : [...currentAssignees, employee.name];
+                                          try {
+                                            await reassignTaskMutation.mutateAsync({
+                                              id: selectedTask.id,
+                                              assignees: nextAssignees,
+                                            });
+                                          } catch (err) {
+                                            toast({
+                                              title: "Reassignment failed",
+                                              description: err instanceof Error ? err.message : "Something went wrong",
+                                              variant: "destructive",
+                                            });
+                                          }
+                                        }}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            isAssigned ? "opacity-100" : "opacity-0"
+                                          )}
+                                        />
+                                        <Avatar className="h-6 w-6 mr-2">
+                                          <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                            {employee.initials}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                        {employee.name}
+                                      </CommandItem>
+                                    );
+                                  })}
+                                </CommandGroup>
+                              </CommandList>
+                            </Command>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
                       <div className="flex flex-col gap-2">
                         {selectedTask.assignees && selectedTask.assignees.length > 0 ? (
                           selectedTask.assignees.map((assignee, idx) => {
@@ -4057,7 +4252,8 @@ export default function Tasks() {
                     className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted w-full flex items-center justify-center gap-2" 
                     onClick={() => { const el = document.getElementById("edit-task-attachments-input") as HTMLInputElement | null; el?.click(); }}
                   >
-                    <Plus className="w-4 h-4" /> Add Files/Images
+                    <Plus className="h-4 w-4 mr-2" />
+                    Upload Files
                   </button>
                   <input 
                     id="edit-task-attachments-input" 
@@ -4065,10 +4261,18 @@ export default function Tasks() {
                     accept="*" 
                     multiple 
                     className="hidden" 
-                    onChange={(e) => { 
+                    onChange={async (e) => { 
                       const files = Array.from(e.target.files ?? []); 
-                      setEditTaskFiles((prev) => [...prev, ...files]); 
-                      files.forEach((file) => { 
+                      const processedFiles = await Promise.all(
+                        files.map(async (f) => {
+                          if (f.type.startsWith("image/")) {
+                            return await resizeImageIfNeeded(f, 1200, 1200, 0.8);
+                          }
+                          return f;
+                        })
+                      );
+                      setEditTaskFiles((prev) => [...prev, ...processedFiles]); 
+                      processedFiles.forEach((file) => { 
                         const reader = new FileReader(); 
                         reader.onload = () => { 
                           const result = typeof reader.result === "string" ? reader.result : ""; 
@@ -4077,7 +4281,6 @@ export default function Tasks() {
                         if (file.type.startsWith("image/")) { 
                           reader.readAsDataURL(file); 
                         } else { 
-                          // For non-images, we push a special placeholder or empty string
                           setEditTaskFilePreviews((prev) => [...prev, ""]); 
                         } 
                       }); 
@@ -4307,12 +4510,38 @@ export default function Tasks() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Name *</label>
-                <Input
-                  placeholder="Project name"
-                  value={editProjectName}
-                  onChange={(e) => setEditProjectName(e.target.value)}
-                  required
-                />
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Project name"
+                    value={editProjectName}
+                    onChange={(e) => setEditProjectName(e.target.value)}
+                    required
+                    className="flex-1"
+                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button type="button" variant="outline" size="icon" className="h-10 w-10 shrink-0" title="Add Emoji">
+                        <Smile className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-64 p-2 z-[150]" align="end">
+                      <div className="grid grid-cols-6 gap-1 max-h-48 overflow-y-auto custom-scrollbar">
+                        {["📁", "🚀", "💻", "🎨", "📈", "⚙️", "🔧", "💡", "📅", "✏️", "🔥", "✨", "🌟", "🎯", "🏆", "🔒", "🔑", "📦", "📝", "📊", "💰", "📢", "💬", "❤️", "👍", "🍀", "🌍", "🍕", "☕", "🎮", "🎵", "🚗", "🏠", "🏢"].map((emoji) => (
+                          <button
+                            key={emoji}
+                            type="button"
+                            onClick={() => {
+                              setEditProjectName((prev) => emoji + " " + prev);
+                            }}
+                            className="p-1.5 hover:bg-muted rounded text-lg text-center transition-all duration-100 hover:scale-110 active:scale-95"
+                          >
+                            {emoji}
+                          </button>
+                        ))}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Description</label>
@@ -4362,15 +4591,16 @@ export default function Tasks() {
                   type="file"
                   accept="image/*"
                   className="hidden"
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const file = e.target.files?.[0] ?? null;
-                    setEditProjectLogoFile(file);
                     if (file) {
+                      const compressed = await resizeImageIfNeeded(file, 400, 400, 0.85);
+                      setEditProjectLogoFile(compressed);
                       const reader = new FileReader();
                       reader.onload = () => {
                         setEditProjectLogoPreview(typeof reader.result === "string" ? reader.result : "");
                       };
-                      reader.readAsDataURL(file);
+                      reader.readAsDataURL(compressed);
                     }
                   }}
                 />

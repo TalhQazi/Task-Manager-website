@@ -2862,6 +2862,12 @@ export default function Tasks() {
                     autoComplete="on"
                   />
                   {validationErrors.description && <p className="text-xs text-destructive">{validationErrors.description}</p>}
+                  <div className="pt-2 flex gap-2">
+                    <Button type="submit" disabled={isCreating} className="gap-2 h-9 px-4 text-xs font-semibold">
+                      {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
+                      Create Task (Quick)
+                    </Button>
+                  </div>
                 </div>
                 <div className="sm:col-span-2 space-y-1.5">
                   <label className="text-sm font-medium">Assignees</label>
@@ -3504,7 +3510,70 @@ export default function Tasks() {
 
                       {/* Assignees */}
                       <div className="space-y-2">
-                        <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Assignees</label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Assignees</label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-6 px-2 text-xs font-semibold text-primary hover:bg-primary/10 flex items-center gap-1"
+                              >
+                                <Edit className="w-3.5 h-3.5" /> Edit
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-64 p-0 z-[150]" align="end">
+                              <Command>
+                                <CommandInput placeholder="Search employees..." />
+                                <CommandList>
+                                  <CommandEmpty>No employee found.</CommandEmpty>
+                                  <CommandGroup>
+                                    {activeEmployees.map((employee) => {
+                                      const isAssigned = (selectedTask.assignees || []).includes(employee.name);
+                                      return (
+                                        <CommandItem
+                                          key={employee.id}
+                                          value={employee.name}
+                                          onSelect={async () => {
+                                            const currentAssignees = selectedTask.assignees || [];
+                                            const nextAssignees = isAssigned
+                                              ? currentAssignees.filter((name) => name !== employee.name)
+                                              : [...currentAssignees, employee.name];
+                                            try {
+                                              await updateTaskMutation.mutateAsync({
+                                                id: selectedTask.id,
+                                                payload: { assignees: nextAssignees },
+                                              });
+                                            } catch (err) {
+                                              toast({
+                                                title: "Reassignment failed",
+                                                description: err instanceof Error ? err.message : "Something went wrong",
+                                                variant: "destructive",
+                                              });
+                                            }
+                                          }}
+                                        >
+                                          <Check
+                                            className={cn(
+                                              "mr-2 h-4 w-4",
+                                              isAssigned ? "opacity-100" : "opacity-0"
+                                            )}
+                                          />
+                                          <Avatar className="h-6 w-6 mr-2">
+                                            <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                              {employee.initials}
+                                            </AvatarFallback>
+                                          </Avatar>
+                                          {employee.name}
+                                        </CommandItem>
+                                      );
+                                    })}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
                         <div className="flex flex-col gap-2">
                           {selectedTask.assignees && selectedTask.assignees.length > 0 ? (
                             selectedTask.assignees.map((assignee, idx) => {

@@ -110,7 +110,10 @@ export function EmployeeSidebar({ mode = "desktop", onNavigate }: EmployeeSideba
             key={item.path}
             to={item.path}
             end={(item as any).end}
-            className="group relative flex h-10 w-full items-center gap-3 rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white transition-all duration-100 linear"
+            className={cn(
+              "group relative flex w-full items-center gap-3 rounded-lg text-white/60 hover:bg-white/[0.04] hover:text-white transition-all duration-100 linear",
+              isMobile ? "h-16 px-4" : "h-10 px-3"
+            )}
             activeClassName="bg-white/[0.06] text-white"
             onClick={handleNavigate}
           >
@@ -119,17 +122,24 @@ export function EmployeeSidebar({ mode = "desktop", onNavigate }: EmployeeSideba
                 {/* Active indicator bar */}
                 <span 
                   className={cn(
-                    "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full",
+                    "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-r-full",
                     "bg-gradient-to-b from-[#00C6FF] to-[#0072FF]",
                     "transition-all duration-150 ease-in-out",
-                    isActive ? "opacity-100" : "opacity-0"
+                    isActive ? "opacity-100" : "opacity-0",
+                    isMobile ? "h-10" : "h-6"
                   )} 
                 />
                 <item.icon
-                  className="h-5 w-5 flex-shrink-0 transition-all duration-100 linear relative z-10 group-hover:brightness-[108%]"
+                  className={cn(
+                    "flex-shrink-0 transition-all duration-100 linear relative z-10 group-hover:brightness-[108%]",
+                    isMobile ? "h-7 w-7" : "h-5 w-5"
+                  )}
                   style={{ color: "var(--tb-sidebar-icon-color)" }}
                 />
-                <span className="text-sm font-medium truncate" style={{ color: "var(--tb-sidebar-text-color)" }}>
+                <span 
+                  className={cn("truncate", isMobile ? "text-lg font-semibold" : "text-sm font-medium")}
+                  style={{ color: "var(--tb-sidebar-text-color)" }}
+                >
                   {item.label}
                 </span>
               </>

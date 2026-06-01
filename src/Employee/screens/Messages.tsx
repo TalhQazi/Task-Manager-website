@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -47,6 +47,7 @@ interface Conversation {
     department: string;
     status: string;
     initials: string;
+    avatarUrl?: string;
     current_status?: string;
     lunch_start_time?: string | null;
     lunch_expected_end?: string | null;
@@ -576,6 +577,9 @@ export default function EmployeeMessages() {
               </Button>
               <div className="relative">
                 <Avatar className="h-11 w-11" style={getAvatarRingStyles(selectedConversation.employee.current_status)}>
+                  {selectedConversation.employee.avatarUrl ? (
+                    <AvatarImage src={toProxiedUrl(selectedConversation.employee.avatarUrl) || selectedConversation.employee.avatarUrl} alt={selectedConversation.employee.name} className="object-cover" />
+                  ) : null}
                   <AvatarFallback className="bg-[#133767] text-white font-semibold text-sm">
                     {selectedConversation.employee.initials}
                   </AvatarFallback>
@@ -628,8 +632,9 @@ export default function EmployeeMessages() {
                   <p className="text-sm text-muted-foreground">Start the conversation!</p>
                 </div>
               ) : (
-                messages.map((msg) => {
+                messages.map((msg, index) => {
                   const isSentByMe = msg.sender === employeeName;
+                  const showAvatar = !isSentByMe && (index === 0 || messages[index - 1].sender === employeeName);
                   const attachmentUrl = msg.attachment?.url || "";
                   const attachmentName = msg.attachment?.fileName || "attachment";
                   const attachmentMime = msg.attachment?.mimeType || "";
@@ -638,13 +643,27 @@ export default function EmployeeMessages() {
                     <div
                       key={msg.id}
                       className={cn(
-                        "flex",
+                        "flex items-end gap-2",
                         isSentByMe ? "justify-end" : "justify-start"
                       )}
                     >
+                      {!isSentByMe && (
+                        showAvatar ? (
+                          <Avatar className="h-7 w-7 flex-shrink-0 mb-1">
+                            {selectedConversation.employee.avatarUrl ? (
+                              <AvatarImage src={toProxiedUrl(selectedConversation.employee.avatarUrl) || selectedConversation.employee.avatarUrl} alt={selectedConversation.employee.name} className="object-cover" />
+                            ) : null}
+                            <AvatarFallback className="bg-[#133767] text-white text-[10px] font-semibold">
+                              {selectedConversation.employee.initials}
+                            </AvatarFallback>
+                          </Avatar>
+                        ) : (
+                          <div className="w-7 flex-shrink-0" />
+                        )
+                      )}
                       <div
                         className={cn(
-                          "max-w-[85%] sm:max-w-[70%] min-w-0 rounded-2xl p-2 sm:p-3 shadow-sm",
+                          "max-w-[80%] sm:max-w-[65%] min-w-0 rounded-2xl p-2 sm:p-3 shadow-sm",
                           isSentByMe
                             ? "bg-[#133767] text-white rounded-br-sm"
                             : "bg-white border border-gray-200 text-gray-900 rounded-bl-sm"
@@ -846,6 +865,9 @@ export default function EmployeeMessages() {
                     <div className="flex items-start gap-3">
                       <div className="relative">
                         <Avatar className="h-12 w-12" style={getAvatarRingStyles(conversation.employee.current_status)}>
+                          {conversation.employee.avatarUrl ? (
+                            <AvatarImage src={toProxiedUrl(conversation.employee.avatarUrl) || conversation.employee.avatarUrl} alt={conversation.employee.name} className="object-cover" />
+                          ) : null}
                           <AvatarFallback className="bg-[#133767] text-white font-semibold">
                             {conversation.employee.initials}
                           </AvatarFallback>

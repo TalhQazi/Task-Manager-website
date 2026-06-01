@@ -63,7 +63,7 @@ export default function Notifications() {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [items, setItems] = useState<NotificationItem[]>([]);
-  const [unreadOnly, setUnreadOnly] = useState(true);
+  const [unreadOnly, setUnreadOnly] = useState(false);
   const { socket } = useSocket();
   const auth = getAuthState();
   const currentUser = auth.username || "";
@@ -126,7 +126,7 @@ export default function Notifications() {
     setItems((prev) =>
       prev.map((item) =>
         (item.id === id || item._id === id)
-          ? { ...item, readBy: [...(Array.isArray(item.readBy) ? item.readBy : []), currentUser] }
+          ? { ...item, status: "read", readBy: [...(Array.isArray(item.readBy) ? item.readBy : []), currentUser] }
           : item
       )
     );
@@ -189,7 +189,7 @@ export default function Notifications() {
   const filteredNotifications = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     let list = items
-      .map((n) => ({ ...n, isRead: Array.isArray(n.readBy) && n.readBy.includes(currentUser) }))
+      .map((n) => ({ ...n, isRead: n.status === "read" }))
       .sort((a, b) => {
         if (a.isRead !== b.isRead) return a.isRead ? 1 : -1;
         const ta = n => new Date(n.timestamp || n.createdAt || "").getTime();

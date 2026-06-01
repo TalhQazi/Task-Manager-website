@@ -133,7 +133,7 @@ export default function ShoppingLists() {
     queryKey: ["vendors-minimal"],
     queryFn: async () => {
       const res = await apiFetch("/api/vendors?limit=100");
-      return res.items;
+      return (res.items || []).filter((v: any) => v.status === "approved");
     }
   });
 
@@ -674,13 +674,18 @@ function ListDetailModal({ isOpen, onClose, list, allVendors, employees, isAdmin
                         </Badge>
                         {item.priority === "high" && <Badge className="bg-red-500/10 text-red-400 border-0 text-[10px]">URGENT</Badge>}
                       </div>
-                      <div className="flex items-center gap-3 mt-1">
+                      <div className="flex flex-wrap items-center gap-3 mt-1">
                         <span className="text-xs text-white/30 flex items-center gap-1">
                           <Store className="w-3 h-3" /> {item.vendorId?.name || "General"}
                         </span>
                         {item.aisle && (
                           <span className="text-xs text-white/30 flex items-center gap-1">
                             <Package className="w-3 h-3" /> Aisle {item.aisle}
+                          </span>
+                        )}
+                        {item.assignedEmployeeId && (
+                          <span className="text-xs text-[#00C6FF] flex items-center gap-1 bg-[#00C6FF]/5 px-2 py-0.5 rounded-full border border-[#00C6FF]/10">
+                            <User className="w-2.5 h-2.5" /> {item.assignedEmployeeId.name || item.assignedEmployeeId.username}
                           </span>
                         )}
                       </div>
@@ -735,7 +740,8 @@ function AddItemModal({ isOpen, onClose, listId, listVendors, allVendors, employ
     category: "General",
     priority: "medium",
     aisle: "",
-    notes: ""
+    notes: "",
+    assignedEmployeeId: ""
   });
 
   const mutation = useMutation({
@@ -753,6 +759,7 @@ function AddItemModal({ isOpen, onClose, listId, listVendors, allVendors, employ
 
       const payload = { ...data };
       if (payload.vendorId === "none") payload.vendorId = null;
+      if (payload.assignedEmployeeId === "none" || !payload.assignedEmployeeId) payload.assignedEmployeeId = null;
       return apiFetch(`/api/shopping-lists/${listId}/items`, {
         method: "POST",
         body: JSON.stringify(payload)
@@ -762,7 +769,7 @@ function AddItemModal({ isOpen, onClose, listId, listVendors, allVendors, employ
       queryClient.invalidateQueries({ queryKey: ["shopping-list", listId] });
       queryClient.invalidateQueries({ queryKey: ["shopping-lists"] });
       onClose();
-      setFormData({ name: "", quantity: "1", vendorId: "", category: "General", priority: "medium", aisle: "", notes: "" });
+      setFormData({ name: "", quantity: "1", vendorId: "", category: "General", priority: "medium", aisle: "", notes: "", assignedEmployeeId: "" });
       toast.success("Item added and list settings updated");
     },
     onError: () => toast.error("Failed to add item. Please try again.")
@@ -816,6 +823,21 @@ function AddItemModal({ isOpen, onClose, listId, listVendors, allVendors, employ
                 className="bg-[#161B22] border-white/10"
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-white/60">Assign Item To (Optional)</label>
+            <Select value={formData.assignedEmployeeId} onValueChange={v => setFormData({...formData, assignedEmployeeId: v})}>
+              <SelectTrigger className="bg-[#161B22] border-white/10">
+                <SelectValue placeholder="Assignee (Optional)" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#161B22] border-white/10 text-white">
+                <SelectItem value="none">Unassigned</SelectItem>
+                {employees?.map((e: any) => (
+                  <SelectItem key={e._id || e.id} value={e._id || e.id}>{e.name || e.username}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="border-t border-white/5 pt-4 mt-4 space-y-4">

@@ -423,7 +423,7 @@ export async function clockOut() {
 export async function getEmployeeConversations(employeeName: string) {
   return employeeApiFetch<{
     items: Array<{
-      employee: { id: string; name: string; email: string; department: string; status: string; initials: string };
+      employee: { id: string; name: string; email: string; department: string; status: string; initials: string; avatarUrl?: string; current_status?: string; lunch_start_time?: string | null; lunch_expected_end?: string | null; break_start_time?: string | null };
       lastMessage: { id: string; content: string; timestamp: string; sender: string; status: string } | null;
       unreadCount: number;
     }>;

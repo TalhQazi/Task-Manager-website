@@ -305,27 +305,28 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
           <button
             onClick={() => toggleGroup(item.label)}
             className={cn(
-              "group relative flex h-10 w-full items-center justify-between rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white transition-all duration-100 linear",
-              hasActiveChild && "text-white bg-white/[0.02]"
+              "group relative flex w-full items-center justify-between rounded-lg text-white/60 hover:bg-white/[0.04] hover:text-white transition-all duration-100 linear",
+              hasActiveChild && "text-white bg-white/[0.02]",
+              isMobile ? "h-16 px-4" : "h-10 px-3"
             )}
           >
-            <div className="flex items-center gap-3">
+            <div className={cn("flex items-center gap-3", isMobile && "[&_img]:h-7 [&_img]:w-7")}>
               {item.customIcon ? (
                 item.customIcon
               ) : item.icon ? (
-                <item.icon className={cn("h-5 w-5 flex-shrink-0 transition-all", hasActiveChild && "text-[#00C6FF]")} />
+                <item.icon className={cn("flex-shrink-0 transition-all", hasActiveChild && "text-[#00C6FF]", isMobile ? "h-7 w-7" : "h-5 w-5")} />
               ) : null}
-              <span className="text-sm font-medium truncate">{item.label}</span>
+              <span className={cn("font-semibold truncate", isMobile ? "text-lg" : "text-sm font-medium")}>{item.label}</span>
             </div>
             {isExpanded ? (
-              <ChevronDown className="h-4 w-4 opacity-50 transition-transform" />
+              <ChevronDown className={cn("opacity-50 transition-transform", isMobile ? "h-5 w-5" : "h-4 w-4")} />
             ) : (
-              <ChevronRight className="h-4 w-4 opacity-50 transition-transform" />
+              <ChevronRight className={cn("opacity-50 transition-transform", isMobile ? "h-5 w-5" : "h-4 w-4")} />
             )}
           </button>
 
           {isExpanded && (
-            <div className="mt-1 flex flex-col gap-1 pl-4 ml-2 border-l border-white/10">
+            <div className={cn("mt-1 flex flex-col gap-1 pl-4 border-l border-white/10", isMobile ? "ml-4" : "ml-2")}>
               {item.children.map(child => renderNavItem(child, true))}
             </div>
           )}
@@ -341,8 +342,10 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
         to={item.path}
         end={item.end}
         className={cn(
-          "group relative flex h-10 w-full items-center gap-3 rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear",
-          isChild && "h-9 text-[13px]"
+          "group relative flex w-full items-center gap-3 rounded-lg text-white/60 hover:bg-white/[0.04] hover:text-white hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear",
+          isChild 
+            ? (isMobile ? "h-14 text-base pl-6 [&_img]:h-6 [&_img]:w-6" : "h-9 text-[13px] px-3") 
+            : (isMobile ? "h-16 text-lg px-4 [&_img]:h-7 [&_img]:w-7" : "h-10 text-sm px-3")
         )}
         activeClassName="bg-white/[0.06] text-white"
         onClick={handleNavigate}
@@ -353,23 +356,27 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
             {!isChild && (
               <span
                 className={cn(
-                  "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full",
+                  "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-r-full",
                   "bg-gradient-to-b from-[#00C6FF] to-[#0072FF]",
                   "transition-all duration-150 ease-in-out",
-                  isActive ? "opacity-100" : "opacity-0"
+                  isActive ? "opacity-100" : "opacity-0",
+                  isMobile ? "h-10" : "h-6"
                 )}
               />
             )}
             {isChild && isActive && (
               <span
-                className="absolute left-[-17px] top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#00C6FF]"
+                className={cn("absolute rounded-full bg-[#00C6FF]", isMobile ? "left-[-19px] w-2 h-2" : "left-[-17px] w-1.5 h-1.5")}
               />
             )}
 
             {/* Dashboard Pulse */}
             {item.label === "Dashboard" && (
               <span
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gradient-to-b from-[#00C6FF] to-[#0072FF] animate-dashboard-pulse pointer-events-none"
+                className={cn(
+                  "absolute rounded-full bg-gradient-to-b from-[#00C6FF] to-[#0072FF] animate-dashboard-pulse pointer-events-none",
+                  isMobile ? "left-4 w-7 h-7" : "left-3 w-5 h-5"
+                )}
                 aria-hidden="true"
               />
             )}
@@ -380,25 +387,25 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
               <item.icon
                 className={cn(
                   "flex-shrink-0 transition-all duration-100 linear relative z-10",
-                  isChild ? "h-4 w-4" : "h-5 w-5",
+                  isChild ? (isMobile ? "h-5 w-5" : "h-4 w-4") : (isMobile ? "h-7 w-7" : "h-5 w-5"),
                   isActive && ["brightness-[112%]", "scale-[1.03]"],
                   "group-hover:brightness-[108%]"
                 )}
               />
             ) : null}
             {item.label === "SignaCore" ? (
-              <span className="text-sm font-bold truncate">
+              <span className={cn("font-bold truncate", isMobile ? "text-lg" : "text-sm")}>
                 <span className="text-[#38bdf8]">Signa</span>
                 <span className="text-[#f97316]">Core</span>
               </span>
             ) : item.label === "UPH" ? (
-              <span className="text-sm font-black truncate tracking-tight">
+              <span className={cn("font-black truncate tracking-tight", isMobile ? "text-lg" : "text-sm")}>
                 <span className="text-[#5898B8]">U</span>
                 <span className="text-[#68B0D0]">P</span>
                 <span className="text-[#80B8D8]">H</span>
               </span>
             ) : (
-              <span className="font-medium truncate">{item.label}</span>
+              <span className={cn("truncate", isMobile ? "text-lg font-semibold" : "font-medium text-sm")}>{item.label}</span>
             )}
           </>
         )}
