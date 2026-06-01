@@ -230,7 +230,7 @@ export default function EmployeeMessages() {
           setMessages((prev) => {
             const alreadyExists = prev.some((m) => m.id === normalized.id);
             if (alreadyExists) return prev;
-            return [...prev, normalized];
+            return [...prev, normalized].sort((a, b) => a.id.localeCompare(b.id));
           });
         }
 

@@ -309,7 +309,7 @@ export default function Messages() {
       setConversationMessages(
         msgs
           .map(normalizeMessage)
-          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+          .sort((a, b) => a.id.localeCompare(b.id))
       );
     } catch (e) {
       console.error("Failed to load conversation messages:", e);
@@ -410,7 +410,7 @@ export default function Messages() {
       ) {
         setConversationMessages((prev) => {
           if (prev.some((m) => m.id === normalized.id)) return prev;
-          return [...prev, normalized];
+          return [...prev, normalized].sort((a, b) => a.id.localeCompare(b.id));
         });
       }
     };

@@ -204,7 +204,7 @@ export default function Messaging() {
       ) {
         setConversationMessages((prev) => {
           if (prev.some((m) => m.id === normalized.id)) return prev;
-          return [...prev, normalized];
+          return [...prev, normalized].sort((a, b) => a.id.localeCompare(b.id));
         });
       }
     };
@@ -488,9 +488,7 @@ export default function Messaging() {
         `/api/messages/conversation/${encodeURIComponent(currentUser)}/${encodeURIComponent(employeeName)}`
       );
       const msgs = res.items ?? [];
-      setConversationMessages(msgs.map(normalizeMessage).sort((a, b) =>
-        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-      ));
+      setConversationMessages(msgs.map(normalizeMessage).sort((a, b) => a.id.localeCompare(b.id)));
     } catch (e) {
       console.error("Failed to load conversation messages:", e);
       setConversationMessages([]);
