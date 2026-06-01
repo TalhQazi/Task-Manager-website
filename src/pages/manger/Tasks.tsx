@@ -2865,7 +2865,7 @@ export default function Tasks() {
                   <div className="pt-2 flex gap-2">
                     <Button type="submit" disabled={isCreating} className="gap-2 h-9 px-4 text-xs font-semibold">
                       {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
-                      Create Task (Quick)
+                      Create Task
                     </Button>
                   </div>
                 </div>
@@ -3036,10 +3036,6 @@ export default function Tasks() {
                   setIsCreateTaskOpen(false);
                   setIsDirectTask(false);
                 }} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button>
-                <Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">
-                  {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {isDirectTask ? "Create Task" : "Create Task"}
-                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
