@@ -5,6 +5,7 @@ import { getAuthState } from "@/lib/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
+import { Textarea } from "@/components/admin/ui/textarea";
 import { Badge } from "@/components/admin/ui/badge";
 import {
   Table,
@@ -53,6 +54,36 @@ export default function Bugs() {
   const [viewOpen, setViewOpen] = useState(false);
   const [selected, setSelected] = useState<BugItem | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [isEditingBug, setIsEditingBug] = useState(false);
+  const [editBugTitle, setEditBugTitle] = useState("");
+  const [editBugDesc, setEditBugDesc] = useState("");
+
+  const updateBugDetails = async () => {
+    if (!selected || !editBugTitle.trim() || !editBugDesc.trim()) return;
+    try {
+      setUpdating(true);
+      setApiError(null);
+      const res = await apiFetch<{ item?: any }>(`/api/bugs/${encodeURIComponent(selected.id)}`, {
+        method: "PUT",
+        body: JSON.stringify({ title: editBugTitle, description: editBugDesc }),
+      });
+      const updated = res?.item;
+      if (updated) {
+        const merged: BugItem = {
+          ...selected,
+          title: toText(updated.title),
+          description: toText(updated.description),
+        };
+        setSelected(merged);
+        setItems((prev) => prev.map((x) => (x.id === merged.id ? { ...x, title: merged.title, description: merged.description } : x)));
+        setIsEditingBug(false);
+      }
+    } catch (e) {
+      setApiError(e instanceof Error ? e.message : "Failed to update bug details");
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   const load = async () => {
     const res = await apiFetch<{ items?: any[] }>("/api/bugs");
@@ -126,6 +157,7 @@ export default function Bugs() {
   }, [items, q]);
 
   const openBug = async (b: BugItem) => {
+    setIsEditingBug(false);
     setSelected(b);
     setViewOpen(true);
     // Fetch full details (with attachments)
@@ -281,7 +313,9 @@ export default function Bugs() {
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
         <DialogContent className="w-[95vw] max-w-2xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl">
           <DialogHeader className="space-y-1.5 sm:space-y-2">
-            <DialogTitle className="text-lg sm:text-xl">{selected?.title || "Bug"}</DialogTitle>
+            <DialogTitle className="text-lg sm:text-xl">
+              {isEditingBug ? "Edit Bug Details" : (selected?.title || "Bug")}
+            </DialogTitle>
             <DialogDescription className="text-xs sm:text-sm">{selected?.source?.path || selected?.source?.panel || ""}</DialogDescription>
           </DialogHeader>
 
@@ -299,9 +333,29 @@ export default function Bugs() {
                 </div>
               </div>
 
-              <div className="rounded-md border p-3 bg-muted/30">
-                <p className="text-sm whitespace-pre-wrap">{selected.description}</p>
-              </div>
+              {isEditingBug ? (
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Bug Title</label>
+                    <Input 
+                      value={editBugTitle} 
+                      onChange={(e) => setEditBugTitle(e.target.value)} 
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Bug Description</label>
+                    <Textarea 
+                      value={editBugDesc} 
+                      onChange={(e) => setEditBugDesc(e.target.value)}
+                      rows={5}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-md border p-3 bg-muted/30">
+                  <p className="text-sm whitespace-pre-wrap">{selected.description}</p>
+                </div>
+              )}
 
               {selected.attachments && selected.attachments.length > 0 ? (
                 <div className="space-y-4">
@@ -323,17 +377,44 @@ export default function Bugs() {
           ) : null}
 
           <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-            <Button variant="outline" onClick={() => setViewOpen(false)} className="w-full sm:w-auto" disabled={updating}>
-              Close
-            </Button>
-            {selected?.status === "closed" ? (
-              <Button onClick={() => void updateStatus("open")} className="w-full sm:w-auto" disabled={updating}>
-                Reopen
-              </Button>
+            {isEditingBug ? (
+              <>
+                <Button variant="outline" onClick={() => setIsEditingBug(false)} className="w-full sm:w-auto" disabled={updating}>
+                  Cancel
+                </Button>
+                <Button onClick={() => void updateBugDetails()} className="w-full sm:w-auto" disabled={updating || !editBugTitle.trim() || !editBugDesc.trim()}>
+                  Save Changes
+                </Button>
+              </>
             ) : (
-              <Button onClick={() => void updateStatus("closed")} className="w-full sm:w-auto" disabled={updating}>
-                Mark Closed
-              </Button>
+              <>
+                <Button variant="outline" onClick={() => setViewOpen(false)} className="w-full sm:w-auto" disabled={updating}>
+                  Close
+                </Button>
+                {selected?.status === "open" && (
+                  <Button 
+                    variant="secondary" 
+                    onClick={() => {
+                      setEditBugTitle(selected.title || "");
+                      setEditBugDesc(selected.description || "");
+                      setIsEditingBug(true);
+                    }} 
+                    className="w-full sm:w-auto" 
+                    disabled={updating}
+                  >
+                    Edit
+                  </Button>
+                )}
+                {selected?.status === "closed" ? (
+                  <Button onClick={() => void updateStatus("open")} className="w-full sm:w-auto" disabled={updating}>
+                    Reopen
+                  </Button>
+                ) : (
+                  <Button onClick={() => void updateStatus("closed")} className="w-full sm:w-auto" disabled={updating}>
+                    Mark Closed
+                  </Button>
+                )}
+              </>
             )}
           </DialogFooter>
         </DialogContent>
