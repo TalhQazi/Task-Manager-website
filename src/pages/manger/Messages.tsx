@@ -196,6 +196,17 @@ export default function Messages() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const location = useLocation();
 
+  const isInitialLoad = useRef(true);
+  const isSendingMessage = useRef(false);
+  const prevMessagesLength = useRef(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (selectedEmployee) {
+      isInitialLoad.current = true;
+    }
+  }, [selectedEmployee]);
+
   // Archive and Bookmark state (persisted to localStorage)
   const [archivedConversations, setArchivedConversations] = useState<Set<string>>(() => {
     const saved = localStorage.getItem("manager-messaging-archived");
@@ -336,6 +347,7 @@ export default function Messages() {
   const handleFileSelected = async (file: File | null) => {
     if (!file || !selectedEmployee) return;
 
+    isSendingMessage.current = true;
     setUploading(true);
     try {
       const attachment = await uploadAttachment(file);
@@ -488,10 +500,28 @@ export default function Messages() {
     return () => clearInterval(interval);
   }, [view, selectedEmployee?.name]);
 
-  // Scroll to bottom of messages
+  // Smart Scroll to bottom of messages
   useEffect(() => {
-    if (view === "conversation" && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    if (view !== "conversation") return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    if (isInitialLoad.current) {
+      container.scrollTop = container.scrollHeight;
+      isInitialLoad.current = false;
+      prevMessagesLength.current = conversationMessages.length;
+    } else if (isSendingMessage.current) {
+      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+      isSendingMessage.current = false;
+      prevMessagesLength.current = conversationMessages.length;
+    } else if (conversationMessages.length > prevMessagesLength.current) {
+      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+      if (isNearBottom) {
+        container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+      }
+      prevMessagesLength.current = conversationMessages.length;
+    } else {
+      prevMessagesLength.current = conversationMessages.length;
     }
   }, [view, conversationMessages]);
 
@@ -535,6 +565,7 @@ export default function Messages() {
   const sendMessage = async () => {
     if ((!newMessageContent.trim()) || !selectedEmployee) return;
 
+    isSendingMessage.current = true;
     setSending(true);
     try {
       const payload: Omit<Message, "id"> = {
@@ -1104,7 +1135,7 @@ export default function Messages() {
 
           <Card className="flex flex-col h-[calc(100vh-200px)] sm:h-[calc(100vh-240px)] md:h-[calc(100vh-280px)] min-h-[350px] sm:min-h-[400px] border-0 sm:border shadow-none sm:shadow">
           {/* Messages Area */}
-          <CardContent className="flex-1 overflow-y-auto p-2 sm:p-3 md:p-4 space-y-2 sm:space-y-3 md:space-y-4">
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-2 sm:p-3 md:p-4 space-y-2 sm:space-y-3 md:space-y-4">
             {conversationMessages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center px-3 sm:px-4">
                 <MessageCircle className="h-10 w-10 sm:h-12 sm:w-12 md:h-16 md:w-16 text-muted-foreground/50 mb-2 sm:mb-3 md:mb-4" />
@@ -1188,7 +1219,7 @@ export default function Messages() {
                 <div ref={messagesEndRef} />
               </>
             )}
-          </CardContent>
+          </div>
 
           {/* Message Input */}
           <div className="p-2 sm:p-3 md:p-4 border-t relative">

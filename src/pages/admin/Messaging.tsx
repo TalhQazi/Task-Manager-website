@@ -352,6 +352,17 @@ export default function Messaging() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const location = useLocation();
 
+  const isInitialLoad = useRef(true);
+  const isSendingMessage = useRef(false);
+  const prevMessagesLength = useRef(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (selectedEmployee) {
+      isInitialLoad.current = true;
+    }
+  }, [selectedEmployee]);
+
   const currentUser = "Admin"; // Current logged in user
 
   // Handle navigation state - auto-open conversation from header dropdown
@@ -413,6 +424,7 @@ export default function Messaging() {
   const handleFileSelected = async (file: File | null) => {
     if (!file || !selectedEmployee) return;
 
+    isSendingMessage.current = true;
     setUploading(true);
     try {
       const attachment = await uploadAttachment(file);
@@ -496,10 +508,28 @@ export default function Messaging() {
     }
   };
 
-  // Scroll to bottom of messages
+  // Smart Scroll to bottom of messages
   useEffect(() => {
-    if (view === "conversation" && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    if (view !== "conversation") return;
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    if (isInitialLoad.current) {
+      container.scrollTop = container.scrollHeight;
+      isInitialLoad.current = false;
+      prevMessagesLength.current = conversationMessages.length;
+    } else if (isSendingMessage.current) {
+      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+      isSendingMessage.current = false;
+      prevMessagesLength.current = conversationMessages.length;
+    } else if (conversationMessages.length > prevMessagesLength.current) {
+      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+      if (isNearBottom) {
+        container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+      }
+      prevMessagesLength.current = conversationMessages.length;
+    } else {
+      prevMessagesLength.current = conversationMessages.length;
     }
   }, [view, conversationMessages]);
 
@@ -540,6 +570,7 @@ export default function Messaging() {
   const sendMessage = async () => {
     if (!newMessageContent.trim() || !selectedEmployee) return;
 
+    isSendingMessage.current = true;
     setSending(true);
     try {
       const payload: Omit<Message, "id"> = {
@@ -1029,7 +1060,7 @@ export default function Messaging() {
 
             <Card className="flex flex-col h-[calc(100vh-280px)] min-h-[400px]">
               {/* Messages Area */}
-              <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
               {conversationMessages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center">
                   <MessageCircle className="h-16 w-16 text-muted-foreground/50 mb-4" />
@@ -1124,7 +1155,7 @@ export default function Messaging() {
                   <div ref={messagesEndRef} />
                 </>
               )}
-              </CardContent>
+              </div>
 
               {/* Message Input */}
               <div className="p-4 border-t relative">

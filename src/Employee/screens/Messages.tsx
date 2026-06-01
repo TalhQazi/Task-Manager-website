@@ -92,6 +92,17 @@ export default function EmployeeMessages() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messageInputRef = useRef<HTMLTextAreaElement>(null);
 
+  const isInitialLoad = useRef(true);
+  const isSendingMessage = useRef(false);
+  const prevMessagesLength = useRef(0);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (selectedConversation) {
+      isInitialLoad.current = true;
+    }
+  }, [selectedConversation]);
+
   const [nowTime, setNowTime] = useState(Date.now());
   useEffect(() => {
     const timer = setInterval(() => setNowTime(Date.now()), 1000);
@@ -322,14 +333,34 @@ export default function EmployeeMessages() {
     loadMessages();
   }, [selectedConversation, employeeName]);
 
-  // Scroll to bottom when messages change
+  // Smart Scroll to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    if (isInitialLoad.current) {
+      container.scrollTop = container.scrollHeight;
+      isInitialLoad.current = false;
+      prevMessagesLength.current = messages.length;
+    } else if (isSendingMessage.current) {
+      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+      isSendingMessage.current = false;
+      prevMessagesLength.current = messages.length;
+    } else if (messages.length > prevMessagesLength.current) {
+      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+      if (isNearBottom) {
+        container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+      }
+      prevMessagesLength.current = messages.length;
+    } else {
+      prevMessagesLength.current = messages.length;
+    }
   }, [messages]);
 
   const handleSendMessage = async () => {
     if (!messageInput.trim() || !selectedConversation || !employeeName) return;
 
+    isSendingMessage.current = true;
     setSending(true);
     try {
       const newMessage = {
@@ -385,6 +416,7 @@ export default function EmployeeMessages() {
   const handleFileSelected = async (file: File | null) => {
     if (!file || !selectedConversation || !employeeName) return;
 
+    isSendingMessage.current = true;
     setUploading(true);
     try {
       const up = await uploadMessageAttachment(file);
@@ -578,7 +610,7 @@ export default function EmployeeMessages() {
 
         {/* Messages */}
         <Card className="flex-1 flex flex-col overflow-hidden">
-          <ScrollArea className="flex-1 p-4">
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4">
             <div className="space-y-4">
               {messages.length === 0 ? (
                 <div className="text-center py-8">
@@ -663,7 +695,7 @@ export default function EmployeeMessages() {
               )}
               <div ref={messagesEndRef} />
             </div>
-          </ScrollArea>
+          </div>
 
           <Separator />
 
