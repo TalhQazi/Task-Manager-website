@@ -190,6 +190,24 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
   });
   const announcementUnread = announcementUnreadQuery.data ?? 0;
 
+  // Direct message conversations preview
+  const conversationsQuery = useQuery({
+    queryKey: ["employee-conversations-preview", profile?.name],
+    queryFn: async () => {
+      const name = profile?.name;
+      if (!name) return [];
+      const res = await employeeApiFetch<{ items?: any[] }>(`/api/messages/conversations/${encodeURIComponent(name)}`);
+      return (res.items || []).slice(0, 4);
+    },
+    enabled: !!profile?.name,
+    staleTime: 20000,
+  });
+
+  const unreadMessageCount = (conversationsQuery.data || []).reduce(
+    (sum: number, c: any) => sum + (c.unreadCount || 0),
+    0
+  );
+
   const notificationsQuery = useQuery({
     queryKey: ["employee-notifications"],
     queryFn: async () => {
@@ -200,11 +218,16 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
     refetchInterval: 30000,
   });
 
-  // Real-time: immediately refresh unread count when a targeted notification arrives
+  // Real-time: immediately refresh unread count when a targeted notification or message arrives
   useEffect(() => {
     if (!socket) return;
     const handleNew = () => { queryClient.invalidateQueries({ queryKey: ["employee-notifications"] }); };
     socket.on("new-notification", handleNew);
+
+    const handleNewMessage = () => {
+      queryClient.invalidateQueries({ queryKey: ["employee-conversations-preview"] });
+    };
+    socket.on("new-message", handleNewMessage);
 
     const handleStatusUpdate = (payload: {
       userId: string;
@@ -234,6 +257,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
 
     return () => {
       socket.off("new-notification", handleNew);
+      socket.off("new-message", handleNewMessage);
       socket.off("status-update", handleStatusUpdate);
     };
   }, [socket, queryClient, profile]);
@@ -463,12 +487,50 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                   <DropdownMenuTrigger asChild>
                     <button className="relative group p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-black/40" style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, white)', opacity: 0.7 }}>
                       <Mail className="h-5 w-5" />
+                      {unreadMessageCount > 0 && (
+                        <Badge className="absolute -top-1 -right-1 h-4 min-w-4 px-0.5 flex items-center justify-center bg-[#00C6FF] text-[9px] border-black text-black font-bold">
+                          {unreadMessageCount > 9 ? "9+" : unreadMessageCount}
+                        </Badge>
+                      )}
                     </button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
-                    <DropdownMenuLabel className="text-xs">Direct Messages</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <div className="p-4 text-center text-xs text-muted-foreground">No messages</div>
+                  <DropdownMenuContent align="start" side="bottom" className="w-72 mt-2 p-0">
+                    <DropdownMenuLabel className="text-xs px-3 py-2 border-b font-bold">Direct Messages</DropdownMenuLabel>
+                    <div className="max-h-64 overflow-y-auto">
+                      {(conversationsQuery.data || []).length === 0 ? (
+                        <div className="p-4 text-center text-xs text-muted-foreground">No messages yet</div>
+                      ) : (
+                        (conversationsQuery.data || []).map((c: any) => (
+                          <DropdownMenuItem
+                            key={c.employee?.id}
+                            onClick={() => navigate("/employee/messages")}
+                            className="flex items-center gap-3 px-3 py-2.5 cursor-pointer border-b last:border-0"
+                          >
+                            <div className="relative flex-shrink-0">
+                              <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-xs font-bold text-primary">
+                                {String(c.employee?.name || "?")[0]?.toUpperCase()}
+                              </div>
+                              {(c.unreadCount || 0) > 0 && (
+                                <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 bg-[#00C6FF] border-2 border-background rounded-full" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-semibold truncate">{c.employee?.name}</p>
+                              <p className={`text-[11px] truncate ${(c.unreadCount || 0) > 0 ? "font-medium text-foreground" : "text-muted-foreground"}`}>
+                                {c.lastMessage?.content || "Start a conversation"}
+                              </p>
+                            </div>
+                          </DropdownMenuItem>
+                        ))
+                      )}
+                    </div>
+                    <DropdownMenuSeparator className="m-0" />
+                    <DropdownMenuItem
+                      onClick={() => navigate("/employee/messages")}
+                      className="justify-center py-2 text-xs font-bold text-muted-foreground hover:text-foreground"
+                    >
+                      Open Messages
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
 

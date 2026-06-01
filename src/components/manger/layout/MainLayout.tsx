@@ -482,6 +482,18 @@ export function MainLayout({ children }: MainLayoutProps) {
     };
   }, [socket, auth, queryClient, navigate]);
 
+  // Real-time direct message listener — keeps the message badge count current
+  useEffect(() => {
+    if (!socket) return;
+    const handleNewMessage = () => {
+      queryClient.invalidateQueries({ queryKey: ["manager-messages-preview"] });
+    };
+    socket.on("new-message", handleNewMessage);
+    return () => {
+      socket.off("new-message", handleNewMessage);
+    };
+  }, [socket, queryClient]);
+
   const markAllRead = async () => {
     queryClient.setQueryData(["manager-notifications"], (old: any) =>
       Array.isArray(old)

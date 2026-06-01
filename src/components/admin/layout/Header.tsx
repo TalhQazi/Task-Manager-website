@@ -1,4 +1,5 @@
 import { Bell, Bug, Camera, CheckCircle2, ChevronDown, ChevronUp, Loader2, LogOut, Mail, Menu, Move, Save, Search, User, Settings, X as XIcon, Paperclip, Palette } from "lucide-react";
+import { useSocket } from "@/contexts/SocketContext";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -199,6 +200,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   // Listen for custom event from Settings page
   const queryClient = useQueryClient();
+  const { socket } = useSocket();
   useEffect(() => {
     const handleUpdate = () => {
       queryClient.invalidateQueries({ queryKey: ["header-settings"] });
@@ -207,6 +209,23 @@ export function Header({ onMenuClick }: HeaderProps) {
     window.addEventListener("header-settings-updated", handleUpdate);
     return () => window.removeEventListener("header-settings-updated", handleUpdate);
   }, [queryClient]);
+
+  // Real-time socket listeners for instant badge updates
+  useEffect(() => {
+    if (!socket) return;
+    const handleNewNotification = () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-notifications"] });
+    };
+    const handleNewMessage = () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-messages-preview"] });
+    };
+    socket.on("new-notification", handleNewNotification);
+    socket.on("new-message", handleNewMessage);
+    return () => {
+      socket.off("new-notification", handleNewNotification);
+      socket.off("new-message", handleNewMessage);
+    };
+  }, [socket, queryClient]);
 
   const headerSettings = headerSettingsQuery.data?.item;
   const showImage = headerSettings?.backgroundType === "image";

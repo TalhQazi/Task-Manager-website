@@ -224,18 +224,27 @@ export default function EmployeeMessages() {
 
         if (!normalized.id) return;
 
-        setMessages((prev) => {
-          const alreadyExists = prev.some((m) => m.id === normalized.id);
-          if (alreadyExists) return prev;
-          return [...prev, normalized];
-        });
+        // Only add to current message view if it belongs to the selected conversation
+        const partnerName = selectedConversation?.employee?.name;
+        if (partnerName && (normalized.sender === partnerName || normalized.recipient === partnerName)) {
+          setMessages((prev) => {
+            const alreadyExists = prev.some((m) => m.id === normalized.id);
+            if (alreadyExists) return prev;
+            return [...prev, normalized];
+          });
+        }
+
+        // Always refresh conversations list so unread counts and lastMessage stay current
+        getEmployeeConversations(employeeName)
+          .then((res) => setConversations(res.items || []))
+          .catch(() => {});
       }
     };
 
     socket.on("new-message", handleNewMessage);
 
     return () => { socket.off("new-message", handleNewMessage); };
-  }, [socket, employeeName]);
+  }, [socket, employeeName, selectedConversation?.employee?.name]);
 
   // Real-time employee status update via socket
   useEffect(() => {

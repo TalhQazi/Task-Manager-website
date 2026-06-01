@@ -15,6 +15,7 @@ import {
 } from "@/components/admin/ui/dialog";
 import { Plus, Search, Send, ArrowLeft, MessageCircle, User, Archive, Bookmark, Paperclip, Download, Smile } from "lucide-react";
 import { apiFetch, listResource, toProxiedUrl } from "@/lib/admin/apiClient";
+import { getAuthState } from "@/lib/auth";
 import { Textarea } from "@/components/admin/ui/textarea";
 import { cn } from "@/lib/utils";
 
@@ -363,7 +364,8 @@ export default function Messaging() {
     }
   }, [selectedEmployee]);
 
-  const currentUser = "Admin"; // Current logged in user
+  const { name: authName, username: authUsername } = getAuthState();
+  const currentUser = (authName || authUsername || "Admin").trim();
 
   // Handle navigation state - auto-open conversation from header dropdown
   useEffect(() => {
