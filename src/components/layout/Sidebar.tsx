@@ -215,7 +215,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
                 className={cn(
                   "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full",
                   "bg-gradient-to-b from-[#00C6FF] to-[#0072FF]",
-                  "transition-all duration-[120ms] ease-in-out",
+                  "transition-all duration-150 ease-in-out",
                   isActive ? "opacity-100" : "opacity-0"
                 )}
               />
@@ -279,7 +279,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
         <button
           type="button"
           onClick={onLogout}
-          className="flex w-full items-center gap-3 h-10 rounded-lg px-3 text-white/60 hover:bg-red-500/10 hover:text-red-200 transition-all duration-[120ms] ease-in-out"
+          className="flex w-full items-center gap-3 h-10 rounded-lg px-3 text-white/60 hover:bg-red-500/10 hover:text-red-200 transition-all duration-150 ease-in-out"
         >
           <LogOut className="h-5 w-5 flex-shrink-0" />
           <span className="text-sm font-medium">Logout</span>

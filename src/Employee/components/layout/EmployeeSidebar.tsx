@@ -121,7 +121,7 @@ export function EmployeeSidebar({ mode = "desktop", onNavigate }: EmployeeSideba
                   className={cn(
                     "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full",
                     "bg-gradient-to-b from-[#00C6FF] to-[#0072FF]",
-                    "transition-all duration-[120ms] ease-in-out",
+                    "transition-all duration-150 ease-in-out",
                     isActive ? "opacity-100" : "opacity-0"
                   )} 
                 />

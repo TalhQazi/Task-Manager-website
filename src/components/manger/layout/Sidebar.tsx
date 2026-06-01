@@ -221,7 +221,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
                 className={cn(
                   "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full",
                   "bg-[var(--tb-primary)] shadow-[0_0_8px_var(--tb-primary)]",
-                  "transition-all duration-[120ms] ease-in-out",
+                  "transition-all duration-150 ease-in-out",
                   isActive ? "opacity-100" : "opacity-0"
                 )} 
               />
