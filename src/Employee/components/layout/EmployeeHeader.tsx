@@ -223,9 +223,14 @@ interface EmployeeHeaderProps {
 }
 
 interface ProfileData {
+  id?: string;
   name: string;
   email: string;
   avatarUrl?: string;
+  current_status?: "AVAILABLE" | "LUNCH" | "BREAK";
+  lunch_start_time?: string | null;
+  lunch_expected_end?: string | null;
+  break_start_time?: string | null;
 }
 
 interface Notification {
@@ -394,6 +399,24 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
   });
   const announcementUnread = announcementUnreadQuery.data ?? 0;
 
+  // Direct message conversations preview
+  const conversationsQuery = useQuery({
+    queryKey: ["employee-conversations-preview", profile?.name],
+    queryFn: async () => {
+      const name = profile?.name;
+      if (!name) return [];
+      const res = await employeeApiFetch<{ items?: any[] }>(`/api/messages/conversations/${encodeURIComponent(name)}`);
+      return (res.items || []).slice(0, 4);
+    },
+    enabled: !!profile?.name,
+    staleTime: 20000,
+  });
+
+  const unreadMessageCount = (conversationsQuery.data || []).reduce(
+    (sum: number, c: any) => sum + (c.unreadCount || 0),
+    0
+  );
+
   const notificationsQuery = useQuery({
     queryKey: ["employee-notifications"],
     queryFn: async () => {
@@ -404,13 +427,49 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
     refetchInterval: 30000,
   });
 
-  // Real-time: immediately refresh unread count when a targeted notification arrives
+  // Real-time: immediately refresh unread count when a targeted notification or message arrives
   useEffect(() => {
     if (!socket) return;
     const handleNew = () => { queryClient.invalidateQueries({ queryKey: ["employee-notifications"] }); };
     socket.on("new-notification", handleNew);
-    return () => { socket.off("new-notification", handleNew); };
-  }, [socket, queryClient]);
+
+    const handleNewMessage = () => {
+      queryClient.invalidateQueries({ queryKey: ["employee-conversations-preview"] });
+    };
+    socket.on("new-message", handleNewMessage);
+
+    const handleStatusUpdate = (payload: {
+      userId: string;
+      current_status: "AVAILABLE" | "LUNCH" | "BREAK";
+      lunch_start_time: string | null;
+      lunch_expected_end: string | null;
+      break_start_time: string | null;
+      name: string;
+    }) => {
+      if (profile && profile.id === payload.userId) {
+        setProfile((prev) => {
+          if (!prev) return null;
+          const updated = {
+            ...prev,
+            current_status: payload.current_status,
+            lunch_start_time: payload.lunch_start_time,
+            lunch_expected_end: payload.lunch_expected_end,
+            break_start_time: payload.break_start_time,
+          };
+          localStorage.setItem("employee_cached_profile", JSON.stringify(updated));
+          return updated;
+        });
+      }
+    };
+
+    socket.on("status-update", handleStatusUpdate);
+
+    return () => {
+      socket.off("new-notification", handleNew);
+      socket.off("new-message", handleNewMessage);
+      socket.off("status-update", handleStatusUpdate);
+    };
+  }, [socket, queryClient, profile]);
 
   const notifications = (notificationsQuery.data || [])
     .slice()
@@ -489,6 +548,51 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
     } catch (error) {
       console.error("Failed to reset header:", error);
     }
+  };
+
+  const getStatusDot = () => {
+    const status = profile?.current_status || "AVAILABLE";
+    if (status === "LUNCH") {
+      return (
+        <div 
+          className="absolute -bottom-0.5 -right-0.5 h-3 w-3 border-2 border-black rounded-full shadow-md animate-pulse"
+          style={{ backgroundColor: "#F59E0B", animationDuration: "1s" }}
+          title="On Lunch"
+        />
+      );
+    }
+    if (status === "BREAK") {
+      return (
+        <div 
+          className="absolute -bottom-0.5 -right-0.5 h-3 w-3 border-2 border-black rounded-full shadow-md animate-pulse"
+          style={{ backgroundColor: "#8B5CF6", animationDuration: "1s" }}
+          title="On Break"
+        />
+      );
+    }
+    return (
+      <div 
+        className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-black rounded-full shadow-md"
+        title="Available"
+      />
+    );
+  };
+
+  const getAvatarStyles = () => {
+    const status = profile?.current_status || "AVAILABLE";
+    if (status === "LUNCH") {
+      return {
+        borderColor: "#F59E0B",
+        boxShadow: "0 0 10px rgba(245, 158, 11, 0.5)",
+      };
+    }
+    if (status === "BREAK") {
+      return {
+        borderColor: "#8B5CF6",
+        boxShadow: "0 0 10px rgba(139, 92, 246, 0.5)",
+      };
+    }
+    return {};
   };
 
   return (

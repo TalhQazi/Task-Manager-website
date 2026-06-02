@@ -640,7 +640,7 @@ export default function CompanyRegistry() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-sm">
+                <table className="w-full min-w-[1000px] border-collapse text-sm">
                   <thead>
                     <tr className="border-b border-border/50 bg-muted/40">
                       {["Company Name","Entity","EIN / FEIN","Phone","Email","Status","Tag","Files","Actions"].map((h, i) => (

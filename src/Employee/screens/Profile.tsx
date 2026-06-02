@@ -36,8 +36,9 @@ import {
   Globe,
 } from "lucide-react";
 
-import { getEmployeeProfile, employeeApiFetch, updateBankInfo, updateTaxInfo, toProxiedUrl } from "../lib/api";
+import { getEmployeeProfile, employeeApiFetch, updateBankInfo, updateTaxInfo, toProxiedUrl, getVideoHistory } from "../lib/api";
 import ClearHireOnboardingForm from "../components/ClearHireOnboardingForm";
+import { VideoMessageModal, type VideoMessagePayload } from "../components/VideoMessageModal";
 
 
 interface EmployeeProfileData {
@@ -108,6 +109,10 @@ const [tax, setTax] = useState({
 });
 
 const [uploading, setUploading] = useState(false);
+const [videoHistory, setVideoHistory] = useState<VideoMessagePayload[]>([]);
+const [loadingVideoHistory, setLoadingVideoHistory] = useState(false);
+const [selectedVideoHistory, setSelectedVideoHistory] = useState<VideoMessagePayload | null>(null);
+const [historyModalOpen, setHistoryModalOpen] = useState(false);
 
   // MFA state
   const [mfaModalOpen, setMfaModalOpen] = useState(false);
@@ -184,6 +189,46 @@ const hasTaxInfo =
     loadProfile();
     loadOnboardingData();
   }, []);
+
+  useEffect(() => {
+    if (profile?.id) {
+      loadVideoHistory();
+    }
+  }, [profile]);
+
+  const loadVideoHistory = async () => {
+    if (!profile?.id) return;
+    setLoadingVideoHistory(true);
+    try {
+      const response = await getVideoHistory(profile.id);
+      setVideoHistory(
+        (response.items || []).map((item) => ({
+          id: item.id,
+          messageType: item.messageType,
+          title: item.videoTitle,
+          subtitle: item.videoSubtitle,
+          videoUrl: item.videoUrl,
+          deliveredAt: item.deliveredAt,
+          acknowledgedAt: item.acknowledgedAt || null,
+          replayCount: item.replayCount || 0,
+        }))
+      );
+    } catch (err) {
+      console.error("Failed to load video history:", err);
+    } finally {
+      setLoadingVideoHistory(false);
+    }
+  };
+
+  const openVideoHistoryModal = (video: VideoMessagePayload) => {
+    setSelectedVideoHistory(video);
+    setHistoryModalOpen(true);
+  };
+
+  const closeVideoHistoryModal = () => {
+    setSelectedVideoHistory(null);
+    setHistoryModalOpen(false);
+  };
 
   const loadProfile = async () => {
     try {
@@ -373,12 +418,15 @@ const hasTaxInfo =
   const calculateProgress = () => {
     if (!onboardingData) return 0;
     let completed = 0;
-    const total = 6;
+    const total = 7;
 
     // Basic Information
     if (onboardingData.basicInfo?.completed) completed++;
 
-    // Work Information (New Step 2)
+    // ClearHire Background Check
+    if (clearHireStatus?.status === "GREEN") completed++;
+
+    // Work Information
     if (onboardingData.workInfo?.completed) completed++;
 
     // Identity Verification
@@ -930,6 +978,52 @@ const hasTaxInfo =
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Video Message History
+          </CardTitle>
+          <CardDescription>
+            Review messages delivered by leadership and replay them from your profile.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loadingVideoHistory ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
+            </div>
+          ) : videoHistory.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+              No video messages found yet.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {videoHistory.map((video) => (
+                <div
+                  key={video.id}
+                  className="flex flex-col gap-3 rounded-2xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p className="font-semibold text-slate-900">{video.title}</p>
+                    <p className="text-sm text-slate-500">{video.subtitle || "Executive update"}</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Delivered {video.deliveredAt ? new Date(video.deliveredAt).toLocaleString() : "Unknown"}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" onClick={() => openVideoHistoryModal(video)}>
+                      View / Replay
+                    </Button>
+                    <Badge className="bg-slate-100 text-slate-700">Replays {video.replayCount || 0}</Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Tabs */}
       <Tabs defaultValue="onboarding" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
@@ -1115,11 +1209,14 @@ const hasTaxInfo =
             </CardContent>
           </Card>
 
+          {/* Step 2: ClearHire Background Check */}
+          <ClearHireOnboardingForm onStatusChange={loadOnboardingData} />
+
           {/* Work Information */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-700">2</div>
+                <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-700">3</div>
                 Work Information
               </CardTitle>
               <CardDescription>Your employment and work details</CardDescription>
@@ -1208,7 +1305,7 @@ const hasTaxInfo =
           </Card>
 
 
-          {/* Step 3: Identity Verification */}
+          {/* Step 4: Identity Verification */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -1216,7 +1313,7 @@ const hasTaxInfo =
                   onboardingData?.identityVerification?.primaryId?.status === "verified" &&
                   onboardingData?.identityVerification?.secondaryId?.status === "verified"
                     ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                }`}>3</div>
+                }`}>4</div>
                 Identity Verification
               </CardTitle>
               <CardDescription>Upload 2 different government IDs (Required)</CardDescription>
@@ -1365,13 +1462,13 @@ const hasTaxInfo =
             </CardContent>
           </Card>
 
-          {/* Step 4: W-4 Form */}
+          {/* Step 5: W-4 Form */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${
                   onboardingData?.w4Form?.status === "verified" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                }`}>4</div>
+                }`}>5</div>
                 W-4 Tax Form
               </CardTitle>
               <CardDescription>Complete your tax withholding information</CardDescription>
@@ -1418,13 +1515,13 @@ const hasTaxInfo =
             </CardContent>
           </Card>
 
-          {/* Step 5: Employee Handbook */}
+          {/* Step 6: Employee Handbook */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${
                   onboardingData?.employeeHandbook?.status === "verified" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                }`}>5</div>
+                }`}>6</div>
                 Employee Handbook
               </CardTitle>
               <CardDescription>Read and acknowledge the employee handbook</CardDescription>
@@ -1471,13 +1568,13 @@ const hasTaxInfo =
             </CardContent>
           </Card>
 
-          {/* Step 6: Digital Signature */}
+          {/* Step 7: Digital Signature */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${
                   onboardingData?.digitalSignature?.status === "verified" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                }`}>6</div>
+                }`}>7</div>
                 Digital Signature
               </CardTitle>
               <CardDescription>Add your digital signature for official documents</CardDescription>
@@ -1514,11 +1611,11 @@ const hasTaxInfo =
             </CardContent>
           </Card>
 
-          {/* Step 7: Review & Submit */}
+          {/* Step 8: Review & Submit */}
           <Card className="border-2 border-[#133767]">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center text-sm font-bold text-red-700">7</div>
+                <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center text-sm font-bold text-red-700">8</div>
                 Review & Submit
               </CardTitle>
               <CardDescription>Review all information and submit for admin approval</CardDescription>
@@ -1528,6 +1625,10 @@ const hasTaxInfo =
                 <div className="flex items-center gap-2 text-sm">
                   {onboardingData?.basicInfo?.completed ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-red-500" />}
                   <span>Basic Information - {onboardingData?.basicInfo?.completed ? "Completed" : "Not completed"}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  {clearHireStatus?.status === "GREEN" ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-red-500" />}
+                  <span>Background Check (ClearHire®) - {clearHireStatus?.status === "GREEN" ? "Completed (GREEN)" : `Incomplete (${clearHireStatus?.status || "Not Started"})`}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   {profile?.jobTitle && profile?.department ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-red-500" />}
@@ -1566,6 +1667,7 @@ const hasTaxInfo =
                   onboardingData?.overallStatus === "submitted" ||
                   onboardingData?.overallStatus === "approved" ||
                   !onboardingData?.basicInfo?.completed ||
+                  clearHireStatus?.status !== "GREEN" ||
                   !["submitted", "verified"].includes(onboardingData?.identityVerification?.primaryId?.status ?? "") ||
                   !["submitted", "verified"].includes(onboardingData?.identityVerification?.secondaryId?.status ?? "") ||
                   !["submitted", "verified"].includes(onboardingData?.w4Form?.status ?? "") ||
@@ -1787,6 +1889,40 @@ const hasTaxInfo =
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={historyModalOpen} onOpenChange={setHistoryModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Video Message</DialogTitle>
+            <DialogDescription>
+              Replay the message and review delivery details.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedVideoHistory ? (
+            <div className="space-y-4">
+              <div className="rounded-3xl overflow-hidden border border-slate-200 bg-slate-950">
+                <video
+                  src={selectedVideoHistory.videoUrl}
+                  controls
+                  autoPlay
+                  className="w-full max-h-[420px] bg-black"
+                />
+              </div>
+              <div className="space-y-2 text-sm text-slate-400">
+                <p className="text-slate-200 font-semibold">{selectedVideoHistory.title}</p>
+                <p>{selectedVideoHistory.subtitle || "Executive update"}</p>
+                <p>Delivered: {selectedVideoHistory.deliveredAt ? new Date(selectedVideoHistory.deliveredAt).toLocaleString() : "Unknown"}</p>
+                <p>Replays: {selectedVideoHistory.replayCount || 0}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">No video selected.</p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={closeVideoHistoryModal}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* MFA Setup Dialog */}
       <Dialog open={mfaModalOpen} onOpenChange={setMfaModalOpen}>

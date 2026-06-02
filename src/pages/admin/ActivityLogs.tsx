@@ -92,6 +92,12 @@ const ACTION_LABELS: Record<string, string> = {
   EVENT_DELETE: "Event Deleted",
   ONBOARDING_CREATE: "Onboarding Added",
   ONBOARDING_UPDATE: "Onboarding Updated",
+  start_lunch: "Start Lunch",
+  end_lunch: "End Lunch",
+  start_break: "Start Break",
+  end_break: "End Break",
+  late_return: "Late Status Return",
+  auto_expire: "Status Auto Expired",
   OTHER: "Other Action",
 };
 
@@ -133,6 +139,12 @@ const ACTION_COLORS: Record<string, string> = {
   EVENT_DELETE: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
   ONBOARDING_CREATE: "bg-lime-100 text-lime-800 dark:bg-lime-900/30 dark:text-lime-400",
   ONBOARDING_UPDATE: "bg-lime-100 text-lime-800 dark:bg-lime-900/30 dark:text-lime-400",
+  start_lunch: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+  end_lunch: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+  start_break: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+  end_break: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400",
+  late_return: "bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-400 border border-red-200 dark:border-red-900",
+  auto_expire: "bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-400 font-semibold",
   OTHER: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400",
 };
 

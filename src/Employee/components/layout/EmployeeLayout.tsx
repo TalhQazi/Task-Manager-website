@@ -5,12 +5,16 @@ import { EmployeeHeader } from "./EmployeeHeader";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { TaskBlaster } from "@/components/shared/TaskBlaster";
-import { employeeApiFetch } from "@/Employee/lib/api";
+import { deliverVideoMessage, acknowledgeVideoMessage, employeeApiFetch } from "@/Employee/lib/api";
 import { applyFullTheme, themeDefaults } from "@/Employee/lib/theme";
+import { VideoMessageModal, type VideoMessagePayload } from "@/Employee/components/VideoMessageModal";
 
 export function EmployeeLayout() {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [dashboardBg, setDashboardBg] = useState("var(--tb-dashboard-bg, #e6f0ff)");
+  const [pendingVideo, setPendingVideo] = useState<VideoMessagePayload | null>(null);
+  const [videoModalOpen, setVideoModalOpen] = useState(false);
+  const [videoDeliveryId, setVideoDeliveryId] = useState<string | null>(null);
 
   // Apply user UI preferences on load - same as AdminLayout (full applyThemeToDOM)
   useEffect(() => {
@@ -24,6 +28,36 @@ export function EmployeeLayout() {
       applyFullTheme("dark-minimal");
     });
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const deliverPendingVideo = async () => {
+      try {
+        const response = await deliverVideoMessage();
+        if (!mounted || !response?.item?.videoUrl) return;
+        setPendingVideo(response.item);
+        setVideoDeliveryId(response.item.deliveryId || null);
+        setVideoModalOpen(true);
+      } catch {
+        // Ignore missing or failed delivery
+      }
+    };
+    void deliverPendingVideo();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const acknowledgeVideo = async (responseText: string, watchDuration: number, replayCount: number) => {
+    if (!videoDeliveryId) return;
+    try {
+      await acknowledgeVideoMessage(videoDeliveryId, responseText, watchDuration, replayCount);
+    } finally {
+      setVideoModalOpen(false);
+      setPendingVideo(null);
+      setVideoDeliveryId(null);
+    }
+  };
 
   // Update dashboard background when CSS variable changes
   useEffect(() => {
@@ -77,6 +111,19 @@ export function EmployeeLayout() {
           <EmployeeSidebar mode="mobile" onNavigate={() => setMobileSidebarOpen(false)} />
         </SheetContent>
       </Sheet>
+
+      {/* Executive Video Message Modal */}
+      <VideoMessageModal
+        isOpen={videoModalOpen}
+        videoMessage={pendingVideo}
+        deliveryId={videoDeliveryId || undefined}
+        onClose={() => {
+          setVideoModalOpen(false);
+          setPendingVideo(null);
+          setVideoDeliveryId(null);
+        }}
+        onAcknowledge={acknowledgeVideo}
+      />
 
       {/* Task Blaster Animation Overlay */}
       <TaskBlaster />

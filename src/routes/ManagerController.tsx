@@ -10,6 +10,7 @@ const Tasks = lazy(() => import("@/pages/manger/Tasks"));
 const Employees = lazy(() => import("@/pages/manger/Employees"));
 const Scheduling = lazy(() => import("@/pages/manger/Scheduling"));
 const TimeTracking = lazy(() => import("@/pages/manger/TimeTracking"));
+const BreakTracking = lazy(() => import("@/pages/admin/BreakTracking"));
 const Attendance = lazy(() => import("@/pages/manger/Attendance"));
 const Payroll = lazy(() => import("@/pages/manger/Payroll"));
 const Profile = lazy(() => import("@/pages/manger/Profile"));
@@ -35,6 +36,7 @@ const UphMaintenance = lazy(() => import("@/pages/admin/UphMaintenance"));
 const ShoppingLists = lazy(() => import("@/pages/admin/ShoppingLists"));
 const ActivityLogs = lazy(() => import("@/pages/admin/ActivityLogs"));
 const TeamAttendance = lazy(() => import("@/pages/manger/TeamAttendance"));
+const ItineraryBuilder = lazy(() => import("@/pages/manger/ItineraryBuilder"));
 
 const CRMCommunication = lazy(() => import("@/pages/manger/crm/Communication"));
 const ManagerCRMCompanies = lazy(() => import("@/pages/manger/crm/Companies"));
@@ -76,6 +78,7 @@ export default function ManagerController() {
       { path: "employees", element: <Employees /> },
       { path: "scheduling", element: <Scheduling /> },
       { path: "time-tracking", element: <TimeTracking /> },
+      { path: "break-history", element: <BreakTracking /> },
       { path: "attendance", element: <Attendance /> },
       { path: "payroll", element: <Payroll /> },
       { path: "profile", element: <Profile /> },
@@ -98,6 +101,7 @@ export default function ManagerController() {
       { path: "shopping-lists", element: <ShoppingLists /> },
       { path: "activity-logs", element: <ActivityLogs /> },
       { path: "team-attendance", element: <TeamAttendance /> },
+      { path: "itinerary", element: <ItineraryBuilder /> },
 
       { path: "crm/communication", element: <CRMCommunication /> },
       { path: "crm/companies", element: <ManagerCRMCompanies /> },

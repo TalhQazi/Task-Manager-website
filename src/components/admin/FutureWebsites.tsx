@@ -82,6 +82,46 @@ export function FutureWebsites() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [isConvertDialogOpen, setIsConvertDialogOpen] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+  const [websiteToConvert, setWebsiteToConvert] = useState<FutureWebsite | null>(null);
+  const [isConverting, setIsConverting] = useState(false);
+
+  const projectsQuery = useQuery<any[]>({
+    queryKey: ["all-projects-minimal"],
+    queryFn: async () => {
+      const res = await apiFetch<{ items: any[] }>("/api/projects?limit=100");
+      return res.items || [];
+    },
+  });
+
+  const handleLaunchAsTask = async () => {
+    if (!websiteToConvert) return;
+    if (!selectedProjectId) {
+      setApiError("Please select a project to launch this task under.");
+      return;
+    }
+
+    try {
+      setIsConverting(true);
+      setApiError(null);
+
+      await apiFetch(`/api/websites/${websiteToConvert._id}/convert-to-task`, {
+        method: "POST",
+        body: JSON.stringify({ projectId: selectedProjectId }),
+      });
+
+      await websitesQuery.refetch();
+      setIsConvertDialogOpen(false);
+      setWebsiteToConvert(null);
+      setSelectedProjectId("");
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : "Failed to convert website to task");
+    } finally {
+      setIsConverting(false);
+    }
+  };
+
   const websitesQuery = useQuery<FutureWebsite[]>({
     queryKey: ["future-websites"],
     queryFn: async () => {
@@ -369,6 +409,19 @@ export function FutureWebsites() {
                       <Button
                         size="icon"
                         variant="ghost"
+                        className="h-8 w-8 text-indigo-600 hover:text-indigo-700"
+                        title="Launch as Task"
+                        onClick={() => {
+                          setWebsiteToConvert(website);
+                          setSelectedProjectId("");
+                          setIsConvertDialogOpen(true);
+                        }}
+                      >
+                        <Rocket className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
                         className="h-8 w-8 text-blue-600"
                         onClick={() => handleEdit(website)}
                       >
@@ -390,6 +443,63 @@ export function FutureWebsites() {
           </Table>
         </div>
       )}
+      <Dialog open={isConvertDialogOpen} onOpenChange={setIsConvertDialogOpen}>
+        <DialogContent className="w-[95vw] max-w-md">
+          <DialogHeader>
+            <DialogTitle>Launch Website as Task</DialogTitle>
+            <DialogDescription>
+              This will convert the future website planning item into an active task inside a project.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="text-sm font-medium">Link to Project *</label>
+              <select
+                value={selectedProjectId}
+                onChange={(e) => setSelectedProjectId(e.target.value)}
+                className="w-full mt-1.5 px-3 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-background text-foreground"
+              >
+                <option value="">-- Choose a Project --</option>
+                {(projectsQuery.data || []).map((project: any) => (
+                  <option key={project.id || project._id} value={project.id || project._id}>
+                    {project.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {websiteToConvert && (
+              <div className="rounded-lg bg-muted/40 p-3 border text-xs space-y-1">
+                <p className="font-semibold">Website Details:</p>
+                <p><span className="text-muted-foreground">Name:</span> {websiteToConvert.siteName}</p>
+                <p><span className="text-muted-foreground">Domain:</span> {websiteToConvert.url}</p>
+                <p><span className="text-muted-foreground">Stage:</span> {websiteToConvert.developmentStage}</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsConvertDialogOpen(false);
+                setWebsiteToConvert(null);
+              }}
+              disabled={isConverting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleLaunchAsTask}
+              disabled={isConverting || !selectedProjectId}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white font-medium gap-1.5"
+            >
+              {isConverting ? "Launching..." : "Launch Task"}
+              <Rocket className="h-3.5 w-3.5" />
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
