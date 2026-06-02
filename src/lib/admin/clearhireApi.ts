@@ -48,6 +48,8 @@ export interface ClearHireProfile {
     previousStatus: string;
     reason: string;
   } | null;
+  preAdverseActionSentAt?: string;
+  finalAdverseActionSentAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -100,5 +102,25 @@ export async function listClearHireProfiles(status?: ClearHireStatus) {
   const qs = status ? `?status=${encodeURIComponent(status)}` : "";
   return apiFetch<{ items: ClearHireProfile[]; total: number }>(
     `/api/clearhire/all${qs}`
+  );
+}
+
+/**
+ * Send FCRA Pre-Adverse Action compliance notice.
+ */
+export async function sendPreAdverseNotice(userId: string) {
+  return apiFetch<{ success: boolean; message: string }>(
+    `/api/clearhire/${encodeURIComponent(userId)}/pre-adverse`,
+    { method: "POST" }
+  );
+}
+
+/**
+ * Send FCRA Final Adverse Action compliance notice.
+ */
+export async function sendFinalAdverseNotice(userId: string) {
+  return apiFetch<{ success: boolean; message: string }>(
+    `/api/clearhire/${encodeURIComponent(userId)}/final-adverse`,
+    { method: "POST" }
   );
 }

@@ -380,12 +380,15 @@ const hasTaxInfo =
   const calculateProgress = () => {
     if (!onboardingData) return 0;
     let completed = 0;
-    const total = 6;
+    const total = 7;
 
     // Basic Information
     if (onboardingData.basicInfo?.completed) completed++;
 
-    // Work Information (New Step 2)
+    // ClearHire Background Check
+    if (clearHireStatus?.status === "GREEN") completed++;
+
+    // Work Information
     if (onboardingData.workInfo?.completed) completed++;
 
     // Identity Verification
@@ -1168,11 +1171,14 @@ const hasTaxInfo =
             </CardContent>
           </Card>
 
+          {/* Step 2: ClearHire Background Check */}
+          <ClearHireOnboardingForm onStatusChange={loadOnboardingData} />
+
           {/* Work Information */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-700">2</div>
+                <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-700">3</div>
                 Work Information
               </CardTitle>
               <CardDescription>Your employment and work details</CardDescription>
@@ -1261,7 +1267,7 @@ const hasTaxInfo =
           </Card>
 
 
-          {/* Step 3: Identity Verification */}
+          {/* Step 4: Identity Verification */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -1269,7 +1275,7 @@ const hasTaxInfo =
                   onboardingData?.identityVerification?.primaryId?.status === "verified" &&
                   onboardingData?.identityVerification?.secondaryId?.status === "verified"
                     ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                }`}>3</div>
+                }`}>4</div>
                 Identity Verification
               </CardTitle>
               <CardDescription>Upload 2 different government IDs (Required)</CardDescription>
@@ -1418,13 +1424,13 @@ const hasTaxInfo =
             </CardContent>
           </Card>
 
-          {/* Step 4: W-4 Form */}
+          {/* Step 5: W-4 Form */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${
                   onboardingData?.w4Form?.status === "verified" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                }`}>4</div>
+                }`}>5</div>
                 W-4 Tax Form
               </CardTitle>
               <CardDescription>Complete your tax withholding information</CardDescription>
@@ -1471,13 +1477,13 @@ const hasTaxInfo =
             </CardContent>
           </Card>
 
-          {/* Step 5: Employee Handbook */}
+          {/* Step 6: Employee Handbook */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${
                   onboardingData?.employeeHandbook?.status === "verified" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                }`}>5</div>
+                }`}>6</div>
                 Employee Handbook
               </CardTitle>
               <CardDescription>Read and acknowledge the employee handbook</CardDescription>
@@ -1524,13 +1530,13 @@ const hasTaxInfo =
             </CardContent>
           </Card>
 
-          {/* Step 6: Digital Signature */}
+          {/* Step 7: Digital Signature */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${
                   onboardingData?.digitalSignature?.status === "verified" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                }`}>6</div>
+                }`}>7</div>
                 Digital Signature
               </CardTitle>
               <CardDescription>Add your digital signature for official documents</CardDescription>
@@ -1567,11 +1573,11 @@ const hasTaxInfo =
             </CardContent>
           </Card>
 
-          {/* Step 7: Review & Submit */}
+          {/* Step 8: Review & Submit */}
           <Card className="border-2 border-[#133767]">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center text-sm font-bold text-red-700">7</div>
+                <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center text-sm font-bold text-red-700">8</div>
                 Review & Submit
               </CardTitle>
               <CardDescription>Review all information and submit for admin approval</CardDescription>
@@ -1581,6 +1587,10 @@ const hasTaxInfo =
                 <div className="flex items-center gap-2 text-sm">
                   {onboardingData?.basicInfo?.completed ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-red-500" />}
                   <span>Basic Information - {onboardingData?.basicInfo?.completed ? "Completed" : "Not completed"}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  {clearHireStatus?.status === "GREEN" ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-red-500" />}
+                  <span>Background Check (ClearHire®) - {clearHireStatus?.status === "GREEN" ? "Completed (GREEN)" : `Incomplete (${clearHireStatus?.status || "Not Started"})`}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   {profile?.jobTitle && profile?.department ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-red-500" />}
@@ -1619,6 +1629,7 @@ const hasTaxInfo =
                   onboardingData?.overallStatus === "submitted" ||
                   onboardingData?.overallStatus === "approved" ||
                   !onboardingData?.basicInfo?.completed ||
+                  clearHireStatus?.status !== "GREEN" ||
                   !["submitted", "verified"].includes(onboardingData?.identityVerification?.primaryId?.status ?? "") ||
                   !["submitted", "verified"].includes(onboardingData?.identityVerification?.secondaryId?.status ?? "") ||
                   !["submitted", "verified"].includes(onboardingData?.w4Form?.status ?? "") ||
