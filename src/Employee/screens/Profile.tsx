@@ -33,6 +33,7 @@ import {
   Clock,
   Shield,
   FileText,
+  Globe,
 } from "lucide-react";
 
 import { getEmployeeProfile, employeeApiFetch, updateBankInfo, updateTaxInfo, toProxiedUrl, getVideoHistory } from "../lib/api";
@@ -86,6 +87,13 @@ export default function EmployeeProfile() {
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [userSettings, setUserSettings] = useState<{
+    language: string;
+    timezone: string;
+    countryCode: string;
+  }>({ language: "en", timezone: "UTC", countryCode: "US" });
+  const [savingSettings, setSavingSettings] = useState(false);
 
   const [bank, setBank] = useState({
   accountName: "",
@@ -230,22 +238,52 @@ const hasTaxInfo =
       setEditedProfile(res.item);
       setEditedWorkInfo(res.item);
       setBank((res.item as any).bankInfo || {
-      accountName: "",
-      accountNumber: "",
-      ifsc: "",
-      bankName: "",
-    });
+        accountName: "",
+        accountNumber: "",
+        ifsc: "",
+        bankName: "",
+      });
 
-    setTax((res.item as any).taxSettings || {
-      pan: "",
-      tds: "",
-      regime: "",
-    });
+      setTax((res.item as any).taxSettings || {
+        pan: "",
+        tds: "",
+        regime: "",
+      });
+
+      // Fetch User Settings
+      try {
+        const sRes = await employeeApiFetch<{ item?: any }>("/api/settings");
+        if (sRes && sRes.item) {
+          setUserSettings({
+            language: sRes.item.language || "en",
+            timezone: sRes.item.timezone || "UTC",
+            countryCode: sRes.item.countryCode || "US",
+          });
+        }
+      } catch (e) {
+        console.error("Failed to load user settings:", e);
+      }
     } catch (err) {
       console.error("Failed to load profile:", err);
       toast.error("Failed to load profile");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveLocalization = async () => {
+    setSavingSettings(true);
+    try {
+      await employeeApiFetch("/api/settings", {
+        method: "PUT",
+        body: JSON.stringify(userSettings),
+      });
+      toast.success("Localization preferences updated successfully");
+      window.dispatchEvent(new CustomEvent("header-settings-updated"));
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update localization preferences");
+    } finally {
+      setSavingSettings(false);
     }
   };
 
@@ -1768,6 +1806,85 @@ const hasTaxInfo =
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+
+          {/* Localization Preferences */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Globe className="h-5 w-5 text-[#133767]" />
+                Localization & Holiday Preferences
+              </CardTitle>
+              <CardDescription>Configure language, timezone, and country for dynamic seasonal headers</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="pref-lang">Language</Label>
+                  <select
+                    id="pref-lang"
+                    className="w-full px-3 py-2 text-sm border rounded-md bg-white dark:bg-zinc-950 border-input"
+                    value={userSettings.language}
+                    onChange={(e) => setUserSettings(prev => ({ ...prev, language: e.target.value }))}
+                  >
+                    <option value="en">English (US/UK)</option>
+                    <option value="fr">Français (French)</option>
+                    <option value="de">Deutsch (German)</option>
+                    <option value="es">Español (Spanish)</option>
+                    <option value="zh">中文 (Chinese)</option>
+                    <option value="jp">日本語 (Japanese)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="pref-country">Home Region / Country</Label>
+                  <select
+                    id="pref-country"
+                    className="w-full px-3 py-2 text-sm border rounded-md bg-white dark:bg-zinc-950 border-input"
+                    value={userSettings.countryCode}
+                    onChange={(e) => setUserSettings(prev => ({ ...prev, countryCode: e.target.value }))}
+                  >
+                    <option value="US">United States (US)</option>
+                    <option value="IN">India (IN)</option>
+                    <option value="CN">China (CN)</option>
+                    <option value="JP">Japan (JP)</option>
+                    <option value="FR">France (FR)</option>
+                    <option value="DE">Germany (DE)</option>
+                    <option value="CA">Canada (CA)</option>
+                    <option value="AU">Australia (AU)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="pref-tz">Preferred Timezone</Label>
+                  <select
+                    id="pref-tz"
+                    className="w-full px-3 py-2 text-sm border rounded-md bg-white dark:bg-zinc-950 border-input"
+                    value={userSettings.timezone}
+                    onChange={(e) => setUserSettings(prev => ({ ...prev, timezone: e.target.value }))}
+                  >
+                    <option value="America/New_York">Eastern Time (New York)</option>
+                    <option value="Europe/London">Greenwich Mean Time (London)</option>
+                    <option value="Europe/Paris">Central European Time (Paris)</option>
+                    <option value="Europe/Berlin">Central European Time (Berlin)</option>
+                    <option value="Asia/Kolkata">India Standard Time (Kolkata)</option>
+                    <option value="Asia/Shanghai">China Standard Time (Beijing)</option>
+                    <option value="Asia/Tokyo">Japan Standard Time (Tokyo)</option>
+                    <option value="Australia/Sydney">Eastern Australia Time (Sydney)</option>
+                    <option value="UTC">Coordinated Universal Time (UTC)</option>
+                  </select>
+                </div>
+              </div>
+
+              <Button
+                onClick={handleSaveLocalization}
+                disabled={savingSettings}
+                className="bg-[#133767] hover:bg-[#1a4585] mt-4"
+              >
+                {savingSettings && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Save Localization
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
