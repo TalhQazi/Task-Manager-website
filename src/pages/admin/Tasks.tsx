@@ -2303,7 +2303,14 @@ export default function Tasks() {
       const matchesAssignment =
         assignmentFilter === "all" ||
         (assignmentFilter === "assigned" && task.assignees.length > 0) ||
-        (assignmentFilter === "unassigned" && task.assignees.length === 0);
+        (assignmentFilter === "unassigned" && task.assignees.length === 0) ||
+        (assignmentFilter === "me" && task.assignees.some((a) => {
+          const term = a.toLowerCase().trim();
+          const meUsername = currentUsername.toLowerCase().trim();
+          const authState = getAuthState();
+          const meName = (authState.name || "").toLowerCase().trim();
+          return (meUsername && term === meUsername) || (meName && term === meName);
+        }));
  
       // Archive logic: only filter if specifically requested via showArchivedTasks toggle
       if (showArchivedTasks && task.status !== "completed") return false;
@@ -2505,6 +2512,7 @@ export default function Tasks() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Assignment</SelectItem>
+              <SelectItem value="me">Assigned to Me</SelectItem>
               <SelectItem value="assigned">Assigned</SelectItem>
               <SelectItem value="unassigned">Unassigned</SelectItem>
             </SelectContent>

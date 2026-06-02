@@ -645,6 +645,7 @@ export default function Tasks() {
   const [projectSearchQuery, setProjectSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [assignmentFilter, setAssignmentFilter] = useState<string>("all");
   const [viewByPriority, setViewByPriority] = useState(false);
   const [projectPage, setProjectPage] = useState(1);
   const [taskPage, setTaskPage] = useState(1);
@@ -775,7 +776,7 @@ export default function Tasks() {
 
   // Fetch tasks with server-side pagination
   const tasksQuery = useQuery({
-    queryKey: ["tasks", taskPage, projectSearchQuery, statusFilter, priorityFilter, viewByPriority],
+    queryKey: ["tasks", taskPage, projectSearchQuery, statusFilter, priorityFilter, viewByPriority, assignmentFilter],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: taskPage.toString(),
@@ -783,6 +784,7 @@ export default function Tasks() {
         search: projectSearchQuery,
         status: statusFilter,
         priority: priorityFilter,
+        assignment: assignmentFilter,
       });
       if (viewByPriority) params.set("sort", "priority");
       const res = await apiFetch<{ items: TaskApi[], totalPages: number, total: number }>(`/api/tasks?${params.toString()}`);
@@ -817,7 +819,7 @@ export default function Tasks() {
   });
 
   // Reset pages when filters change
-  useEffect(() => { setTaskPage(1); }, [projectSearchQuery, statusFilter, priorityFilter, viewByPriority]);
+  useEffect(() => { setTaskPage(1); }, [projectSearchQuery, statusFilter, priorityFilter, viewByPriority, assignmentFilter]);
   useEffect(() => { setProjectPage(1); }, [projectSearchQuery]);
 
   useEffect(() => {
@@ -1991,9 +1993,20 @@ export default function Tasks() {
         assigneesText.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = statusFilter === "all" || task.status === statusFilter;
       const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
-      return matchesSearch && matchesStatus && matchesPriority;
+      const matchesAssignment =
+        assignmentFilter === "all" ||
+        (assignmentFilter === "assigned" && task.assignees.length > 0) ||
+        (assignmentFilter === "unassigned" && task.assignees.length === 0) ||
+        (assignmentFilter === "me" && task.assignees.some((a) => {
+          const term = a.toLowerCase().trim();
+          const meUsername = currentUsername.toLowerCase().trim();
+          const authState = getAuthState();
+          const meName = (authState.name || "").toLowerCase().trim();
+          return (meUsername && term === meUsername) || (meName && term === meName);
+        }));
+      return matchesSearch && matchesStatus && matchesPriority && matchesAssignment;
     });
-  }, [sourceTasks, searchQuery, statusFilter, priorityFilter, selectedProject]);
+  }, [sourceTasks, searchQuery, statusFilter, priorityFilter, assignmentFilter, selectedProject]);
 
   // Projects come from server-paginated query (filtering handled server-side)
   const filteredProjects = projects;
@@ -2113,6 +2126,17 @@ export default function Tasks() {
               <SelectItem value="high">High</SelectItem>
               <SelectItem value="medium">Medium</SelectItem>
               <SelectItem value="low">Low</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={assignmentFilter} onValueChange={setAssignmentFilter}>
+            <SelectTrigger className="w-[130px] sm:w-[140px]">
+              <SelectValue placeholder="Assignment" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Assignment</SelectItem>
+              <SelectItem value="me">Assigned to Me</SelectItem>
+              <SelectItem value="assigned">Assigned</SelectItem>
+              <SelectItem value="unassigned">Unassigned</SelectItem>
             </SelectContent>
           </Select>
           <Button variant="outline" size="icon" className="shrink-0">
