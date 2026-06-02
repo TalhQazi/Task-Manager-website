@@ -1121,7 +1121,6 @@ export function Header({ onMenuClick }: HeaderProps) {
             )}
           </DialogContent>
         </Dialog>
-      </div>
 
       {/* Founder Message Bar */}
       <div className="absolute bottom-0 left-0 right-0 z-[60] bg-metallic-gold/90 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.1)] pointer-events-auto">
