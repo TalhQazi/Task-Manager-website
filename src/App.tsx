@@ -19,6 +19,7 @@ const AdminRoutes = lazy(() => import("./routes/AdminRoutes"));
 const ManagerController = lazy(() => import("./routes/ManagerController"));
 const DeveloperController = lazy(() => import("./routes/DeveloperController"));
 const EmployeeController = lazy(() => import("./Employee/routes/EmployeeController"));
+const AtlasBooksRoutes = lazy(() => import("./routes/AtlasBooksRoutes"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -67,6 +68,7 @@ const App = () => (
                 <Route path="/manager/*" element={<ManagerController />} />
                 <Route path="/developer/*" element={<DeveloperController />} />
                 <Route path="/employee/*" element={<EmployeeController />} />
+                <Route path="/atlasbooks/*" element={<AtlasBooksRoutes />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>
