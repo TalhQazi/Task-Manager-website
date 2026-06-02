@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useAtlasBooks } from "../../../contexts/AtlasBooksContext";
 import { KpiCard } from "../../../components/atlasbooks/KpiCard";
-import { ShieldAlert, ShieldCheck, AlertOctagon, Check, Search } from "lucide-react";
+import { ShieldAlert, ShieldCheck, AlertOctagon, Check, Search, Landmark } from "lucide-react";
 
 interface FraudItem {
   id: string;
