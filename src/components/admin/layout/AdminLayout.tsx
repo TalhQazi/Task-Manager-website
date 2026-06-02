@@ -90,13 +90,13 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         }
         
         // Show toast
-        toast(data.title || "New Notification", {
-          description: data.content || data.message,
-          action: {
-            label: "View",
-            onClick: () => navigate(link)
-          }
-        });
+        // toast(data.title || "New Notification", {
+        //   description: data.content || data.message,
+        //   action: {
+        //     label: "View",
+        //     onClick: () => navigate(link)
+        //   }
+        // });
       }
     };
 

@@ -674,13 +674,13 @@ export function MainLayout({ children }: MainLayoutProps) {
         const link = resolveNotificationLink(data);
         
         // Show toast
-        toast(data.title || "New Notification", {
-          description: data.content || data.message,
-          action: {
-            label: "View",
-            onClick: () => navigate(link)
-          }
-        });
+        // toast(data.title || "New Notification", {
+        //   description: data.content || data.message,
+        //   action: {
+        //     label: "View",
+        //     onClick: () => navigate(link)
+        //   }
+        // });
       }
     };
 
