@@ -526,7 +526,7 @@ export default function EmployeeMessages() {
                 <EmojiPicker onEmojiClick={onEmojiClick} width={300} height={380} />
               </div>
             )}
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <input
                 ref={fileInputRef}
                 type="file"

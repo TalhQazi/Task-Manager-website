@@ -941,7 +941,7 @@ export default function Messaging() {
                     <EmojiPicker onEmojiClick={onEmojiClick} width={320} height={400} />
                   </div>
                 )}
-                <div className="flex gap-3">
+                <div className="flex items-center gap-3">
                   <input
                     ref={fileInputRef}
                     type="file"

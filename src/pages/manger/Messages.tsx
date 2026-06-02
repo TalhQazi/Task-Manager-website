@@ -994,7 +994,7 @@ export default function Messages() {
               </div>
             )}
             <div className="flex flex-col gap-2 sm:gap-2.5 md:gap-3">
-              <div className="flex gap-1.5 sm:gap-2 md:gap-3">
+              <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
                 <input
                   ref={fileInputRef}
                   type="file"
