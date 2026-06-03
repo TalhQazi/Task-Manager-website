@@ -333,6 +333,11 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
       }
     };
     loadProfile();
+
+    window.addEventListener("employee-profile-updated", loadProfile);
+    return () => {
+      window.removeEventListener("employee-profile-updated", loadProfile);
+    };
   }, []);
 
   // Header settings from admin panel
