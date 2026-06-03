@@ -31,6 +31,8 @@ import ClearHireStatusBadge from "./ClearHireStatusBadge";
 import {
   overrideClearHire,
   recheckClearHire,
+  sendPreAdverseNotice,
+  sendFinalAdverseNotice,
   type ClearHireProfile,
 } from "@/lib/admin/clearhireApi";
 
@@ -50,10 +52,42 @@ const ClearHireReviewModal = memo(({
   const [overrideReason, setOverrideReason] = useState("");
   const [overrideLoading, setOverrideLoading] = useState(false);
   const [recheckLoading, setRecheckLoading] = useState(false);
+  const [preAdverseLoading, setPreAdverseLoading] = useState(false);
+  const [finalAdverseLoading, setFinalAdverseLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
   if (!profile) return null;
+
+  const handleSendPreAdverse = async () => {
+    setPreAdverseLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await sendPreAdverseNotice(profile.userId);
+      setSuccess("FCRA Pre-Adverse Action notice sent successfully.");
+      onUpdated?.();
+    } catch (e: any) {
+      setError(e.message || "Failed to send Pre-Adverse Action notice.");
+    } finally {
+      setPreAdverseLoading(false);
+    }
+  };
+
+  const handleSendFinalAdverse = async () => {
+    setFinalAdverseLoading(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      await sendFinalAdverseNotice(profile.userId);
+      setSuccess("FCRA Final Adverse Action notice sent successfully.");
+      onUpdated?.();
+    } catch (e: any) {
+      setError(e.message || "Failed to send Final Adverse Action notice.");
+    } finally {
+      setFinalAdverseLoading(false);
+    }
+  };
 
   const handleOverride = async () => {
     if (!overrideReason.trim() || overrideReason.trim().length < 5) {
@@ -269,6 +303,69 @@ const ClearHireReviewModal = memo(({
                 This applicant has been automatically denied. RED status cannot
                 be overridden.
               </p>
+            </div>
+          )}
+
+          {/* ── Adverse Action Notice Section (RED or YELLOW) ── */}
+          {(profile.status === "RED" || profile.status === "YELLOW") && (
+            <div className="p-4 rounded-lg border border-slate-200 bg-slate-50 space-y-3">
+              <h4 className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+                <Clock className="h-4 w-4" />
+                FCRA Compliance Notices
+              </h4>
+              <p className="text-xs text-slate-600">
+                To comply with the Fair Credit Reporting Act (FCRA), you must dispatch adverse action notifications to applicants with negative results.
+              </p>
+              
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between gap-2 p-2 border rounded bg-white">
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold text-slate-700">Pre-Adverse Action Notice</p>
+                    <p className="text-[10px] text-slate-400">
+                      {profile.preAdverseActionSentAt 
+                        ? `Sent: ${new Date(profile.preAdverseActionSentAt).toLocaleString()}` 
+                        : "Not sent yet"}
+                    </p>
+                  </div>
+                  <Button
+                    onClick={handleSendPreAdverse}
+                    disabled={preAdverseLoading}
+                    variant="outline"
+                    className="bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200 hover:text-amber-800 gap-1.5"
+                    size="sm"
+                  >
+                    {preAdverseLoading ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      "Send Pre-Adverse"
+                    )}
+                  </Button>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 p-2 border rounded bg-white">
+                  <div className="flex-1">
+                    <p className="text-xs font-semibold text-slate-700">Final Adverse Action Notice</p>
+                    <p className="text-[10px] text-slate-400">
+                      {profile.finalAdverseActionSentAt 
+                        ? `Sent: ${new Date(profile.finalAdverseActionSentAt).toLocaleString()}` 
+                        : "Not sent yet"}
+                    </p>
+                  </div>
+                  <Button
+                    onClick={handleSendFinalAdverse}
+                    disabled={finalAdverseLoading || !profile.preAdverseActionSentAt}
+                    variant="outline"
+                    className="bg-red-50 hover:bg-red-100 text-red-700 border-red-200 hover:text-red-800 gap-1.5"
+                    size="sm"
+                  >
+                    {finalAdverseLoading ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      "Send Final Adverse"
+                    )}
+                  </Button>
+                </div>
+              </div>
             </div>
           )}
 

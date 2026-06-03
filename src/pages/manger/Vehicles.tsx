@@ -60,7 +60,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
-import { apiFetch } from "@/lib/manger/api";
+import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Pagination } from "@/components/Pagination";
 
@@ -220,6 +220,41 @@ export default function Vehicles() {
     const quality = 0.75;
     const mime = "image/jpeg";
     return canvas.toDataURL(mime, quality);
+  };
+
+  const ManagerLazyVehiclePhoto = ({
+    vehicle,
+    className,
+  }: {
+    vehicle?: Partial<Vehicle> | null;
+    className?: string;
+  }) => {
+    if (!vehicle) return null;
+
+    const direct = getVehicleTagPhotoSrc(vehicle as Vehicle);
+    if (direct) {
+      const safe = toProxiedUrl(direct) || direct;
+      return <img src={safe} alt={vehicle.name || "vehicle"} className={cn("object-cover", className)} />;
+    }
+
+    const { data } = useQuery({
+      queryKey: ["vehicle-photo", vehicle.id],
+      queryFn: async () => {
+        return apiFetch<{ photo?: string; fileName?: string }>(`/api/vehicles/${encodeURIComponent(String(vehicle.id))}/photo`);
+      },
+      staleTime: 5 * 60 * 1000,
+    });
+
+    const photoSrc = data?.photo ? (toProxiedUrl(data.photo) || data.photo) : null;
+    if (photoSrc) {
+      return <img src={photoSrc} alt={vehicle.name || "vehicle"} className={cn("object-cover", className)} />;
+    }
+
+    return (
+      <div className={cn("bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center", className)}>
+        <Car className="h-1/2 w-1/2 text-primary opacity-50" />
+      </div>
+    );
   };
 
   // Fetch employees on mount
@@ -804,18 +839,11 @@ export default function Vehicles() {
           {selectedVehicle && (
             <div className="space-y-4">
               {/* Vehicle Photo */}
-              {(() => {
-                const photoSrc = getVehicleTagPhotoSrc(selectedVehicle);
-                return photoSrc ? (
-                  <div className="flex justify-center">
-                    <img 
-                      src={photoSrc} 
-                      alt={selectedVehicle.name}
-                      className="h-24 w-24 object-cover rounded-xl border-2 ring-2 ring-primary/20 shadow-lg"
-                    />
-                  </div>
-                ) : null;
-              })()}
+              {selectedVehicle && (
+                <div className="flex justify-center">
+                  <ManagerLazyVehiclePhoto vehicle={selectedVehicle} className="h-24 w-24 rounded-xl border-2 ring-2 ring-primary/20 shadow-lg" />
+                </div>
+              )}
 
               <div className="flex items-center gap-4">
                 <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
@@ -1238,17 +1266,7 @@ export default function Vehicles() {
           >
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-4">
-                {(() => {
-                  const photoSrc = getVehicleTagPhotoSrc(vehicle);
-                  console.log(`[DEBUG CARD] ${vehicle.name} (${vehicle.id}): photoSrc =`, photoSrc ? photoSrc.substring(0, 50) + "..." : "null");
-                  return photoSrc ? (
-                    <img src={photoSrc} alt={vehicle.name} className="h-12 w-12 rounded-xl object-cover ring-2 ring-primary/20" />
-                  ) : (
-                    <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center ring-2 ring-primary/20">
-                      <Car className="w-6 h-6 text-primary" />
-                    </div>
-                  );
-                })()}
+                <ManagerLazyVehiclePhoto vehicle={vehicle} className="h-12 w-12 rounded-xl object-cover ring-2 ring-primary/20" />
                 <div>
                   <h3 className="font-semibold text-foreground">{vehicle.name}</h3>
                   <p className="text-sm text-muted-foreground">{vehicle.licensePlate}</p>

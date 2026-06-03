@@ -1,6 +1,198 @@
 import { Sidebar } from "./Sidebar";
-import { ReactNode, useState, useEffect } from "react";
-import { Bell, Bug, Camera, Loader2, LogOut, Mail, Menu, Palette, Search, Settings, User } from "lucide-react";
+import { ReactNode, useState, useEffect, useRef } from "react";
+import { Bell, Bug, Camera, Loader2, LogOut, Mail, Menu, Palette, Search, Settings, User, Sparkles } from "lucide-react";
+
+function HolidayEffects({ type }: { type: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    let particles: any[] = [];
+    const maxParticles = 35;
+
+    const resizeCanvas = () => {
+      if (canvas && canvas.parentElement) {
+        canvas.width = canvas.parentElement.clientWidth || window.innerWidth;
+        canvas.height = canvas.parentElement.clientHeight || 300;
+      }
+    };
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    class Particle {
+      x = 0;
+      y = 0;
+      size = 0;
+      speedX = 0;
+      speedY = 0;
+      opacity = 0;
+      color = "";
+      angle = 0;
+      spin = 0;
+
+      constructor() {
+        this.reset(true);
+      }
+
+      reset(init = false) {
+        if (!canvas) return;
+        this.x = Math.random() * canvas.width;
+        
+        if (type === "lanterns") {
+          this.y = init ? Math.random() * canvas.height : canvas.height + Math.random() * 20;
+          this.size = Math.random() * 10 + 5;
+          this.speedX = (Math.random() - 0.5) * 0.3;
+          this.speedY = -(Math.random() * 0.4 + 0.2);
+        } else if (type === "snow") {
+          this.y = init ? Math.random() * canvas.height : -10;
+          this.size = Math.random() * 2.5 + 0.8;
+          this.speedX = Math.random() * 0.4 + 0.1;
+          this.speedY = Math.random() * 0.8 + 0.3;
+        } else if (type === "leaves") {
+          this.y = init ? Math.random() * canvas.height : -20;
+          this.size = Math.random() * 7 + 3;
+          this.speedX = (Math.random() - 0.5) * 0.4;
+          this.speedY = Math.random() * 0.6 + 0.3;
+          this.angle = Math.random() * 360;
+          this.spin = (Math.random() - 0.5) * 1.5;
+        } else if (type === "confetti") {
+          this.y = init ? Math.random() * canvas.height : -10;
+          this.size = Math.random() * 5 + 3;
+          this.speedX = (Math.random() - 0.5) * 1.2;
+          this.speedY = Math.random() * 1.5 + 1.2;
+          this.angle = Math.random() * 360;
+          this.spin = (Math.random() - 0.5) * 4;
+        } else {
+          this.y = Math.random() * canvas.height;
+          this.size = Math.random() * 3 + 1.2;
+          this.speedX = (Math.random() - 0.5) * 0.08;
+          this.speedY = (Math.random() - 0.5) * 0.08;
+        }
+
+        this.opacity = Math.random() * 0.4 + 0.2;
+
+        if (type === "lanterns") {
+          this.color = `rgba(${Math.floor(Math.random() * 45 + 210)}, ${Math.floor(Math.random() * 80 + 50)}, 0, `;
+        } else if (type === "snow") {
+          this.color = `rgba(255, 255, 255, `;
+        } else if (type === "leaves") {
+          const leafColors = ["#D66060", "#F3904F", "#EBB02D", "#C0392B", "#D35400"];
+          this.color = leafColors[Math.floor(Math.random() * leafColors.length)];
+        } else if (type === "confetti") {
+          const confColors = ["#FF2E93", "#FF8A00", "#FF007A", "#00F0FF", "#9E00FF", "#00FF66"];
+          this.color = confColors[Math.floor(Math.random() * confColors.length)];
+        } else {
+          this.color = `rgba(255, ${Math.floor(Math.random() * 45 + 210)}, 80, `;
+        }
+      }
+
+      update() {
+        if (!canvas) return;
+        this.x += this.speedX;
+        this.y += this.speedY;
+        
+        if (type === "leaves" || type === "confetti") {
+          this.angle += this.spin;
+        }
+
+        if (type === "lanterns") {
+          if (this.y < -20 || this.x < -20 || this.x > canvas.width + 20) {
+            this.reset();
+          }
+        } else {
+          if (this.y > canvas.height + 20 || this.x < -20 || this.x > canvas.width + 20) {
+            this.reset();
+          }
+        }
+      }
+
+      draw() {
+        if (!ctx) return;
+        ctx.save();
+
+        if (type === "lanterns") {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 1.6);
+          grad.addColorStop(0, "rgba(255, 220, 150, 1)");
+          grad.addColorStop(0.3, this.color + this.opacity + ")");
+          grad.addColorStop(1, "rgba(255, 50, 0, 0)");
+          ctx.fillStyle = grad;
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.moveTo(this.x, this.y + this.size);
+          ctx.lineTo(this.x, this.y + this.size * 1.8);
+          ctx.strokeStyle = `rgba(220, 30, 0, ${this.opacity * 0.7})`;
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+        } else if (type === "snow") {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          ctx.fillStyle = this.color + this.opacity + ")";
+          ctx.fill();
+        } else if (type === "leaves") {
+          ctx.translate(this.x, this.y);
+          ctx.rotate((this.angle * Math.PI) / 180);
+          ctx.beginPath();
+          ctx.ellipse(0, 0, this.size, this.size * 0.5, 0, 0, Math.PI * 2);
+          ctx.fillStyle = this.color;
+          ctx.globalAlpha = this.opacity;
+          ctx.fill();
+        } else if (type === "confetti") {
+          ctx.translate(this.x, this.y);
+          ctx.rotate((this.angle * Math.PI) / 180);
+          ctx.fillStyle = this.color;
+          ctx.globalAlpha = this.opacity;
+          ctx.fillRect(-this.size / 2, -this.size / 4, this.size, this.size / 2);
+        } else {
+          ctx.translate(this.x, this.y);
+          ctx.beginPath();
+          for (let i = 0; i < 4; i++) {
+            ctx.rotate(Math.PI / 2);
+            ctx.lineTo(0, this.size);
+            ctx.lineTo(this.size * 0.18, 0);
+          }
+          ctx.closePath();
+          ctx.fillStyle = this.color + this.opacity + ")";
+          ctx.fill();
+        }
+
+        ctx.restore();
+      }
+    }
+
+    for (let i = 0; i < maxParticles; i++) {
+      particles.push(new Particle());
+    }
+
+    const animate = () => {
+      if (!ctx || !canvas) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      particles.forEach((p) => {
+        p.update();
+        p.draw();
+      });
+
+      animationFrameId = requestAnimationFrame(animate);
+    };
+    animate();
+
+    return () => {
+      window.removeEventListener("resize", resizeCanvas);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [type]);
+
+  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-10 opacity-70" />;
+}
+
 import { TaskBlaster } from "@/components/shared/TaskBlaster";
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle, SheetDescription } from "@/components/manger/ui/sheet";
 import { Button } from "@/components/manger/ui/button";
@@ -209,6 +401,40 @@ export function MainLayout({ children }: MainLayoutProps) {
     }
   }, [settingsQuery.data]);
 
+  const profileQuery = useQuery({
+    queryKey: ["manager-profile-status"],
+    queryFn: async () => {
+      return apiFetch<{ item: { current_status?: string; lunch_start_time?: string; lunch_expected_end?: string; break_start_time?: string; id: string } }>("/api/employees/me");
+    },
+  });
+
+  useEffect(() => {
+    if (!socket || !profileQuery.data?.item?.id) return;
+
+    const handleStatusUpdate = (data: { userId: string; current_status: string; lunch_start_time?: string | null; lunch_expected_end?: string | null; break_start_time?: string | null }) => {
+      if (data.userId === profileQuery.data.item.id) {
+        queryClient.setQueryData(["manager-profile-status"], (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            item: {
+              ...old.item,
+              current_status: data.current_status,
+              lunch_start_time: data.lunch_start_time || null,
+              lunch_expected_end: data.lunch_expected_end || null,
+              break_start_time: data.break_start_time || null,
+            },
+          };
+        });
+      }
+    };
+
+    socket.on("status-update", handleStatusUpdate);
+    return () => {
+      socket.off("status-update", handleStatusUpdate);
+    };
+  }, [socket, profileQuery.data?.item?.id, queryClient]);
+
   // Header settings from admin panel
   const headerSettingsQuery = useQuery({
     queryKey: ["header-settings"],
@@ -219,14 +445,30 @@ export function MainLayout({ children }: MainLayoutProps) {
         imageConfig?: { dataUrl?: string; url?: string; size?: string; position?: string; repeat?: string };
         overlay?: { enabled: boolean; color: string };
         height: number;
+        holidayTheme?: {
+          active: boolean;
+          name: string;
+          displayName: string;
+          message: string;
+          backgroundType: 'color' | 'image';
+          colorConfig?: { from: string; via: string; to: string };
+          imageConfig?: { dataUrl?: string; url?: string; size?: string; position?: string; repeat?: string };
+          overlay?: { enabled: boolean; color: string };
+          effects?: string;
+          isLunar?: boolean;
+        };
       } }>("/api/header-settings");
     },
   });
 
   const headerSettings = headerSettingsQuery.data?.item;
+  const activeHoliday = headerSettings?.holidayTheme?.active ? headerSettings.holidayTheme : null;
 
-  const headerImageUrlRaw =
-    headerSettings?.backgroundType === "image"
+  const headerImageUrlRaw = activeHoliday
+    ? activeHoliday.backgroundType === "image"
+      ? activeHoliday.imageConfig?.url || activeHoliday.imageConfig?.dataUrl
+      : null
+    : headerSettings?.backgroundType === "image"
       ? headerSettings?.imageConfig?.url || headerSettings?.imageConfig?.dataUrl
       : null;
   const headerImageUrl = headerImageUrlRaw ? toProxiedUrl(headerImageUrlRaw) : null;
@@ -432,13 +674,13 @@ export function MainLayout({ children }: MainLayoutProps) {
         const link = resolveNotificationLink(data);
         
         // Show toast
-        toast(data.title || "New Notification", {
-          description: data.content || data.message,
-          action: {
-            label: "View",
-            onClick: () => navigate(link)
-          }
-        });
+        // toast(data.title || "New Notification", {
+        //   description: data.content || data.message,
+        //   action: {
+        //     label: "View",
+        //     onClick: () => navigate(link)
+        //   }
+        // });
       }
     };
 
@@ -447,6 +689,18 @@ export function MainLayout({ children }: MainLayoutProps) {
       socket.off("new-notification", handleNewNotification);
     };
   }, [socket, auth, queryClient, navigate]);
+
+  // Real-time direct message listener — keeps the message badge count current
+  useEffect(() => {
+    if (!socket) return;
+    const handleNewMessage = () => {
+      queryClient.invalidateQueries({ queryKey: ["manager-messages-preview"] });
+    };
+    socket.on("new-message", handleNewMessage);
+    return () => {
+      socket.off("new-message", handleNewMessage);
+    };
+  }, [socket, queryClient]);
 
   const markAllRead = async () => {
     queryClient.setQueryData(["manager-notifications"], (old: any) =>
@@ -504,41 +758,73 @@ export function MainLayout({ children }: MainLayoutProps) {
       .join("")
       .toUpperCase() || "M";
 
+  const currentStatus = profileQuery.data?.item?.current_status || "AVAILABLE";
+
+  let statusRingClass = "border border-white/20 shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20 transition-all";
+  let dotClass = "absolute -bottom-0.5 -right-0.5 h-3 w-3 border-2 border-black rounded-full";
+
+  if (currentStatus === "LUNCH") {
+    statusRingClass = "border-2 border-amber-500 shadow-[0_0_12px_rgba(245,158,11,0.5)] transition-all animate-[pulse_2s_infinite]";
+    dotClass += " bg-amber-500 shadow-[0_0_6px_#f59e0b] animate-pulse";
+  } else if (currentStatus === "BREAK") {
+    statusRingClass = "border-2 border-purple-500 shadow-[0_0_12px_rgba(139,92,246,0.5)] transition-all animate-[pulse_2s_infinite]";
+    dotClass += " bg-purple-500 shadow-[0_0_6px_#8b5cf6] animate-pulse";
+  } else {
+    dotClass += " bg-green-500";
+  }
+
   return (
     <div className="min-h-screen" style={{ background: "var(--tb-dashboard-bg)" }}>
       {/* Top header with dynamic background from admin settings - FULL WIDTH */}
       <header 
-        className="fixed top-0 left-0 right-0 z-50 shadow-floating h-[300px]"
+        className="fixed top-0 left-0 right-0 z-50 shadow-floating h-[180px] sm:h-[240px] md:h-[300px]"
         style={{ 
-         // height: '300px',
           left: '0',
         }}
       >
         <div 
           className="w-full h-full relative overflow-hidden group"
           style={{
-            background: hasImageBackground 
-              ? 'transparent'
-              : `linear-gradient(to right, ${headerSettings?.colorConfig?.from || '#133767'}, ${headerSettings?.colorConfig?.via || '#133767'}, ${headerSettings?.colorConfig?.to || '#133767'})`
+            background: activeHoliday
+              ? activeHoliday.backgroundType === "image"
+                ? "transparent"
+                : `linear-gradient(to right, ${activeHoliday.colorConfig?.from || '#133767'}, ${activeHoliday.colorConfig?.via || '#133767'}, ${activeHoliday.colorConfig?.to || '#133767'})`
+              : hasImageBackground 
+                ? 'transparent'
+                : `linear-gradient(to right, ${headerSettings?.colorConfig?.from || '#133767'}, ${headerSettings?.colorConfig?.via || '#133767'}, ${headerSettings?.colorConfig?.to || '#133767'})`
           }}
         >
-          {/* Background Image */}
-          {hasImageBackground && (
+          {/* Holiday Effects Canvas Overlay */}
+          {activeHoliday?.effects && (
+            <HolidayEffects type={activeHoliday.effects} />
+          )}
+
+          {/* Background Image (Holiday overrides custom) */}
+          {(activeHoliday?.backgroundType === "image" || (!activeHoliday && hasImageBackground)) && (
             <>
               <img
-                src={headerImageUrl || undefined}
+                src={activeHoliday?.backgroundType === "image"
+                  ? toProxiedUrl(activeHoliday.imageConfig?.url || activeHoliday.imageConfig?.dataUrl)
+                  : headerImageUrl || undefined}
                 alt="header background"
                 className="absolute inset-0 w-full h-full"
                 style={{
                   objectFit: 'cover',
-                  objectPosition: headerSettings?.imageConfig?.position || 'center',
+                  objectPosition: activeHoliday?.backgroundType === "image"
+                    ? activeHoliday.imageConfig?.position || 'center'
+                    : headerSettings?.imageConfig?.position || 'center',
                 }}
                 draggable={false}
               />
-              {headerSettings?.overlay?.enabled && (
+              {((activeHoliday && activeHoliday.overlay?.enabled) || (!activeHoliday && headerSettings?.overlay?.enabled)) && (
                 <div
                   className="absolute inset-0"
-                  style={{ backgroundColor: headerSettings.overlay.color || 'var(--tb-header-overlay-color)', opacity: headerSettings.overlay.color ? 1 : 'var(--tb-header-overlay-opacity)' }}
+                  style={{
+                    backgroundColor: activeHoliday
+                      ? activeHoliday.overlay.color || "rgba(0,0,0,0.3)"
+                      : headerSettings.overlay.color || 'var(--tb-header-overlay-color)',
+                    opacity: 1
+                  }}
                 />
               )}
             </>
@@ -547,185 +833,200 @@ export function MainLayout({ children }: MainLayoutProps) {
           <div className="absolute inset-0 flex flex-col pointer-events-none">
             {/* Header Content Area */}
             <div 
-              className="flex-1 relative flex flex-col justify-end px-3 sm:px-6 lg:px-8 md:pl-64 pb-8 sm:pb-12 md:pb-16 animate-fade-in pointer-events-auto"
+              className="flex-1 relative flex flex-col justify-end px-3 sm:px-6 lg:px-8 md:pl-60 lg:pl-68 pb-4 sm:pb-8 md:pb-12 lg:pb-16 animate-fade-in pointer-events-auto"
             >
-              {/* LEFT SIDE: Branding and Profile Stacking */}
-              <div className="flex flex-col gap-4">
-                {/* Header Picture Edit Button (Camera Icon) */}
-                <div className="absolute top-4 right-4 z-20 flex gap-2">
-                  <button 
-                    onClick={() => navigate("/manager/ui-customization")}
-                    className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white transition-all backdrop-blur-sm border border-white/20"
-                    title="UI Customization"
-                  >
-                    <Palette className="h-5 w-5" />
-                  </button>
-                  <button 
-                    onClick={() => setHeaderModalOpen(true)}
-                    className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white transition-all backdrop-blur-sm border border-white/20"
-                    title="Change Header Picture"
-                  >
-                    <Camera className="h-5 w-5" />
-                  </button>
-                </div>
+              {/* Header Picture Edit Button (Camera Icon) */}
+              <div className="absolute top-4 right-4 z-20 flex gap-2">
+                <button 
+                  onClick={() => navigate("/manager/ui-customization")}
+                  className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white transition-all backdrop-blur-sm border border-white/20"
+                  title="UI Customization"
+                >
+                  <Palette className="h-5 w-5" />
+                </button>
+                <button 
+                  onClick={() => setHeaderModalOpen(true)}
+                  className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white transition-all backdrop-blur-sm border border-white/20"
+                  title="Change Header Picture"
+                >
+                  <Camera className="h-5 w-5" />
+                </button>
+              </div>
 
-                {/* Profile Card (Top) */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <div className="flex items-center gap-3 p-2 rounded-xl bg-black/20 backdrop-blur-md border border-white/10 hover:bg-black/30 transition-all cursor-pointer group w-fit">
-                      <div className="relative">
-                        <Avatar className="h-10 w-10 border border-white/20 shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20 transition-all">
-                          {avatarUrl ? (
-                            <AvatarImage src={avatarUrl} alt={fullName} className="object-cover" />
-                          ) : (
-                            <AvatarFallback className="bg-gradient-to-br from-[#00C6FF] to-[#0072FF] text-white text-xs font-bold">{initials}</AvatarFallback>
-                          )}
-                        </Avatar>
-                        <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-black rounded-full" />
-                      </div>
-                      <div className="flex flex-col min-w-0 pr-4">
-                        <span className="text-base font-bold text-white truncate leading-tight drop-shadow-md">{fullName}</span>
-                        <span className="text-[11px] text-white/60 truncate tracking-wide uppercase font-semibold">{auth.role || "Manager"}</span>
-                      </div>
-                    </div>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" side="bottom" className="w-56 mt-2">
-                    <DropdownMenuLabel className="text-xs">Account Settings</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => navigate("/manager/settings")}>
-                      <User className="mr-2 h-4 w-4" /> Profile Details
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => navigate("/manager/settings")}>
-                      <Settings className="mr-2 h-4 w-4" /> System Preferences
-                    </DropdownMenuItem>
-                  </DropdownMenuContent> 
-                </DropdownMenu>
-
-                {/* Quick Actions Bar (Bottom) */}
-                <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-                  <div className="md:hidden">
-                    <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/[0.14] transition-all" aria-label="Open navigation" onClick={() => setMobileSidebarOpen(true)}><Menu className="h-5 w-5 text-white" /></button>
-                  </div>
-
+              {/* Branding, Profile and Holiday Banner in a responsive Flex row */}
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 w-full">
+                <div className="flex flex-col gap-4">
+                  {/* Profile Card (Top) */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
-                        <Mail className="h-5 w-5" />
-                        {unreadMessageCount > 0 && (
-                          <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-[#00C6FF] text-[9px] border-black">
-                            {Math.min(unreadMessageCount, 9)}
-                          </Badge>
-                        )}
-                      </button>
+                      <div className="flex items-center gap-3 p-2 rounded-xl bg-black/20 backdrop-blur-md border border-white/10 hover:bg-black/30 transition-all cursor-pointer group w-fit">
+                        <div className="relative">
+                          <Avatar className="h-10 w-10 border border-white/20 shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20 transition-all">
+                            {avatarUrl ? (
+                              <AvatarImage src={avatarUrl} alt={fullName} className="object-cover" />
+                            ) : (
+                              <AvatarFallback className="bg-gradient-to-br from-[#00C6FF] to-[#0072FF] text-white text-xs font-bold">{initials}</AvatarFallback>
+                            )}
+                          </Avatar>
+                          <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-black rounded-full" />
+                        </div>
+                        <div className="flex flex-col min-w-0 pr-4">
+                          <span className="text-base font-bold text-white truncate leading-tight drop-shadow-md">{fullName}</span>
+                          <span className="text-[11px] text-white/60 truncate tracking-wide uppercase font-semibold">{auth.role || "Manager"}</span>
+                        </div>
+                      </div>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
-                      <DropdownMenuLabel className="text-xs">Direct Messages</DropdownMenuLabel>
+                    <DropdownMenuContent align="start" side="bottom" className="w-56 mt-2">
+                      <DropdownMenuLabel className="text-xs">Account Settings</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      {messagesQuery.data?.length === 0 ? (
-                        <div className="p-4 text-center text-xs text-muted-foreground">No messages</div>
-                      ) : (
-                        messagesQuery.data?.map(c => (
-                          <DropdownMenuItem
-                            key={c.employee?.id}
-                            onClick={() => {
-                              if (c.employee) {
-                                navigate("/manager/messages", { state: { selectedEmployee: c.employee } });
-                              } else {
-                                navigate("/manager/messages");
-                              }
-                            }}
-                          >
-                            <div className="flex flex-col gap-0.5">
-                              <span className="font-medium text-xs">{c.employee?.name}</span>
-                              <span className="text-[10px] text-muted-foreground truncate">{c.lastMessage?.content}</span>
-                            </div>
-                          </DropdownMenuItem>
-                        ))
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
-                        <Bell className="h-4.5 w-4.5" />
-                        {unreadCount > 0 && (
-                          <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[9px] border-black">
-                            {unreadCount > 9 ? "9+" : unreadCount}
-                          </Badge>
-                        )}
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" side="bottom" className="w-80 mt-2 p-0 shadow-2xl border-slate-700 bg-[#0f172a]">
-                      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-                        <DropdownMenuLabel className="text-sm font-bold text-white p-0">Notifications</DropdownMenuLabel>
-                        {unreadCount > 0 && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); void markAllRead(); }}
-                            className="text-[10px] font-bold uppercase tracking-wider text-[#00C6FF] hover:text-white transition-colors"
-                          >
-                            Mark all read
-                          </button>
-                        )}
-                      </div>
-                      <div className="max-h-[380px] overflow-y-auto">
-                        {notificationsQuery.isLoading ? (
-                          <div className="p-6 text-center text-xs text-slate-400">Loading...</div>
-                        ) : notifications.length === 0 ? (
-                          <div className="p-6 text-center">
-                            <Bell className="h-7 w-7 text-slate-600 mx-auto mb-2" />
-                            <p className="text-xs text-slate-400">You're all caught up!</p>
-                          </div>
-                        ) : (
-                          notifications.map((n) => {
-                            const category = n.meta?.category;
-                            const relTime = formatRelativeTime(n.createdAt || n.timestamp);
-                            return (
-                              <DropdownMenuItem
-                                key={n.id}
-                                onClick={() => {
-                                  navigate(resolveNotificationLink(n));
-                                  void markRead(String(n.id));
-                                }}
-                                className="flex items-start gap-3 px-3 py-2.5 cursor-pointer border-b border-slate-800 last:border-0 rounded-none text-white focus:bg-white/10 focus:text-white data-[highlighted]:bg-white/10 data-[highlighted]:text-white transition-colors"
-                              >
-                                <span className="text-base leading-none mt-0.5 flex-shrink-0">{getCategoryIcon(category)}</span>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-[12px] font-semibold leading-tight truncate">{n.title || "Notification"}</p>
-                                  <p className="text-[11px] text-slate-300 line-clamp-2 leading-relaxed mt-0.5">{n.content}</p>
-                                  {relTime && <span className="text-[10px] text-slate-500 mt-0.5 block">{relTime}</span>}
-                                </div>
-                              </DropdownMenuItem>
-                            );
-                          })
-                        )}
-                      </div>
-                      <DropdownMenuSeparator className="m-0 bg-slate-800" />
-                      <DropdownMenuItem
-                        onClick={() => navigate("/manager/notifications")}
-                        className="justify-center py-2.5 text-xs font-bold text-slate-400 hover:text-white data-[highlighted]:text-white data-[highlighted]:bg-slate-800/50 transition-all"
-                      >
-                        View all notifications
+                      <DropdownMenuItem onClick={() => navigate("/manager/settings")}>
+                        <User className="mr-2 h-4 w-4" /> Profile Details
                       </DropdownMenuItem>
-                    </DropdownMenuContent>
+                      <DropdownMenuItem onClick={() => navigate("/manager/settings")}>
+                        <Settings className="mr-2 h-4 w-4" /> System Preferences
+                      </DropdownMenuItem>
+                    </DropdownMenuContent> 
                   </DropdownMenu>
 
-                  <button 
-                    onClick={() => { resetReport(); setReportOpen(true); }}
-                    className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white"
-                    title="Submit Bug Report"
-                  >
-                    <Bug className="h-4.5 w-4.5" />
-                  </button>
+                  {/* Quick Actions Bar (Bottom) */}
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                    <div className="md:hidden">
+                      <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/[0.14] transition-all" aria-label="Open navigation" onClick={() => setMobileSidebarOpen(true)}><Menu className="h-5 w-5 text-white" /></button>
+                    </div>
 
-                  <button 
-                    onClick={() => { clearAuthState(); navigate("/login"); }}
-                    className="p-2 rounded-lg bg-black/20 hover:bg-red-500/20 backdrop-blur-sm transition-colors text-red-400/70 hover:text-red-400"
-                    title="Logout"
-                  >
-                    <LogOut className="h-4.5 w-4.5" />
-                  </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
+                          <Mail className="h-5 w-5" />
+                          {unreadMessageCount > 0 && (
+                            <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-[#00C6FF] text-[9px] border-black">
+                              {Math.min(unreadMessageCount, 9)}
+                            </Badge>
+                          )}
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
+                        <DropdownMenuLabel className="text-xs">Direct Messages</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        {messagesQuery.data?.length === 0 ? (
+                          <div className="p-4 text-center text-xs text-muted-foreground">No messages</div>
+                        ) : (
+                          messagesQuery.data?.map(c => (
+                            <DropdownMenuItem
+                              key={c.employee?.id}
+                              onClick={() => {
+                                if (c.employee) {
+                                  navigate("/manager/messages", { state: { selectedEmployee: c.employee } });
+                                } else {
+                                  navigate("/manager/messages");
+                                }
+                              }}
+                            >
+                              <div className="flex flex-col gap-0.5">
+                                <span className="font-medium text-xs">{c.employee?.name}</span>
+                                <span className="text-[10px] text-muted-foreground truncate">{c.lastMessage?.content}</span>
+                              </div>
+                            </DropdownMenuItem>
+                          ))
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
+                          <Bell className="h-4.5 w-4.5" />
+                          {unreadCount > 0 && (
+                            <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[9px] border-black">
+                              {unreadCount > 9 ? "9+" : unreadCount}
+                            </Badge>
+                          )}
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="start" side="bottom" className="w-80 mt-2 p-0 shadow-2xl border-slate-700 bg-[#0f172a]">
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+                          <DropdownMenuLabel className="text-sm font-bold text-white p-0">Notifications</DropdownMenuLabel>
+                          {unreadCount > 0 && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); void markAllRead(); }}
+                              className="text-[10px] font-bold uppercase tracking-wider text-[#00C6FF] hover:text-white transition-colors"
+                            >
+                              Mark all read
+                            </button>
+                          )}
+                        </div>
+                        <div className="max-h-[380px] overflow-y-auto">
+                          {notificationsQuery.isLoading ? (
+                            <div className="p-6 text-center text-xs text-slate-400">Loading...</div>
+                          ) : notifications.length === 0 ? (
+                            <div className="p-6 text-center">
+                              <Bell className="h-7 w-7 text-slate-600 mx-auto mb-2" />
+                              <p className="text-xs text-slate-400">You're all caught up!</p>
+                            </div>
+                          ) : (
+                            notifications.map((n) => {
+                              const category = n.meta?.category;
+                              const relTime = formatRelativeTime(n.createdAt || n.timestamp);
+                              return (
+                                <DropdownMenuItem
+                                  key={n.id}
+                                  onClick={() => {
+                                    navigate(resolveNotificationLink(n));
+                                    void markRead(String(n.id));
+                                  }}
+                                  className="flex items-start gap-3 px-3 py-2.5 cursor-pointer border-b border-slate-800 last:border-0 rounded-none text-white focus:bg-white/10 focus:text-white data-[highlighted]:bg-white/10 data-[highlighted]:text-white transition-colors"
+                                >
+                                  <span className="text-base leading-none mt-0.5 flex-shrink-0">{getCategoryIcon(category)}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[12px] font-semibold leading-tight truncate">{n.title || "Notification"}</p>
+                                    <p className="text-[11px] text-slate-300 line-clamp-2 leading-relaxed mt-0.5">{n.content}</p>
+                                    {relTime && <span className="text-[10px] text-slate-500 mt-0.5 block">{relTime}</span>}
+                                  </div>
+                                </DropdownMenuItem>
+                              );
+                            })
+                          )}
+                        </div>
+                        <DropdownMenuSeparator className="m-0 bg-slate-800" />
+                        <DropdownMenuItem
+                          onClick={() => navigate("/manager/notifications")}
+                          className="justify-center py-2.5 text-xs font-bold text-slate-400 hover:text-white data-[highlighted]:text-white data-[highlighted]:bg-slate-800/50 transition-all"
+                        >
+                          View all notifications
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <button 
+                      onClick={() => { resetReport(); setReportOpen(true); }}
+                      className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white"
+                      title="Submit Bug Report"
+                    >
+                      <Bug className="h-4.5 w-4.5" />
+                    </button>
+
+                    <button 
+                      onClick={() => { clearAuthState(); navigate("/login"); }}
+                      className="p-2 rounded-lg bg-black/20 hover:bg-red-500/20 backdrop-blur-sm transition-colors text-red-400/70 hover:text-red-400"
+                      title="Logout"
+                    >
+                      <LogOut className="h-4.5 w-4.5" />
+                    </button>
+                  </div>
                 </div>
+
+                {/* Holiday/Seasonal Greeting Banner Card (Right Side) */}
+                {activeHoliday && (
+                  <div className="flex flex-col items-center md:items-end justify-center pointer-events-auto p-3 rounded-xl bg-black/30 backdrop-blur-md border border-white/10 max-w-sm text-center md:text-right md:mb-1 mr-2 shadow-xl animate-fade-in relative z-20">
+                    <div className="text-xs sm:text-sm font-bold text-white drop-shadow-md flex items-center gap-1.5 justify-center md:justify-end">
+                      <Sparkles className="h-4 w-4 text-[#FFD700]" />
+                      <span>{activeHoliday.displayName}</span>
+                    </div>
+                    <p className="text-[10px] sm:text-[11px] text-white/95 drop-shadow-sm leading-normal mt-1 font-semibold">
+                      {activeHoliday.message}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -907,8 +1208,8 @@ export function MainLayout({ children }: MainLayoutProps) {
           <Sidebar />
         </div>
         <main
-          className="flex-1 min-h-screen md:ml-56 lg:ml-64"
-          style={{ paddingTop: '300px', background: 'var(--tb-dashboard-bg)' }}
+          className="flex-1 min-h-screen md:ml-56 lg:ml-64 pt-[180px] sm:pt-[240px] md:pt-[300px]"
+          style={{ background: 'var(--tb-dashboard-bg)' }}
         >
           <div className="w-full px-4 py-4 sm:py-8 animate-fade-in">
             {children}

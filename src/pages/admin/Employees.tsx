@@ -64,6 +64,8 @@ import {
 import { createResource, deleteResource, listResource, updateResource, apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
 import { Pagination } from "@/components/Pagination";
+import { useSocket } from "@/contexts/SocketContext";
+import { cn } from "@/lib/utils";
 
 interface Employee {
   id: string;
@@ -80,6 +82,10 @@ interface Employee {
   hireDate: string;
   shift?: string;
   avatarUrl?: string;
+  current_status?: "AVAILABLE" | "LUNCH" | "BREAK";
+  lunch_start_time?: string | null;
+  lunch_expected_end?: string | null;
+  break_start_time?: string | null;
 }
 
 interface Company {
@@ -145,6 +151,16 @@ const cardVariants = {
   },
 };
 
+function formatStatusTime(timeStr?: string | null) {
+  if (!timeStr) return "";
+  try {
+    const date = new Date(timeStr);
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    return "";
+  }
+}
+
 const Employees = () => {
   const ADD_EMPLOYEE_FORM_ID = "add-employee-form";
 
@@ -158,6 +174,41 @@ const Employees = () => {
   const [companyFilter, setCompanyFilter] = useState("all");
   const [addEmployeeOpen, setAddEmployeeOpen] = useState(false);
   const [employeesList, setEmployeesList] = useState<Employee[]>(() => []);
+
+  const { socket } = useSocket();
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleStatusUpdate = (payload: {
+      userId: string;
+      current_status: "AVAILABLE" | "LUNCH" | "BREAK";
+      lunch_start_time: string | null;
+      lunch_expected_end: string | null;
+      break_start_time: string | null;
+      name: string;
+    }) => {
+      setEmployeesList((oldList) => {
+        return oldList.map((emp) => {
+          if (emp.id === payload.userId) {
+            return {
+              ...emp,
+              current_status: payload.current_status,
+              lunch_start_time: payload.lunch_start_time,
+              lunch_expected_end: payload.lunch_expected_end,
+              break_start_time: payload.break_start_time,
+            };
+          }
+          return emp;
+        });
+      });
+    };
+
+    socket.on("status-update", handleStatusUpdate);
+    return () => {
+      socket.off("status-update", handleStatusUpdate);
+    };
+  }, [socket]);
 
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -1276,8 +1327,28 @@ const Employees = () => {
                           whileHover={{ scale: 1.02, x: 5 }}
                           onHoverStart={() => setHoveredEmployee(employee.id)}
                           onHoverEnd={() => setHoveredEmployee(null)}
-                          className="bg-gradient-to-br from-card to-card/50 rounded-xl border p-4 space-y-3 shadow-lg hover:shadow-xl transition-all duration-300"
+                          className={cn(
+                            "bg-gradient-to-br from-card to-card/50 rounded-xl border p-4 space-y-3 shadow-lg hover:shadow-xl transition-all duration-300 relative overflow-hidden",
+                            (employee.current_status === "LUNCH" || employee.current_status === "BREAK") && "opacity-60"
+                          )}
                         >
+                          {employee.current_status && employee.current_status !== "AVAILABLE" && (
+                            <div className="absolute top-2 right-12 z-10">
+                              <Badge 
+                                className={cn(
+                                  "animate-pulse text-white font-semibold flex items-center gap-1 shadow-sm px-2 py-0.5 rounded-full text-[10px] sm:text-xs border",
+                                  employee.current_status === "LUNCH" ? "bg-amber-500 hover:bg-amber-600 border-amber-600" : "bg-purple-600 hover:bg-purple-700 border-purple-700"
+                                )}
+                                title={`${employee.current_status === "LUNCH" ? "On Lunch since" : "On Break since"} ${formatStatusTime(employee.current_status === "LUNCH" ? employee.lunch_start_time : employee.break_start_time)}`}
+                              >
+                                <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
+                                {employee.current_status === "LUNCH" ? "On Lunch" : "On Break"}
+                                <span className="text-[9px] opacity-80 ml-0.5">
+                                  ({formatStatusTime(employee.current_status === "LUNCH" ? employee.lunch_start_time : employee.break_start_time)})
+                                </span>
+                              </Badge>
+                            </div>
+                          )}
                           {/* Header with Avatar and Actions */}
                           <div className="flex items-start justify-between">
                             <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -1285,7 +1356,16 @@ const Employees = () => {
                                 whileHover={{ scale: 1.1, rotate: 5 }}
                                 transition={{ type: "spring", stiffness: 300, damping: 10 }}
                               >
-                                <Avatar className="h-10 w-10 flex-shrink-0 ring-2 ring-primary/20">
+                                <Avatar 
+                                  className="h-10 w-10 flex-shrink-0 border-2 transition-all duration-300 relative"
+                                  style={
+                                    employee.current_status === "LUNCH"
+                                      ? { borderColor: "#F59E0B", boxShadow: "0 0 8px rgba(245, 158, 11, 0.4)" }
+                                      : employee.current_status === "BREAK"
+                                      ? { borderColor: "#8B5CF6", boxShadow: "0 0 8px rgba(139, 92, 246, 0.4)" }
+                                      : {}
+                                  }
+                                >
                                   {employee.avatarUrl ? (
                                     <AvatarImage src={toProxiedUrl(employee.avatarUrl)} alt={employee.name} className="object-cover" />
                                   ) : (
@@ -1293,6 +1373,15 @@ const Employees = () => {
                                       {employee.initials}
                                     </AvatarFallback>
                                   )}
+                                  {employee.current_status && employee.current_status !== "AVAILABLE" ? (
+                                    <div 
+                                      className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border border-card animate-pulse"
+                                      style={{
+                                        backgroundColor: employee.current_status === "LUNCH" ? "#F59E0B" : "#8B5CF6"
+                                      }}
+                                      title={employee.current_status === "LUNCH" ? `On Lunch since ${formatStatusTime(employee.lunch_start_time)}` : `On Break since ${formatStatusTime(employee.break_start_time)}`}
+                                    />
+                                  ) : null}
                                 </Avatar>
                               </motion.div>
                               <div className="min-w-0 flex-1">
@@ -1485,7 +1574,10 @@ const Employees = () => {
                               }}
                               onHoverStart={() => setHoveredEmployee(employee.id)}
                               onHoverEnd={() => setHoveredEmployee(null)}
-                              className="cursor-pointer transition-all duration-300"
+                              className={cn(
+                                "cursor-pointer transition-all duration-300",
+                                (employee.current_status === "LUNCH" || employee.current_status === "BREAK") && "opacity-60"
+                              )}
                             >
                               <TableCell>
                                 <div className="flex items-center gap-3">
@@ -1493,7 +1585,16 @@ const Employees = () => {
                                     whileHover={{ scale: 1.1, rotate: 5 }}
                                     transition={{ type: "spring", stiffness: 300, damping: 10 }}
                                   >
-                                    <Avatar className="h-8 w-8 md:h-9 md:w-9 flex-shrink-0 ring-2 ring-primary/20">
+                                    <Avatar 
+                                      className="h-8 w-8 md:h-9 md:w-9 flex-shrink-0 border-2 transition-all duration-300 relative"
+                                      style={
+                                        employee.current_status === "LUNCH"
+                                          ? { borderColor: "#F59E0B", boxShadow: "0 0 8px rgba(245, 158, 11, 0.4)" }
+                                          : employee.current_status === "BREAK"
+                                          ? { borderColor: "#8B5CF6", boxShadow: "0 0 8px rgba(139, 92, 246, 0.4)" }
+                                          : {}
+                                      }
+                                    >
                                       {employee.avatarUrl ? (
                                         <AvatarImage src={toProxiedUrl(employee.avatarUrl)} alt={employee.name} className="object-cover" />
                                       ) : (
@@ -1501,10 +1602,22 @@ const Employees = () => {
                                           {employee.initials}
                                         </AvatarFallback>
                                       )}
+                                      {employee.current_status && employee.current_status !== "AVAILABLE" ? (
+                                        <div 
+                                          className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border border-card animate-pulse"
+                                          style={{
+                                            backgroundColor: employee.current_status === "LUNCH" ? "#F59E0B" : "#8B5CF6"
+                                          }}
+                                          title={employee.current_status === "LUNCH" ? `On Lunch since ${formatStatusTime(employee.lunch_start_time)}` : `On Break since ${formatStatusTime(employee.break_start_time)}`}
+                                        />
+                                      ) : null}
                                     </Avatar>
                                   </motion.div>
                                   <div className="min-w-0">
-                                    <p className="font-medium text-sm md:text-base truncate max-w-[150px] lg:max-w-[200px] flex items-center gap-2">
+                                    <p 
+                                      className="font-medium text-sm md:text-base truncate max-w-[150px] lg:max-w-[200px] flex items-center gap-2"
+                                      title={employee.current_status && employee.current_status !== "AVAILABLE" ? `${employee.current_status === "LUNCH" ? "On Lunch since" : "On Break since"} ${formatStatusTime(employee.current_status === "LUNCH" ? employee.lunch_start_time : employee.break_start_time)}` : undefined}
+                                    >
                                       {employee.name}
                                       {hoveredEmployee === employee.id && (
                                         <motion.span
@@ -1574,15 +1687,33 @@ const Employees = () => {
                                 </motion.div>
                               </TableCell>
                               <TableCell>
-                                <motion.div
-                                  whileHover={{ scale: 1.1 }}
-                                  whileTap={{ scale: 0.95 }}
-                                >
-                                  <Badge className={`${statusClasses[employee.status]} text-xs flex items-center gap-1 w-fit`} variant="secondary">
-                                    {getStatusIcon(employee.status)}
-                                    <span className="hidden md:inline">{employee.status}</span>
-                                  </Badge>
-                                </motion.div>
+                                <div className="flex flex-col gap-1.5">
+                                  <motion.div
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    className="w-fit"
+                                  >
+                                    <Badge className={`${statusClasses[employee.status]} text-xs flex items-center gap-1 w-fit`} variant="secondary">
+                                      {getStatusIcon(employee.status)}
+                                      <span className="hidden md:inline">{employee.status}</span>
+                                    </Badge>
+                                  </motion.div>
+                                  {employee.current_status && employee.current_status !== "AVAILABLE" && (
+                                    <Badge 
+                                      className={cn(
+                                        "animate-pulse text-white font-semibold flex items-center gap-1 shadow-sm px-2 py-0.5 rounded-full text-[10px] sm:text-xs border w-fit",
+                                        employee.current_status === "LUNCH" ? "bg-amber-500 hover:bg-amber-600 border-amber-600" : "bg-purple-600 hover:bg-purple-700 border-purple-700"
+                                      )}
+                                      title={`${employee.current_status === "LUNCH" ? "On Lunch since" : "On Break since"} ${formatStatusTime(employee.current_status === "LUNCH" ? employee.lunch_start_time : employee.break_start_time)}`}
+                                    >
+                                      <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping" />
+                                      {employee.current_status === "LUNCH" ? "On Lunch" : "On Break"}
+                                      <span className="text-[9px] opacity-80 ml-0.5">
+                                        ({formatStatusTime(employee.current_status === "LUNCH" ? employee.lunch_start_time : employee.break_start_time)})
+                                      </span>
+                                    </Badge>
+                                  )}
+                                </div>
                               </TableCell>
                               <TableCell>
                                 <motion.div 

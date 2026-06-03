@@ -169,9 +169,9 @@ export default function Login() {
     tap: { scale: 0.98, transition: { type: "spring" as const, stiffness: 400, damping: 10 } },
   };
   const errorVariants: Variants = {
-    hidden: { opacity: 0, x: -20, height: 0 },
-    visible: { opacity: 1, x: 0, height: "auto" },
-    exit: { opacity: 0, x: 20, height: 0 },
+    hidden: { opacity: 0, y: -6 },
+    visible: { opacity: 1, y: 0 },
+    exit: { opacity: 0, y: -6 },
   };
 
   return (

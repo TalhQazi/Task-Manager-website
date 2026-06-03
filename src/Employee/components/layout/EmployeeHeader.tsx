@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Bell, Menu, Mail, User, Settings, LogOut, Camera, Palette, Loader2, Megaphone } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Bell, Menu, Mail, User, Settings, LogOut, Camera, Palette, Loader2, Megaphone, Sparkles } from "lucide-react";
 import { useSocket } from "@/contexts/SocketContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -27,14 +27,210 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/manger/api";
 import AssetLibraryPicker from "@/components/admin/AssetLibraryPicker";
 
+function HolidayEffects({ type }: { type: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    let particles: any[] = [];
+    const maxParticles = 35;
+
+    const resizeCanvas = () => {
+      if (canvas && canvas.parentElement) {
+        canvas.width = canvas.parentElement.clientWidth || window.innerWidth;
+        canvas.height = canvas.parentElement.clientHeight || 300;
+      }
+    };
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    class Particle {
+      x = 0;
+      y = 0;
+      size = 0;
+      speedX = 0;
+      speedY = 0;
+      opacity = 0;
+      color = "";
+      angle = 0;
+      spin = 0;
+
+      constructor() {
+        this.reset(true);
+      }
+
+      reset(init = false) {
+        if (!canvas) return;
+        this.x = Math.random() * canvas.width;
+        
+        if (type === "lanterns") {
+          this.y = init ? Math.random() * canvas.height : canvas.height + Math.random() * 20;
+          this.size = Math.random() * 10 + 5;
+          this.speedX = (Math.random() - 0.5) * 0.3;
+          this.speedY = -(Math.random() * 0.4 + 0.2);
+        } else if (type === "snow") {
+          this.y = init ? Math.random() * canvas.height : -10;
+          this.size = Math.random() * 2.5 + 0.8;
+          this.speedX = Math.random() * 0.4 + 0.1;
+          this.speedY = Math.random() * 0.8 + 0.3;
+        } else if (type === "leaves") {
+          this.y = init ? Math.random() * canvas.height : -20;
+          this.size = Math.random() * 7 + 3;
+          this.speedX = (Math.random() - 0.5) * 0.4;
+          this.speedY = Math.random() * 0.6 + 0.3;
+          this.angle = Math.random() * 360;
+          this.spin = (Math.random() - 0.5) * 1.5;
+        } else if (type === "confetti") {
+          this.y = init ? Math.random() * canvas.height : -10;
+          this.size = Math.random() * 5 + 3;
+          this.speedX = (Math.random() - 0.5) * 1.2;
+          this.speedY = Math.random() * 1.5 + 1.2;
+          this.angle = Math.random() * 360;
+          this.spin = (Math.random() - 0.5) * 4;
+        } else {
+          this.y = Math.random() * canvas.height;
+          this.size = Math.random() * 3 + 1.2;
+          this.speedX = (Math.random() - 0.5) * 0.08;
+          this.speedY = (Math.random() - 0.5) * 0.08;
+        }
+
+        this.opacity = Math.random() * 0.4 + 0.2;
+
+        if (type === "lanterns") {
+          this.color = `rgba(${Math.floor(Math.random() * 45 + 210)}, ${Math.floor(Math.random() * 80 + 50)}, 0, `;
+        } else if (type === "snow") {
+          this.color = `rgba(255, 255, 255, `;
+        } else if (type === "leaves") {
+          const leafColors = ["#D66060", "#F3904F", "#EBB02D", "#C0392B", "#D35400"];
+          this.color = leafColors[Math.floor(Math.random() * leafColors.length)];
+        } else if (type === "confetti") {
+          const confColors = ["#FF2E93", "#FF8A00", "#FF007A", "#00F0FF", "#9E00FF", "#00FF66"];
+          this.color = confColors[Math.floor(Math.random() * confColors.length)];
+        } else {
+          this.color = `rgba(255, ${Math.floor(Math.random() * 45 + 210)}, 80, `;
+        }
+      }
+
+      update() {
+        if (!canvas) return;
+        this.x += this.speedX;
+        this.y += this.speedY;
+        
+        if (type === "leaves" || type === "confetti") {
+          this.angle += this.spin;
+        }
+
+        if (type === "lanterns") {
+          if (this.y < -20 || this.x < -20 || this.x > canvas.width + 20) {
+            this.reset();
+          }
+        } else {
+          if (this.y > canvas.height + 20 || this.x < -20 || this.x > canvas.width + 20) {
+            this.reset();
+          }
+        }
+      }
+
+      draw() {
+        if (!ctx) return;
+        ctx.save();
+
+        if (type === "lanterns") {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 1.6);
+          grad.addColorStop(0, "rgba(255, 220, 150, 1)");
+          grad.addColorStop(0.3, this.color + this.opacity + ")");
+          grad.addColorStop(1, "rgba(255, 50, 0, 0)");
+          ctx.fillStyle = grad;
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.moveTo(this.x, this.y + this.size);
+          ctx.lineTo(this.x, this.y + this.size * 1.8);
+          ctx.strokeStyle = `rgba(220, 30, 0, ${this.opacity * 0.7})`;
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+        } else if (type === "snow") {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          ctx.fillStyle = this.color + this.opacity + ")";
+          ctx.fill();
+        } else if (type === "leaves") {
+          ctx.translate(this.x, this.y);
+          ctx.rotate((this.angle * Math.PI) / 180);
+          ctx.beginPath();
+          ctx.ellipse(0, 0, this.size, this.size * 0.5, 0, 0, Math.PI * 2);
+          ctx.fillStyle = this.color;
+          ctx.globalAlpha = this.opacity;
+          ctx.fill();
+        } else if (type === "confetti") {
+          ctx.translate(this.x, this.y);
+          ctx.rotate((this.angle * Math.PI) / 180);
+          ctx.fillStyle = this.color;
+          ctx.globalAlpha = this.opacity;
+          ctx.fillRect(-this.size / 2, -this.size / 4, this.size, this.size / 2);
+        } else {
+          ctx.translate(this.x, this.y);
+          ctx.beginPath();
+          for (let i = 0; i < 4; i++) {
+            ctx.rotate(Math.PI / 2);
+            ctx.lineTo(0, this.size);
+            ctx.lineTo(this.size * 0.18, 0);
+          }
+          ctx.closePath();
+          ctx.fillStyle = this.color + this.opacity + ")";
+          ctx.fill();
+        }
+
+        ctx.restore();
+      }
+    }
+
+    for (let i = 0; i < maxParticles; i++) {
+      particles.push(new Particle());
+    }
+
+    const animate = () => {
+      if (!ctx || !canvas) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      particles.forEach((p) => {
+        p.update();
+        p.draw();
+      });
+
+      animationFrameId = requestAnimationFrame(animate);
+    };
+    animate();
+
+    return () => {
+      window.removeEventListener("resize", resizeCanvas);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [type]);
+
+  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-10 opacity-70" />;
+}
+
 interface EmployeeHeaderProps {
   onMenuClick?: () => void;
 }
 
 interface ProfileData {
+  id?: string;
   name: string;
   email: string;
   avatarUrl?: string;
+  current_status?: "AVAILABLE" | "LUNCH" | "BREAK";
+  lunch_start_time?: string | null;
+  lunch_expected_end?: string | null;
+  break_start_time?: string | null;
 }
 
 interface Notification {
@@ -149,16 +345,34 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
         imageConfig?: { dataUrl?: string; url?: string; size?: string; position?: string; repeat?: string };
         overlay?: { enabled: boolean; color: string };
         height: number;
+        holidayTheme?: {
+          active: boolean;
+          name: string;
+          displayName: string;
+          message: string;
+          backgroundType: 'color' | 'image';
+          colorConfig?: { from: string; via: string; to: string };
+          imageConfig?: { dataUrl?: string; url?: string; size?: string; position?: string; repeat?: string };
+          overlay?: { enabled: boolean; color: string };
+          effects?: string;
+          isLunar?: boolean;
+        };
       } }>("/api/header-settings");
     },
   });
 
   const headerSettings = headerSettingsQuery.data?.item;
+  const activeHoliday = headerSettings?.holidayTheme?.active ? headerSettings.holidayTheme : null;
   const headerHeight = 300;
-  const headerImageUrlRaw =
-    headerSettings?.backgroundType === "image"
+  
+  const headerImageUrlRaw = activeHoliday
+    ? activeHoliday.backgroundType === "image"
+      ? activeHoliday.imageConfig?.url || activeHoliday.imageConfig?.dataUrl
+      : null
+    : headerSettings?.backgroundType === "image"
       ? headerSettings?.imageConfig?.url || headerSettings?.imageConfig?.dataUrl
       : null;
+
   const headerImageUrl = headerImageUrlRaw ? toProxiedUrl(headerImageUrlRaw) : null;
   const hasImageBackground = Boolean(headerImageUrl);
 
@@ -185,6 +399,24 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
   });
   const announcementUnread = announcementUnreadQuery.data ?? 0;
 
+  // Direct message conversations preview
+  const conversationsQuery = useQuery({
+    queryKey: ["employee-conversations-preview", profile?.name],
+    queryFn: async () => {
+      const name = profile?.name;
+      if (!name) return [];
+      const res = await employeeApiFetch<{ items?: any[] }>(`/api/messages/conversations/${encodeURIComponent(name)}`);
+      return (res.items || []).slice(0, 4);
+    },
+    enabled: !!profile?.name,
+    staleTime: 20000,
+  });
+
+  const unreadMessageCount = (conversationsQuery.data || []).reduce(
+    (sum: number, c: any) => sum + (c.unreadCount || 0),
+    0
+  );
+
   const notificationsQuery = useQuery({
     queryKey: ["employee-notifications"],
     queryFn: async () => {
@@ -195,13 +427,49 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
     refetchInterval: 30000,
   });
 
-  // Real-time: immediately refresh unread count when a targeted notification arrives
+  // Real-time: immediately refresh unread count when a targeted notification or message arrives
   useEffect(() => {
     if (!socket) return;
     const handleNew = () => { queryClient.invalidateQueries({ queryKey: ["employee-notifications"] }); };
     socket.on("new-notification", handleNew);
-    return () => { socket.off("new-notification", handleNew); };
-  }, [socket, queryClient]);
+
+    const handleNewMessage = () => {
+      queryClient.invalidateQueries({ queryKey: ["employee-conversations-preview"] });
+    };
+    socket.on("new-message", handleNewMessage);
+
+    const handleStatusUpdate = (payload: {
+      userId: string;
+      current_status: "AVAILABLE" | "LUNCH" | "BREAK";
+      lunch_start_time: string | null;
+      lunch_expected_end: string | null;
+      break_start_time: string | null;
+      name: string;
+    }) => {
+      if (profile && profile.id === payload.userId) {
+        setProfile((prev) => {
+          if (!prev) return null;
+          const updated = {
+            ...prev,
+            current_status: payload.current_status,
+            lunch_start_time: payload.lunch_start_time,
+            lunch_expected_end: payload.lunch_expected_end,
+            break_start_time: payload.break_start_time,
+          };
+          localStorage.setItem("employee_cached_profile", JSON.stringify(updated));
+          return updated;
+        });
+      }
+    };
+
+    socket.on("status-update", handleStatusUpdate);
+
+    return () => {
+      socket.off("new-notification", handleNew);
+      socket.off("new-message", handleNewMessage);
+      socket.off("status-update", handleStatusUpdate);
+    };
+  }, [socket, queryClient, profile]);
 
   const notifications = (notificationsQuery.data || [])
     .slice()
@@ -282,36 +550,98 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
     }
   };
 
+  const getStatusDot = () => {
+    const status = profile?.current_status || "AVAILABLE";
+    if (status === "LUNCH") {
+      return (
+        <div 
+          className="absolute -bottom-0.5 -right-0.5 h-3 w-3 border-2 border-black rounded-full shadow-md animate-pulse"
+          style={{ backgroundColor: "#F59E0B", animationDuration: "1s" }}
+          title="On Lunch"
+        />
+      );
+    }
+    if (status === "BREAK") {
+      return (
+        <div 
+          className="absolute -bottom-0.5 -right-0.5 h-3 w-3 border-2 border-black rounded-full shadow-md animate-pulse"
+          style={{ backgroundColor: "#8B5CF6", animationDuration: "1s" }}
+          title="On Break"
+        />
+      );
+    }
+    return (
+      <div 
+        className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-black rounded-full shadow-md"
+        title="Available"
+      />
+    );
+  };
+
+  const getAvatarStyles = () => {
+    const status = profile?.current_status || "AVAILABLE";
+    if (status === "LUNCH") {
+      return {
+        borderColor: "#F59E0B",
+        boxShadow: "0 0 10px rgba(245, 158, 11, 0.5)",
+      };
+    }
+    if (status === "BREAK") {
+      return {
+        borderColor: "#8B5CF6",
+        boxShadow: "0 0 10px rgba(139, 92, 246, 0.5)",
+      };
+    }
+    return {};
+  };
+
   return (
     <header
-      className="fixed top-0 left-0 right-0 z-50 shadow-floating"
-      style={{ height: '300px' }}
+      className="fixed top-0 left-0 right-0 z-50 shadow-floating h-40 sm:h-[220px] md:h-[300px]"
     >
       <div
         className="w-full h-full relative overflow-hidden group"
         style={{
-          background: hasImageBackground
-            ? 'transparent'
-            : `linear-gradient(to right, ${headerSettings?.colorConfig?.from || 'var(--tb-header-bg)'}, ${headerSettings?.colorConfig?.via || 'var(--tb-header-bg)'}, ${headerSettings?.colorConfig?.to || 'var(--tb-header-bg)'})`
+          background: activeHoliday
+            ? activeHoliday.backgroundType === "image"
+              ? "transparent"
+              : `linear-gradient(to right, ${activeHoliday.colorConfig?.from || '#133767'}, ${activeHoliday.colorConfig?.via || '#133767'}, ${activeHoliday.colorConfig?.to || '#133767'})`
+            : hasImageBackground
+              ? 'transparent'
+              : `linear-gradient(to right, ${headerSettings?.colorConfig?.from || 'var(--tb-header-bg)'}, ${headerSettings?.colorConfig?.via || 'var(--tb-header-bg)'}, ${headerSettings?.colorConfig?.to || 'var(--tb-header-bg)'})`
         }}
       >
-        {/* Background Image */}
-        {hasImageBackground && (
+        {/* Holiday Effects Canvas Overlay */}
+        {activeHoliday?.effects && (
+          <HolidayEffects type={activeHoliday.effects} />
+        )}
+
+        {/* Background Image (Holiday overrides custom) */}
+        {(activeHoliday?.backgroundType === "image" || (!activeHoliday && hasImageBackground)) && (
           <>
             <img      
-              src={headerImageUrl || undefined}
+              src={activeHoliday?.backgroundType === "image"
+                ? toProxiedUrl(activeHoliday.imageConfig?.url || activeHoliday.imageConfig?.dataUrl)
+                : headerImageUrl || undefined}
               alt="header background"
               className="absolute inset-0 w-full h-full"
               style={{
                 objectFit: 'cover',
-                objectPosition: headerSettings?.imageConfig?.position || 'center',
+                objectPosition: activeHoliday?.backgroundType === "image"
+                  ? activeHoliday.imageConfig?.position || 'center'
+                  : headerSettings?.imageConfig?.position || 'center',
               }}
               draggable={false}
             />
-            {headerSettings?.overlay?.enabled && (
+            {((activeHoliday && activeHoliday.overlay?.enabled) || (!activeHoliday && headerSettings?.overlay?.enabled)) && (
               <div
                 className="absolute inset-0"
-                style={{ backgroundColor: headerSettings.overlay.color || 'var(--tb-header-overlay-color)', opacity: headerSettings.overlay.color ? 1 : 'var(--tb-header-overlay-opacity)' }}
+                style={{
+                  backgroundColor: activeHoliday
+                    ? activeHoliday.overlay.color || "rgba(0,0,0,0.3)"
+                    : headerSettings.overlay.color || 'var(--tb-header-overlay-color)',
+                  opacity: 1
+                }}
               />
             )}
           </>
@@ -320,7 +650,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
         <div className="absolute inset-0 flex flex-col pointer-events-none">
           {/* Header Content Area */}
           <div
-            className="flex-1 relative flex flex-col justify-end px-3 sm:px-6 lg:px-8 md:pl-64 pb-8 sm:pb-12 md:pb-16 animate-fade-in pointer-events-auto"
+            className="flex-1 relative flex flex-col justify-end px-3 sm:px-6 lg:px-8 md:pl-64 pb-3 sm:pb-6 md:pb-16 animate-fade-in pointer-events-auto"
           >
             {/* Header Picture Edit Buttons */}
             <div className="absolute top-4 right-4 z-20 flex gap-2">
@@ -340,109 +670,124 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
               </button>
             </div>
 
-            {/* LEFT SIDE: Branding and Profile Stacking */}
-            <div className="flex flex-col gap-4">
-              {/* Profile Card (Top) */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <div className="flex items-center gap-3 p-2 rounded-xl backdrop-blur-md border hover:bg-black/30 transition-all cursor-pointer group w-fit" style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', borderColor: 'var(--tb-header-border, rgba(255,255,255,0.1))' }}>
-                    <div className="relative">
-                      <Avatar className="h-10 w-10 border shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20 transition-all" style={{ borderColor: 'var(--tb-header-border, rgba(255,255,255,0.2))' }}>
-                        {profile?.avatarUrl ? (
-                          <AvatarImage src={toProxiedUrl(profile.avatarUrl)} alt={fullName} crossOrigin="anonymous" className="object-cover" />
-                        ) : (
-                          <AvatarFallback className="bg-gradient-to-br from-[#00C6FF] to-[#0072FF] text-white text-xs font-bold">{initials}</AvatarFallback>
-                        )}
-                      </Avatar>
-                      <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-black rounded-full" />
+            {/* Branding and Profile - Structured Flex Layout for Right Greeting Banner */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 w-full">
+              <div className="flex flex-col gap-2 sm:gap-4">
+                {/* Profile Card (Top) */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <div className="flex items-center gap-3 p-2 rounded-xl backdrop-blur-md border hover:bg-black/30 transition-all cursor-pointer group w-fit" style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', borderColor: 'var(--tb-header-border, rgba(255,255,255,0.1))' }}>
+                      <div className="relative">
+                        <Avatar className="h-10 w-10 border shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20 transition-all" style={{ borderColor: 'var(--tb-header-border, rgba(255,255,255,0.2))' }}>
+                          {profile?.avatarUrl ? (
+                            <AvatarImage src={toProxiedUrl(profile.avatarUrl)} alt={fullName} crossOrigin="anonymous" className="object-cover" />
+                          ) : (
+                            <AvatarFallback className="bg-gradient-to-br from-[#00C6FF] to-[#0072FF] text-white text-xs font-bold">{initials}</AvatarFallback>
+                          )}
+                        </Avatar>
+                        <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-black rounded-full" />
+                      </div>
+                      <div className="flex flex-col min-w-0 pr-4">
+                        <span className="text-base font-bold truncate leading-tight drop-shadow-md" style={{ color: 'var(--tb-sidebar-text-color, white)' }}>{fullName}</span>
+                        <span className="text-[11px] truncate tracking-wide uppercase font-semibold" style={{ color: 'var(--tb-sidebar-text-color, white)', opacity: 0.6 }}>Employee</span>
+                      </div>
                     </div>
-                    <div className="flex flex-col min-w-0 pr-4">
-                      <span className="text-base font-bold truncate leading-tight drop-shadow-md" style={{ color: 'var(--tb-sidebar-text-color, white)' }}>{fullName}</span>
-                      <span className="text-[11px] truncate tracking-wide uppercase font-semibold" style={{ color: 'var(--tb-sidebar-text-color, white)', opacity: 0.6 }}>Employee</span>
-                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" side="bottom" className="w-56 mt-2">
+                    <DropdownMenuLabel className="text-xs">Account Settings</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => navigate("/employee/profile")}>
+                      <User className="mr-2 h-4 w-4" /> Profile Details
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/employee/ui-customization")}>
+                      <Settings className="mr-2 h-4 w-4" /> UI Preferences
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Quick Actions Bar (Bottom) */}
+                <div className="flex items-center justify-start gap-4">
+                  <div className="md:hidden">
+                    <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full transition-all" aria-label="Open navigation" title="Open navigation" onClick={() => onMenuClick?.()} style={{ backgroundColor: 'var(--tb-header-bg, rgba(255,255,255,0.1))' }}><Menu className="h-5 w-5" style={{ color: 'var(--tb-sidebar-text-color, white)' }} /></button>
                   </div>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" side="bottom" className="w-56 mt-2">
-                  <DropdownMenuLabel className="text-xs">Account Settings</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate("/employee/profile")}>
-                    <User className="mr-2 h-4 w-4" /> Profile Details
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/employee/ui-customization")}>
-                    <Settings className="mr-2 h-4 w-4" /> UI Preferences
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
 
-              {/* Quick Actions Bar (Bottom) */}
-              <div className="flex items-center justify-start gap-4">
-                <div className="md:hidden">
-                  <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full transition-all" aria-label="Open navigation" title="Open navigation" onClick={() => onMenuClick?.()} style={{ backgroundColor: 'var(--tb-header-bg, rgba(255,255,255,0.1))' }}><Menu className="h-5 w-5" style={{ color: 'var(--tb-sidebar-text-color, white)' }} /></button>
-                </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="relative group p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-black/40" style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, white)', opacity: 0.7 }}>
+                        <Mail className="h-5 w-5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
+                      <DropdownMenuLabel className="text-xs">Direct Messages</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <div className="p-4 text-center text-xs text-muted-foreground">No messages</div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="relative group p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-black/40" style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, white)', opacity: 0.7 }}>
-                      <Mail className="h-5 w-5" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
-                    <DropdownMenuLabel className="text-xs">Direct Messages</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <div className="p-4 text-center text-xs text-muted-foreground">No messages</div>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                <button
-                  type="button"
-                  title="Announcements"
-                  onClick={() => navigate("/employee/announcements")}
-                  className="relative group p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-black/40"
-                  style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, white)', opacity: 0.7 }}
-                >
-                  <Megaphone className="h-5 w-5" />
-                  {announcementUnread > 0 && (
-                    <Badge className="absolute -top-1 -right-1 h-4 min-w-4 px-0.5 flex items-center justify-center bg-[#00C6FF] text-[9px] border-black text-black font-bold">
-                      {announcementUnread > 9 ? "9+" : announcementUnread}
-                    </Badge>
-                  )}
-                </button>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button className="relative group p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-black/40" style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, white)', opacity: 0.7 }}>
-                      <Bell className="h-4.5 w-4.5" />
-                      {unreadCount > 0 && (
-                        <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[9px] border-black">
-                          {unreadCount > 9 ? "9+" : unreadCount}
-                        </Badge>
-                      )}
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
-                    <DropdownMenuLabel className="text-xs">Notifications</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    {notifications.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-muted-foreground">No notifications</div>
-                    ) : (
-                      notifications.map((n: Notification) => (
-                        <DropdownMenuItem key={n.id} className="text-xs cursor-pointer focus:bg-white/10" onClick={() => { void markRead(n.id); navigate(resolveEmployeeLink(n)); }}>
-                          {String(n.content || "")}
-                        </DropdownMenuItem>
-                      ))
+                  <button
+                    type="button"
+                    title="Announcements"
+                    onClick={() => navigate("/employee/announcements")}
+                    className="relative group p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-black/40"
+                    style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, white)', opacity: 0.7 }}
+                  >
+                    <Megaphone className="h-5 w-5" />
+                    {announcementUnread > 0 && (
+                      <Badge className="absolute -top-1 -right-1 h-4 min-w-4 px-0.5 flex items-center justify-center bg-[#00C6FF] text-[9px] border-black text-black font-bold">
+                        {announcementUnread > 9 ? "9+" : announcementUnread}
+                      </Badge>
                     )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  </button>
 
-                <button
-                  onClick={onLogout}
-                  className="p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-red-500/20"
-                  title="Logout"
-                  style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, #f87171)', opacity: 0.7 }}
-                >
-                  <LogOut className="h-4.5 w-4.5" />
-                </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="relative group p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-black/40" style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, white)', opacity: 0.7 }}>
+                        <Bell className="h-4.5 w-4.5" />
+                        {unreadCount > 0 && (
+                          <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[9px] border-black">
+                            {unreadCount > 9 ? "9+" : unreadCount}
+                          </Badge>
+                        )}
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
+                      <DropdownMenuLabel className="text-xs">Notifications</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      {notifications.length === 0 ? (
+                        <div className="p-4 text-center text-xs text-muted-foreground">No notifications</div>
+                      ) : (
+                        notifications.map((n: Notification) => (
+                          <DropdownMenuItem key={n.id} className="text-xs cursor-pointer focus:bg-white/10" onClick={() => { void markRead(n.id); navigate(resolveEmployeeLink(n)); }}>
+                            {String(n.content || "")}
+                          </DropdownMenuItem>
+                        ))
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <button
+                    onClick={onLogout}
+                    className="p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-red-500/20"
+                    title="Logout"
+                    style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, #f87171)', opacity: 0.7 }}
+                  >
+                    <LogOut className="h-4.5 w-4.5" />
+                  </button>
+                </div>
               </div>
+
+              {/* Holiday/Seasonal Greeting Banner Card (Right Side) */}
+              {activeHoliday && (
+                <div className="flex flex-col items-center md:items-end justify-center pointer-events-auto p-3 rounded-xl bg-black/30 backdrop-blur-md border border-white/10 max-w-sm text-center md:text-right md:mb-1 mr-2 shadow-xl animate-fade-in relative z-20">
+                  <div className="text-xs sm:text-sm font-bold text-white drop-shadow-md flex items-center gap-1.5 justify-center md:justify-end">
+                    <Sparkles className="h-4 w-4 text-[#FFD700]" />
+                    <span>{activeHoliday.displayName}</span>
+                  </div>
+                  <p className="text-[10px] sm:text-[11px] text-white/95 drop-shadow-sm leading-normal mt-1 font-semibold">
+                    {activeHoliday.message}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>

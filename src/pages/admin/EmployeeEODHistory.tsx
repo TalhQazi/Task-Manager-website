@@ -13,7 +13,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ClipboardList, Calendar, Clock, ChevronLeft, CheckCircle, AlertCircle } from "lucide-react";
-import { getAdminEmployeeEODReports, toProxiedUrl } from "@/lib/admin/apiClient";
+import { apiFetch, getAdminEmployeeEODReports, toProxiedUrl } from "@/lib/admin/apiClient";
 import { toast } from "sonner";
 
 interface EODReport {
@@ -27,6 +27,8 @@ interface EODReport {
   createdAt: string;
   clockIn?: string;
   clockOut?: string;
+  clockInAt?: string | null;
+  clockOutAt?: string | null;
   totalHours?: number;
 }
 
@@ -50,7 +52,63 @@ export default function EmployeeEODHistory() {
     try {
       const decodedName = decodeURIComponent(employeeName || "");
       const res = await getAdminEmployeeEODReports(decodedName);
-      setReports(res.items || []);
+      let loadedReports = res.items || [];
+
+      // Proactively fetch today's EOD status to see if today's report is missing/not submitted
+      try {
+        const todayStatusRes = await apiFetch<Array<{
+          employeeId: string;
+          employeeName: string;
+          avatar?: string;
+          status: string; // "submitted" | "missing" | "late" | "not_clocked_in"
+          clockIn?: string;
+          clockOut?: string;
+          clockInAt?: string | null;
+          clockOutAt?: string | null;
+          reportSubmittedAt?: string;
+        }>>("/api/admin/eod-status");
+
+        const myTodayStatus = todayStatusRes.find(
+          (emp) => emp.employeeName.toLowerCase() === decodedName.toLowerCase()
+        );
+
+        if (myTodayStatus && myTodayStatus.status !== "submitted") {
+          const todayStr = new Date().toISOString().slice(0, 10);
+          const hasTodayReport = loadedReports.some(
+            (r) => new Date(r.date).toISOString().slice(0, 10) === todayStr
+          );
+
+          if (!hasTodayReport) {
+            const virtualTodayReport: EODReport = {
+              id: "virtual-today",
+              userId: myTodayStatus.employeeId,
+              employeeName: myTodayStatus.employeeName,
+              date: new Date().toISOString(),
+              rawInput: JSON.stringify({
+                tasksCompleted: myTodayStatus.status === "not_clocked_in"
+                  ? "Employee has not clocked in today."
+                  : "End-of-day report has not been submitted yet.",
+                issuesBlockers: "",
+                notes: ""
+              }),
+              inputType: "text",
+              status: myTodayStatus.status,
+              createdAt: new Date().toISOString(),
+              clockIn: myTodayStatus.clockIn,
+              clockOut: myTodayStatus.clockOut,
+              clockInAt: myTodayStatus.clockInAt,
+              clockOutAt: myTodayStatus.clockOutAt,
+              totalHours: undefined,
+            };
+
+            loadedReports = [virtualTodayReport, ...loadedReports];
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load today's EOD status for virtual row:", err);
+      }
+
+      setReports(loadedReports);
     } catch (err) {
       console.error("Failed to load employee EOD reports:", err);
       toast.error("Failed to load employee EOD reports");
@@ -65,6 +123,16 @@ export default function EmployeeEODHistory() {
       day: "numeric",
       year: "numeric",
     });
+  };
+
+  const formatLocalClock = (timeStr?: string | null, isoAt?: string | null): string => {
+    if (isoAt) {
+      const d = new Date(isoAt);
+      if (Number.isFinite(d.getTime())) {
+        return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      }
+    }
+    return String(timeStr || "").trim() || "--:--";
   };
 
   const getInitials = (name: string) => {
@@ -88,18 +156,30 @@ export default function EmployeeEODHistory() {
     switch (status) {
       case "submitted":
         return (
-          <Badge variant="outline" className="border-green-500 text-green-700 bg-green-50">
+          <Badge variant="outline" className="border-green-500 text-green-700 bg-green-50 capitalize">
             Submitted
           </Badge>
         );
       case "late":
         return (
-          <Badge variant="outline" className="border-yellow-500 text-yellow-700 bg-yellow-50">
+          <Badge variant="outline" className="border-yellow-500 text-yellow-700 bg-yellow-50 capitalize">
             Late
           </Badge>
         );
+      case "missing":
+        return (
+          <Badge variant="outline" className="border-red-500 text-red-700 bg-red-50 capitalize">
+            Missing
+          </Badge>
+        );
+      case "not_clocked_in":
+        return (
+          <Badge variant="outline" className="border-gray-500 text-gray-700 bg-gray-50 capitalize">
+            Not Clocked In
+          </Badge>
+        );
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return <Badge variant="outline" className="capitalize">{status.replace(/_/g, " ")}</Badge>;
     }
   };
 
@@ -196,13 +276,13 @@ export default function EmployeeEODHistory() {
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Clock className="h-4 w-4 text-green-500" />
-                            <span className="font-medium">{report.clockIn || "--:--"}</span>
+                            <span className="font-medium">{formatLocalClock(report.clockIn, report.clockInAt)}</span>
                           </div>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Clock className="h-4 w-4 text-blue-500" />
-                            <span className="font-medium">{report.clockOut || "--:--"}</span>
+                            <span className="font-medium">{formatLocalClock(report.clockOut, report.clockOutAt)}</span>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -268,11 +348,11 @@ export default function EmployeeEODHistory() {
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Clock In</p>
-                    <p className="text-sm font-medium">{selectedReport.clockIn || "—"}</p>
+                    <p className="text-sm font-medium">{formatLocalClock(selectedReport.clockIn, selectedReport.clockInAt)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Clock Out</p>
-                    <p className="text-sm font-medium">{selectedReport.clockOut || "—"}</p>
+                    <p className="text-sm font-medium">{formatLocalClock(selectedReport.clockOut, selectedReport.clockOutAt)}</p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-500">Total Hours</p>

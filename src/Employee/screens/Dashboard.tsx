@@ -1,15 +1,16 @@
-import  React,{ useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getEmployeeDashboard, getEmployeeProfile, getOnboardingStatus } from "../lib/api";
+import { getEmployeeDashboard, getEmployeeProfile, getOnboardingStatus, startLunch, endLunch, startBreak, endBreak } from "../lib/api";
 import { employeeApiFetch } from "../lib/api";
 import { getEmployeeAuth } from "../lib/auth";
-import { CheckCircle, Clock, AlertCircle, MessageSquare, Calendar, Timer, ListTodo, AlertTriangle, DollarSign, CheckSquare2, Users, UserCog, ChevronDown, ChevronUp, Briefcase, Bug } from "lucide-react";
+import { CheckCircle, Clock, AlertCircle, MessageSquare, Calendar, Timer, ListTodo, AlertTriangle, DollarSign, CheckSquare2, Users, UserCog, ChevronDown, ChevronUp, Briefcase, Bug, Utensils, Coffee } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { EmployeeStatCard } from "../components/StatCard";
+import { useSocket } from "@/contexts/SocketContext";
 
 interface TeamLeadMapping {
   teamLead: string;
@@ -142,6 +143,274 @@ export default function EmployeeDashboard() {
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
   });
+
+  const queryClient = useQueryClient();
+  const { socket } = useSocket();
+  const [statusActionLoading, setStatusActionLoading] = useState(false);
+  const [timeLeft, setTimeLeft] = useState<number | null>(null);
+
+  // Time remaining tick effect for lunch/break countdown
+  useEffect(() => {
+    const profile = profileQuery.data;
+    if (!profile) {
+      setTimeLeft(null);
+      return;
+    }
+
+    const currentStatus = (profile as any).current_status || "AVAILABLE";
+    if (currentStatus === "AVAILABLE") {
+      setTimeLeft(null);
+      return;
+    }
+
+    const tick = () => {
+      const now = Date.now();
+      let targetTime = 0;
+
+      if (currentStatus === "LUNCH") {
+        targetTime = (profile as any).lunch_expected_end ? new Date((profile as any).lunch_expected_end).getTime() : 0;
+      } else if (currentStatus === "BREAK") {
+        const startTime = (profile as any).break_start_time ? new Date((profile as any).break_start_time).getTime() : 0;
+        targetTime = startTime + 15 * 60 * 1000; // 15 mins for break
+      }
+
+      if (!targetTime) {
+        setTimeLeft(null);
+        return;
+      }
+
+      const diff = Math.max(0, Math.round((targetTime - now) / 1000));
+      setTimeLeft(diff);
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [profileQuery.data]);
+
+  // Socket listener for real-time status updates matching current user
+  useEffect(() => {
+    if (!socket) return;
+    const handleStatusUpdate = (payload: {
+      userId: string;
+      current_status: "AVAILABLE" | "LUNCH" | "BREAK";
+      lunch_start_time: string | null;
+      lunch_expected_end: string | null;
+      break_start_time: string | null;
+      name: string;
+    }) => {
+      const profile = profileQuery.data;
+      if (profile && (profile as any).id === payload.userId) {
+        queryClient.setQueryData(["employee-profile"], (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            current_status: payload.current_status,
+            lunch_start_time: payload.lunch_start_time,
+            lunch_expected_end: payload.lunch_expected_end,
+            break_start_time: payload.break_start_time,
+          };
+        });
+        // Also invalidate dashboard query to sync clocked status if needed
+        queryClient.invalidateQueries({ queryKey: ["employee-dashboard"] });
+      }
+    };
+
+    socket.on("status-update", handleStatusUpdate);
+    return () => {
+      socket.off("status-update", handleStatusUpdate);
+    };
+  }, [socket, profileQuery.data, queryClient]);
+
+  const handleStartLunch = async () => {
+    try {
+      setStatusActionLoading(true);
+      const res = await startLunch();
+      if (res.ok) {
+        queryClient.setQueryData(["employee-profile"], (old: any) => {
+          if (!old) return old;
+          return { ...old, ...res.employee };
+        });
+      }
+    } catch (e) {
+      console.error("Failed to start lunch:", e);
+    } finally {
+      setStatusActionLoading(false);
+    }
+  };
+
+  const handleEndLunch = async () => {
+    try {
+      setStatusActionLoading(true);
+      const res = await endLunch();
+      if (res.ok) {
+        queryClient.setQueryData(["employee-profile"], (old: any) => {
+          if (!old) return old;
+          return { ...old, ...res.employee };
+        });
+      }
+    } catch (e) {
+      console.error("Failed to end lunch:", e);
+    } finally {
+      setStatusActionLoading(false);
+    }
+  };
+
+  const handleStartBreak = async () => {
+    try {
+      setStatusActionLoading(true);
+      const res = await startBreak();
+      if (res.ok) {
+        queryClient.setQueryData(["employee-profile"], (old: any) => {
+          if (!old) return old;
+          return { ...old, ...res.employee };
+        });
+      }
+    } catch (e) {
+      console.error("Failed to start break:", e);
+    } finally {
+      setStatusActionLoading(false);
+    }
+  };
+
+  const handleEndBreak = async () => {
+    try {
+      setStatusActionLoading(true);
+      const res = await endBreak();
+      if (res.ok) {
+        queryClient.setQueryData(["employee-profile"], (old: any) => {
+          if (!old) return old;
+          return { ...old, ...res.employee };
+        });
+      }
+    } catch (e) {
+      console.error("Failed to end break:", e);
+    } finally {
+      setStatusActionLoading(false);
+    }
+  };
+
+  const formatTimeLeft = (sec: number | null) => {
+    if (sec === null) return "";
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+  };
+
+  const renderStatusWidget = () => {
+    const profile = profileQuery.data;
+    if (!profile) return null;
+
+    const currentStatus = (profile as any).current_status || "AVAILABLE";
+
+    let bgStyle = "bg-[#1e293b]/60 border-[#475569]/50 shadow-[0_8px_32px_0_rgba(0,0,0,0.37)]";
+    let glowColor = "rgba(71, 85, 105, 0.3)";
+    let accentColor = "text-[#94a3b8]";
+    let statusLabel = "Available";
+    let statusDesc = "Ready for tasks and coordination";
+    let IconComponent = CheckCircle;
+    let iconClass = "text-green-400";
+
+    if (currentStatus === "LUNCH") {
+      bgStyle = "bg-[#7c2d12]/40 border-[#b45309]/30 shadow-[0_8px_32px_0_rgba(251,146,60,0.15)]";
+      glowColor = "rgba(251, 146, 60, 0.25)";
+      accentColor = "text-[#fdba74]";
+      statusLabel = "On Lunch Break";
+      statusDesc = "Dining or away from station";
+      IconComponent = Utensils;
+      iconClass = "text-[#f97316] animate-pulse duration-1000";
+    } else if (currentStatus === "BREAK") {
+      bgStyle = "bg-[#4c1d95]/40 border-[#7c3aed]/30 shadow-[0_8px_32px_0_rgba(167,139,250,0.15)]";
+      glowColor = "rgba(167, 139, 250, 0.25)";
+      accentColor = "text-[#ddd6fe]";
+      statusLabel = "On Short Break";
+      statusDesc = "Stepped away for a moment";
+      IconComponent = Coffee;
+      iconClass = "text-[#8b5cf6] animate-bounce duration-1000";
+    }
+
+    return (
+      <div
+        className={cn(
+          "relative rounded-xl border-[2px] backdrop-blur-md p-6 overflow-hidden transition-all duration-500",
+          bgStyle
+        )}
+        style={{
+          boxShadow: `inset 0 0 20px rgba(0,0,0,0.4), 0 0 30px ${glowColor}`,
+        }}
+      >
+        <div className="absolute inset-[2px] rounded-lg border border-white/5 pointer-events-none" />
+
+        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6 z-10">
+          <div className="flex items-center gap-4">
+            <div className={cn("p-4 rounded-xl bg-black/40 border border-white/10 flex items-center justify-center", currentStatus !== "AVAILABLE" && "animate-pulse")}>
+              <IconComponent className={cn("h-8 w-8", iconClass)} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-bold text-white tracking-wide">{statusLabel}</h3>
+                {currentStatus !== "AVAILABLE" && (
+                  <Badge variant="outline" className={cn("border-white/20 text-xs px-2 py-0.5", accentColor)}>
+                    Active
+                  </Badge>
+                )}
+              </div>
+              <p className="text-sm text-gray-300 mt-0.5">{statusDesc}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+            {currentStatus !== "AVAILABLE" && timeLeft !== null && (
+              <div className="flex items-center justify-center gap-2 px-4 py-2 bg-black/50 border border-white/10 rounded-xl">
+                <Timer className="h-4 w-4 text-gray-400" />
+                <span className="text-sm font-semibold text-gray-400">Time Remaining:</span>
+                <span className={cn("text-lg font-bold tracking-wider tabular-nums font-mono", accentColor)}>
+                  {formatTimeLeft(timeLeft)}
+                </span>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              {currentStatus === "AVAILABLE" ? (
+                <>
+                  <Button
+                    onClick={handleStartLunch}
+                    disabled={statusActionLoading}
+                    className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg transition-all"
+                  >
+                    <Utensils className="h-4 w-4" /> Go to Lunch
+                  </Button>
+                  <Button
+                    onClick={handleStartBreak}
+                    disabled={statusActionLoading}
+                    className="bg-[#8b5cf6] hover:bg-purple-700 text-white font-bold px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg transition-all"
+                  >
+                    <Coffee className="h-4 w-4" /> Go on Break
+                  </Button>
+                </>
+              ) : currentStatus === "LUNCH" ? (
+                <Button
+                  onClick={handleEndLunch}
+                  disabled={statusActionLoading}
+                  className="bg-green-600 hover:bg-green-700 text-white font-bold px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg transition-all"
+                >
+                  <CheckCircle className="h-4 w-4" /> End Lunch
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleEndBreak}
+                  disabled={statusActionLoading}
+                  className="bg-green-600 hover:bg-green-700 text-white font-bold px-4 py-2 rounded-xl flex items-center gap-2 shadow-lg transition-all"
+                >
+                  <CheckCircle className="h-4 w-4" /> End Break
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   // Bug count state
   const [myBugCount, setMyBugCount] = useState(0);
@@ -345,9 +614,9 @@ export default function EmployeeDashboard() {
         {/* Inner Bevel */}
         <div className="absolute inset-[2px] rounded-lg border border-white/10 pointer-events-none" />
 
-        <div className="relative p-6 flex items-center justify-between z-10">
+        <div className="relative p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 z-10">
           <div>
-            <h1 className="text-2xl font-bold mb-2 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
+            <h1 className="text-xl sm:text-2xl font-bold mb-1 sm:mb-2 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
               Welcome{employeeName ? `, ${employeeName}` : " to Employee Portal"}
             </h1>
             <p className="text-[#d0d0d0] text-sm drop-shadow-md">View your tasks and manage your work efficiently.</p>
@@ -376,13 +645,15 @@ export default function EmployeeDashboard() {
         </div>
       </div>
 
+      {renderStatusWidget()}
+
       {/* Onboarding Warning Banner */}
       {!isOnboardingApproved && (
         <Card className="border-l-4 border-l-orange-500 bg-orange-50">
           <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-full bg-orange-100 flex items-center justify-center flex-shrink-0">
                   <AlertTriangle className="h-5 w-5 text-orange-600" />
                 </div>
                 <div>
@@ -396,7 +667,7 @@ export default function EmployeeDashboard() {
                   </p>
                 </div>
               </div>
-              <Button asChild className="bg-orange-600 hover:bg-orange-700">
+              <Button asChild className="bg-orange-600 hover:bg-orange-700 w-full sm:w-auto flex-shrink-0">
                 <Link to="/employee/profile">Complete Onboarding</Link>
               </Button>
             </div>
@@ -725,15 +996,15 @@ export default function EmployeeDashboard() {
               {data?.recentTasks?.map((task) => (
                 <div
                   key={task.id}
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors"
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-3 sm:p-4 border rounded-lg hover:bg-slate-50 transition-colors gap-2"
                 >
-                  <div>
-                    <p className="font-medium">{task.title}</p>
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{task.title}</p>
                     <p className="text-sm text-muted-foreground">
                       Due: {task.dueDate || "No due date"}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Badge
                       variant={
                         task.status === "completed"

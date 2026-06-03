@@ -33,10 +33,12 @@ import {
   Clock,
   Shield,
   FileText,
+  Globe,
 } from "lucide-react";
 
-import { getEmployeeProfile, employeeApiFetch, updateBankInfo, updateTaxInfo, toProxiedUrl } from "../lib/api";
+import { getEmployeeProfile, employeeApiFetch, updateBankInfo, updateTaxInfo, toProxiedUrl, getVideoHistory } from "../lib/api";
 import ClearHireOnboardingForm from "../components/ClearHireOnboardingForm";
+import { VideoMessageModal, type VideoMessagePayload } from "../components/VideoMessageModal";
 
 
 interface EmployeeProfileData {
@@ -86,6 +88,13 @@ export default function EmployeeProfile() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [userSettings, setUserSettings] = useState<{
+    language: string;
+    timezone: string;
+    countryCode: string;
+  }>({ language: "en", timezone: "UTC", countryCode: "US" });
+  const [savingSettings, setSavingSettings] = useState(false);
+
   const [bank, setBank] = useState({
   accountName: "",
   accountNumber: "",
@@ -100,6 +109,10 @@ const [tax, setTax] = useState({
 });
 
 const [uploading, setUploading] = useState(false);
+const [videoHistory, setVideoHistory] = useState<VideoMessagePayload[]>([]);
+const [loadingVideoHistory, setLoadingVideoHistory] = useState(false);
+const [selectedVideoHistory, setSelectedVideoHistory] = useState<VideoMessagePayload | null>(null);
+const [historyModalOpen, setHistoryModalOpen] = useState(false);
 
   // MFA state
   const [mfaModalOpen, setMfaModalOpen] = useState(false);
@@ -177,6 +190,46 @@ const hasTaxInfo =
     loadOnboardingData();
   }, []);
 
+  useEffect(() => {
+    if (profile?.id) {
+      loadVideoHistory();
+    }
+  }, [profile]);
+
+  const loadVideoHistory = async () => {
+    if (!profile?.id) return;
+    setLoadingVideoHistory(true);
+    try {
+      const response = await getVideoHistory(profile.id);
+      setVideoHistory(
+        (response.items || []).map((item) => ({
+          id: item.id,
+          messageType: item.messageType,
+          title: item.videoTitle,
+          subtitle: item.videoSubtitle,
+          videoUrl: item.videoUrl,
+          deliveredAt: item.deliveredAt,
+          acknowledgedAt: item.acknowledgedAt || null,
+          replayCount: item.replayCount || 0,
+        }))
+      );
+    } catch (err) {
+      console.error("Failed to load video history:", err);
+    } finally {
+      setLoadingVideoHistory(false);
+    }
+  };
+
+  const openVideoHistoryModal = (video: VideoMessagePayload) => {
+    setSelectedVideoHistory(video);
+    setHistoryModalOpen(true);
+  };
+
+  const closeVideoHistoryModal = () => {
+    setSelectedVideoHistory(null);
+    setHistoryModalOpen(false);
+  };
+
   const loadProfile = async () => {
     try {
       const res = await getEmployeeProfile();
@@ -185,22 +238,52 @@ const hasTaxInfo =
       setEditedProfile(res.item);
       setEditedWorkInfo(res.item);
       setBank((res.item as any).bankInfo || {
-      accountName: "",
-      accountNumber: "",
-      ifsc: "",
-      bankName: "",
-    });
+        accountName: "",
+        accountNumber: "",
+        ifsc: "",
+        bankName: "",
+      });
 
-    setTax((res.item as any).taxSettings || {
-      pan: "",
-      tds: "",
-      regime: "",
-    });
+      setTax((res.item as any).taxSettings || {
+        pan: "",
+        tds: "",
+        regime: "",
+      });
+
+      // Fetch User Settings
+      try {
+        const sRes = await employeeApiFetch<{ item?: any }>("/api/settings");
+        if (sRes && sRes.item) {
+          setUserSettings({
+            language: sRes.item.language || "en",
+            timezone: sRes.item.timezone || "UTC",
+            countryCode: sRes.item.countryCode || "US",
+          });
+        }
+      } catch (e) {
+        console.error("Failed to load user settings:", e);
+      }
     } catch (err) {
       console.error("Failed to load profile:", err);
       toast.error("Failed to load profile");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSaveLocalization = async () => {
+    setSavingSettings(true);
+    try {
+      await employeeApiFetch("/api/settings", {
+        method: "PUT",
+        body: JSON.stringify(userSettings),
+      });
+      toast.success("Localization preferences updated successfully");
+      window.dispatchEvent(new CustomEvent("header-settings-updated"));
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update localization preferences");
+    } finally {
+      setSavingSettings(false);
     }
   };
 
@@ -335,12 +418,15 @@ const hasTaxInfo =
   const calculateProgress = () => {
     if (!onboardingData) return 0;
     let completed = 0;
-    const total = 6;
+    const total = 7;
 
     // Basic Information
     if (onboardingData.basicInfo?.completed) completed++;
 
-    // Work Information (New Step 2)
+    // ClearHire Background Check
+    if (clearHireStatus?.status === "GREEN") completed++;
+
+    // Work Information
     if (onboardingData.workInfo?.completed) completed++;
 
     // Identity Verification
@@ -892,6 +978,52 @@ const hasTaxInfo =
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5" />
+            Video Message History
+          </CardTitle>
+          <CardDescription>
+            Review messages delivered by leadership and replay them from your profile.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loadingVideoHistory ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 className="h-5 w-5 animate-spin text-slate-500" />
+            </div>
+          ) : videoHistory.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center text-sm text-slate-500">
+              No video messages found yet.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {videoHistory.map((video) => (
+                <div
+                  key={video.id}
+                  className="flex flex-col gap-3 rounded-2xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p className="font-semibold text-slate-900">{video.title}</p>
+                    <p className="text-sm text-slate-500">{video.subtitle || "Executive update"}</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Delivered {video.deliveredAt ? new Date(video.deliveredAt).toLocaleString() : "Unknown"}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="outline" size="sm" onClick={() => openVideoHistoryModal(video)}>
+                      View / Replay
+                    </Button>
+                    <Badge className="bg-slate-100 text-slate-700">Replays {video.replayCount || 0}</Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Tabs */}
       <Tabs defaultValue="onboarding" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
@@ -992,7 +1124,7 @@ const hasTaxInfo =
               )}
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name" className="flex items-center gap-2">
                     <User className="h-4 w-4 text-gray-400" />
@@ -1077,17 +1209,20 @@ const hasTaxInfo =
             </CardContent>
           </Card>
 
+          {/* Step 2: ClearHire Background Check */}
+          <ClearHireOnboardingForm onStatusChange={loadOnboardingData} />
+
           {/* Work Information */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-700">2</div>
+                <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-700">3</div>
                 Work Information
               </CardTitle>
               <CardDescription>Your employment and work details</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2">
                     <Briefcase className="h-4 w-4 text-gray-400" />
@@ -1170,7 +1305,7 @@ const hasTaxInfo =
           </Card>
 
 
-          {/* Step 3: Identity Verification */}
+          {/* Step 4: Identity Verification */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -1178,7 +1313,7 @@ const hasTaxInfo =
                   onboardingData?.identityVerification?.primaryId?.status === "verified" &&
                   onboardingData?.identityVerification?.secondaryId?.status === "verified"
                     ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                }`}>3</div>
+                }`}>4</div>
                 Identity Verification
               </CardTitle>
               <CardDescription>Upload 2 different government IDs (Required)</CardDescription>
@@ -1327,13 +1462,13 @@ const hasTaxInfo =
             </CardContent>
           </Card>
 
-          {/* Step 4: W-4 Form */}
+          {/* Step 5: W-4 Form */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${
                   onboardingData?.w4Form?.status === "verified" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                }`}>4</div>
+                }`}>5</div>
                 W-4 Tax Form
               </CardTitle>
               <CardDescription>Complete your tax withholding information</CardDescription>
@@ -1380,13 +1515,13 @@ const hasTaxInfo =
             </CardContent>
           </Card>
 
-          {/* Step 5: Employee Handbook */}
+          {/* Step 6: Employee Handbook */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${
                   onboardingData?.employeeHandbook?.status === "verified" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                }`}>5</div>
+                }`}>6</div>
                 Employee Handbook
               </CardTitle>
               <CardDescription>Read and acknowledge the employee handbook</CardDescription>
@@ -1433,13 +1568,13 @@ const hasTaxInfo =
             </CardContent>
           </Card>
 
-          {/* Step 6: Digital Signature */}
+          {/* Step 7: Digital Signature */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${
                   onboardingData?.digitalSignature?.status === "verified" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                }`}>6</div>
+                }`}>7</div>
                 Digital Signature
               </CardTitle>
               <CardDescription>Add your digital signature for official documents</CardDescription>
@@ -1476,11 +1611,11 @@ const hasTaxInfo =
             </CardContent>
           </Card>
 
-          {/* Step 7: Review & Submit */}
+          {/* Step 8: Review & Submit */}
           <Card className="border-2 border-[#133767]">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center text-sm font-bold text-red-700">7</div>
+                <div className="h-8 w-8 rounded-full bg-red-100 flex items-center justify-center text-sm font-bold text-red-700">8</div>
                 Review & Submit
               </CardTitle>
               <CardDescription>Review all information and submit for admin approval</CardDescription>
@@ -1490,6 +1625,10 @@ const hasTaxInfo =
                 <div className="flex items-center gap-2 text-sm">
                   {onboardingData?.basicInfo?.completed ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-red-500" />}
                   <span>Basic Information - {onboardingData?.basicInfo?.completed ? "Completed" : "Not completed"}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  {clearHireStatus?.status === "GREEN" ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-red-500" />}
+                  <span>Background Check (ClearHire®) - {clearHireStatus?.status === "GREEN" ? "Completed (GREEN)" : `Incomplete (${clearHireStatus?.status || "Not Started"})`}</span>
                 </div>
                 <div className="flex items-center gap-2 text-sm">
                   {profile?.jobTitle && profile?.department ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-red-500" />}
@@ -1528,6 +1667,7 @@ const hasTaxInfo =
                   onboardingData?.overallStatus === "submitted" ||
                   onboardingData?.overallStatus === "approved" ||
                   !onboardingData?.basicInfo?.completed ||
+                  clearHireStatus?.status !== "GREEN" ||
                   !["submitted", "verified"].includes(onboardingData?.identityVerification?.primaryId?.status ?? "") ||
                   !["submitted", "verified"].includes(onboardingData?.identityVerification?.secondaryId?.status ?? "") ||
                   !["submitted", "verified"].includes(onboardingData?.w4Form?.status ?? "") ||
@@ -1668,8 +1808,121 @@ const hasTaxInfo =
               )}
             </CardContent>
           </Card>
+
+          {/* Localization Preferences */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Globe className="h-5 w-5 text-[#133767]" />
+                Localization & Holiday Preferences
+              </CardTitle>
+              <CardDescription>Configure language, timezone, and country for dynamic seasonal headers</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="pref-lang">Language</Label>
+                  <select
+                    id="pref-lang"
+                    className="w-full px-3 py-2 text-sm border rounded-md bg-white dark:bg-zinc-950 border-input"
+                    value={userSettings.language}
+                    onChange={(e) => setUserSettings(prev => ({ ...prev, language: e.target.value }))}
+                  >
+                    <option value="en">English (US/UK)</option>
+                    <option value="fr">Français (French)</option>
+                    <option value="de">Deutsch (German)</option>
+                    <option value="es">Español (Spanish)</option>
+                    <option value="zh">中文 (Chinese)</option>
+                    <option value="jp">日本語 (Japanese)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="pref-country">Home Region / Country</Label>
+                  <select
+                    id="pref-country"
+                    className="w-full px-3 py-2 text-sm border rounded-md bg-white dark:bg-zinc-950 border-input"
+                    value={userSettings.countryCode}
+                    onChange={(e) => setUserSettings(prev => ({ ...prev, countryCode: e.target.value }))}
+                  >
+                    <option value="US">United States (US)</option>
+                    <option value="IN">India (IN)</option>
+                    <option value="CN">China (CN)</option>
+                    <option value="JP">Japan (JP)</option>
+                    <option value="FR">France (FR)</option>
+                    <option value="DE">Germany (DE)</option>
+                    <option value="CA">Canada (CA)</option>
+                    <option value="AU">Australia (AU)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="pref-tz">Preferred Timezone</Label>
+                  <select
+                    id="pref-tz"
+                    className="w-full px-3 py-2 text-sm border rounded-md bg-white dark:bg-zinc-950 border-input"
+                    value={userSettings.timezone}
+                    onChange={(e) => setUserSettings(prev => ({ ...prev, timezone: e.target.value }))}
+                  >
+                    <option value="America/New_York">Eastern Time (New York)</option>
+                    <option value="Europe/London">Greenwich Mean Time (London)</option>
+                    <option value="Europe/Paris">Central European Time (Paris)</option>
+                    <option value="Europe/Berlin">Central European Time (Berlin)</option>
+                    <option value="Asia/Kolkata">India Standard Time (Kolkata)</option>
+                    <option value="Asia/Shanghai">China Standard Time (Beijing)</option>
+                    <option value="Asia/Tokyo">Japan Standard Time (Tokyo)</option>
+                    <option value="Australia/Sydney">Eastern Australia Time (Sydney)</option>
+                    <option value="UTC">Coordinated Universal Time (UTC)</option>
+                  </select>
+                </div>
+              </div>
+
+              <Button
+                onClick={handleSaveLocalization}
+                disabled={savingSettings}
+                className="bg-[#133767] hover:bg-[#1a4585] mt-4"
+              >
+                {savingSettings && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Save Localization
+              </Button>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={historyModalOpen} onOpenChange={setHistoryModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Video Message</DialogTitle>
+            <DialogDescription>
+              Replay the message and review delivery details.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedVideoHistory ? (
+            <div className="space-y-4">
+              <div className="rounded-3xl overflow-hidden border border-slate-200 bg-slate-950">
+                <video
+                  src={selectedVideoHistory.videoUrl}
+                  controls
+                  autoPlay
+                  className="w-full max-h-[420px] bg-black"
+                />
+              </div>
+              <div className="space-y-2 text-sm text-slate-400">
+                <p className="text-slate-200 font-semibold">{selectedVideoHistory.title}</p>
+                <p>{selectedVideoHistory.subtitle || "Executive update"}</p>
+                <p>Delivered: {selectedVideoHistory.deliveredAt ? new Date(selectedVideoHistory.deliveredAt).toLocaleString() : "Unknown"}</p>
+                <p>Replays: {selectedVideoHistory.replayCount || 0}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">No video selected.</p>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={closeVideoHistoryModal}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* MFA Setup Dialog */}
       <Dialog open={mfaModalOpen} onOpenChange={setMfaModalOpen}>

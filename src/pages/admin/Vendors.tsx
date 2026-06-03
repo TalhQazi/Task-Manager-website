@@ -171,19 +171,19 @@ export default function Vendors() {
       toast({ title: "Service type is required", variant: "destructive" });
       return false;
     }
-    if (!formData.location.trim()) {
-      toast({ title: "Location is required", description: "Please select a location from the dropdown.", variant: "destructive" });
-      return false;
-    }
     return true;
   };
 
   const handleCreate = async () => {
     if (!validateForm()) return;
     try {
+      const payload = {
+        ...formData,
+        location: formData.location === "none-selected" ? "" : formData.location
+      };
       const res = await apiFetch<{ item: Vendor }>("/api/vendors", {
         method: "POST",
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
       setVendors([res.item, ...vendors]);
       setIsCreateOpen(false);
@@ -198,9 +198,13 @@ export default function Vendors() {
     if (!selectedVendor) return;
     if (!validateForm()) return;
     try {
+      const payload = {
+        ...formData,
+        location: formData.location === "none-selected" ? "" : formData.location
+      };
       const res = await apiFetch<{ item: Vendor }>(`/api/vendors/${selectedVendor._id}`, {
         method: "PUT",
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
       setVendors(vendors.map((v) => (v._id === res.item._id ? res.item : v)));
       setIsEditOpen(false);
@@ -304,7 +308,7 @@ export default function Vendors() {
       zip: "",
       website: "",
       serviceType: categories[0]?.name || "",
-      location: locations[0]?.name || "",
+      location: "none-selected",
       status: "approved",
       notes: "",
     });
@@ -346,10 +350,16 @@ export default function Vendors() {
               Manage approved and not-approved vendors by location and category
             </p>
           </div>
-          <Button onClick={openCreate}>
-            <Plus className="w-4 h-4 mr-2" />
-            Add Vendor
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setIsNewCategoryOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Category
+            </Button>
+            <Button onClick={openCreate}>
+              <Plus className="w-4 h-4 mr-2" />
+              Add Vendor
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -602,28 +612,23 @@ export default function Vendors() {
               </div>
 
               <div className="space-y-2">
-                <Label>Location *</Label>
+                <Label>Location</Label>
                 <Select
-                  value={formData.location}
+                  value={formData.location || "none-selected"}
                   onValueChange={(value) =>
                     setFormData({ ...formData, location: value })
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={locations?.length === 0 ? "No locations found" : "Select location"} />
+                    <SelectValue placeholder="Select location (optional)" />
                   </SelectTrigger>
                   <SelectContent>
-                    {locations?.length === 0 ? (
-                      <SelectItem value="no-locations" disabled>
-                        No locations available
+                    <SelectItem value="none-selected">None</SelectItem>
+                    {locations.map((loc) => (
+                      <SelectItem key={loc._id} value={loc.name}>
+                        {loc.name}
                       </SelectItem>
-                    ) : (
-                      locations.map((loc) => (
-                        <SelectItem key={loc._id} value={loc.name}>
-                          {loc.name}
-                        </SelectItem>
-                      ))
-                    )}
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -871,17 +876,18 @@ export default function Vendors() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Location *</Label>
+                <Label>Location</Label>
                 <Select
-                  value={formData.location}
+                  value={formData.location || "none-selected"}
                   onValueChange={(value) =>
                     setFormData({ ...formData, location: value })
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Select location (optional)" />
                   </SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="none-selected">None</SelectItem>
                     {locations.map((loc) => (
                       <SelectItem key={loc._id} value={loc.name}>
                         {loc.name}

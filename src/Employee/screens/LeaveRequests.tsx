@@ -114,7 +114,7 @@ export default function EmployeeLeaveRequests() {
           <CardDescription>Submit a new leave request (admin will approve/reject).</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">Type</label>
               <select
@@ -142,12 +142,12 @@ export default function EmployeeLeaveRequests() {
               <Input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
             </div>
 
-            <div className="space-y-2 md:col-span-2">
+            <div className="space-y-2 sm:col-span-2">
               <label className="text-sm font-medium">Reason (optional)</label>
               <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Reason..." />
             </div>
 
-            <div className="md:col-span-2 flex justify-end">
+            <div className="sm:col-span-2 flex justify-end">
               <Button onClick={() => void onSubmit()} disabled={submitting}>
                 {submitting ? "Submitting..." : "Submit Request"}
               </Button>

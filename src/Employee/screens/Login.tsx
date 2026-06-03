@@ -45,16 +45,16 @@ export default function EmployeeLogin() {
     setLoading(true);
 
     try {
-      const res = await employeeApiFetch<{ 
-        item: { 
-          token: string; 
+      const res = await employeeApiFetch<{
+        item: {
+          token: string;
           role: string;
           username: string;
           name: string;
-        } 
-      }>("/api/auth/employee-login", {
+        }
+      }>("/api/auth/login", {
         method: "POST",
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, email: username, password }),
       });
 
       setEmployeeAuth({

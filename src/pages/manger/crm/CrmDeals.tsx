@@ -111,7 +111,7 @@ export default function CRMDealsReadOnly() {
   );
 
   return (
-    <div className="min-h-screen bg-[#080b10]">
+    <div className="min-h-screen bg-background text-foreground">
       {/* Top accent */}
       <div className="fixed top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-sky-500 via-violet-500 to-teal-500 z-50" />
 
@@ -133,11 +133,11 @@ export default function CRMDealsReadOnly() {
               💼
             </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Deals</h1>
-              <p className="text-neutral-500 text-xs mt-0.5">Review pipeline deals · Read-only manager view</p>
+              <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">Deals</h1>
+              <p className="text-muted-foreground text-xs mt-0.5">Review pipeline deals · Read-only manager view</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-xs text-neutral-400 bg-neutral-900 border border-neutral-800 px-4 py-2 rounded-xl self-start sm:self-auto">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-background/5 border border-border/10 px-4 py-2 rounded-xl self-start sm:self-auto">
             <span className="w-2 h-2 rounded-full bg-amber-400" />
             Read-only view
           </div>
@@ -153,10 +153,10 @@ export default function CRMDealsReadOnly() {
         )}
 
         {/* ── Search + Filters ── */}
-        <section className="bg-neutral-900/60 border border-neutral-800/80 rounded-2xl p-4 space-y-4">
+        <section className="bg-background/60 border border-border/10 rounded-2xl p-4 space-y-4">
           {/* Search */}
           <div className="relative">
-            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
@@ -164,7 +164,7 @@ export default function CRMDealsReadOnly() {
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search deals, companies, owners…"
-              className="w-full pl-10 pr-10 py-2.5 bg-neutral-800/60 border border-neutral-700/80 rounded-xl text-sm text-white placeholder-neutral-600
+              className="w-full pl-10 pr-10 py-2.5 bg-background/5 border border-border/10 rounded-xl text-sm text-foreground placeholder:text-muted-foreground
                 outline-none focus:ring-2 focus:ring-sky-500/30 focus:border-sky-500/40 transition-all"
             />
             {searchQuery && (
@@ -179,7 +179,7 @@ export default function CRMDealsReadOnly() {
 
           {/* Stage pills */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs text-neutral-600 font-medium mr-1 shrink-0">Stage:</span>
+            <span className="text-xs text-muted-foreground font-medium mr-1 shrink-0">Stage:</span>
             {['All', ...STAGES].map((s) => {
               const cfg = s !== 'All' ? STAGE_CONFIG[s] : null;
               const isActive = stageFilter === s;
@@ -205,7 +205,7 @@ export default function CRMDealsReadOnly() {
         </section>
 
         {/* ── Table/Cards ── */}
-        <section className="bg-neutral-900/60 border border-neutral-800/80 rounded-2xl overflow-hidden">
+        <section className="bg-background/60 border border-border/10 rounded-2xl overflow-hidden">
 
           {/* Loading */}
           {loading && (
@@ -214,7 +214,7 @@ export default function CRMDealsReadOnly() {
                 <div className="absolute inset-0 rounded-full border-2 border-neutral-800" />
                 <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-sky-500 animate-spin" />
               </div>
-              <p className="text-neutral-500 text-sm">Loading deals…</p>
+              <p className="text-muted-foreground text-sm">Loading deals…</p>
             </div>
           )}
 
@@ -223,9 +223,9 @@ export default function CRMDealsReadOnly() {
             <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="border-b border-neutral-800 bg-neutral-950/50">
+                  <tr className="border-b border-border/10 bg-background/5">
                     {['Deal', 'Company', 'Value', 'Stage', 'Probability', 'Close Date', 'Owner', ''].map((h) => (
-                      <th key={h} className="px-5 py-3.5 text-[10px] font-bold text-neutral-500 uppercase tracking-widest whitespace-nowrap">
+                      <th key={h} className="px-5 py-3.5 text-[10px] font-bold text-muted-foreground uppercase tracking-widest whitespace-nowrap">
                         {h}
                       </th>
                     ))}
@@ -258,11 +258,11 @@ export default function CRMDealsReadOnly() {
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-2">
                             {deal.company && (
-                              <div className="w-5 h-5 rounded-md bg-neutral-700 border border-neutral-600 flex items-center justify-center text-[9px] font-bold text-neutral-400 shrink-0">
+                              <div className="w-5 h-5 rounded-md bg-background/5 border border-border/10 flex items-center justify-center text-[9px] font-bold text-muted-foreground shrink-0">
                                 {deal.company.charAt(0).toUpperCase()}
                               </div>
                             )}
-                            <span className="text-sm text-neutral-400">{deal.company || '—'}</span>
+                            <span className="text-sm text-muted-foreground">{deal.company || '—'}</span>
                           </div>
                         </td>
 
@@ -283,7 +283,7 @@ export default function CRMDealsReadOnly() {
 
                         {/* Close Date */}
                         <td className="px-5 py-4">
-                          <span className="text-xs text-neutral-500 font-medium">{formatDate(deal.closeDate)}</span>
+                          <span className="text-xs text-muted-foreground font-medium">{formatDate(deal.closeDate)}</span>
                         </td>
 
                         {/* Owner */}
@@ -294,7 +294,7 @@ export default function CRMDealsReadOnly() {
                                 {deal.owner.charAt(0).toUpperCase()}
                               </div>
                             )}
-                            <span className="text-xs text-neutral-400 truncate max-w-[80px]">{deal.owner || '—'}</span>
+                            <span className="text-xs text-muted-foreground truncate max-w-[80px]">{deal.owner || '—'}</span>
                           </div>
                         </td>
 
@@ -315,12 +315,12 @@ export default function CRMDealsReadOnly() {
 
               {/* Footer */}
               {filteredDeals.length > 0 && (
-                <div className="px-5 py-3 border-t border-neutral-800/60 bg-neutral-950/30 flex items-center justify-between">
-                  <span className="text-xs text-neutral-600">
-                    Showing <span className="text-neutral-400 font-medium">{filteredDeals.length}</span> of{' '}
-                    <span className="text-neutral-400 font-medium">{deals.length}</span> deals
+                <div className="px-5 py-3 border-t border-border/10 bg-background/5 flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    Showing <span className="text-muted-foreground font-medium">{filteredDeals.length}</span> of{' '}
+                    <span className="text-muted-foreground font-medium">{deals.length}</span> deals
                   </span>
-                  <span className="text-xs text-neutral-600">
+                  <span className="text-xs text-muted-foreground">
                     Total: <span className="text-emerald-400 font-bold">{formatCurrency(totalFilteredValue)}</span>
                   </span>
                 </div>

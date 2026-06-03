@@ -90,59 +90,105 @@ export default function TimeLogs() {
               <p className="text-sm">Start tracking your time by clocking in</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Date</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Clock In</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Clock Out</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Duration</th>
-                    <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {logs.map((log, index) => (
-                    <tr key={log.id || index} className="border-b hover:bg-muted/50">
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-muted-foreground" />
-                          {formatDate(log.clock_in)}
+            <>
+              {/* Mobile card view */}
+              <div className="md:hidden space-y-3">
+                {logs.map((log, index) => (
+                  <div key={log.id || index} className="border rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        {formatDate(log.clock_in)}
+                      </div>
+                      {log.clock_out ? (
+                        <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Completed</Badge>
+                      ) : (
+                        <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">Active</Badge>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div>
+                        <p className="text-xs text-muted-foreground">Clock In</p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <Clock className="h-3 w-3 text-green-500" />
+                          <span>{formatTime(log.clock_in)}</span>
                         </div>
-                      </td>
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-green-500" />
-                          {formatTime(log.clock_in)}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4">
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Clock Out</p>
                         {log.clock_out ? (
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-red-500" />
-                            {formatTime(log.clock_out)}
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <Clock className="h-3 w-3 text-red-500" />
+                            <span>{formatTime(log.clock_out)}</span>
                           </div>
                         ) : (
-                          <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                          <Badge variant="outline" className="mt-0.5 bg-yellow-50 text-yellow-700 border-yellow-200 text-xs">
                             In Progress
                           </Badge>
                         )}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="font-medium">{log.total_hours?.toFixed(2) || "0.00"} hrs</span>
-                      </td>
-                      <td className="py-3 px-4">
-                        {log.clock_out ? (
-                          <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Completed</Badge>
-                        ) : (
-                          <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">Active</Badge>
-                        )}
-                      </td>
+                      </div>
+                    </div>
+                    <div className="text-sm font-medium">
+                      Duration: {log.total_hours?.toFixed(2) || "0.00"} hrs
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* Desktop table view */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Date</th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Clock In</th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Clock Out</th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Duration</th>
+                      <th className="text-left py-3 px-4 font-medium text-muted-foreground">Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {logs.map((log, index) => (
+                      <tr key={log.id || index} className="border-b hover:bg-muted/50">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            {formatDate(log.clock_in)}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-green-500" />
+                            {formatTime(log.clock_in)}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          {log.clock_out ? (
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-4 w-4 text-red-500" />
+                              {formatTime(log.clock_out)}
+                            </div>
+                          ) : (
+                            <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
+                              In Progress
+                            </Badge>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="font-medium">{log.total_hours?.toFixed(2) || "0.00"} hrs</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          {log.clock_out ? (
+                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100">Completed</Badge>
+                          ) : (
+                            <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">Active</Badge>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

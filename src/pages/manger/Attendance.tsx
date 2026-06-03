@@ -148,31 +148,59 @@ export default function Attendance() {
 
     const loadData = async () => {
 
+      const auth = getAuthState();
+
+      const currentUser = (auth.name || auth.username || "Manager").trim();
+
+      setManagerName(currentUser);
+
+      const today = new Date().toISOString().split("T")[0];
+
+      const cacheKey = `attendance_entry_${today}_${currentUser}`;
+
+
+
+      // Restore cached entry immediately so the page doesn't flash "Not Clocked In"
+
       try {
 
-        const auth = getAuthState();
+        const cached = sessionStorage.getItem(cacheKey);
 
-        const currentUser = auth.username || "Manager";
+        if (cached) {
 
-        setManagerName(currentUser);
+          setTimeEntry(JSON.parse(cached));
 
-        
+        }
 
-        const today = new Date().toISOString().split("T")[0];
+      } catch {}
 
-        const res = await apiFetch<{ items: TimeEntry[] }>(`/api/time-entries?date=${today}`);
 
-        // Filter to only show current user's entry
 
-        const todayEntry = res.items?.find(e => e.employee?.toLowerCase() === currentUser.toLowerCase()) || null;
+      try {
+
+        const res = await apiFetch<{ items: TimeEntry[] }>(`/api/time-entries?employee=${encodeURIComponent(currentUser)}&limit=50`);
+
+        // Filter to only show today's entry
+
+        const todayEntry = res.items?.find(e => new Date(e.date).toISOString().split("T")[0] === today) || null;
 
         setTimeEntry(todayEntry);
+
+        // Persist to sessionStorage so refresh restores correct state
+
+        if (todayEntry) {
+
+          sessionStorage.setItem(cacheKey, JSON.stringify(todayEntry));
+
+        } else {
+
+          sessionStorage.removeItem(cacheKey);
+
+        }
 
       } catch (err) {
 
         console.warn("Time entry not available:", err);
-
-        setTimeEntry(null);
 
       } finally {
 
@@ -200,19 +228,13 @@ export default function Attendance() {
 
         const auth = getAuthState();
 
-        const currentUser = auth.username || "";
+        const currentUser = (auth.name || auth.username || "").trim();
 
-        
 
-        const res = await apiFetch<{ items: TimeEntry[] }>("/api/time-entries?limit=30");
 
-        // Filter to only show current user's history
+        const res = await apiFetch<{ items: TimeEntry[] }>(`/api/time-entries?employee=${encodeURIComponent(currentUser)}&limit=30`);
 
-        const userHistory = (res.items || []).filter(e => 
-
-          e.employee?.toLowerCase() === currentUser.toLowerCase()
-
-        );
+        const userHistory = res.items || [];
 
         setHistory(userHistory);
 
@@ -244,23 +266,23 @@ export default function Attendance() {
 
       const auth = getAuthState();
 
-      const currentUser = auth.username || "Manager";
-
-      
+      const currentUser = (auth.name || auth.username || "Manager").trim();
 
       const now = new Date();
 
       const date = now.toISOString().split("T")[0];
 
-      const clockIn = now.toTimeString().split(" ")[0];
+      const clockIn = now.toTimeString().slice(0, 5);
 
-      
+
 
       const res = await apiFetch<{ item: TimeEntry }>("/api/time-entries", {
 
         method: "POST",
 
         body: JSON.stringify({
+
+          employee: currentUser,
 
           date,
 
@@ -270,13 +292,21 @@ export default function Attendance() {
 
           status: "incomplete",
 
-          employee: currentUser,
-
         }),
 
       });
 
       setTimeEntry(res.item);
+
+      // Persist so refresh restores clocked-in state
+
+      const today = new Date().toISOString().split("T")[0];
+
+      const auth2 = getAuthState();
+
+      const name2 = (auth2.name || auth2.username || "Manager").trim();
+
+      sessionStorage.setItem(`attendance_entry_${today}_${name2}`, JSON.stringify(res.item));
 
       toast.success("Clocked in successfully");
 
@@ -340,12 +370,6 @@ export default function Attendance() {
 
     try {
 
-      const auth = getAuthState();
-
-      const currentUser = auth.username || "";
-
-      
-
       // Use existing timeEntry state instead of fetching
 
       if (!timeEntry) {
@@ -356,25 +380,17 @@ export default function Attendance() {
 
 
 
-      const now = new Date();
+      const auth = getAuthState();
 
-      const clockOut = now.toTimeString().split(" ")[0];
+      const currentUser = (auth.name || auth.username || "").trim();
 
-      
 
-      // Update the time entry with clock out
 
-      const res = await apiFetch<{ item: TimeEntry }>(`/api/time-entries/${timeEntry.id}`, {
+      const res = await apiFetch<{ item: TimeEntry }>(`/api/time-entries/${timeEntry.id}/clock-out`, {
 
-        method: "PUT",
+        method: "POST",
 
         body: JSON.stringify({
-
-          clockOut,
-
-          clockOutAt: now.toISOString(),
-
-          status: "complete",
 
           eodReport: {
 
@@ -390,7 +406,7 @@ export default function Attendance() {
 
       });
 
-      
+
 
       toast.success("Clocked out successfully");
 
@@ -408,19 +424,23 @@ export default function Attendance() {
 
       setTimeEntry(res.item);
 
-      
+      // Update session cache with clocked-out entry
 
-      // Refresh history - filter by current user
+      const today2 = new Date().toISOString().split("T")[0];
 
-      const historyRes = await apiFetch<{ items: TimeEntry[] }>("/api/time-entries?limit=30");
+      const auth3 = getAuthState();
 
-      const userHistory = (historyRes.items || []).filter(e => 
+      const name3 = (auth3.name || auth3.username || "Manager").trim();
 
-        e.employee?.toLowerCase() === currentUser.toLowerCase()
+      sessionStorage.setItem(`attendance_entry_${today2}_${name3}`, JSON.stringify(res.item));
 
-      );
 
-      setHistory(userHistory);
+
+      // Refresh history
+
+      const historyRes = await apiFetch<{ items: TimeEntry[] }>(`/api/time-entries?employee=${encodeURIComponent(currentUser)}&limit=30`);
+
+      setHistory(historyRes.items || []);
 
     } catch (err) {
 
@@ -470,7 +490,19 @@ export default function Attendance() {
 
   };
 
-
+  const formatHistoryDate = (value: string | null | undefined): string => {
+    const raw = String(value || "").trim();
+    if (!raw) return "—";
+    const m = /^\d{4}-\d{2}-\d{2}/.exec(raw);
+    const dateStr = m ? `${m[0]}T00:00:00` : raw;
+    const d = new Date(dateStr);
+    if (!Number.isFinite(d.getTime())) return raw;
+    return d.toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
 
   const formatLocalClock = (timeStr?: string | null, isoAt?: string | null): string => {
 
@@ -906,16 +938,7 @@ export default function Attendance() {
 
                         <TableCell className="font-medium text-xs sm:text-sm">
 
-                          {new Date(entry.date).toLocaleDateString(undefined, {
-
-                            month: "short",
-
-                            day: "numeric",
-
-                            year: "numeric",
-
-                          })}
-
+                          {formatHistoryDate(entry.date)}
                         </TableCell>
 
                         <TableCell className="text-xs sm:text-sm">{formatLocalClock(entry.clockIn, entry.clockInAt)}</TableCell>

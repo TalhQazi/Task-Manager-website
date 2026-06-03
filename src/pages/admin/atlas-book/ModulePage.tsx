@@ -33,6 +33,34 @@ import {
   Shield, CheckCircle2, TrendingUp, Sparkles, Building
 } from "lucide-react";
 
+// Import premium screens and context to replace placeholder screens
+import { AtlasBooksProvider } from "../../../contexts/AtlasBooksContext";
+import CommandCenter from "../../atlasbooks/CommandCenter";
+import ProfitAndLoss from "../../atlasbooks/financials/ProfitAndLoss";
+import BalanceSheet from "../../atlasbooks/financials/BalanceSheet";
+import CashFlow from "../../atlasbooks/financials/CashFlow";
+import BudgetVsActual from "../../atlasbooks/financials/BudgetVsActual";
+import Forecasting from "../../atlasbooks/financials/Forecasting";
+import ConsolidatedStatements from "../../atlasbooks/financials/ConsolidatedStatements";
+import Payroll from "../../atlasbooks/operations/Payroll";
+import Vendors from "../../atlasbooks/operations/Vendors";
+import Expenses from "../../atlasbooks/operations/Expenses";
+import Assets from "../../atlasbooks/operations/Assets";
+import Approvals from "../../atlasbooks/operations/Approvals";
+import PropertiesList from "../../atlasbooks/properties/PropertiesList";
+import UnitsList from "../../atlasbooks/properties/UnitsList";
+import Occupancy from "../../atlasbooks/properties/Occupancy";
+import NOI from "../../atlasbooks/properties/NOI";
+import MaintenanceCosts from "../../atlasbooks/properties/MaintenanceCosts";
+import TitleMonitoringPage from "../../atlasbooks/properties/TitleMonitoring";
+import FraudAnalytics from "../../atlasbooks/monitoring/FraudAnalytics";
+import CreditMonitoringPage from "../../atlasbooks/monitoring/CreditMonitoring";
+import TitleAlerts from "../../atlasbooks/monitoring/TitleAlerts";
+import LienAlerts from "../../atlasbooks/monitoring/LienAlerts";
+import CashAlerts from "../../atlasbooks/monitoring/CashAlerts";
+import AnomalyDetection from "../../atlasbooks/monitoring/AnomalyDetection";
+
+
 const moduleData: Record<string, { title: string; features: string[]; accounts: string[]; icon: any; component?: any }> = {
   "company": {
     title: "Company Management",
@@ -239,6 +267,72 @@ export default function AtlasModulePage() {
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground italic">Module not found.</p>
       </div>
+    );
+  }
+
+  // Intercept all module IDs and map to our newly built premium screens
+  const getPremiumComponent = () => {
+    switch (moduleId) {
+      case "company":
+      case "dashboard":
+      case "analytics":
+        return <CommandCenter />;
+      case "property":
+        return <PropertiesList />;
+      case "unit":
+        return <UnitsList />;
+      case "coa":
+      case "gl":
+      case "loans":
+        return <BalanceSheet />;
+      case "transactions":
+        return <CommandCenter />;
+      case "ap":
+      case "vendor":
+        return <Vendors />;
+      case "ar":
+      case "reporting":
+        return <ProfitAndLoss />;
+      case "customer":
+        return <Occupancy />;
+      case "ocr":
+        return <Expenses />;
+      case "inventory":
+      case "fixed-assets":
+        return <Assets />;
+      case "payroll":
+        return <Payroll />;
+      case "budget":
+        return <BudgetVsActual />;
+      case "fraud":
+        return <FraudAnalytics />;
+      case "credit":
+        return <CreditMonitoringPage />;
+      case "title":
+        return <TitleMonitoringPage />;
+      case "approval":
+        return <Approvals />;
+      case "search":
+        return <AnomalyDetection />;
+      case "currency":
+      case "investor":
+        return <ConsolidatedStatements />;
+      case "tax":
+        return <NOI />;
+      default:
+        return null;
+    }
+  };
+
+  const premiumComponent = getPremiumComponent();
+
+  if (premiumComponent) {
+    return (
+      <AtlasBooksProvider>
+        <div className="p-1">
+          {premiumComponent}
+        </div>
+      </AtlasBooksProvider>
     );
   }
 

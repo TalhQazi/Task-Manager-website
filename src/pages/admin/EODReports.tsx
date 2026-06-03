@@ -24,6 +24,8 @@ interface EmployeeEODData {
   status: "submitted" | "missing" | "late" | "not_clocked_in";
   clockIn?: string;
   clockOut?: string;
+  clockInAt?: string | null;
+  clockOutAt?: string | null;
   reportSubmittedAt?: string;
 }
 
@@ -108,6 +110,16 @@ export default function AdminEODReports() {
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
+  };
+
+  const formatLocalClock = (timeStr?: string | null, isoAt?: string | null): string => {
+    if (isoAt) {
+      const d = new Date(isoAt);
+      if (Number.isFinite(d.getTime())) {
+        return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      }
+    }
+    return String(timeStr || "").trim() || "—";
   };
 
   return (
@@ -215,8 +227,8 @@ export default function AdminEODReports() {
                         </div>
                       </TableCell>
                       <TableCell>{getStatusBadge(emp.status)}</TableCell>
-                      <TableCell>{emp.clockIn || "—"}</TableCell>
-                      <TableCell>{emp.clockOut || "—"}</TableCell>
+                      <TableCell>{formatLocalClock(emp.clockIn, emp.clockInAt)}</TableCell>
+                      <TableCell>{formatLocalClock(emp.clockOut, emp.clockOutAt)}</TableCell>
                       <TableCell>
                         {emp.reportSubmittedAt
                           ? new Date(emp.reportSubmittedAt).toLocaleTimeString([], {

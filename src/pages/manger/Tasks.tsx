@@ -104,6 +104,7 @@ import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import jsPDF from "jspdf";
 import { Pagination } from "@/components/Pagination";
 import { useRewards } from "@/contexts/RewardContext";
+import FollowUpControlCenter from "@/components/shared/FollowUpControlCenter";
 import { useGlobalTimer } from "@/hooks/useGlobalTimer";
 import { getRemainingTime, getTimerState } from "@/lib/manger/time";
 import CreateExpenseSheet from "@/components/expense/CreateExpenseSheet";
@@ -644,6 +645,7 @@ export default function Tasks() {
   const [projectSearchQuery, setProjectSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [assignmentFilter, setAssignmentFilter] = useState<string>("all");
   const [viewByPriority, setViewByPriority] = useState(false);
   const [projectPage, setProjectPage] = useState(1);
   const [taskPage, setTaskPage] = useState(1);
@@ -774,14 +776,15 @@ export default function Tasks() {
 
   // Fetch tasks with server-side pagination
   const tasksQuery = useQuery({
-    queryKey: ["tasks", taskPage, searchQuery, statusFilter, priorityFilter, viewByPriority],
+    queryKey: ["tasks", taskPage, projectSearchQuery, statusFilter, priorityFilter, viewByPriority, assignmentFilter],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: taskPage.toString(),
         limit: PAGE_SIZE.toString(),
-        search: searchQuery,
+        search: projectSearchQuery,
         status: statusFilter,
         priority: priorityFilter,
+        assignment: assignmentFilter,
       });
       if (viewByPriority) params.set("sort", "priority");
       const res = await apiFetch<{ items: TaskApi[], totalPages: number, total: number }>(`/api/tasks?${params.toString()}`);
@@ -797,12 +800,12 @@ export default function Tasks() {
 
   // Fetch projects with server-side pagination
   const projectsQuery = useQuery({
-    queryKey: ["projects", projectPage, searchQuery],
+    queryKey: ["projects", projectPage, projectSearchQuery],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: projectPage.toString(),
         limit: PAGE_SIZE.toString(),
-        search: searchQuery,
+        search: projectSearchQuery,
       });
       const res = await apiFetch<{ items: Project[], totalPages: number, total: number }>(`/api/projects?${params.toString()}`);
       return {
@@ -816,8 +819,8 @@ export default function Tasks() {
   });
 
   // Reset pages when filters change
-  useEffect(() => { setTaskPage(1); }, [searchQuery, statusFilter, priorityFilter, viewByPriority]);
-  useEffect(() => { setProjectPage(1); }, [searchQuery]);
+  useEffect(() => { setTaskPage(1); }, [projectSearchQuery, statusFilter, priorityFilter, viewByPriority, assignmentFilter]);
+  useEffect(() => { setProjectPage(1); }, [projectSearchQuery]);
 
   useEffect(() => {
     if (tasksQuery.data) {
@@ -1990,9 +1993,20 @@ export default function Tasks() {
         assigneesText.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = statusFilter === "all" || task.status === statusFilter;
       const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
-      return matchesSearch && matchesStatus && matchesPriority;
+      const matchesAssignment =
+        assignmentFilter === "all" ||
+        (assignmentFilter === "assigned" && task.assignees.length > 0) ||
+        (assignmentFilter === "unassigned" && task.assignees.length === 0) ||
+        (assignmentFilter === "me" && task.assignees.some((a) => {
+          const term = a.toLowerCase().trim();
+          const meUsername = currentUsername.toLowerCase().trim();
+          const authState = getAuthState();
+          const meName = (authState.name || "").toLowerCase().trim();
+          return (meUsername && term === meUsername) || (meName && term === meName);
+        }));
+      return matchesSearch && matchesStatus && matchesPriority && matchesAssignment;
     });
-  }, [sourceTasks, searchQuery, statusFilter, priorityFilter, selectedProject]);
+  }, [sourceTasks, searchQuery, statusFilter, priorityFilter, assignmentFilter, selectedProject]);
 
   // Projects come from server-paginated query (filtering handled server-side)
   const filteredProjects = projects;
@@ -2023,6 +2037,8 @@ export default function Tasks() {
             <>
               <Button variant="outline" onClick={() => {
                 setSelectedProject(null);
+                // Clear both project list search and project-task search when returning
+                setProjectSearchQuery("");
                 setSearchQuery("");
                 setStatusFilter("all");
                 setPriorityFilter("all");
@@ -2076,10 +2092,17 @@ export default function Tasks() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search tasks or assignee..."
+            placeholder={selectedProject ? "Search tasks in this project..." : "Search projects or tasks..."}
             className="pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            value={selectedProject ? searchQuery : projectSearchQuery}
+            onChange={(e) => {
+              const next = e.target.value;
+              if (selectedProject) {
+                setSearchQuery(next);
+              } else {
+                setProjectSearchQuery(next);
+              }
+            }}
           />
         </div>
         <div className="flex flex-wrap gap-2 sm:gap-3 sm:flex-nowrap sm:overflow-x-auto sm:pb-0">
@@ -2103,6 +2126,17 @@ export default function Tasks() {
               <SelectItem value="high">High</SelectItem>
               <SelectItem value="medium">Medium</SelectItem>
               <SelectItem value="low">Low</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={assignmentFilter} onValueChange={setAssignmentFilter}>
+            <SelectTrigger className="w-[130px] sm:w-[140px]">
+              <SelectValue placeholder="Assignment" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Assignment</SelectItem>
+              <SelectItem value="me">Assigned to Me</SelectItem>
+              <SelectItem value="assigned">Assigned</SelectItem>
+              <SelectItem value="unassigned">Unassigned</SelectItem>
             </SelectContent>
           </Select>
           <Button variant="outline" size="icon" className="shrink-0">
@@ -2852,6 +2886,12 @@ export default function Tasks() {
                     autoComplete="on"
                   />
                   {validationErrors.description && <p className="text-xs text-destructive">{validationErrors.description}</p>}
+                  <div className="pt-2 flex gap-2">
+                    <Button type="submit" disabled={isCreating} className="gap-2 h-9 px-4 text-xs font-semibold">
+                      {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
+                      Create Task
+                    </Button>
+                  </div>
                 </div>
                 <div className="sm:col-span-2 space-y-1.5">
                   <label className="text-sm font-medium">Assignees</label>
@@ -3020,10 +3060,6 @@ export default function Tasks() {
                   setIsCreateTaskOpen(false);
                   setIsDirectTask(false);
                 }} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button>
-                <Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">
-                  {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {isDirectTask ? "Create Task" : "Create Task"}
-                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -3494,7 +3530,70 @@ export default function Tasks() {
 
                       {/* Assignees */}
                       <div className="space-y-2">
-                        <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Assignees</label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-[12px] font-bold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Assignees</label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-6 px-2 text-xs font-semibold text-primary hover:bg-primary/10 flex items-center gap-1"
+                              >
+                                <Edit className="w-3.5 h-3.5" /> Edit
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-64 p-0 z-[150]" align="end">
+                              <Command>
+                                <CommandInput placeholder="Search employees..." />
+                                <CommandList>
+                                  <CommandEmpty>No employee found.</CommandEmpty>
+                                  <CommandGroup>
+                                    {activeEmployees.map((employee) => {
+                                      const isAssigned = (selectedTask.assignees || []).includes(employee.name);
+                                      return (
+                                        <CommandItem
+                                          key={employee.id}
+                                          value={employee.name}
+                                          onSelect={async () => {
+                                            const currentAssignees = selectedTask.assignees || [];
+                                            const nextAssignees = isAssigned
+                                              ? currentAssignees.filter((name) => name !== employee.name)
+                                              : [...currentAssignees, employee.name];
+                                            try {
+                                              await updateTaskMutation.mutateAsync({
+                                                id: selectedTask.id,
+                                                payload: { assignees: nextAssignees },
+                                              });
+                                            } catch (err) {
+                                              toast({
+                                                title: "Reassignment failed",
+                                                description: err instanceof Error ? err.message : "Something went wrong",
+                                                variant: "destructive",
+                                              });
+                                            }
+                                          }}
+                                        >
+                                          <Check
+                                            className={cn(
+                                              "mr-2 h-4 w-4",
+                                              isAssigned ? "opacity-100" : "opacity-0"
+                                            )}
+                                          />
+                                          <Avatar className="h-6 w-6 mr-2">
+                                            <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                                              {employee.initials}
+                                            </AvatarFallback>
+                                          </Avatar>
+                                          {employee.name}
+                                        </CommandItem>
+                                      );
+                                    })}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
                         <div className="flex flex-col gap-2">
                           {selectedTask.assignees && selectedTask.assignees.length > 0 ? (
                             selectedTask.assignees.map((assignee, idx) => {
@@ -3576,6 +3675,11 @@ export default function Tasks() {
                             </div>
                           );
                         })()}
+
+                        {/* Task Follow-Up Control Center */}
+                        <div className="pt-4 border-t border-border/20">
+                          <FollowUpControlCenter taskId={selectedTask.id} isManager={true} />
+                        </div>
                       </div>
 
                       <div className="pt-4 space-y-3">

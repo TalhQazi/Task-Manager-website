@@ -543,6 +543,22 @@ const TimeTracking = () => {
       console.error("Failed to capture metadata:", e);
     }
 
+    let clockInAt: string | undefined = undefined;
+    if (formData.clockIn) {
+      const dt = new Date(`${formData.date}T${formData.clockIn}`);
+      if (Number.isFinite(dt.getTime())) {
+        clockInAt = dt.toISOString();
+      }
+    }
+
+    let clockOutAt: string | undefined = undefined;
+    if (formData.clockOut) {
+      const dt = new Date(`${formData.date}T${formData.clockOut}`);
+      if (Number.isFinite(dt.getTime())) {
+        clockOutAt = dt.toISOString();
+      }
+    }
+
     const entry: TimeEntryApi = {
       id: `TIME-${Date.now().toString().slice(-6)}`,
       employee: formData.employee,
@@ -551,6 +567,8 @@ const TimeTracking = () => {
       date: formData.date,
       clockIn: formData.clockIn,
       clockOut: formData.clockOut || null,
+      clockInAt,
+      clockOutAt,
       status: formData.clockOut ? "clocked-out" : formData.status,
       gpsLocation: gps || undefined,
       ipAddress: ip,
@@ -585,20 +603,9 @@ const TimeTracking = () => {
   };
 
   const clockOutNow = async (id: string) => {
-    const now = new Date();
-    const hh = now.getHours().toString().padStart(2, "0");
-    const mm = now.getMinutes().toString().padStart(2, "0");
-    const out = `${hh}:${mm}`;
-
-    const entry = entries.find((e) => e.id === id);
-    if (!entry) return;
     try {
       setApiError(null);
-      await updateResource<TimeEntry>("time-entries", id, {
-        ...entry,
-        clockOut: out,
-        status: "clocked-out",
-      });
+      await apiFetch(`/api/time-entries/${id}/clock-out`, { method: "POST" });
       await refresh();
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "Failed to clock out");

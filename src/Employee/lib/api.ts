@@ -130,7 +130,63 @@ export async function employeeLogin(username: string, password: string) {
 }
 
 export async function getEmployeeProfile() {
-  return employeeApiFetch<{ item: { id: string; name: string; email: string; role: string; phone?: string; company?: string; location?: string; status?: string } }>("/api/employees/me");
+  return employeeApiFetch<{
+    item: {
+      id: string;
+      name: string;
+      email: string;
+      role: string;
+      phone?: string;
+      company?: string;
+      location?: string;
+      status?: string;
+      current_status?: "AVAILABLE" | "LUNCH" | "BREAK";
+      lunch_start_time?: string | null;
+      lunch_expected_end?: string | null;
+      break_start_time?: string | null;
+    };
+  }>("/api/employees/me");
+}
+
+export async function deliverVideoMessage() {
+  return employeeApiFetch<{
+    item: {
+      deliveryId: string;
+      messageType: string;
+      title: string;
+      subtitle?: string;
+      videoUrl: string;
+      deliveredAt?: string;
+      acknowledgedAt?: string | null;
+    } | null;
+  }>("/api/video/deliver", {
+    method: "POST",
+  });
+}
+
+export async function acknowledgeVideoMessage(deliveryId: string, response?: string, watchDuration?: number, replayCount?: number) {
+  return employeeApiFetch<{ item: any }>("/api/video/acknowledge", {
+    method: "POST",
+    body: JSON.stringify({
+      deliveryId,
+      response: response || "",
+      ...(typeof watchDuration === "number" ? { watchDuration } : {}),
+      ...(typeof replayCount === "number" ? { replayCount } : {}),
+    }),
+  });
+}
+
+export async function replayVideoMessage(deliveryId: string) {
+  return employeeApiFetch<{ item: { replayCount: number } }>("/api/video/replay", {
+    method: "POST",
+    body: JSON.stringify({ deliveryId }),
+  });
+}
+
+export async function getVideoHistory(employeeId: string) {
+  return employeeApiFetch<{ items: Array<{ id: string; employeeId: string; videoMessageId: string; messageType: string; deliveredAt: string; acknowledgedAt?: string | null; watchDuration?: number; response?: string; replayCount?: number; videoTitle: string; videoSubtitle: string; videoUrl: string }> }>(
+    `/api/user/${encodeURIComponent(employeeId)}/video-history`
+  );
 }
 
 export async function getEmployeeTasks() {
@@ -367,7 +423,7 @@ export async function clockOut() {
 export async function getEmployeeConversations(employeeName: string) {
   return employeeApiFetch<{
     items: Array<{
-      employee: { id: string; name: string; email: string; department: string; status: string; initials: string };
+      employee: { id: string; name: string; email: string; department: string; status: string; initials: string; avatarUrl?: string; current_status?: string; lunch_start_time?: string | null; lunch_expected_end?: string | null; break_start_time?: string | null };
       lastMessage: { id: string; content: string; timestamp: string; sender: string; status: string } | null;
       unreadCount: number;
     }>;
@@ -627,4 +683,96 @@ export async function deleteNotification(notificationId: string): Promise<void> 
     method: "DELETE"
   });
 }
+
+// Availability Status System APIs
+export async function startLunch() {
+  return employeeApiFetch<{ ok: boolean; employee: any }>("/api/user/status/start-lunch", {
+    method: "POST",
+  });
+}
+
+export async function endLunch() {
+  return employeeApiFetch<{ ok: boolean; employee: any }>("/api/user/status/end-lunch", {
+    method: "POST",
+  });
+}
+
+export async function startBreak() {
+  return employeeApiFetch<{ ok: boolean; employee: any }>("/api/user/status/start-break", {
+    method: "POST",
+  });
+}
+
+export async function endBreak() {
+  return employeeApiFetch<{ ok: boolean; employee: any }>("/api/user/status/end-break", {
+    method: "POST",
+  });
+}
+
+export async function getUserStatus(userId: string) {
+  return employeeApiFetch<{
+    current_status: "AVAILABLE" | "LUNCH" | "BREAK";
+    lunch_start_time: string | null;
+    lunch_expected_end: string | null;
+    break_start_time: string | null;
+  }>(`/api/user/${encodeURIComponent(userId)}/status`);
+}
+
+export async function getTeamStatuses() {
+  return employeeApiFetch<{
+    items: Array<{
+      _id: string;
+      name: string;
+      current_status: "AVAILABLE" | "LUNCH" | "BREAK";
+      lunch_start_time: string | null;
+      lunch_expected_end: string | null;
+      break_start_time: string | null;
+    }>;
+  }>("/api/team/statuses");
+}
+
+// Itinerary API functions
+export interface ItineraryStop {
+  _id: string;
+  title: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  estimatedDurationMinutes: number;
+  sequenceOrder: number;
+  travelTimeToNext: number;
+  taskId?: string | null;
+  locationId?: string | null;
+  completed: boolean;
+  completedAt?: string | null;
+}
+
+export interface Itinerary {
+  id: string;
+  _id: string;
+  userId: string;
+  date: string;
+  startTime: string;
+  stops: ItineraryStop[];
+  optimized: boolean;
+}
+
+export async function getMyItinerary(date: string): Promise<{ item: Itinerary | null }> {
+  return employeeApiFetch<{ item: Itinerary | null }>(`/api/itineraries/me?date=${encodeURIComponent(date)}`);
+}
+
+export async function completeItineraryStop(
+  itineraryId: string,
+  stopId: string,
+  completed: boolean
+): Promise<{ item: Itinerary }> {
+  return employeeApiFetch<{ item: Itinerary }>(
+    `/api/itineraries/${encodeURIComponent(itineraryId)}/stops/${encodeURIComponent(stopId)}/complete`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ completed }),
+    }
+  );
+}
+
 

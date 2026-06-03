@@ -84,7 +84,7 @@ export default function CRMDashboard() {
   const maxDeals = Math.max(...monthlyDeals.map((d: any) => d.deals || 0), 1);
 
   return (
-    <div className="min-h-screen bg-[#080b10]">
+    <div className="min-h-screen bg-background text-foreground">
       {/* Top accent */}
       <div className="fixed top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-sky-500 via-violet-500 to-teal-500 z-50" />
 
@@ -106,11 +106,11 @@ export default function CRMDashboard() {
               📊
             </div>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">CRM Dashboard</h1>
-              <p className="text-neutral-500 text-xs mt-0.5">High-level summary of CRM activity, pipeline health & follow-ups</p>
+              <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">CRM Dashboard</h1>
+              <p className="text-muted-foreground text-xs mt-0.5">High-level summary of CRM activity, pipeline health & follow-ups</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-xs text-neutral-400 bg-neutral-900 border border-neutral-800 px-4 py-2 rounded-xl self-start sm:self-auto">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-background/5 border border-border/10 px-4 py-2 rounded-xl self-start sm:self-auto">
             {loading ? (
               <><span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />Syncing…</>
             ) : (
@@ -147,7 +147,7 @@ export default function CRMDashboard() {
                   <div
                     key={card.key}
                     className={`
-                      relative overflow-hidden rounded-2xl border ${card.border} bg-neutral-900/70 p-5
+                      relative overflow-hidden rounded-2xl border ${card.border} bg-background/60 p-5
                       hover:-translate-y-0.5 hover:shadow-xl transition-all duration-200 group cursor-default
                       ${card.wide ? 'col-span-2 sm:col-span-3 lg:col-span-3' : ''}
                     `}
@@ -163,7 +163,7 @@ export default function CRMDashboard() {
                     <p className={`text-2xl font-black tabular-nums ${card.color}`}>
                       {isCurrency ? formatCurrency(raw) : <CountUp target={raw} duration={800 + i * 60} />}
                     </p>
-                    <p className="text-[10px] text-neutral-500 font-medium mt-1 uppercase tracking-widest">{card.label}</p>
+                    <p className="text-[10px] text-muted-foreground font-medium mt-1 uppercase tracking-widest">{card.label}</p>
                   </div>
                 );
               })}
@@ -173,13 +173,13 @@ export default function CRMDashboard() {
             <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
               {/* Monthly Deals Bar Chart */}
-              <div className="bg-neutral-900/60 border border-neutral-800/80 rounded-2xl p-6">
+              <div className="bg-background/60 border border-border/10 rounded-2xl p-6">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h2 className="text-base font-bold text-white">Monthly Deals</h2>
-                    <p className="text-xs text-neutral-500 mt-0.5">Closed & expected deal volume</p>
+                    <h2 className="text-base font-bold text-foreground">Monthly Deals</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">Closed & expected deal volume</p>
                   </div>
-                  <span className="text-xs text-neutral-600 bg-neutral-800 border border-neutral-700 px-2.5 py-1 rounded-lg font-medium">
+                  <span className="text-xs text-muted-foreground bg-background/5 border border-border/10 px-2.5 py-1 rounded-lg font-medium">
                     {monthlyDeals.length} months
                   </span>
                 </div>
