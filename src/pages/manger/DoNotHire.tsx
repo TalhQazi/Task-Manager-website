@@ -300,7 +300,7 @@ export default function DoNotHire() {
         >
           <Button className="gap-2 w-full sm:w-auto text-sm sm:text-base h-9 sm:h-10" onClick={() => setOpen(true)}>
             <Plus className="w-4 h-4" />
-            Add Entry
+            Add Entryddd
           </Button>
         </motion.div>
       </motion.div>
