@@ -83,6 +83,12 @@ export const AtlasBooksLayout: React.FC = () => {
         { name: "Credit Changes", path: "/atlasbooks/pulse/credit-changes", screenId: 29 },
         { name: "New Liens", path: "/atlasbooks/pulse/new-liens", screenId: 30 }
       ]
+    },
+    {
+      title: "Personal Area",
+      items: [
+        { name: "Personal Budget", path: "/atlasbooks/personal-budget", screenId: 31 }
+      ]
     }
   ];
 
