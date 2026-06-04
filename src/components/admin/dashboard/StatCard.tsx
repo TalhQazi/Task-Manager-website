@@ -41,7 +41,7 @@ export function StatCard({
     gold: "rgba(250, 204, 21, 0.7)",
     red: "rgba(239, 68, 68, 0.6)",
     blue: "rgba(59, 130, 246, 0.6)",
-    "dark-grey": "rgba(156, 163, 175, 0.3)",
+    "dark-grey": "rgba(14, 165, 233, 0.6)", // Map dark-grey to cyan-blue to match reference dashboard layout
     silver: "rgba(209, 213, 219, 0.4)",
     "dark-green": "rgba(22, 163, 74, 0.6)",
     yellow: "rgba(234, 179, 8, 0.6)"
@@ -53,9 +53,9 @@ export function StatCard({
     <div
       onClick={onClick}
       className={cn(
-        "relative rounded-xl h-full transition-all duration-300 hover:scale-[1.02] cursor-pointer overflow-hidden group",
+        "relative rounded-xl h-full transition-all duration-300 hover:scale-[1.02] cursor-pointer overflow-hidden group stat-card-gradient",
         isMetallic
-          ? "border border-[#ffd27a]/35 bg-gradient-to-br from-[#2b2c2d] to-[#111315] hover:border-[#ffd27a]/60 shadow-[inset_0_1px_2px_rgba(255,255,255,0.15),_0_10px_20px_rgba(0,0,0,0.7)]"
+          ? "border border-[#4a4d50] bg-gradient-to-br from-[#28292b] via-[#1c1d1e] to-[#0e0f10] hover:border-[#ffd27a]/60 shadow-[inset_0_1.5px_2px_rgba(255,255,255,0.15),_inset_0_-1px_1px_rgba(0,0,0,0.4),_0_8px_16px_rgba(0,0,0,0.6)]"
           : "border-[2px] border-[#5a5a5a] bg-[#111] shadow-[inset_0_0_20px_rgba(0,0,0,0.8),_0_4px_10px_rgba(0,0,0,0.5)] hover:shadow-[0_0_15px_rgba(255,255,255,0.2)]"
       )}
     >
@@ -89,11 +89,11 @@ export function StatCard({
         className={cn(
           "absolute inset-0 mix-blend-screen transition-opacity",
           isMetallic
-            ? "opacity-35 group-hover:opacity-55"
+            ? "opacity-45 group-hover:opacity-65"
             : "opacity-60 group-hover:opacity-100"
         )}
         style={{
-          background: `radial-gradient(circle at 50% 120%, ${glowColor} 0%, transparent 70%)`
+          background: `radial-gradient(circle at 50% 50%, ${glowColor.replace(/,\s*[\d.]+\)$/, ', 0.35')} 0%, ${glowColor.replace(/,\s*[\d.]+\)$/, ', 0.12')} 65%, transparent 100%)`
         }}
       />
       
@@ -117,7 +117,7 @@ export function StatCard({
         {/* Left Section - Text Content */}
         <div className="flex-1 min-w-0">
           <p className={cn(
-            "text-xs sm:text-sm font-medium tracking-wide mb-1 truncate drop-shadow-md",
+            "text-xs sm:text-sm font-semibold tracking-wide mb-1 truncate drop-shadow-md",
             isMetallic ? "text-[#cfd7dc]" : "text-[#d0d0d0]"
           )}>
             {title}
@@ -136,13 +136,16 @@ export function StatCard({
         </div>
 
         {/* Right Section - Icon inside metallic badge */}
-        <div className={cn(
-          "relative flex items-center justify-center",
-          "h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg",
-          isMetallic
-            ? "border border-[#ffd27a]/40 bg-gradient-to-br from-[#1c1d1f] to-[#111315] shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_2px_4px_rgba(255,255,255,0.05)]"
-            : "border-2 border-[#666] bg-gradient-to-br from-[#444] to-[#111] shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),_0_4px_8px_rgba(0,0,0,0.8)]"
-        )}>
+        <div 
+          className={cn(
+            "relative flex items-center justify-center",
+            "h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg",
+            isMetallic
+              ? "border bg-gradient-to-br from-[#1c1d1f] to-[#111315] shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_2px_4px_rgba(255,255,255,0.05)]"
+              : "border-2 border-[#666] bg-gradient-to-br from-[#444] to-[#111] shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),_0_4px_8px_rgba(0,0,0,0.8)]"
+          )}
+          style={isMetallic ? { borderColor: glowColor.replace(/,\s*[\d.]+\)$/, ', 0.55') } : undefined}
+        >
           {/* Inner ring for the icon */}
           <div className="absolute inset-[2px] rounded-md border border-black/80" />
           <Icon 

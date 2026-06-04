@@ -608,8 +608,7 @@ body[data-tb-card-style="neon"] .tb-manager-panel [class*="rounded-xl"]:not(.sta
   border: 1px solid var(--tb-primary);
 }
 
-/* Manager panel - stat cards must NOT inherit theme/card-style colors */
-body[class*="tb-theme-"] .tb-manager-panel .manager-stat-card-wrapper > div {
+body[class*="tb-theme-"]:not(.tb-theme-metallic-elite) .tb-manager-panel .manager-stat-card-wrapper > div {
   background-color: #111 !important;
   background: #111 !important;
   backdrop-filter: none !important;
@@ -617,7 +616,7 @@ body[class*="tb-theme-"] .tb-manager-panel .manager-stat-card-wrapper > div {
   box-shadow: none !important;
 }
 
-body[class*="tb-theme-"] .tb-manager-panel .manager-stat-card-wrapper > div [class*="bg-"] {
+body[class*="tb-theme-"]:not(.tb-theme-metallic-elite) .tb-manager-panel .manager-stat-card-wrapper > div [class*="bg-"] {
   background-color: transparent !important;
   background: transparent !important;
 }
