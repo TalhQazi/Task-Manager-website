@@ -37,6 +37,7 @@ const ShoppingLists = lazy(() => import("@/pages/admin/ShoppingLists"));
 const ActivityLogs = lazy(() => import("@/pages/admin/ActivityLogs"));
 const TeamAttendance = lazy(() => import("@/pages/manger/TeamAttendance"));
 const ItineraryBuilder = lazy(() => import("@/pages/manger/ItineraryBuilder"));
+const ComplianceCenter = lazy(() => import("@/pages/manger/ComplianceCenter"));
 
 const CRMCommunication = lazy(() => import("@/pages/manger/crm/Communication"));
 const ManagerCRMCompanies = lazy(() => import("@/pages/manger/crm/Companies"));
@@ -102,6 +103,7 @@ export default function ManagerController() {
       { path: "activity-logs", element: <ActivityLogs /> },
       { path: "team-attendance", element: <TeamAttendance /> },
       { path: "itinerary", element: <ItineraryBuilder /> },
+      { path: "compliance-center", element: <ComplianceCenter /> },
 
       { path: "crm/communication", element: <CRMCommunication /> },
       { path: "crm/companies", element: <ManagerCRMCompanies /> },

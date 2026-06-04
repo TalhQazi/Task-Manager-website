@@ -1,5 +1,6 @@
 import { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface StatCardProps {
   title: string;
@@ -20,6 +21,8 @@ export function StatCard({
   variant = "primary",
   onClick,
 }: StatCardProps) {
+  const { uiTheme } = useTheme();
+  const isMetallic = uiTheme.theme === "metallic-elite";
 
   // Map variants to specific glow colors from the reference image
   const glowColors = {
@@ -50,15 +53,45 @@ export function StatCard({
     <div
       onClick={onClick}
       className={cn(
-        "relative rounded-xl border-[2px] border-[#5a5a5a] bg-[#111] h-full",
-        "shadow-[inset_0_0_20px_rgba(0,0,0,0.8),_0_4px_10px_rgba(0,0,0,0.5)]",
-        "transition-all duration-300 hover:scale-[1.02] hover:shadow-[0_0_15px_rgba(255,255,255,0.2)] cursor-pointer",
-        "overflow-hidden group"
+        "relative rounded-xl h-full transition-all duration-300 hover:scale-[1.02] cursor-pointer overflow-hidden group",
+        isMetallic
+          ? "border border-[#ffd27a]/35 bg-gradient-to-br from-[#2b2c2d] to-[#111315] hover:border-[#ffd27a]/60 shadow-[inset_0_1px_2px_rgba(255,255,255,0.15),_0_10px_20px_rgba(0,0,0,0.7)]"
+          : "border-[2px] border-[#5a5a5a] bg-[#111] shadow-[inset_0_0_20px_rgba(0,0,0,0.8),_0_4px_10px_rgba(0,0,0,0.5)] hover:shadow-[0_0_15px_rgba(255,255,255,0.2)]"
       )}
     >
+      {/* Metallic-specific details */}
+      {isMetallic && (
+        <>
+          {/* Corner brackets */}
+          <div className="metallic-corner-bracket metallic-bracket-tl" />
+          <div className="metallic-corner-bracket metallic-bracket-tr" />
+          <div className="metallic-corner-bracket metallic-bracket-bl" />
+          <div className="metallic-corner-bracket metallic-bracket-br" />
+          
+          {/* Procedural noise overlay */}
+          <div 
+            className="absolute inset-0 pointer-events-none opacity-[0.05]"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='80' height='80' filter='url(%23noise)' opacity='0.15'/%3E%3C/svg%3E")`,
+            }}
+          />
+
+          {/* Miniature screws in corners */}
+          <div className="absolute top-1.5 left-1.5 opacity-60"><div className="metallic-screw scale-[0.75]" /></div>
+          <div className="absolute top-1.5 right-1.5 opacity-60"><div className="metallic-screw scale-[0.75]" /></div>
+          <div className="absolute bottom-1.5 left-1.5 opacity-60"><div className="metallic-screw scale-[0.75]" /></div>
+          <div className="absolute bottom-1.5 right-1.5 opacity-60"><div className="metallic-screw scale-[0.75]" /></div>
+        </>
+      )}
+
       {/* Dynamic Background Glow */}
       <div 
-        className="absolute inset-0 opacity-60 transition-opacity group-hover:opacity-100 mix-blend-screen"
+        className={cn(
+          "absolute inset-0 mix-blend-screen transition-opacity",
+          isMetallic
+            ? "opacity-35 group-hover:opacity-55"
+            : "opacity-60 group-hover:opacity-100"
+        )}
         style={{
           background: `radial-gradient(circle at 50% 120%, ${glowColor} 0%, transparent 70%)`
         }}
@@ -75,19 +108,28 @@ export function StatCard({
       />
 
       {/* Inner Metallic Frame Bevel */}
-      <div className="absolute inset-[2px] rounded-lg border border-white/10 pointer-events-none" />
+      <div className={cn(
+        "absolute inset-[2px] rounded-lg pointer-events-none",
+        isMetallic ? "border border-white/5" : "border border-white/10"
+      )} />
 
       <div className="relative p-3 sm:p-4 flex items-center justify-between gap-3 sm:gap-4 z-10">
         {/* Left Section - Text Content */}
         <div className="flex-1 min-w-0">
-          <p className="text-[#d0d0d0] text-xs sm:text-sm font-medium tracking-wide mb-1 truncate drop-shadow-md">
+          <p className={cn(
+            "text-xs sm:text-sm font-medium tracking-wide mb-1 truncate drop-shadow-md",
+            isMetallic ? "text-[#cfd7dc]" : "text-[#d0d0d0]"
+          )}>
             {title}
           </p>
           <p className="text-white text-2xl sm:text-3xl font-bold tracking-tight drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)]">
             {value}
           </p>
           {change && (
-            <p className="text-[#a0a0a0] text-[10px] sm:text-xs font-medium mt-0.5 tracking-wide">
+            <p className={cn(
+              "text-[10px] sm:text-xs font-medium mt-0.5 tracking-wide",
+              isMetallic ? "text-[#ffd27a]/85" : "text-[#a0a0a0]"
+            )}>
               {change}
             </p>
           )}
@@ -97,8 +139,9 @@ export function StatCard({
         <div className={cn(
           "relative flex items-center justify-center",
           "h-10 w-10 sm:h-12 sm:w-12 flex-shrink-0 rounded-lg",
-          "border-2 border-[#666] bg-gradient-to-br from-[#444] to-[#111]",
-          "shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),_0_4px_8px_rgba(0,0,0,0.8)]"
+          isMetallic
+            ? "border border-[#ffd27a]/40 bg-gradient-to-br from-[#1c1d1f] to-[#111315] shadow-[inset_0_2px_4px_rgba(0,0,0,0.6),_0_2px_4px_rgba(255,255,255,0.05)]"
+            : "border-2 border-[#666] bg-gradient-to-br from-[#444] to-[#111] shadow-[inset_0_2px_4px_rgba(255,255,255,0.3),_0_4px_8px_rgba(0,0,0,0.8)]"
         )}>
           {/* Inner ring for the icon */}
           <div className="absolute inset-[2px] rounded-md border border-black/80" />

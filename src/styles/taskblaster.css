@@ -77,15 +77,38 @@ body[class*="tb-theme-"] div:not([class*="bg-"]):not([class*="btn"]):not([class*
 .tb-theme-metallic-elite {
   --background: 0 0% 9%;
   --foreground: 43 65% 72%;
-  --tb-dashboard-bg: #181818;
-  --tb-dashboard-card-bg: #222222;
-  --tb-dashboard-text-color: #d4af37;
-  --tb-sidebar-bg: rgba(14, 14, 14, 0.96);
-  --border: 43 30% 22%;
-  --muted-foreground: 43 45% 62%;
-  --input: 43 30% 22%;
+  --tb-bg-image: url('/hud_metallic_target_bg.png');
+  --tb-metal-dark: #111315;
+  --tb-metal-mid: #2b2c2d;
+  --tb-metal-light: #8d8f91;
+  --tb-gold: #c89537;
+  --tb-gold-bright: #ffd27a;
+  --tb-amber-glow: rgba(255, 151, 42, 0.45);
+  --tb-blue-energy: rgba(66, 210, 255, 0.45);
+  --tb-panel-bg: linear-gradient(135deg, rgba(20,23,25,0.96), rgba(39,40,41,0.92));
+  --tb-panel-border: 1px solid rgba(200, 149, 55, 0.4);
+  --tb-panel-shadow: 0 14px 32px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.15);
+  --tb-panel-radius: 12px;
+  --tb-text-primary: #f7f7f7;
+  --tb-text-secondary: #cfd7dc;
+
+  /* Overrides for standard theme variables so they match metallic theme */
+  --tb-primary: #c89537;
+  --tb-secondary: #ffd27a;
+  --tb-accent: #c89537;
+  --tb-header-bg: #111315;
+  --tb-sidebar-bg: #111315;
+  --tb-dashboard-bg: #111315;
+  --tb-dashboard-card-bg: linear-gradient(135deg, rgba(20,23,25,0.96), rgba(39,40,41,0.92));
+  --tb-sidebar-text-color: #f7f7f7;
+  --tb-dashboard-text-color: #f7f7f7;
+  --tb-sidebar-icon-color: #c89537;
+  --tb-dashboard-icon-color: #c89537;
+  --border: 43 30% 35%;
+  --muted-foreground: 43 15% 70%;
   --ring: 43 74% 49%;
   --chart-1: 43 74% 49%;
+  
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-image: url('/hud_metallic_target_bg.png');
@@ -236,23 +259,26 @@ body[class*="tb-theme-"] div:not([class*="bg-"]):not([class*="btn"]):not([class*
 .tb-theme-metallic-elite input:not([type="checkbox"]):not([type="radio"]),
 .tb-theme-metallic-elite textarea,
 .tb-theme-metallic-elite select {
-  background-color: #1e1e1e !important;
-  color: var(--tb-dashboard-text-color) !important;
-  border-color: rgba(212, 175, 55, 0.25) !important;
-  caret-color: #d4af37;
+  background-color: rgba(17, 19, 21, 0.8) !important;
+  backdrop-filter: blur(4px);
+  color: var(--tb-text-primary) !important;
+  border: 1px solid rgba(141, 143, 145, 0.4) !important;
+  caret-color: var(--tb-gold) !important;
+  border-radius: 6px !important;
+  box-shadow: inset 0 1px 3px rgba(0,0,0,0.5) !important;
 }
 
 .tb-theme-metallic-elite input::placeholder,
 .tb-theme-metallic-elite textarea::placeholder {
-  color: rgba(212, 175, 55, 0.38) !important;
+  color: rgba(255, 255, 255, 0.35) !important;
   opacity: 1 !important;
 }
 
 .tb-theme-metallic-elite input:focus,
 .tb-theme-metallic-elite textarea:focus,
 .tb-theme-metallic-elite select:focus {
-  border-color: rgba(212, 175, 55, 0.55) !important;
-  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.15) !important;
+  border-color: var(--tb-gold) !important;
+  box-shadow: 0 0 0 2px var(--tb-amber-glow), inset 0 1px 2px rgba(0,0,0,0.6) !important;
   outline: none !important;
 }
 
@@ -294,15 +320,58 @@ body[class*="tb-theme-"] div:not([class*="bg-"]):not([class*="btn"]):not([class*
 
 /* Metallic card style + Metallic Elite = premium dark metallic look */
 /* Extra [class*="tb-theme-"] attr selector bumps specificity to (0,5,2) so this wins over the general metallic rule (0,4,2) */
-body.tb-theme-metallic-elite[class*="tb-theme-"][data-tb-card-style="metallic"] main .rounded-xl:not(.stat-card-gradient),
-body.tb-theme-metallic-elite[class*="tb-theme-"][data-tb-card-style="metallic"] main .rounded-lg:not(.stat-card-gradient),
-body.tb-theme-metallic-elite[class*="tb-theme-"][data-tb-card-style="metallic"] main .card,
-body.tb-theme-metallic-elite[class*="tb-theme-"][data-tb-card-style="metallic"] main [class*="bg-card"] {
-  background-color: #222222 !important;
-  background-image: linear-gradient(145deg, rgba(212, 175, 55, 0.07) 0%, rgba(0, 0, 0, 0.25) 100%) !important;
-  border: 1px solid rgba(212, 175, 55, 0.20) !important;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.50), inset 0 1px 0 rgba(255, 215, 0, 0.06) !important;
-  color: var(--tb-dashboard-text-color) !important;
+body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-xl:not(.stat-card-gradient),
+body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-lg:not(.stat-card-gradient),
+body.tb-theme-metallic-elite[class*="tb-theme-"] main .card,
+body.tb-theme-metallic-elite[class*="tb-theme-"] main [class*="bg-card"],
+body.tb-theme-metallic-elite[class*="tb-theme-"] main .metallic-card {
+  position: relative;
+  overflow: hidden;
+  background: var(--tb-panel-bg) !important;
+  border: var(--tb-panel-border) !important;
+  box-shadow: var(--tb-panel-shadow) !important;
+  border-radius: var(--tb-panel-radius) !important;
+  color: var(--tb-text-primary) !important;
+}
+
+body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-xl:not(.stat-card-gradient)::before,
+body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-lg:not(.stat-card-gradient)::before,
+body.tb-theme-metallic-elite[class*="tb-theme-"] main .card::before,
+body.tb-theme-metallic-elite[class*="tb-theme-"] main [class*="bg-card"]::before,
+body.tb-theme-metallic-elite[class*="tb-theme-"] main .metallic-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(120deg, rgba(255,255,255,0.12), transparent 22%, transparent 68%, rgba(255,210,122,0.06)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.12'/%3E%3C/svg%3E");
+  opacity: 0.32;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-xl:not(.stat-card-gradient)::after,
+body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-lg:not(.stat-card-gradient)::after,
+body.tb-theme-metallic-elite[class*="tb-theme-"] main .card::after,
+body.tb-theme-metallic-elite[class*="tb-theme-"] main [class*="bg-card"]::after,
+body.tb-theme-metallic-elite[class*="tb-theme-"] main .metallic-card::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: calc(var(--tb-panel-radius) - 2px);
+  border: 1px solid rgba(255,255,255,0.1);
+  box-shadow: inset 0 0 18px rgba(0,0,0,0.6);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Ensure contents render above overlays */
+body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-xl:not(.stat-card-gradient) > *,
+body.tb-theme-metallic-elite[class*="tb-theme-"] main .rounded-lg:not(.stat-card-gradient) > *,
+body.tb-theme-metallic-elite[class*="tb-theme-"] main .card > *,
+body.tb-theme-metallic-elite[class*="tb-theme-"] main [class*="bg-card"] > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* Dividers and separators */
@@ -812,3 +881,96 @@ body[data-tb-card-style="metallic"] .tb-manager-panel [class*="rounded-xl"]:not(
 }
 
 /* ── End Universal Theme Readability ────────────────────────────────────── */
+
+/* ── TaskBlaster Metallic Theme Dialogs, Modals, Popovers & Details ── */
+body.tb-theme-metallic-elite div[role="dialog"],
+body.tb-theme-metallic-elite [class*="DialogContent"],
+body.tb-theme-metallic-elite .bg-background[class*="border"] {
+  background: var(--tb-panel-bg) !important;
+  border: var(--tb-panel-border) !important;
+  box-shadow: var(--tb-panel-shadow) !important;
+  color: var(--tb-text-primary) !important;
+}
+
+body.tb-theme-metallic-elite div[role="dialog"]::before,
+body.tb-theme-metallic-elite [class*="DialogContent"]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(120deg, rgba(255,255,255,0.12), transparent 22%, transparent 68%, rgba(255,210,122,0.06)),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23noise)' opacity='0.12'/%3E%3C/svg%3E");
+  opacity: 0.32;
+  pointer-events: none;
+  z-index: 0;
+}
+
+body.tb-theme-metallic-elite [class*="DropdownMenuContent"],
+body.tb-theme-metallic-elite [class*="popover"] {
+  background: rgba(20, 23, 25, 0.98) !important;
+  border: 1px solid rgba(200, 149, 55, 0.5) !important;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.8) !important;
+  color: var(--tb-text-primary) !important;
+}
+
+/* Metallic frame corners utility */
+.metallic-corner-bracket {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-color: var(--tb-gold);
+  border-style: solid;
+  pointer-events: none;
+  z-index: 15;
+}
+.metallic-bracket-tl { top: 4px; left: 4px; border-width: 2px 0 0 2px; }
+.metallic-bracket-tr { top: 4px; right: 4px; border-width: 2px 2px 0 0; }
+.metallic-bracket-bl { bottom: 4px; left: 4px; border-width: 0 0 2px 2px; }
+.metallic-bracket-br { bottom: 4px; right: 4px; border-width: 0 2px 2px 0; }
+
+/* Metallic Rivet and Screw details */
+.metallic-rivet {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 2px 2px, #eee, #777 40%, #222 85%);
+  box-shadow: 1px 1px 1px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.3);
+  display: inline-block;
+}
+.metallic-screw {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 2.5px 2.5px, #d1d5db, #6b7280 50%, #1f2937 95%);
+  box-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+  position: relative;
+  display: inline-block;
+}
+.metallic-screw::after {
+  content: '';
+  position: absolute;
+  top: 3.5px;
+  left: 1px;
+  right: 1px;
+  height: 1px;
+  background: #111827;
+  transform: rotate(45deg);
+}
+
+/* Mechanical Pill details */
+.metallic-pill-active {
+  background: linear-gradient(90deg, rgba(200, 149, 55, 0.15) 0%, rgba(200, 149, 55, 0.05) 100%) !important;
+  border-left: 3px solid var(--tb-gold) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 0 12px rgba(200, 149, 55, 0.15) !important;
+}
+
+/* Pulse animation for Dashboard */
+@keyframes dashboard-pulse-glow {
+  0% { transform: scale(0.95); opacity: 0.15; }
+  50% { transform: scale(1.08); opacity: 0.35; }
+  100% { transform: scale(0.95); opacity: 0.15; }
+}
+.animate-dashboard-pulse {
+  animation: dashboard-pulse-glow 2s infinite ease-in-out;
+}
+
