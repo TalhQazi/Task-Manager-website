@@ -1428,22 +1428,34 @@ export default function Tasks() {
     }
     if (!priorityModeEnabled || assigningPriority) return;
 
+    const currentPriority = task.executionPriority || "";
+    const input = window.prompt(
+      `Set execution priority for "${task.title}":\n- Enter a positive integer (e.g., 1, 3, 5) to assign or move.\n- Leave empty and click OK to clear priority.`,
+      String(currentPriority)
+    );
+
+    if (input === null) return; // Cancelled
+
     setAssigningPriority(true);
     try {
-      if (task.executionPriority) {
-        // Remove priority and resequence remaining tasks
-        await removePriorityMutation.mutateAsync(task.id);
-        toast({ title: "Priority removed", description: `Task "${task.title}" removed from execution order.` });
+      const trimmed = input.trim();
+      if (trimmed === "") {
+        if (task.executionPriority) {
+          await removePriorityMutation.mutateAsync(task.id);
+          toast({ title: "Priority removed", description: `Task "${task.title}" removed from execution order.` });
+        }
       } else {
-        // Get current prioritized tasks to determine next priority number
-        const currentTasks = selectedProject ? selectedProject.tasks : tasks;
-        const maxPriority = currentTasks
-          .filter(t => t.id !== task.id && t.executionPriority)
-          .reduce((max, t) => Math.max(max, t.executionPriority || 0), 0);
-        const nextPriority = maxPriority + 1;
-
-        await assignPriorityMutation.mutateAsync({ id: task.id, priority: nextPriority });
-        toast({ title: "Priority assigned", description: `Task "${task.title}" set as #${nextPriority} in execution order.` });
+        const priorityVal = parseInt(trimmed, 10);
+        if (isNaN(priorityVal) || priorityVal < 1) {
+          toast({
+            title: "Invalid priority",
+            description: "Priority must be a positive integer.",
+            variant: "destructive",
+          });
+          return;
+        }
+        await assignPriorityMutation.mutateAsync({ id: task.id, priority: priorityVal });
+        toast({ title: "Priority assigned", description: `Task "${task.title}" set as #${priorityVal} in execution order.` });
       }
     } catch (err) {
       toast({
@@ -2547,6 +2559,37 @@ export default function Tasks() {
                 <span className="text-xs font-medium">{priorityModeEnabled ? "Priority Mode ON" : "Priority Mode"}</span>
               </Button>
 
+              {priorityModeEnabled && (
+                <Button
+                  variant="destructive"
+                  onClick={async () => {
+                    if (window.confirm("Are you sure you want to clear all execution priorities? This cannot be undone.")) {
+                      try {
+                        await clearAllPrioritiesMutation.mutateAsync({
+                          type: selectedProject ? "project" : "standalone",
+                          projectId: selectedProject?.id,
+                        });
+                      } catch (err) {
+                        toast({
+                          title: "Failed to clear priorities",
+                          description: err instanceof Error ? err.message : "Something went wrong",
+                          variant: "destructive",
+                        });
+                      }
+                    }
+                  }}
+                  className="h-10 px-3 flex items-center gap-2"
+                  disabled={clearAllPrioritiesMutation.isPending}
+                >
+                  {clearAllPrioritiesMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  <span className="text-xs font-medium">Clear Slate</span>
+                </Button>
+              )}
+
               <Button
                 variant={viewByPriority ? "secondary" : "outline"}
                 onClick={() => setViewByPriority(!viewByPriority)}
@@ -2708,7 +2751,8 @@ export default function Tasks() {
                 <div className="flex flex-wrap gap-2">
                   {selectedProject.attachments.map((att, idx) => {
                     const proxied = toProxiedUrl(att.url) || att.url;
-                    return att.mimeType?.startsWith("image/") ? (
+                    const isImg = att.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(att.fileName || "");
+                    return isImg ? (
                       <button key={idx} onClick={() => { setPreviewUrl(proxied); setPreviewName(att.fileName); }}>
                         <img src={proxied} alt={att.fileName} className="h-16 w-16 object-cover rounded-md border border-border" />
                       </button>
@@ -2999,15 +3043,23 @@ export default function Tasks() {
                             </p>
                             <p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p>
                           </div>
-                          {task.attachment?.fileName && (
-                            <div className="mb-2 rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
-                              <TaskAttachmentImg
-                                taskId={task.id}
-                                attachmentUrl={task.attachment?.url}
-                                onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
-                              />
-                            </div>
-                          )}
+                          {(() => {
+                            const allAtts = Array.isArray(task.attachments) ? [...task.attachments] : [];
+                            if (task.attachment?.url && !allAtts.some(a => a.url === task.attachment.url)) {
+                              allAtts.unshift(task.attachment);
+                            }
+                            const imgAtt = allAtts.find(a => a.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(a.fileName || ""));
+                            if (!imgAtt) return null;
+                            return (
+                              <div className="mb-2 rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
+                                <TaskAttachmentImg
+                                  taskId={task.id}
+                                  attachmentUrl={imgAtt.url}
+                                  onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
+                                />
+                              </div>
+                            );
+                          })()}
                           {/* Attachment indicators */}
                           {(task.dropboxAttachmentCount && task.dropboxAttachmentCount > 0) ? (
                             <div className="flex flex-wrap items-center gap-1.5 mb-2">
@@ -3549,10 +3601,10 @@ export default function Tasks() {
               </div>
 
               {/* 2-Pane Body */}
-              <div className="flex-1 flex flex-col md:flex-row shadow-inner overflow-hidden relative bg-background">
+              <div className="flex-1 flex flex-col lg:flex-row shadow-inner overflow-hidden relative bg-background">
 
                 {/* Left Pane: Title, Description, Attachments, Comments Feed */}
-                <div className="flex-1 overflow-y-auto w-full md:w-2/3 p-5 sm:p-8 space-y-8 scroll-smooth pb-24">
+                <div className="flex-1 overflow-y-auto w-full lg:w-2/3 p-5 sm:p-8 space-y-8 scroll-smooth pb-24">
                   {/* Task Title */}
                   <div className="group/title relative">
                     <Input
@@ -3568,7 +3620,7 @@ export default function Tasks() {
                   </div>
 
                   {/* Mobile Status - Only visible on mobile */}
-                  <div className="md:hidden space-y-1.5">
+                  <div className="lg:hidden space-y-1.5">
                     <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">Status</label>
                     <Select value={selectedTask.status} onValueChange={async (v) => { await updateStatus(v as Task["status"]); }} disabled={statusSaving}>
                       <SelectTrigger className={cn("h-9 font-medium text-xs bg-background border-border/60", statusClasses[selectedTask.status])}>
@@ -4017,7 +4069,7 @@ export default function Tasks() {
                 </div>
 
                 {/* Right Pane: Properties Sidebar */}
-                <div className="w-full md:w-[320px] lg:w-[360px] bg-muted/10 shrink-0 border-t md:border-t-0 md:border-l border-border/50 overflow-y-auto hidden md:block">
+                <div className="w-full lg:w-[320px] xl:w-[360px] bg-muted/10 shrink-0 border-t lg:border-t-0 lg:border-l border-border/50 overflow-y-auto hidden lg:block">
                   <div className="p-6 space-y-7">
                     <h3 className="text-sm font-bold text-foreground flex items-center gap-2 pb-2 border-b">Properties</h3>
 
@@ -4940,15 +4992,23 @@ export default function Tasks() {
                       </div>
                       <div className="p-4 flex-1 space-y-3">
                         <p className="text-sm text-muted-foreground line-clamp-2 break-words">{task.description}</p>
-                        {task.attachment?.fileName && (
-                          <div className="rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
-                            <TaskAttachmentImg 
-                              taskId={task.id} 
-                              attachmentUrl={task.attachment?.url}
-                              onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
-                            />
-                          </div>
-                        )}
+                        {(() => {
+                          const allAtts = Array.isArray(task.attachments) ? [...task.attachments] : [];
+                          if (task.attachment?.url && !allAtts.some(a => a.url === task.attachment.url)) {
+                            allAtts.unshift(task.attachment);
+                          }
+                          const imgAtt = allAtts.find(a => a.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(a.fileName || ""));
+                          if (!imgAtt) return null;
+                          return (
+                            <div className="rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
+                              <TaskAttachmentImg 
+                                taskId={task.id} 
+                                attachmentUrl={imgAtt.url}
+                                onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
+                              />
+                            </div>
+                          );
+                        })()}
                         {(() => {
                           const { images, files } = getAttachmentCounts(task.attachments, task.attachment);
                           return (images > 0 || files > 0 || (task.dropboxAttachmentCount !== undefined && task.dropboxAttachmentCount > 0)) && (

@@ -221,7 +221,7 @@ export default function AssetLibrary({
   moduleName = "asset-library", 
   title = "Images",
   description = "Upload, organize, preview, and download assets.",
-  hideHeaderCarousel = false
+  hideHeaderCarousel = true
 }: { 
   moduleName?: string; 
   title?: string;
@@ -959,7 +959,7 @@ export default function AssetLibrary({
                           if (e.key === "Enter" || e.key === " ") setPreview(a);
                         }}
                       >
-                        <div className="absolute z-10 left-2 top-2">
+                        <div className="absolute z-10" style={{ left: "8px", top: "8px" }}>
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -976,7 +976,7 @@ export default function AssetLibrary({
                             className="h-4 w-4 rounded border-input bg-background/90"
                           />
                         </div>
-                        <div className="absolute z-10 right-2 top-2 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                        <div className="absolute z-10 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" style={{ right: "8px", top: "8px" }}>
                           <Button
                             type="button"
                             variant="outline"

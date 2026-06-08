@@ -68,16 +68,16 @@ type NavItem = {
 const navItemsBase: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin", end: true },
   {
-    label: "AtlasBook",
+    label: "Atlas Books",
     customIcon: (
       <img
         src="/atlas.png"
-        alt="AtlasBook"
+        alt="Atlas Books"
         className="h-5 w-5 flex-shrink-0 object-contain rounded opacity-80 group-hover:opacity-100 transition-opacity"
       />
     ),
     children: [
-      { label: "AtlasBook Dashboard", path: "/admin/atlas-book" },
+      { label: "Atlas Books Dashboard", path: "/admin/atlas-book" },
       { label: "Company Management", path: "/admin/atlas-book/company" },
       { label: "Property Management", path: "/admin/atlas-book/property" },
       { label: "Unit Management", path: "/admin/atlas-book/unit" },

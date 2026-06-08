@@ -15,6 +15,7 @@ import {
 
 import { useSocket } from "@/contexts/SocketContext";
 import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   MessageCircle,
   Send,
@@ -74,9 +75,23 @@ interface Message {
   attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number };
 }
 
+const normalizeMessage = (m: any): Message => {
+  return {
+    id: String(m.id || m._id || ""),
+    sender: String(m.sender || ""),
+    recipient: String(m.recipient || ""),
+    content: String(m.content || ""),
+    timestamp: String(m.timestamp || m.createdAt || new Date().toISOString()),
+    type: String(m.type || "direct"),
+    status: String(m.status || "sent"),
+    attachment: m.attachment,
+  };
+};
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export default function EmployeeMessages() {
+  const queryClient = useQueryClient();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -205,23 +220,14 @@ export default function EmployeeMessages() {
   useEffect(() => {
     if (!socket || !employeeName) return;
 
-    const handleNewMessage = (data: { id?: string; _id?: string; sender: string; recipient: string; content: string; timestamp: string; type: string; status: string; attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number } }) => {
+    const handleNewMessage = (data: any) => {
       console.log("📩 Incoming:", data);
 
       if (
         data.sender === employeeName ||
         data.recipient === employeeName
       ) {
-        const normalized: Message = {
-          id: String(data?.id || data?._id || ""),
-          sender: String(data?.sender || ""),
-          recipient: String(data?.recipient || ""),
-          content: String(data?.content || ""),
-          timestamp: String(data?.timestamp || new Date().toISOString()),
-          type: String(data?.type || "direct"),
-          status: String(data?.status || "sent"),
-          attachment: data?.attachment,
-        };
+        const normalized = normalizeMessage(data);
 
         if (!normalized.id) return;
 
@@ -229,9 +235,8 @@ export default function EmployeeMessages() {
         const partnerName = selectedConversation?.employee?.name;
         if (partnerName && (normalized.sender === partnerName || normalized.recipient === partnerName)) {
           setMessages((prev) => {
-            const alreadyExists = prev.some((m) => m.id === normalized.id);
-            if (alreadyExists) return prev;
-            return [...prev, normalized].sort((a, b) => a.id.localeCompare(b.id));
+            if (prev.some((m) => m.id === normalized.id)) return prev;
+            return [...prev, normalized].sort((a, b) => a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id));
           });
         }
 
@@ -327,6 +332,8 @@ export default function EmployeeMessages() {
         // Mark messages as read
         if (selectedConversation.unreadCount > 0) {
           await markMessagesAsRead(selectedConversation.employee.name, employeeName);
+          // Invalidate employee conversations preview query to update header badge
+          queryClient.invalidateQueries({ queryKey: ["employee-conversations-preview", employeeName] });
           // Update unread count in conversations list
           setConversations((prev) =>
             prev.map((c) =>
@@ -384,11 +391,10 @@ export default function EmployeeMessages() {
 
       const res = await sendMessage(newMessage);
       setMessages((prev) => {
-        const next = res.item;
-        const id = String(next?.id || (next as unknown as { _id?: string })?._id || "");
-        if (!id) return prev;
-        if (prev.some((m) => m.id === id)) return prev;
-        return [...prev, { ...next, id }];
+        const normalized = normalizeMessage(res.item);
+        if (!normalized.id) return prev;
+        if (prev.some((m) => m.id === normalized.id)) return prev;
+        return [...prev, normalized].sort((a, b) => a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id));
       });
       setMessageInput("");
 
@@ -444,11 +450,10 @@ export default function EmployeeMessages() {
 
       const res = await sendMessage(payload);
       setMessages((prev) => {
-        const next = res.item;
-        const id = String(next?.id || (next as unknown as { _id?: string })?._id || "");
-        if (!id) return prev;
-        if (prev.some((m) => m.id === id)) return prev;
-        return [...prev, { ...next, id }];
+        const normalized = normalizeMessage(res.item);
+        if (!normalized.id) return prev;
+        if (prev.some((m) => m.id === normalized.id)) return prev;
+        return [...prev, normalized].sort((a, b) => a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id));
       });
       setMessageInput("");
 

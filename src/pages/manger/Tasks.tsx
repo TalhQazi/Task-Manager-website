@@ -2504,6 +2504,24 @@ export default function Tasks() {
           {task.description}
         </p>
 
+        {(() => {
+          const allAtts = Array.isArray(task.attachments) ? [...task.attachments] : [];
+          if (task.attachment?.url && !allAtts.some(a => a.url === task.attachment.url)) {
+            allAtts.unshift(task.attachment);
+          }
+          const imgAtt = allAtts.find(a => a.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(a.fileName || ""));
+          if (!imgAtt) return null;
+          return (
+            <div className="mt-2 rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
+              <TaskAttachmentImg
+                taskId={task.id}
+                attachmentUrl={imgAtt.url}
+                onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
+              />
+            </div>
+          );
+        })()}
+
         {/* Status & Priority */}
         <div className="flex gap-2 flex-wrap items-center">
           <Badge
@@ -3081,7 +3099,7 @@ export default function Tasks() {
                   </div>
                 </DialogHeader>
 
-                <div className="flex-1 flex flex-col md:flex-row overflow-hidden bg-background">
+                <div className="flex-1 flex flex-col lg:flex-row overflow-hidden bg-background">
                   {/* Left Pane: Content & Comments */}
                   <div className="flex-1 overflow-y-auto custom-scrollbar bg-background">
                     <div className="p-4 sm:p-7 space-y-8 max-w-4xl mx-auto">
@@ -3524,7 +3542,7 @@ export default function Tasks() {
 
 
                   {/* Right Pane: Properties Sidebar */}
-                  <div className="w-full md:w-[320px] lg:w-[360px] bg-muted/10 shrink-0 border-t md:border-t-0 md:border-l border-border/50 overflow-y-auto">
+                  <div className="w-full lg:w-[320px] xl:w-[360px] bg-muted/10 shrink-0 border-t lg:border-t-0 lg:border-l border-border/50 overflow-y-auto">
                     <div className="p-6 space-y-7">
                       <h3 className="text-sm font-bold text-foreground flex items-center gap-2 pb-2 border-b">Properties</h3>
 
@@ -4111,6 +4129,24 @@ export default function Tasks() {
                       {/* Description */}
                       <p className="text-sm text-muted-foreground line-clamp-2">{task.description}</p>
 
+                      {(() => {
+                        const allAtts = Array.isArray(task.attachments) ? [...task.attachments] : [];
+                        if (task.attachment?.url && !allAtts.some(a => a.url === task.attachment.url)) {
+                          allAtts.unshift(task.attachment);
+                        }
+                        const imgAtt = allAtts.find(a => a.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(a.fileName || ""));
+                        if (!imgAtt) return null;
+                        return (
+                          <div className="mt-2 rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
+                            <TaskAttachmentImg 
+                              taskId={task.id} 
+                              attachmentUrl={imgAtt.url}
+                              onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
+                            />
+                          </div>
+                        );
+                      })()}
+
                       {/* Attachment Summary */}
                       {task.attachments && task.attachments.length > 0 && (
                         <div className="flex items-center gap-1.5 py-1 px-2 bg-primary/5 border border-primary/10 rounded-md w-fit">
@@ -4270,17 +4306,21 @@ export default function Tasks() {
                           <h4 className="text-[13px] font-bold uppercase tracking-wider">Project Files</h4>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                          {selectedProject.attachments.map((attachment, idx) => (
-                            <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-xs hover:shadow-md transition-shadow">
-                              {attachment.mimeType?.startsWith("image/") ? (
-                                <img src={attachment.url} alt={attachment.fileName} className="w-full h-24 object-cover" />
-                              ) : (
-                                <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
-                              )}
-                              <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
-                              <a href={attachment.url} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/50 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]"><span className="text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/50 bg-black/40">Open File</span></a>
-                            </div>
-                          ))}
+                          {selectedProject.attachments.map((attachment, idx) => {
+                            const proxied = toProxiedUrl(attachment.url) || attachment.url;
+                            const isImg = attachment.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(attachment.fileName || "");
+                            return (
+                              <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-xs hover:shadow-md transition-shadow">
+                                {isImg && proxied ? (
+                                  <img src={proxied} alt={attachment.fileName} className="w-full h-24 object-cover" />
+                                ) : (
+                                  <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
+                                )}
+                                <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
+                                <a href={proxied} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/50 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]"><span className="text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/50 bg-black/40">Open File</span></a>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}

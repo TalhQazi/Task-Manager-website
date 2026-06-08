@@ -389,6 +389,7 @@ export default function Messages() {
         body: JSON.stringify({ sender, recipient: currentUser }),
       });
       await queryClient.invalidateQueries({ queryKey: ["conversations", currentUser] });
+      await queryClient.invalidateQueries({ queryKey: ["manager-messages-preview"] });
     } catch (e) {
       console.error("Failed to mark messages as read:", e);
     }

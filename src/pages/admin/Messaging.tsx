@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import { useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
@@ -91,6 +92,7 @@ function getInitials(name: string): string {
 }
 
 export default function Messaging() {
+  const queryClient = useQueryClient();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [conversationMessages, setConversationMessages] = useState<Message[]>([]);
@@ -503,6 +505,7 @@ export default function Messaging() {
       });
       // Refresh conversations to update unread counts
       await loadConversations();
+      await queryClient.invalidateQueries({ queryKey: ["admin-messages-preview"] });
     } catch (e) {
       console.error("Failed to mark messages as read:", e);
     }
