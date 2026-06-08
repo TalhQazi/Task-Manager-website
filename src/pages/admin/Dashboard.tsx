@@ -136,7 +136,7 @@ const Dashboard = () => {
             { title: "Pending Bugs", value: metrics.pendingBugs, icon: Bug, variant: "red", changeType: "neutral" as const, onClick: () => navigate("/admin/bug-reports") },
             { title: "Total Vehicles", value: metrics.totalVehicles, icon: Car, variant: "orange", changeType: "positive" as const, onClick: () => navigate("/admin/vehicles") },
             { title: "Websites", value: `${metrics.websiteActive} / ${metrics.websiteFuture}`, change: "active / future", icon: Globe, variant: "teal", changeType: "positive" as const, onClick: () => navigate("/admin/digital-assets") },
-          ].map((stat, idx) => (
+          ].map((stat, idx) => ( 
             <motion.div
               key={stat.title}
               variants={itemVariants}
