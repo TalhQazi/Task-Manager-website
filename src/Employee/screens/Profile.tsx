@@ -301,9 +301,20 @@ const hasTaxInfo =
           location: editedProfile.location,
         }),
       });
+
+      // Synchronize to Settings model as well so header/sidebar updates instantly
+      await employeeApiFetch("/api/settings", {
+        method: "PUT",
+        body: JSON.stringify({
+          fullName: editedProfile.name,
+          phone: editedProfile.phone,
+        }),
+      });
       
       setProfile(editedProfile);
       setIsEditing(false);
+      window.dispatchEvent(new CustomEvent("employee-profile-updated"));
+      window.dispatchEvent(new CustomEvent("header-settings-updated"));
       toast.success("Profile updated successfully");
       
       // Refresh to get updated data
@@ -354,6 +365,8 @@ const hasTaxInfo =
         const proxiedUrl = toProxiedUrl(nextUrl) || nextUrl;
         setEditedProfile({ ...editedProfile!, avatarUrl: proxiedUrl });
         setProfile({ ...profile, avatarUrl: proxiedUrl });
+        window.dispatchEvent(new CustomEvent("employee-profile-updated"));
+        window.dispatchEvent(new CustomEvent("header-settings-updated"));
         toast.success("Profile image updated");
         setUploadingImage(false);
       };
@@ -1664,7 +1677,6 @@ const hasTaxInfo =
                 className="w-full bg-[#133767] hover:bg-[#1a4585]"
                 disabled={
                   submittingOnboarding ||
-                  onboardingData?.overallStatus === "submitted" ||
                   onboardingData?.overallStatus === "approved" ||
                   !onboardingData?.basicInfo?.completed ||
                   clearHireStatus?.status !== "GREEN" ||
@@ -1681,7 +1693,7 @@ const hasTaxInfo =
                   : onboardingData?.overallStatus === "approved"
                   ? "Already Approved"
                   : onboardingData?.overallStatus === "submitted"
-                  ? "Submitted - Awaiting Review"
+                  ? "Resubmit for Review"
                   : onboardingData?.overallStatus === "rejected"
                   ? "Resubmit for Review"
                   : "Submit for Admin Approval"}

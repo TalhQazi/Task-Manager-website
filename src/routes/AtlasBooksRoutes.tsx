@@ -5,6 +5,7 @@ import { AtlasBooksLayout } from "../components/atlasbooks/AtlasBooksLayout";
 
 // Lazy-loaded pages for code-splitting and sub-2-second loads
 const CommandCenter = lazy(() => import("../pages/atlasbooks/CommandCenter"));
+const PersonalBudget = lazy(() => import("../pages/atlasbooks/PersonalBudget"));
 
 // Financials
 const ProfitAndLoss = lazy(() => import("../pages/atlasbooks/financials/ProfitAndLoss"));
@@ -105,6 +106,9 @@ const AtlasBooksRoutes: React.FC = () => {
             <Route path="pulse/cash-declines" element={<Suspense fallback={<PageLoader />}><CashDeclines /></Suspense>} />
             <Route path="pulse/credit-changes" element={<Suspense fallback={<PageLoader />}><CreditChanges /></Suspense>} />
             <Route path="pulse/new-liens" element={<Suspense fallback={<PageLoader />}><NewLiens /></Suspense>} />
+
+            {/* Personal Budget Area */}
+            <Route path="personal-budget" element={<Suspense fallback={<PageLoader />}><PersonalBudget /></Suspense>} />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="executive-snapshot" replace />} />

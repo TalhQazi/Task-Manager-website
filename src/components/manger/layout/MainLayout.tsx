@@ -1,6 +1,8 @@
 import { Sidebar } from "./Sidebar";
 import { ReactNode, useState, useEffect, useRef } from "react";
 import { Bell, Bug, Camera, Loader2, LogOut, Mail, Menu, Palette, Search, Settings, User, Sparkles } from "lucide-react";
+import { ThemeShell } from "./ThemeShell";
+import { useTheme } from "@/contexts/ThemeContext";
 
 function HolidayEffects({ type }: { type: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -231,6 +233,27 @@ interface MainLayoutProps {
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
+  const { uiTheme } = useTheme();
+  const isMetallic = uiTheme.theme === "metallic-elite";
+
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem("sidebar_collapsed") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSidebarCollapse = () => {
+    setIsSidebarCollapsed(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem("sidebar_collapsed", String(next));
+      } catch {}
+      return next;
+    });
+  };
+
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -524,13 +547,13 @@ export function MainLayout({ children }: MainLayoutProps) {
   // Apply user UI preferences on load - same as EmployeeLayout (full applyThemeToDOM)
   useEffect(() => {
     apiFetch<{item: { theme?: string; cardStyle?: string; customColors?: { textColor?: string } }}>("/api/ui-preferences").then(res => {
-      const theme = res?.item?.theme || "dark-minimal";
-      const cardStyle = res?.item?.cardStyle || "glass";
+      const theme = res?.item?.theme || "metallic-elite";
+      const cardStyle = res?.item?.cardStyle || "metallic";
       const textColor = res?.item?.customColors?.textColor;
       applyFullTheme(theme, textColor || themeDefaults[theme], cardStyle);
     }).catch(() => {
-      // Fallback to dark-minimal
-      applyFullTheme("dark-minimal");
+      // Fallback to metallic-elite
+      applyFullTheme("metallic-elite", undefined, "metallic");
     });
   }, []);
 
@@ -774,7 +797,8 @@ export function MainLayout({ children }: MainLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--tb-dashboard-bg)" }}>
+    <ThemeShell>
+      <div className="min-h-screen relative" style={{ background: isMetallic ? "transparent" : "var(--tb-dashboard-bg)" }}>
       {/* Top header with dynamic background from admin settings - FULL WIDTH */}
       <header 
         className="fixed top-0 left-0 right-0 z-50 shadow-floating h-[180px] sm:h-[240px] md:h-[300px]"
@@ -783,7 +807,10 @@ export function MainLayout({ children }: MainLayoutProps) {
         }}
       >
         <div 
-          className="w-full h-full relative overflow-hidden group"
+          className={cn(
+            "w-full h-full relative overflow-hidden group transition-all duration-300",
+            isMetallic ? "border-b border-[#ffd27a]/30 shadow-[0_4px_20px_rgba(0,0,0,0.6)]" : ""
+          )}
           style={{
             background: activeHoliday
               ? activeHoliday.backgroundType === "image"
@@ -791,9 +818,30 @@ export function MainLayout({ children }: MainLayoutProps) {
                 : `linear-gradient(to right, ${activeHoliday.colorConfig?.from || '#133767'}, ${activeHoliday.colorConfig?.via || '#133767'}, ${activeHoliday.colorConfig?.to || '#133767'})`
               : hasImageBackground 
                 ? 'transparent'
+                : isMetallic
+                ? 'linear-gradient(135deg, #1f2022 0%, #111315 100%)'
                 : `linear-gradient(to right, ${headerSettings?.colorConfig?.from || '#133767'}, ${headerSettings?.colorConfig?.via || '#133767'}, ${headerSettings?.colorConfig?.to || '#133767'})`
           }}
         >
+          {isMetallic && (
+            <>
+              {/* Metallic top/bottom rail on header */}
+              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#555] via-[#eee] to-[#333] border-b border-[#ffd27a]/20 z-20" />
+              <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#333] via-[#ffd27a]/30 to-[#111] border-t border-[#ffd27a]/20 z-20" />
+              {/* Beveled corner caps */}
+              <div className="absolute top-[4px] left-[2px] w-3 h-3 bg-gradient-to-br from-[#444] to-[#222] border-r border-b border-[#ffd27a]/20 z-20 flex items-center justify-center">
+                <div className="w-1 h-1 rounded-full bg-[#888]" />
+              </div>
+              <div className="absolute top-[4px] right-[2px] w-3 h-3 bg-gradient-to-bl from-[#444] to-[#222] border-l border-b border-[#ffd27a]/20 z-20 flex items-center justify-center">
+                <div className="w-1 h-1 rounded-full bg-[#888]" />
+              </div>
+              
+              {/* Spark line animation inside header */}
+              <div className="spark-line z-20">
+                <div className="spark-dot" style={{ animationDuration: uiTheme.animationSettings?.reduceMotion ? "0s" : "4s" }} />
+              </div>
+            </>
+          )}
           {/* Holiday Effects Canvas Overlay */}
           {activeHoliday?.effects && (
             <HolidayEffects type={activeHoliday.effects} />
@@ -833,7 +881,10 @@ export function MainLayout({ children }: MainLayoutProps) {
           <div className="absolute inset-0 flex flex-col pointer-events-none">
             {/* Header Content Area */}
             <div 
-              className="flex-1 relative flex flex-col justify-end px-3 sm:px-6 lg:px-8 md:pl-60 lg:pl-68 pb-4 sm:pb-8 md:pb-12 lg:pb-16 animate-fade-in pointer-events-auto"
+              className={cn(
+                "flex-1 relative flex flex-col justify-end px-3 sm:px-6 lg:px-8 pb-4 sm:pb-8 md:pb-12 lg:pb-16 animate-fade-in pointer-events-auto",
+                isSidebarCollapsed ? "md:pl-24" : "md:pl-60 lg:pl-68"
+              )}
             >
               {/* Header Picture Edit Button (Camera Icon) */}
               <div className="absolute top-4 right-4 z-20 flex gap-2">
@@ -854,25 +905,75 @@ export function MainLayout({ children }: MainLayoutProps) {
               </div>
 
               {/* Branding, Profile and Holiday Banner in a responsive Flex row */}
-              <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 w-full">
+              <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 w-full relative z-10">
                 <div className="flex flex-col gap-4">
+                  {isMetallic && (
+                    <div className="flex flex-col select-none pointer-events-none mb-1">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-5 w-5 text-[#ffd27a] animate-pulse" />
+                        <span className="text-xl sm:text-2xl font-black tracking-widest text-[#ffd27a] drop-shadow-[0_0_8px_rgba(255,151,42,0.5)]" style={{ fontFamily: "'Outfit', 'Plus Jakarta Sans', sans-serif" }}>
+                          TASKBLASTER
+                        </span>
+                      </div>
+                      <span className="text-[9px] tracking-[0.25em] font-mono text-[#cfd7dc]/60 uppercase ml-7">
+                        COMMAND CONTROL SHELL
+                      </span>
+                    </div>
+                  )}
+
                   {/* Profile Card (Top) */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <div className="flex items-center gap-3 p-2 rounded-xl bg-black/20 backdrop-blur-md border border-white/10 hover:bg-black/30 transition-all cursor-pointer group w-fit">
-                        <div className="relative">
-                          <Avatar className="h-10 w-10 border border-white/20 shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20 transition-all">
+                      <div className={cn(
+                        "flex items-center gap-3 p-2 rounded-xl transition-all cursor-pointer group w-fit relative",
+                        isMetallic 
+                          ? "bg-gradient-to-br from-[#2b2c2d] to-[#111315] border border-[#ffd27a]/35 shadow-[inset_0_1px_2px_rgba(255,255,255,0.1),_0_4px_8px_rgba(0,0,0,0.5)]" 
+                          : "bg-black/20 backdrop-blur-md border border-white/10 hover:bg-black/30"
+                      )}>
+                        {isMetallic && (
+                          <>
+                            {/* Inner glow frame */}
+                            <div className="absolute inset-[1px] rounded-lg border border-white/5 pointer-events-none" />
+                            {/* Corner brackets */}
+                            <div className="metallic-corner-bracket metallic-bracket-tl" />
+                            <div className="metallic-corner-bracket metallic-bracket-tr" />
+                            <div className="metallic-corner-bracket metallic-bracket-bl" />
+                            <div className="metallic-corner-bracket metallic-bracket-br" />
+                          </>
+                        )}
+                        <div className="relative z-10">
+                          <Avatar className={cn(
+                            "h-10 w-10 border transition-all",
+                            isMetallic 
+                              ? "border-[#ffd27a]/35 shadow-md group-hover:ring-2 group-hover:ring-[#ffd27a]/25" 
+                              : "border-white/20 shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20"
+                          )}>
                             {avatarUrl ? (
                               <AvatarImage src={avatarUrl} alt={fullName} className="object-cover" />
                             ) : (
-                              <AvatarFallback className="bg-gradient-to-br from-[#00C6FF] to-[#0072FF] text-white text-xs font-bold">{initials}</AvatarFallback>
+                              <AvatarFallback className={cn(
+                                "text-white text-xs font-bold",
+                                isMetallic
+                                  ? "bg-gradient-to-br from-[#c89537] to-[#ffd27a] text-black"
+                                  : "bg-gradient-to-br from-[#00C6FF] to-[#0072FF]"
+                              )}>{initials}</AvatarFallback>
                             )}
                           </Avatar>
-                          <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-black rounded-full" />
+                          <div className={cn(
+                            "absolute -bottom-0.5 -right-0.5 h-3 w-3 border-2 border-black rounded-full shadow-[0_0_4px_rgba(0,0,0,0.5)]",
+                            currentStatus === "LUNCH"
+                              ? "bg-amber-500 animate-pulse"
+                              : currentStatus === "BREAK"
+                              ? "bg-purple-500 animate-pulse"
+                              : "bg-green-500"
+                          )} />
                         </div>
-                        <div className="flex flex-col min-w-0 pr-4">
+                        <div className="flex flex-col min-w-0 pr-4 relative z-10">
                           <span className="text-base font-bold text-white truncate leading-tight drop-shadow-md">{fullName}</span>
-                          <span className="text-[11px] text-white/60 truncate tracking-wide uppercase font-semibold">{auth.role || "Manager"}</span>
+                          <span className={cn(
+                            "text-[11px] truncate tracking-wide uppercase font-semibold",
+                            isMetallic ? "text-[#ffd27a]" : "text-white/60"
+                          )}>{auth.role || "Manager"}</span>
                         </div>
                       </div>
                     </DropdownMenuTrigger>
@@ -889,17 +990,38 @@ export function MainLayout({ children }: MainLayoutProps) {
                   </DropdownMenu>
 
                   {/* Quick Actions Bar (Bottom) */}
-                  <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-4 relative z-10">
                     <div className="md:hidden">
-                      <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/[0.14] transition-all" aria-label="Open navigation" onClick={() => setMobileSidebarOpen(true)}><Menu className="h-5 w-5 text-white" /></button>
+                      <button 
+                        type="button" 
+                        className={cn(
+                          "group inline-flex h-9 w-9 items-center justify-center rounded-full transition-all",
+                          isMetallic
+                            ? "bg-gradient-to-br from-[#2b2c2d] to-[#111315] text-[#ffd27a] border border-[#ffd27a]/30 shadow-md"
+                            : "bg-white/10 hover:bg-white/[0.14]"
+                        )}
+                        aria-label="Open navigation" 
+                        onClick={() => setMobileSidebarOpen(true)}
+                      >
+                        <Menu className="h-5 w-5 text-white" />
+                      </button>
                     </div>
 
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
-                          <Mail className="h-5 w-5" />
+                        <button className={cn(
+                          "relative group p-2 rounded-lg backdrop-blur-sm transition-all duration-150 active:scale-95",
+                          isMetallic
+                            ? "bg-gradient-to-br from-[#2b2c2d] to-[#111315] border border-[#ffd27a]/25 text-[#ffd27a] hover:border-[#ffd27a]/40 hover:text-white shadow-[0_2px_4px_rgba(0,0,0,0.4)]"
+                            : "bg-black/20 hover:bg-black/40 text-white/70 hover:text-white"
+                        )}>
+                          {isMetallic && <div className="absolute inset-px rounded-md border border-white/5 pointer-events-none" />}
+                          <Mail className="h-5 w-5 relative z-10" />
                           {unreadMessageCount > 0 && (
-                            <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-[#00C6FF] text-[9px] border-black">
+                            <Badge className={cn(
+                              "absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center text-[9px] border-black z-20",
+                              isMetallic ? "bg-[#ffd27a] text-black" : "bg-[#00C6FF]"
+                            )}>
                               {Math.min(unreadMessageCount, 9)}
                             </Badge>
                           )}
@@ -934,22 +1056,28 @@ export function MainLayout({ children }: MainLayoutProps) {
 
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
-                          <Bell className="h-4.5 w-4.5" />
+                        <button className={cn(
+                          "relative group p-2 rounded-lg backdrop-blur-sm transition-all duration-150 active:scale-95",
+                          isMetallic
+                            ? "bg-gradient-to-br from-[#2b2c2d] to-[#111315] border border-[#ffd27a]/25 text-[#ffd27a] hover:border-[#ffd27a]/40 hover:text-white shadow-[0_2px_4px_rgba(0,0,0,0.4)]"
+                            : "bg-black/20 hover:bg-black/40 text-white/70 hover:text-white"
+                        )}>
+                          {isMetallic && <div className="absolute inset-px rounded-md border border-white/5 pointer-events-none" />}
+                          <Bell className="h-4.5 w-4.5 relative z-10" />
                           {unreadCount > 0 && (
-                            <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[9px] border-black">
+                            <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[9px] border-black z-20">
                               {unreadCount > 9 ? "9+" : unreadCount}
                             </Badge>
                           )}
                         </button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" side="bottom" className="w-80 mt-2 p-0 shadow-2xl border-slate-700 bg-[#0f172a]">
+                      <DropdownMenuContent align="start" side="bottom" className={cn("w-80 mt-2 p-0 shadow-2xl", isMetallic ? "border-[#ffd27a]/35 bg-[#111315]" : "border-slate-700 bg-[#0f172a]")}>
                         <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
                           <DropdownMenuLabel className="text-sm font-bold text-white p-0">Notifications</DropdownMenuLabel>
                           {unreadCount > 0 && (
                             <button
                               onClick={(e) => { e.stopPropagation(); void markAllRead(); }}
-                              className="text-[10px] font-bold uppercase tracking-wider text-[#00C6FF] hover:text-white transition-colors"
+                              className={cn("text-[10px] font-bold uppercase tracking-wider transition-colors", isMetallic ? "text-[#ffd27a] hover:text-white" : "text-[#00C6FF] hover:text-white")}
                             >
                               Mark all read
                             </button>
@@ -999,18 +1127,30 @@ export function MainLayout({ children }: MainLayoutProps) {
 
                     <button 
                       onClick={() => { resetReport(); setReportOpen(true); }}
-                      className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white"
+                      className={cn(
+                        "relative group p-2 rounded-lg backdrop-blur-sm transition-all duration-150 active:scale-95",
+                        isMetallic
+                          ? "bg-gradient-to-br from-[#2b2c2d] to-[#111315] border border-[#ffd27a]/25 text-[#ffd27a] hover:border-[#ffd27a]/40 hover:text-white shadow-[0_2px_4px_rgba(0,0,0,0.4)]"
+                          : "bg-black/20 hover:bg-black/40 text-white/70 hover:text-white"
+                      )}
                       title="Submit Bug Report"
                     >
-                      <Bug className="h-4.5 w-4.5" />
+                      {isMetallic && <div className="absolute inset-px rounded-md border border-white/5 pointer-events-none" />}
+                      <Bug className="h-4.5 w-4.5 relative z-10" />
                     </button>
 
                     <button 
                       onClick={() => { clearAuthState(); navigate("/login"); }}
-                      className="p-2 rounded-lg bg-black/20 hover:bg-red-500/20 backdrop-blur-sm transition-colors text-red-400/70 hover:text-red-400"
+                      className={cn(
+                        "relative group p-2 rounded-lg backdrop-blur-sm transition-all duration-150 active:scale-95",
+                        isMetallic
+                          ? "bg-gradient-to-br from-[#2b2c2d] to-[#111315] border border-red-500/30 text-red-400 hover:border-red-500 hover:text-white shadow-[0_2px_4px_rgba(0,0,0,0.4)]"
+                          : "bg-black/20 hover:bg-red-500/20 text-red-400/70 hover:text-red-400"
+                      )}
                       title="Logout"
                     >
-                      <LogOut className="h-4.5 w-4.5" />
+                      {isMetallic && <div className="absolute inset-px rounded-md border border-white/5 pointer-events-none" />}
+                      <LogOut className="h-4.5 w-4.5 relative z-10" />
                     </button>
                   </div>
                 </div>
@@ -1205,11 +1345,14 @@ export function MainLayout({ children }: MainLayoutProps) {
       {/* Body: left icon rail + content */}
       <div className="flex">
         <div className="hidden md:block">
-          <Sidebar />
+          <Sidebar isCollapsed={isSidebarCollapsed} onToggleCollapse={toggleSidebarCollapse} />
         </div>
         <main
-          className="flex-1 min-h-screen md:ml-56 lg:ml-64 pt-[180px] sm:pt-[240px] md:pt-[300px]"
-          style={{ background: 'var(--tb-dashboard-bg)' }}
+          className={cn(
+            "flex-1 min-h-screen pt-[180px] sm:pt-[240px] md:pt-[300px] transition-all duration-300",
+            isSidebarCollapsed ? "md:ml-20" : "md:ml-56 lg:ml-64"
+          )}
+          style={{ background: isMetallic ? 'transparent' : 'var(--tb-dashboard-bg)' }}
         >
           <div className="w-full px-4 py-4 sm:py-8 animate-fade-in">
             {children}
@@ -1219,6 +1362,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
       {/* TaskBlaster overlay for celebrations */}
       <TaskBlaster />
-    </div>
+      </div>
+    </ThemeShell>
   );
 }

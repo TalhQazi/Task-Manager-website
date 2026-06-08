@@ -48,6 +48,7 @@ const EmployeeEODHistory = lazy(() => import("@/pages/admin/EmployeeEODHistory")
 const SignaCore = lazy(() => import("@/pages/admin/SignaCore"));
 const UphMaintenance = lazy(() => import("@/pages/admin/UphMaintenance"));
 const BugReport = lazy(() => import("@/pages/admin/BugReport"));
+const ComplianceCenter = lazy(() => import("@/pages/manger/ComplianceCenter"));
 const Contributors = lazy(() => import("@/pages/admin/Contributors"));
 const ThemeEngine = lazy(() => import("@/pages/admin/ThemeEngine"));
 const Memes = lazy(() => import("@/pages/admin/Memes"));
@@ -152,6 +153,7 @@ export default function AdminRoutes() {
       { path: "crm/files", element: <CRMFiles /> },
       { path: "crm/commandcore", element: <CRMCommandCore /> },
       { path: "bug-reports", element: <BugReport /> },
+      { path: "compliance-center", element: <ComplianceCenter /> },
       { path: "theme-engine", element: <ThemeEngine /> },
       { path: "memes", element: <Memes /> },
       { path: "shopping-lists", element: <ShoppingLists /> },

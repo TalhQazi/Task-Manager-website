@@ -108,6 +108,7 @@ const navItemsBase: NavItem[] = [
     ],
   },
   { icon: Users, label: "User Management", path: "/admin/users", end: true },
+  { icon: ClipboardList, label: "Compliance Center", path: "/admin/compliance-center" },
   { icon: CheckSquare, label: "Task Management", path: "/admin/tasks" },
   { icon: UserCircle, label: "Employee Directory", path: "/admin/employees" },
   { icon: Compass, label: "Itinerary History", path: "/admin/itineraries" },
