@@ -1980,7 +1980,25 @@ export default function Tasks() {
       });
       const normalized = normalizeTask(res.item);
       setSelectedTask(normalized);
+
+      // Update in selectedProject tasks if applicable
+      if (selectedProject && normalized.projectId && selectedProject.id === normalized.projectId) {
+        setSelectedProject((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            tasks: prev.tasks.map((t) => (t.id === normalized.id ? normalized : t)),
+          };
+        });
+      }
+
+      // Update in standalone tasks list (tasks state)
+      setTasks((prev) => prev.map((t) => (t.id === normalized.id ? normalized : t)));
+
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      if (normalized.projectId) {
+        await queryClient.invalidateQueries({ queryKey: ["project", normalized.projectId] });
+      }
 
       // Trigger TaskBlaster & Reward System when task is marked as completed
       if (next === "completed" && previousStatus !== "completed") {

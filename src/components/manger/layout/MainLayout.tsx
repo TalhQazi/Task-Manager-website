@@ -601,7 +601,7 @@ export function MainLayout({ children }: MainLayoutProps) {
     .sort((a, b) => String(b.timestamp || b.createdAt || "").localeCompare(String(a.timestamp || a.createdAt || "")))
     .slice(0, 8);
 
-  const unreadCount = notifications.length;
+  const unreadCount = (notificationsQuery.data || []).filter(isUnread).length;
   const unreadMessageCount = (messagesQuery.data || []).reduce((sum, c) => sum + (c.unreadCount || 0), 0);
 
   const [reportOpen, setReportOpen] = useState(false);
@@ -686,6 +686,8 @@ export function MainLayout({ children }: MainLayoutProps) {
       const isForMe = recipients.includes(me) ||
                       (myName && recipients.includes(myName)) ||
                       recipients.includes(myRole) ||
+                      recipients.includes("all") ||
+                      (myRole === "manager" && recipients.includes("managers")) ||
                       myRole === "super-admin" ||
                       myRole === "admin";
 

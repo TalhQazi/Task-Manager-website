@@ -419,9 +419,12 @@ export async function deleteComment(taskId: string, commentId: string) {
 }
 
 // EOD Reports API for Admin
-export async function getAdminEODReports(params?: { date?: string; employeeId?: string; status?: string; page?: number; limit?: number }) {
+export async function getAdminEODReports(params?: { date?: string; from?: string; to?: string; location?: string; employeeId?: string; status?: string; page?: number; limit?: number }) {
   const qs = new URLSearchParams();
   if (params?.date) qs.set("date", params.date);
+  if (params?.from) qs.set("from", params.from);
+  if (params?.to) qs.set("to", params.to);
+  if (params?.location) qs.set("location", params.location);
   if (params?.employeeId) qs.set("employeeId", params.employeeId);
   if (params?.status) qs.set("status", params.status);
   if (params?.page) qs.set("page", String(params.page));
@@ -440,6 +443,7 @@ export async function getAdminEODReports(params?: { date?: string; employeeId?: 
       clockIn?: string;
       clockOut?: string;
       totalHours?: number;
+      employeeLocation?: string;
     }>;
     total: number;
     page: number;
