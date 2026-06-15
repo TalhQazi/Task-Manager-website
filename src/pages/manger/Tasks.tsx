@@ -2922,12 +2922,6 @@ export default function Tasks() {
                     autoComplete="on"
                   />
                   {validationErrors.description && <p className="text-xs text-destructive">{validationErrors.description}</p>}
-                  <div className="pt-2 flex gap-2">
-                    <Button type="submit" disabled={isCreating} className="gap-2 h-9 px-4 text-xs font-semibold">
-                      {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
-                      Create Task
-                    </Button>
-                  </div>
                 </div>
                 <div className="sm:col-span-2 space-y-1.5">
                   <label className="text-sm font-medium">Assignees</label>
@@ -3096,6 +3090,10 @@ export default function Tasks() {
                   setIsCreateTaskOpen(false);
                   setIsDirectTask(false);
                 }} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button>
+                <Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">
+                  {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Create Task
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
@@ -4206,7 +4204,7 @@ export default function Tasks() {
                                 )}
                               </div>
                               <span className="text-sm text-foreground">
-                                {task.assignees.slice(0, 2).map(resolveAssigneeName).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}
+                                {task.assignees.length === 1 ? resolveAssigneeName(task.assignees[0]) : `${task.assignees.length} persons`}
                               </span>
                             </>
                           ) : (

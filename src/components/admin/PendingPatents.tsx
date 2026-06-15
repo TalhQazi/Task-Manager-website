@@ -86,6 +86,7 @@ export function PendingPatents() {
   });
 
   // Filters
+  const [filterSearch, setFilterSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [filterStage, setFilterStage] = useState("");
   const [filterStartDate, setFilterStartDate] = useState("");
@@ -193,6 +194,12 @@ export function PendingPatents() {
   const patents = patentsQuery.data || [];
 
   const filteredPatents = patents.filter((p) => {
+    if (filterSearch) {
+      const query = filterSearch.toLowerCase();
+      const nameMatch = p.patentName?.toLowerCase().includes(query);
+      const inventorMatch = p.inventors?.some((inv) => inv.toLowerCase().includes(query));
+      if (!nameMatch && !inventorMatch) return false;
+    }
     if (filterCategory && !p.category.toLowerCase().includes(filterCategory.toLowerCase())) return false;
     if (filterStage && p.stage !== filterStage) return false;
     if (filterStartDate && new Date(p.startDate) < new Date(filterStartDate)) return false;
@@ -418,7 +425,17 @@ export function PendingPatents() {
       ) : (
         <div className="space-y-4">
           <Card className="bg-muted/30 border-muted">
-            <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            <CardContent className="p-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+              <div>
+                <label className="text-xs font-medium text-muted-foreground mb-1 block">Search</label>
+                <input
+                  type="text"
+                  placeholder="Search name or inventors..."
+                  value={filterSearch}
+                  onChange={(e) => setFilterSearch(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md text-sm bg-background focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
               <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Category</label>
                 <input

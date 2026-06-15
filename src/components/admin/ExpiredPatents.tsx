@@ -1,17 +1,16 @@
 import { useState } from "react";
-import { motion, AnimatePresence, Variants } from "framer-motion";
+import { motion } from "framer-motion";
 import {
   Dialog,
   DialogContent,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/admin/ui/dialog";
 import { Button } from "@/components/admin/ui/button";
 import { Card, CardContent } from "@/components/admin/ui/card";
 import { Badge } from "@/components/admin/ui/badge";
-import { Plus, Edit2, Trash2, FileText, AlertCircle } from "lucide-react";
+import { Edit2, Trash2, FileText } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -44,31 +43,10 @@ const statusColors = {
   Abandoned: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400",
 };
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: { staggerChildren: 0.1, delayChildren: 0.2 },
-  },
-};
-
-const itemVariants: Variants = {
-  hidden: { y: 20, opacity: 0 },
-  visible: {
-    y: 0,
-    opacity: 1,
-    transition: { type: "spring", stiffness: 100, damping: 12 },
-  },
-};
-
-export function FiledPatents() {
-  const [isOpen, setIsOpen] = useState(false);
+export function ExpiredPatents() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  
-  // Filters
   const [filterSearch, setFilterSearch] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
   const [filterStartDate, setFilterStartDate] = useState("");
   const [filterEndDate, setFilterEndDate] = useState("");
   const [formData, setFormData] = useState<Partial<FiledPatent>>({
@@ -77,7 +55,7 @@ export function FiledPatents() {
     filingType: "Provisional",
     filingDate: "",
     applicationNumber: "",
-    status: "Filed",
+    status: "Expired",
     notes: "",
   });
   const [selectedPatent, setSelectedPatent] = useState<FiledPatent | null>(null);
@@ -94,9 +72,9 @@ export function FiledPatents() {
 
   const patents = patentsQuery.data || [];
 
-  const filteredPatents = patents.filter((p) => {
-    // Hide expired by default so they go to the Expired tab
-    if (p.status === "Expired") return false;
+  const expiredPatents = patents.filter((p) => {
+    // Only expired patents
+    if (p.status !== "Expired") return false;
 
     if (filterSearch) {
       const query = filterSearch.toLowerCase();
@@ -104,8 +82,8 @@ export function FiledPatents() {
       const appNumMatch = p.applicationNumber?.toLowerCase().includes(query);
       if (!nameMatch && !appNumMatch) return false;
     }
+
     if (filterCategory && !p.category.toLowerCase().includes(filterCategory.toLowerCase())) return false;
-    if (filterStatus && p.status !== filterStatus) return false;
     if (filterStartDate && new Date(p.filingDate) < new Date(filterStartDate)) return false;
     if (filterEndDate && new Date(p.filingDate) > new Date(filterEndDate)) return false;
     return true;
@@ -118,16 +96,20 @@ export function FiledPatents() {
       filingType: "Provisional",
       filingDate: "",
       applicationNumber: "",
-      status: "Filed",
+      status: "Expired",
       notes: "",
     });
     setSelectedPatent(null);
   };
 
   const calculateExpiration = (filingDate: string, filingType: string) => {
-    if (filingType !== "Provisional" || !filingDate) return "";
+    if (!filingDate) return "";
     const date = new Date(filingDate);
-    date.setFullYear(date.getFullYear() + 1);
+    if (filingType === "Provisional") {
+      date.setFullYear(date.getFullYear() + 1);
+    } else {
+      date.setFullYear(date.getFullYear() + 20);
+    }
     return date.toISOString().split("T")[0];
   };
 
@@ -141,11 +123,7 @@ export function FiledPatents() {
       setIsSubmitting(true);
       setApiError(null);
 
-      const expirationDate =
-        formData.filingType === "Provisional"
-          ? calculateExpiration(formData.filingDate, formData.filingType!)
-          : "";
-
+      const expirationDate = calculateExpiration(formData.filingDate, formData.filingType!);
       const payload = {
         ...formData,
         provisionalExpiration: expirationDate,
@@ -154,11 +132,6 @@ export function FiledPatents() {
       if (selectedPatent) {
         await apiFetch(`/api/patents/filed/${selectedPatent._id}`, {
           method: "PUT",
-          body: JSON.stringify(payload),
-        });
-      } else {
-        await apiFetch("/api/patents/filed", {
-          method: "POST",
           body: JSON.stringify(payload),
         });
       }
@@ -192,15 +165,6 @@ export function FiledPatents() {
     setIsEditDialogOpen(true);
   };
 
-  const isExpiringExpiringSoon = (expirationDate: string) => {
-    const expDate = new Date(expirationDate);
-    const today = new Date();
-    const daysUntilExpiration = Math.floor(
-      (expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-    );
-    return daysUntilExpiration <= 60 && daysUntilExpiration > 0;
-  };
-
   return (
     <div className="space-y-4">
       {apiError && (
@@ -211,24 +175,9 @@ export function FiledPatents() {
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogTrigger asChild>
-            <Button
-              onClick={() => {
-                resetForm();
-                setIsEditDialogOpen(true);
-              }}
-              className="w-full sm:w-auto bg-gradient-to-r from-primary to-primary/80"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Patent
-            </Button>
-          </DialogTrigger>
-
           <DialogContent className="w-[95vw] max-w-md">
             <DialogHeader>
-              <DialogTitle>
-                {selectedPatent ? "Edit Patent" : "Add New Patent"}
-              </DialogTitle>
+              <DialogTitle>Edit Expired Patent</DialogTitle>
             </DialogHeader>
 
             <div className="space-y-4">
@@ -280,7 +229,7 @@ export function FiledPatents() {
                 <label className="text-sm font-medium">Filing Date</label>
                 <input
                   type="date"
-                  value={formData.filingDate || ""}
+                  value={formData.filingDate ? formData.filingDate.split("T")[0] : ""}
                   onChange={(e) =>
                     setFormData({ ...formData, filingDate: e.target.value })
                   }
@@ -304,7 +253,7 @@ export function FiledPatents() {
               <div>
                 <label className="text-sm font-medium">Status</label>
                 <select
-                  value={formData.status || "Filed"}
+                  value={formData.status || "Expired"}
                   onChange={(e) =>
                     setFormData({
                       ...formData,
@@ -329,7 +278,7 @@ export function FiledPatents() {
                   }
                   className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
                   rows={3}
-                  placeholder="Additional notes..."
+                  placeholder="Additional details..."
                 />
               </div>
             </div>
@@ -341,12 +290,8 @@ export function FiledPatents() {
               >
                 Cancel
               </Button>
-              <Button
-                onClick={handleSave}
-                disabled={isSubmitting}
-                className="bg-primary"
-              >
-                {isSubmitting ? "Saving..." : "Save"}
+              <Button onClick={handleSave} disabled={isSubmitting}>
+                {isSubmitting ? "Saving..." : "Save Changes"}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -357,11 +302,11 @@ export function FiledPatents() {
         <div className="flex justify-center py-8">
           <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
         </div>
-      ) : patents.length === 0 ? (
+      ) : expiredPatents.length === 0 ? (
         <Card>
           <CardContent className="p-6 text-center">
             <p className="text-sm text-muted-foreground">
-              No patents yet. Click "Add Patent" to get started.
+              No expired patents.
             </p>
           </CardContent>
         </Card>
@@ -390,20 +335,6 @@ export function FiledPatents() {
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-muted-foreground mb-1 block">Status</label>
-                <select
-                  value={filterStatus}
-                  onChange={(e) => setFilterStatus(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-md text-sm bg-background focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value="">All Statuses</option>
-                  <option value="Filed">Filed</option>
-                  <option value="Issued">Issued</option>
-                  <option value="Expired">Expired</option>
-                  <option value="Abandoned">Abandoned</option>
-                </select>
-              </div>
-              <div>
                 <label className="text-xs font-medium text-muted-foreground mb-1 block">Filed After</label>
                 <input
                   type="date"
@@ -428,69 +359,66 @@ export function FiledPatents() {
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow>
-                  <TableHead className="w-12 font-bold">#</TableHead>
                   <TableHead className="font-bold">Patent Name</TableHead>
-                <TableHead className="font-bold">App Number</TableHead>
-                <TableHead className="font-bold">Category</TableHead>
-                <TableHead className="font-bold">Type</TableHead>
-                <TableHead className="font-bold">Filed Date</TableHead>
-                <TableHead className="font-bold">Expires</TableHead>
-                <TableHead className="font-bold">Status</TableHead>
-                <TableHead className="text-right font-bold">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredPatents.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="h-24 text-center">
-                    No patents match your filters.
-                  </TableCell>
+                  <TableHead className="font-bold">Type</TableHead>
+                  <TableHead className="font-bold">Category</TableHead>
+                  <TableHead className="font-bold">Application Number</TableHead>
+                  <TableHead className="font-bold">Filing Date</TableHead>
+                  <TableHead className="font-bold">Expiration Date</TableHead>
+                  <TableHead className="font-bold">Status</TableHead>
+                  <TableHead className="text-right font-bold">Actions</TableHead>
                 </TableRow>
-              ) : (
-                filteredPatents.map((patent, index) => (
-                  <TableRow key={patent._id} className="hover:bg-muted/30 transition-colors text-sm">
-                    <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
-                    <TableCell className="font-medium">{patent.patentName}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{patent.applicationNumber}</TableCell>
-                  <TableCell className="text-xs">{patent.category}</TableCell>
-                  <TableCell className="text-xs">{patent.filingType}</TableCell>
-                  <TableCell className="text-xs">{new Date(patent.filingDate).toLocaleDateString()}</TableCell>
-                  <TableCell className="text-xs text-amber-600 font-medium">
-                    {patent.provisionalExpiration ? new Date(patent.provisionalExpiration).toLocaleDateString() : "—"}
-                    {patent.provisionalExpiration && isExpiringExpiringSoon(patent.provisionalExpiration) && (
-                      <Badge variant="destructive" className="ml-2 text-[8px] px-1 py-0 h-4">EXPIRING</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={`${statusColors[patent.status]} border-0 shadow-none font-bold text-[10px] uppercase`}>
-                      {patent.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-blue-600"
-                        onClick={() => handleEdit(patent)}
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-destructive"
-                        onClick={() => handleDelete(patent)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              )))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {expiredPatents.map((patent) => (
+                  <TableRow key={patent._id}>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        {patent.patentName}
+                      </div>
+                    </TableCell>
+                    <TableCell>{patent.filingType}</TableCell>
+                    <TableCell>{patent.category || "—"}</TableCell>
+                    <TableCell className="font-mono text-xs">{patent.applicationNumber}</TableCell>
+                    <TableCell>
+                      {new Date(patent.filingDate).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-destructive font-medium">
+                      {patent.provisionalExpiration
+                        ? new Date(patent.provisionalExpiration).toLocaleDateString()
+                        : "—"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={`${statusColors.Expired} border-0 font-bold text-[10px] uppercase`}>
+                        {patent.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8"
+                          onClick={() => handleEdit(patent)}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-destructive"
+                          onClick={() => handleDelete(patent)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
     </div>

@@ -3090,7 +3090,7 @@ export default function Tasks() {
                           <div className="flex flex-wrap items-center justify-between text-[11px] text-muted-foreground mb-3 gap-2">
                             <span className="truncate flex-1 font-medium flex items-center gap-1.5">
                               <Users className="w-3.5 h-3.5" />
-                              {assigneeList.length} Assignee{assigneeList.length === 1 ? "" : "s"}
+                              {assigneeList.length === 1 ? assigneeList[0] : `${assigneeList.length} persons`}
                             </span>
                             {(() => {
                               const { images, files } = getAttachmentCounts(task.attachments, task.attachment);
@@ -3474,12 +3474,6 @@ export default function Tasks() {
                   autoComplete="on"
                 />
                 {validationErrors.description && <p className="text-xs text-destructive">{validationErrors.description}</p>}
-                <div className="pt-2 flex gap-2">
-                  <Button type="submit" disabled={isCreating} className="gap-2 h-9 px-4 text-xs font-semibold">
-                    {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Create Task
-                  </Button>
-                </div>
               </div>
               <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Assignees</label><Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}><PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{selectedAssignees.length > 0 ? selectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] max-w-[380px] p-0 z-[150]" align="start" collisionPadding={20}><Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); }}><Check className={cn("mr-2 h-4 w-4", selectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover></div>
               <div className="sm:col-span-2 space-y-1.5">
@@ -3534,7 +3528,13 @@ export default function Tasks() {
               </div>
             </div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Task Attachments</label><div className="space-y-2"><div className="flex gap-2"><button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1" onClick={() => { const el = document.getElementById("task-attachments-input") as HTMLInputElement | null; el?.click(); }}>+ Add Files/Images</button>{ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (<button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1 flex items-center justify-center gap-2" onClick={() => { setDropboxPickerTarget("task"); setIsDropboxPickerOpen(true); }}><DropboxIcon size={14} />Dropbox</button>)}</div><input id="task-attachments-input" type="file" accept="*" multiple className="hidden" onChange={async (e) => { const files = Array.from(e.target.files ?? []); const processedFiles = await Promise.all(files.map(async (f) => { if (f.type.startsWith("image/")) { return await resizeImageIfNeeded(f, 1200, 1200, 0.8); } return f; })); setAttachmentFiles((prev) => [...prev, ...processedFiles]); processedFiles.forEach((file) => { const reader = new FileReader(); reader.onload = () => { const result = typeof reader.result === "string" ? reader.result : ""; setAttachmentFilePreviews((prev) => [...prev, result]); }; if (file.type.startsWith("image/")) { reader.readAsDataURL(file); } else { setAttachmentFilePreviews((prev) => [...prev, ""]); } }); }} />{attachmentFiles.length > 0 && (<div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">{attachmentFiles.map((file, idx) => (<div key={idx} className="relative group">{attachmentFilePreviews[idx] ? (<img src={attachmentFilePreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />) : (<div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">📄 {file.name}</div>)}<button type="button" onClick={() => { setAttachmentFiles((prev) => prev.filter((_, i) => i !== idx)); setAttachmentFilePreviews((prev) => prev.filter((_, i) => i !== idx)); }} className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs">✕</button></div>))}</div>)}{dropboxSelectedFiles.length > 0 && (<div className="border border-border rounded-md p-2 space-y-1.5 bg-muted/30"><p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><DropboxIcon size={12} />Dropbox Files (External)</p>{dropboxSelectedFiles.map((dbf, idx) => (<div key={idx} className="flex items-center gap-2 bg-background rounded-md px-2.5 py-1.5 border border-border text-sm"><FileText className="w-4 h-4 text-blue-400 flex-shrink-0" /><span className="flex-1 truncate text-foreground">{dbf.file_name}</span><span className="text-xs text-muted-foreground">{dbf.file_size > 0 ? formatBytes(dbf.file_size) : ""}</span><button type="button" onClick={() => setDropboxSelectedFiles((prev) => prev.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive transition-colors">✕</button></div>))}</div>)}</div></div>
-            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end"><Button type="button" variant="outline" onClick={() => { setIsCreateTaskOpen(false); setIsDirectTask(false); }} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button></DialogFooter>
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+              <Button type="button" variant="outline" onClick={() => { setIsCreateTaskOpen(false); setIsDirectTask(false); }} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button>
+              <Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">
+                {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
+                Create Task
+              </Button>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
@@ -5101,7 +5101,7 @@ export default function Tasks() {
                                   )}
                                 </div>
                                 <span className="text-sm text-foreground break-words">
-                                  {task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}
+                                  {task.assignees.length === 1 ? task.assignees[0] : `${task.assignees.length} persons`}
                                 </span>
                               </>
                             ) : (
@@ -5118,12 +5118,12 @@ export default function Tasks() {
               </div>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-muted-foreground mt-6 pt-4 border-t border-muted/20">
                 <span className="text-center sm:text-left">
-                  Showing {filteredTasks.length ? `${(projectTaskPage - 1) * PAGE_SIZE + 1} - ${(projectTaskPage - 1) * PAGE_SIZE + filteredTasks.length}` : "0"} of {tasks.length} tasks
+                  Showing {filteredTasks.length ? `${(projectTaskPage - 1) * PAGE_SIZE + 1} - ${(projectTaskPage - 1) * PAGE_SIZE + filteredTasks.length}` : "0"} of {sourceTasks.length} tasks
                 </span>
                 <div className="flex flex-wrap items-center justify-center sm:justify-end gap-4">
-                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-success" />{tasks.filter((t) => t.status === "completed").length} completed</span>
-                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary" />{tasks.filter((t) => t.status === "in-progress").length} in progress</span>
-                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-warning" />{tasks.filter((t) => t.status === "pending").length} pending</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-success" />{sourceTasks.filter((t) => t.status === "completed").length} completed</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary" />{sourceTasks.filter((t) => t.status === "in-progress").length} in progress</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-warning" />{sourceTasks.filter((t) => t.status === "pending").length} pending</span>
                 </div>
               </div>
               {projectTaskTotalPages > 1 && (

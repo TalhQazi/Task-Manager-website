@@ -329,7 +329,7 @@ export default function AtlasModulePage() {
   if (premiumComponent) {
     return (
       <AtlasBooksProvider>
-        <div className="p-1">
+        <div className="px-4 md:px-6 md:pl-6">
           {premiumComponent}
         </div>
       </AtlasBooksProvider>
@@ -339,7 +339,7 @@ export default function AtlasModulePage() {
   if (data.component) {
     const Component = data.component;
     return (
-      <div className="pl-6">
+      <div className="px-4 md:px-6 md:pl-6">
         <Component />
       </div>
     );

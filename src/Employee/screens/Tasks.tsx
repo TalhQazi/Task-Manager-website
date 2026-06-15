@@ -3129,7 +3129,7 @@ export default function Tasks() {
                                 )}
                               </div>
                               <span className="text-sm text-foreground">
-                                {task.assignees.slice(0, 2).map(resolveAssigneeName).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}
+                                {task.assignees.length === 1 ? resolveAssigneeName(task.assignees[0]) : `${task.assignees.length} persons`}
                               </span>
                             </>
                           ) : (
