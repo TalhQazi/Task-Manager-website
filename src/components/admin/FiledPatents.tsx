@@ -132,8 +132,8 @@ export function FiledPatents() {
   };
 
   const handleSave = async () => {
-    if (!formData.patentName || !formData.filingDate || !formData.applicationNumber) {
-      setApiError("Patent Name, Filing Date, and Application Number are required");
+    if (!formData.patentName) {
+      setApiError("Patent Name is required");
       return;
     }
 
@@ -142,7 +142,7 @@ export function FiledPatents() {
       setApiError(null);
 
       const expirationDate =
-        formData.filingType === "Provisional"
+        formData.filingType === "Provisional" && formData.filingDate
           ? calculateExpiration(formData.filingDate, formData.filingType!)
           : "";
 
