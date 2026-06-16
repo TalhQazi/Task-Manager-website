@@ -11,7 +11,7 @@ interface AtlasModuleProps {
 
 export default function AtlasModule({ title, features, accounts, icon: Icon = Book }: AtlasModuleProps) {
   return (
-    <div className="pl-6 space-y-6">
+    <div className="px-4 md:px-6 md:pl-6 space-y-6">
       <div className="flex items-center justify-between">
         <div className="space-y-1">
           <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">

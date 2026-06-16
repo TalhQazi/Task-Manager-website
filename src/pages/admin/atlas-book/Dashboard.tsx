@@ -42,7 +42,7 @@ export default function AtlasBookDashboard() {
   const navigate = useNavigate();
 
   return (
-    <div className="pl-6 space-y-8">
+    <div className="px-4 md:px-6 md:pl-6 space-y-8">
       <div className="flex flex-col gap-2">
         <h1 className="text-4xl font-black tracking-tight flex items-center gap-3">
           <img src="/atlas.png" alt="AtlasBook Logo" className="h-10 w-10 object-contain" />

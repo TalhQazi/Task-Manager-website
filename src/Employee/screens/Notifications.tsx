@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -136,6 +137,7 @@ function resolveEmployeeLink(meta?: { resourceType?: string; resourceId?: string
 }
 
 export default function EmployeeNotifications() {
+const queryClient = useQueryClient();
 const [notifications, setNotifications] = useState<Notification[]>([]);
 const navigate = useNavigate();
 
@@ -241,6 +243,7 @@ useEffect(() => {
 
     try {
       await markNotificationAsRead(id);
+      await queryClient.invalidateQueries({ queryKey: ["employee-notifications"] });
     } catch (err) {
       console.error("Failed to mark notification as read:", err);
       // Reload notifications to get correct state
@@ -254,6 +257,7 @@ useEffect(() => {
 
     try {
       await markAllNotificationsAsRead();
+      await queryClient.invalidateQueries({ queryKey: ["employee-notifications"] });
     } catch (err) {
       console.error("Failed to mark all notifications as read:", err);
       // Reload notifications on error to get correct state
@@ -267,6 +271,7 @@ useEffect(() => {
 
     try {
       await deleteNotificationApi(id);
+      await queryClient.invalidateQueries({ queryKey: ["employee-notifications"] });
     } catch (err) {
       console.error("Failed to delete notification:", err);
       // Reload notifications to get correct state

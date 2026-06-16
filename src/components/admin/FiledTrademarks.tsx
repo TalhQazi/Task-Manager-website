@@ -68,7 +68,18 @@ export function FiledTrademarks() {
     },
   });
 
+  const [filterSearch, setFilterSearch] = useState("");
   const trademarks = trademarksQuery.data || [];
+
+  const filteredTrademarks = trademarks.filter((tm) => {
+    if (filterSearch) {
+      const query = filterSearch.toLowerCase();
+      const nameMatch = tm.name?.toLowerCase().includes(query);
+      const appNumMatch = tm.applicationNumber?.toLowerCase().includes(query);
+      if (!nameMatch && !appNumMatch) return false;
+    }
+    return true;
+  });
 
   const resetForm = () => {
     setFormData({
@@ -237,6 +248,15 @@ export function FiledTrademarks() {
         </Dialog>
       </div>
 
+      <div className="flex items-center max-w-sm mb-2">
+        <Input
+          type="text"
+          placeholder="Search name or app number..."
+          value={filterSearch}
+          onChange={(e) => setFilterSearch(e.target.value)}
+        />
+      </div>
+
       <div className="rounded-md border overflow-hidden bg-background">
         <Table>
           <TableHeader className="bg-muted/50">
@@ -250,14 +270,14 @@ export function FiledTrademarks() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {trademarks.length === 0 ? (
+            {filteredTrademarks.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                   No filed trademarks found.
                 </TableCell>
               </TableRow>
             ) : (
-              trademarks.map((tm) => (
+              filteredTrademarks.map((tm) => (
                 <TableRow key={tm._id}>
                   <TableCell className="font-medium">{tm.name}</TableCell>
                   <TableCell className="font-mono text-xs">{tm.applicationNumber}</TableCell>

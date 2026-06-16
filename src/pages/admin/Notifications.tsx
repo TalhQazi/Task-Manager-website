@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
@@ -53,6 +54,7 @@ function formatUSA(dateStr: string) {
 }
 
 export default function Notifications() {
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -112,6 +114,7 @@ export default function Notifications() {
     );
     try {
       await apiFetch(`/api/notifications/${encodeURIComponent(id)}/mark-read`, { method: "POST" });
+      await queryClient.invalidateQueries({ queryKey: ["admin-notifications"] });
     } catch {
       // ignore — optimistic update already applied
     }

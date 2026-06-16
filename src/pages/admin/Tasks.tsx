@@ -1428,22 +1428,34 @@ export default function Tasks() {
     }
     if (!priorityModeEnabled || assigningPriority) return;
 
+    const currentPriority = task.executionPriority || "";
+    const input = window.prompt(
+      `Set execution priority for "${task.title}":\n- Enter a positive integer (e.g., 1, 3, 5) to assign or move.\n- Leave empty and click OK to clear priority.`,
+      String(currentPriority)
+    );
+
+    if (input === null) return; // Cancelled
+
     setAssigningPriority(true);
     try {
-      if (task.executionPriority) {
-        // Remove priority and resequence remaining tasks
-        await removePriorityMutation.mutateAsync(task.id);
-        toast({ title: "Priority removed", description: `Task "${task.title}" removed from execution order.` });
+      const trimmed = input.trim();
+      if (trimmed === "") {
+        if (task.executionPriority) {
+          await removePriorityMutation.mutateAsync(task.id);
+          toast({ title: "Priority removed", description: `Task "${task.title}" removed from execution order.` });
+        }
       } else {
-        // Get current prioritized tasks to determine next priority number
-        const currentTasks = selectedProject ? selectedProject.tasks : tasks;
-        const maxPriority = currentTasks
-          .filter(t => t.id !== task.id && t.executionPriority)
-          .reduce((max, t) => Math.max(max, t.executionPriority || 0), 0);
-        const nextPriority = maxPriority + 1;
-
-        await assignPriorityMutation.mutateAsync({ id: task.id, priority: nextPriority });
-        toast({ title: "Priority assigned", description: `Task "${task.title}" set as #${nextPriority} in execution order.` });
+        const priorityVal = parseInt(trimmed, 10);
+        if (isNaN(priorityVal) || priorityVal < 1) {
+          toast({
+            title: "Invalid priority",
+            description: "Priority must be a positive integer.",
+            variant: "destructive",
+          });
+          return;
+        }
+        await assignPriorityMutation.mutateAsync({ id: task.id, priority: priorityVal });
+        toast({ title: "Priority assigned", description: `Task "${task.title}" set as #${priorityVal} in execution order.` });
       }
     } catch (err) {
       toast({
@@ -1968,7 +1980,25 @@ export default function Tasks() {
       });
       const normalized = normalizeTask(res.item);
       setSelectedTask(normalized);
+
+      // Update in selectedProject tasks if applicable
+      if (selectedProject && normalized.projectId && selectedProject.id === normalized.projectId) {
+        setSelectedProject((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            tasks: prev.tasks.map((t) => (t.id === normalized.id ? normalized : t)),
+          };
+        });
+      }
+
+      // Update in standalone tasks list (tasks state)
+      setTasks((prev) => prev.map((t) => (t.id === normalized.id ? normalized : t)));
+
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      if (normalized.projectId) {
+        await queryClient.invalidateQueries({ queryKey: ["project", normalized.projectId] });
+      }
 
       // Trigger TaskBlaster & Reward System when task is marked as completed
       if (next === "completed" && previousStatus !== "completed") {
@@ -2547,6 +2577,37 @@ export default function Tasks() {
                 <span className="text-xs font-medium">{priorityModeEnabled ? "Priority Mode ON" : "Priority Mode"}</span>
               </Button>
 
+              {priorityModeEnabled && (
+                <Button
+                  variant="destructive"
+                  onClick={async () => {
+                    if (window.confirm("Are you sure you want to clear all execution priorities? This cannot be undone.")) {
+                      try {
+                        await clearAllPrioritiesMutation.mutateAsync({
+                          type: selectedProject ? "project" : "standalone",
+                          projectId: selectedProject?.id,
+                        });
+                      } catch (err) {
+                        toast({
+                          title: "Failed to clear priorities",
+                          description: err instanceof Error ? err.message : "Something went wrong",
+                          variant: "destructive",
+                        });
+                      }
+                    }
+                  }}
+                  className="h-10 px-3 flex items-center gap-2"
+                  disabled={clearAllPrioritiesMutation.isPending}
+                >
+                  {clearAllPrioritiesMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  <span className="text-xs font-medium">Clear Slate</span>
+                </Button>
+              )}
+
               <Button
                 variant={viewByPriority ? "secondary" : "outline"}
                 onClick={() => setViewByPriority(!viewByPriority)}
@@ -2708,7 +2769,8 @@ export default function Tasks() {
                 <div className="flex flex-wrap gap-2">
                   {selectedProject.attachments.map((att, idx) => {
                     const proxied = toProxiedUrl(att.url) || att.url;
-                    return att.mimeType?.startsWith("image/") ? (
+                    const isImg = att.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(att.fileName || "");
+                    return isImg ? (
                       <button key={idx} onClick={() => { setPreviewUrl(proxied); setPreviewName(att.fileName); }}>
                         <img src={proxied} alt={att.fileName} className="h-16 w-16 object-cover rounded-md border border-border" />
                       </button>
@@ -2999,15 +3061,23 @@ export default function Tasks() {
                             </p>
                             <p className="text-xs text-muted-foreground truncate">{task.description || "No description"}</p>
                           </div>
-                          {task.attachment?.fileName && (
-                            <div className="mb-2 rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
-                              <TaskAttachmentImg
-                                taskId={task.id}
-                                attachmentUrl={task.attachment?.url}
-                                onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
-                              />
-                            </div>
-                          )}
+                          {(() => {
+                            const allAtts = Array.isArray(task.attachments) ? [...task.attachments] : [];
+                            if (task.attachment?.url && !allAtts.some(a => a.url === task.attachment.url)) {
+                              allAtts.unshift(task.attachment);
+                            }
+                            const imgAtt = allAtts.find(a => a.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(a.fileName || ""));
+                            if (!imgAtt) return null;
+                            return (
+                              <div className="mb-2 rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
+                                <TaskAttachmentImg
+                                  taskId={task.id}
+                                  attachmentUrl={imgAtt.url}
+                                  onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
+                                />
+                              </div>
+                            );
+                          })()}
                           {/* Attachment indicators */}
                           {(task.dropboxAttachmentCount && task.dropboxAttachmentCount > 0) ? (
                             <div className="flex flex-wrap items-center gap-1.5 mb-2">
@@ -3020,7 +3090,7 @@ export default function Tasks() {
                           <div className="flex flex-wrap items-center justify-between text-[11px] text-muted-foreground mb-3 gap-2">
                             <span className="truncate flex-1 font-medium flex items-center gap-1.5">
                               <Users className="w-3.5 h-3.5" />
-                              {assigneeList.length} Assignee{assigneeList.length === 1 ? "" : "s"}
+                              {assigneeList.length === 1 ? assigneeList[0] : `${assigneeList.length} persons`}
                             </span>
                             {(() => {
                               const { images, files } = getAttachmentCounts(task.attachments, task.attachment);
@@ -3404,12 +3474,6 @@ export default function Tasks() {
                   autoComplete="on"
                 />
                 {validationErrors.description && <p className="text-xs text-destructive">{validationErrors.description}</p>}
-                <div className="pt-2 flex gap-2">
-                  <Button type="submit" disabled={isCreating} className="gap-2 h-9 px-4 text-xs font-semibold">
-                    {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Create Task
-                  </Button>
-                </div>
               </div>
               <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Assignees</label><Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}><PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{selectedAssignees.length > 0 ? selectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] max-w-[380px] p-0 z-[150]" align="start" collisionPadding={20}><Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); }}><Check className={cn("mr-2 h-4 w-4", selectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover></div>
               <div className="sm:col-span-2 space-y-1.5">
@@ -3464,7 +3528,13 @@ export default function Tasks() {
               </div>
             </div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Task Attachments</label><div className="space-y-2"><div className="flex gap-2"><button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1" onClick={() => { const el = document.getElementById("task-attachments-input") as HTMLInputElement | null; el?.click(); }}>+ Add Files/Images</button>{ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (<button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1 flex items-center justify-center gap-2" onClick={() => { setDropboxPickerTarget("task"); setIsDropboxPickerOpen(true); }}><DropboxIcon size={14} />Dropbox</button>)}</div><input id="task-attachments-input" type="file" accept="*" multiple className="hidden" onChange={async (e) => { const files = Array.from(e.target.files ?? []); const processedFiles = await Promise.all(files.map(async (f) => { if (f.type.startsWith("image/")) { return await resizeImageIfNeeded(f, 1200, 1200, 0.8); } return f; })); setAttachmentFiles((prev) => [...prev, ...processedFiles]); processedFiles.forEach((file) => { const reader = new FileReader(); reader.onload = () => { const result = typeof reader.result === "string" ? reader.result : ""; setAttachmentFilePreviews((prev) => [...prev, result]); }; if (file.type.startsWith("image/")) { reader.readAsDataURL(file); } else { setAttachmentFilePreviews((prev) => [...prev, ""]); } }); }} />{attachmentFiles.length > 0 && (<div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">{attachmentFiles.map((file, idx) => (<div key={idx} className="relative group">{attachmentFilePreviews[idx] ? (<img src={attachmentFilePreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />) : (<div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">📄 {file.name}</div>)}<button type="button" onClick={() => { setAttachmentFiles((prev) => prev.filter((_, i) => i !== idx)); setAttachmentFilePreviews((prev) => prev.filter((_, i) => i !== idx)); }} className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs">✕</button></div>))}</div>)}{dropboxSelectedFiles.length > 0 && (<div className="border border-border rounded-md p-2 space-y-1.5 bg-muted/30"><p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><DropboxIcon size={12} />Dropbox Files (External)</p>{dropboxSelectedFiles.map((dbf, idx) => (<div key={idx} className="flex items-center gap-2 bg-background rounded-md px-2.5 py-1.5 border border-border text-sm"><FileText className="w-4 h-4 text-blue-400 flex-shrink-0" /><span className="flex-1 truncate text-foreground">{dbf.file_name}</span><span className="text-xs text-muted-foreground">{dbf.file_size > 0 ? formatBytes(dbf.file_size) : ""}</span><button type="button" onClick={() => setDropboxSelectedFiles((prev) => prev.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive transition-colors">✕</button></div>))}</div>)}</div></div>
-            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end"><Button type="button" variant="outline" onClick={() => { setIsCreateTaskOpen(false); setIsDirectTask(false); }} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button></DialogFooter>
+            <DialogFooter className="flex flex-col-reverse sm:flex-row gap-2 sm:justify-end">
+              <Button type="button" variant="outline" onClick={() => { setIsCreateTaskOpen(false); setIsDirectTask(false); }} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button>
+              <Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">
+                {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
+                Create Task
+              </Button>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
@@ -3549,10 +3619,10 @@ export default function Tasks() {
               </div>
 
               {/* 2-Pane Body */}
-              <div className="flex-1 flex flex-col md:flex-row shadow-inner overflow-hidden relative bg-background">
+              <div className="flex-1 flex flex-col lg:flex-row shadow-inner overflow-hidden relative bg-background">
 
                 {/* Left Pane: Title, Description, Attachments, Comments Feed */}
-                <div className="flex-1 overflow-y-auto w-full md:w-2/3 p-5 sm:p-8 space-y-8 scroll-smooth pb-24">
+                <div className="flex-1 overflow-y-auto w-full lg:w-2/3 p-5 sm:p-8 space-y-8 scroll-smooth pb-24">
                   {/* Task Title */}
                   <div className="group/title relative">
                     <Input
@@ -3568,7 +3638,7 @@ export default function Tasks() {
                   </div>
 
                   {/* Mobile Status - Only visible on mobile */}
-                  <div className="md:hidden space-y-1.5">
+                  <div className="lg:hidden space-y-1.5">
                     <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block">Status</label>
                     <Select value={selectedTask.status} onValueChange={async (v) => { await updateStatus(v as Task["status"]); }} disabled={statusSaving}>
                       <SelectTrigger className={cn("h-9 font-medium text-xs bg-background border-border/60", statusClasses[selectedTask.status])}>
@@ -4017,7 +4087,7 @@ export default function Tasks() {
                 </div>
 
                 {/* Right Pane: Properties Sidebar */}
-                <div className="w-full md:w-[320px] lg:w-[360px] bg-muted/10 shrink-0 border-t md:border-t-0 md:border-l border-border/50 overflow-y-auto hidden md:block">
+                <div className="w-full lg:w-[320px] xl:w-[360px] bg-muted/10 shrink-0 border-t lg:border-t-0 lg:border-l border-border/50 overflow-y-auto hidden lg:block">
                   <div className="p-6 space-y-7">
                     <h3 className="text-sm font-bold text-foreground flex items-center gap-2 pb-2 border-b">Properties</h3>
 
@@ -4940,15 +5010,23 @@ export default function Tasks() {
                       </div>
                       <div className="p-4 flex-1 space-y-3">
                         <p className="text-sm text-muted-foreground line-clamp-2 break-words">{task.description}</p>
-                        {task.attachment?.fileName && (
-                          <div className="rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
-                            <TaskAttachmentImg 
-                              taskId={task.id} 
-                              attachmentUrl={task.attachment?.url}
-                              onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
-                            />
-                          </div>
-                        )}
+                        {(() => {
+                          const allAtts = Array.isArray(task.attachments) ? [...task.attachments] : [];
+                          if (task.attachment?.url && !allAtts.some(a => a.url === task.attachment.url)) {
+                            allAtts.unshift(task.attachment);
+                          }
+                          const imgAtt = allAtts.find(a => a.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(a.fileName || ""));
+                          if (!imgAtt) return null;
+                          return (
+                            <div className="rounded-md overflow-hidden border border-border/50 h-24 bg-muted/20">
+                              <TaskAttachmentImg 
+                                taskId={task.id} 
+                                attachmentUrl={imgAtt.url}
+                                onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
+                              />
+                            </div>
+                          );
+                        })()}
                         {(() => {
                           const { images, files } = getAttachmentCounts(task.attachments, task.attachment);
                           return (images > 0 || files > 0 || (task.dropboxAttachmentCount !== undefined && task.dropboxAttachmentCount > 0)) && (
@@ -5023,7 +5101,7 @@ export default function Tasks() {
                                   )}
                                 </div>
                                 <span className="text-sm text-foreground break-words">
-                                  {task.assignees.slice(0, 2).join(", ")} {task.assignees.length > 2 ? `+${task.assignees.length - 2}` : ""}
+                                  {task.assignees.length === 1 ? task.assignees[0] : `${task.assignees.length} persons`}
                                 </span>
                               </>
                             ) : (
@@ -5040,12 +5118,12 @@ export default function Tasks() {
               </div>
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-muted-foreground mt-6 pt-4 border-t border-muted/20">
                 <span className="text-center sm:text-left">
-                  Showing {filteredTasks.length ? `${(projectTaskPage - 1) * PAGE_SIZE + 1} - ${(projectTaskPage - 1) * PAGE_SIZE + filteredTasks.length}` : "0"} of {tasks.length} tasks
+                  Showing {filteredTasks.length ? `${(projectTaskPage - 1) * PAGE_SIZE + 1} - ${(projectTaskPage - 1) * PAGE_SIZE + filteredTasks.length}` : "0"} of {sourceTasks.length} tasks
                 </span>
                 <div className="flex flex-wrap items-center justify-center sm:justify-end gap-4">
-                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-success" />{tasks.filter((t) => t.status === "completed").length} completed</span>
-                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary" />{tasks.filter((t) => t.status === "in-progress").length} in progress</span>
-                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-warning" />{tasks.filter((t) => t.status === "pending").length} pending</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-success" />{sourceTasks.filter((t) => t.status === "completed").length} completed</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-primary" />{sourceTasks.filter((t) => t.status === "in-progress").length} in progress</span>
+                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-warning" />{sourceTasks.filter((t) => t.status === "pending").length} pending</span>
                 </div>
               </div>
               {projectTaskTotalPages > 1 && (

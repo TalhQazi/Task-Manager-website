@@ -539,7 +539,7 @@ export default function CompanyRegistry() {
   );
 
   return (
-    <div className="p-4 sm:p-6 space-y-5 max-w-screen-2xl mx-auto">
+    <div className="p-4 sm:p-6 space-y-5 max-w-screen-2xl mx-auto w-full min-w-0 overflow-hidden">
 
       {/* ── Header ── */}
       <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -631,15 +631,19 @@ export default function CompanyRegistry() {
       </motion.div>
 
       {/* ── Table ── */}
-      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0, transition: { delay: 0.16 } }}>
-        <Card className="overflow-hidden border-border/50 shadow-sm">
+      <motion.div 
+        initial={{ opacity: 0, y: 8 }} 
+        animate={{ opacity: 1, y: 0, transition: { delay: 0.16 } }}
+        className="w-full min-w-0"
+      >
+        <Card className="w-full overflow-hidden border-border/50 shadow-sm">
           <CardContent className="p-0">
             {error ? (
               <div className="flex items-center justify-center gap-2 py-16 text-destructive">
                 <AlertCircle className="w-5 h-5" /> {error}
               </div>
             ) : (
-              <div className="overflow-x-auto">
+              <div className="w-full overflow-x-auto custom-scrollbar">
                 <table className="w-full min-w-[1000px] border-collapse text-sm">
                   <thead>
                     <tr className="border-b border-border/50 bg-muted/40">

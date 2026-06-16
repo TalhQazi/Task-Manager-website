@@ -5,6 +5,7 @@ import { PendingPatents } from "@/components/admin/PendingPatents";
 import { ExpirationWatch } from "@/components/admin/ExpirationWatch";
 import { FiledTrademarks } from "@/components/admin/FiledTrademarks";
 import { GrantedTrademarks } from "@/components/admin/GrantedTrademarks";
+import { ExpiredPatents } from "@/components/admin/ExpiredPatents";
 import { AlertCircle, FileText, Globe, ShieldCheck } from "lucide-react";
 
 export function IntellectualProperty() {
@@ -38,6 +39,7 @@ export function IntellectualProperty() {
         <TabsList className="flex flex-wrap h-auto gap-2 p-1 bg-muted/50 w-fit">
           <TabsTrigger value="filed-patents" className="px-4 py-2">Filed Patents</TabsTrigger>
           <TabsTrigger value="pending-patents" className="px-4 py-2">Pending Patents</TabsTrigger>
+          <TabsTrigger value="expired-patents" className="px-4 py-2">Expired Patents</TabsTrigger>
           <TabsTrigger value="filed-trademarks" className="px-4 py-2">Filed Trademarks</TabsTrigger>
           <TabsTrigger value="granted-trademarks" className="px-4 py-2">Granted Trademarks</TabsTrigger>
           <TabsTrigger value="expiration-watch" className="px-4 py-2">Expiration Watch</TabsTrigger>
@@ -59,6 +61,20 @@ export function IntellectualProperty() {
 
         <TabsContent value="pending-patents">
           <PendingPatents />
+        </TabsContent>
+
+        <TabsContent value="expired-patents">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-red-600">
+                <AlertCircle className="h-5 w-5" />
+                Expired Patents
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ExpiredPatents />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="filed-trademarks">

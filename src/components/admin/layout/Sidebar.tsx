@@ -68,16 +68,16 @@ type NavItem = {
 const navItemsBase: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin", end: true },
   {
-    label: "AtlasBook",
+    label: "Atlas Books",
     customIcon: (
       <img
         src="/atlas.png"
-        alt="AtlasBook"
+        alt="Atlas Books"
         className="h-5 w-5 flex-shrink-0 object-contain rounded opacity-80 group-hover:opacity-100 transition-opacity"
       />
     ),
     children: [
-      { label: "AtlasBook Dashboard", path: "/admin/atlas-book" },
+      { label: "Atlas Books Dashboard", path: "/admin/atlas-book" },
       { label: "Company Management", path: "/admin/atlas-book/company" },
       { label: "Property Management", path: "/admin/atlas-book/property" },
       { label: "Unit Management", path: "/admin/atlas-book/unit" },
@@ -193,12 +193,12 @@ const navItemsBase: NavItem[] = [
     ),
   },
   {
-    label: "Ultimate Property Holdings",
+    label: "Atlas Property Holding",
     path: "/admin/uph-maintenance",
     customIcon: (
       <img
         src="/uph.jpeg"
-        alt="UPH"
+        alt="APH"
         className="h-6 w-6 flex-shrink-0 rounded-md object-cover opacity-85 group-hover:opacity-100 transition-opacity"
       />
     ),
@@ -399,9 +399,9 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
                 <span className="text-[#38bdf8]">Signa</span>
                 <span className="text-[#f97316]">Core</span>
               </span>
-            ) : item.label === "UPH" ? (
+            ) : item.label === "Atlas Property Holding" ? (
               <span className={cn("font-black truncate tracking-tight", isMobile ? "text-lg" : "text-sm")}>
-                <span className="text-[#5898B8]">U</span>
+                <span className="text-[#5898B8]">A</span>
                 <span className="text-[#68B0D0]">P</span>
                 <span className="text-[#80B8D8]">H</span>
               </span>
