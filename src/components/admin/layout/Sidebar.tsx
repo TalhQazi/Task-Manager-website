@@ -193,12 +193,12 @@ const navItemsBase: NavItem[] = [
     ),
   },
   {
-    label: "Atlas Property Holding",
+    label: "Atlas Properties",
     path: "/admin/uph-maintenance",
     customIcon: (
       <img
         src="/uph.jpeg"
-        alt="APH"
+        alt="Atlas Properties"
         className="h-6 w-6 flex-shrink-0 rounded-md object-cover opacity-85 group-hover:opacity-100 transition-opacity"
       />
     ),
