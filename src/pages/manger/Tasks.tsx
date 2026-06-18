@@ -2619,15 +2619,23 @@ export default function Tasks() {
 
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Description</label>
-                <Textarea
-                  placeholder="Short project description"
-                  className="min-h-[80px]"
-                  value={projectDescription}
-                  autoComplete="on"
-                  autoCorrect="on"
-                  spellCheck="true"
-                  onChange={(e) => setProjectDescription(e.target.value)}
-                />
+                <div className="flex flex-col sm:flex-row gap-3 items-end">
+                  <div className="flex-1 w-full">
+                    <Textarea
+                      placeholder="Short project description"
+                      className="min-h-[80px] w-full resize-y"
+                      value={projectDescription}
+                      autoComplete="on"
+                      autoCorrect="on"
+                      spellCheck="true"
+                      onChange={(e) => setProjectDescription(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex sm:flex-col gap-2 shrink-0 w-full sm:w-auto sm:pb-0.5">
+                    <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={isCreating} className="flex-1 sm:w-32">Cancel</Button>
+                    <Button type="submit" disabled={isCreating} className="flex-1 sm:w-32 gap-2">{isCreating && <Loader2 className="h-4 w-4 animate-spin" />}Create Project</Button>
+                  </div>
+                </div>
               </div>
 
               <div className="sm:col-span-2 space-y-1.5">
@@ -2866,15 +2874,6 @@ export default function Tasks() {
               )}
             </div>
 
-            <DialogFooter className="flex-col sm:flex-row gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={isCreating} className="w-full sm:w-auto">
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">
-                  {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Create Project
-                </Button>
-              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>
@@ -2914,13 +2913,25 @@ export default function Tasks() {
                 </div>
                 <div className="sm:col-span-2 space-y-1.5">
                   <label className="text-sm font-medium">Task Description *</label>
-                  <Textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                    spellCheck="true"
-                    autoCorrect="on"
-                    autoComplete="on"
-                  />
+                  <div className="flex flex-col sm:flex-row gap-3 items-end">
+                    <div className="flex-1 w-full">
+                      <Textarea
+                        value={formData.description}
+                        onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                        spellCheck="true"
+                        autoCorrect="on"
+                        autoComplete="on"
+                        className="min-h-[80px] w-full resize-y"
+                      />
+                    </div>
+                    <div className="flex sm:flex-col gap-2 shrink-0 w-full sm:w-auto sm:pb-0.5">
+                      <Button type="button" variant="outline" onClick={() => { setIsCreateTaskOpen(false); setIsDirectTask(false); }} disabled={isCreating} className="flex-1 sm:w-32">Cancel</Button>
+                      <Button type="submit" disabled={isCreating} className="flex-1 sm:w-32 gap-2">
+                        {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
+                        Create Task
+                      </Button>
+                    </div>
+                  </div>
                   {validationErrors.description && <p className="text-xs text-destructive">{validationErrors.description}</p>}
                 </div>
                 <div className="sm:col-span-2 space-y-1.5">
@@ -3085,16 +3096,6 @@ export default function Tasks() {
                 </div>
               </div>
 
-              <DialogFooter className="flex-col sm:flex-row gap-2">
-                <Button type="button" variant="outline" onClick={() => {
-                  setIsCreateTaskOpen(false);
-                  setIsDirectTask(false);
-                }} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button>
-                <Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">
-                  {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Create Task
-                </Button>
-              </DialogFooter>
             </form>
           </DialogContent>
         </Dialog>

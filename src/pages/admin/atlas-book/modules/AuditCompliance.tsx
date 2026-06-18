@@ -1,16 +1,103 @@
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Badge } from "@/components/admin/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/admin/ui/table";
-import { ShieldCheck, History, FileCheck, Search, Download, CheckSquare } from "lucide-react";
+import { ShieldCheck, History, FileCheck, Search, Download, CheckSquare, Loader2 } from "lucide-react";
+import { apiFetch } from "@/lib/admin/apiClient";
+
+interface ActivityLog {
+  id: string;
+  actorUsername: string;
+  actorRole: string;
+  action: string;
+  resourceType: string;
+  resourceId: string;
+  resourceName: string;
+  description: string;
+  createdAt: string;
+}
+
+const ACTION_LABELS: Record<string, string> = {
+  AUTH_LOGIN_SUCCESS: "Login Success",
+  AUTH_LOGIN_FAILURE: "Login Failed",
+  AUTH_LOGOUT: "Logout",
+  USER_CREATE: "User Added",
+  USER_UPDATE: "User Updated",
+  USER_DELETE: "User Deleted",
+  USER_ROLE_CHANGE: "Role Changed",
+  TASK_CREATE: "Task Added",
+  TASK_UPDATE: "Task Updated",
+  TASK_DELETE: "Task Deleted",
+  EMPLOYEE_CREATE: "Employee Added",
+  EMPLOYEE_UPDATE: "Employee Updated",
+  EMPLOYEE_DELETE: "Employee Deleted",
+  TIME_ENTRY_CREATE: "Time Entry Added",
+  TIME_ENTRY_UPDATE: "Time Entry Updated",
+  TIME_ENTRY_DELETE: "Time Entry Deleted",
+  NOTIFICATION_CREATE: "Notification Sent",
+  MESSAGE_SEND: "Message Sent",
+  SETTINGS_UPDATE: "Settings Updated",
+  DATA_EXPORT: "Data Exported",
+  APPLIANCE_CREATE: "Appliance Added",
+  APPLIANCE_UPDATE: "Appliance Updated",
+  APPLIANCE_DELETE: "Appliance Deleted",
+  VEHICLE_CREATE: "Vehicle Added",
+  VEHICLE_UPDATE: "Vehicle Updated",
+  VEHICLE_DELETE: "Vehicle Deleted",
+  LOCATION_CREATE: "Location Added",
+  LOCATION_UPDATE: "Location Updated",
+  LOCATION_DELETE: "Location Deleted",
+  VENDOR_CREATE: "Vendor Added",
+  VENDOR_UPDATE: "Vendor Updated",
+  VENDOR_DELETE: "Vendor Deleted",
+  EVENT_CREATE: "Event Added",
+  EVENT_UPDATE: "Event Updated",
+  EVENT_DELETE: "Event Deleted",
+  ONBOARDING_CREATE: "Onboarding Added",
+  ONBOARDING_UPDATE: "Onboarding Updated",
+};
 
 export default function AuditCompliance() {
-  const auditLogs = [
-    { id: 1, user: "Admin", action: "Posted Journal Entry", module: "General Ledger", time: "2 mins ago", ref: "JE-00481" },
-    { id: 2, user: "System", action: "Calculated Depreciation", module: "Fixed Assets", time: "1 hour ago", ref: "AST-829" },
-    { id: 3, user: "Manager", action: "Approved Bill", module: "Accounts Payable", time: "3 hours ago", ref: "BILL-104" },
-    { id: 4, user: "Admin", action: "Modified Account Code", module: "Chart of Accounts", time: "5 hours ago", ref: "COA-1002" },
-  ];
+  const [logs, setLogs] = useState<ActivityLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    apiFetch<{ items: ActivityLog[] }>("/api/activity-logs?limit=20")
+      .then((res) => {
+        if (active) {
+          setLogs(res.items || []);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (active) {
+          console.error("Failed to fetch audit logs", err);
+          setError(err instanceof Error ? err.message : "Failed to load audit logs");
+          setLoading(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const formatTimeAgo = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return date.toLocaleDateString();
+  };
 
   return (
     <div className="space-y-6">
@@ -66,22 +153,51 @@ export default function AuditCompliance() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {auditLogs.map((log) => (
-                <TableRow key={log.id}>
-                  <TableCell className="pl-6">
-                    <div className="flex items-center gap-2">
-                      <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
-                        {log.user[0]}
-                      </div>
-                      <span className="font-medium text-sm">{log.user}</span>
-                    </div>
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
+                    <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                    Loading audit trail...
                   </TableCell>
-                  <TableCell className="text-sm font-bold">{log.action}</TableCell>
-                  <TableCell><Badge variant="secondary" className="text-[10px]">{log.module}</Badge></TableCell>
-                  <TableCell className="text-xs font-mono">{log.ref}</TableCell>
-                  <TableCell className="text-right pr-6 text-xs text-muted-foreground">{log.time}</TableCell>
                 </TableRow>
-              ))}
+              ) : error ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-10 text-destructive">
+                    {error}
+                  </TableCell>
+                </TableRow>
+              ) : logs.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-10 text-muted-foreground">
+                    No audit logs recorded yet.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                logs.map((log) => (
+                  <TableRow key={log.id}>
+                    <TableCell className="pl-6">
+                      <div className="flex items-center gap-2">
+                        <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary uppercase">
+                          {(log.actorUsername || "U")[0]}
+                        </div>
+                        <span className="font-medium text-sm">{log.actorUsername}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm font-bold">
+                      {ACTION_LABELS[log.action] || log.action.replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase())}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className="text-[10px] capitalize">
+                        {log.resourceType.replace(/-/g, " ")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs font-mono">{log.resourceName || log.resourceId || "—"}</TableCell>
+                    <TableCell className="text-right pr-6 text-xs text-muted-foreground">
+                      {formatTimeAgo(log.createdAt)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </CardContent>
