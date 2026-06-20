@@ -2169,6 +2169,7 @@ export default function Tasks() {
             <span className="hidden sm:inline">View by Priority</span>
           </Button>
       </div>
+    </div>
 
       {/* Premium Tab Switcher */}
       {!selectedProject && (
