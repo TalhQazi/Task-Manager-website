@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
@@ -34,6 +35,13 @@ interface NotificationItem {
   audience: "all" | "employees" | "managers";
   createdAt: string;
   readBy?: string[];
+  status?: string;
+  meta?: {
+    resourceType?: string;
+    resourceId?: string;
+    link?: string;
+    category?: string;
+  };
 }
 
 function formatUSA(dateStr: string) {
@@ -53,8 +61,84 @@ function formatUSA(dateStr: string) {
   return { date, time };
 }
 
+const resolveNotificationLink = (n: NotificationItem) => {
+  const resourceTypeRaw = String(n.meta?.resourceType || "").trim();
+  const resourceType = resourceTypeRaw.toLowerCase();
+  const resourceId = String(n.meta?.resourceId || "").trim();
+  const direct = String(n.meta?.link || "").trim();
+
+  if (resourceType === "vehicle") {
+    if (resourceId) return `/admin/vehicles?view=${encodeURIComponent(resourceId)}`;
+    return "/admin/vehicles";
+  }
+  if (resourceType === "employee") {
+    if (resourceId) return `/admin/employees?view=${encodeURIComponent(resourceId)}`;
+    return "/admin/employees";
+  }
+  if (resourceType === "location") {
+    if (resourceId) return `/admin/locations?view=${encodeURIComponent(resourceId)}`;
+    return "/admin/locations";
+  }
+  if (resourceType === "vendor") {
+    if (resourceId) return `/admin/vendors?view=${encodeURIComponent(resourceId)}`;
+    return "/admin/vendors";
+  }
+  if (resourceType === "company") {
+    if (resourceId) return `/admin/companies?view=${encodeURIComponent(resourceId)}`;
+    return "/admin/companies";
+  }
+  if (resourceType === "onboarding") {
+    if (resourceId) return `/admin/onboarding?view=${encodeURIComponent(resourceId)}`;
+    return "/admin/onboarding";
+  }
+  if (resourceType === "time entry" || resourceType === "timeentry" || resourceType === "time_entry") {
+    if (resourceId) return `/admin/time-tracking?view=${encodeURIComponent(resourceId)}`;
+    return "/admin/time-tracking";
+  }
+  if (resourceType === "do not hire entry" || resourceType === "donothire" || resourceType === "do_not_hire") {
+    if (resourceId) return `/admin/do-not-hire?view=${encodeURIComponent(resourceId)}`;
+    return "/admin/do-not-hire";
+  }
+  if (resourceType === "user") {
+    if (resourceId) return `/admin/users?view=${encodeURIComponent(resourceId)}`;
+    return "/admin/users";
+  }
+  if (resourceType === "appliance") {
+    if (resourceId) return `/admin/appliances?view=${encodeURIComponent(resourceId)}`;
+    return "/admin/appliances";
+  }
+  if (resourceType === "task" || resourceType === "task comment") {
+    if (resourceId) return `/admin/tasks?view=${encodeURIComponent(resourceId)}`;
+    return "/admin/tasks";
+  }
+  if (resourceType === "project" || resourceType === "project comment") {
+    if (resourceId) return `/admin/tasks?projectView=${encodeURIComponent(resourceId)}`;
+    return "/admin/tasks";
+  }
+  if (resourceType === "bug") {
+    if (resourceId) return `/developer/bugs?view=${encodeURIComponent(resourceId)}`;
+    return "/developer/bugs";
+  }
+
+  if (direct && direct.startsWith("/admin/")) return direct;
+
+  const content = String(n.content || n.message || "").toLowerCase();
+  if (content.includes(" employee")) return "/admin/employees";
+  if (content.includes(" vehicle")) return "/admin/vehicles";
+  if (content.includes(" location")) return "/admin/locations";
+  if (content.includes(" vendor")) return "/admin/vendors";
+  if (content.includes(" company")) return "/admin/companies";
+  if (content.includes(" onboarding")) return "/admin/onboarding";
+  if (content.includes(" do not hire")) return "/admin/do-not-hire";
+  if (content.includes(" appliance")) return "/admin/appliances";
+  if (content.includes(" task")) return "/admin/tasks";
+
+  return "/admin/notifications";
+};
+
 export default function Notifications() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -64,6 +148,14 @@ export default function Notifications() {
   const { socket } = useSocket();
   const auth = getAuthState();
   const currentUser = auth.username || "";
+
+  const onOpenNotification = async (n: NotificationItem) => {
+    const id = String(n.id).trim();
+    if (id) {
+      void markRead(id);
+    }
+    navigate(resolveNotificationLink(n));
+  };
 
   const [formData, setFormData] = useState({
     title: "",
@@ -334,8 +426,8 @@ export default function Notifications() {
                         className={`rounded-lg border p-4 space-y-3 cursor-pointer ${n.isRead ? "bg-white" : "bg-blue-50/40"}`}
                         role="button"
                         tabIndex={0}
-                        onClick={() => { if (!n.isRead) void markRead(n.id); }}
-                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { if (!n.isRead) void markRead(n.id); } }}
+                        onClick={() => void onOpenNotification(n)}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { void onOpenNotification(n); } }}
                       >
                         {/* Header with Icon and Title */}
                         <div className="flex items-start gap-3">
@@ -400,8 +492,8 @@ export default function Notifications() {
                             className={`cursor-pointer hover:bg-muted/30 ${isUnread ? "bg-blue-50/40" : ""}`}
                             role="button"
                             tabIndex={0}
-                            onClick={() => { if (isUnread) void markRead(n.id); }}
-                            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { if (isUnread) void markRead(n.id); } }}
+                            onClick={() => void onOpenNotification(n)}
+                            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { void onOpenNotification(n); } }}
                           >
                             <TableCell>
                               <div className="space-y-1">

@@ -114,7 +114,7 @@ const Dashboard = () => {
   return (
     <>
       <motion.div 
-        className="pl-2 pr-2 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6"
+        className="dashboard-page pl-2 pr-2 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -126,7 +126,7 @@ const Dashboard = () => {
         >
           {metrics && [
             { title: "Active Employee", value: metrics.totalEmployees, icon: Users, variant: "dark-grey", changeType: "positive" as const, onClick: () => navigate("/admin/employees") },
-            { title: "Active Projects", value: metrics.totalProjects, icon: FolderRoot, variant: "purple", changeType: "positive" as const, onClick: () => navigate("/admin/tasks") },
+            { title: "Active Projects", value: metrics.totalProjects, icon: FolderRoot, variant: "purple", changeType: "positive" as const, onClick: () => navigate("/admin/tasks?tab=projects") },
             { title: "Active Tasks", value: metrics.activeTasks, icon: CheckSquare, variant: "green", changeType: "neutral" as const, onClick: () => navigate("/admin/tasks") },
             { title: "Clocked In", value: metrics.clockedInEmployees, icon: Clock, variant: "gold", changeType: "neutral" as const, onClick: () => navigate("/admin/time-tracking") },
             { title: "Companies", value: metrics.totalCompanies, icon: Building2, variant: "dark-grey", changeType: "positive" as const, onClick: () => navigate("/admin/companies") },
