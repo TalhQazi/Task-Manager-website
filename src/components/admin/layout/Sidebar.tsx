@@ -212,7 +212,7 @@ const navItemsBase: NavItem[] = [
 // Activity Logs only for super-admin
 const activityLogNavItem = { icon: Activity, label: "Activity Logs", path: "/admin/activity-logs" };
 const systemEmailSettingsNavItem = { icon: Mail, label: "System Email Settings", path: "/admin/system-email-settings" };
-
+const systemHealthNavItem = { icon: Activity, label: "System Health", path: "/admin/health" };
 
 type SidebarMode = "desktop" | "mobile";
 
@@ -232,6 +232,11 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
     // Add super-admin items
     if (auth.role === "super-admin") {
       items.push(systemEmailSettingsNavItem, activityLogNavItem);
+    }
+    
+    // Add System Health for admin and super-admin
+    if (auth.role === "admin" || auth.role === "super-admin") {
+      items.push(systemHealthNavItem);
     }
 
     // Sort children within items first
