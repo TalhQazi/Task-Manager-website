@@ -639,6 +639,8 @@ type CreateTaskValues = z.infer<typeof createTaskSchema>;
 
 export default function Tasks() {
   const { socket } = useSocket();
+  const { triggerBlaster, incrementCompletedCount } = useTaskBlasterContext();
+  const { triggerReward } = useRewards();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "all";
   const [projectSearchQuery, setProjectSearchQuery] = useState("");
@@ -1965,9 +1967,6 @@ export default function Tasks() {
       setArchivingAttachment(null);
     }
   };
-
-  const { triggerBlaster, incrementCompletedCount } = useTaskBlasterContext();
-  const { triggerReward } = useRewards();
 
   const updateStatus = async (next: Task["status"], event?: React.MouseEvent | React.TouchEvent | { x: number; y: number }) => {
     if (!selectedTask) return;
@@ -3636,6 +3635,20 @@ export default function Tasks() {
                 </div>
                 {/* We leave space for standard dialog close X button, so add marginRight */}
                 <div className="flex items-center gap-1.5 mr-10">
+                  {selectedTask.status !== "completed" && (
+                    <Button 
+                      variant="default" 
+                      size="sm" 
+                      className="bg-green-600 hover:bg-green-700 text-white font-bold gap-1.5"
+                      onClick={(e) => {
+                        void updateStatus("completed", e);
+                      }}
+                      disabled={statusSaving}
+                    >
+                      {statusSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                      Complete Task
+                    </Button>
+                  )}
                   {taskViewEdited && (
                     <Button 
                       variant="default" 
