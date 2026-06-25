@@ -14,11 +14,7 @@ interface CreditLine {
 const CreditMonitoring: React.FC = () => {
   const { stats, activeEntity } = useAtlasBooks();
 
-  const lines: CreditLine[] = [
-    { institution: "JPMorgan Chase", facility: "Revolving Working Capital", limit: 5000000, utilization: 24.2, rate: 6.85 },
-    { institution: "Wells Fargo Bank", facility: "Equipment Acquisition Facility", limit: 2500000, utilization: 48.0, rate: 7.20 },
-    { institution: "Silicon Valley Bridge", facility: "SaaS Venture Line", limit: 1500000, utilization: 0.0, rate: 8.50 }
-  ];
+  const lines: CreditLine[] = [];
 
   const totalCreditLimit = lines.reduce((sum, l) => sum + l.limit, 0);
   const totalDrawn = lines.reduce((sum, l) => sum + (l.limit * l.utilization) / 100, 0);

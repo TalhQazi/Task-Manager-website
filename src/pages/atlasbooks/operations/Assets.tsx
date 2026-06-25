@@ -16,12 +16,7 @@ const Assets: React.FC = () => {
   const { stats, timeframe, activeEntity } = useAtlasBooks();
 
   // Asset register
-  const assetRoster: CapitalAsset[] = [
-    { tag: "AST-441", description: "Miami Headquarters Real Estate", cost: 1850000, acquired: "2022-01-15", depreciationRate: 2.5, accumulated: 208125 },
-    { tag: "AST-442", description: "Infra High-Perf GPU Node Cluster", cost: 420000, acquired: "2024-03-10", depreciationRate: 20.0, accumulated: 189000 },
-    { tag: "AST-443", description: "Corporate Executive Fleet Vehicles", cost: 95000, acquired: "2023-08-11", depreciationRate: 15.0, accumulated: 39900 },
-    { tag: "AST-444", description: "Design Office Lab Machinery", cost: 35000, acquired: "2025-01-05", depreciationRate: 10.0, accumulated: 4660 }
-  ];
+  const assetRoster: CapitalAsset[] = [];
 
   const totalCost = assetRoster.reduce((sum, a) => sum + a.cost, 0);
   const totalAccumulated = assetRoster.reduce((sum, a) => sum + a.accumulated, 0);

@@ -14,12 +14,7 @@ interface RolloverSchedule {
 const Occupancy: React.FC = () => {
   const { stats, activeEntity } = useAtlasBooks();
 
-  const rollovers: RolloverSchedule[] = [
-    { tenant: "Sarah Connor", property: "Blue Water Premium Condos", unitNo: "Unit 101", expiration: "2026-06-30", risk: "High" },
-    { tenant: "John Connor", property: "Blue Water Premium Condos", unitNo: "Unit 102", expiration: "2026-08-15", risk: "Low" },
-    { tenant: "Cyberdyne Systems", property: "DTLA Center Plaza Tower", unitNo: "Suite 400", expiration: "2027-12-31", risk: "Low" },
-    { tenant: "Miles Dyson", property: "Sandcastle Luxury Villas", unitNo: "Villa 05", expiration: "2026-07-20", risk: "Medium" }
-  ];
+  const rollovers: RolloverSchedule[] = [];
 
   return (
     <div className="space-y-6">

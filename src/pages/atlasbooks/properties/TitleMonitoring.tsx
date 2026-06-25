@@ -14,12 +14,7 @@ interface TitleDeed {
 const TitleMonitoring: React.FC = () => {
   const { activeEntity } = useAtlasBooks();
 
-  const deeds: TitleDeed[] = [
-    { property: "Blue Water Premium Condos", deedId: "MIA-DEED-9081", mortgageLender: "Wells Fargo Commercial", lastSearch: "2026-06-02 (Live)", countyRecord: "Secured" },
-    { property: "Sandcastle Luxury Villas", deedId: "MIA-DEED-3320", mortgageLender: "Chase Chase Group", lastSearch: "2026-06-02 (Live)", countyRecord: "Secured" },
-    { property: "DTLA Center Plaza Tower", deedId: "LA-DEED-7740", mortgageLender: "Wells Fargo Commercial", lastSearch: "2026-06-01", countyRecord: "Alert Pending" },
-    { property: "Silicon Office Tech Hub", deedId: "SF-DEED-0012", mortgageLender: "Silicon Valley Funding", lastSearch: "2026-06-02 (Live)", countyRecord: "Secured" }
-  ];
+  const deeds: TitleDeed[] = [];
 
   return (
     <div className="space-y-6">

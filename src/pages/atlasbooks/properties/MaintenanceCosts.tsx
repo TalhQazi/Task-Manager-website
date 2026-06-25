@@ -16,13 +16,7 @@ const MaintenanceCosts: React.FC = () => {
   const { stats, activeEntity } = useAtlasBooks();
   const [priorityFilter, setPriorityFilter] = useState("all");
 
-  const tickets: MaintenanceTicket[] = [
-    { id: "WO-991", description: "HVAC System Compressor Swapout", property: "Silicon Office Tech Hub", cost: 12500, priority: "High", status: "In Progress" },
-    { id: "WO-992", description: "Condo Roof Coating Sealer Patch", property: "Blue Water Premium Condos", cost: 4800, priority: "Medium", status: "Completed" },
-    { id: "WO-993", description: "Elevator Annual Safety Certification", property: "DTLA Center Plaza Tower", cost: 2200, priority: "Low", status: "Scheduled" },
-    { id: "WO-994", description: "Pool Pump Replacement Parts", property: "Blue Water Premium Condos", cost: 1350, priority: "Low", status: "Completed" },
-    { id: "WO-995", description: "Underground Pipe Leak Repair", property: "Sandcastle Luxury Villas", cost: 8900, priority: "High", status: "Completed" }
-  ];
+  const tickets: MaintenanceTicket[] = [];
 
   const totalMaintenance = tickets.reduce((sum, t) => sum + t.cost, 0);
   const activeCount = tickets.filter(t => t.status !== "Completed").length;
