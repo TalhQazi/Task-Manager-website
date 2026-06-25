@@ -9,9 +9,9 @@ const ProfitAndLoss: React.FC = () => {
   const [filterMargin, setFilterMargin] = useState("all");
 
   const revenue = stats.revenueMtd;
-  const cogs = Math.round(revenue * 0.35);
+  const cogs = 0;
   const grossProfit = revenue - cogs;
-  const opex = Math.round(revenue * 0.45);
+  const opex = 0;
   const ebitda = grossProfit - opex;
   const netIncome = stats.netProfit;
 

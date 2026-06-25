@@ -13,10 +13,7 @@ interface VendorAnomalyItem {
 
 const VendorAnomalies: React.FC = () => {
   const { activeEntity } = useAtlasBooks();
-  const [anomalies, setAnomalies] = useState<VendorAnomalyItem[]>([
-    { id: "VNDA-901", vendor: "Cyberdyne Systems", anomalyType: "Routing Code Change", flagDate: "2026-06-02", resolved: false },
-    { id: "VNDA-902", vendor: "Cyber Security Labs", anomalyType: "No Contract Uploaded", flagDate: "2026-05-28", resolved: false }
-  ]);
+  const [anomalies, setAnomalies] = useState<VendorAnomalyItem[]>([]);
 
   const handleResolve = (id: string) => {
     setAnomalies(prev =>

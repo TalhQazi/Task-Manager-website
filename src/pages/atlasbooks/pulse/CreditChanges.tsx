@@ -15,10 +15,7 @@ interface CreditScoreChange {
 
 const CreditChanges: React.FC = () => {
   const { stats, activeEntity } = useAtlasBooks();
-  const [logs, setLogs] = useState<CreditScoreChange[]>([
-    { id: "CRC-801", agency: "Dun & Bradstreet", change: "-15 Points", previous: "830", current: "815", date: "2026-06-02", resolved: false },
-    { id: "CRC-802", agency: "Fitch Rating", change: "Outlook Shift to Stable", previous: "Positive", current: "Stable", date: "2026-05-25", resolved: false }
-  ]);
+  const [logs, setLogs] = useState<CreditScoreChange[]>([]);
 
   const handleResolve = (id: string) => {
     setLogs(prev =>

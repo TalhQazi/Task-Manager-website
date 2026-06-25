@@ -9,8 +9,8 @@ const ConsolidatedStatements: React.FC = () => {
 
   // Consolidation totals
   const totalRev = stats.revenueMtd;
-  const techRev = Math.round(totalRev * 0.62);
-  const propRev = Math.round(totalRev * 0.44);
+  const techRev = 0;
+  const propRev = 0;
   const eliminations = -(techRev + propRev - totalRev);
 
   // Group columns for consolidated tables

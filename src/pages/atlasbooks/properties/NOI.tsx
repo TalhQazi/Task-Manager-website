@@ -7,8 +7,8 @@ const NOI: React.FC = () => {
   const { stats, activeEntity } = useAtlasBooks();
 
   // NOI model calculation
-  const grossRent = Math.round(stats.revenueMtd * 0.85);
-  const parkingFee = Math.round(stats.revenueMtd * 0.05);
+  const grossRent = 0;
+  const parkingFee = 0;
   const grossPotential = grossRent + parkingFee;
 
   const vacancyLoss = -Math.round(grossPotential * 0.08);

@@ -9,9 +9,9 @@ const CashFlow: React.FC = () => {
 
   // Cash flow components
   const netIncome = stats.netProfit;
-  const depreciation = Math.round(stats.revenueMtd * 0.05);
+  const depreciation = 0;
   const arChanges = -Math.round(stats.accountsReceivable * 0.08);
-  const apChanges = Math.round(stats.accountsPayable * 0.12);
+  const apChanges = 0;
   const operatingCash = netIncome + depreciation + arChanges + apChanges;
 
   const capex = -Math.round(stats.cashPosition * 0.04);

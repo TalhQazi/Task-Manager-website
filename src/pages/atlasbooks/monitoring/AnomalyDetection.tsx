@@ -13,11 +13,7 @@ interface AnomalyLog {
 
 const AnomalyDetection: React.FC = () => {
   const { stats, activeEntity } = useAtlasBooks();
-  const [logs, setLogs] = useState<AnomalyLog[]>([
-    { id: "AML-991", source: "A/P Payout Ledger", pattern: "Sudden spike in recurring vendor payment amounts (+200%)", severity: "Critical", status: "Active" },
-    { id: "AML-992", source: "Security Audit Log", pattern: "Multiple credential edits from unauthorized geographic IPs", severity: "Warning", status: "Investigated" },
-    { id: "AML-993", source: "Expense Sync", pattern: "Off-hours booking charges recorded on corporate ledger cards", severity: "Low", status: "Active" }
-  ]);
+  const [logs, setLogs] = useState<AnomalyLog[]>([]);
 
   const handleMute = (id: string) => {
     setLogs(prev =>

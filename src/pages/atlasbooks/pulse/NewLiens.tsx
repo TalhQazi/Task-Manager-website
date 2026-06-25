@@ -15,10 +15,7 @@ interface NewLienAlert {
 
 const NewLiens: React.FC = () => {
   const { activeEntity } = useAtlasBooks();
-  const [liens, setLiens] = useState<NewLienAlert[]>([
-    { id: "NLA-771", property: "Blue Water Premium Condos", claimant: "Miami HVAC Pro Contractor", amount: 18500, filedDate: "2026-05-25", countyRef: "MIA-LN-9081", resolved: false },
-    { id: "NLA-772", property: "DTLA Center Plaza Tower", claimant: "County Board of Underwriters", amount: 45000, filedDate: "2026-06-01", countyRef: "LA-LN-3342", resolved: false }
-  ]);
+  const [liens, setLiens] = useState<NewLienAlert[]>([]);
 
   const handleResolve = (id: string) => {
     setLiens(prev =>

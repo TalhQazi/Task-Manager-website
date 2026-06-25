@@ -12,8 +12,8 @@ interface BudgetRow {
 const BudgetVsActual: React.FC = () => {
   const { stats, timeframe, activeEntity } = useAtlasBooks();
 
-  const totalOpex = Math.round(stats.expensesMtd);
-  const totalBudget = Math.round(totalOpex * 1.15); // Budget is slightly higher
+  const totalOpex = 0;
+  const totalBudget = 0; // Budget is slightly higher
   const netVariance = totalBudget - totalOpex;
   const burnPercent = ((totalOpex / totalBudget) * 100).toFixed(1);
 

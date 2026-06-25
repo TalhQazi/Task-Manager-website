@@ -15,12 +15,7 @@ interface CardExpense {
 
 const Expenses: React.FC = () => {
   const { stats, activeEntity } = useAtlasBooks();
-  const [expenses, setExpenses] = useState<CardExpense[]>([
-    { id: "EXP-801", employee: "Sarah Connor", merchant: "Amazon Web Services", amount: 1250.00, date: "2026-06-01", hasReceipt: true, matched: true },
-    { id: "EXP-802", employee: "John Connor", merchant: "Shell Fuel HQ", amount: 65.40, date: "2026-06-02", hasReceipt: false, matched: false },
-    { id: "EXP-803", employee: "Miles Dyson", merchant: "OpenAI API billing", amount: 840.00, date: "2026-05-30", hasReceipt: true, matched: false },
-    { id: "EXP-804", employee: "Kate Brewster", merchant: "Delta Air Lines", amount: 480.00, date: "2026-05-28", hasReceipt: true, matched: true }
-  ]);
+  const [expenses, setExpenses] = useState<CardExpense[]>([]);
 
   const handleMatchReceipt = (id: string) => {
     setExpenses(prev =>

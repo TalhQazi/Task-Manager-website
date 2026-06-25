@@ -14,12 +14,7 @@ interface FraudItem {
 
 const FraudAnalytics: React.FC = () => {
   const { stats, activeEntity } = useAtlasBooks();
-  const [items, setItems] = useState<FraudItem[]>([
-    { id: "FRD-101", source: "A/P Wire Transfer", description: "Out-of-band banking details change for Cyberdyne", amount: 145000, probability: 94.2, status: "Flagged" },
-    { id: "FRD-102", source: "Corporate Card Sync", description: "CTO card swipe: multiple micro-charges in London", amount: 120, probability: 68.5, status: "Investigating" },
-    { id: "FRD-103", source: "Invoice OCR Scan", description: "Duplicate billing scan: invoice VND-9081 re-submitted", amount: 4250, probability: 89.0, status: "Flagged" },
-    { id: "FRD-104", source: "Payroll Audit", description: "Salary payout mismatch for Marcus Wright", amount: 5500, probability: 45.1, status: "Cleared" }
-  ]);
+  const [items, setItems] = useState<FraudItem[]>([]);
 
   const handleResolve = (id: string) => {
     setItems(prev =>

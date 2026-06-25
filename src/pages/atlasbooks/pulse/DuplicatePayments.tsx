@@ -14,10 +14,7 @@ interface DuplicatePayment {
 
 const DuplicatePayments: React.FC = () => {
   const { activeEntity } = useAtlasBooks();
-  const [duplicates, setDuplicates] = useState<DuplicatePayment[]>([
-    { invoiceNo: "VND-9081", vendor: "Cyberdyne Systems", amount: 4250, payoutDate1: "2026-06-01 10:14", payoutDate2: "2026-06-01 10:18", resolved: false },
-    { invoiceNo: "VND-2330", vendor: "Miami HVAC Pro", amount: 18500, payoutDate1: "2026-05-25 14:02", payoutDate2: "2026-05-25 14:05", resolved: false }
-  ]);
+  const [duplicates, setDuplicates] = useState<DuplicatePayment[]>([]);
 
   const handleResolve = (invoiceNo: string) => {
     setDuplicates(prev =>

@@ -13,10 +13,7 @@ interface DeclineAlert {
 
 const CashDeclines: React.FC = () => {
   const { stats, activeEntity } = useAtlasBooks();
-  const [alerts, setAlerts] = useState<DeclineAlert[]>([
-    { id: "CD-301", source: "Los Angeles Division", trigger: "Cash reserves dropped below 15% threshold", variance: "-$125,000", status: "Active" },
-    { id: "CD-302", source: "Silicon Office Tech Hub", trigger: "Utility CapEx overrun exceeding budget line", variance: "-$34,000", status: "Active" }
-  ]);
+  const [alerts, setAlerts] = useState<DeclineAlert[]>([]);
 
   const handleSweep = (id: string) => {
     setAlerts(prev =>

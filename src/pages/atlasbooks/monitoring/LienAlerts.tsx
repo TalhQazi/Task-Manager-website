@@ -15,10 +15,7 @@ interface LienItem {
 
 const LienAlerts: React.FC = () => {
   const { activeEntity } = useAtlasBooks();
-  const [liens, setLiens] = useState<LienItem[]>([
-    { id: "LN-901", property: "Blue Water Premium Condos", claimant: "Miami HVAC Pro Contractor", amount: 18500, filedDate: "2026-05-25", type: "Mechanic's Lien", status: "Active" },
-    { id: "LN-902", property: "Sandcastle Luxury Villas", claimant: "Florida County Tax Collector", amount: 12400, filedDate: "2026-05-18", type: "County Tax Lien", status: "Contested" }
-  ]);
+  const [liens, setLiens] = useState<LienItem[]>([]);
 
   const handleResolve = (id: string) => {
     setLiens(prev =>

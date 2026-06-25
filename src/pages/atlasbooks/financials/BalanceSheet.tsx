@@ -10,13 +10,13 @@ const BalanceSheet: React.FC = () => {
   // Mock balance values calculated from cashPosition
   const cash = stats.cashPosition;
   const ar = stats.accountsReceivable;
-  const inventory = Math.round(cash * 0.15);
-  const fixedAssets = Math.round(cash * 1.8);
+  const inventory = 0;
+  const fixedAssets = 0;
   const totalAssets = cash + ar + inventory + fixedAssets;
 
   const ap = stats.accountsPayable;
-  const shortDebt = Math.round(cash * 0.25);
-  const longDebt = Math.round(cash * 0.85);
+  const shortDebt = 0;
+  const longDebt = 0;
   const totalLiabilities = ap + shortDebt + longDebt;
 
   const equity = totalAssets - totalLiabilities;

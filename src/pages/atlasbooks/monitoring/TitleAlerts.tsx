@@ -14,10 +14,7 @@ interface TitleAlertItem {
 
 const TitleAlerts: React.FC = () => {
   const { activeEntity } = useAtlasBooks();
-  const [alerts, setAlerts] = useState<TitleAlertItem[]>([
-    { id: "TA-401", date: "2026-06-01", property: "DTLA Center Plaza Tower", alertType: "Deed Modification", severity: "Critical", status: "Active" },
-    { id: "TA-402", date: "2026-05-20", property: "Blue Water Premium Condos", alertType: "Easement Recording", severity: "Warning", status: "Investigating" }
-  ]);
+  const [alerts, setAlerts] = useState<TitleAlertItem[]>([]);
 
   const handleResolve = (id: string) => {
     setAlerts(prev =>

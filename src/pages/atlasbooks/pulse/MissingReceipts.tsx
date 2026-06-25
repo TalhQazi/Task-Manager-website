@@ -14,10 +14,7 @@ interface MissingReceipt {
 
 const MissingReceipts: React.FC = () => {
   const { activeEntity } = useAtlasBooks();
-  const [receipts, setReceipts] = useState<MissingReceipt[]>([
-    { id: "MR-201", employee: "John Connor (Ops)", merchant: "Uber Ride NY", amount: 48.50, date: "2026-06-02", resolved: false },
-    { id: "MR-202", employee: "Sarah Connor (Eng)", merchant: "Github Seats Subscription", amount: 120.00, date: "2026-05-28", resolved: false }
-  ]);
+  const [receipts, setReceipts] = useState<MissingReceipt[]>([]);
 
   const handleResolve = (id: string) => {
     setReceipts(prev =>
