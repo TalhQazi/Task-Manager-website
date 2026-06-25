@@ -33,7 +33,10 @@ import {
   Shield, CheckCircle2, TrendingUp, Sparkles, Building
 } from "lucide-react";
 
-// Import premium screens and context to replace placeholder screens (removed mapping)
+// Import premium screens and context to replace placeholder screens for missing modules
+import { AtlasBooksProvider } from "../../../contexts/AtlasBooksContext";
+import CommandCenter from "../../atlasbooks/CommandCenter";
+import Vendors from "../../atlasbooks/operations/Vendors";
 
 const moduleData: Record<string, { title: string; features: string[]; accounts: string[]; icon: any; component?: any }> = {
   "company": {
@@ -241,6 +244,31 @@ export default function AtlasModulePage() {
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground italic">Module not found.</p>
       </div>
+    );
+  }
+
+  // Intercept modules that lack an admin component and map them to their premium screens
+  const getPremiumComponent = () => {
+    switch (moduleId) {
+      case "company":
+      case "analytics":
+        return <CommandCenter />;
+      case "vendor":
+        return <Vendors />;
+      default:
+        return null;
+    }
+  };
+
+  const premiumComponent = getPremiumComponent();
+
+  if (premiumComponent) {
+    return (
+      <AtlasBooksProvider>
+        <div className="px-4 md:px-6 md:pl-6">
+          {premiumComponent}
+        </div>
+      </AtlasBooksProvider>
     );
   }
 
