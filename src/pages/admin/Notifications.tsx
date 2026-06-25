@@ -176,8 +176,9 @@ export default function Notifications() {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load notifications");
       } finally {
-        if (!mounted) return;
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 

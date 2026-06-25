@@ -345,8 +345,9 @@ const TimeTracking = () => {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load time entries");
       } finally {
-        if (!mounted) return;
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
     void load();
