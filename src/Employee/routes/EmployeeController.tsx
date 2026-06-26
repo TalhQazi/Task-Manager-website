@@ -28,6 +28,7 @@ const EmployeeBugs = lazy(() => import("../screens/Bugs"));
 const EmployeeAnnouncements = lazy(() => import("@/pages/employee/Announcements"));
 const EmployeeEmailSettings = lazy(() => import("../screens/EmailSettings"));
 const EmployeeItinerary = lazy(() => import("../screens/EmployeeItinerary"));
+const EmployeePolls = lazy(() => import("../screens/Polls"));
 
 function PageLoader() {
   return (
@@ -68,6 +69,7 @@ function EmployeeController() {
           <Route path="/profile" element={<EmployeeProfile />} />
           <Route path="/notifications" element={<EmployeeNotifications />} />
           <Route path="/personal-notes" element={<EmployeePersonalNotes />} />
+          <Route path="/polls" element={<EmployeePolls />} />
 
           <Route path="/scrum-records" element={<EmployeeScrumRecords />} />
           <Route path="/ui-customization" element={<EmployeeUICustomization />} />

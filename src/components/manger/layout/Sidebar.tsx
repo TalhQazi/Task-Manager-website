@@ -33,9 +33,7 @@ FolderOpen,
 Building,
 CalendarCheck,
 Bug,
-
-
-
+Lightbulb,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -55,6 +53,7 @@ type NavItem = {
 
 const navItemsBase: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/manager", end: true },
+  { icon: Lightbulb, label: "Ideas & Polls", path: "/manager/polls" },
   { icon: ClipboardCheck, label: "Compliance Center", path: "/manager/compliance-center" },
   { icon: ClipboardList, label: "Tasks", path: "/manager/tasks" },
   { icon: Users, label: "Employees", path: "/manager/employees" },

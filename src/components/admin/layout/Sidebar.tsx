@@ -67,6 +67,7 @@ type NavItem = {
 
 const navItemsBase: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin", end: true },
+  { icon: Lightbulb, label: "Ideas & Polls", path: "/admin/polls" },
   {
     label: "Atlas Books",
     customIcon: (

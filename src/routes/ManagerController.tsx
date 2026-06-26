@@ -50,6 +50,7 @@ const CRMFiles = lazy(() => import("@/pages/manger/crm/Files"));
 const TravelCalendar = lazy(() => import("@/pages/manger/TravelCalendar"));
 const ManagerBugs = lazy(() => import("@/pages/manger/Bugs"));
 const ManagerAnnouncements = lazy(() => import("@/pages/manger/Announcements"));
+const ManagerPolls = lazy(() => import("@/pages/manger/Polls"));
 
 function PageLoader() {
   return (
@@ -98,6 +99,7 @@ export default function ManagerController() {
       { path: "notifications", element: <Notifications /> },
       { path: "settings", element: <Settings /> },
       { path: "personal-notes", element: <PersonalNotes /> },
+      { path: "polls", element: <ManagerPolls /> },
       { path: "ui-customization", element: <UICustomization /> },
       { path: "shopping-lists", element: <ShoppingLists /> },
       { path: "activity-logs", element: <ActivityLogs /> },

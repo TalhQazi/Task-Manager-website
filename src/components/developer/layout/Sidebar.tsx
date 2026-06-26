@@ -1,10 +1,13 @@
 import { NavLink } from "@/components/admin/NavLink";
-import { Bug, LogOut } from "lucide-react";
+import { Bug, LogOut, Lightbulb } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { clearAuthState } from "@/lib/auth";
 
-const navItemsBase = [{ icon: Bug, label: "Bugs", path: "/developer/bugs", end: true }];
+const navItemsBase = [
+  { icon: Bug, label: "Bugs", path: "/developer/bugs", end: true },
+  { icon: Lightbulb, label: "Ideas & Polls", path: "/developer/polls", end: true }
+];
 
 type SidebarMode = "desktop" | "mobile";
 
