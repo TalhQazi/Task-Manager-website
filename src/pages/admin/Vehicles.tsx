@@ -451,6 +451,8 @@ const Vehicles = () => {
   const [apiError, setApiError] = useState<string | null>(null);
   const [hoveredVehicle, setHoveredVehicle] = useState<string | null>(null);
   const [expandedVehicles, setExpandedVehicles] = useState<Record<string, boolean>>({});
+  const [activeView, setActiveView] = useState<"fleet" | "needs">("fleet");
+  const [expandedNeedsView, setExpandedNeedsView] = useState<Record<string, boolean>>({});
   const [isAdding, setIsAdding] = useState(false);
   const [isVehicleDropboxPickerOpen, setIsVehicleDropboxPickerOpen] = useState(false);
   const [vehicleDropboxDocs, setVehicleDropboxDocs] = useState<DropboxSelectedFile[]>([]);
@@ -513,13 +515,13 @@ const Vehicles = () => {
       ]);
 
       const allEmployees: Employee[] = Array.isArray(employeeList) 
-        ? employeeList.filter((e: any) => e.status === "active")
+        ? (employeeList as Employee[]).filter((e: Employee) => e.status === "active")
         : [];
 
       if (Array.isArray(userList)) {
-        const employeeUsers = userList
-          .filter((u: any) => u.role === "employee" && (u.status === "active" || u.status === "pending"))
-          .map((u: any) => ({
+        const employeeUsers: Employee[] = (userList as User[])
+          .filter((u: User) => u.role === "employee" && (u.status === "active" || u.status === "pending"))
+          .map((u: User) => ({
             id: u.id,
             name: u.name,
             initials: getInitials(u.name),
@@ -527,8 +529,8 @@ const Vehicles = () => {
             status: "active" as const,
           }));
         
-        employeeUsers.forEach((eu: any) => {
-          if (!allEmployees.some((e: any) => e.email === eu.email)) {
+        employeeUsers.forEach((eu: Employee) => {
+          if (!allEmployees.some((e: Employee) => e.email === eu.email)) {
             allEmployees.push(eu);
           }
         });
@@ -701,7 +703,7 @@ const Vehicles = () => {
       setApiError(null);
       // Fetch full vehicle to get tagPhotoDataUrl
       const fullVehicle = await getResource<BackendVehicle>("vehicles", vehicle.id);
-      setSelectedVehicle(normalizeVehicle(fullVehicle as any));
+      setSelectedVehicle(normalizeVehicle(fullVehicle));
       setViewDetailsOpen(true);
     } catch (e) {
       setApiError("Failed to fetch vehicle details");
@@ -738,7 +740,7 @@ const Vehicles = () => {
       setApiError(null);
       // Fetch full vehicle to get tagPhotoDataUrl
       const fullVehicle = await getResource<BackendVehicle>("vehicles", vehicle.id);
-      const normalized = normalizeVehicle(fullVehicle as any);
+      const normalized = normalizeVehicle(fullVehicle);
       setSelectedVehicle(normalized);
       setEditTagPhotoFile(null);
       setEditFormData({
@@ -1424,7 +1426,7 @@ const Vehicles = () => {
         {/* Vehicles Card */}
         <motion.div variants={itemVariants}>
           <Card className="shadow-xl border-0 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm overflow-hidden">
-            <CardHeader className="px-4 sm:px-6 py-4 sm:py-5 border-b bg-muted/20">
+            <CardHeader className="px-4 sm:px-6 py-4 sm:py-5 border-b bg-muted/20 flex flex-row items-center justify-between flex-wrap gap-2">
               <CardTitle className="text-base sm:text-lg md:text-xl font-semibold flex items-center gap-2">
                 <Car className="h-5 w-5 text-primary" />
                 Fleet Vehicles
@@ -1434,6 +1436,24 @@ const Vehicles = () => {
                   </Badge>
                 )}
               </CardTitle>
+
+              {/* View Toggle */}
+              <div className="flex bg-muted/60 p-1 rounded-lg border text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setActiveView("fleet")}
+                  className={`px-3 py-1.5 rounded-md transition-all ${activeView === "fleet" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Fleet List
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveView("needs")}
+                  className={`px-3 py-1.5 rounded-md transition-all ${activeView === "needs" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  Vehicle Needs
+                </button>
+              </div>
             </CardHeader>
             <CardContent className="p-0 sm:p-6">
               {loading ? (
@@ -1444,7 +1464,7 @@ const Vehicles = () => {
                     className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full"
                   />
                 </div>
-              ) : (
+              ) : activeView === "fleet" ? (
                 <>
                   {/* Mobile View - Cards */}
                   <div className="block sm:hidden space-y-3 p-4">
@@ -1810,6 +1830,159 @@ const Vehicles = () => {
                     </Table>
                   </div>
                 </>
+              ) : (
+                <div className="space-y-4 p-4 sm:p-0">
+                  <div className="border border-border/60 rounded-xl overflow-hidden bg-card divide-y divide-border/60">
+                    {filteredVehicles.map(vehicle => {
+                      const vehicleNeeds = vehicle.needs || [];
+                      const isExpanded = expandedNeedsView[vehicle.id];
+                      
+                      return (
+                        <div key={vehicle.id} className="transition-all">
+                          {/* Vehicle Header Row */}
+                          <div 
+                            onClick={() => setExpandedNeedsView(prev => ({ ...prev, [vehicle.id]: !prev[vehicle.id] }))}
+                            className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/40 transition-colors"
+                          >
+                            <div className="flex items-center gap-3 select-none">
+                              <ChevronDown className={`h-4 w-4 transition-transform text-muted-foreground ${isExpanded ? "rotate-0" : "-rotate-90"}`} />
+                              <span className="font-semibold text-sm sm:text-base text-foreground">
+                                {vehicle.year} {vehicle.make} {vehicle.model}
+                              </span>
+                              <span className="text-xs text-muted-foreground">({vehicle.licensePlate})</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="secondary" className="text-xs font-semibold px-2 py-0.5 h-6">
+                                {vehicleNeeds.filter(n => !n.completed).length} Pending
+                              </Badge>
+                            </div>
+                          </div>
+                          
+                          {/* Needs Sub-list */}
+                          {isExpanded && (
+                            <div className="bg-muted/10 px-4 py-3 space-y-3 border-t border-border/40">
+                              {/* Headers */}
+                              <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-muted-foreground border-b border-border/40 pb-2 px-2">
+                                <div className="col-span-6 sm:col-span-7">Task name</div>
+                                <div className="col-span-3 sm:col-span-3">Assignee</div>
+                                <div className="col-span-3 sm:col-span-2">Due date</div>
+                              </div>
+                              
+                              {/* List items */}
+                              <div className="space-y-1.5">
+                                {vehicleNeeds.length > 0 ? (
+                                  vehicleNeeds.map(need => (
+                                    <div key={need.id} className="grid grid-cols-12 gap-2 items-center p-2 rounded-lg bg-background border border-border/40 hover:bg-muted/20 transition-colors text-xs sm:text-sm">
+                                      {/* Task checkbox & name */}
+                                      <div className="col-span-6 sm:col-span-7 flex items-center gap-2.5 min-w-0">
+                                        <input 
+                                          type="checkbox"
+                                          checked={need.completed}
+                                          onChange={(e) => {
+                                            e.stopPropagation();
+                                            handleToggleNeedForVehicle(vehicle, need.id);
+                                          }}
+                                          className="h-4 w-4 rounded border-gray-300 text-primary accent-primary cursor-pointer flex-shrink-0"
+                                        />
+                                        <span className={`font-medium truncate ${need.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                                          {need.taskName}
+                                        </span>
+                                      </div>
+                                      
+                                      {/* Assignee */}
+                                      <div className="col-span-3 sm:col-span-3 min-w-0">
+                                        {need.assignee ? (
+                                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium truncate">
+                                            <span className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center text-[9px] font-bold">
+                                              {getInitials(need.assignee)}
+                                            </span>
+                                            <span className="hidden sm:inline">{need.assignee}</span>
+                                          </span>
+                                        ) : (
+                                          <span className="text-muted-foreground">—</span>
+                                        )}
+                                      </div>
+                                      
+                                      {/* Due Date & delete actions */}
+                                      <div className="col-span-3 sm:col-span-2 flex items-center justify-between min-w-0">
+                                        <span className="text-xs text-muted-foreground truncate">{need.dueDate || "—"}</span>
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteNeedForVehicle(vehicle, need.id);
+                                          }}
+                                          className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <p className="text-xs text-muted-foreground italic py-2 text-center">No needs listed for this vehicle.</p>
+                                )}
+                              </div>
+                              
+                              {/* Inline Quick Add Row */}
+                              <div className="pt-3 border-t border-border/40 bg-card/40 p-3 rounded-xl border border-border/40">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Add task need</p>
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                                  <div className="flex-1 min-w-0">
+                                    <input 
+                                      type="text"
+                                      placeholder="e.g. Tire alignment, Coolant level check..."
+                                      id={`admin-needs-task-input-${vehicle.id}`}
+                                      className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs sm:text-sm outline-none focus:ring-1 focus:ring-primary/20 transition-all h-8 sm:h-9"
+                                    />
+                                  </div>
+                                  <div className="w-full sm:w-40 flex-shrink-0">
+                                    <select 
+                                      id={`admin-needs-assignee-input-${vehicle.id}`}
+                                      className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs sm:text-sm outline-none h-8 sm:h-9"
+                                    >
+                                      <option value="">Assign Person...</option>
+                                      {employees.map(emp => (
+                                        <option key={emp.id} value={emp.name}>{emp.name}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div className="w-full sm:w-32 flex-shrink-0">
+                                    <input 
+                                      type="date"
+                                      id={`admin-needs-date-input-${vehicle.id}`}
+                                      className="w-full rounded-lg border border-border bg-background px-2 py-1 text-xs sm:text-sm outline-none h-8 sm:h-9"
+                                    />
+                                  </div>
+                                  <Button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const taskVal = (document.getElementById(`admin-needs-task-input-${vehicle.id}`) as HTMLInputElement)?.value;
+                                      const assigneeVal = (document.getElementById(`admin-needs-assignee-input-${vehicle.id}`) as HTMLSelectElement)?.value;
+                                      const dateVal = (document.getElementById(`admin-needs-date-input-${vehicle.id}`) as HTMLInputElement)?.value;
+                                      if (taskVal) {
+                                        handleAddNeedForVehicle(vehicle, taskVal, assigneeVal, dateVal);
+                                        // Clear inputs
+                                        (document.getElementById(`admin-needs-task-input-${vehicle.id}`) as HTMLInputElement).value = "";
+                                        (document.getElementById(`admin-needs-assignee-input-${vehicle.id}`) as HTMLSelectElement).value = "";
+                                        (document.getElementById(`admin-needs-date-input-${vehicle.id}`) as HTMLInputElement).value = "";
+                                      }
+                                    }}
+                                    className="h-8 sm:h-9 px-3 text-xs w-full sm:w-auto"
+                                  >
+                                    <Plus className="h-3.5 w-3.5 mr-1" /> Add
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>

@@ -194,6 +194,8 @@ export default function Vehicles() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [activeView, setActiveView] = useState<"fleet" | "needs">("fleet");
+  const [expandedNeedsView, setExpandedNeedsView] = useState<Record<string, boolean>>({});
   const PAGE_SIZE = 25;
   const queryClient = useQueryClient();
 
@@ -732,10 +734,29 @@ export default function Vehicles() {
           <h1 className="page-title">Vehicles Management</h1>
           <p className="page-subtitle">Track and manage company vehicles</p>
         </div>
-        <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
-          <Plus className="w-4 h-4" />
-          Add Vehicle
-        </Button>
+        <div className="flex items-center gap-4">
+          {/* View Toggle */}
+          <div className="flex bg-muted/60 p-1 rounded-lg border text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => setActiveView("fleet")}
+              className={`px-3 py-1.5 rounded-md transition-all ${activeView === "fleet" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Fleet List
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveView("needs")}
+              className={`px-3 py-1.5 rounded-md transition-all ${activeView === "needs" ? "bg-background shadow text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+            >
+              Vehicle Needs
+            </button>
+          </div>
+          <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
+            <Plus className="w-4 h-4" />
+            Add Vehicle
+          </Button>
+        </div>
       </div>
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
@@ -1533,126 +1554,281 @@ export default function Vehicles() {
         </Select>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {vehiclesQuery.isLoading ? (
-          <div className="col-span-full p-6 text-sm text-muted-foreground">Loading vehicles...</div>
-        ) : vehiclesQuery.isError ? (
-          <div className="col-span-full p-6 text-sm text-destructive">
-            {vehiclesQuery.error instanceof Error
-              ? vehiclesQuery.error.message
-              : "Failed to load vehicles"}
-          </div>
-        ) : null}
-
-        {filteredVehicles.map((vehicle, index) => (
-          <div
-            key={vehicle.id}
-            className="bg-card rounded-xl border border-border shadow-card p-6 hover:shadow-card-hover transition-all duration-300 animate-fade-in"
-            style={{ animationDelay: `${index * 50}ms` }}
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-4">
-                <ManagerLazyVehiclePhoto vehicle={vehicle} className="h-12 w-12 rounded-xl object-cover ring-2 ring-primary/20" />
-                <div>
-                  <h3 className="font-semibold text-foreground">{vehicle.name}</h3>
-                  <p className="text-sm text-muted-foreground">{vehicle.licensePlate}</p>
-                </div>
-              </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    className="p-1.5 rounded-lg hover:bg-muted transition-colors"
-                    aria-label="Vehicle actions"
-                  >
-                    <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => void openView(vehicle)}>
-                    View Details
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => openEdit(vehicle)}>
-                    Edit
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => openDelete(vehicle)}>
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+      {activeView === "fleet" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {vehiclesQuery.isLoading ? (
+            <div className="col-span-full p-6 text-sm text-muted-foreground">Loading vehicles...</div>
+          ) : vehiclesQuery.isError ? (
+            <div className="col-span-full p-6 text-sm text-destructive">
+              {vehiclesQuery.error instanceof Error
+                ? vehiclesQuery.error.message
+                : "Failed to load vehicles"}
             </div>
+          ) : null}
 
-            <div className="flex items-center justify-between mb-4">
-              <Badge
-                variant="secondary"
-                className={cn("capitalize", statusStyles[vehicle.status])}
-              >
-                {vehicle.status.replace("-", " ")}
-              </Badge>
-              <Badge variant="outline">{vehicle.type}</Badge>
-            </div>
-
-            {vehicle.assignedTo && (
-              <p className="text-sm text-muted-foreground mb-4">
-                Assigned to:{" "}
-                <span className="text-foreground font-medium">{vehicle.assignedTo}</span>
-              </p>
-            )}
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Fuel className="w-4 h-4" />
-                  <span>Fuel Level</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-20 h-2 rounded-full bg-muted overflow-hidden">
-                    <div
-                      className={cn(
-                        "h-full rounded-full transition-all",
-                        vehicle.fuelLevel > 50
-                          ? "bg-success"
-                          : vehicle.fuelLevel > 25
-                          ? "bg-warning"
-                          : "bg-destructive",
-                      )}
-                      style={{ width: `${vehicle.fuelLevel}%` }}
-                    />
+          {filteredVehicles.map((vehicle, index) => (
+            <div
+              key={vehicle.id}
+              className="bg-card rounded-xl border border-border shadow-card p-6 hover:shadow-card-hover transition-all duration-300 animate-fade-in"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-4">
+                  <ManagerLazyVehiclePhoto vehicle={vehicle} className="h-12 w-12 rounded-xl object-cover ring-2 ring-primary/20" />
+                  <div>
+                    <h3 className="font-semibold text-foreground">{vehicle.name}</h3>
+                    <p className="text-sm text-muted-foreground">{vehicle.licensePlate}</p>
                   </div>
-                  <span className="text-foreground font-medium">{vehicle.fuelLevel}%</span>
                 </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      className="p-1.5 rounded-lg hover:bg-muted transition-colors"
+                      aria-label="Vehicle actions"
+                    >
+                      <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => void openView(vehicle)}>
+                      View Details
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => openEdit(vehicle)}>
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => openDelete(vehicle)}>
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Mileage</span>
-                <span className="text-foreground font-medium">
-                  {vehicle.mileage.toLocaleString()} mi
-                </span>
+              <div className="flex items-center justify-between mb-4">
+                <Badge
+                  variant="secondary"
+                  className={cn("capitalize", statusStyles[vehicle.status])}
+                >
+                  {vehicle.status.replace("-", " ")}
+                </Badge>
+                <Badge variant="outline">{vehicle.type}</Badge>
               </div>
 
-            {vehicle.requiresInspection && (
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <Calendar className="w-4 h-4" />
-                  <span>Next Inspection</span>
+              {vehicle.assignedTo && (
+                <p className="text-sm text-muted-foreground mb-4">
+                  Assigned to:{" "}
+                  <span className="text-foreground font-medium">{vehicle.assignedTo}</span>
+                </p>
+              )}
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Fuel className="w-4 h-4" />
+                    <span>Fuel Level</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-20 h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all",
+                          vehicle.fuelLevel > 50
+                            ? "bg-success"
+                            : vehicle.fuelLevel > 25
+                            ? "bg-warning"
+                            : "bg-destructive",
+                        )}
+                        style={{ width: `${vehicle.fuelLevel}%` }}
+                      />
+                    </div>
+                    <span className="text-foreground font-medium">{vehicle.fuelLevel}%</span>
+                  </div>
                 </div>
-                <span className="text-foreground">
-                  {new Date(vehicle.nextInspection).toLocaleDateString()}
-                </span>
-              </div>
-            )}
 
-            <VehicleNeedsSection
-              vehicle={vehicle}
-              employees={employees}
-              onAddNeed={handleAddNeedForVehicle}
-              onToggleNeed={handleToggleNeedForVehicle}
-              onDeleteNeed={handleDeleteNeedForVehicle}
-            />
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Mileage</span>
+                  <span className="text-foreground font-medium">
+                    {vehicle.mileage.toLocaleString()} mi
+                  </span>
+                </div>
+
+                {vehicle.requiresInspection && (
+                  <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Calendar className="w-4 h-4" />
+                      <span>Next Inspection</span>
+                    </div>
+                    <span className="text-foreground">
+                      {new Date(vehicle.nextInspection).toLocaleDateString()}
+                    </span>
+                  </div>
+                )}
+
+                <VehicleNeedsSection
+                  vehicle={vehicle}
+                  employees={employees}
+                  onAddNeed={handleAddNeedForVehicle}
+                  onToggleNeed={handleToggleNeedForVehicle}
+                  onDeleteNeed={handleDeleteNeedForVehicle}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="border border-border/60 rounded-xl overflow-hidden bg-card divide-y divide-border/60">
+            {filteredVehicles.map(vehicle => {
+              const vehicleNeeds = vehicle.needs || [];
+              const isExpanded = expandedNeedsView[vehicle.id];
+              
+              return (
+                <div key={vehicle.id} className="transition-all">
+                  {/* Vehicle Header Row */}
+                  <div 
+                    onClick={() => setExpandedNeedsView(prev => ({ ...prev, [vehicle.id]: !prev[vehicle.id] }))}
+                    className="flex items-center justify-between p-4 cursor-pointer hover:bg-muted/40 transition-colors"
+                  >
+                    <div className="flex items-center gap-3 select-none">
+                      <ChevronDown className={`h-4 w-4 transition-transform text-muted-foreground ${isExpanded ? "rotate-0" : "-rotate-90"}`} />
+                      <span className="font-semibold text-sm sm:text-base text-foreground">
+                        {vehicle.name}
+                      </span>
+                      <span className="text-xs text-muted-foreground">({vehicle.licensePlate})</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="text-xs font-semibold px-2 py-0.5 h-6">
+                        {vehicleNeeds.filter(n => !n.completed).length} Pending
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  {/* Needs Sub-list */}
+                  {isExpanded && (
+                    <div className="bg-muted/10 px-4 py-3 space-y-3 border-t border-border/40">
+                      {/* Headers */}
+                      <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-muted-foreground border-b border-border/40 pb-2 px-2">
+                        <div className="col-span-6 sm:col-span-7">Task name</div>
+                        <div className="col-span-3 sm:col-span-3">Assignee</div>
+                        <div className="col-span-3 sm:col-span-2">Due date</div>
+                      </div>
+                      
+                      {/* List items */}
+                      <div className="space-y-1.5">
+                        {vehicleNeeds.length > 0 ? (
+                          vehicleNeeds.map(need => (
+                            <div key={need.id} className="grid grid-cols-12 gap-2 items-center p-2 rounded-lg bg-background border border-border/40 hover:bg-muted/20 transition-colors text-xs sm:text-sm">
+                              {/* Task checkbox & name */}
+                              <div className="col-span-6 sm:col-span-7 flex items-center gap-2.5 min-w-0">
+                                <input 
+                                  type="checkbox"
+                                  checked={need.completed}
+                                  onChange={(e) => {
+                                    e.stopPropagation();
+                                    void handleToggleNeedForVehicle(vehicle, need.id);
+                                  }}
+                                  className="h-4 w-4 rounded border-gray-300 text-primary accent-primary cursor-pointer flex-shrink-0"
+                                />
+                                <span className={`font-medium truncate ${need.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                                  {need.taskName}
+                                </span>
+                              </div>
+                              
+                              {/* Assignee */}
+                              <div className="col-span-3 sm:col-span-3 min-w-0">
+                                {need.assignee ? (
+                                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium truncate">
+                                    <span className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center text-[9px] font-bold">
+                                      {getInitials(need.assignee)}
+                                    </span>
+                                    <span className="hidden sm:inline">{need.assignee}</span>
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground">—</span>
+                                )}
+                              </div>
+                              
+                              {/* Due Date & delete actions */}
+                              <div className="col-span-3 sm:col-span-2 flex items-center justify-between min-w-0">
+                                <span className="text-xs text-muted-foreground truncate">{need.dueDate || "—"}</span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleDeleteNeedForVehicle(vehicle, need.id);
+                                  }}
+                                  className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-xs text-muted-foreground italic py-2 text-center">No needs listed for this vehicle.</p>
+                        )}
+                      </div>
+                      
+                      {/* Inline Quick Add Row */}
+                      <div className="pt-3 border-t border-border/40 bg-card/40 p-3 rounded-xl border border-border/40">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Add task need</p>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                          <div className="flex-1 min-w-0">
+                            <input 
+                              type="text"
+                              placeholder="e.g. Tire alignment, Coolant level check..."
+                              id={`manager-needs-task-input-${vehicle.id}`}
+                              className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-xs sm:text-sm outline-none focus:ring-1 focus:ring-primary/20 transition-all h-8 sm:h-9"
+                            />
+                          </div>
+                          <div className="w-full sm:w-40 flex-shrink-0">
+                            <select 
+                              id={`manager-needs-assignee-input-${vehicle.id}`}
+                              className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs sm:text-sm outline-none h-8 sm:h-9"
+                            >
+                              <option value="">Assign Person...</option>
+                              {employees.map(emp => (
+                                <option key={emp.id} value={emp.name}>{emp.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="w-full sm:w-32 flex-shrink-0">
+                            <input 
+                              type="date"
+                              id={`manager-needs-date-input-${vehicle.id}`}
+                              className="w-full rounded-lg border border-border bg-background px-2 py-1 text-xs sm:text-sm outline-none h-8 sm:h-9"
+                            />
+                          </div>
+                          <Button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const taskVal = (document.getElementById(`manager-needs-task-input-${vehicle.id}`) as HTMLInputElement)?.value;
+                              const assigneeVal = (document.getElementById(`manager-needs-assignee-input-${vehicle.id}`) as HTMLSelectElement)?.value;
+                              const dateVal = (document.getElementById(`manager-needs-date-input-${vehicle.id}`) as HTMLInputElement)?.value;
+                              if (taskVal) {
+                                void handleAddNeedForVehicle(vehicle, taskVal, assigneeVal, dateVal);
+                                // Clear inputs
+                                (document.getElementById(`manager-needs-task-input-${vehicle.id}`) as HTMLInputElement).value = "";
+                                (document.getElementById(`manager-needs-assignee-input-${vehicle.id}`) as HTMLSelectElement).value = "";
+                                (document.getElementById(`manager-needs-date-input-${vehicle.id}`) as HTMLInputElement).value = "";
+                              }
+                            }}
+                            className="h-8 sm:h-9 px-3 text-xs w-full sm:w-auto"
+                          >
+                            <Plus className="h-3.5 w-3.5 mr-1" /> Add
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
-        ))}
-      </div>
+      )}
 
       <div className="mt-6">
         <Pagination
