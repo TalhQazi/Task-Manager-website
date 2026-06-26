@@ -54,6 +54,7 @@ import {
   Clock,
   Camera,
   FileText,
+  CheckCircle,
 } from "lucide-react";
 import { createResource, deleteResource, listResource, updateResource, getResource, toProxiedUrl, apiFetch } from "@/lib/admin/apiClient";
 import DropboxFilePicker, { type DropboxSelectedFile, formatBytes, DropboxIcon } from "@/components/admin/DropboxFilePicker";
@@ -78,9 +79,16 @@ interface Vehicle {
   assignedTo: string;
   insuranceInfo?: string;
   documents?: { fileName: string; dataUrl: string }[];
-   tagPhotoFileName?: string;
+  tagPhotoFileName?: string;
   tagPhotoDataUrl?: string;
   requiresInspection?: boolean;
+  needs?: {
+    id: string;
+    taskName: string;
+    assignee: string;
+    dueDate: string;
+    completed: boolean;
+  }[];
 }
 
 interface Employee {
@@ -294,6 +302,84 @@ const Vehicles = () => {
   const [editVehicleOpen, setEditVehicleOpen] = useState(false);
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [newNeedTaskName, setNewNeedTaskName] = useState("");
+  const [newNeedAssignee, setNewNeedAssignee] = useState("");
+  const [newNeedDueDate, setNewNeedDueDate] = useState("");
+  const [isUpdatingNeed, setIsUpdatingNeed] = useState(false);
+
+  const handleAddNeed = async () => {
+    if (!selectedVehicle || !newNeedTaskName.trim()) return;
+    try {
+      setIsUpdatingNeed(true);
+      const newNeed = {
+        id: `NEED-${Date.now()}`,
+        taskName: newNeedTaskName.trim(),
+        assignee: newNeedAssignee,
+        dueDate: newNeedDueDate,
+        completed: false,
+      };
+      
+      const updatedNeeds = [...(selectedVehicle.needs || []), newNeed];
+      
+      const res = await updateResource<any>("vehicles", selectedVehicle.id, {
+        needs: updatedNeeds
+      });
+      
+      const updatedVehicle = res?.item || res;
+      if (updatedVehicle) {
+        setSelectedVehicle(updatedVehicle);
+        setNewNeedTaskName("");
+        setNewNeedAssignee("");
+        setNewNeedDueDate("");
+      }
+      loadData();
+    } catch (e) {
+      console.error("Failed to add need", e);
+    } finally {
+      setIsUpdatingNeed(false);
+    }
+  };
+
+  const handleToggleNeed = async (needId: string) => {
+    if (!selectedVehicle) return;
+    try {
+      const updatedNeeds = (selectedVehicle.needs || []).map(n =>
+        n.id === needId ? { ...n, completed: !n.completed } : n
+      );
+      
+      const res = await updateResource<any>("vehicles", selectedVehicle.id, {
+        needs: updatedNeeds
+      });
+      
+      const updatedVehicle = res?.item || res;
+      if (updatedVehicle) {
+        setSelectedVehicle(updatedVehicle);
+      }
+      loadData();
+    } catch (e) {
+      console.error("Failed to toggle need", e);
+    }
+  };
+
+  const handleDeleteNeed = async (needId: string) => {
+    if (!selectedVehicle) return;
+    try {
+      const updatedNeeds = (selectedVehicle.needs || []).filter(n => n.id !== needId);
+      
+      const res = await updateResource<any>("vehicles", selectedVehicle.id, {
+        needs: updatedNeeds
+      });
+      
+      const updatedVehicle = res?.item || res;
+      if (updatedVehicle) {
+        setSelectedVehicle(updatedVehicle);
+      }
+      loadData();
+    } catch (e) {
+      console.error("Failed to delete need", e);
+    }
+  };
+
   const [apiError, setApiError] = useState<string | null>(null);
   const [hoveredVehicle, setHoveredVehicle] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
@@ -1770,6 +1856,114 @@ const Vehicles = () => {
                     )}
                   </div>
                 </motion.div>
+
+                {/* Vehicle Needs Checklist Section */}
+                <div className="space-y-3 border-t pt-4 sm:col-span-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-semibold flex items-center gap-2">
+                      <Wrench className="h-4 w-4 text-primary" />
+                      Vehicle Needs & Maintenance Tasks
+                    </label>
+                    <Badge variant="secondary" className="text-xs">
+                      {(selectedVehicle.needs || []).filter(n => !n.completed).length} Pending
+                    </Badge>
+                  </div>
+
+                  {/* Needs List */}
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    {(selectedVehicle.needs || []).length > 0 ? (
+                      (selectedVehicle.needs || []).map((need) => (
+                        <div 
+                          key={need.id} 
+                          className="flex items-center justify-between p-2 rounded-lg bg-muted/20 border border-muted/40 hover:bg-muted/30 transition-all text-xs sm:text-sm animate-fadeIn"
+                        >
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <input
+                              type="checkbox"
+                              checked={need.completed}
+                              onChange={() => handleToggleNeed(need.id)}
+                              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary/20 accent-primary cursor-pointer flex-shrink-0"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className={`font-medium break-words ${need.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                                {need.taskName}
+                              </p>
+                              <div className="flex flex-wrap gap-2 mt-0.5">
+                                {need.assignee && (
+                                  <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                    <User className="h-2.5 w-2.5" />
+                                    Assignee: <span className="text-primary/85 font-bold">{need.assignee}</span>
+                                  </span>
+                                )}
+                                {need.dueDate && (
+                                  <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                    <Calendar className="h-2.5 w-2.5" />
+                                    Due: {need.dueDate}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteNeed(need.id)}
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg flex-shrink-0 ml-2"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic py-2">No needs or maintenance items listed for this vehicle.</p>
+                    )}
+                  </div>
+
+                  {/* Add Need Form */}
+                  <div className="bg-muted/10 p-3 rounded-xl border border-muted/25 space-y-2 mt-2">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Add Maintenance / Task Need</p>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                      <div className="flex-1 min-w-0">
+                        <input
+                          type="text"
+                          placeholder="What needs to be done? e.g. Coolant smell, Battery"
+                          value={newNeedTaskName}
+                          onChange={(e) => setNewNeedTaskName(e.target.value)}
+                          className="w-full rounded-lg border px-3 py-1.5 text-xs sm:text-sm bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all h-8 sm:h-9"
+                        />
+                      </div>
+                      <div className="w-full sm:w-40 flex-shrink-0">
+                        <select
+                          value={newNeedAssignee}
+                          onChange={(e) => setNewNeedAssignee(e.target.value)}
+                          className="w-full rounded-lg border px-2 py-1.5 text-xs sm:text-sm bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all h-8 sm:h-9"
+                        >
+                          <option value="">Assign Person...</option>
+                          {employees.map((emp) => (
+                            <option key={emp.id} value={emp.name}>{emp.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="w-full sm:w-32 flex-shrink-0">
+                        <input
+                          type="date"
+                          value={newNeedDueDate}
+                          onChange={(e) => setNewNeedDueDate(e.target.value)}
+                          className="w-full rounded-lg border px-2 py-1 text-xs sm:text-sm bg-background focus:ring-2 focus:ring-primary/20 outline-none transition-all h-8 sm:h-9"
+                        />
+                      </div>
+                      <Button
+                        onClick={handleAddNeed}
+                        disabled={isUpdatingNeed || !newNeedTaskName.trim()}
+                        className="w-full sm:w-auto h-8 sm:h-9 px-3 gap-1 text-xs font-semibold shrink-0"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Add
+                      </Button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </motion.div>
           </div>
