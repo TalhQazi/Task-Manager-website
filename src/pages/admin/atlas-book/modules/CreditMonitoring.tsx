@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/
 import { Button } from "@/components/admin/ui/button";
 import { Badge } from "@/components/admin/ui/badge";
 import { CreditCard, TrendingUp, TrendingDown, Landmark, ArrowRight, Gauge } from "lucide-react";
-import { apiFetch } from "../../../../../lib/api";
+import { apiFetch } from "../../../../lib/api";
 
 export default function CreditMonitoring() {
   const [loans, setLoans] = useState<any[]>([]);
