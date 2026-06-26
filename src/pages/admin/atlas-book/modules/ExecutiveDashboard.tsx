@@ -16,20 +16,58 @@ export default function ExecutiveDashboard() {
     properties: 0,
     tenants: 0,
     pendingApprovals: 0,
-    inventoryValue: 0
+    inventoryValue: 0,
+    lowStockCount: 0,
+    unpaidBillsCount: 0,
+    allocations: [
+      { label: "Payroll", val: 45, color: "bg-primary" },
+      { label: "Maintenance", val: 22, color: "bg-emerald-500" },
+      { label: "Tax & Compliance", val: 18, color: "bg-amber-500" },
+      { label: "Inventory", val: 15, color: "bg-slate-500" }
+    ]
   });
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     try {
       setLoading(true);
-      const [pl, prop, tenant, approvals, inventory] = await Promise.all([
+      const [pl, prop, tenant, approvals, inventory, bills] = await Promise.all([
         apiFetch("/api/atlasbook/reports/pl"),
         apiFetch("/api/atlasbook/properties"),
         apiFetch("/api/atlasbook/tenants"),
         apiFetch("/api/atlasbook/approvals"),
-        apiFetch("/api/atlasbook/inventory")
+        apiFetch("/api/atlasbook/inventory"),
+        apiFetch("/api/atlasbook/bills")
       ]);
+      
+      const invItems = inventory?.items || [];
+      const lowStockCount = invItems.filter((i:any) => i.quantity < (i.reorderPoint || 5)).length;
+      const billItems = bills?.items || [];
+      const unpaidBillsCount = billItems.filter((b:any) => b.status === "Unpaid").length;
+
+      let payrollAmt = 0;
+      let maintAmt = 0;
+      let taxAmt = 0;
+      let invAmt = 0;
+      billItems.forEach((b:any) => {
+        const desc = (b.description || "").toLowerCase();
+        if (desc.includes("payroll") || desc.includes("salary")) payrollAmt += b.amount;
+        else if (desc.includes("maintain") || desc.includes("repair")) maintAmt += b.amount;
+        else if (desc.includes("tax") || desc.includes("compliance")) taxAmt += b.amount;
+        else invAmt += b.amount;
+      });
+      const totalAlloc = payrollAmt + maintAmt + taxAmt + invAmt;
+      const allocs = totalAlloc > 0 ? [
+        { label: "Payroll", val: Math.round((payrollAmt/totalAlloc)*100), color: "bg-primary" },
+        { label: "Maintenance", val: Math.round((maintAmt/totalAlloc)*100), color: "bg-emerald-500" },
+        { label: "Tax & Compliance", val: Math.round((taxAmt/totalAlloc)*100), color: "bg-amber-500" },
+        { label: "Other/Inventory", val: Math.round((invAmt/totalAlloc)*100), color: "bg-slate-500" }
+      ] : [
+        { label: "Payroll", val: 45, color: "bg-primary" },
+        { label: "Maintenance", val: 22, color: "bg-emerald-500" },
+        { label: "Tax & Compliance", val: 18, color: "bg-amber-500" },
+        { label: "Inventory", val: 15, color: "bg-slate-500" }
+      ];
       
       setStats({
         revenue: pl?.revenue || 0,
@@ -37,7 +75,10 @@ export default function ExecutiveDashboard() {
         properties: prop?.items?.length || 0,
         tenants: tenant?.items?.length || 0,
         pendingApprovals: (approvals?.items || []).filter((a:any) => a.status === "Pending").length,
-        inventoryValue: (inventory?.items || []).reduce((sum:number, i:any) => sum + (i.quantity * i.unitCost), 0)
+        inventoryValue: invItems.reduce((sum:number, i:any) => sum + (i.quantity * i.unitCost), 0),
+        lowStockCount,
+        unpaidBillsCount,
+        allocations: allocs
       });
     } catch (e) {
       console.error(e);
@@ -109,12 +150,7 @@ export default function ExecutiveDashboard() {
                 <PieChart size={14} /> Allocation Analysis
               </h4>
               <div className="space-y-4">
-                {[
-                  { label: "Payroll", val: 45, color: "bg-primary" },
-                  { label: "Maintenance", val: 22, color: "bg-emerald-500" },
-                  { label: "Tax & Compliance", val: 18, color: "bg-amber-500" },
-                  { label: "Inventory", val: 15, color: "bg-slate-500" }
-                ].map((item, i) => (
+                {stats.allocations.map((item: any, i: number) => (
                   <div key={i} className="space-y-1">
                     <div className="flex justify-between text-[10px] font-bold"><span>{item.label}</span><span>{item.val}%</span></div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden"><div className={`h-full ${item.color}`} style={{ width: `${item.val}%` }} /></div>
@@ -151,7 +187,7 @@ export default function ExecutiveDashboard() {
                 <div className="p-2 bg-amber-500 text-white rounded-lg group-hover:bg-white group-hover:text-amber-500 transition-colors"><Box size={16} /></div>
                 <div>
                   <p className="text-sm font-bold">Low Stock Alert</p>
-                  <p className="text-[10px] opacity-70">3 SKUs below reorder level</p>
+                  <p className="text-[10px] opacity-70">{stats.lowStockCount} SKUs below reorder level</p>
                 </div>
               </div>
               <ArrowRight size={16} />
@@ -161,7 +197,7 @@ export default function ExecutiveDashboard() {
                 <div className="p-2 bg-emerald-500 text-white rounded-lg group-hover:bg-white group-hover:text-emerald-500 transition-colors"><Receipt size={16} /></div>
                 <div>
                   <p className="text-sm font-bold">Unpaid Invoices</p>
-                  <p className="text-[10px] opacity-70">Check AR aging reports</p>
+                  <p className="text-[10px] opacity-70">{stats.unpaidBillsCount} unpaid bills in Accounts Payable</p>
                 </div>
               </div>
               <ArrowRight size={16} />

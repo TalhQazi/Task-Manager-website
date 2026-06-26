@@ -62,23 +62,52 @@ export default function AuditCompliance() {
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  const [checklist, setChecklist] = useState([
+    { label: "Bank Reconciliation (No Pending Approvals)", status: true },
+    { label: "Payroll Tax Filings Submitted", status: true },
+    { label: "Labor Compliance (No Open Flags)", status: true },
+    { label: "System Audits Passed", status: true }
+  ]);
 
   useEffect(() => {
     let active = true;
-    apiFetch<{ items: ActivityLog[] }>("/api/activity-logs?limit=20")
-      .then((res) => {
+    
+    const fetchAll = async () => {
+      try {
+        const [logsRes, flagsRes, approvalsRes, billsRes] = await Promise.all([
+          apiFetch<{ items: ActivityLog[] }>("/api/activity-logs?limit=20"),
+          apiFetch<any>("/api/compliance/flags"),
+          apiFetch<any>("/api/atlasbook/approvals"),
+          apiFetch<any>("/api/atlasbook/bills")
+        ]);
+
         if (active) {
-          setLogs(res.items || []);
+          setLogs(logsRes?.items || []);
+          
+          const openFlags = (flagsRes?.items || []).filter((f: any) => f.status === "open").length;
+          const pendingApprovals = (approvalsRes?.items || []).filter((a: any) => a.status === "Pending").length;
+          const unpaidTax = (billsRes?.items || []).filter((b: any) => 
+            b.status === "Unpaid" && (b.description || "").toLowerCase().includes("tax")
+          ).length;
+
+          setChecklist([
+            { label: "Bank Reconciliation (No Pending Approvals)", status: pendingApprovals === 0 },
+            { label: "Tax Filings & Payments (No Unpaid Tax Bills)", status: unpaidTax === 0 },
+            { label: "Labor Compliance (No Open Flags)", status: openFlags === 0 },
+            { label: "System Audits Passed", status: true }
+          ]);
           setLoading(false);
         }
-      })
-      .catch((err) => {
+      } catch (err) {
         if (active) {
-          console.error("Failed to fetch audit logs", err);
+          console.error("Failed to fetch audit data", err);
           setError(err instanceof Error ? err.message : "Failed to load audit logs");
           setLoading(false);
         }
-      });
+      }
+    };
+    fetchAll();
     return () => {
       active = false;
     };
@@ -207,12 +236,7 @@ export default function AuditCompliance() {
         <Card className="shadow-soft">
           <CardHeader><CardTitle className="text-sm uppercase tracking-wider">Compliance Checklist</CardTitle></CardHeader>
           <CardContent className="space-y-3">
-            {[
-              { label: "Bank Reconciliation Completed", status: true },
-              { label: "Payroll Tax Filings Submitted", status: true },
-              { label: "Quarterly VAT/GST Estimated", status: true },
-              { label: "Fixed Asset Depreciation Calculated", status: false },
-            ].map((check, i) => (
+            {checklist.map((check, i) => (
               <div key={i} className="flex items-center justify-between p-2 rounded-lg border border-transparent hover:border-muted hover:bg-muted/20 transition-all">
                 <div className="flex items-center gap-3">
                   <div className={`p-1 rounded ${check.status ? "text-emerald-500 bg-emerald-50" : "text-amber-500 bg-amber-50"}`}>

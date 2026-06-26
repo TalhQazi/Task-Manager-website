@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useAtlasBooks } from "../../../contexts/AtlasBooksContext";
+import { apiFetch } from "../../../lib/api";
 import { KpiCard } from "../../../components/atlasbooks/KpiCard";
 import { ShieldAlert, ShieldCheck, AlertOctagon, Check, Search, Landmark } from "lucide-react";
 
@@ -15,6 +16,28 @@ interface FraudItem {
 const FraudAnalytics: React.FC = () => {
   const { stats, activeEntity } = useAtlasBooks();
   const [items, setItems] = useState<FraudItem[]>([]);
+
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      try {
+        const res = await apiFetch<any>("/api/atlasbook/fraud/alerts");
+        if (res?.alerts) {
+          const mapped = res.alerts.map((a: any, i: number) => ({
+            id: `ALRT-${Math.floor(Math.random() * 10000) + i}`,
+            source: a.type,
+            description: a.message,
+            amount: 0,
+            probability: a.severity === "High" ? 95 : a.severity === "Medium" ? 65 : 35,
+            status: "Flagged"
+          }));
+          setItems(mapped);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchAlerts();
+  }, []);
 
   const handleResolve = (id: string) => {
     setItems(prev =>
@@ -62,7 +85,7 @@ const FraudAnalytics: React.FC = () => {
                 
                 <div className="flex items-center space-x-4 text-[10px] text-zinc-500 font-mono">
                   <span>Probability: <strong className="text-amber-400">{item.probability}% Risk</strong></span>
-                  <span>Amount: <strong className="text-white">${item.amount.toLocaleString()}</strong></span>
+                  {item.amount > 0 && <span>Amount: <strong className="text-white">${item.amount.toLocaleString()}</strong></span>}
                 </div>
               </div>
 

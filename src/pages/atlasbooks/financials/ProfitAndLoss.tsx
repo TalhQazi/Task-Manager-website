@@ -1,19 +1,52 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useAtlasBooks } from "../../../contexts/AtlasBooksContext";
+import { apiFetch } from "../../../lib/api";
 import { KpiCard } from "../../../components/atlasbooks/KpiCard";
 import { HighContrastChart } from "../../../components/atlasbooks/HighContrastChart";
 import { Landmark, TrendingUp, DollarSign, Wallet, FileDown } from "lucide-react";
 
 const ProfitAndLoss: React.FC = () => {
-  const { stats, timeframe, activeEntity } = useAtlasBooks();
+  const { timeframe, activeEntity } = useAtlasBooks();
   const [filterMargin, setFilterMargin] = useState("all");
+  
+  const [data, setData] = useState<any>({
+    revenue: 0, cogs: 0, grossProfit: 0, 
+    opex: 0, ebitda: 0, netIncome: 0,
+    sm: 0, rd: 0, ga: 0
+  });
 
-  const revenue = stats.revenueMtd;
-  const cogs = 0;
-  const grossProfit = revenue - cogs;
-  const opex = 0;
-  const ebitda = grossProfit - opex;
-  const netIncome = stats.netProfit;
+  useEffect(() => {
+    const fetchPL = async () => {
+      try {
+        const res = await apiFetch<any>("/api/atlasbook/reports/pl");
+        const revenue = res.revenue || 0;
+        
+        let cogs = 0;
+        let sm = 0;
+        let rd = 0;
+        let ga = 0;
+        
+        (res.breakdown?.expenses || []).forEach((e: any) => {
+          const name = e.name.toLowerCase();
+          const bal = Math.abs(e.balance);
+          if (name.includes("cogs") || name.includes("cost of goods") || name.includes("direct")) cogs += bal;
+          else if (name.includes("sales") || name.includes("marketing") || name.includes("advertising")) sm += bal;
+          else if (name.includes("research") || name.includes("development") || name.includes("r&d")) rd += bal;
+          else ga += bal; // everything else to G&A
+        });
+
+        const grossProfit = revenue - cogs;
+        const opex = sm + rd + ga;
+        const ebitda = grossProfit - opex;
+        const netIncome = res.netProfit || ebitda;
+
+        setData({ revenue, cogs, grossProfit, opex, ebitda, netIncome, sm, rd, ga });
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchPL();
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -33,10 +66,10 @@ const ProfitAndLoss: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <KpiCard title="Revenues" value={revenue} icon={DollarSign} subtitle={`COGS: $${cogs.toLocaleString()}`} />
-        <KpiCard title="Gross Margin" value={`${((grossProfit / revenue) * 100).toFixed(1)}%`} icon={TrendingUp} subtitle={`Gross Profit: $${grossProfit.toLocaleString()}`} />
-        <KpiCard title="EBITDA" value={ebitda} icon={Landmark} subtitle={`OpEx: $${opex.toLocaleString()}`} />
-        <KpiCard title="Net Income" value={netIncome} icon={Wallet} subtitle={`Net Margin: ${((netIncome / revenue) * 100).toFixed(1)}%`} />
+        <KpiCard title="Revenues" value={data.revenue} icon={DollarSign} subtitle={`COGS: $${data.cogs.toLocaleString()}`} />
+        <KpiCard title="Gross Margin" value={`${data.revenue ? ((data.grossProfit / data.revenue) * 100).toFixed(1) : 0}%`} icon={TrendingUp} subtitle={`Gross Profit: $${data.grossProfit.toLocaleString()}`} />
+        <KpiCard title="EBITDA" value={data.ebitda} icon={Landmark} subtitle={`OpEx: $${data.opex.toLocaleString()}`} />
+        <KpiCard title="Net Income" value={data.netIncome} icon={Wallet} subtitle={`Net Margin: ${data.revenue ? ((data.netIncome / data.revenue) * 100).toFixed(1) : 0}%`} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -57,43 +90,43 @@ const ProfitAndLoss: React.FC = () => {
               <tbody className="divide-y divide-zinc-900">
                 <tr className="hover:bg-zinc-950/40">
                   <td className="py-3 text-zinc-200 font-bold">Gross Revenues</td>
-                  <td className="py-3 text-right text-white font-bold">${revenue.toLocaleString()}</td>
+                  <td className="py-3 text-right text-white font-bold">${data.revenue.toLocaleString()}</td>
                   <td className="py-3 text-right text-zinc-500">100.0%</td>
                 </tr>
                 <tr className="hover:bg-zinc-950/40">
                   <td className="py-3 text-zinc-400 pl-4">Cost of Goods Sold (COGS)</td>
-                  <td className="py-3 text-right text-rose-400">-${cogs.toLocaleString()}</td>
-                  <td className="py-3 text-right">35.0%</td>
+                  <td className="py-3 text-right text-rose-400">-${data.cogs.toLocaleString()}</td>
+                  <td className="py-3 text-right">{data.revenue ? ((data.cogs / data.revenue) * 100).toFixed(1) : 0}%</td>
                 </tr>
                 <tr className="border-t border-zinc-800 bg-zinc-950/20">
                   <td className="py-3 text-zinc-100 font-bold">Gross Profit Margin</td>
-                  <td className="py-3 text-right text-emerald-400 font-bold">${grossProfit.toLocaleString()}</td>
-                  <td className="py-3 text-right text-amber-500 font-bold">{((grossProfit / revenue) * 100).toFixed(1)}%</td>
+                  <td className="py-3 text-right text-emerald-400 font-bold">${data.grossProfit.toLocaleString()}</td>
+                  <td className="py-3 text-right text-amber-500 font-bold">{data.revenue ? ((data.grossProfit / data.revenue) * 100).toFixed(1) : 0}%</td>
                 </tr>
                 <tr className="hover:bg-zinc-950/40">
                   <td className="py-3 text-zinc-400 pl-4">Sales & Marketing (S&M)</td>
-                  <td className="py-3 text-right">-${Math.round(opex * 0.45).toLocaleString()}</td>
-                  <td className="py-3 text-right">20.2%</td>
+                  <td className="py-3 text-right">-${data.sm.toLocaleString()}</td>
+                  <td className="py-3 text-right">{data.revenue ? ((data.sm / data.revenue) * 100).toFixed(1) : 0}%</td>
                 </tr>
                 <tr className="hover:bg-zinc-950/40">
                   <td className="py-3 text-zinc-400 pl-4">Research & Dev (R&D)</td>
-                  <td className="py-3 text-right">-${Math.round(opex * 0.35).toLocaleString()}</td>
-                  <td className="py-3 text-right">15.7%</td>
+                  <td className="py-3 text-right">-${data.rd.toLocaleString()}</td>
+                  <td className="py-3 text-right">{data.revenue ? ((data.rd / data.revenue) * 100).toFixed(1) : 0}%</td>
                 </tr>
                 <tr className="hover:bg-zinc-950/40">
                   <td className="py-3 text-zinc-400 pl-4">General & Admin (G&A)</td>
-                  <td className="py-3 text-right">-${Math.round(opex * 0.2).toLocaleString()}</td>
-                  <td className="py-3 text-right">9.0%</td>
+                  <td className="py-3 text-right">-${data.ga.toLocaleString()}</td>
+                  <td className="py-3 text-right">{data.revenue ? ((data.ga / data.revenue) * 100).toFixed(1) : 0}%</td>
                 </tr>
                 <tr className="border-t border-zinc-800 bg-zinc-950/20">
                   <td className="py-3 text-zinc-100 font-bold">Operating Income (EBITDA)</td>
-                  <td className="py-3 text-right text-amber-400 font-bold">${ebitda.toLocaleString()}</td>
-                  <td className="py-3 text-right font-bold">{((ebitda / revenue) * 100).toFixed(1)}%</td>
+                  <td className="py-3 text-right text-amber-400 font-bold">${data.ebitda.toLocaleString()}</td>
+                  <td className="py-3 text-right font-bold">{data.revenue ? ((data.ebitda / data.revenue) * 100).toFixed(1) : 0}%</td>
                 </tr>
                 <tr className="hover:bg-zinc-950/40 border-b border-zinc-850">
                   <td className="py-3 text-zinc-200 font-bold">Net Earnings (Profit)</td>
-                  <td className="py-3 text-right text-emerald-400 font-bold">${netIncome.toLocaleString()}</td>
-                  <td className="py-3 text-right text-amber-400 font-bold">{((netIncome / revenue) * 100).toFixed(1)}%</td>
+                  <td className="py-3 text-right text-emerald-400 font-bold">${data.netIncome.toLocaleString()}</td>
+                  <td className="py-3 text-right text-amber-400 font-bold">{data.revenue ? ((data.netIncome / data.revenue) * 100).toFixed(1) : 0}%</td>
                 </tr>
               </tbody>
             </table>

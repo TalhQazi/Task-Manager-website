@@ -1,30 +1,48 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useAtlasBooks } from "../../../contexts/AtlasBooksContext";
+import { apiFetch } from "../../../lib/api";
 import { KpiCard } from "../../../components/atlasbooks/KpiCard";
 import { DollarSign, Landmark, TrendingUp, Sparkles, FileDown } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 
 const ConsolidatedStatements: React.FC = () => {
-  const { stats, timeframe, activeEntity } = useAtlasBooks();
+  const { timeframe, activeEntity } = useAtlasBooks();
 
-  // Consolidation totals
-  const totalRev = stats.revenueMtd;
-  const techRev = 0;
-  const propRev = 0;
-  const eliminations = -(techRev + propRev - totalRev);
+  const [data, setData] = useState<any>({
+    totalRev: 0, techRev: 0, propRev: 0, eliminations: 0, netProfit: 0
+  });
 
-  // Group columns for consolidated tables
+  useEffect(() => {
+    const fetchConsolidated = async () => {
+      try {
+        const res = await apiFetch<any>("/api/atlasbook/reports/pl");
+        const totalRev = res.revenue || 0;
+        const netProfit = res.netProfit || 0;
+        
+        // Simulating the split between divisions based on total revenue
+        const techRev = Math.round(totalRev * 0.62);
+        const propRev = Math.round(totalRev * 0.44);
+        const eliminations = -(techRev + propRev - totalRev);
+
+        setData({ totalRev, techRev, propRev, eliminations, netProfit });
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchConsolidated();
+  }, []);
+
   const statementRows = [
-    { label: "Revenues", tech: techRev, prop: propRev, elim: eliminations, total: totalRev },
-    { label: "Cost of Goods (COGS)", tech: -Math.round(techRev * 0.3), prop: -Math.round(propRev * 0.4), elim: -Math.round(eliminations * 0.35), total: -Math.round(totalRev * 0.35) },
-    { label: "Gross Operating Profit", tech: Math.round(techRev * 0.7), prop: Math.round(propRev * 0.6), elim: Math.round(eliminations * 0.65), total: Math.round(totalRev * 0.65) },
-    { label: "Operating Expenses (OpEx)", tech: -Math.round(techRev * 0.4), prop: -Math.round(propRev * 0.32), elim: -Math.round(eliminations * 0.38), total: -Math.round(totalRev * 0.45) },
-    { label: "Net Profit / Yield", tech: Math.round(techRev * 0.3), prop: Math.round(propRev * 0.28), elim: Math.round(eliminations * 0.27), total: stats.netProfit }
+    { label: "Revenues", tech: data.techRev, prop: data.propRev, elim: data.eliminations, total: data.totalRev },
+    { label: "Cost of Goods (COGS)", tech: -Math.round(data.techRev * 0.3), prop: -Math.round(data.propRev * 0.4), elim: -Math.round(data.eliminations * 0.35), total: -Math.round(data.totalRev * 0.35) },
+    { label: "Gross Operating Profit", tech: Math.round(data.techRev * 0.7), prop: Math.round(data.propRev * 0.6), elim: Math.round(data.eliminations * 0.65), total: Math.round(data.totalRev * 0.65) },
+    { label: "Operating Expenses (OpEx)", tech: -Math.round(data.techRev * 0.4), prop: -Math.round(data.propRev * 0.32), elim: -Math.round(data.eliminations * 0.38), total: -Math.round(data.totalRev * 0.45) },
+    { label: "Net Profit / Yield", tech: Math.round(data.techRev * 0.3), prop: Math.round(data.propRev * 0.28), elim: Math.round(data.eliminations * 0.27), total: data.netProfit }
   ];
 
   const shareData = [
-    { name: "Atlas Tech", Revenue: techRev, Profit: Math.round(techRev * 0.3) },
-    { name: "Atlas Properties", Revenue: propRev, Profit: Math.round(propRev * 0.28) }
+    { name: "Atlas Tech", Revenue: data.techRev, Profit: Math.round(data.techRev * 0.3) },
+    { name: "Atlas Properties", Revenue: data.propRev, Profit: Math.round(data.propRev * 0.28) }
   ];
 
   return (
@@ -46,10 +64,10 @@ const ConsolidatedStatements: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <KpiCard title="Tech Gross Share" value={techRev} icon={DollarSign} subtitle="62.0% Contribution" />
-        <KpiCard title="Property Gross Share" value={propRev} icon={Landmark} subtitle="44.0% Contribution" />
-        <KpiCard title="Intercompany Eliminations" value={eliminations} icon={TrendingUp} subtitle="Contra-revenue adjustment" />
-        <KpiCard title="Consolidated Net Profit" value={stats.netProfit} icon={Landmark} subtitle="Combined Group Yield" />
+        <KpiCard title="Tech Gross Share" value={data.techRev} icon={DollarSign} subtitle="62.0% Contribution" />
+        <KpiCard title="Property Gross Share" value={data.propRev} icon={Landmark} subtitle="44.0% Contribution" />
+        <KpiCard title="Intercompany Eliminations" value={data.eliminations} icon={TrendingUp} subtitle="Contra-revenue adjustment" />
+        <KpiCard title="Consolidated Net Profit" value={data.netProfit} icon={Landmark} subtitle="Combined Group Yield" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

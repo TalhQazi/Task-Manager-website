@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useAtlasBooks } from "../../../contexts/AtlasBooksContext";
+import { apiFetch } from "../../../lib/api";
 import { KpiCard } from "../../../components/atlasbooks/KpiCard";
 import { ShieldCheck, ShieldAlert, Sparkles, Activity, Check } from "lucide-react";
 
@@ -14,6 +15,27 @@ interface AnomalyLog {
 const AnomalyDetection: React.FC = () => {
   const { stats, activeEntity } = useAtlasBooks();
   const [logs, setLogs] = useState<AnomalyLog[]>([]);
+
+  useEffect(() => {
+    const fetchAnomalies = async () => {
+      try {
+        const res = await apiFetch<any>("/api/atlasbook/fraud/alerts");
+        if (res?.alerts) {
+          const mapped: AnomalyLog[] = res.alerts.map((a: any, i: number) => ({
+            id: `ANOM-${Math.floor(Math.random() * 10000) + i}`,
+            source: "Neural Net Transaction Scan",
+            pattern: a.message,
+            severity: a.severity === "High" ? "Critical" : "Warning",
+            status: "Active"
+          }));
+          setLogs(mapped);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchAnomalies();
+  }, []);
 
   const handleMute = (id: string) => {
     setLogs(prev =>

@@ -1,21 +1,51 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useAtlasBooks } from "../../../contexts/AtlasBooksContext";
+import { apiFetch } from "../../../lib/api";
 import { KpiCard } from "../../../components/atlasbooks/KpiCard";
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { DollarSign, Landmark, TrendingUp, Sparkles, Sliders } from "lucide-react";
 
 const Forecasting: React.FC = () => {
-  const { stats, activeEntity } = useAtlasBooks();
+  const { activeEntity } = useAtlasBooks();
   
+  const [data, setData] = useState({ cashPosition: 0, revenueMtd: 0, expensesMtd: 0, netProfit: 0 });
+
   // Slide settings
   const [revenueGrowth, setRevenueGrowth] = useState(8); // Monthly growth %
   const [opexScale, setOpexScale] = useState(4); // Monthly opex increase %
+
+  useEffect(() => {
+    const fetchForecastData = async () => {
+      try {
+        const [plRes, bsRes] = await Promise.all([
+          apiFetch<any>("/api/atlasbook/reports/pl"),
+          apiFetch<any>("/api/atlasbook/reports/balance-sheet")
+        ]);
+
+        let cashPosition = 0;
+        (bsRes.assets || []).forEach((a: any) => {
+          const name = a.name.toLowerCase();
+          if (name.includes("cash") || name.includes("bank")) cashPosition += a.balance;
+        });
+
+        setData({
+          cashPosition,
+          revenueMtd: plRes.revenue || 0,
+          expensesMtd: plRes.expenses || 0,
+          netProfit: plRes.netProfit || 0
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchForecastData();
+  }, []);
   
   // Calculate dynamic cash runways based on sliders
   const forecastData = useMemo(() => {
-    let cash = stats.cashPosition;
-    let rev = stats.revenueMtd;
-    let exp = stats.expensesMtd;
+    let cash = data.cashPosition;
+    let rev = data.revenueMtd;
+    let exp = data.expensesMtd;
 
     return Array.from({ length: 12 }).map((_, index) => {
       const monthIndex = index + 1;
@@ -33,10 +63,10 @@ const Forecasting: React.FC = () => {
         Cash: cash
       };
     });
-  }, [stats.cashPosition, stats.revenueMtd, stats.expensesMtd, revenueGrowth, opexScale]);
+  }, [data.cashPosition, data.revenueMtd, data.expensesMtd, revenueGrowth, opexScale]);
 
-  const endForecastCash = forecastData[11]?.Cash || stats.cashPosition;
-  const isHealthy = endForecastCash > stats.cashPosition;
+  const endForecastCash = forecastData[11]?.Cash || data.cashPosition;
+  const isHealthy = endForecastCash > data.cashPosition;
 
   return (
     <div className="space-y-6">
@@ -51,7 +81,7 @@ const Forecasting: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <KpiCard title="Current Cash Position" value={stats.cashPosition} icon={Landmark} subtitle="Active base index" />
+        <KpiCard title="Current Cash Position" value={data.cashPosition} icon={Landmark} subtitle="Active base index" />
         <KpiCard title="12-Month Projected Cash" value={endForecastCash} icon={DollarSign} subtitle={`Growth trajectory: ${isHealthy ? "Positive Runway" : "Net Burn Alert"}`} />
         <KpiCard title="Implied Growth Factor" value={`${revenueGrowth}% / Mo`} icon={TrendingUp} subtitle="User simulated parameters" />
       </div>
@@ -105,13 +135,13 @@ const Forecasting: React.FC = () => {
             <div className="flex justify-between">
               <span className="text-zinc-500">Runway Runway:</span>
               <span className={isHealthy ? "text-emerald-400 font-bold" : "text-rose-400 font-bold"}>
-                {isHealthy ? "Unlimited (>36 Mos)" : `${Math.max(1, Math.round(stats.cashPosition / Math.abs(stats.netProfit)))} Mos`}
+                {isHealthy ? "Unlimited (>36 Mos)" : `${Math.max(1, Math.round(data.cashPosition / Math.abs(data.netProfit)))} Mos`}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-zinc-500">Burn Factor:</span>
               <span className="text-zinc-300 font-bold">
-                ${Math.abs(forecastData[0].Revenue - forecastData[0].Expenses).toLocaleString()} / Mo
+                ${forecastData.length > 0 ? Math.abs(forecastData[0].Revenue - forecastData[0].Expenses).toLocaleString() : 0} / Mo
               </span>
             </div>
           </div>

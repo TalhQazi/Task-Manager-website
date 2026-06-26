@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { apiFetch } from "../../../lib/api";
 import { useAtlasBooks } from "../../../contexts/AtlasBooksContext";
 import { KpiCard } from "../../../components/atlasbooks/KpiCard";
 import { Landmark, TrendingUp, ShieldCheck, Activity } from "lucide-react";
@@ -13,12 +14,32 @@ interface CreditLine {
 
 const CreditMonitoring: React.FC = () => {
   const { stats, activeEntity } = useAtlasBooks();
+  const [lines, setLines] = useState<CreditLine[]>([]);
 
-  const lines: CreditLine[] = [];
+  useEffect(() => {
+    const fetchLoans = async () => {
+      try {
+        const res = await apiFetch<any>("/api/atlasbook/loans");
+        if (res && res.items) {
+          const mappedLines = res.items.map((l: any) => ({
+            institution: l.lender,
+            facility: l.loanType,
+            limit: l.principalAmount || 0,
+            utilization: l.principalAmount > 0 ? ((l.principalAmount - (l.remainingBalance || 0)) / l.principalAmount) * 100 : 0,
+            rate: l.interestRate || 0
+          }));
+          setLines(mappedLines);
+        }
+      } catch (e) {
+        console.error("Failed to fetch loans", e);
+      }
+    };
+    fetchLoans();
+  }, []);
 
   const totalCreditLimit = lines.reduce((sum, l) => sum + l.limit, 0);
   const totalDrawn = lines.reduce((sum, l) => sum + (l.limit * l.utilization) / 100, 0);
-  const averageUtilization = Math.round((totalDrawn / totalCreditLimit) * 100);
+  const averageUtilization = totalCreditLimit > 0 ? Math.round((totalDrawn / totalCreditLimit) * 100) : 0;
 
   return (
     <div className="space-y-6">
