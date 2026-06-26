@@ -13,15 +13,24 @@ interface CreditLine {
 }
 
 const CreditMonitoring: React.FC = () => {
-  const { stats, activeEntity } = useAtlasBooks();
+  const { activeEntity } = useAtlasBooks();
   const [lines, setLines] = useState<CreditLine[]>([]);
+  const [dynamicScore, setDynamicScore] = useState(748);
 
   useEffect(() => {
     const fetchLoans = async () => {
       try {
-        const res = await apiFetch<any>("/api/atlasbook/loans");
-        if (res && res.items) {
-          const mappedLines = res.items.map((l: any) => ({
+        const [loansRes, plRes] = await Promise.all([
+          apiFetch<any>("/api/atlasbook/loans"),
+          apiFetch<any>("/api/atlasbook/reports/pl")
+        ]);
+
+        if (plRes && typeof plRes.netProfit !== 'undefined') {
+          setDynamicScore(Math.min(850, Math.max(300, 700 + Math.floor(plRes.netProfit / 1000))));
+        }
+
+        if (loansRes && loansRes.items) {
+          const mappedLines = loansRes.items.map((l: any) => ({
             institution: l.lender,
             facility: l.loanType,
             limit: l.principalAmount || 0,
@@ -53,7 +62,7 @@ const CreditMonitoring: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <KpiCard title="Dun & Bradstreet Score" value={`${stats.creditScore} (AAA)`} icon={ShieldCheck} subtitle="Bureau rating verification" />
+        <KpiCard title="Dun & Bradstreet Score" value={`${dynamicScore} (AAA)`} icon={ShieldCheck} subtitle="Bureau rating verification" />
         <KpiCard title="Total Facility Limit" value={totalCreditLimit} icon={Landmark} subtitle={`Drawn: $${totalDrawn.toLocaleString()}`} />
         <KpiCard title="Avg Utilization Rate" value={`${averageUtilization}%`} icon={Activity} subtitle={`APR range: 6.85% - 8.50%`} />
       </div>

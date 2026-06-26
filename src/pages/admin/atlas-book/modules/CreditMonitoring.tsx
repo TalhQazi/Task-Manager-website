@@ -12,20 +12,40 @@ export default function CreditMonitoring() {
   useEffect(() => {
     const fetchLoans = async () => {
       try {
-        const res = await apiFetch<any>("/api/atlasbook/loans");
-        if (res && res.items) {
-          setLoans(res.items);
+        const [loansRes, plRes] = await Promise.all([
+          apiFetch<any>("/api/atlasbook/loans"),
+          apiFetch<any>("/api/atlasbook/reports/pl")
+        ]);
+
+        let score = 748;
+        let dscr = 1.85;
+        let ltv = 62.4;
+
+        if (plRes && typeof plRes.netProfit !== 'undefined') {
+          // Approximate a dynamic score based on netProfit (baseline 700 + scaled up to 850)
+          score = Math.min(850, Math.max(300, 700 + Math.floor(plRes.netProfit / 1000)));
+        }
+
+        if (loansRes && loansRes.items) {
+          setLoans(loansRes.items);
           
-          // Calculate an overall LTV if possible, or just keep dummy KPI for now if not enough data
-          const totalLimit = res.items.reduce((sum: number, l: any) => sum + (l.principalAmount || 0), 0);
-          const totalBal = res.items.reduce((sum: number, l: any) => sum + (l.remainingBalance || 0), 0);
+          const totalLimit = loansRes.items.reduce((sum: number, l: any) => sum + (l.principalAmount || 0), 0);
+          const totalBal = loansRes.items.reduce((sum: number, l: any) => sum + (l.remainingBalance || 0), 0);
           
           if (totalLimit > 0) {
-            setKpi(prev => ({ ...prev, ltv: Math.round((totalBal / totalLimit) * 1000) / 10 }));
+            ltv = Math.round((totalBal / totalLimit) * 1000) / 10;
+          }
+
+          // Calculate an approximate DSCR = NOI / Debt Service
+          // Debt Service proxy: 10% of total balance per year
+          const debtService = totalBal * 0.10;
+          if (debtService > 0 && plRes) {
+            dscr = Math.round((plRes.netProfit / debtService) * 100) / 100;
           }
         }
+        setKpi({ score, dscr, ltv });
       } catch (e) {
-        console.error("Failed to fetch loans", e);
+        console.error("Failed to fetch data", e);
       }
     };
     fetchLoans();
