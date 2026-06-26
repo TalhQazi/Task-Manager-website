@@ -39,7 +39,7 @@ const MissingReceipts: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <KpiCard title="Missing Attachments" value={`${activeCount} Expenses`} icon={CreditCard} subtitle="Card sync transactions lacking receipts" />
         <KpiCard title="Outstanding Audit Value" value={totalOutstanding} icon={FileImage} subtitle="Lacks tax deduction proof" />
-        <KpiCard title="Audit compliance" value="Auto-flagging active" icon={ShieldCheck} subtitle="Matching crawler active" />
+        <KpiCard title="Audit compliance" value={receipts.length > 0 ? "Auto-flagging active" : "N/A"} icon={ShieldCheck} subtitle="Matching crawler active" />
       </div>
 
       <div className="bg-zinc-900 border border-zinc-800/80 rounded-xl p-5 space-y-4">

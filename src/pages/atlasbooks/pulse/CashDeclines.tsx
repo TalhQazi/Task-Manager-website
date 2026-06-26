@@ -37,8 +37,8 @@ const CashDeclines: React.FC = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <KpiCard title="Active Cash Dips" value={`${activeCount} Warnings`} icon={AlertTriangle} subtitle="Exceeds 10% cash decline variance" />
-        <KpiCard title="Group Cash Position" value={stats.cashPosition} icon={Landmark} subtitle="Consolidated pool cash" />
-        <KpiCard title="Buffer Protection" value="Active sweep" icon={ShieldCheck} subtitle="Automatic intercompany refills" />
+        <KpiCard title="Group Cash Position" value={stats.cashPosition || 0} icon={Landmark} subtitle="Consolidated pool cash" />
+        <KpiCard title="Buffer Protection" value={alerts.length > 0 ? "Active sweep" : "N/A"} icon={ShieldCheck} subtitle="Automatic intercompany refills" />
       </div>
 
       <div className="bg-zinc-900 border border-zinc-800/80 rounded-xl p-5 space-y-4">

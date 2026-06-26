@@ -28,9 +28,9 @@ const Occupancy: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <KpiCard title="Portfolio Occupancy" value="91.4%" icon={ShieldCheck} subtitle="Target: 95.0% threshold" />
-        <KpiCard title="Expiring Leases (90 Days)" value="2 Leases" icon={AlertTriangle} subtitle="Sarah Connor, Miles Dyson" />
-        <KpiCard title="Average Lease Term" value="18.5 Mos" icon={Landmark} subtitle="Contract duration index" />
+        <KpiCard title="Portfolio Occupancy" value={rollovers.length > 0 ? "91.4%" : "0%"} icon={ShieldCheck} subtitle="Target: 95.0% threshold" />
+        <KpiCard title="Expiring Leases (90 Days)" value={`${rollovers.length} Leases`} icon={AlertTriangle} subtitle={rollovers.length > 0 ? "Sarah Connor, Miles Dyson" : "N/A"} />
+        <KpiCard title="Average Lease Term" value={rollovers.length > 0 ? "18.5 Mos" : "0 Mos"} icon={Landmark} subtitle="Contract duration index" />
       </div>
 
       <div className="bg-zinc-900 border border-zinc-800/80 rounded-xl p-5 space-y-4">

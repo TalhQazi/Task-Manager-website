@@ -40,7 +40,7 @@ const DuplicatePayments: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <KpiCard title="Duplicate Incidents" value={`${activeCount} Events`} icon={ShieldAlert} subtitle="Exceeds duplicate match score thresholds" />
         <KpiCard title="Potential double-billing total" value={totalWasted} icon={DollarSign} subtitle="Amounts flagged for recovery" />
-        <KpiCard title="Reconciliation Status" value="Auto-flagging active" icon={Check} subtitle="Ledger crawler active" />
+        <KpiCard title="Reconciliation Status" value={duplicates.length > 0 ? "Auto-flagging active" : "N/A"} icon={Check} subtitle="Ledger crawler active" />
       </div>
 
       <div className="bg-zinc-900 border border-zinc-800/80 rounded-xl p-5 space-y-4">

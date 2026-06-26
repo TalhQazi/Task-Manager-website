@@ -7,8 +7,8 @@ const NOI: React.FC = () => {
   const { stats, activeEntity } = useAtlasBooks();
 
   // NOI model calculation
-  const grossRent = 0;
-  const parkingFee = 0;
+  const grossRent = stats.revenueMtd || 0;
+  const parkingFee = 0; // Future: derived from parking revenue breakdown
   const grossPotential = grossRent + parkingFee;
 
   const vacancyLoss = -Math.round(grossPotential * 0.08);
@@ -36,7 +36,7 @@ const NOI: React.FC = () => {
         <KpiCard title="Gross Potential (GPR)" value={grossPotential} icon={DollarSign} subtitle="Max capability yield" />
         <KpiCard title="Effective Gross (EGI)" value={effectiveGross} icon={ShieldCheck} subtitle={`Vacancy: $${Math.abs(vacancyLoss).toLocaleString()}`} />
         <KpiCard title="Operating Expenses (OpEx)" value={Math.abs(opex)} icon={Landmark} subtitle="Tax, utility, and insurance" />
-        <KpiCard title="Net Operating Income" value={netOperatingIncome} icon={Wallet} subtitle={`Cap Rate: 5.4% implied`} />
+        <KpiCard title="Net Operating Income" value={netOperatingIncome} icon={Wallet} subtitle={netOperatingIncome > 0 ? `Cap Rate: 5.4% implied` : "N/A"} />
       </div>
 
       <div className="bg-zinc-900 border border-zinc-800/80 rounded-xl p-5 space-y-4">

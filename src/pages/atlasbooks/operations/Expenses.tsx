@@ -40,7 +40,7 @@ const Expenses: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <KpiCard title="Expenses MTD" value={totalOpex} icon={CreditCard} subtitle="Operational overhead total" />
         <KpiCard title="Card Ledger Audited" value={cardSpend} icon={ShieldCheck} subtitle="Reconciled ledger transactions" />
-        <KpiCard title="Receipt Match rate" value={`${Math.round((expenses.filter(e => e.matched).length / expenses.length) * 100)}%`} icon={FileImage} subtitle="Match verification" />
+        <KpiCard title="Receipt Match rate" value={expenses.length > 0 ? `${Math.round((expenses.filter(e => e.matched).length / expenses.length) * 100)}%` : "N/A"} icon={FileImage} subtitle="Match verification" />
       </div>
 
       <div className="bg-zinc-900 border border-zinc-800/80 rounded-xl p-5 space-y-4">

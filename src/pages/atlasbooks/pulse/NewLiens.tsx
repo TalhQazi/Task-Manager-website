@@ -41,7 +41,7 @@ const NewLiens: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <KpiCard title="Active Liens" value={`${activeCount} Claims`} icon={AlertTriangle} subtitle="Unreleased property encumbrances" />
         <KpiCard title="Total Claims Value" value={totalClaims} icon={Landmark} subtitle="Amount required to discharge claims" />
-        <KpiCard title="Title Status" value="County monitored" icon={ShieldCheck} subtitle="Automatic deed lock active" />
+        <KpiCard title="Title Status" value={liens.length > 0 ? "County monitored" : "N/A"} icon={ShieldCheck} subtitle="Automatic deed lock active" />
       </div>
 
       <div className="bg-zinc-900 border border-zinc-800/80 rounded-xl p-5 space-y-4">
