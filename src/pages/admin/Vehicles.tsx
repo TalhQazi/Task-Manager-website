@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Fragment } from "react";
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
@@ -55,6 +55,7 @@ import {
   Camera,
   FileText,
   CheckCircle,
+  ChevronDown,
 } from "lucide-react";
 import { createResource, deleteResource, listResource, updateResource, getResource, toProxiedUrl, apiFetch } from "@/lib/admin/apiClient";
 import DropboxFilePicker, { type DropboxSelectedFile, formatBytes, DropboxIcon } from "@/components/admin/DropboxFilePicker";
@@ -137,11 +138,12 @@ type BackendVehicle = Partial<Vehicle> & {
   _id?: string;
   name?: string;
   type?: string;
+  frontendId?: string;
 };
 
 function normalizeVehicle(v: BackendVehicle): Vehicle {
   const id = String(v.id || v._id || "").trim();
-  const frontendId = String((v as any).frontendId || "").trim();
+  const frontendId = String(v.frontendId || "").trim();
   const makeRaw = String(v.make || "").trim();
   const modelRaw = String(v.model || "").trim();
   const yearRaw = String(v.year || "").trim();
@@ -168,6 +170,7 @@ function normalizeVehicle(v: BackendVehicle): Vehicle {
     tagPhotoFileName: String(v.tagPhotoFileName || "").trim() || undefined,
     tagPhotoDataUrl: String(v.tagPhotoDataUrl || "").trim() || undefined,
     requiresInspection: v.requiresInspection !== false,
+    needs: v.needs || [],
   };
 }
 
@@ -321,7 +324,7 @@ const Vehicles = () => {
       
       const updatedNeeds = [...(selectedVehicle.needs || []), newNeed];
       
-      const res = await updateResource<any>("vehicles", selectedVehicle.id, {
+      const res = await updateResource<Vehicle>("vehicles", selectedVehicle.id, {
         needs: updatedNeeds
       });
       
@@ -332,7 +335,7 @@ const Vehicles = () => {
         setNewNeedAssignee("");
         setNewNeedDueDate("");
       }
-      loadData();
+      refreshVehicles();
     } catch (e) {
       console.error("Failed to add need", e);
     } finally {
@@ -347,7 +350,7 @@ const Vehicles = () => {
         n.id === needId ? { ...n, completed: !n.completed } : n
       );
       
-      const res = await updateResource<any>("vehicles", selectedVehicle.id, {
+      const res = await updateResource<Vehicle>("vehicles", selectedVehicle.id, {
         needs: updatedNeeds
       });
       
@@ -355,7 +358,7 @@ const Vehicles = () => {
       if (updatedVehicle) {
         setSelectedVehicle(updatedVehicle);
       }
-      loadData();
+      refreshVehicles();
     } catch (e) {
       console.error("Failed to toggle need", e);
     }
@@ -366,7 +369,7 @@ const Vehicles = () => {
     try {
       const updatedNeeds = (selectedVehicle.needs || []).filter(n => n.id !== needId);
       
-      const res = await updateResource<any>("vehicles", selectedVehicle.id, {
+      const res = await updateResource<Vehicle>("vehicles", selectedVehicle.id, {
         needs: updatedNeeds
       });
       
@@ -374,14 +377,80 @@ const Vehicles = () => {
       if (updatedVehicle) {
         setSelectedVehicle(updatedVehicle);
       }
-      loadData();
+      refreshVehicles();
     } catch (e) {
       console.error("Failed to delete need", e);
     }
   };
 
+  const handleAddNeedForVehicle = async (vehicle: Vehicle, taskName: string, assignee: string, dueDate: string) => {
+    if (!taskName.trim()) return;
+    try {
+      const newNeed = {
+        id: `NEED-${Date.now()}`,
+        taskName: taskName.trim(),
+        assignee,
+        dueDate,
+        completed: false,
+      };
+      
+      const updatedNeeds = [...(vehicle.needs || []), newNeed];
+      
+      const res = await updateResource<Vehicle>("vehicles", vehicle.id, {
+        needs: updatedNeeds
+      });
+      
+      const updatedVehicle = res?.item || res;
+      if (selectedVehicle && selectedVehicle.id === vehicle.id) {
+        setSelectedVehicle(updatedVehicle);
+      }
+      refreshVehicles();
+    } catch (e) {
+      console.error("Failed to add need for vehicle", e);
+    }
+  };
+
+  const handleToggleNeedForVehicle = async (vehicle: Vehicle, needId: string) => {
+    try {
+      const updatedNeeds = (vehicle.needs || []).map(n =>
+        n.id === needId ? { ...n, completed: !n.completed } : n
+      );
+      
+      const res = await updateResource<Vehicle>("vehicles", vehicle.id, {
+        needs: updatedNeeds
+      });
+      
+      const updatedVehicle = res?.item || res;
+      if (selectedVehicle && selectedVehicle.id === vehicle.id) {
+        setSelectedVehicle(updatedVehicle);
+      }
+      refreshVehicles();
+    } catch (e) {
+      console.error("Failed to toggle need for vehicle", e);
+    }
+  };
+
+  const handleDeleteNeedForVehicle = async (vehicle: Vehicle, needId: string) => {
+    try {
+      const updatedNeeds = (vehicle.needs || []).filter(n => n.id !== needId);
+      
+      const res = await updateResource<Vehicle>("vehicles", vehicle.id, {
+        needs: updatedNeeds
+      });
+      
+      const updatedVehicle = res?.item || res;
+      if (selectedVehicle && selectedVehicle.id === vehicle.id) {
+        setSelectedVehicle(updatedVehicle);
+      }
+      refreshVehicles();
+    } catch (e) {
+      console.error("Failed to delete need for vehicle", e);
+    }
+  };
+
   const [apiError, setApiError] = useState<string | null>(null);
   const [hoveredVehicle, setHoveredVehicle] = useState<string | null>(null);
+  const [expandedVehicles, setExpandedVehicles] = useState<Record<string, boolean>>({});
   const [isAdding, setIsAdding] = useState(false);
   const [isVehicleDropboxPickerOpen, setIsVehicleDropboxPickerOpen] = useState(false);
   const [vehicleDropboxDocs, setVehicleDropboxDocs] = useState<DropboxSelectedFile[]>([]);
@@ -1527,6 +1596,14 @@ const Vehicles = () => {
                               </div>
                             </motion.div>
                           )}
+
+                          <VehicleNeedsSection
+                            vehicle={vehicle}
+                            employees={employees}
+                            onAddNeed={handleAddNeedForVehicle}
+                            onToggleNeed={handleToggleNeedForVehicle}
+                            onDeleteNeed={handleDeleteNeedForVehicle}
+                          />
                         </motion.div>
                       ))}
                     </AnimatePresence>
@@ -1572,136 +1649,161 @@ const Vehicles = () => {
                       <TableBody>
                         <AnimatePresence>
                           {filteredVehicles.map((vehicle, index) => (
-                            <motion.tr
-                              key={vehicle.id}
-                              initial={{ opacity: 0, y: 20 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -20 }}
-                              transition={{ delay: index * 0.05 }}
-                              whileHover={{ 
-                                scale: 1.01,
-                                backgroundColor: "rgba(59, 130, 246, 0.05)",
-                                boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
-                              }}
-                              onHoverStart={() => setHoveredVehicle(vehicle.id)}
-                              onHoverEnd={() => setHoveredVehicle(null)}
-                              className="cursor-pointer transition-all duration-300"
-                            >
-                              <TableCell>
-                                <div className="flex items-center gap-3">
-                                  <motion.div
-                                    whileHover={{ scale: 1.1, rotate: 5 }}
-                                    transition={{ type: "spring" as const, stiffness: 300, damping: 10 }}
-                                  >
-                                    <LazyVehiclePhoto 
-                                      vehicleId={vehicle.id} 
-                                      model={vehicle.model} 
-                                      className="h-9 w-9 md:h-10 md:w-10 rounded-lg ring-2 ring-primary/20" 
-                                    />
-                                  </motion.div>
-                                  <div className="min-w-0">
-                                    <p className="font-medium text-sm md:text-sm whitespace-nowrap flex items-center gap-2">
-                                      {vehicle.year} {vehicle.make} {vehicle.model}
-                                      {hoveredVehicle === vehicle.id && (
-                                        <motion.span
-                                          initial={{ scale: 0 }}
-                                          animate={{ scale: 1 }}
-                                          className="inline-block w-1.5 h-1.5 bg-primary rounded-full"
-                                        />
-                                      )}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">{vehicle.licensePlate}</p>
-                                  </div>
-                                </div>
-                              </TableCell>
-                              <TableCell className="font-mono text-sm md:text-sm">
-                                {vehicle.frontendId}
-                              </TableCell>
-                              <TableCell className="font-mono text-sm md:text-sm">
-                                {vehicle.licensePlate}
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex items-center gap-1.5 text-sm md:text-sm">
-                                  <Gauge className="h-3 w-3 md:h-3.5 md:w-3.5 text-muted-foreground flex-shrink-0" />
-                                  <span>{vehicle.mileage || "—"}</span>
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-sm md:text-sm whitespace-nowrap">
-                                {vehicle.assignedTo}
-                              </TableCell>
-                              <TableCell>
-                                <motion.div
-                                  whileHover={{ scale: 1.1 }}
-                                  whileTap={{ scale: 0.95 }}
-                                >
-                                  <Badge className={`${statusClasses[vehicle.status]} text-xs md:text-sm flex items-center gap-1 w-fit`} variant="secondary">
-                                    {getStatusIcon(vehicle.status)}
-                                    {vehicle.status}
-                                  </Badge>
-                                </motion.div>
-                              </TableCell>
-                              <TableCell className="text-muted-foreground">
-                                <div className="flex flex-col gap-1">
-                                  {vehicle.requiresInspection ? (
-                                    <>
-                                      <span className="text-sm md:text-sm">{toDateOnly(vehicle.nextInspection) || "—"}</span>
-                                      {(() => {
-                                        const d = daysUntil(vehicle.nextInspection);
-                                        if (d === null) return null;
-                                        if (d < 0) {
-                                          return (
-                                            <Badge variant="secondary" className="bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive text-xs w-fit">
-                                              Overdue
-                                            </Badge>
-                                          );
-                                        }
-                                        if (d <= 30) {
-                                          return (
-                                            <Badge variant="secondary" className="bg-gradient-to-r from-warning/20 to-warning/10 text-warning text-xs w-fit">
-                                              Due in {d} days
-                                            </Badge>
-                                          );
-                                        }
-                                        return null;
-                                      })()}
-                                    </>
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground italic">No inspection required</span>
-                                  )}
-                                </div>
-                              </TableCell>
-                              <TableCell className="text-right">
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
+                            <Fragment key={vehicle.id}>
+                              <motion.tr
+                                initial={{ opacity: 0, y: 20 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -20 }}
+                                transition={{ delay: index * 0.05 }}
+                                whileHover={{ 
+                                  scale: 1.01,
+                                  backgroundColor: "rgba(59, 130, 246, 0.05)",
+                                  boxShadow: "0 4px 12px rgba(0,0,0,0.1)"
+                                }}
+                                onHoverStart={() => setHoveredVehicle(vehicle.id)}
+                                onHoverEnd={() => setHoveredVehicle(null)}
+                                className="cursor-pointer transition-all duration-300"
+                              >
+                                <TableCell>
+                                  <div className="flex items-center gap-3">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setExpandedVehicles(prev => ({ ...prev, [vehicle.id]: !prev[vehicle.id] }));
+                                      }}
+                                      className="p-1 rounded hover:bg-muted transition-colors flex-shrink-0"
+                                      title="Toggle Needs Checklist"
+                                    >
+                                      <ChevronDown className={`h-4 w-4 transition-transform text-muted-foreground ${expandedVehicles[vehicle.id] ? "rotate-180" : ""}`} />
+                                    </button>
                                     <motion.div
-                                      whileHover={{ scale: 1.1 }}
-                                      whileTap={{ scale: 0.9 }}
+                                      whileHover={{ scale: 1.1, rotate: 5 }}
+                                      transition={{ type: "spring" as const, stiffness: 300, damping: 10 }}
                                     >
-                                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                      </Button>
+                                      <LazyVehiclePhoto 
+                                        vehicleId={vehicle.id} 
+                                        model={vehicle.model} 
+                                        className="h-9 w-9 md:h-10 md:w-10 rounded-lg ring-2 ring-primary/20" 
+                                      />
                                     </motion.div>
-                                  </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => handleViewDetails(vehicle)}>
-                                      <Eye className="mr-2 h-4 w-4" />
-                                      View Details
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => handleEditVehicle(vehicle)}>
-                                      <Edit className="mr-2 h-4 w-4" />
-                                      Edit Vehicle
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                      onClick={() => handleRemoveConfirm(vehicle)}
-                                      className="text-destructive"
-                                    >
-                                      <Trash2 className="mr-2 h-4 w-4" />
-                                      Remove
-                                    </DropdownMenuItem>
-                                  </DropdownMenuContent>
-                                </DropdownMenu>
-                              </TableCell>
-                            </motion.tr>
+                                    <div className="min-w-0">
+                                      <p className="font-medium text-sm md:text-sm whitespace-nowrap flex items-center gap-2">
+                                        {vehicle.year} {vehicle.make} {vehicle.model}
+                                        {hoveredVehicle === vehicle.id && (
+                                          <motion.span
+                                            initial={{ scale: 0 }}
+                                            animate={{ scale: 1 }}
+                                            className="inline-block w-1.5 h-1.5 bg-primary rounded-full"
+                                          />
+                                        )}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">{vehicle.licensePlate}</p>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="font-mono text-sm md:text-sm">
+                                  {vehicle.frontendId}
+                                </TableCell>
+                                <TableCell className="font-mono text-sm md:text-sm">
+                                  {vehicle.licensePlate}
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex items-center gap-1.5 text-sm md:text-sm">
+                                    <Gauge className="h-3 w-3 md:h-3.5 md:w-3.5 text-muted-foreground flex-shrink-0" />
+                                    <span>{vehicle.mileage || "—"}</span>
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-sm md:text-sm whitespace-nowrap">
+                                  {vehicle.assignedTo}
+                                </TableCell>
+                                <TableCell>
+                                  <motion.div
+                                    whileHover={{ scale: 1.1 }}
+                                    whileTap={{ scale: 0.95 }}
+                                  >
+                                    <Badge className={`${statusClasses[vehicle.status]} text-xs md:text-sm flex items-center gap-1 w-fit`} variant="secondary">
+                                      {getStatusIcon(vehicle.status)}
+                                      {vehicle.status}
+                                    </Badge>
+                                  </motion.div>
+                                </TableCell>
+                                <TableCell className="text-muted-foreground">
+                                  <div className="flex flex-col gap-1">
+                                    {vehicle.requiresInspection ? (
+                                      <>
+                                        <span className="text-sm md:text-sm">{toDateOnly(vehicle.nextInspection) || "—"}</span>
+                                        {(() => {
+                                          const d = daysUntil(vehicle.nextInspection);
+                                          if (d === null) return null;
+                                          if (d < 0) {
+                                            return (
+                                              <Badge variant="secondary" className="bg-gradient-to-r from-destructive/20 to-destructive/10 text-destructive text-xs w-fit">
+                                                Overdue
+                                              </Badge>
+                                            );
+                                          }
+                                          if (d <= 30) {
+                                            return (
+                                              <Badge variant="secondary" className="bg-gradient-to-r from-warning/20 to-warning/10 text-warning text-xs w-fit">
+                                                Due in {d} days
+                                              </Badge>
+                                            );
+                                          }
+                                          return null;
+                                        })()}
+                                      </>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground italic">No inspection required</span>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell className="text-right">
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <motion.div
+                                        whileHover={{ scale: 1.1 }}
+                                        whileTap={{ scale: 0.9 }}
+                                      >
+                                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                                          <MoreHorizontal className="h-4 w-4" />
+                                        </Button>
+                                      </motion.div>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                      <DropdownMenuItem onClick={() => handleViewDetails(vehicle)}>
+                                        <Eye className="mr-2 h-4 w-4" />
+                                        View Details
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem onClick={() => handleEditVehicle(vehicle)}>
+                                        <Edit className="mr-2 h-4 w-4" />
+                                        Edit Vehicle
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        onClick={() => handleRemoveConfirm(vehicle)}
+                                        className="text-destructive"
+                                      >
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        Remove
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </TableCell>
+                              </motion.tr>
+                              {expandedVehicles[vehicle.id] && (
+                                <TableRow className="bg-muted/10 hover:bg-muted/15 border-t-0">
+                                  <TableCell colSpan={8} className="p-4 pl-14">
+                                    <VehicleNeedsSection
+                                      vehicle={vehicle}
+                                      employees={employees}
+                                      onAddNeed={handleAddNeedForVehicle}
+                                      onToggleNeed={handleToggleNeedForVehicle}
+                                      onDeleteNeed={handleDeleteNeedForVehicle}
+                                    />
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                            </Fragment>
                           ))}
                         </AnimatePresence>
                       </TableBody>
@@ -2331,6 +2433,157 @@ const Vehicles = () => {
         multiple={true}
       />
     </>
+  );
+};
+
+const VehicleNeedsSection = ({ 
+  vehicle, 
+  employees,
+  onAddNeed,
+  onToggleNeed,
+  onDeleteNeed
+}: {
+  vehicle: Vehicle;
+  employees: Employee[];
+  onAddNeed: (vehicle: Vehicle, taskName: string, assignee: string, dueDate: string) => Promise<void>;
+  onToggleNeed: (vehicle: Vehicle, needId: string) => Promise<void>;
+  onDeleteNeed: (vehicle: Vehicle, needId: string) => Promise<void>;
+}) => {
+  const [expanded, setExpanded] = useState(false);
+  const [taskName, setTaskName] = useState("");
+  const [assignee, setAssignee] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!taskName.trim()) return;
+    setIsSubmitting(true);
+    try {
+      await onAddNeed(vehicle, taskName.trim(), assignee, dueDate);
+      setTaskName("");
+      setAssignee("");
+      setDueDate("");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const pendingCount = (vehicle.needs || []).filter(n => !n.completed).length;
+
+  return (
+    <div className="border-t border-border/60 pt-3 mt-4">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center justify-between w-full text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <span className="flex items-center gap-1.5">
+          <Wrench className="w-3.5 h-3.5 text-primary" />
+          Needs & Tasks
+          {(vehicle.needs || []).length > 0 && (
+            <Badge variant="secondary" className="px-1.5 py-0 text-[10px] h-4 scale-90">
+              {pendingCount} pending
+            </Badge>
+          )}
+        </span>
+        <span className="text-[10px]">{expanded ? "Hide" : "Show"}</span>
+      </button>
+
+      {expanded && (
+        <div className="mt-3 space-y-2 animate-fadeIn">
+          {/* Needs List */}
+          <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+            {(vehicle.needs || []).length > 0 ? (
+              (vehicle.needs || []).map((need) => (
+                <div 
+                  key={need.id}
+                  className="flex items-center justify-between p-1.5 rounded-lg bg-muted/20 border border-muted/40 hover:bg-muted/30 transition-all text-xs"
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <input
+                      type="checkbox"
+                      checked={need.completed}
+                      onChange={() => onToggleNeed(vehicle, need.id)}
+                      className="h-3.5 w-3.5 rounded border-gray-300 text-primary accent-primary cursor-pointer flex-shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className={`font-medium break-words ${need.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                        {need.taskName}
+                      </p>
+                      <div className="flex flex-wrap gap-2 mt-0.5 text-[9px] text-muted-foreground">
+                        {need.assignee && (
+                          <span className="flex items-center gap-0.5">
+                            <User className="h-2 w-2" />
+                            {need.assignee}
+                          </span>
+                        )}
+                        {need.dueDate && (
+                          <span className="flex items-center gap-0.5">
+                            <Calendar className="h-2 w-2" />
+                            {need.dueDate}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onDeleteNeed(vehicle, need.id)}
+                    className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))
+            ) : (
+              <p className="text-[11px] text-muted-foreground italic py-1">No needs listed for this vehicle.</p>
+            )}
+          </div>
+
+          {/* Quick Add Form */}
+          <form onSubmit={handleAdd} className="space-y-1.5 pt-2 border-t border-border/40">
+            <div className="flex gap-1.5">
+              <input
+                type="text"
+                placeholder="New need... e.g. Align tires"
+                value={taskName}
+                onChange={(e) => setTaskName(e.target.value)}
+                className="flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-primary/20 transition-all"
+                required
+              />
+            </div>
+            <div className="flex gap-1.5 items-center">
+              <select
+                value={assignee}
+                onChange={(e) => setAssignee(e.target.value)}
+                className="flex-1 rounded-md border border-input bg-background px-1.5 py-1 text-[11px] outline-none"
+              >
+                <option value="">Assignee...</option>
+                {employees.map(emp => (
+                  <option key={emp.id} value={emp.name}>{emp.name}</option>
+                ))}
+              </select>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-24 rounded-md border border-input bg-background px-1.5 py-1 text-[11px] outline-none"
+              />
+              <Button
+                type="submit"
+                disabled={isSubmitting || !taskName.trim()}
+                className="h-6 px-2 text-[10px]"
+              >
+                Add
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
+    </div>
   );
 };
 

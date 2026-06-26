@@ -61,6 +61,7 @@ import {
   Trash2,
   Wrench,
   User,
+  ChevronDown,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
@@ -280,6 +281,80 @@ export default function Vehicles() {
       await queryClient.invalidateQueries({ queryKey: ["vehicles"] });
     } catch (e) {
       console.error("Failed to delete need", e);
+    }
+  };
+
+  const handleAddNeedForVehicle = async (vehicle: Vehicle, taskName: string, assignee: string, dueDate: string) => {
+    if (!taskName.trim()) return;
+    try {
+      const newNeed = {
+        id: `NEED-${Date.now()}`,
+        taskName: taskName.trim(),
+        assignee,
+        dueDate,
+        completed: false,
+      };
+      
+      const updatedNeeds = [...(vehicle.needs || []), newNeed];
+      
+      const res = await apiFetch<{ item: VehicleApi }>(`/api/vehicles/${vehicle.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          needs: updatedNeeds
+        })
+      });
+      
+      const updatedVehicle = normalizeVehicle(res.item);
+      if (selectedVehicle && selectedVehicle.id === vehicle.id) {
+        setSelectedVehicle(updatedVehicle);
+      }
+      await queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+    } catch (e) {
+      console.error("Failed to add need for vehicle", e);
+    }
+  };
+
+  const handleToggleNeedForVehicle = async (vehicle: Vehicle, needId: string) => {
+    try {
+      const updatedNeeds = (vehicle.needs || []).map(n =>
+        n.id === needId ? { ...n, completed: !n.completed } : n
+      );
+      
+      const res = await apiFetch<{ item: VehicleApi }>(`/api/vehicles/${vehicle.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          needs: updatedNeeds
+        })
+      });
+      
+      const updatedVehicle = normalizeVehicle(res.item);
+      if (selectedVehicle && selectedVehicle.id === vehicle.id) {
+        setSelectedVehicle(updatedVehicle);
+      }
+      await queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+    } catch (e) {
+      console.error("Failed to toggle need for vehicle", e);
+    }
+  };
+
+  const handleDeleteNeedForVehicle = async (vehicle: Vehicle, needId: string) => {
+    try {
+      const updatedNeeds = (vehicle.needs || []).filter(n => n.id !== needId);
+      
+      const res = await apiFetch<{ item: VehicleApi }>(`/api/vehicles/${vehicle.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          needs: updatedNeeds
+        })
+      });
+      
+      const updatedVehicle = normalizeVehicle(res.item);
+      if (selectedVehicle && selectedVehicle.id === vehicle.id) {
+        setSelectedVehicle(updatedVehicle);
+      }
+      await queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+    } catch (e) {
+      console.error("Failed to delete need for vehicle", e);
     }
   };
 
@@ -1566,6 +1641,14 @@ export default function Vehicles() {
                 </span>
               </div>
             )}
+
+            <VehicleNeedsSection
+              vehicle={vehicle}
+              employees={employees}
+              onAddNeed={handleAddNeedForVehicle}
+              onToggleNeed={handleToggleNeedForVehicle}
+              onDeleteNeed={handleDeleteNeedForVehicle}
+            />
           </div>
         </div>
         ))}
@@ -1581,3 +1664,154 @@ export default function Vehicles() {
     </div>
   );
 }
+
+const VehicleNeedsSection = ({ 
+  vehicle, 
+  employees,
+  onAddNeed,
+  onToggleNeed,
+  onDeleteNeed
+}: {
+  vehicle: Vehicle;
+  employees: Employee[];
+  onAddNeed: (vehicle: Vehicle, taskName: string, assignee: string, dueDate: string) => Promise<void>;
+  onToggleNeed: (vehicle: Vehicle, needId: string) => Promise<void>;
+  onDeleteNeed: (vehicle: Vehicle, needId: string) => Promise<void>;
+}) => {
+  const [expanded, setExpanded] = useState(false);
+  const [taskName, setTaskName] = useState("");
+  const [assignee, setAssignee] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!taskName.trim()) return;
+    setIsSubmitting(true);
+    try {
+      await onAddNeed(vehicle, taskName.trim(), assignee, dueDate);
+      setTaskName("");
+      setAssignee("");
+      setDueDate("");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const pendingCount = (vehicle.needs || []).filter(n => !n.completed).length;
+
+  return (
+    <div className="border-t border-border/60 pt-3 mt-4">
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center justify-between w-full text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <span className="flex items-center gap-1.5">
+          <Wrench className="w-3.5 h-3.5 text-primary" />
+          Needs & Tasks
+          {(vehicle.needs || []).length > 0 && (
+            <Badge variant="secondary" className="px-1.5 py-0 text-[10px] h-4 scale-90">
+              {pendingCount} pending
+            </Badge>
+          )}
+        </span>
+        <span className="text-[10px]">{expanded ? "Hide" : "Show"}</span>
+      </button>
+
+      {expanded && (
+        <div className="mt-3 space-y-2 animate-fadeIn">
+          {/* Needs List */}
+          <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+            {(vehicle.needs || []).length > 0 ? (
+              (vehicle.needs || []).map((need) => (
+                <div 
+                  key={need.id}
+                  className="flex items-center justify-between p-1.5 rounded-lg bg-muted/20 border border-muted/40 hover:bg-muted/30 transition-all text-xs"
+                >
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <input
+                      type="checkbox"
+                      checked={need.completed}
+                      onChange={() => onToggleNeed(vehicle, need.id)}
+                      className="h-3.5 w-3.5 rounded border-gray-300 text-primary accent-primary cursor-pointer flex-shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className={`font-medium break-words ${need.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                        {need.taskName}
+                      </p>
+                      <div className="flex flex-wrap gap-2 mt-0.5 text-[9px] text-muted-foreground">
+                        {need.assignee && (
+                          <span className="flex items-center gap-0.5">
+                            <User className="h-2 w-2" />
+                            {need.assignee}
+                          </span>
+                        )}
+                        {need.dueDate && (
+                          <span className="flex items-center gap-0.5">
+                            <Calendar className="h-2 w-2" />
+                            {need.dueDate}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onDeleteNeed(vehicle, need.id)}
+                    className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))
+            ) : (
+              <p className="text-[11px] text-muted-foreground italic py-1">No needs listed for this vehicle.</p>
+            )}
+          </div>
+
+          {/* Quick Add Form */}
+          <form onSubmit={handleAdd} className="space-y-1.5 pt-2 border-t border-border/40">
+            <div className="flex gap-1.5">
+              <input
+                type="text"
+                placeholder="New need... e.g. Align tires"
+                value={taskName}
+                onChange={(e) => setTaskName(e.target.value)}
+                className="flex-1 rounded-md border border-input bg-background px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-primary/20 transition-all"
+                required
+              />
+            </div>
+            <div className="flex gap-1.5 items-center">
+              <select
+                value={assignee}
+                onChange={(e) => setAssignee(e.target.value)}
+                className="flex-1 rounded-md border border-input bg-background px-1.5 py-1 text-[11px] outline-none"
+              >
+                <option value="">Assignee...</option>
+                {employees.map(emp => (
+                  <option key={emp.id} value={emp.name}>{emp.name}</option>
+                ))}
+              </select>
+              <input
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+                className="w-24 rounded-md border border-input bg-background px-1.5 py-1 text-[11px] outline-none"
+              />
+              <Button
+                type="submit"
+                disabled={isSubmitting || !taskName.trim()}
+                className="h-6 px-2 text-[10px]"
+              >
+                Add
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+};
