@@ -55,6 +55,7 @@ const Memes = lazy(() => import("@/pages/admin/Memes"));
 
 const TeamLeadMappings = lazy(() => import("@/pages/admin/TeamLeadMappings"));
 const TaskPermissions = lazy(() => import("@/pages/admin/TaskPermissions"));
+const Polls = lazy(() => import("@/pages/admin/Polls"));
 
 const ShoppingLists = lazy(() => import("@/pages/admin/ShoppingLists"));
 const SystemEmailSettings = lazy(() => import("@/pages/admin/SystemEmailSettings"));
@@ -164,6 +165,7 @@ export default function AdminRoutes() {
       { path: "health", element: <SystemHealth /> },
       { path: "atlas-book", element: <AtlasBookDashboard /> },
       { path: "atlas-book/:moduleId", element: <AtlasBookModulePage /> },
+      { path: "polls", element: <Polls /> },
 
       { path: "*", element: <NotFound /> },
     ],

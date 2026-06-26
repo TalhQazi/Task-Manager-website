@@ -21,7 +21,8 @@ import {
   Megaphone,
   Settings,
   Mail,
-  MapPin
+  MapPin,
+  Lightbulb
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
@@ -30,6 +31,7 @@ import { useEffect, useState } from "react";
 
 const navItemsBase = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/employee", end: true },
+  { icon: Lightbulb, label: "Ideas & Polls", path: "/employee/polls" },
   { icon: Megaphone, label: "Announcements", path: "/employee/announcements" },
   { icon: ClipboardList, label: "My Tasks", path: "/employee/tasks" },
   { icon: MapPin, label: "Daily Itinerary", path: "/employee/itinerary" },
