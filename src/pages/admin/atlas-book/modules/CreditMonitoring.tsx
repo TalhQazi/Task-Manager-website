@@ -7,7 +7,7 @@ import { apiFetch } from "../../../../lib/api";
 
 export default function CreditMonitoring() {
   const [loans, setLoans] = useState<any[]>([]);
-  const [kpi, setKpi] = useState({ score: 748, dscr: 1.85, ltv: 62.4 });
+  const [kpi, setKpi] = useState<{score: number, dscr: number | string, ltv: number}>({ score: 0, dscr: 0, ltv: 0 });
 
   useEffect(() => {
     const fetchLoans = async () => {
@@ -17,9 +17,9 @@ export default function CreditMonitoring() {
           apiFetch<any>("/api/atlasbook/reports/pl")
         ]);
 
-        let score = 748;
-        let dscr = 1.85;
-        let ltv = 62.4;
+        let score = 0;
+        let dscr: number | string = 0;
+        let ltv = 0;
 
         if (plRes && typeof plRes.netProfit !== 'undefined') {
           // Approximate a dynamic score based on netProfit (baseline 700 + scaled up to 850)
@@ -86,7 +86,7 @@ export default function CreditMonitoring() {
               <Badge className="bg-emerald-500 text-white border-none">Healthy</Badge>
             </div>
             <div className="w-full bg-slate-800 h-2 rounded-full mt-4">
-              <div className="bg-emerald-500 h-full" style={{ width: `${Math.min(100, (kpi.dscr / 2) * 100)}%` }} />
+              <div className="bg-emerald-500 h-full" style={{ width: `${typeof kpi.dscr === 'number' ? Math.min(100, (kpi.dscr / 2) * 100) : 0}%` }} />
             </div>
             <p className="text-[10px] text-slate-500 mt-2">Target: &gt;1.25x</p>
           </CardContent>
@@ -100,7 +100,7 @@ export default function CreditMonitoring() {
               <Badge variant="secondary">{kpi.ltv < 80 ? "Prime" : "Risky"}</Badge>
             </div>
             <div className="w-full bg-muted h-2 rounded-full mt-4">
-              <div className="bg-primary h-full" style={{ width: "62%" }} />
+              <div className="bg-primary h-full" style={{ width: `${kpi.ltv}%` }} />
             </div>
             <p className="text-[10px] text-muted-foreground mt-2">Maximum: 80%</p>
           </CardContent>

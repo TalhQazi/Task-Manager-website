@@ -15,7 +15,7 @@ interface CreditLine {
 const CreditMonitoring: React.FC = () => {
   const { activeEntity } = useAtlasBooks();
   const [lines, setLines] = useState<CreditLine[]>([]);
-  const [dynamicScore, setDynamicScore] = useState(748);
+  const [dynamicScore, setDynamicScore] = useState<number | string>(0);
 
   useEffect(() => {
     const fetchLoans = async () => {
