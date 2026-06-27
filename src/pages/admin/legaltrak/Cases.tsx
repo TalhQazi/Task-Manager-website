@@ -36,6 +36,11 @@ import {
 } from "lucide-react";
 import { createResource, deleteResource, listResource, updateResource } from "@/lib/admin/apiClient";
 
+interface LegalCourt {
+  id: string;
+  name: string;
+}
+
 interface LegalCase {
   id: string;
   caseNumber: string;
@@ -83,8 +88,12 @@ const itemVariants = {
 export default function Cases() {
   const [searchQuery, setSearchQuery] = useState("");
   const [casesList, setCasesList] = useState<LegalCase[]>([]);
+  const [courtsList, setCourtsList] = useState<LegalCourt[]>([]);
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
+
+  const [addCourtOpen, setAddCourtOpen] = useState(false);
+  const [newCourtName, setNewCourtName] = useState("");
 
   const [addOpen, setAddOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -110,8 +119,12 @@ export default function Cases() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const list = await listResource<LegalCase>("legal/cases");
+      const [list, courts] = await Promise.all([
+        listResource<LegalCase>("legal/cases"),
+        listResource<LegalCourt>("legal/courts")
+      ]);
       setCasesList(list);
+      setCourtsList(courts);
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "Failed to load cases");
     } finally {
@@ -207,6 +220,22 @@ export default function Cases() {
     }
   };
 
+  const handleAddCourt = async () => {
+    if (!newCourtName.trim()) return;
+    try {
+      setIsSubmitting(true);
+      const newCourt = await createResource<LegalCourt>("legal/courts", { name: newCourtName.trim() });
+      setCourtsList(prev => [...prev, newCourt].sort((a, b) => a.name.localeCompare(b.name)));
+      setFormData(prev => ({ ...prev, court: newCourt.name }));
+      setAddCourtOpen(false);
+      setNewCourtName("");
+    } catch (e) {
+      setApiError(e instanceof Error ? e.message : "Failed to create court");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const filteredCases = useMemo(() => {
     return casesList.filter((c) => 
       c.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -278,13 +307,19 @@ export default function Cases() {
       </div>
       <div className="space-y-1">
         <label className="text-xs font-medium text-slate-300">Court</label>
-        <input 
-          type="text" 
-          value={formData.court} 
-          onChange={e => setFormData({...formData, court: e.target.value})} 
-          className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" 
-          placeholder="Court Name" 
-        />
+        <div className="flex gap-2">
+          <select 
+            value={formData.court} 
+            onChange={e => setFormData({...formData, court: e.target.value})} 
+            className="flex-1 rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+          >
+            <option value="">Select a court</option>
+            {courtsList.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+          </select>
+          <Button type="button" variant="outline" onClick={() => setAddCourtOpen(true)} className="border-white/10 bg-white/5 hover:bg-white/10 text-white px-3">
+            <Plus className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
       <div className="space-y-1">
         <label className="text-xs font-medium text-slate-300">Judge</label>
@@ -529,6 +564,34 @@ export default function Cases() {
             <Button variant="ghost" onClick={() => setDeleteOpen(false)} className="hover:bg-white/10 text-white">Cancel</Button>
             <Button onClick={handleDelete} disabled={isSubmitting} className="bg-rose-600 hover:bg-rose-500 text-white border-0">
               {isSubmitting ? "Deleting..." : "Delete Permanently"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Court Dialog */}
+      <Dialog open={addCourtOpen} onOpenChange={setAddCourtOpen}>
+        <DialogContent className="bg-[#0f172a] border-white/10 text-white sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add New Court</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-slate-300">Court Name *</label>
+              <input 
+                type="text" 
+                value={newCourtName} 
+                onChange={e => setNewCourtName(e.target.value)} 
+                className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" 
+                placeholder="Enter court name" 
+                autoFocus
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => setAddCourtOpen(false)} className="hover:bg-white/10 text-white">Cancel</Button>
+            <Button onClick={handleAddCourt} disabled={isSubmitting || !newCourtName.trim()} className="bg-blue-600 hover:bg-blue-500 text-white">
+              {isSubmitting ? "Adding..." : "Add Court"}
             </Button>
           </div>
         </DialogContent>

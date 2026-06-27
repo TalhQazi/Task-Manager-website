@@ -575,6 +575,7 @@ export default function Tasks() {
   const PAGE_SIZE = 25;
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
+  const [projectIntroVideoUrl, setProjectIntroVideoUrl] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [projectTasks, setProjectTasks] = useState<CreateProjectTaskDraft[]>([]);
   const [projectLogoFile, setProjectLogoFile] = useState<File | null>(null);

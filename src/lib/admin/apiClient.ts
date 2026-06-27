@@ -153,7 +153,19 @@ export type CrudResource =
   | "onboarding"
   | "do-not-hire"
   | "companies"
-  | "company-registry";
+  | "company-registry"
+  | "legal/cases"
+  | "legal/courts"
+  | "legal/deadlines"
+  | "legal/calendar"
+  | "legal/documents"
+  | "legal/evidence"
+  | "legal/filings"
+  | "legal/tasks"
+  | "legal/contacts"
+  | "legal/notes"
+  | "legal/notifications"
+  | "legal/reports";
 
 type ListResponse<T> = { items?: T[] } | T[];
 
