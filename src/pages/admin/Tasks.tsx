@@ -3614,7 +3614,12 @@ export default function Tasks() {
                 />
               </div>
             </div>
-            <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Intro Video URL (YouTube/Vimeo)</label><Input placeholder="https://youtube.com/watch?v=..." value={formData.introVideoUrl || ""} onChange={(e) => setFormData((prev) => ({ ...prev, introVideoUrl: e.target.value }))} /></div><div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Intro Video URL (YouTube/Vimeo)</label><Input placeholder="https://youtube.com/watch?v=..." value={editForm.watch("introVideoUrl") || ""} onChange={(e) => editForm.setValue("introVideoUrl", e.target.value)} /></div><div className="space-y-1.5"><label className="text-sm font-medium">Task Attachments</label><div className="space-y-2"><div className="flex gap-2"><button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1" onClick={() => { const el = document.getElementById("task-attachments-input") as HTMLInputElement | null; el?.click(); }}>+ Add Files/Images</button>{ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (<button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1 flex items-center justify-center gap-2" onClick={() => { setDropboxPickerTarget("task"); setIsDropboxPickerOpen(true); }}><DropboxIcon size={14} />Dropbox</button>)}</div><input id="task-attachments-input" type="file" accept="*" multiple className="hidden" onChange={async (e) => {
+            
+            <div className="sm:col-span-2 space-y-1.5">
+              <label className="text-sm font-medium">Intro Video URL (YouTube/Vimeo)</label>
+              <Input placeholder="https://youtube.com/watch?v=..." value={formData.introVideoUrl || ""} onChange={(e) => setFormData((prev) => ({ ...prev, introVideoUrl: e.target.value }))} />
+            </div>
+            <div className="space-y-1.5"><label className="text-sm font-medium">Task Attachments</label><div className="space-y-2"><div className="flex gap-2"><button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1" onClick={() => { const el = document.getElementById("task-attachments-input") as HTMLInputElement | null; el?.click(); }}>+ Add Files/Images</button>{ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (<button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1 flex items-center justify-center gap-2" onClick={() => { setDropboxPickerTarget("task"); setIsDropboxPickerOpen(true); }}><DropboxIcon size={14} />Dropbox</button>)}</div><input id="task-attachments-input" type="file" accept="*" multiple className="hidden" onChange={async (e) => {
   const files = Array.from(e.target.files ?? []);
   if (!files.length) return;
   const processedFiles = await Promise.all(files.map(async (f) => {
@@ -4420,6 +4425,20 @@ export default function Tasks() {
                 <FormField control={editForm.control} name="dueTime" render={({ field }) => (<FormItem><FormLabel>Due Time</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
               </div>
 
+              
+              <FormField
+                control={editForm.control}
+                name="introVideoUrl"
+                render={({ field }) => (
+                  <FormItem className="sm:col-span-2">
+                    <FormLabel>Intro Video URL (YouTube/Vimeo)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="https://youtube.com/watch?v=..." {...field} value={field.value || ""} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <div className="space-y-1.5 pt-2">
                 <FormLabel>Task Attachments</FormLabel>
                 <div className="space-y-2">
