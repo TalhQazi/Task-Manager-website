@@ -125,6 +125,7 @@ interface Task {
   dueDate: string;
   dueTime?: string;
   location?: string;
+  introVideoUrl?: string;
   createdAt: string;
   projectId?: string;
   attachmentFileName?: string;
@@ -152,6 +153,7 @@ type CreateProjectTaskDraft = {
   dueDate: string;
   dueTime?: string;
   location?: string;
+  introVideoUrl?: string;
   createdAt: string;
   attachmentFileName?: string;
   attachmentNote?: string;
@@ -1047,6 +1049,7 @@ export default function Tasks() {
     location: "",
     attachmentFileName: "",
     attachmentNote: "",
+    introVideoUrl: "",
   });
 
   const updateTaskMutation = useMutation({
@@ -1134,6 +1137,7 @@ export default function Tasks() {
       dueDate: "",
       dueTime: "",
       location: "",
+      introVideoUrl: "",
     },
   });
 
@@ -1147,6 +1151,7 @@ export default function Tasks() {
       dueDate: "",
       dueTime: "",
       location: "",
+      introVideoUrl: "",
     },
   });
 
@@ -1186,11 +1191,7 @@ export default function Tasks() {
         method: "PUT",
         body: JSON.stringify({ assignees: reassignAssignees }),
       });
-      toast({
-        
-        title: "Success",
-        description: "Task reassigned successfully",
-      });
+      toast({ title: "Reassign complete", duration: 2000 });
       setIsReassignDialogOpen(false);
       setReassignTask(null);
       setReassignAssignees([]);
@@ -1238,7 +1239,8 @@ export default function Tasks() {
       dueTime: "",
       location: "",
       attachmentFileName: "",
-      attachmentNote: "",
+    attachmentNote: "",
+    introVideoUrl: "",
     });
     setSelectedAssignees([]);
     setProjectCreationAssignees([]);
@@ -1263,6 +1265,7 @@ export default function Tasks() {
       createdAt,
       attachmentFileName: att?.fileName || formData.attachmentFileName || "",
       attachmentNote: formData.attachmentNote || "",
+      introVideoUrl: formData.introVideoUrl || "",
       attachment: att,
       attachments: attachmentsOverride,
     } satisfies CreateProjectTaskDraft;
@@ -1296,7 +1299,8 @@ export default function Tasks() {
       dueTime: "",
       location: "",
       attachmentFileName: "",
-      attachmentNote: "",
+    attachmentNote: "",
+    introVideoUrl: "",
     }));
     setSelectedAssignees([]);
     setAttachmentFile(null);
@@ -1423,6 +1427,7 @@ export default function Tasks() {
         createdAt: nowDate,
         attachmentFileName: first?.fileName || "",
         attachmentNote: formData.attachmentNote,
+        introVideoUrl: formData.introVideoUrl,
         attachment: first,
         attachments,
         dropboxAttachments: dropboxSelectedFiles,
@@ -1456,7 +1461,8 @@ export default function Tasks() {
         dueTime: "",
         location: "",
         attachmentFileName: "",
-        attachmentNote: "",
+    attachmentNote: "",
+    introVideoUrl: "",
       });
       setSelectedAssignees([]);
       setAttachmentFile(null);
@@ -2723,6 +2729,7 @@ export default function Tasks() {
                 />
               </div>
 
+              <div className="space-y-2"><label className="text-sm font-medium">Intro Video URL (YouTube/Vimeo)</label><Input placeholder="https://youtube.com/watch?v=..." value={projectIntroVideoUrl} onChange={(e) => setProjectIntroVideoUrl(e.target.value)} /></div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Attachments</label>
                 <div className="space-y-2">
@@ -2749,22 +2756,23 @@ export default function Tasks() {
                     accept="*"
                     multiple
                     className="hidden"
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files ?? []);
-                      setProjectAttachmentFiles((prev) => [...prev, ...files]);
-                      files.forEach((file) => {
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          const result = typeof reader.result === "string" ? reader.result : "";
-                          setProjectAttachmentPreviews((prev) => [...prev, result]);
-                        };
-                        if (file.type.startsWith("image/")) {
-                          reader.readAsDataURL(file);
-                        } else {
-                          setProjectAttachmentPreviews((prev) => [...prev, ""]);
-                        }
-                      });
-                    }}
+                    onChange={async (e) => {
+  const files = Array.from(e.target.files ?? []);
+  if (!files.length) return;
+  const processedFiles = files; // In manager/employee we skip resize to maintain original logic unless needed
+  const previews = await Promise.all(processedFiles.map(file => new Promise((resolve) => {
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+      reader.readAsDataURL(file);
+    } else resolve("");
+  })));
+  setProjectAttachmentFiles((prev) => [...prev, ...processedFiles]);
+  if (typeof setProjectAttachmentPreviews === 'function') {
+      setProjectAttachmentPreviews((prev) => [...prev, ...previews]);
+  }
+  e.target.value = "";
+}}
                   />
                   {projectAttachmentFiles.length > 0 && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">
@@ -3083,22 +3091,23 @@ export default function Tasks() {
                     accept="*"
                     multiple
                     className="hidden"
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files ?? []);
-                      setAttachmentFiles((prev) => [...prev, ...files]);
-                      files.forEach((file) => {
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          const result = typeof reader.result === "string" ? reader.result : "";
-                          setAttachmentFilePreviews((prev) => [...prev, result]);
-                        };
-                        if (file.type.startsWith("image/")) {
-                          reader.readAsDataURL(file);
-                        } else {
-                          setAttachmentFilePreviews((prev) => [...prev, ""]);
-                        }
-                      });
-                    }}
+                    onChange={async (e) => {
+  const files = Array.from(e.target.files ?? []);
+  if (!files.length) return;
+  const processedFiles = files; // In manager/employee we skip resize to maintain original logic unless needed
+  const previews = await Promise.all(processedFiles.map(file => new Promise((resolve) => {
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+      reader.readAsDataURL(file);
+    } else resolve("");
+  })));
+  setAttachmentFiles((prev) => [...prev, ...processedFiles]);
+  if (typeof setAttachmentFilePreviews === 'function') {
+      setAttachmentFilePreviews((prev) => [...prev, ...previews]);
+  }
+  e.target.value = "";
+}}
                   />
                   {attachmentFiles.length > 0 && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">
@@ -3590,7 +3599,23 @@ export default function Tasks() {
                                 </button>
                               )}
                               <span className="text-[11px] text-muted-foreground/60 px-3 hidden sm:inline-block font-medium border-l ml-1 border-border/50">Pro tip: Ctrl+Enter to send.</span>
-                              <input id="comment-attachment-input" type="file" multiple className="hidden" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value = ''; }} />
+                              <input id="comment-attachment-input" type="file" multiple className="hidden" onChange={async (e) => {
+  const files = Array.from(e.target.files ?? []);
+  if (!files.length) return;
+  const processedFiles = files; // In manager/employee we skip resize to maintain original logic unless needed
+  const previews = await Promise.all(processedFiles.map(file => new Promise((resolve) => {
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+      reader.readAsDataURL(file);
+    } else resolve("");
+  })));
+  setCommentAttachments((prev) => [...prev, ...processedFiles]);
+  if (typeof setCommentAttachmentPreviews === 'function') {
+      setCommentAttachmentPreviews((prev) => [...prev, ...previews]);
+  }
+  e.target.value = "";
+}} />
                             </div>
                             <Button type="button" onClick={() => void sendComment()} disabled={(!commentDraft.trim() && commentAttachments.length === 0) || isSendingComment} size="sm" className="h-9 px-5 rounded-lg font-bold shadow hover:shadow-md transition-all gap-1.5 flex items-center">
                               {isSendingComment && <Loader2 className="w-3.5 h-3.5 animate-spin" />}

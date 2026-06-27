@@ -1020,6 +1020,7 @@ export default function Tasks() {
     location: "",
     attachmentFileName: "",
     attachmentNote: "",
+    introVideoUrl: "",
   });
 
   const updateTaskMutation = useMutation({
@@ -1371,6 +1372,7 @@ export default function Tasks() {
       dueDate: "",
       dueTime: "",
       location: "",
+      introVideoUrl: "",
     },
   });
 
@@ -1384,6 +1386,7 @@ export default function Tasks() {
       dueDate: "",
       dueTime: "",
       location: "",
+      introVideoUrl: "",
     },
   });
 
@@ -1416,7 +1419,8 @@ export default function Tasks() {
       dueTime: "",
       location: "",
       attachmentFileName: "",
-      attachmentNote: "",
+    attachmentNote: "",
+    introVideoUrl: "",
     });
     setSelectedAssignees([]);
   };
@@ -1535,7 +1539,8 @@ export default function Tasks() {
       dueTime: "",
       location: "",
       attachmentFileName: "",
-      attachmentNote: "",
+    attachmentNote: "",
+    introVideoUrl: "",
     }));
     setSelectedAssignees([]);
     setAttachmentFile(null);
@@ -1661,6 +1666,7 @@ export default function Tasks() {
         createdAt: nowDate,
         attachmentFileName: first?.fileName || "",
         attachmentNote: formData.attachmentNote,
+        introVideoUrl: formData.introVideoUrl,
         attachment,
         attachments,
         // Dropbox attachment references (source == "DROPBOX")
@@ -1694,7 +1700,8 @@ export default function Tasks() {
         dueTime: "",
         location: "",
         attachmentFileName: "",
-        attachmentNote: "",
+    attachmentNote: "",
+    introVideoUrl: "",
       });
       setSelectedAssignees([]);
       setTaskTeamLead("");
@@ -3367,7 +3374,24 @@ export default function Tasks() {
                       </button>
                     )}
                   </div>
-                  <input id="project-attachments-input" type="file" accept="*" multiple className="hidden" onChange={async (e) => { const files = Array.from(e.target.files ?? []); const processedFiles = await Promise.all(files.map(async (f) => { if (f.type.startsWith("image/")) { return await resizeImageIfNeeded(f, 1200, 1200, 0.8); } return f; })); setProjectAttachmentFiles((prev) => [...prev, ...processedFiles]); processedFiles.forEach((file) => { const reader = new FileReader(); reader.onload = () => { const result = typeof reader.result === "string" ? reader.result : ""; setProjectAttachmentPreviews((prev) => [...prev, result]); }; if (file.type.startsWith("image/")) { reader.readAsDataURL(file); } else { setProjectAttachmentPreviews((prev) => [...prev, ""]); } }); }} />
+                  <input id="project-attachments-input" type="file" accept="*" multiple className="hidden" onChange={async (e) => {
+  const files = Array.from(e.target.files ?? []);
+  if (!files.length) return;
+  const processedFiles = await Promise.all(files.map(async (f) => {
+    if (f.type.startsWith("image/")) return await resizeImageIfNeeded(f, 1200, 1200, 0.8);
+    return f;
+  }));
+  const previews = await Promise.all(processedFiles.map(file => new Promise((resolve) => {
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+      reader.readAsDataURL(file);
+    } else resolve("");
+  })));
+  setProjectAttachmentFiles((prev) => [...prev, ...processedFiles]);
+  setProjectAttachmentPreviews((prev) => [...prev, ...previews]);
+  e.target.value = "";
+}} />
                   {projectAttachmentFiles.length > 0 && (<div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">{projectAttachmentFiles.map((file, idx) => (<div key={idx} className="relative group">{projectAttachmentPreviews[idx] ? (<img src={projectAttachmentPreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />) : (<div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">📄 {file.name}</div>)}<button type="button" onClick={() => { setProjectAttachmentFiles((prev) => prev.filter((_, i) => i !== idx)); setProjectAttachmentPreviews((prev) => prev.filter((_, i) => i !== idx)); }} className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs">✕</button></div>))}</div>)}
                   {projectDropboxSelectedFiles.length > 0 && (
                     <div className="border border-border rounded-md p-2 space-y-1.5 bg-muted/30">
@@ -3590,7 +3614,24 @@ export default function Tasks() {
                 />
               </div>
             </div>
-            <div className="space-y-1.5"><label className="text-sm font-medium">Task Attachments</label><div className="space-y-2"><div className="flex gap-2"><button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1" onClick={() => { const el = document.getElementById("task-attachments-input") as HTMLInputElement | null; el?.click(); }}>+ Add Files/Images</button>{ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (<button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1 flex items-center justify-center gap-2" onClick={() => { setDropboxPickerTarget("task"); setIsDropboxPickerOpen(true); }}><DropboxIcon size={14} />Dropbox</button>)}</div><input id="task-attachments-input" type="file" accept="*" multiple className="hidden" onChange={async (e) => { const files = Array.from(e.target.files ?? []); const processedFiles = await Promise.all(files.map(async (f) => { if (f.type.startsWith("image/")) { return await resizeImageIfNeeded(f, 1200, 1200, 0.8); } return f; })); setAttachmentFiles((prev) => [...prev, ...processedFiles]); processedFiles.forEach((file) => { const reader = new FileReader(); reader.onload = () => { const result = typeof reader.result === "string" ? reader.result : ""; setAttachmentFilePreviews((prev) => [...prev, result]); }; if (file.type.startsWith("image/")) { reader.readAsDataURL(file); } else { setAttachmentFilePreviews((prev) => [...prev, ""]); } }); }} />{attachmentFiles.length > 0 && (<div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">{attachmentFiles.map((file, idx) => (<div key={idx} className="relative group">{attachmentFilePreviews[idx] ? (<img src={attachmentFilePreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />) : (<div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">📄 {file.name}</div>)}<button type="button" onClick={() => { setAttachmentFiles((prev) => prev.filter((_, i) => i !== idx)); setAttachmentFilePreviews((prev) => prev.filter((_, i) => i !== idx)); }} className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs">✕</button></div>))}</div>)}{dropboxSelectedFiles.length > 0 && (<div className="border border-border rounded-md p-2 space-y-1.5 bg-muted/30"><p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><DropboxIcon size={12} />Dropbox Files (External)</p>{dropboxSelectedFiles.map((dbf, idx) => (<div key={idx} className="flex items-center gap-2 bg-background rounded-md px-2.5 py-1.5 border border-border text-sm"><FileText className="w-4 h-4 text-blue-400 flex-shrink-0" /><span className="flex-1 truncate text-foreground">{dbf.file_name}</span><span className="text-xs text-muted-foreground">{dbf.file_size > 0 ? formatBytes(dbf.file_size) : ""}</span><button type="button" onClick={() => setDropboxSelectedFiles((prev) => prev.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive transition-colors">✕</button></div>))}</div>)}</div></div>
+            <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Intro Video URL (YouTube/Vimeo)</label><Input placeholder="https://youtube.com/watch?v=..." value={formData.introVideoUrl || ""} onChange={(e) => setFormData((prev) => ({ ...prev, introVideoUrl: e.target.value }))} /></div><div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Intro Video URL (YouTube/Vimeo)</label><Input placeholder="https://youtube.com/watch?v=..." value={editForm.watch("introVideoUrl") || ""} onChange={(e) => editForm.setValue("introVideoUrl", e.target.value)} /></div><div className="space-y-1.5"><label className="text-sm font-medium">Task Attachments</label><div className="space-y-2"><div className="flex gap-2"><button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1" onClick={() => { const el = document.getElementById("task-attachments-input") as HTMLInputElement | null; el?.click(); }}>+ Add Files/Images</button>{ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (<button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1 flex items-center justify-center gap-2" onClick={() => { setDropboxPickerTarget("task"); setIsDropboxPickerOpen(true); }}><DropboxIcon size={14} />Dropbox</button>)}</div><input id="task-attachments-input" type="file" accept="*" multiple className="hidden" onChange={async (e) => {
+  const files = Array.from(e.target.files ?? []);
+  if (!files.length) return;
+  const processedFiles = await Promise.all(files.map(async (f) => {
+    if (f.type.startsWith("image/")) return await resizeImageIfNeeded(f, 1200, 1200, 0.8);
+    return f;
+  }));
+  const previews = await Promise.all(processedFiles.map(file => new Promise((resolve) => {
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+      reader.readAsDataURL(file);
+    } else resolve("");
+  })));
+  setAttachmentFiles((prev) => [...prev, ...processedFiles]);
+  setAttachmentFilePreviews((prev) => [...prev, ...previews]);
+  e.target.value = "";
+}} />{attachmentFiles.length > 0 && (<div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">{attachmentFiles.map((file, idx) => (<div key={idx} className="relative group">{attachmentFilePreviews[idx] ? (<img src={attachmentFilePreviews[idx]} alt={file.name} className="w-full h-20 object-cover rounded-md" />) : (<div className="w-full h-20 bg-muted rounded-md flex items-center justify-center text-xs text-muted-foreground truncate px-2">📄 {file.name}</div>)}<button type="button" onClick={() => { setAttachmentFiles((prev) => prev.filter((_, i) => i !== idx)); setAttachmentFilePreviews((prev) => prev.filter((_, i) => i !== idx)); }} className="absolute top-0 right-0 bg-destructive/90 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity text-xs">✕</button></div>))}</div>)}{dropboxSelectedFiles.length > 0 && (<div className="border border-border rounded-md p-2 space-y-1.5 bg-muted/30"><p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><DropboxIcon size={12} />Dropbox Files (External)</p>{dropboxSelectedFiles.map((dbf, idx) => (<div key={idx} className="flex items-center gap-2 bg-background rounded-md px-2.5 py-1.5 border border-border text-sm"><FileText className="w-4 h-4 text-blue-400 flex-shrink-0" /><span className="flex-1 truncate text-foreground">{dbf.file_name}</span><span className="text-xs text-muted-foreground">{dbf.file_size > 0 ? formatBytes(dbf.file_size) : ""}</span><button type="button" onClick={() => setDropboxSelectedFiles((prev) => prev.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive transition-colors">✕</button></div>))}</div>)}</div></div>
             
           </form>
         </DialogContent>
