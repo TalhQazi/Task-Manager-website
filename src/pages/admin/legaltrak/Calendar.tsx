@@ -5,7 +5,7 @@ import { Badge } from "@/components/admin/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/admin/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/admin/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/admin/ui/dialog";
-import { Plus, Search, MoreHorizontal, Eye, Edit, Trash2, Calendar, AlertTriangle } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Eye, Edit, Trash2, Calendar as CalendarIcon, AlertTriangle } from "lucide-react";
 import { createResource, deleteResource, listResource, updateResource } from "@/lib/admin/apiClient";
 
 interface LegalCalendar {
@@ -156,7 +156,7 @@ export default function Calendar() {
         <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-blue-400">
-              <Calendar className="h-6 w-6" />
+              <CalendarIcon className="h-6 w-6" />
               <h1 className="text-2xl font-bold tracking-tight text-white">Legal Calendar</h1>
             </div>
             <p className="text-sm text-slate-400 max-w-2xl">Manage your calendar and associated metadata.</p>
