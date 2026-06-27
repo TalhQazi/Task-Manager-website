@@ -10,7 +10,13 @@ import { createResource, deleteResource, listResource, updateResource } from "@/
 
 interface LegalContact {
   id: string;
-  contactNumber: string;\n  firstName: string;\n  lastName: string;\n  email?: string;\n  phone?: string;\n  company?: string;\n  contactType?: "Client" | "Judge" | "Opposing Counsel" | "Expert Witness" | "Other";
+  contactNumber: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  company?: string;
+  contactType?: "Client" | "Judge" | "Opposing Counsel" | "Expert Witness" | "Other";
   createdAt?: string;
   updatedAt?: string;
 }
@@ -33,7 +39,12 @@ export default function Contacts() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
-    firstName: "",\n    lastName: "",\n    email: "",\n    phone: "",\n    company: "",\n    contactType: "Client"
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    company: "",
+    contactType: "Client"
   });
 
   const loadData = async () => {
@@ -49,7 +60,12 @@ export default function Contacts() {
 
   const resetForm = () => {
     setFormData({
-    firstName: "",\n    lastName: "",\n    email: "",\n    phone: "",\n    company: "",\n    contactType: "Client"
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    company: "",
+    contactType: "Client"
     });
   };
 
@@ -73,7 +89,12 @@ export default function Contacts() {
   const handleEditOpen = (c: LegalContact) => {
     setSelectedItem(c);
     setFormData({
-      firstName: c.firstName || "",\n      lastName: c.lastName || "",\n      email: c.email || "",\n      phone: c.phone || "",\n      company: c.company || "",\n      contactType: c.contactType || ""
+      firstName: c.firstName || "",
+      lastName: c.lastName || "",
+      email: c.email || "",
+      phone: c.phone || "",
+      company: c.company || "",
+      contactType: c.contactType || ""
     });
     setEditOpen(true);
   };
@@ -114,7 +135,12 @@ export default function Contacts() {
 
   const renderFormFields = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">First Name *</label><input type="text" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="First Name" required /></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Last Name *</label><input type="text" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Last Name" required /></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Email </label><input type="text" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Email"  /></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Phone </label><input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Phone"  /></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Company/Firm </label><input type="text" value={formData.company} onChange={e => setFormData({...formData, company: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Company/Firm"  /></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Type </label><select value={formData.contactType} onChange={e => setFormData({...formData, contactType: e.target.value as any})} className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"><option value="Client">Client</option><option value="Judge">Judge</option><option value="Opposing Counsel">Opposing Counsel</option><option value="Expert Witness">Expert Witness</option><option value="Other">Other</option></select></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">First Name *</label><input type="text" value={formData.firstName} onChange={e => setFormData({...formData, firstName: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="First Name" required /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Last Name *</label><input type="text" value={formData.lastName} onChange={e => setFormData({...formData, lastName: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Last Name" required /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Email </label><input type="text" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Email"  /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Phone </label><input type="text" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Phone"  /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Company/Firm </label><input type="text" value={formData.company} onChange={e => setFormData({...formData, company: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Company/Firm"  /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Type </label><select value={formData.contactType} onChange={e => setFormData({...formData, contactType: e.target.value as any})} className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"><option value="Client">Client</option><option value="Judge">Judge</option><option value="Opposing Counsel">Opposing Counsel</option><option value="Expert Witness">Expert Witness</option><option value="Other">Other</option></select></div>
     </div>
   );
 
@@ -173,7 +199,13 @@ export default function Contacts() {
           <Table>
             <TableHeader className="bg-black/20 hover:bg-black/20">
               <TableRow className="border-white/10 hover:bg-transparent">
-                <TableHead className="text-slate-400">Contact ID</TableHead>\n                <TableHead className="text-slate-400">First Name</TableHead>\n                <TableHead className="text-slate-400">Last Name</TableHead>\n                <TableHead className="text-slate-400">Email</TableHead>\n                <TableHead className="text-slate-400">Phone</TableHead>\n                <TableHead className="text-slate-400">Company/Firm</TableHead>\n                <TableHead className="text-slate-400">Type</TableHead>
+                <TableHead className="text-slate-400">Contact ID</TableHead>
+                <TableHead className="text-slate-400">First Name</TableHead>
+                <TableHead className="text-slate-400">Last Name</TableHead>
+                <TableHead className="text-slate-400">Email</TableHead>
+                <TableHead className="text-slate-400">Phone</TableHead>
+                <TableHead className="text-slate-400">Company/Firm</TableHead>
+                <TableHead className="text-slate-400">Type</TableHead>
                 <TableHead className="text-right text-slate-400">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -185,7 +217,13 @@ export default function Contacts() {
               ) : (
                 filteredItems.map((c) => (
                   <TableRow key={c.id} className="border-white/10 hover:bg-white/5 transition-colors">
-                    <TableCell className="font-mono text-sm text-slate-300">{c.contactNumber}</TableCell>\n                    <TableCell className="font-medium text-white">{c.firstName}</TableCell>\n                    <TableCell className="font-medium text-white">{c.lastName}</TableCell>\n                    <TableCell className="text-slate-300">{c.email}</TableCell>\n                    <TableCell className="text-slate-300">{c.phone}</TableCell>\n                    <TableCell className="text-slate-300">{c.company}</TableCell>\n                    <TableCell><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{c.contactType}</Badge></TableCell>
+                    <TableCell className="font-mono text-sm text-slate-300">{c.contactNumber}</TableCell>
+                    <TableCell className="font-medium text-white">{c.firstName}</TableCell>
+                    <TableCell className="font-medium text-white">{c.lastName}</TableCell>
+                    <TableCell className="text-slate-300">{c.email}</TableCell>
+                    <TableCell className="text-slate-300">{c.phone}</TableCell>
+                    <TableCell className="text-slate-300">{c.company}</TableCell>
+                    <TableCell><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{c.contactType}</Badge></TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -228,7 +266,13 @@ export default function Contacts() {
           {selectedItem && (
             <div className="py-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div><div className="text-xs text-slate-400">Contact ID</div><div className="font-mono text-lg">{selectedItem.contactNumber}</div></div>\n                <div><div className="text-xs text-slate-400">First Name</div><div className="font-medium">{selectedItem.firstName || 'N/A'}</div></div>\n                <div><div className="text-xs text-slate-400">Last Name</div><div className="font-medium">{selectedItem.lastName || 'N/A'}</div></div>\n                <div><div className="text-xs text-slate-400">Email</div><div className="font-medium">{selectedItem.email || 'N/A'}</div></div>\n                <div><div className="text-xs text-slate-400">Phone</div><div className="font-medium">{selectedItem.phone || 'N/A'}</div></div>\n                <div><div className="text-xs text-slate-400">Company/Firm</div><div className="font-medium">{selectedItem.company || 'N/A'}</div></div>\n                <div><div className="text-xs text-slate-400">Type</div><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{selectedItem.contactType}</Badge></div>
+                <div><div className="text-xs text-slate-400">Contact ID</div><div className="font-mono text-lg">{selectedItem.contactNumber}</div></div>
+                <div><div className="text-xs text-slate-400">First Name</div><div className="font-medium">{selectedItem.firstName || 'N/A'}</div></div>
+                <div><div className="text-xs text-slate-400">Last Name</div><div className="font-medium">{selectedItem.lastName || 'N/A'}</div></div>
+                <div><div className="text-xs text-slate-400">Email</div><div className="font-medium">{selectedItem.email || 'N/A'}</div></div>
+                <div><div className="text-xs text-slate-400">Phone</div><div className="font-medium">{selectedItem.phone || 'N/A'}</div></div>
+                <div><div className="text-xs text-slate-400">Company/Firm</div><div className="font-medium">{selectedItem.company || 'N/A'}</div></div>
+                <div><div className="text-xs text-slate-400">Type</div><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{selectedItem.contactType}</Badge></div>
               </div>
             </div>
           )}

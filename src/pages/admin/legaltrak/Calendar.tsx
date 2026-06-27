@@ -10,7 +10,14 @@ import { createResource, deleteResource, listResource, updateResource } from "@/
 
 interface LegalCalendar {
   id: string;
-  calendarNumber: string;\n  title: string;\n  description?: string;\n  eventDate?: string;\n  time?: string;\n  location?: string;\n  eventType: "Hearing" | "Meeting" | "Deposition" | "Other";\n  attendees?: string;
+  calendarNumber: string;
+  title: string;
+  description?: string;
+  eventDate?: string;
+  time?: string;
+  location?: string;
+  eventType: "Hearing" | "Meeting" | "Deposition" | "Other";
+  attendees?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -33,7 +40,13 @@ export default function Calendar() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
-    title: "",\n    description: "",\n    eventDate: "",\n    time: "",\n    location: "",\n    eventType: "Meeting",\n    attendees: ""
+    title: "",
+    description: "",
+    eventDate: "",
+    time: "",
+    location: "",
+    eventType: "Meeting",
+    attendees: ""
   });
 
   const loadData = async () => {
@@ -49,7 +62,13 @@ export default function Calendar() {
 
   const resetForm = () => {
     setFormData({
-    title: "",\n    description: "",\n    eventDate: "",\n    time: "",\n    location: "",\n    eventType: "Meeting",\n    attendees: ""
+    title: "",
+    description: "",
+    eventDate: "",
+    time: "",
+    location: "",
+    eventType: "Meeting",
+    attendees: ""
     });
   };
 
@@ -73,7 +92,13 @@ export default function Calendar() {
   const handleEditOpen = (c: LegalCalendar) => {
     setSelectedItem(c);
     setFormData({
-      title: c.title || "",\n      description: c.description || "",\n      eventDate: c.eventDate ? c.eventDate.split("T")[0] : "",\n      time: c.time || "",\n      location: c.location || "",\n      eventType: c.eventType || "",\n      attendees: c.attendees || ""
+      title: c.title || "",
+      description: c.description || "",
+      eventDate: c.eventDate ? c.eventDate.split("T")[0] : "",
+      time: c.time || "",
+      location: c.location || "",
+      eventType: c.eventType || "",
+      attendees: c.attendees || ""
     });
     setEditOpen(true);
   };
@@ -114,7 +139,13 @@ export default function Calendar() {
 
   const renderFormFields = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Event Title *</label><input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Event Title" required /></div>\n      <div className="space-y-1 sm:col-span-2"><label className="text-xs font-medium text-slate-300">Description </label><textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none h-24" placeholder="Description..." /></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Event Date </label><input type="date" value={formData.eventDate} onChange={e => setFormData({...formData, eventDate: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Event Date"  /></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Time </label><input type="text" value={formData.time} onChange={e => setFormData({...formData, time: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Time"  /></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Location </label><input type="text" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Location"  /></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Event Type *</label><select value={formData.eventType} onChange={e => setFormData({...formData, eventType: e.target.value as any})} className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"><option value="Hearing">Hearing</option><option value="Meeting">Meeting</option><option value="Deposition">Deposition</option><option value="Other">Other</option></select></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Attendees </label><input type="text" value={formData.attendees} onChange={e => setFormData({...formData, attendees: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Attendees"  /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Event Title *</label><input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Event Title" required /></div>
+      <div className="space-y-1 sm:col-span-2"><label className="text-xs font-medium text-slate-300">Description </label><textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none h-24" placeholder="Description..." /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Event Date </label><input type="date" value={formData.eventDate} onChange={e => setFormData({...formData, eventDate: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Event Date"  /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Time </label><input type="text" value={formData.time} onChange={e => setFormData({...formData, time: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Time"  /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Location </label><input type="text" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Location"  /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Event Type *</label><select value={formData.eventType} onChange={e => setFormData({...formData, eventType: e.target.value as any})} className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"><option value="Hearing">Hearing</option><option value="Meeting">Meeting</option><option value="Deposition">Deposition</option><option value="Other">Other</option></select></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Attendees </label><input type="text" value={formData.attendees} onChange={e => setFormData({...formData, attendees: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Attendees"  /></div>
     </div>
   );
 
@@ -173,7 +204,11 @@ export default function Calendar() {
           <Table>
             <TableHeader className="bg-black/20 hover:bg-black/20">
               <TableRow className="border-white/10 hover:bg-transparent">
-                <TableHead className="text-slate-400">Event No.</TableHead>\n                <TableHead className="text-slate-400">Event Title</TableHead>\n                <TableHead className="text-slate-400">Event Date</TableHead>\n                <TableHead className="text-slate-400">Time</TableHead>\n                <TableHead className="text-slate-400">Event Type</TableHead>
+                <TableHead className="text-slate-400">Event No.</TableHead>
+                <TableHead className="text-slate-400">Event Title</TableHead>
+                <TableHead className="text-slate-400">Event Date</TableHead>
+                <TableHead className="text-slate-400">Time</TableHead>
+                <TableHead className="text-slate-400">Event Type</TableHead>
                 <TableHead className="text-right text-slate-400">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -185,7 +220,11 @@ export default function Calendar() {
               ) : (
                 filteredItems.map((c) => (
                   <TableRow key={c.id} className="border-white/10 hover:bg-white/5 transition-colors">
-                    <TableCell className="font-mono text-sm text-slate-300">{c.calendarNumber}</TableCell>\n                    <TableCell className="font-medium text-white">{c.title}</TableCell>\n                    <TableCell className="text-slate-300">{c.eventDate ? new Date(c.eventDate).toLocaleDateString() : 'N/A'}</TableCell>\n                    <TableCell className="text-slate-300">{c.time}</TableCell>\n                    <TableCell><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{c.eventType}</Badge></TableCell>
+                    <TableCell className="font-mono text-sm text-slate-300">{c.calendarNumber}</TableCell>
+                    <TableCell className="font-medium text-white">{c.title}</TableCell>
+                    <TableCell className="text-slate-300">{c.eventDate ? new Date(c.eventDate).toLocaleDateString() : 'N/A'}</TableCell>
+                    <TableCell className="text-slate-300">{c.time}</TableCell>
+                    <TableCell><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{c.eventType}</Badge></TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -228,7 +267,14 @@ export default function Calendar() {
           {selectedItem && (
             <div className="py-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div><div className="text-xs text-slate-400">Event No.</div><div className="font-mono text-lg">{selectedItem.calendarNumber}</div></div>\n                <div><div className="text-xs text-slate-400">Event Title</div><div className="font-medium">{selectedItem.title || 'N/A'}</div></div>\n                {selectedItem.description && (<div><div className="text-xs text-slate-400">Description</div><div className="text-sm bg-white/5 p-3 rounded-md mt-1">{selectedItem.description}</div></div>)}\n                <div><div className="text-xs text-slate-400">Event Date</div><div>{selectedItem.eventDate ? new Date(selectedItem.eventDate).toLocaleDateString() : 'N/A'}</div></div>\n                <div><div className="text-xs text-slate-400">Time</div><div className="font-medium">{selectedItem.time || 'N/A'}</div></div>\n                <div><div className="text-xs text-slate-400">Location</div><div className="font-medium">{selectedItem.location || 'N/A'}</div></div>\n                <div><div className="text-xs text-slate-400">Event Type</div><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{selectedItem.eventType}</Badge></div>\n                <div><div className="text-xs text-slate-400">Attendees</div><div className="font-medium">{selectedItem.attendees || 'N/A'}</div></div>
+                <div><div className="text-xs text-slate-400">Event No.</div><div className="font-mono text-lg">{selectedItem.calendarNumber}</div></div>
+                <div><div className="text-xs text-slate-400">Event Title</div><div className="font-medium">{selectedItem.title || 'N/A'}</div></div>
+                {selectedItem.description && (<div><div className="text-xs text-slate-400">Description</div><div className="text-sm bg-white/5 p-3 rounded-md mt-1">{selectedItem.description}</div></div>)}
+                <div><div className="text-xs text-slate-400">Event Date</div><div>{selectedItem.eventDate ? new Date(selectedItem.eventDate).toLocaleDateString() : 'N/A'}</div></div>
+                <div><div className="text-xs text-slate-400">Time</div><div className="font-medium">{selectedItem.time || 'N/A'}</div></div>
+                <div><div className="text-xs text-slate-400">Location</div><div className="font-medium">{selectedItem.location || 'N/A'}</div></div>
+                <div><div className="text-xs text-slate-400">Event Type</div><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{selectedItem.eventType}</Badge></div>
+                <div><div className="text-xs text-slate-400">Attendees</div><div className="font-medium">{selectedItem.attendees || 'N/A'}</div></div>
               </div>
             </div>
           )}

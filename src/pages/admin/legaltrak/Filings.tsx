@@ -10,7 +10,13 @@ import { createResource, deleteResource, listResource, updateResource } from "@/
 
 interface LegalFiling {
   id: string;
-  filingNumber: string;\n  title: string;\n  description?: string;\n  dateFiled?: string;\n  court?: string;\n  caseReference?: string;\n  status?: "Draft" | "Pending" | "Accepted" | "Rejected";
+  filingNumber: string;
+  title: string;
+  description?: string;
+  dateFiled?: string;
+  court?: string;
+  caseReference?: string;
+  status?: "Draft" | "Pending" | "Accepted" | "Rejected";
   createdAt?: string;
   updatedAt?: string;
 }
@@ -33,7 +39,12 @@ export default function Filings() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
-    title: "",\n    description: "",\n    dateFiled: "",\n    court: "",\n    caseReference: "",\n    status: "Draft"
+    title: "",
+    description: "",
+    dateFiled: "",
+    court: "",
+    caseReference: "",
+    status: "Draft"
   });
 
   const loadData = async () => {
@@ -49,7 +60,12 @@ export default function Filings() {
 
   const resetForm = () => {
     setFormData({
-    title: "",\n    description: "",\n    dateFiled: "",\n    court: "",\n    caseReference: "",\n    status: "Draft"
+    title: "",
+    description: "",
+    dateFiled: "",
+    court: "",
+    caseReference: "",
+    status: "Draft"
     });
   };
 
@@ -73,7 +89,12 @@ export default function Filings() {
   const handleEditOpen = (c: LegalFiling) => {
     setSelectedItem(c);
     setFormData({
-      title: c.title || "",\n      description: c.description || "",\n      dateFiled: c.dateFiled ? c.dateFiled.split("T")[0] : "",\n      court: c.court || "",\n      caseReference: c.caseReference || "",\n      status: c.status || ""
+      title: c.title || "",
+      description: c.description || "",
+      dateFiled: c.dateFiled ? c.dateFiled.split("T")[0] : "",
+      court: c.court || "",
+      caseReference: c.caseReference || "",
+      status: c.status || ""
     });
     setEditOpen(true);
   };
@@ -114,7 +135,12 @@ export default function Filings() {
 
   const renderFormFields = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Title *</label><input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Title" required /></div>\n      <div className="space-y-1 sm:col-span-2"><label className="text-xs font-medium text-slate-300">Description </label><textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none h-24" placeholder="Description..." /></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Date Filed </label><input type="date" value={formData.dateFiled} onChange={e => setFormData({...formData, dateFiled: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Date Filed"  /></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Court </label><input type="text" value={formData.court} onChange={e => setFormData({...formData, court: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Court"  /></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Case Reference </label><input type="text" value={formData.caseReference} onChange={e => setFormData({...formData, caseReference: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Case Reference"  /></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Status </label><select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as any})} className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"><option value="Draft">Draft</option><option value="Pending">Pending</option><option value="Accepted">Accepted</option><option value="Rejected">Rejected</option></select></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Title *</label><input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Title" required /></div>
+      <div className="space-y-1 sm:col-span-2"><label className="text-xs font-medium text-slate-300">Description </label><textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none h-24" placeholder="Description..." /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Date Filed </label><input type="date" value={formData.dateFiled} onChange={e => setFormData({...formData, dateFiled: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Date Filed"  /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Court </label><input type="text" value={formData.court} onChange={e => setFormData({...formData, court: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Court"  /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Case Reference </label><input type="text" value={formData.caseReference} onChange={e => setFormData({...formData, caseReference: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Case Reference"  /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Status </label><select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as any})} className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"><option value="Draft">Draft</option><option value="Pending">Pending</option><option value="Accepted">Accepted</option><option value="Rejected">Rejected</option></select></div>
     </div>
   );
 
@@ -173,7 +199,12 @@ export default function Filings() {
           <Table>
             <TableHeader className="bg-black/20 hover:bg-black/20">
               <TableRow className="border-white/10 hover:bg-transparent">
-                <TableHead className="text-slate-400">Filing No.</TableHead>\n                <TableHead className="text-slate-400">Title</TableHead>\n                <TableHead className="text-slate-400">Date Filed</TableHead>\n                <TableHead className="text-slate-400">Court</TableHead>\n                <TableHead className="text-slate-400">Case Reference</TableHead>\n                <TableHead className="text-slate-400">Status</TableHead>
+                <TableHead className="text-slate-400">Filing No.</TableHead>
+                <TableHead className="text-slate-400">Title</TableHead>
+                <TableHead className="text-slate-400">Date Filed</TableHead>
+                <TableHead className="text-slate-400">Court</TableHead>
+                <TableHead className="text-slate-400">Case Reference</TableHead>
+                <TableHead className="text-slate-400">Status</TableHead>
                 <TableHead className="text-right text-slate-400">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -185,7 +216,12 @@ export default function Filings() {
               ) : (
                 filteredItems.map((c) => (
                   <TableRow key={c.id} className="border-white/10 hover:bg-white/5 transition-colors">
-                    <TableCell className="font-mono text-sm text-slate-300">{c.filingNumber}</TableCell>\n                    <TableCell className="font-medium text-white">{c.title}</TableCell>\n                    <TableCell className="text-slate-300">{c.dateFiled ? new Date(c.dateFiled).toLocaleDateString() : 'N/A'}</TableCell>\n                    <TableCell className="text-slate-300">{c.court}</TableCell>\n                    <TableCell className="text-slate-300">{c.caseReference}</TableCell>\n                    <TableCell><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{c.status}</Badge></TableCell>
+                    <TableCell className="font-mono text-sm text-slate-300">{c.filingNumber}</TableCell>
+                    <TableCell className="font-medium text-white">{c.title}</TableCell>
+                    <TableCell className="text-slate-300">{c.dateFiled ? new Date(c.dateFiled).toLocaleDateString() : 'N/A'}</TableCell>
+                    <TableCell className="text-slate-300">{c.court}</TableCell>
+                    <TableCell className="text-slate-300">{c.caseReference}</TableCell>
+                    <TableCell><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{c.status}</Badge></TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -228,7 +264,13 @@ export default function Filings() {
           {selectedItem && (
             <div className="py-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div><div className="text-xs text-slate-400">Filing No.</div><div className="font-mono text-lg">{selectedItem.filingNumber}</div></div>\n                <div><div className="text-xs text-slate-400">Title</div><div className="font-medium">{selectedItem.title || 'N/A'}</div></div>\n                {selectedItem.description && (<div><div className="text-xs text-slate-400">Description</div><div className="text-sm bg-white/5 p-3 rounded-md mt-1">{selectedItem.description}</div></div>)}\n                <div><div className="text-xs text-slate-400">Date Filed</div><div>{selectedItem.dateFiled ? new Date(selectedItem.dateFiled).toLocaleDateString() : 'N/A'}</div></div>\n                <div><div className="text-xs text-slate-400">Court</div><div className="font-medium">{selectedItem.court || 'N/A'}</div></div>\n                <div><div className="text-xs text-slate-400">Case Reference</div><div className="font-medium">{selectedItem.caseReference || 'N/A'}</div></div>\n                <div><div className="text-xs text-slate-400">Status</div><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{selectedItem.status}</Badge></div>
+                <div><div className="text-xs text-slate-400">Filing No.</div><div className="font-mono text-lg">{selectedItem.filingNumber}</div></div>
+                <div><div className="text-xs text-slate-400">Title</div><div className="font-medium">{selectedItem.title || 'N/A'}</div></div>
+                {selectedItem.description && (<div><div className="text-xs text-slate-400">Description</div><div className="text-sm bg-white/5 p-3 rounded-md mt-1">{selectedItem.description}</div></div>)}
+                <div><div className="text-xs text-slate-400">Date Filed</div><div>{selectedItem.dateFiled ? new Date(selectedItem.dateFiled).toLocaleDateString() : 'N/A'}</div></div>
+                <div><div className="text-xs text-slate-400">Court</div><div className="font-medium">{selectedItem.court || 'N/A'}</div></div>
+                <div><div className="text-xs text-slate-400">Case Reference</div><div className="font-medium">{selectedItem.caseReference || 'N/A'}</div></div>
+                <div><div className="text-xs text-slate-400">Status</div><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{selectedItem.status}</Badge></div>
               </div>
             </div>
           )}

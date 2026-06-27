@@ -10,7 +10,11 @@ import { createResource, deleteResource, listResource, updateResource } from "@/
 
 interface LegalNotification {
   id: string;
-  notificationNumber: string;\n  title: string;\n  message?: string;\n  type?: "Alert" | "Reminder" | "System";\n  isRead?: "Yes" | "No";
+  notificationNumber: string;
+  title: string;
+  message?: string;
+  type?: "Alert" | "Reminder" | "System";
+  isRead?: "Yes" | "No";
   createdAt?: string;
   updatedAt?: string;
 }
@@ -33,7 +37,10 @@ export default function Notifications() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
-    title: "",\n    message: "",\n    type: "System",\n    isRead: "No"
+    title: "",
+    message: "",
+    type: "System",
+    isRead: "No"
   });
 
   const loadData = async () => {
@@ -49,7 +56,10 @@ export default function Notifications() {
 
   const resetForm = () => {
     setFormData({
-    title: "",\n    message: "",\n    type: "System",\n    isRead: "No"
+    title: "",
+    message: "",
+    type: "System",
+    isRead: "No"
     });
   };
 
@@ -73,7 +83,10 @@ export default function Notifications() {
   const handleEditOpen = (c: LegalNotification) => {
     setSelectedItem(c);
     setFormData({
-      title: c.title || "",\n      message: c.message || "",\n      type: c.type || "",\n      isRead: c.isRead || ""
+      title: c.title || "",
+      message: c.message || "",
+      type: c.type || "",
+      isRead: c.isRead || ""
     });
     setEditOpen(true);
   };
@@ -114,7 +127,10 @@ export default function Notifications() {
 
   const renderFormFields = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Title *</label><input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Title" required /></div>\n      <div className="space-y-1 sm:col-span-2"><label className="text-xs font-medium text-slate-300">Message </label><textarea value={formData.message} onChange={e => setFormData({...formData, message: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none h-24" placeholder="Message..." /></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Type </label><select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as any})} className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"><option value="Alert">Alert</option><option value="Reminder">Reminder</option><option value="System">System</option></select></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Read Status </label><select value={formData.isRead} onChange={e => setFormData({...formData, isRead: e.target.value as any})} className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"><option value="Yes">Yes</option><option value="No">No</option></select></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Title *</label><input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Title" required /></div>
+      <div className="space-y-1 sm:col-span-2"><label className="text-xs font-medium text-slate-300">Message </label><textarea value={formData.message} onChange={e => setFormData({...formData, message: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none h-24" placeholder="Message..." /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Type </label><select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as any})} className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"><option value="Alert">Alert</option><option value="Reminder">Reminder</option><option value="System">System</option></select></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Read Status </label><select value={formData.isRead} onChange={e => setFormData({...formData, isRead: e.target.value as any})} className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"><option value="Yes">Yes</option><option value="No">No</option></select></div>
     </div>
   );
 
@@ -173,7 +189,11 @@ export default function Notifications() {
           <Table>
             <TableHeader className="bg-black/20 hover:bg-black/20">
               <TableRow className="border-white/10 hover:bg-transparent">
-                <TableHead className="text-slate-400">Notification ID</TableHead>\n                <TableHead className="text-slate-400">Title</TableHead>\n                <TableHead className="text-slate-400">Message</TableHead>\n                <TableHead className="text-slate-400">Type</TableHead>\n                <TableHead className="text-slate-400">Read Status</TableHead>
+                <TableHead className="text-slate-400">Notification ID</TableHead>
+                <TableHead className="text-slate-400">Title</TableHead>
+                <TableHead className="text-slate-400">Message</TableHead>
+                <TableHead className="text-slate-400">Type</TableHead>
+                <TableHead className="text-slate-400">Read Status</TableHead>
                 <TableHead className="text-right text-slate-400">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -185,7 +205,11 @@ export default function Notifications() {
               ) : (
                 filteredItems.map((c) => (
                   <TableRow key={c.id} className="border-white/10 hover:bg-white/5 transition-colors">
-                    <TableCell className="font-mono text-sm text-slate-300">{c.notificationNumber}</TableCell>\n                    <TableCell className="font-medium text-white">{c.title}</TableCell>\n                    <TableCell className="text-slate-300">{c.message}</TableCell>\n                    <TableCell><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{c.type}</Badge></TableCell>\n                    <TableCell className="text-slate-300">{c.isRead}</TableCell>
+                    <TableCell className="font-mono text-sm text-slate-300">{c.notificationNumber}</TableCell>
+                    <TableCell className="font-medium text-white">{c.title}</TableCell>
+                    <TableCell className="text-slate-300">{c.message}</TableCell>
+                    <TableCell><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{c.type}</Badge></TableCell>
+                    <TableCell className="text-slate-300">{c.isRead}</TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -228,7 +252,11 @@ export default function Notifications() {
           {selectedItem && (
             <div className="py-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div><div className="text-xs text-slate-400">Notification ID</div><div className="font-mono text-lg">{selectedItem.notificationNumber}</div></div>\n                <div><div className="text-xs text-slate-400">Title</div><div className="font-medium">{selectedItem.title || 'N/A'}</div></div>\n                {selectedItem.message && (<div><div className="text-xs text-slate-400">Message</div><div className="text-sm bg-white/5 p-3 rounded-md mt-1">{selectedItem.message}</div></div>)}\n                <div><div className="text-xs text-slate-400">Type</div><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{selectedItem.type}</Badge></div>\n                <div><div className="text-xs text-slate-400">Read Status</div><div className="font-medium">{selectedItem.isRead || 'N/A'}</div></div>
+                <div><div className="text-xs text-slate-400">Notification ID</div><div className="font-mono text-lg">{selectedItem.notificationNumber}</div></div>
+                <div><div className="text-xs text-slate-400">Title</div><div className="font-medium">{selectedItem.title || 'N/A'}</div></div>
+                {selectedItem.message && (<div><div className="text-xs text-slate-400">Message</div><div className="text-sm bg-white/5 p-3 rounded-md mt-1">{selectedItem.message}</div></div>)}
+                <div><div className="text-xs text-slate-400">Type</div><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{selectedItem.type}</Badge></div>
+                <div><div className="text-xs text-slate-400">Read Status</div><div className="font-medium">{selectedItem.isRead || 'N/A'}</div></div>
               </div>
             </div>
           )}

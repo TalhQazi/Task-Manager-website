@@ -10,7 +10,13 @@ import { createResource, deleteResource, listResource, updateResource } from "@/
 
 interface LegalDocument {
   id: string;
-  documentNumber: string;\n  title: string;\n  description?: string;\n  fileType: "PDF" | "Word" | "Excel" | "Image" | "Other";\n  caseReference?: string;\n  status?: "Draft" | "Final" | "Filed";\n  author?: string;
+  documentNumber: string;
+  title: string;
+  description?: string;
+  fileType: "PDF" | "Word" | "Excel" | "Image" | "Other";
+  caseReference?: string;
+  status?: "Draft" | "Final" | "Filed";
+  author?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -33,7 +39,12 @@ export default function Documents() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
-    title: "",\n    description: "",\n    fileType: "PDF",\n    caseReference: "",\n    status: "Draft",\n    author: ""
+    title: "",
+    description: "",
+    fileType: "PDF",
+    caseReference: "",
+    status: "Draft",
+    author: ""
   });
 
   const loadData = async () => {
@@ -49,7 +60,12 @@ export default function Documents() {
 
   const resetForm = () => {
     setFormData({
-    title: "",\n    description: "",\n    fileType: "PDF",\n    caseReference: "",\n    status: "Draft",\n    author: ""
+    title: "",
+    description: "",
+    fileType: "PDF",
+    caseReference: "",
+    status: "Draft",
+    author: ""
     });
   };
 
@@ -73,7 +89,12 @@ export default function Documents() {
   const handleEditOpen = (c: LegalDocument) => {
     setSelectedItem(c);
     setFormData({
-      title: c.title || "",\n      description: c.description || "",\n      fileType: c.fileType || "",\n      caseReference: c.caseReference || "",\n      status: c.status || "",\n      author: c.author || ""
+      title: c.title || "",
+      description: c.description || "",
+      fileType: c.fileType || "",
+      caseReference: c.caseReference || "",
+      status: c.status || "",
+      author: c.author || ""
     });
     setEditOpen(true);
   };
@@ -114,7 +135,12 @@ export default function Documents() {
 
   const renderFormFields = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Title *</label><input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Title" required /></div>\n      <div className="space-y-1 sm:col-span-2"><label className="text-xs font-medium text-slate-300">Description </label><textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none h-24" placeholder="Description..." /></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">File Type *</label><select value={formData.fileType} onChange={e => setFormData({...formData, fileType: e.target.value as any})} className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"><option value="PDF">PDF</option><option value="Word">Word</option><option value="Excel">Excel</option><option value="Image">Image</option><option value="Other">Other</option></select></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Case Reference </label><input type="text" value={formData.caseReference} onChange={e => setFormData({...formData, caseReference: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Case Reference"  /></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Status </label><select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as any})} className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"><option value="Draft">Draft</option><option value="Final">Final</option><option value="Filed">Filed</option></select></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Author </label><input type="text" value={formData.author} onChange={e => setFormData({...formData, author: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Author"  /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Title *</label><input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Title" required /></div>
+      <div className="space-y-1 sm:col-span-2"><label className="text-xs font-medium text-slate-300">Description </label><textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none h-24" placeholder="Description..." /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">File Type *</label><select value={formData.fileType} onChange={e => setFormData({...formData, fileType: e.target.value as any})} className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"><option value="PDF">PDF</option><option value="Word">Word</option><option value="Excel">Excel</option><option value="Image">Image</option><option value="Other">Other</option></select></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Case Reference </label><input type="text" value={formData.caseReference} onChange={e => setFormData({...formData, caseReference: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Case Reference"  /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Status </label><select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as any})} className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"><option value="Draft">Draft</option><option value="Final">Final</option><option value="Filed">Filed</option></select></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Author </label><input type="text" value={formData.author} onChange={e => setFormData({...formData, author: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Author"  /></div>
     </div>
   );
 
@@ -173,7 +199,12 @@ export default function Documents() {
           <Table>
             <TableHeader className="bg-black/20 hover:bg-black/20">
               <TableRow className="border-white/10 hover:bg-transparent">
-                <TableHead className="text-slate-400">Document No.</TableHead>\n                <TableHead className="text-slate-400">Title</TableHead>\n                <TableHead className="text-slate-400">File Type</TableHead>\n                <TableHead className="text-slate-400">Case Reference</TableHead>\n                <TableHead className="text-slate-400">Status</TableHead>\n                <TableHead className="text-slate-400">Author</TableHead>
+                <TableHead className="text-slate-400">Document No.</TableHead>
+                <TableHead className="text-slate-400">Title</TableHead>
+                <TableHead className="text-slate-400">File Type</TableHead>
+                <TableHead className="text-slate-400">Case Reference</TableHead>
+                <TableHead className="text-slate-400">Status</TableHead>
+                <TableHead className="text-slate-400">Author</TableHead>
                 <TableHead className="text-right text-slate-400">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -185,7 +216,12 @@ export default function Documents() {
               ) : (
                 filteredItems.map((c) => (
                   <TableRow key={c.id} className="border-white/10 hover:bg-white/5 transition-colors">
-                    <TableCell className="font-mono text-sm text-slate-300">{c.documentNumber}</TableCell>\n                    <TableCell className="font-medium text-white">{c.title}</TableCell>\n                    <TableCell className="font-medium text-white">{c.fileType}</TableCell>\n                    <TableCell className="text-slate-300">{c.caseReference}</TableCell>\n                    <TableCell><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{c.status}</Badge></TableCell>\n                    <TableCell className="text-slate-300">{c.author}</TableCell>
+                    <TableCell className="font-mono text-sm text-slate-300">{c.documentNumber}</TableCell>
+                    <TableCell className="font-medium text-white">{c.title}</TableCell>
+                    <TableCell className="font-medium text-white">{c.fileType}</TableCell>
+                    <TableCell className="text-slate-300">{c.caseReference}</TableCell>
+                    <TableCell><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{c.status}</Badge></TableCell>
+                    <TableCell className="text-slate-300">{c.author}</TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -228,7 +264,13 @@ export default function Documents() {
           {selectedItem && (
             <div className="py-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div><div className="text-xs text-slate-400">Document No.</div><div className="font-mono text-lg">{selectedItem.documentNumber}</div></div>\n                <div><div className="text-xs text-slate-400">Title</div><div className="font-medium">{selectedItem.title || 'N/A'}</div></div>\n                {selectedItem.description && (<div><div className="text-xs text-slate-400">Description</div><div className="text-sm bg-white/5 p-3 rounded-md mt-1">{selectedItem.description}</div></div>)}\n                <div><div className="text-xs text-slate-400">File Type</div><div className="font-medium">{selectedItem.fileType || 'N/A'}</div></div>\n                <div><div className="text-xs text-slate-400">Case Reference</div><div className="font-medium">{selectedItem.caseReference || 'N/A'}</div></div>\n                <div><div className="text-xs text-slate-400">Status</div><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{selectedItem.status}</Badge></div>\n                <div><div className="text-xs text-slate-400">Author</div><div className="font-medium">{selectedItem.author || 'N/A'}</div></div>
+                <div><div className="text-xs text-slate-400">Document No.</div><div className="font-mono text-lg">{selectedItem.documentNumber}</div></div>
+                <div><div className="text-xs text-slate-400">Title</div><div className="font-medium">{selectedItem.title || 'N/A'}</div></div>
+                {selectedItem.description && (<div><div className="text-xs text-slate-400">Description</div><div className="text-sm bg-white/5 p-3 rounded-md mt-1">{selectedItem.description}</div></div>)}
+                <div><div className="text-xs text-slate-400">File Type</div><div className="font-medium">{selectedItem.fileType || 'N/A'}</div></div>
+                <div><div className="text-xs text-slate-400">Case Reference</div><div className="font-medium">{selectedItem.caseReference || 'N/A'}</div></div>
+                <div><div className="text-xs text-slate-400">Status</div><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{selectedItem.status}</Badge></div>
+                <div><div className="text-xs text-slate-400">Author</div><div className="font-medium">{selectedItem.author || 'N/A'}</div></div>
               </div>
             </div>
           )}

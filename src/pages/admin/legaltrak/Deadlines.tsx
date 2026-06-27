@@ -10,7 +10,14 @@ import { createResource, deleteResource, listResource, updateResource } from "@/
 
 interface LegalDeadline {
   id: string;
-  deadlineNumber: string;\n  title: string;\n  description?: string;\n  dueDate?: string;\n  caseReference?: string;\n  assignedTo?: string;\n  status?: "Pending" | "Met" | "Missed";\n  priority?: "Low" | "Medium" | "High" | "Critical";
+  deadlineNumber: string;
+  title: string;
+  description?: string;
+  dueDate?: string;
+  caseReference?: string;
+  assignedTo?: string;
+  status?: "Pending" | "Met" | "Missed";
+  priority?: "Low" | "Medium" | "High" | "Critical";
   createdAt?: string;
   updatedAt?: string;
 }
@@ -33,7 +40,13 @@ export default function Deadlines() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
-    title: "",\n    description: "",\n    dueDate: "",\n    caseReference: "",\n    assignedTo: "",\n    status: "Pending",\n    priority: "Medium"
+    title: "",
+    description: "",
+    dueDate: "",
+    caseReference: "",
+    assignedTo: "",
+    status: "Pending",
+    priority: "Medium"
   });
 
   const loadData = async () => {
@@ -49,7 +62,13 @@ export default function Deadlines() {
 
   const resetForm = () => {
     setFormData({
-    title: "",\n    description: "",\n    dueDate: "",\n    caseReference: "",\n    assignedTo: "",\n    status: "Pending",\n    priority: "Medium"
+    title: "",
+    description: "",
+    dueDate: "",
+    caseReference: "",
+    assignedTo: "",
+    status: "Pending",
+    priority: "Medium"
     });
   };
 
@@ -73,7 +92,13 @@ export default function Deadlines() {
   const handleEditOpen = (c: LegalDeadline) => {
     setSelectedItem(c);
     setFormData({
-      title: c.title || "",\n      description: c.description || "",\n      dueDate: c.dueDate ? c.dueDate.split("T")[0] : "",\n      caseReference: c.caseReference || "",\n      assignedTo: c.assignedTo || "",\n      status: c.status || "",\n      priority: c.priority || ""
+      title: c.title || "",
+      description: c.description || "",
+      dueDate: c.dueDate ? c.dueDate.split("T")[0] : "",
+      caseReference: c.caseReference || "",
+      assignedTo: c.assignedTo || "",
+      status: c.status || "",
+      priority: c.priority || ""
     });
     setEditOpen(true);
   };
@@ -114,7 +139,13 @@ export default function Deadlines() {
 
   const renderFormFields = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Title *</label><input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Title" required /></div>\n      <div className="space-y-1 sm:col-span-2"><label className="text-xs font-medium text-slate-300">Description </label><textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none h-24" placeholder="Description..." /></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Due Date </label><input type="date" value={formData.dueDate} onChange={e => setFormData({...formData, dueDate: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Due Date"  /></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Case Reference </label><input type="text" value={formData.caseReference} onChange={e => setFormData({...formData, caseReference: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Case Reference"  /></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Assigned To </label><input type="text" value={formData.assignedTo} onChange={e => setFormData({...formData, assignedTo: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Assigned To"  /></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Status </label><select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as any})} className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"><option value="Pending">Pending</option><option value="Met">Met</option><option value="Missed">Missed</option></select></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Priority </label><select value={formData.priority} onChange={e => setFormData({...formData, priority: e.target.value as any})} className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"><option value="Low">Low</option><option value="Medium">Medium</option><option value="High">High</option><option value="Critical">Critical</option></select></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Title *</label><input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Title" required /></div>
+      <div className="space-y-1 sm:col-span-2"><label className="text-xs font-medium text-slate-300">Description </label><textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none h-24" placeholder="Description..." /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Due Date </label><input type="date" value={formData.dueDate} onChange={e => setFormData({...formData, dueDate: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Due Date"  /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Case Reference </label><input type="text" value={formData.caseReference} onChange={e => setFormData({...formData, caseReference: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Case Reference"  /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Assigned To </label><input type="text" value={formData.assignedTo} onChange={e => setFormData({...formData, assignedTo: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Assigned To"  /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Status </label><select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as any})} className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"><option value="Pending">Pending</option><option value="Met">Met</option><option value="Missed">Missed</option></select></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Priority </label><select value={formData.priority} onChange={e => setFormData({...formData, priority: e.target.value as any})} className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"><option value="Low">Low</option><option value="Medium">Medium</option><option value="High">High</option><option value="Critical">Critical</option></select></div>
     </div>
   );
 
@@ -173,7 +204,13 @@ export default function Deadlines() {
           <Table>
             <TableHeader className="bg-black/20 hover:bg-black/20">
               <TableRow className="border-white/10 hover:bg-transparent">
-                <TableHead className="text-slate-400">Deadline No.</TableHead>\n                <TableHead className="text-slate-400">Title</TableHead>\n                <TableHead className="text-slate-400">Due Date</TableHead>\n                <TableHead className="text-slate-400">Case Reference</TableHead>\n                <TableHead className="text-slate-400">Assigned To</TableHead>\n                <TableHead className="text-slate-400">Status</TableHead>\n                <TableHead className="text-slate-400">Priority</TableHead>
+                <TableHead className="text-slate-400">Deadline No.</TableHead>
+                <TableHead className="text-slate-400">Title</TableHead>
+                <TableHead className="text-slate-400">Due Date</TableHead>
+                <TableHead className="text-slate-400">Case Reference</TableHead>
+                <TableHead className="text-slate-400">Assigned To</TableHead>
+                <TableHead className="text-slate-400">Status</TableHead>
+                <TableHead className="text-slate-400">Priority</TableHead>
                 <TableHead className="text-right text-slate-400">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -185,7 +222,13 @@ export default function Deadlines() {
               ) : (
                 filteredItems.map((c) => (
                   <TableRow key={c.id} className="border-white/10 hover:bg-white/5 transition-colors">
-                    <TableCell className="font-mono text-sm text-slate-300">{c.deadlineNumber}</TableCell>\n                    <TableCell className="font-medium text-white">{c.title}</TableCell>\n                    <TableCell className="text-slate-300">{c.dueDate ? new Date(c.dueDate).toLocaleDateString() : 'N/A'}</TableCell>\n                    <TableCell className="text-slate-300">{c.caseReference}</TableCell>\n                    <TableCell className="text-slate-300">{c.assignedTo}</TableCell>\n                    <TableCell><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{c.status}</Badge></TableCell>\n                    <TableCell className="text-slate-300">{c.priority}</TableCell>
+                    <TableCell className="font-mono text-sm text-slate-300">{c.deadlineNumber}</TableCell>
+                    <TableCell className="font-medium text-white">{c.title}</TableCell>
+                    <TableCell className="text-slate-300">{c.dueDate ? new Date(c.dueDate).toLocaleDateString() : 'N/A'}</TableCell>
+                    <TableCell className="text-slate-300">{c.caseReference}</TableCell>
+                    <TableCell className="text-slate-300">{c.assignedTo}</TableCell>
+                    <TableCell><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{c.status}</Badge></TableCell>
+                    <TableCell className="text-slate-300">{c.priority}</TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -228,7 +271,14 @@ export default function Deadlines() {
           {selectedItem && (
             <div className="py-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div><div className="text-xs text-slate-400">Deadline No.</div><div className="font-mono text-lg">{selectedItem.deadlineNumber}</div></div>\n                <div><div className="text-xs text-slate-400">Title</div><div className="font-medium">{selectedItem.title || 'N/A'}</div></div>\n                {selectedItem.description && (<div><div className="text-xs text-slate-400">Description</div><div className="text-sm bg-white/5 p-3 rounded-md mt-1">{selectedItem.description}</div></div>)}\n                <div><div className="text-xs text-slate-400">Due Date</div><div>{selectedItem.dueDate ? new Date(selectedItem.dueDate).toLocaleDateString() : 'N/A'}</div></div>\n                <div><div className="text-xs text-slate-400">Case Reference</div><div className="font-medium">{selectedItem.caseReference || 'N/A'}</div></div>\n                <div><div className="text-xs text-slate-400">Assigned To</div><div className="font-medium">{selectedItem.assignedTo || 'N/A'}</div></div>\n                <div><div className="text-xs text-slate-400">Status</div><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{selectedItem.status}</Badge></div>\n                <div><div className="text-xs text-slate-400">Priority</div><div className="font-medium">{selectedItem.priority || 'N/A'}</div></div>
+                <div><div className="text-xs text-slate-400">Deadline No.</div><div className="font-mono text-lg">{selectedItem.deadlineNumber}</div></div>
+                <div><div className="text-xs text-slate-400">Title</div><div className="font-medium">{selectedItem.title || 'N/A'}</div></div>
+                {selectedItem.description && (<div><div className="text-xs text-slate-400">Description</div><div className="text-sm bg-white/5 p-3 rounded-md mt-1">{selectedItem.description}</div></div>)}
+                <div><div className="text-xs text-slate-400">Due Date</div><div>{selectedItem.dueDate ? new Date(selectedItem.dueDate).toLocaleDateString() : 'N/A'}</div></div>
+                <div><div className="text-xs text-slate-400">Case Reference</div><div className="font-medium">{selectedItem.caseReference || 'N/A'}</div></div>
+                <div><div className="text-xs text-slate-400">Assigned To</div><div className="font-medium">{selectedItem.assignedTo || 'N/A'}</div></div>
+                <div><div className="text-xs text-slate-400">Status</div><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{selectedItem.status}</Badge></div>
+                <div><div className="text-xs text-slate-400">Priority</div><div className="font-medium">{selectedItem.priority || 'N/A'}</div></div>
               </div>
             </div>
           )}

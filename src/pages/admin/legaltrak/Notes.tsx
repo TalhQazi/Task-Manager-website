@@ -10,7 +10,12 @@ import { createResource, deleteResource, listResource, updateResource } from "@/
 
 interface LegalNote {
   id: string;
-  noteNumber: string;\n  title: string;\n  content?: string;\n  caseReference?: string;\n  author?: string;\n  dateAdded?: string;
+  noteNumber: string;
+  title: string;
+  content?: string;
+  caseReference?: string;
+  author?: string;
+  dateAdded?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -33,7 +38,11 @@ export default function Notes() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState({
-    title: "",\n    content: "",\n    caseReference: "",\n    author: "",\n    dateAdded: ""
+    title: "",
+    content: "",
+    caseReference: "",
+    author: "",
+    dateAdded: ""
   });
 
   const loadData = async () => {
@@ -49,7 +58,11 @@ export default function Notes() {
 
   const resetForm = () => {
     setFormData({
-    title: "",\n    content: "",\n    caseReference: "",\n    author: "",\n    dateAdded: ""
+    title: "",
+    content: "",
+    caseReference: "",
+    author: "",
+    dateAdded: ""
     });
   };
 
@@ -73,7 +86,11 @@ export default function Notes() {
   const handleEditOpen = (c: LegalNote) => {
     setSelectedItem(c);
     setFormData({
-      title: c.title || "",\n      content: c.content || "",\n      caseReference: c.caseReference || "",\n      author: c.author || "",\n      dateAdded: c.dateAdded ? c.dateAdded.split("T")[0] : ""
+      title: c.title || "",
+      content: c.content || "",
+      caseReference: c.caseReference || "",
+      author: c.author || "",
+      dateAdded: c.dateAdded ? c.dateAdded.split("T")[0] : ""
     });
     setEditOpen(true);
   };
@@ -114,7 +131,11 @@ export default function Notes() {
 
   const renderFormFields = () => (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Title *</label><input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Title" required /></div>\n      <div className="space-y-1 sm:col-span-2"><label className="text-xs font-medium text-slate-300">Content </label><textarea value={formData.content} onChange={e => setFormData({...formData, content: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none h-24" placeholder="Content..." /></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Case Reference </label><input type="text" value={formData.caseReference} onChange={e => setFormData({...formData, caseReference: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Case Reference"  /></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Author </label><input type="text" value={formData.author} onChange={e => setFormData({...formData, author: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Author"  /></div>\n      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Date Added </label><input type="date" value={formData.dateAdded} onChange={e => setFormData({...formData, dateAdded: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Date Added"  /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Title *</label><input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Title" required /></div>
+      <div className="space-y-1 sm:col-span-2"><label className="text-xs font-medium text-slate-300">Content </label><textarea value={formData.content} onChange={e => setFormData({...formData, content: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none h-24" placeholder="Content..." /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Case Reference </label><input type="text" value={formData.caseReference} onChange={e => setFormData({...formData, caseReference: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Case Reference"  /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Author </label><input type="text" value={formData.author} onChange={e => setFormData({...formData, author: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Author"  /></div>
+      <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Date Added </label><input type="date" value={formData.dateAdded} onChange={e => setFormData({...formData, dateAdded: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Date Added"  /></div>
     </div>
   );
 
@@ -173,7 +194,11 @@ export default function Notes() {
           <Table>
             <TableHeader className="bg-black/20 hover:bg-black/20">
               <TableRow className="border-white/10 hover:bg-transparent">
-                <TableHead className="text-slate-400">Note No.</TableHead>\n                <TableHead className="text-slate-400">Title</TableHead>\n                <TableHead className="text-slate-400">Case Reference</TableHead>\n                <TableHead className="text-slate-400">Author</TableHead>\n                <TableHead className="text-slate-400">Date Added</TableHead>
+                <TableHead className="text-slate-400">Note No.</TableHead>
+                <TableHead className="text-slate-400">Title</TableHead>
+                <TableHead className="text-slate-400">Case Reference</TableHead>
+                <TableHead className="text-slate-400">Author</TableHead>
+                <TableHead className="text-slate-400">Date Added</TableHead>
                 <TableHead className="text-right text-slate-400">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -185,7 +210,11 @@ export default function Notes() {
               ) : (
                 filteredItems.map((c) => (
                   <TableRow key={c.id} className="border-white/10 hover:bg-white/5 transition-colors">
-                    <TableCell className="font-mono text-sm text-slate-300">{c.noteNumber}</TableCell>\n                    <TableCell className="font-medium text-white">{c.title}</TableCell>\n                    <TableCell className="text-slate-300">{c.caseReference}</TableCell>\n                    <TableCell className="text-slate-300">{c.author}</TableCell>\n                    <TableCell className="text-slate-300">{c.dateAdded ? new Date(c.dateAdded).toLocaleDateString() : 'N/A'}</TableCell>
+                    <TableCell className="font-mono text-sm text-slate-300">{c.noteNumber}</TableCell>
+                    <TableCell className="font-medium text-white">{c.title}</TableCell>
+                    <TableCell className="text-slate-300">{c.caseReference}</TableCell>
+                    <TableCell className="text-slate-300">{c.author}</TableCell>
+                    <TableCell className="text-slate-300">{c.dateAdded ? new Date(c.dateAdded).toLocaleDateString() : 'N/A'}</TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -228,7 +257,12 @@ export default function Notes() {
           {selectedItem && (
             <div className="py-4 space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div><div className="text-xs text-slate-400">Note No.</div><div className="font-mono text-lg">{selectedItem.noteNumber}</div></div>\n                <div><div className="text-xs text-slate-400">Title</div><div className="font-medium">{selectedItem.title || 'N/A'}</div></div>\n                {selectedItem.content && (<div><div className="text-xs text-slate-400">Content</div><div className="text-sm bg-white/5 p-3 rounded-md mt-1">{selectedItem.content}</div></div>)}\n                <div><div className="text-xs text-slate-400">Case Reference</div><div className="font-medium">{selectedItem.caseReference || 'N/A'}</div></div>\n                <div><div className="text-xs text-slate-400">Author</div><div className="font-medium">{selectedItem.author || 'N/A'}</div></div>\n                <div><div className="text-xs text-slate-400">Date Added</div><div>{selectedItem.dateAdded ? new Date(selectedItem.dateAdded).toLocaleDateString() : 'N/A'}</div></div>
+                <div><div className="text-xs text-slate-400">Note No.</div><div className="font-mono text-lg">{selectedItem.noteNumber}</div></div>
+                <div><div className="text-xs text-slate-400">Title</div><div className="font-medium">{selectedItem.title || 'N/A'}</div></div>
+                {selectedItem.content && (<div><div className="text-xs text-slate-400">Content</div><div className="text-sm bg-white/5 p-3 rounded-md mt-1">{selectedItem.content}</div></div>)}
+                <div><div className="text-xs text-slate-400">Case Reference</div><div className="font-medium">{selectedItem.caseReference || 'N/A'}</div></div>
+                <div><div className="text-xs text-slate-400">Author</div><div className="font-medium">{selectedItem.author || 'N/A'}</div></div>
+                <div><div className="text-xs text-slate-400">Date Added</div><div>{selectedItem.dateAdded ? new Date(selectedItem.dateAdded).toLocaleDateString() : 'N/A'}</div></div>
               </div>
             </div>
           )}
