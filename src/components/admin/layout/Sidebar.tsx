@@ -47,6 +47,12 @@ import {
   ShoppingCart,
   Mail,
   Book,
+  Gavel,
+  Briefcase,
+  Scale,
+  FileCheck,
+  ListTodo,
+  Contact,
 } from "lucide-react";
 
 
@@ -170,6 +176,23 @@ const navItemsBase: NavItem[] = [
   { icon: Archive, label: "Archive Data", path: "/admin/archive-data" },
   { icon: Quote, label: "Founder Messages", path: "/admin/founder-messages" },
   { icon: ImageIcon, label: "Memes", path: "/admin/memes" },
+  {
+    icon: Gavel,
+    label: "Legal Tracker",
+    children: [
+      { icon: Briefcase, label: "Cases", path: "/admin/legal/cases" },
+      { icon: Calendar, label: "Deadlines", path: "/admin/legal/deadlines" },
+      { icon: Calendar, label: "Calendar", path: "/admin/legal/calendar" },
+      { icon: FileText, label: "Documents", path: "/admin/legal/documents" },
+      { icon: Scale, label: "Evidence", path: "/admin/legal/evidence" },
+      { icon: FileCheck, label: "Filings", path: "/admin/legal/filings" },
+      { icon: ListTodo, label: "Tasks", path: "/admin/legal/tasks" },
+      { icon: Contact, label: "Contacts", path: "/admin/legal/contacts" },
+      { icon: FileText, label: "Notes", path: "/admin/legal/notes" },
+      { icon: Bell, label: "Notifications", path: "/admin/legal/notifications" },
+      { icon: BarChart3, label: "Reports", path: "/admin/legal/reports" },
+    ],
+  },
   {
     label: "Personal Notes",
     path: "/admin/personal-notes",
