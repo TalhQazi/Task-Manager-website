@@ -16,11 +16,7 @@ interface ApprovalItem {
 
 const Approvals: React.FC = () => {
   const { stats, activeRole, activeEntity } = useAtlasBooks();
-  const [items, setItems] = useState<ApprovalItem[]>([
-    { id: "APP-301", requester: "John Connor (Ops)", type: "Vendor Payment", details: "Wire payment transfer to Cyberdyne Systems", amount: 145000, signersRequired: ["Executive", "Accountant"], signersApproved: ["Accountant"], status: "Pending" },
-    { id: "APP-302", requester: "Sarah Connor (Eng)", type: "Contract Sign-Off", details: "AWS multi-year SaaS renewal agreement", signersRequired: ["Executive"], signersApproved: [], status: "Pending" },
-    { id: "APP-303", requester: "Kate Brewster (HR)", type: "New Hire Base", details: "Staff Senior Auditor salary tier authorization", amount: 95000, signersRequired: ["Executive", "Auditor"], signersApproved: ["Auditor"], status: "Pending" }
-  ]);
+  const [items, setItems] = useState<ApprovalItem[]>([]);
 
   const handleAction = (id: string, action: "Approved" | "Rejected") => {
     setItems(prev =>

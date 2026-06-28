@@ -13,10 +13,7 @@ interface DeclineAlert {
 
 const CashDeclines: React.FC = () => {
   const { stats, activeEntity } = useAtlasBooks();
-  const [alerts, setAlerts] = useState<DeclineAlert[]>([
-    { id: "CD-301", source: "Los Angeles Division", trigger: "Cash reserves dropped below 15% threshold", variance: "-$125,000", status: "Active" },
-    { id: "CD-302", source: "Silicon Office Tech Hub", trigger: "Utility CapEx overrun exceeding budget line", variance: "-$34,000", status: "Active" }
-  ]);
+  const [alerts, setAlerts] = useState<DeclineAlert[]>([]);
 
   const handleSweep = (id: string) => {
     setAlerts(prev =>
@@ -40,8 +37,8 @@ const CashDeclines: React.FC = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <KpiCard title="Active Cash Dips" value={`${activeCount} Warnings`} icon={AlertTriangle} subtitle="Exceeds 10% cash decline variance" />
-        <KpiCard title="Group Cash Position" value={stats.cashPosition} icon={Landmark} subtitle="Consolidated pool cash" />
-        <KpiCard title="Buffer Protection" value="Active sweep" icon={ShieldCheck} subtitle="Automatic intercompany refills" />
+        <KpiCard title="Group Cash Position" value={stats.cashPosition || 0} icon={Landmark} subtitle="Consolidated pool cash" />
+        <KpiCard title="Buffer Protection" value={alerts.length > 0 ? "Active sweep" : "N/A"} icon={ShieldCheck} subtitle="Automatic intercompany refills" />
       </div>
 
       <div className="bg-zinc-900 border border-zinc-800/80 rounded-xl p-5 space-y-4">

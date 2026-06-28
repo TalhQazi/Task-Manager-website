@@ -18,7 +18,7 @@ export default function AtlasModule({ title, features, accounts, icon: Icon = Bo
             {Icon && <Icon className="h-8 w-8 text-primary" />}
             {title}
           </h1>
-          <p className="text-muted-foreground">Comprehensive module management within AtlasBook.</p>
+          <p className="text-muted-foreground">Comprehensive module management within AtlasBooks.</p>
         </div>
       </div>
 
@@ -63,7 +63,7 @@ export default function AtlasModule({ title, features, accounts, icon: Icon = Bo
           <div className="space-y-1">
             <h3 className="text-xl font-bold">Module under active development</h3>
             <p className="text-muted-foreground max-w-sm mx-auto">
-              This module is being integrated into the core AtlasBook engine. Data visualization and interactive management tools will appear here soon.
+              This module is being integrated into the core AtlasBooks engine. Data visualization and interactive management tools will appear here soon.
             </p>
           </div>
         </CardContent>

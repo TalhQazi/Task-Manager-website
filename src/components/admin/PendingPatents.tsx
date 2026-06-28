@@ -221,7 +221,7 @@ export function PendingPatents() {
               Add Patent
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent className="w-[95vw] max-w-md flex flex-col max-h-[90vh]">
             <DialogHeader>
               <DialogTitle>
                 {selectedPatent ? "Edit Patent" : "New Patent"}
@@ -230,7 +230,7 @@ export function PendingPatents() {
                 Track patents in development stages
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-4 overflow-y-auto flex-1 pr-1">
               <div>
                 <label className="text-sm font-medium">Patent Name *</label>
                 <input
@@ -325,21 +325,21 @@ export function PendingPatents() {
                   rows={3}
                 />
               </div>
-              <div className="flex gap-2 pt-4">
-                <Button
-                  onClick={handleSave}
-                  className="flex-1"
-                >
-                  {selectedPatent ? "Update" : "Create"}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setIsDialogOpen(false)}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-              </div>
+            </div>
+            <div className="flex gap-2 pt-4 border-t mt-2">
+              <Button
+                onClick={handleSave}
+                className="flex-1"
+              >
+                {selectedPatent ? "Update" : "Create"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setIsDialogOpen(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

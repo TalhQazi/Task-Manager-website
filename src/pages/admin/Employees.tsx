@@ -354,8 +354,9 @@ const Employees = () => {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load employees");
       } finally {
-        if (!mounted) return;
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 

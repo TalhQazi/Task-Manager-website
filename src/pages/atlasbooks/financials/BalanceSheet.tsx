@@ -1,27 +1,64 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useAtlasBooks } from "../../../contexts/AtlasBooksContext";
+import { apiFetch } from "../../../lib/api";
 import { KpiCard } from "../../../components/atlasbooks/KpiCard";
 import { HighContrastChart } from "../../../components/atlasbooks/HighContrastChart";
 import { Landmark, ShieldCheck, DollarSign, Wallet, FileDown } from "lucide-react";
 
 const BalanceSheet: React.FC = () => {
-  const { stats, timeframe, activeEntity } = useAtlasBooks();
+  const { timeframe, activeEntity } = useAtlasBooks();
+  
+  const [data, setData] = useState<any>({
+    cash: 0, ar: 0, inventory: 0, fixedAssets: 0,
+    ap: 0, shortDebt: 0, longDebt: 0, equity: 0,
+    totalAssets: 0, totalLiabilities: 0
+  });
 
-  // Mock balance values calculated from cashPosition
-  const cash = stats.cashPosition;
-  const ar = stats.accountsReceivable;
-  const inventory = Math.round(cash * 0.15);
-  const fixedAssets = Math.round(cash * 1.8);
-  const totalAssets = cash + ar + inventory + fixedAssets;
+  useEffect(() => {
+    const fetchBS = async () => {
+      try {
+        const res = await apiFetch<any>("/api/atlasbook/reports/balance-sheet");
+        
+        let cash = 0, ar = 0, inventory = 0, fixedAssets = 0, otherAssets = 0;
+        let ap = 0, shortDebt = 0, longDebt = 0, otherLiab = 0;
+        
+        (res.assets || []).forEach((a: any) => {
+          const name = a.name.toLowerCase();
+          if (name.includes("cash") || name.includes("bank")) cash += a.balance;
+          else if (name.includes("receivable") || name.includes("ar")) ar += a.balance;
+          else if (name.includes("inventory")) inventory += a.balance;
+          else if (name.includes("asset") || name.includes("property") || name.includes("equipment")) fixedAssets += a.balance;
+          else otherAssets += a.balance;
+        });
 
-  const ap = stats.accountsPayable;
-  const shortDebt = Math.round(cash * 0.25);
-  const longDebt = Math.round(cash * 0.85);
-  const totalLiabilities = ap + shortDebt + longDebt;
+        (res.liabilities || []).forEach((l: any) => {
+          const name = l.name.toLowerCase();
+          const bal = Math.abs(l.balance);
+          if (name.includes("payable") || name.includes("ap")) ap += bal;
+          else if (name.includes("short") || name.includes("current")) shortDebt += bal;
+          else if (name.includes("long") || name.includes("loan") || name.includes("mortgage")) longDebt += bal;
+          else otherLiab += bal;
+        });
 
-  const equity = totalAssets - totalLiabilities;
-  const workingCapital = (cash + ar) - (ap + shortDebt);
-  const debtToEquity = (totalLiabilities / equity).toFixed(2);
+        // Use the fallback if the totals don't match exactly due to categorization, but the total is from API
+        const totalAssets = res.totalAssets || 0;
+        const totalLiabilities = res.totalLiabilities || 0;
+        const equity = res.totalEquity || (totalAssets - totalLiabilities);
+
+        setData({
+          cash, ar, inventory, fixedAssets: fixedAssets + otherAssets,
+          ap, shortDebt, longDebt: longDebt + otherLiab,
+          equity, totalAssets, totalLiabilities
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchBS();
+  }, []);
+
+  const workingCapital = (data.cash + data.ar) - (data.ap + data.shortDebt);
+  const debtToEquity = data.equity ? (data.totalLiabilities / data.equity).toFixed(2) : "0.00";
 
   return (
     <div className="space-y-6">
@@ -41,9 +78,9 @@ const BalanceSheet: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <KpiCard title="Total Assets" value={totalAssets} icon={DollarSign} subtitle={`Cash Asset: $${cash.toLocaleString()}`} />
-        <KpiCard title="Total Liabilities" value={totalLiabilities} icon={Landmark} subtitle={`Debt Obligations: $${(shortDebt + longDebt).toLocaleString()}`} />
-        <KpiCard title="Retained Equity" value={equity} icon={Wallet} subtitle={`Calculated Net Capital`} />
+        <KpiCard title="Total Assets" value={data.totalAssets} icon={DollarSign} subtitle={`Cash Asset: $${data.cash.toLocaleString()}`} />
+        <KpiCard title="Total Liabilities" value={data.totalLiabilities} icon={Landmark} subtitle={`Debt Obligations: $${(data.shortDebt + data.longDebt).toLocaleString()}`} />
+        <KpiCard title="Retained Equity" value={data.equity} icon={Wallet} subtitle={`Calculated Net Capital`} />
         <KpiCard title="Working Capital" value={workingCapital} icon={ShieldCheck} subtitle={`Debt-to-Equity Ratio: ${debtToEquity}`} />
       </div>
 
@@ -64,23 +101,23 @@ const BalanceSheet: React.FC = () => {
               <tbody className="divide-y divide-zinc-900">
                 <tr className="hover:bg-zinc-950/40">
                   <td className="py-3 text-zinc-200">Cash and equivalents</td>
-                  <td className="py-3 text-right text-emerald-400 font-bold">${cash.toLocaleString()}</td>
+                  <td className="py-3 text-right text-emerald-400 font-bold">${data.cash.toLocaleString()}</td>
                 </tr>
                 <tr className="hover:bg-zinc-950/40">
                   <td className="py-3 text-zinc-300">Accounts Receivable (A/R)</td>
-                  <td className="py-3 text-right">${ar.toLocaleString()}</td>
+                  <td className="py-3 text-right">${data.ar.toLocaleString()}</td>
                 </tr>
                 <tr className="hover:bg-zinc-950/40">
                   <td className="py-3 text-zinc-300">Inventory reserves</td>
-                  <td className="py-3 text-right">${inventory.toLocaleString()}</td>
+                  <td className="py-3 text-right">${data.inventory.toLocaleString()}</td>
                 </tr>
                 <tr className="hover:bg-zinc-950/40">
                   <td className="py-3 text-zinc-300">Property, Plant & Equipment (PPE)</td>
-                  <td className="py-3 text-right">${fixedAssets.toLocaleString()}</td>
+                  <td className="py-3 text-right">${data.fixedAssets.toLocaleString()}</td>
                 </tr>
                 <tr className="border-t border-zinc-800 bg-zinc-950/40 font-bold text-white">
                   <td className="py-3.5">TOTAL CONSOLIDATED ASSETS</td>
-                  <td className="py-3.5 text-right text-amber-500">${totalAssets.toLocaleString()}</td>
+                  <td className="py-3.5 text-right text-amber-500">${data.totalAssets.toLocaleString()}</td>
                 </tr>
               </tbody>
             </table>
@@ -103,27 +140,27 @@ const BalanceSheet: React.FC = () => {
               <tbody className="divide-y divide-zinc-900">
                 <tr className="hover:bg-zinc-950/40">
                   <td className="py-3 text-zinc-300">Accounts Payable (A/P)</td>
-                  <td className="py-3 text-right text-rose-400">-${ap.toLocaleString()}</td>
+                  <td className="py-3 text-right text-rose-400">-${data.ap.toLocaleString()}</td>
                 </tr>
                 <tr className="hover:bg-zinc-950/40">
                   <td className="py-3 text-zinc-300">Short-term notes / debt</td>
-                  <td className="py-3 text-right">-${shortDebt.toLocaleString()}</td>
+                  <td className="py-3 text-right">-${data.shortDebt.toLocaleString()}</td>
                 </tr>
                 <tr className="hover:bg-zinc-950/40">
                   <td className="py-3 text-zinc-300">Long-term leverage commitments</td>
-                  <td className="py-3 text-right">-${longDebt.toLocaleString()}</td>
+                  <td className="py-3 text-right">-${data.longDebt.toLocaleString()}</td>
                 </tr>
                 <tr className="hover:bg-zinc-950/40 bg-zinc-950/10 font-semibold text-zinc-200">
                   <td className="py-3 pl-2">Total Liabilities</td>
-                  <td className="py-3 text-right text-rose-400 font-bold">${totalLiabilities.toLocaleString()}</td>
+                  <td className="py-3 text-right text-rose-400 font-bold">${data.totalLiabilities.toLocaleString()}</td>
                 </tr>
                 <tr className="hover:bg-zinc-950/40">
                   <td className="py-3 text-zinc-300">Shareholder capital & retained earnings</td>
-                  <td className="py-3 text-right">${equity.toLocaleString()}</td>
+                  <td className="py-3 text-right">${data.equity.toLocaleString()}</td>
                 </tr>
                 <tr className="border-t border-zinc-800 bg-zinc-950/40 font-bold text-white">
                   <td className="py-3.5">TOTAL LIABILITIES & EQUITY</td>
-                  <td className="py-3.5 text-right text-amber-500">${(totalLiabilities + equity).toLocaleString()}</td>
+                  <td className="py-3.5 text-right text-amber-500">${(data.totalLiabilities + data.equity).toLocaleString()}</td>
                 </tr>
               </tbody>
             </table>

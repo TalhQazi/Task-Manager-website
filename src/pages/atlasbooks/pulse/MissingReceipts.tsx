@@ -14,10 +14,7 @@ interface MissingReceipt {
 
 const MissingReceipts: React.FC = () => {
   const { activeEntity } = useAtlasBooks();
-  const [receipts, setReceipts] = useState<MissingReceipt[]>([
-    { id: "MR-201", employee: "John Connor (Ops)", merchant: "Uber Ride NY", amount: 48.50, date: "2026-06-02", resolved: false },
-    { id: "MR-202", employee: "Sarah Connor (Eng)", merchant: "Github Seats Subscription", amount: 120.00, date: "2026-05-28", resolved: false }
-  ]);
+  const [receipts, setReceipts] = useState<MissingReceipt[]>([]);
 
   const handleResolve = (id: string) => {
     setReceipts(prev =>
@@ -42,7 +39,7 @@ const MissingReceipts: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <KpiCard title="Missing Attachments" value={`${activeCount} Expenses`} icon={CreditCard} subtitle="Card sync transactions lacking receipts" />
         <KpiCard title="Outstanding Audit Value" value={totalOutstanding} icon={FileImage} subtitle="Lacks tax deduction proof" />
-        <KpiCard title="Audit compliance" value="Auto-flagging active" icon={ShieldCheck} subtitle="Matching crawler active" />
+        <KpiCard title="Audit compliance" value={receipts.length > 0 ? "Auto-flagging active" : "N/A"} icon={ShieldCheck} subtitle="Matching crawler active" />
       </div>
 
       <div className="bg-zinc-900 border border-zinc-800/80 rounded-xl p-5 space-y-4">

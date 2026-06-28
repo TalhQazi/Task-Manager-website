@@ -114,8 +114,8 @@ export function ExpiredPatents() {
   };
 
   const handleSave = async () => {
-    if (!formData.patentName || !formData.filingDate || !formData.applicationNumber) {
-      setApiError("Patent Name, Filing Date, and Application Number are required");
+    if (!formData.patentName) {
+      setApiError("Patent Name is required");
       return;
     }
 
@@ -123,7 +123,9 @@ export function ExpiredPatents() {
       setIsSubmitting(true);
       setApiError(null);
 
-      const expirationDate = calculateExpiration(formData.filingDate, formData.filingType!);
+      const expirationDate = formData.filingDate
+        ? calculateExpiration(formData.filingDate, formData.filingType!)
+        : "";
       const payload = {
         ...formData,
         provisionalExpiration: expirationDate,

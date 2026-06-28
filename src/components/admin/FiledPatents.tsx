@@ -132,8 +132,8 @@ export function FiledPatents() {
   };
 
   const handleSave = async () => {
-    if (!formData.patentName || !formData.filingDate || !formData.applicationNumber) {
-      setApiError("Patent Name, Filing Date, and Application Number are required");
+    if (!formData.patentName) {
+      setApiError("Patent Name is required");
       return;
     }
 
@@ -142,7 +142,7 @@ export function FiledPatents() {
       setApiError(null);
 
       const expirationDate =
-        formData.filingType === "Provisional"
+        formData.filingType === "Provisional" && formData.filingDate
           ? calculateExpiration(formData.filingDate, formData.filingType!)
           : "";
 
@@ -224,14 +224,20 @@ export function FiledPatents() {
             </Button>
           </DialogTrigger>
 
-          <DialogContent className="w-[95vw] max-w-md">
+          <DialogContent className="w-[95vw] max-w-md flex flex-col max-h-[90vh]">
             <DialogHeader>
               <DialogTitle>
                 {selectedPatent ? "Edit Patent" : "Add New Patent"}
               </DialogTitle>
             </DialogHeader>
 
-            <div className="space-y-4">
+            {apiError && (
+              <div className="rounded-lg bg-red-100 p-3 border border-red-300 dark:bg-red-900/30 dark:border-red-700">
+                <p className="text-sm text-red-800 dark:text-red-400">{apiError}</p>
+              </div>
+            )}
+
+            <div className="space-y-4 overflow-y-auto flex-1 pr-1">
               <div>
                 <label className="text-sm font-medium">Patent Name</label>
                 <input

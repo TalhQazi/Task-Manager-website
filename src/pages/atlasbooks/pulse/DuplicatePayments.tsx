@@ -14,10 +14,7 @@ interface DuplicatePayment {
 
 const DuplicatePayments: React.FC = () => {
   const { activeEntity } = useAtlasBooks();
-  const [duplicates, setDuplicates] = useState<DuplicatePayment[]>([
-    { invoiceNo: "VND-9081", vendor: "Cyberdyne Systems", amount: 4250, payoutDate1: "2026-06-01 10:14", payoutDate2: "2026-06-01 10:18", resolved: false },
-    { invoiceNo: "VND-2330", vendor: "Miami HVAC Pro", amount: 18500, payoutDate1: "2026-05-25 14:02", payoutDate2: "2026-05-25 14:05", resolved: false }
-  ]);
+  const [duplicates, setDuplicates] = useState<DuplicatePayment[]>([]);
 
   const handleResolve = (invoiceNo: string) => {
     setDuplicates(prev =>
@@ -43,7 +40,7 @@ const DuplicatePayments: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <KpiCard title="Duplicate Incidents" value={`${activeCount} Events`} icon={ShieldAlert} subtitle="Exceeds duplicate match score thresholds" />
         <KpiCard title="Potential double-billing total" value={totalWasted} icon={DollarSign} subtitle="Amounts flagged for recovery" />
-        <KpiCard title="Reconciliation Status" value="Auto-flagging active" icon={Check} subtitle="Ledger crawler active" />
+        <KpiCard title="Reconciliation Status" value={duplicates.length > 0 ? "Auto-flagging active" : "N/A"} icon={Check} subtitle="Ledger crawler active" />
       </div>
 
       <div className="bg-zinc-900 border border-zinc-800/80 rounded-xl p-5 space-y-4">

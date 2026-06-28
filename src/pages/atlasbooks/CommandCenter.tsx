@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAtlasBooks } from "../../contexts/AtlasBooksContext";
+import { apiFetch } from "../../lib/api";
 import { KpiCard } from "../../components/atlasbooks/KpiCard";
 import { ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 import { 
@@ -25,11 +26,7 @@ interface TaskItem {
 
 const CommandCenter: React.FC = () => {
   const { timeframe, activeEntity } = useAtlasBooks();
-  const [tasks, setTasks] = useState<TaskItem[]>([
-    { id: "T1", label: "Review Lease Agreements", checked: true },
-    { id: "T2", label: "Approve Invoices", checked: true },
-    { id: "T3", label: "Schedule Property Inspection", checked: true }
-  ]);
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
 
   const toggleTask = (id: string) => {
     setTasks(prev =>
@@ -37,38 +34,71 @@ const CommandCenter: React.FC = () => {
     );
   };
 
-  // Mock data for the exact Cash Flow Composed Chart
-  const cashFlowData = [
-    { name: "Jan", Income: 220, Expenses: 180, NetCashFlow: 140 },
-    { name: "Jan", Income: 480, Expenses: 220, NetCashFlow: 230 },
-    { name: "May", Income: 580, Expenses: 320, NetCashFlow: 190 },
-    { name: "Man", Income: 620, Expenses: 480, NetCashFlow: 380 },
-    { name: "Jun", Income: 720, Expenses: 510, NetCashFlow: 280 },
-    { name: "Jun", Income: 900, Expenses: 440, NetCashFlow: 360 },
-    { name: "Jul", Income: 980, Expenses: 550, NetCashFlow: 540 }
-  ];
+  const [kpiData, setKpiData] = useState({ balance: 0, income: 0, expenses: 0, occupancy: 0 });
+  const [cashFlowData, setCashFlowData] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<TransactionRow[]>([]);
+  const [vendors, setVendors] = useState<VendorRow[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [plRes, bsRes, unitRes, txRes, billsRes] = await Promise.all([
+          apiFetch<any>("/api/atlasbook/reports/pl"),
+          apiFetch<any>("/api/atlasbook/reports/balance-sheet"),
+          apiFetch<any>("/api/atlasbook/units"),
+          apiFetch<any>("/api/atlasbook/transactions"),
+          apiFetch<any>("/api/atlasbook/bills")
+        ]);
+
+        const balance = bsRes.totalAssets || 0;
+        const income = plRes.revenue || 0;
+        const expenses = plRes.expenses || 0;
+
+        const units = unitRes.items || [];
+        const occupied = units.filter((u: any) => u.status === 'Occupied').length;
+        const occupancy = units.length > 0 ? Math.round((occupied / units.length) * 100) : 0;
+
+        setKpiData({ balance, income, expenses, occupancy });
+
+        const txs = (txRes.items || []).slice(0, 5).map((t: any) => ({
+          label: t.description || t.type || 'Transaction',
+          value: `$${t.amount.toLocaleString()}`
+        }));
+        setTransactions(txs);
+
+        const billItems = billsRes.items || [];
+        const vMap = new Map();
+        billItems.forEach((b: any) => {
+           const name = b.vendor?.name || 'Unknown';
+           vMap.set(name, (vMap.get(name) || 0) + b.amount);
+        });
+        const topVendors = Array.from(vMap.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([name, amount]) => ({
+             name, amount: `$${amount.toLocaleString()}`
+          }));
+        setVendors(topVendors);
+
+        const recentTxs = txRes.items || [];
+        const cfData = recentTxs.slice(0, 7).map((t: any) => ({
+          name: new Date(t.date || t.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
+          Income: t.type === 'Income' ? t.amount : 0,
+          Expenses: t.type === 'Expense' ? t.amount : 0,
+          NetCashFlow: (t.type === 'Income' ? t.amount : -t.amount)
+        }));
+        setCashFlowData(cfData.reverse());
+      } catch(e) {
+        console.error("Failed to fetch command center data", e);
+      }
+    };
+    fetchData();
+  }, []);
 
   // Property Heatmap Matrix data (mockup uses colored cells)
   const heatmapRows = [
-    { name: "Properties A", cells: ["bg-emerald-600", "bg-emerald-600", "bg-yellow-400", "bg-lime-400", "bg-emerald-600", "bg-emerald-700"] },
-    { name: "Properties B", cells: ["bg-emerald-600", "bg-lime-500", "bg-rose-600", "bg-amber-500", "bg-amber-500", "bg-rose-500"] },
-    { name: "Properties C", cells: ["bg-emerald-600", "bg-lime-400", "bg-amber-500", "bg-amber-500", "bg-rose-600", "bg-rose-500"] },
-    { name: "Properties D", cells: ["bg-emerald-600", "bg-lime-500", "bg-emerald-600", "bg-emerald-600", "bg-rose-600", "bg-rose-600"] },
-    { name: "Properties E", cells: ["bg-[#1b5e20]", "bg-emerald-600", "bg-emerald-600", "bg-emerald-700", "bg-emerald-600", "bg-emerald-700"] }
-  ];
-
-  const transactions: TransactionRow[] = [
-    { label: "Rent Received", value: "$1,200" },
-    { label: "Office Supplies", value: "$3,000" },
-    { label: "Maintenance Fee", value: "$2,800" },
-    { label: "Legal Consulting", value: "$2,800" }
-  ];
-
-  const vendors: VendorRow[] = [
-    { name: "Home Depot", amount: "$4,500" },
-    { name: "Staples", amount: "$3,200" },
-    { name: "ABC Plumbing", amount: "$2,800" },
-    { name: "Direct Utilities", amount: "$2,800" }
+    { name: "Main HQ", cells: ["bg-emerald-500", "bg-emerald-500", "bg-emerald-500", "bg-yellow-400", "bg-emerald-500", "bg-emerald-500"] },
+    { name: "Downtown Annex", cells: ["bg-rose-500", "bg-yellow-400", "bg-emerald-500", "bg-emerald-500", "bg-emerald-500", "bg-emerald-500"] }
   ];
 
   return (
@@ -78,22 +108,22 @@ const CommandCenter: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <KpiCard
           title="Company Balance"
-          value="$1,250,750"
+          value={`$${kpiData.balance.toLocaleString()}`}
           subtitle={`Scope: ${activeEntity.name}`}
         />
         <KpiCard
           title="Monthly Income"
-          value="$85,420"
+          value={`$${kpiData.income.toLocaleString()}`}
           subtitle="Cleared revenue deposits"
         />
         <KpiCard
           title="Monthly Expenses"
-          value="$42,350"
+          value={`$${kpiData.expenses.toLocaleString()}`}
           subtitle="Operating overhead burns"
         />
         <KpiCard
           title="Occupancy Rate"
-          value="92%"
+          value={`${kpiData.occupancy}%`}
           trend={{ value: "+2.4%", isPositive: true }}
           subtitle="Lease rollover check"
         />

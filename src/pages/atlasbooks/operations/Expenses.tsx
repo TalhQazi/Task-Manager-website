@@ -15,12 +15,7 @@ interface CardExpense {
 
 const Expenses: React.FC = () => {
   const { stats, activeEntity } = useAtlasBooks();
-  const [expenses, setExpenses] = useState<CardExpense[]>([
-    { id: "EXP-801", employee: "Sarah Connor", merchant: "Amazon Web Services", amount: 1250.00, date: "2026-06-01", hasReceipt: true, matched: true },
-    { id: "EXP-802", employee: "John Connor", merchant: "Shell Fuel HQ", amount: 65.40, date: "2026-06-02", hasReceipt: false, matched: false },
-    { id: "EXP-803", employee: "Miles Dyson", merchant: "OpenAI API billing", amount: 840.00, date: "2026-05-30", hasReceipt: true, matched: false },
-    { id: "EXP-804", employee: "Kate Brewster", merchant: "Delta Air Lines", amount: 480.00, date: "2026-05-28", hasReceipt: true, matched: true }
-  ]);
+  const [expenses, setExpenses] = useState<CardExpense[]>([]);
 
   const handleMatchReceipt = (id: string) => {
     setExpenses(prev =>
@@ -45,7 +40,7 @@ const Expenses: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <KpiCard title="Expenses MTD" value={totalOpex} icon={CreditCard} subtitle="Operational overhead total" />
         <KpiCard title="Card Ledger Audited" value={cardSpend} icon={ShieldCheck} subtitle="Reconciled ledger transactions" />
-        <KpiCard title="Receipt Match rate" value={`${Math.round((expenses.filter(e => e.matched).length / expenses.length) * 100)}%`} icon={FileImage} subtitle="Match verification" />
+        <KpiCard title="Receipt Match rate" value={expenses.length > 0 ? `${Math.round((expenses.filter(e => e.matched).length / expenses.length) * 100)}%` : "N/A"} icon={FileImage} subtitle="Match verification" />
       </div>
 
       <div className="bg-zinc-900 border border-zinc-800/80 rounded-xl p-5 space-y-4">

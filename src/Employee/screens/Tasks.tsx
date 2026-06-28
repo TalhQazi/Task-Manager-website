@@ -116,6 +116,7 @@ interface Task {
   dueDate: string;
   dueTime?: string;
   location?: string;
+  introVideoUrl?: string;
   createdAt: string;
   projectId?: string;
   attachmentFileName?: string;
@@ -152,6 +153,7 @@ type CreateProjectTaskDraft = {
   dueDate: string;
   dueTime?: string;
   location?: string;
+  introVideoUrl?: string;
   createdAt: string;
   attachmentFileName?: string;
   attachmentNote?: string;
@@ -573,6 +575,7 @@ export default function Tasks() {
   const PAGE_SIZE = 25;
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
+  const [projectIntroVideoUrl, setProjectIntroVideoUrl] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [projectTasks, setProjectTasks] = useState<CreateProjectTaskDraft[]>([]);
   const [projectLogoFile, setProjectLogoFile] = useState<File | null>(null);
@@ -765,6 +768,7 @@ export default function Tasks() {
     location: "",
     attachmentFileName: "",
     attachmentNote: "",
+    introVideoUrl: "",
   });
 
   const updateTaskMutation = useMutation({
@@ -815,6 +819,7 @@ export default function Tasks() {
       dueDate: "",
       dueTime: "",
       location: "",
+      introVideoUrl: "",
     },
   });
 
@@ -828,6 +833,7 @@ export default function Tasks() {
       dueDate: "",
       dueTime: "",
       location: "",
+      introVideoUrl: "",
     },
   });
 
@@ -861,7 +867,8 @@ export default function Tasks() {
       dueTime: "",
       location: "",
       attachmentFileName: "",
-      attachmentNote: "",
+    attachmentNote: "",
+    introVideoUrl: "",
     });
     setSelectedAssignees([]);
     setProjectCreationAssignees([]);
@@ -886,6 +893,7 @@ export default function Tasks() {
       createdAt,
       attachmentFileName: att?.fileName || formData.attachmentFileName || "",
       attachmentNote: formData.attachmentNote || "",
+      introVideoUrl: formData.introVideoUrl || "",
       attachment: att,
       attachments: attachmentsOverride,
     } satisfies CreateProjectTaskDraft;
@@ -919,7 +927,8 @@ export default function Tasks() {
       dueTime: "",
       location: "",
       attachmentFileName: "",
-      attachmentNote: "",
+    attachmentNote: "",
+    introVideoUrl: "",
     }));
     setSelectedAssignees([]);
     setAttachmentFile(null);
@@ -1028,6 +1037,7 @@ export default function Tasks() {
         createdAt: nowDate,
         attachmentFileName: first?.fileName || "",
         attachmentNote: formData.attachmentNote,
+        introVideoUrl: formData.introVideoUrl,
         attachment: first,
         attachments,
       };
@@ -1060,7 +1070,8 @@ export default function Tasks() {
         dueTime: "",
         location: "",
         attachmentFileName: "",
-        attachmentNote: "",
+    attachmentNote: "",
+    introVideoUrl: "",
       });
       setSelectedAssignees([]);
       setAttachmentFile(null);
@@ -1873,12 +1884,20 @@ export default function Tasks() {
 
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Description</label>
-                <Textarea
-                  placeholder="Short project description"
-                  className="min-h-[80px]"
-                  value={projectDescription}
-                  onChange={(e) => setProjectDescription(e.target.value)}
-                />
+                <div className="flex flex-col sm:flex-row gap-3 items-end">
+                  <div className="flex-1 w-full">
+                    <Textarea
+                      placeholder="Short project description"
+                      className="min-h-[80px] w-full resize-y"
+                      value={projectDescription}
+                      onChange={(e) => setProjectDescription(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex sm:flex-col gap-2 shrink-0 w-full sm:w-auto sm:pb-0.5">
+                    <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={isCreating} className="flex-1 sm:w-32">Cancel</Button>
+                    <Button type="submit" disabled={isCreating} className="flex-1 sm:w-32 gap-2">{isCreating && <Loader2 className="h-4 w-4 animate-spin" />}Create Project</Button>
+                  </div>
+                </div>
               </div>
 
               <div className="sm:col-span-2 space-y-1.5">
@@ -1922,6 +1941,7 @@ export default function Tasks() {
                 />
               </div>
 
+              <div className="space-y-2"><label className="text-sm font-medium">Intro Video URL (YouTube/Vimeo)</label><Input placeholder="https://youtube.com/watch?v=..." value={projectIntroVideoUrl} onChange={(e) => setProjectIntroVideoUrl(e.target.value)} /></div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Attachments</label>
                 <div className="space-y-2">
@@ -1942,22 +1962,23 @@ export default function Tasks() {
                     multiple
                     className="hidden"
                     aria-label="Upload project attachments"
-                    onChange={(e) => {
-                      const files = Array.from(e.target.files ?? []);
-                      setProjectAttachmentFiles((prev) => [...prev, ...files]);
-                      files.forEach((file) => {
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          const result = typeof reader.result === "string" ? reader.result : "";
-                          setProjectAttachmentPreviews((prev) => [...prev, result]);
-                        };
-                        if (file.type.startsWith("image/")) {
-                          reader.readAsDataURL(file);
-                        } else {
-                          setProjectAttachmentPreviews((prev) => [...prev, ""]);
-                        }
-                      });
-                    }}
+                    onChange={async (e) => {
+  const files = Array.from(e.target.files ?? []);
+  if (!files.length) return;
+  const processedFiles = files; // In manager/employee we skip resize to maintain original logic unless needed
+  const previews = await Promise.all(processedFiles.map(file => new Promise((resolve) => {
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+      reader.readAsDataURL(file);
+    } else resolve("");
+  })));
+  setProjectAttachmentFiles((prev) => [...prev, ...processedFiles]);
+  if (typeof setProjectAttachmentPreviews === 'function') {
+      setProjectAttachmentPreviews((prev) => [...prev, ...previews]);
+  }
+  e.target.value = "";
+}}
                   />
                   {projectAttachmentFiles.length > 0 && (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">
@@ -2100,15 +2121,6 @@ export default function Tasks() {
               )}
             </div>
 
-            <DialogFooter className="flex-col sm:flex-row gap-2">
-              <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={isCreating} className="w-full sm:w-auto">
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">
-                {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
-                Create Project
-              </Button>
-            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
@@ -2145,13 +2157,25 @@ export default function Tasks() {
               </div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Task Description *</label>
-                <Textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-                  spellCheck="true"
-                  autoCorrect="on"
-                  autoComplete="on"
-                />
+                <div className="flex flex-col sm:flex-row gap-3 items-end">
+                  <div className="flex-1 w-full">
+                    <Textarea
+                      value={formData.description}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+                      spellCheck="true"
+                      autoCorrect="on"
+                      autoComplete="on"
+                      className="min-h-[80px] w-full resize-y"
+                    />
+                  </div>
+                  <div className="flex sm:flex-col gap-2 shrink-0 w-full sm:w-auto sm:pb-0.5">
+                    <Button type="button" variant="outline" onClick={() => { setIsCreateTaskOpen(false); setIsDirectTask(false); }} disabled={isCreating} className="flex-1 sm:w-32">Cancel</Button>
+                    <Button type="submit" disabled={isCreating} className="flex-1 sm:w-32 gap-2">
+                      {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
+                      Create Task
+                    </Button>
+                  </div>
+                </div>
                 {validationErrors.description && <p className="text-xs text-destructive">{validationErrors.description}</p>}
               </div>
               <div className="sm:col-span-1 space-y-1.5">
@@ -2203,22 +2227,23 @@ export default function Tasks() {
                   multiple
                   className="hidden"
                   aria-label="Upload task attachments"
-                  onChange={(e) => {
-                    const files = Array.from(e.target.files ?? []);
-                    setAttachmentFiles((prev) => [...prev, ...files]);
-                    files.forEach((file) => {
-                      const reader = new FileReader();
-                      reader.onload = () => {
-                        const result = typeof reader.result === "string" ? reader.result : "";
-                        setAttachmentFilePreviews((prev) => [...prev, result]);
-                      };
-                      if (file.type.startsWith("image/")) {
-                        reader.readAsDataURL(file);
-                      } else {
-                        setAttachmentFilePreviews((prev) => [...prev, ""]);
-                      }
-                    });
-                  }}
+                  onChange={async (e) => {
+  const files = Array.from(e.target.files ?? []);
+  if (!files.length) return;
+  const processedFiles = files; // In manager/employee we skip resize to maintain original logic unless needed
+  const previews = await Promise.all(processedFiles.map(file => new Promise((resolve) => {
+    if (file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
+      reader.readAsDataURL(file);
+    } else resolve("");
+  })));
+  setAttachmentFiles((prev) => [...prev, ...processedFiles]);
+  if (typeof setAttachmentFilePreviews === 'function') {
+      setAttachmentFilePreviews((prev) => [...prev, ...previews]);
+  }
+  e.target.value = "";
+}}
                 />
                 {attachmentFiles.length > 0 && (
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-[200px] overflow-y-auto border border-border rounded-md p-2">
@@ -2248,16 +2273,6 @@ export default function Tasks() {
               </div>
             </div>
 
-            <DialogFooter className="flex-col sm:flex-row gap-2">
-              <Button type="button" variant="outline" onClick={() => {
-                setIsCreateTaskOpen(false);
-                setIsDirectTask(false);
-              }} disabled={isCreating} className="w-full sm:w-auto">Cancel</Button>
-              <Button type="submit" disabled={isCreating} className="w-full sm:w-auto gap-2">
-                {isCreating && <Loader2 className="h-4 w-4 animate-spin" />}
-                {isDirectTask ? "Create Task" : "Create Task"}
-              </Button>
-            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>

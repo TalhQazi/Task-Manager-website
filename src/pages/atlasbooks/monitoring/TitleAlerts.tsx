@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useAtlasBooks } from "../../../contexts/AtlasBooksContext";
+import { apiFetch } from "../../../lib/api";
 import { KpiCard } from "../../../components/atlasbooks/KpiCard";
 import { ShieldCheck, ShieldAlert, KeyRound, AlertTriangle, Check } from "lucide-react";
 
@@ -14,10 +15,38 @@ interface TitleAlertItem {
 
 const TitleAlerts: React.FC = () => {
   const { activeEntity } = useAtlasBooks();
-  const [alerts, setAlerts] = useState<TitleAlertItem[]>([
-    { id: "TA-401", date: "2026-06-01", property: "DTLA Center Plaza Tower", alertType: "Deed Modification", severity: "Critical", status: "Active" },
-    { id: "TA-402", date: "2026-05-20", property: "Blue Water Premium Condos", alertType: "Easement Recording", severity: "Warning", status: "Investigating" }
-  ]);
+  const [alerts, setAlerts] = useState<TitleAlertItem[]>([]);
+  const [totalMonitored, setTotalMonitored] = useState(0);
+
+  useEffect(() => {
+    const fetchTitles = async () => {
+      try {
+        const res = await apiFetch<any>("/api/atlasbook/titles");
+        const items = res.items || [];
+        
+        setTotalMonitored(items.length);
+
+        const extractedAlerts: TitleAlertItem[] = [];
+        items.forEach((title: any) => {
+          if (title.status === "Encumbered" || title.status === "Under Review") {
+            extractedAlerts.push({
+              id: title._id || `ALRT-${Math.floor(Math.random() * 10000)}`,
+              date: title.updatedAt ? new Date(title.updatedAt).toLocaleDateString() : new Date().toLocaleDateString(),
+              property: title.property?.name || title.parcelNumber || "Unknown Property",
+              alertType: "Boundary Dispute",
+              severity: title.status === "Encumbered" ? "Critical" : "Warning",
+              status: "Active"
+            });
+          }
+        });
+        
+        setAlerts(extractedAlerts);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchTitles();
+  }, []);
 
   const handleResolve = (id: string) => {
     setAlerts(prev =>
@@ -41,7 +70,7 @@ const TitleAlerts: React.FC = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <KpiCard title="Active Title Alerts" value={`${activeAlerts} Alerts`} icon={ShieldAlert} subtitle="Requiring legal deed check" />
-        <KpiCard title="Monitored Properties" value="4 Properties" icon={ShieldCheck} subtitle="Registry sweep checked" />
+        <KpiCard title="Monitored Properties" value={`${totalMonitored} Properties`} icon={ShieldCheck} subtitle="Registry sweep checked" />
         <KpiCard title="Security Level" value="Level 3 Locked" icon={KeyRound} subtitle="Automatic block triggers" />
       </div>
 

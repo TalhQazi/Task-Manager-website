@@ -1,14 +1,42 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useAtlasBooks } from "../../../contexts/AtlasBooksContext";
+import { apiFetch } from "../../../lib/api";
 import { KpiCard } from "../../../components/atlasbooks/KpiCard";
 import { Landmark, TrendingUp, AlertTriangle, ShieldCheck } from "lucide-react";
 
 const CashAlerts: React.FC = () => {
-  const { stats, timeframe, activeEntity } = useAtlasBooks();
+  const { timeframe, activeEntity } = useAtlasBooks();
+  
+  const [data, setData] = useState({ cashPosition: 0, netProfit: 0 });
 
-  const runwayMonths = stats.netProfit !== 0 ? Math.abs(Math.round(stats.cashPosition / stats.netProfit)) : 12;
-  const burnRate = Math.abs(stats.netProfit);
-  const isHealthy = stats.cashPosition > (burnRate * 6); // at least 6 months cash
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [plRes, bsRes] = await Promise.all([
+          apiFetch<any>("/api/atlasbook/reports/pl"),
+          apiFetch<any>("/api/atlasbook/reports/balance-sheet")
+        ]);
+
+        let cashPosition = 0;
+        (bsRes.assets || []).forEach((a: any) => {
+          const name = a.name.toLowerCase();
+          if (name.includes("cash") || name.includes("bank")) cashPosition += a.balance;
+        });
+
+        setData({
+          cashPosition,
+          netProfit: plRes.netProfit || 0
+        });
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const runwayMonths = data.netProfit !== 0 ? Math.abs(Math.round(data.cashPosition / data.netProfit)) : 12;
+  const burnRate = Math.abs(data.netProfit);
+  const isHealthy = data.cashPosition > (burnRate * 6); // at least 6 months cash
 
   return (
     <div className="space-y-6">
@@ -23,7 +51,7 @@ const CashAlerts: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <KpiCard title="Cash Position" value={stats.cashPosition} icon={Landmark} subtitle={`Timeline: ${timeframe}`} />
+        <KpiCard title="Cash Position" value={data.cashPosition} icon={Landmark} subtitle={`Timeline: ${timeframe}`} />
         <KpiCard title="Net Burn / Payout rate" value={burnRate} icon={TrendingUp} subtitle="Monthly operational change rate" />
         <KpiCard title="Projected Cash Runway" value={`${runwayMonths} Months`} icon={ShieldCheck} subtitle={isHealthy ? "Operating within safety standard" : "Warning: low cash runway reserve"} />
       </div>

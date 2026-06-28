@@ -13,10 +13,7 @@ interface VendorAnomalyItem {
 
 const VendorAnomalies: React.FC = () => {
   const { activeEntity } = useAtlasBooks();
-  const [anomalies, setAnomalies] = useState<VendorAnomalyItem[]>([
-    { id: "VNDA-901", vendor: "Cyberdyne Systems", anomalyType: "Routing Code Change", flagDate: "2026-06-02", resolved: false },
-    { id: "VNDA-902", vendor: "Cyber Security Labs", anomalyType: "No Contract Uploaded", flagDate: "2026-05-28", resolved: false }
-  ]);
+  const [anomalies, setAnomalies] = useState<VendorAnomalyItem[]>([]);
 
   const handleResolve = (id: string) => {
     setAnomalies(prev =>
@@ -40,8 +37,8 @@ const VendorAnomalies: React.FC = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <KpiCard title="Compliance Flags" value={`${activeCount} Flags`} icon={ShieldAlert} subtitle="Uncontracted routing shifts" />
-        <KpiCard title="Verified Vendor Rate" value="88%" icon={CheckCircle2} subtitle="Passed legal contracts checks" />
-        <KpiCard title="Regulatory compliance" value="Level 4 Safe" icon={KeyRound} subtitle="System security lock active" />
+        <KpiCard title="Verified Vendor Rate" value={anomalies.length > 0 ? "88%" : "N/A"} icon={CheckCircle2} subtitle="Passed legal contracts checks" />
+        <KpiCard title="Regulatory compliance" value={anomalies.length > 0 ? "Level 4 Safe" : "N/A"} icon={KeyRound} subtitle="System security lock active" />
       </div>
 
       <div className="bg-zinc-900 border border-zinc-800/80 rounded-xl p-5 space-y-4">

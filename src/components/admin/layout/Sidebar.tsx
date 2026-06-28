@@ -47,6 +47,12 @@ import {
   ShoppingCart,
   Mail,
   Book,
+  Gavel,
+  Briefcase,
+  Scale,
+  FileCheck,
+  ListTodo,
+  Contact,
 } from "lucide-react";
 
 
@@ -171,6 +177,23 @@ const navItemsBase: NavItem[] = [
   { icon: Quote, label: "Founder Messages", path: "/admin/founder-messages" },
   { icon: ImageIcon, label: "Memes", path: "/admin/memes" },
   {
+    icon: Gavel,
+    label: "Legal Tracker",
+    children: [
+      { icon: Briefcase, label: "Cases", path: "/admin/legal/cases" },
+      { icon: Calendar, label: "Deadlines", path: "/admin/legal/deadlines" },
+      { icon: Calendar, label: "Calendar", path: "/admin/legal/calendar" },
+      { icon: FileText, label: "Documents", path: "/admin/legal/documents" },
+      { icon: Scale, label: "Evidence", path: "/admin/legal/evidence" },
+      { icon: FileCheck, label: "Filings", path: "/admin/legal/filings" },
+      { icon: ListTodo, label: "Tasks", path: "/admin/legal/tasks" },
+      { icon: Contact, label: "Contacts", path: "/admin/legal/contacts" },
+      { icon: FileText, label: "Notes", path: "/admin/legal/notes" },
+      { icon: Bell, label: "Notifications", path: "/admin/legal/notifications" },
+      { icon: BarChart3, label: "Reports", path: "/admin/legal/reports" },
+    ],
+  },
+  {
     label: "Personal Notes",
     path: "/admin/personal-notes",
     customIcon: (
@@ -193,12 +216,12 @@ const navItemsBase: NavItem[] = [
     ),
   },
   {
-    label: "Atlas Property Holding",
+    label: "Atlas Properties",
     path: "/admin/uph-maintenance",
     customIcon: (
       <img
         src="/uph.jpeg"
-        alt="APH"
+        alt="Atlas Properties"
         className="h-6 w-6 flex-shrink-0 rounded-md object-cover opacity-85 group-hover:opacity-100 transition-opacity"
       />
     ),
@@ -212,7 +235,7 @@ const navItemsBase: NavItem[] = [
 // Activity Logs only for super-admin
 const activityLogNavItem = { icon: Activity, label: "Activity Logs", path: "/admin/activity-logs" };
 const systemEmailSettingsNavItem = { icon: Mail, label: "System Email Settings", path: "/admin/system-email-settings" };
-
+const systemHealthNavItem = { icon: Activity, label: "System Health", path: "/admin/health" };
 
 type SidebarMode = "desktop" | "mobile";
 
@@ -232,6 +255,11 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
     // Add super-admin items
     if (auth.role === "super-admin") {
       items.push(systemEmailSettingsNavItem, activityLogNavItem);
+    }
+    
+    // Add System Health for admin and super-admin
+    if (auth.role === "admin" || auth.role === "super-admin") {
+      items.push(systemHealthNavItem);
     }
 
     // Sort children within items first

@@ -58,7 +58,20 @@ const TaskPermissions = lazy(() => import("@/pages/admin/TaskPermissions"));
 
 const ShoppingLists = lazy(() => import("@/pages/admin/ShoppingLists"));
 const SystemEmailSettings = lazy(() => import("@/pages/admin/SystemEmailSettings"));
+const SystemHealth = lazy(() => import("@/pages/admin/SystemHealth"));
 const CompanyRegistry = lazy(() => import("@/pages/admin/CompanyRegistry"));
+
+const LegalCases = lazy(() => import("@/pages/admin/legaltrak/Cases"));
+const LegalDeadlines = lazy(() => import("@/pages/admin/legaltrak/Deadlines"));
+const LegalCalendar = lazy(() => import("@/pages/admin/legaltrak/Calendar"));
+const LegalDocuments = lazy(() => import("@/pages/admin/legaltrak/Documents"));
+const LegalEvidence = lazy(() => import("@/pages/admin/legaltrak/Evidence"));
+const LegalFilings = lazy(() => import("@/pages/admin/legaltrak/Filings"));
+const LegalTasks = lazy(() => import("@/pages/admin/legaltrak/Tasks"));
+const LegalContacts = lazy(() => import("@/pages/admin/legaltrak/Contacts"));
+const LegalNotes = lazy(() => import("@/pages/admin/legaltrak/Notes"));
+const LegalNotifications = lazy(() => import("@/pages/admin/legaltrak/Notifications"));
+const LegalReports = lazy(() => import("@/pages/admin/legaltrak/Reports"));
 
 const CRMDashboard = lazy(() => import("@/pages/admin/crm/Dashboard"));
 const CRMContacts = lazy(() => import("@/pages/admin/crm/Contacts"));
@@ -143,6 +156,19 @@ export default function AdminRoutes() {
       { path: "contributors", element: <Contributors /> },
       { path: "team-lead-mappings", element: <TeamLeadMappings /> },
       { path: "task-permissions", element: <TaskPermissions /> },
+
+      { path: "legal/cases", element: <LegalCases /> },
+      { path: "legal/deadlines", element: <LegalDeadlines /> },
+      { path: "legal/calendar", element: <LegalCalendar /> },
+      { path: "legal/documents", element: <LegalDocuments /> },
+      { path: "legal/evidence", element: <LegalEvidence /> },
+      { path: "legal/filings", element: <LegalFilings /> },
+      { path: "legal/tasks", element: <LegalTasks /> },
+      { path: "legal/contacts", element: <LegalContacts /> },
+      { path: "legal/notes", element: <LegalNotes /> },
+      { path: "legal/notifications", element: <LegalNotifications /> },
+      { path: "legal/reports", element: <LegalReports /> },
+
       { path: "crm", element: <Navigate to="/admin/crm/dashboard" replace /> },
       { path: "crm/dashboard", element: <CRMDashboard /> },
       { path: "crm/contacts", element: <CRMContacts /> },
@@ -160,6 +186,7 @@ export default function AdminRoutes() {
       { path: "system-email-settings", element: auth.role === "super-admin" ? <SystemEmailSettings /> : <Navigate to="/admin" replace /> },
       { path: "company-registry", element: <CompanyRegistry /> },
       { path: "travel-calendar", element: <TravelCalendar /> },
+      { path: "health", element: <SystemHealth /> },
       { path: "atlas-book", element: <AtlasBookDashboard /> },
       { path: "atlas-book/:moduleId", element: <AtlasBookModulePage /> },
 

@@ -15,10 +15,7 @@ interface CreditScoreChange {
 
 const CreditChanges: React.FC = () => {
   const { stats, activeEntity } = useAtlasBooks();
-  const [logs, setLogs] = useState<CreditScoreChange[]>([
-    { id: "CRC-801", agency: "Dun & Bradstreet", change: "-15 Points", previous: "830", current: "815", date: "2026-06-02", resolved: false },
-    { id: "CRC-802", agency: "Fitch Rating", change: "Outlook Shift to Stable", previous: "Positive", current: "Stable", date: "2026-05-25", resolved: false }
-  ]);
+  const [logs, setLogs] = useState<CreditScoreChange[]>([]);
 
   const handleResolve = (id: string) => {
     setLogs(prev =>
@@ -41,8 +38,8 @@ const CreditChanges: React.FC = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <KpiCard title="Active Score Changes" value={`${activeCount} Index Shifts`} icon={TrendingUp} subtitle="D&B and Fitch agency checks" />
-        <KpiCard title="Corporate Score" value={stats.creditScore} icon={Landmark} subtitle="Average credit rating" />
-        <KpiCard title="Audit Clearance" value="AAA Score" icon={ShieldCheck} subtitle="Current solvency classification" />
+        <KpiCard title="Corporate Score" value={stats.creditScore || "N/A"} icon={Landmark} subtitle="Average credit rating" />
+        <KpiCard title="Audit Clearance" value={logs.length > 0 ? "AAA Score" : "N/A"} icon={ShieldCheck} subtitle="Current solvency classification" />
       </div>
 
       <div className="bg-zinc-900 border border-zinc-800/80 rounded-xl p-5 space-y-4">

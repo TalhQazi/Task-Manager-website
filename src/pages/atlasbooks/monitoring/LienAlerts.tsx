@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useAtlasBooks } from "../../../contexts/AtlasBooksContext";
+import { apiFetch } from "../../../lib/api";
 import { KpiCard } from "../../../components/atlasbooks/KpiCard";
 import { AlertTriangle, ShieldCheck, Box, Check, Landmark } from "lucide-react";
 
@@ -15,10 +16,36 @@ interface LienItem {
 
 const LienAlerts: React.FC = () => {
   const { activeEntity } = useAtlasBooks();
-  const [liens, setLiens] = useState<LienItem[]>([
-    { id: "LN-901", property: "Blue Water Premium Condos", claimant: "Miami HVAC Pro Contractor", amount: 18500, filedDate: "2026-05-25", type: "Mechanic's Lien", status: "Active" },
-    { id: "LN-902", property: "Sandcastle Luxury Villas", claimant: "Florida County Tax Collector", amount: 12400, filedDate: "2026-05-18", type: "County Tax Lien", status: "Contested" }
-  ]);
+  const [liens, setLiens] = useState<LienItem[]>([]);
+
+  useEffect(() => {
+    const fetchTitles = async () => {
+      try {
+        const res = await apiFetch<any>("/api/atlasbook/titles");
+        const items = res.items || [];
+        const extractedLiens: LienItem[] = [];
+        
+        items.forEach((title: any) => {
+          (title.liens || []).forEach((l: any) => {
+            extractedLiens.push({
+              id: l._id || `LIEN-${Math.floor(Math.random() * 10000)}`,
+              property: title.property?.name || title.parcelNumber || "Unknown Property",
+              claimant: l.holder,
+              amount: l.amount,
+              filedDate: l.recordedDate ? new Date(l.recordedDate).toLocaleDateString() : "Unknown Date",
+              type: l.description?.includes("Tax") ? "County Tax Lien" : "Mechanic's Lien",
+              status: "Active"
+            });
+          });
+        });
+        
+        setLiens(extractedLiens);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchTitles();
+  }, []);
 
   const handleResolve = (id: string) => {
     setLiens(prev =>

@@ -111,8 +111,9 @@ export default function ManagerBugs() {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load bugs");
       } finally {
-        if (!mounted) return;
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     })();
     return () => { mounted = false; };

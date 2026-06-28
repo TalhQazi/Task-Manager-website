@@ -91,8 +91,9 @@ export default function Reports() {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load reports");
       } finally {
-        if (!mounted) return;
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
     void load();

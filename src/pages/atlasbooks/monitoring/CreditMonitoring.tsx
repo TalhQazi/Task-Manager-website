@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { apiFetch } from "../../../lib/api";
 import { useAtlasBooks } from "../../../contexts/AtlasBooksContext";
 import { KpiCard } from "../../../components/atlasbooks/KpiCard";
 import { Landmark, TrendingUp, ShieldCheck, Activity } from "lucide-react";
@@ -12,17 +13,42 @@ interface CreditLine {
 }
 
 const CreditMonitoring: React.FC = () => {
-  const { stats, activeEntity } = useAtlasBooks();
+  const { activeEntity } = useAtlasBooks();
+  const [lines, setLines] = useState<CreditLine[]>([]);
+  const [dynamicScore, setDynamicScore] = useState<number | string>(0);
 
-  const lines: CreditLine[] = [
-    { institution: "JPMorgan Chase", facility: "Revolving Working Capital", limit: 5000000, utilization: 24.2, rate: 6.85 },
-    { institution: "Wells Fargo Bank", facility: "Equipment Acquisition Facility", limit: 2500000, utilization: 48.0, rate: 7.20 },
-    { institution: "Silicon Valley Bridge", facility: "SaaS Venture Line", limit: 1500000, utilization: 0.0, rate: 8.50 }
-  ];
+  useEffect(() => {
+    const fetchLoans = async () => {
+      try {
+        const [loansRes, plRes] = await Promise.all([
+          apiFetch<any>("/api/atlasbook/loans"),
+          apiFetch<any>("/api/atlasbook/reports/pl")
+        ]);
+
+        if (plRes && typeof plRes.netProfit !== 'undefined') {
+          setDynamicScore(Math.min(850, Math.max(300, 700 + Math.floor(plRes.netProfit / 1000))));
+        }
+
+        if (loansRes && loansRes.items) {
+          const mappedLines = loansRes.items.map((l: any) => ({
+            institution: l.lender,
+            facility: l.loanType,
+            limit: l.principalAmount || 0,
+            utilization: l.principalAmount > 0 ? ((l.principalAmount - (l.remainingBalance || 0)) / l.principalAmount) * 100 : 0,
+            rate: l.interestRate || 0
+          }));
+          setLines(mappedLines);
+        }
+      } catch (e) {
+        console.error("Failed to fetch loans", e);
+      }
+    };
+    fetchLoans();
+  }, []);
 
   const totalCreditLimit = lines.reduce((sum, l) => sum + l.limit, 0);
   const totalDrawn = lines.reduce((sum, l) => sum + (l.limit * l.utilization) / 100, 0);
-  const averageUtilization = Math.round((totalDrawn / totalCreditLimit) * 100);
+  const averageUtilization = totalCreditLimit > 0 ? Math.round((totalDrawn / totalCreditLimit) * 100) : 0;
 
   return (
     <div className="space-y-6">
@@ -36,7 +62,7 @@ const CreditMonitoring: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        <KpiCard title="Dun & Bradstreet Score" value={`${stats.creditScore} (AAA)`} icon={ShieldCheck} subtitle="Bureau rating verification" />
+        <KpiCard title="Dun & Bradstreet Score" value={`${dynamicScore} (AAA)`} icon={ShieldCheck} subtitle="Bureau rating verification" />
         <KpiCard title="Total Facility Limit" value={totalCreditLimit} icon={Landmark} subtitle={`Drawn: $${totalDrawn.toLocaleString()}`} />
         <KpiCard title="Avg Utilization Rate" value={`${averageUtilization}%`} icon={Activity} subtitle={`APR range: 6.85% - 8.50%`} />
       </div>

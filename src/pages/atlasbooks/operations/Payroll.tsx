@@ -24,13 +24,7 @@ const Payroll: React.FC = () => {
     }, 2000);
   };
 
-  const roster: EmployeePayroll[] = [
-    { id: "EMP-01", name: "Sarah Connor", department: "Engineering", type: "Full-Time", salary: 12500, status: "Paid" },
-    { id: "EMP-02", name: "John Connor", department: "Operations", type: "Contractor", salary: 8200, status: "Pending Approval" },
-    { id: "EMP-03", name: "Miles Dyson", department: "Research & AI", type: "Full-Time", salary: 14800, status: "Paid" },
-    { id: "EMP-04", name: "Marcus Wright", department: "Security", type: "Contractor", salary: 5500, status: "Processing" },
-    { id: "EMP-05", name: "Kate Brewster", department: "Finance", type: "Full-Time", salary: 9200, status: "Paid" }
-  ];
+  const roster: EmployeePayroll[] = [];
 
   const totalPayroll = roster.reduce((sum, e) => sum + e.salary, 0);
 

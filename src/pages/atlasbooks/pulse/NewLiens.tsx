@@ -15,10 +15,7 @@ interface NewLienAlert {
 
 const NewLiens: React.FC = () => {
   const { activeEntity } = useAtlasBooks();
-  const [liens, setLiens] = useState<NewLienAlert[]>([
-    { id: "NLA-771", property: "Blue Water Premium Condos", claimant: "Miami HVAC Pro Contractor", amount: 18500, filedDate: "2026-05-25", countyRef: "MIA-LN-9081", resolved: false },
-    { id: "NLA-772", property: "DTLA Center Plaza Tower", claimant: "County Board of Underwriters", amount: 45000, filedDate: "2026-06-01", countyRef: "LA-LN-3342", resolved: false }
-  ]);
+  const [liens, setLiens] = useState<NewLienAlert[]>([]);
 
   const handleResolve = (id: string) => {
     setLiens(prev =>
@@ -44,7 +41,7 @@ const NewLiens: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <KpiCard title="Active Liens" value={`${activeCount} Claims`} icon={AlertTriangle} subtitle="Unreleased property encumbrances" />
         <KpiCard title="Total Claims Value" value={totalClaims} icon={Landmark} subtitle="Amount required to discharge claims" />
-        <KpiCard title="Title Status" value="County monitored" icon={ShieldCheck} subtitle="Automatic deed lock active" />
+        <KpiCard title="Title Status" value={liens.length > 0 ? "County monitored" : "N/A"} icon={ShieldCheck} subtitle="Automatic deed lock active" />
       </div>
 
       <div className="bg-zinc-900 border border-zinc-800/80 rounded-xl p-5 space-y-4">

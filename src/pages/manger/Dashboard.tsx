@@ -360,7 +360,7 @@ const Dashboard = () => {
   return (
     <>
       <motion.div
-        className="pl-2 pr-2 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6"
+        className="dashboard-page pl-2 pr-2 sm:pl-6 space-y-4 sm:space-y-5 md:space-y-6"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
@@ -406,7 +406,7 @@ const Dashboard = () => {
               icon: FolderRoot,
               variant: "purple" as const,
               changeType: "positive" as const,
-              onClick: () => navigate("/manager/tasks"),
+              onClick: () => navigate("/manager/tasks?tab=projects"),
               description: "Ongoing initiatives"
             },
             {

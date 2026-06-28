@@ -229,21 +229,24 @@ export default function Vehicles() {
     vehicle?: Partial<Vehicle> | null;
     className?: string;
   }) => {
+    const direct = vehicle ? getVehicleTagPhotoSrc(vehicle as Vehicle) : null;
+
+    const { data } = useQuery({
+      queryKey: ["vehicle-photo", vehicle?.id],
+      queryFn: async () => {
+        if (!vehicle?.id) throw new Error("Vehicle ID is missing");
+        return apiFetch<{ photo?: string; fileName?: string }>(`/api/vehicles/${encodeURIComponent(String(vehicle.id))}/photo`);
+      },
+      staleTime: 5 * 60 * 1000,
+      enabled: !!vehicle?.id && !direct,
+    });
+
     if (!vehicle) return null;
 
-    const direct = getVehicleTagPhotoSrc(vehicle as Vehicle);
     if (direct) {
       const safe = toProxiedUrl(direct) || direct;
       return <img src={safe} alt={vehicle.name || "vehicle"} className={cn("object-cover", className)} />;
     }
-
-    const { data } = useQuery({
-      queryKey: ["vehicle-photo", vehicle.id],
-      queryFn: async () => {
-        return apiFetch<{ photo?: string; fileName?: string }>(`/api/vehicles/${encodeURIComponent(String(vehicle.id))}/photo`);
-      },
-      staleTime: 5 * 60 * 1000,
-    });
 
     const photoSrc = data?.photo ? (toProxiedUrl(data.photo) || data.photo) : null;
     if (photoSrc) {
