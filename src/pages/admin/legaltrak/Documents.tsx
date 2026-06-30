@@ -5,8 +5,9 @@ import { Badge } from "@/components/admin/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/admin/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/admin/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/admin/ui/dialog";
-import { Plus, Search, MoreHorizontal, Eye, Edit, Trash2, FileText, AlertTriangle } from "lucide-react";
-import { createResource, deleteResource, listResource, updateResource } from "@/lib/admin/apiClient";
+import { Plus, Search, MoreHorizontal, Eye, Edit, Trash2, FileText, AlertTriangle, Paperclip, Download } from "lucide-react";
+import { createResource, deleteResource, listResource, updateResource, getApiBaseUrl } from "@/lib/admin/apiClient";
+import { getAuthState } from "@/lib/auth";
 
 interface LegalDocument {
   id: string;
@@ -17,12 +18,22 @@ interface LegalDocument {
   caseReference?: string;
   status?: "Draft" | "Final" | "Filed";
   author?: string;
+  attachments?: Array<{ fileName: string; url: string; mimeType: string; size: number }>;
   createdAt?: string;
   updatedAt?: string;
 }
 
 const containerVariants = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1, delayChildren: 0.1 } } };
 const itemVariants = { hidden: { y: 20, opacity: 0 }, visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 100, damping: 12 } } };
+
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+};
 
 export default function Documents() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -37,14 +48,27 @@ export default function Documents() {
   
   const [selectedItem, setSelectedItem] = useState<LegalDocument | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
 
-  const [formData, setFormData] = useState({
+  const auth = getAuthState();
+  const isAdminRole = auth.role === "admin" || auth.role === "super-admin" || auth.role === "manager";
+
+  const [formData, setFormData] = useState<{
+    title: string;
+    description: string;
+    fileType: string;
+    caseReference: string;
+    status: string;
+    author: string;
+    attachments: Array<{ fileName: string; url: string; mimeType: string; size: number }>;
+  }>({
     title: "",
     description: "",
     fileType: "PDF",
     caseReference: "",
     status: "Draft",
-    author: ""
+    author: "",
+    attachments: []
   });
 
   const loadData = async () => {
@@ -60,12 +84,13 @@ export default function Documents() {
 
   const resetForm = () => {
     setFormData({
-    title: "",
-    description: "",
-    fileType: "PDF",
-    caseReference: "",
-    status: "Draft",
-    author: ""
+      title: "",
+      description: "",
+      fileType: "PDF",
+      caseReference: "",
+      status: "Draft",
+      author: "",
+      attachments: []
     });
   };
 
@@ -94,7 +119,8 @@ export default function Documents() {
       fileType: c.fileType || "",
       caseReference: c.caseReference || "",
       status: c.status || "",
-      author: c.author || ""
+      author: c.author || "",
+      attachments: c.attachments || []
     });
     setEditOpen(true);
   };
@@ -127,6 +153,39 @@ export default function Documents() {
     finally { setIsSubmitting(false); }
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    try {
+      setUploadingFiles(true);
+      const files = Array.from(e.target.files);
+      const newAtts = await Promise.all(files.map(async (file) => {
+        const base64Url = await fileToBase64(file);
+        return {
+          fileName: file.name,
+          url: base64Url,
+          mimeType: file.type,
+          size: file.size
+        };
+      }));
+      setFormData(prev => ({
+        ...prev,
+        attachments: [...(prev.attachments || []), ...newAtts]
+      }));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUploadingFiles(false);
+      e.target.value = '';
+    }
+  };
+
+  const removeAttachment = (idx: number) => {
+    setFormData(prev => ({
+      ...prev,
+      attachments: (prev.attachments || []).filter((_, i) => i !== idx)
+    }));
+  };
+
   const filteredItems = useMemo(() => {
     return itemsList.filter((c) => 
       JSON.stringify(c).toLowerCase().includes(searchQuery.toLowerCase())
@@ -141,6 +200,50 @@ export default function Documents() {
       <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Case Reference </label><input type="text" value={formData.caseReference} onChange={e => setFormData({...formData, caseReference: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Case Reference"  /></div>
       <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Status </label><select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as any})} className="w-full rounded-md border border-white/10 bg-[#1e293b] px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"><option value="Draft">Draft</option><option value="Final">Final</option><option value="Filed">Filed</option></select></div>
       <div className="space-y-1"><label className="text-xs font-medium text-slate-300">Author </label><input type="text" value={formData.author} onChange={e => setFormData({...formData, author: e.target.value})} className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" placeholder="Author"  /></div>
+      
+      {/* File Attachments (Admins/Super Admins only) */}
+      {isAdminRole && (
+        <div className="space-y-1.5 sm:col-span-2 border-t border-white/5 pt-3 mt-1">
+          <label className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+            <Paperclip className="h-3.5 w-3.5" /> Attachments
+          </label>
+          <div className="flex items-center gap-2 mt-1">
+            <input 
+              type="file" 
+              id="document-attachments-input" 
+              multiple 
+              className="hidden" 
+              onChange={handleFileChange} 
+            />
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => document.getElementById("document-attachments-input")?.click()}
+              className="border-white/10 bg-white/5 hover:bg-white/10 text-white text-xs"
+            >
+              Attach Files
+            </Button>
+            {uploadingFiles && <span className="text-xs text-slate-400">Processing files...</span>}
+          </div>
+          
+          {formData.attachments && formData.attachments.length > 0 && (
+            <div className="mt-2 space-y-1.5 max-h-32 overflow-y-auto border border-white/10 rounded-lg p-2 bg-black/20">
+              {formData.attachments.map((att: any, idx: number) => (
+                <div key={idx} className="flex justify-between items-center text-xs text-slate-300 bg-white/5 p-1.5 px-2.5 rounded border border-white/5">
+                  <span className="truncate max-w-[250px]">{att.fileName} ({att.size ? (att.size / 1024).toFixed(1) : 0} KB)</span>
+                  <button 
+                    type="button" 
+                    onClick={() => removeAttachment(idx)}
+                    className="text-rose-400 hover:text-rose-300 font-semibold text-xs ml-2"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 
@@ -174,7 +277,7 @@ export default function Documents() {
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" onClick={() => setAddOpen(false)} className="hover:bg-white/10 text-white">Cancel</Button>
-                <Button onClick={handleAdd} disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-500 text-white">
+                <Button onClick={handleAdd} disabled={isSubmitting || uploadingFiles} className="bg-blue-600 hover:bg-blue-500 text-white">
                   {isSubmitting ? "Saving..." : "Create Document"}
                 </Button>
               </div>
@@ -252,7 +355,7 @@ export default function Documents() {
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setEditOpen(false)} className="hover:bg-white/10 text-white">Cancel</Button>
-            <Button onClick={handleEdit} disabled={isSubmitting} className="bg-blue-600 hover:bg-blue-500 text-white">{isSubmitting ? "Saving..." : "Save Changes"}</Button>
+            <Button onClick={handleEdit} disabled={isSubmitting || uploadingFiles} className="bg-blue-600 hover:bg-blue-500 text-white">{isSubmitting ? "Saving..." : "Save Changes"}</Button>
           </div>
         </DialogContent>
       </Dialog>
@@ -266,12 +369,39 @@ export default function Documents() {
               <div className="grid grid-cols-2 gap-4">
                 <div><div className="text-xs text-slate-400">Document No.</div><div className="font-mono text-lg">{selectedItem.documentNumber}</div></div>
                 <div><div className="text-xs text-slate-400">Title</div><div className="font-medium">{selectedItem.title || 'N/A'}</div></div>
-                {selectedItem.description && (<div><div className="text-xs text-slate-400">Description</div><div className="text-sm bg-white/5 p-3 rounded-md mt-1">{selectedItem.description}</div></div>)}
+                {selectedItem.description && (<div className="col-span-2"><div className="text-xs text-slate-400">Description</div><div className="text-sm bg-white/5 p-3 rounded-md mt-1 break-words">{selectedItem.description}</div></div>)}
                 <div><div className="text-xs text-slate-400">File Type</div><div className="font-medium">{selectedItem.fileType || 'N/A'}</div></div>
                 <div><div className="text-xs text-slate-400">Case Reference</div><div className="font-medium">{selectedItem.caseReference || 'N/A'}</div></div>
                 <div><div className="text-xs text-slate-400">Status</div><Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">{selectedItem.status}</Badge></div>
                 <div><div className="text-xs text-slate-400">Author</div><div className="font-medium">{selectedItem.author || 'N/A'}</div></div>
               </div>
+              
+              {/* Show Attachments */}
+              {selectedItem.attachments && selectedItem.attachments.length > 0 && (
+                <div className="space-y-2 border-t border-white/5 pt-3">
+                  <div className="text-xs text-slate-400 flex items-center gap-1">
+                    <Paperclip className="h-3 w-3" /> Attachments
+                  </div>
+                  <div className="space-y-1.5">
+                    {selectedItem.attachments.map((att, idx) => {
+                      const fileUrl = att.url.startsWith("http") ? att.url : `${getApiBaseUrl().replace(/\/$/, "")}${att.url}`;
+                      return (
+                        <div key={idx} className="flex justify-between items-center text-xs bg-white/5 p-2 rounded border border-white/10">
+                          <span className="truncate max-w-[280px] text-slate-300">{att.fileName} ({att.size ? (att.size / 1024).toFixed(1) : 0} KB)</span>
+                          <a 
+                            href={fileUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-400 hover:underline hover:text-blue-300 flex items-center gap-1 font-medium ml-2"
+                          >
+                            <Download className="h-3.5 w-3.5" /> Download
+                          </a>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </DialogContent>
