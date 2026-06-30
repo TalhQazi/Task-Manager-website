@@ -12,7 +12,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { TaskBlaster } from "@/components/shared/TaskBlaster";
 
 // Context to share header height across components
-const HeaderHeightContext = createContext<number>(300);
+const HeaderHeightContext = createContext<number>(300); 
 
 export function useHeaderHeight() {
   return useContext(HeaderHeightContext);

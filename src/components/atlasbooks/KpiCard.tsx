@@ -3,7 +3,7 @@ import { LucideIcon, TrendingUp } from "lucide-react";
 
 interface KpiCardProps {
   title: string;
-  value: string | number;
+  value: string | number; 
   subtitle?: string;
   icon?: LucideIcon;
   trend?: {

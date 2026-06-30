@@ -8,7 +8,7 @@ type ApiErrorBody = {
 };
 
 export function _getApiBaseUrl() {
-  const raw = String(import.meta.env.VITE_API_URL || "").trim();
+  const raw = String(import.meta.env.VITE_API_URL || "").trim(); 
   if (raw) return raw;
 
   // Local dev fallback
@@ -16,7 +16,7 @@ export function _getApiBaseUrl() {
     return "http://localhost:5000";
   }
 
-  return "https://task.se7eninc.com";
+  return "https://task.se7eninc.com"; 
 }
 
 export function getApiBaseUrl() {
