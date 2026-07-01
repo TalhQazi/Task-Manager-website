@@ -2684,13 +2684,13 @@ export default function Tasks() {
       {selectedProject ? (
         <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden mb-4">
           {/* Modern SaaS Header Banner */}
-          <div className="h-32 sm:h-40 bg-gradient-to-r from-indigo-955 via-purple-955 to-slate-955 relative overflow-hidden flex items-end p-4">
+          <div className="h-16 bg-gradient-to-r from-indigo-955 via-purple-955 to-slate-955 relative overflow-hidden">
             {/* SaaS Glow Decorative background */}
             <div className="absolute top-[-55px] left-[5%] w-56 h-56 bg-indigo-500/10 rounded-full blur-3xl" />
             <div className="absolute bottom-[-55px] right-[15%] w-72 h-72 bg-purple-500/10 rounded-full blur-3xl" />
 
             {/* Premium action header overlay */}
-            <div className="absolute top-4 right-4 flex gap-2">
+            <div className="absolute inset-y-0 right-4 flex items-center gap-2">
               {isAdminRole && (
                 <Button
                   variant="secondary"
@@ -2714,9 +2714,9 @@ export default function Tasks() {
           </div>
 
           {/* Banner Overlapping Logo & Main details */}
-          <div className="px-6 pb-6 pt-6 relative flex flex-col items-center sm:items-start gap-6 border-b border-border/40">
+          <div className="px-6 pb-6 pt-4 relative flex flex-col items-center sm:items-start gap-4 border-b border-border/40">
             {/* Large logo container */}
-            <div className="w-44 h-44 rounded-2xl bg-card border-4 border-muted/30 shadow-xl overflow-hidden flex-shrink-0 flex items-center justify-center">
+            <div className="w-32 h-32 rounded-2xl bg-card border-4 border-muted/30 shadow-xl overflow-hidden flex-shrink-0 flex items-center justify-center">
               <ProjectLogoImgLarge 
                 projectId={selectedProject.id} 
                 projectName={selectedProject.name} 
