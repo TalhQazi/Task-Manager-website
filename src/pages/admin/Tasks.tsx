@@ -1995,13 +1995,17 @@ export default function Tasks() {
           if (!prev) return null;
           return {
             ...prev,
-            tasks: prev.tasks.map((t) => (t.id === normalized.id ? normalized : t)),
+            tasks: next === "completed"
+              ? prev.tasks.filter((t) => t.id !== normalized.id)
+              : prev.tasks.map((t) => (t.id === normalized.id ? normalized : t)),
           };
         });
       }
 
       // Update in standalone tasks list (tasks state)
-      setTasks((prev) => prev.map((t) => (t.id === normalized.id ? normalized : t)));
+      setTasks((prev) => next === "completed"
+        ? prev.filter((t) => t.id !== normalized.id)
+        : prev.map((t) => (t.id === normalized.id ? normalized : t)));
 
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
       if (normalized.projectId) {

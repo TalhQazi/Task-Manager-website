@@ -662,7 +662,7 @@ export default function AssetLibrary({
             ref={fileInputRef}
             type="file"
             multiple
-            accept="image/*,application/pdf"
+            accept="*/*"
             className="hidden"
             aria-label="Upload assets"
             onChange={(e) => {
@@ -854,6 +854,7 @@ export default function AssetLibrary({
                   <option value="">All types</option>
                   <option value="image">Images</option>
                   <option value="pdf">PDF</option>
+                  <option value="document">Other Docs</option>
                 </select>
 
                 <select
@@ -1593,7 +1594,7 @@ export default function AssetLibrary({
               <label className="text-sm font-medium">New file</label>
               <input
                 type="file"
-                accept="image/*,application/pdf"
+                accept="*/*"
                 className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                 onChange={(e) => {
                   const file = e.target.files?.[0];

@@ -33,8 +33,11 @@ import {
   Trash2,
   Briefcase,
   AlertTriangle,
+  Paperclip,
+  Download,
 } from "lucide-react";
-import { createResource, deleteResource, listResource, updateResource } from "@/lib/admin/apiClient";
+import { createResource, deleteResource, listResource, updateResource, getApiBaseUrl } from "@/lib/admin/apiClient";
+import { getAuthState } from "@/lib/auth";
 
 interface LegalCourt {
   id: string;
@@ -54,6 +57,7 @@ interface LegalCase {
   description?: string;
   openDate?: string;
   closeDate?: string;
+  attachments?: Array<{ fileName: string; url: string; mimeType: string; size: number }>;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -85,6 +89,15 @@ const itemVariants = {
   visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 100, damping: 12 } },
 };
 
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+};
+
 export default function Cases() {
   const [searchQuery, setSearchQuery] = useState("");
   const [casesList, setCasesList] = useState<LegalCase[]>([]);
@@ -102,18 +115,35 @@ export default function Cases() {
   
   const [selectedCase, setSelectedCase] = useState<LegalCase | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
 
-  const [formData, setFormData] = useState({
+  const auth = getAuthState();
+  const isAdminRole = auth.role === "admin" || auth.role === "super-admin" || auth.role === "manager";
+
+  const [formData, setFormData] = useState<{
+    title: string;
+    clientName: string;
+    type: string;
+    status: LegalCase["status"];
+    priority: LegalCase["priority"];
+    court: string;
+    judge: string;
+    description: string;
+    openDate: string;
+    closeDate: string;
+    attachments: Array<{ fileName: string; url: string; mimeType: string; size: number }>;
+  }>({
     title: "",
     clientName: "",
     type: "",
-    status: "Open" as LegalCase["status"],
-    priority: "Medium" as LegalCase["priority"],
+    status: "Open",
+    priority: "Medium",
     court: "",
     judge: "",
     description: "",
     openDate: "",
-    closeDate: ""
+    closeDate: "",
+    attachments: []
   });
 
   const loadData = async () => {
@@ -147,7 +177,8 @@ export default function Cases() {
       judge: "",
       description: "",
       openDate: "",
-      closeDate: ""
+      closeDate: "",
+      attachments: []
     });
   };
 
@@ -181,7 +212,8 @@ export default function Cases() {
       judge: c.judge || "",
       description: c.description || "",
       openDate: c.openDate ? c.openDate.split("T")[0] : "",
-      closeDate: c.closeDate ? c.closeDate.split("T")[0] : ""
+      closeDate: c.closeDate ? c.closeDate.split("T")[0] : "",
+      attachments: c.attachments || []
     });
     setEditOpen(true);
   };
@@ -234,6 +266,39 @@ export default function Cases() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    try {
+      setUploadingFiles(true);
+      const files = Array.from(e.target.files);
+      const newAtts = await Promise.all(files.map(async (file) => {
+        const base64Url = await fileToBase64(file);
+        return {
+          fileName: file.name,
+          url: base64Url,
+          mimeType: file.type,
+          size: file.size
+        };
+      }));
+      setFormData(prev => ({
+        ...prev,
+        attachments: [...(prev.attachments || []), ...newAtts]
+      }));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUploadingFiles(false);
+      e.target.value = '';
+    }
+  };
+
+  const removeAttachment = (idx: number) => {
+    setFormData(prev => ({
+      ...prev,
+      attachments: (prev.attachments || []).filter((_, i) => i !== idx)
+    }));
   };
 
   const filteredCases = useMemo(() => {
@@ -349,6 +414,50 @@ export default function Cases() {
           placeholder="Case details..." 
         />
       </div>
+
+      {/* File Attachments (Admins/Super Admins only) */}
+      {isAdminRole && (
+        <div className="space-y-1.5 sm:col-span-2 border-t border-white/5 pt-3 mt-1">
+          <label className="text-xs font-medium text-slate-300 flex items-center gap-1.5">
+            <Paperclip className="h-3.5 w-3.5" /> Attachments
+          </label>
+          <div className="flex items-center gap-2 mt-1">
+            <input 
+              type="file" 
+              id="case-attachments-input" 
+              multiple 
+              className="hidden" 
+              onChange={handleFileChange} 
+            />
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => document.getElementById("case-attachments-input")?.click()}
+              className="border-white/10 bg-white/5 hover:bg-white/10 text-white text-xs"
+            >
+              Attach Files
+            </Button>
+            {uploadingFiles && <span className="text-xs text-slate-400">Processing files...</span>}
+          </div>
+          
+          {formData.attachments && formData.attachments.length > 0 && (
+            <div className="mt-2 space-y-1.5 max-h-32 overflow-y-auto border border-white/10 rounded-lg p-2 bg-black/20">
+              {formData.attachments.map((att: any, idx: number) => (
+                <div key={idx} className="flex justify-between items-center text-xs text-slate-300 bg-white/5 p-1.5 px-2.5 rounded border border-white/5">
+                  <span className="truncate max-w-[250px]">{att.fileName} ({att.size ? (att.size / 1024).toFixed(1) : 0} KB)</span>
+                  <button 
+                    type="button" 
+                    onClick={() => removeAttachment(idx)}
+                    className="text-rose-400 hover:text-rose-300 font-semibold text-xs ml-2"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 
@@ -373,7 +482,7 @@ export default function Cases() {
                 Add Case
               </Button>
             </DialogTrigger>
-            <DialogContent className="bg-[#0f172a] border-white/10 text-white sm:max-w-2xl">
+            <DialogContent className="bg-[#0f172a] border-white/10 text-white sm:max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create New Case</DialogTitle>
                 <DialogDescription className="text-slate-400">
@@ -386,7 +495,7 @@ export default function Cases() {
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" onClick={() => setAddOpen(false)} className="hover:bg-white/10 text-white">Cancel</Button>
-                <Button onClick={handleAdd} disabled={isSubmitting || !formData.title || !formData.clientName || !formData.type} className="bg-blue-600 hover:bg-blue-500 text-white">
+                <Button onClick={handleAdd} disabled={isSubmitting || uploadingFiles || !formData.title || !formData.clientName || !formData.type} className="bg-blue-600 hover:bg-blue-500 text-white">
                   {isSubmitting ? "Saving..." : "Create Case"}
                 </Button>
               </div>
@@ -479,7 +588,7 @@ export default function Cases() {
 
       {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="bg-[#0f172a] border-white/10 text-white sm:max-w-2xl">
+        <DialogContent className="bg-[#0f172a] border-white/10 text-white sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Case {selectedCase?.caseNumber}</DialogTitle>
           </DialogHeader>
@@ -489,7 +598,7 @@ export default function Cases() {
           </div>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setEditOpen(false)} className="hover:bg-white/10 text-white">Cancel</Button>
-            <Button onClick={handleEdit} disabled={isSubmitting || !formData.title || !formData.clientName || !formData.type} className="bg-blue-600 hover:bg-blue-500 text-white">
+            <Button onClick={handleEdit} disabled={isSubmitting || uploadingFiles || !formData.title || !formData.clientName || !formData.type} className="bg-blue-600 hover:bg-blue-500 text-white">
               {isSubmitting ? "Saving..." : "Save Changes"}
             </Button>
           </div>
@@ -541,7 +650,34 @@ export default function Cases() {
               {selectedCase.description && (
                 <div>
                   <div className="text-xs text-slate-400">Description</div>
-                  <div className="text-sm bg-white/5 p-3 rounded-md mt-1">{selectedCase.description}</div>
+                  <div className="text-sm bg-white/5 p-3 rounded-md mt-1 break-words">{selectedCase.description}</div>
+                </div>
+              )}
+              
+              {/* Show Attachments */}
+              {selectedCase.attachments && selectedCase.attachments.length > 0 && (
+                <div className="space-y-2 border-t border-white/5 pt-3">
+                  <div className="text-xs text-slate-400 flex items-center gap-1">
+                    <Paperclip className="h-3 w-3" /> Attachments
+                  </div>
+                  <div className="space-y-1.5">
+                    {selectedCase.attachments.map((att, idx) => {
+                      const fileUrl = att.url.startsWith("http") ? att.url : `${getApiBaseUrl().replace(/\/$/, "")}${att.url}`;
+                      return (
+                        <div key={idx} className="flex justify-between items-center text-xs bg-white/5 p-2 rounded border border-white/10">
+                          <span className="truncate max-w-[280px] text-slate-300">{att.fileName} ({att.size ? (att.size / 1024).toFixed(1) : 0} KB)</span>
+                          <a 
+                            href={fileUrl} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-400 hover:underline hover:text-blue-300 flex items-center gap-1 font-medium ml-2"
+                          >
+                            <Download className="h-3.5 w-3.5" /> Download
+                          </a>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>

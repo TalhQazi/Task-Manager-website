@@ -48,7 +48,7 @@ export function IncidentHistory() {
                   <div className="flex items-start justify-between mb-2">
                     <div>
                       <h4 className="text-white font-medium flex items-center gap-2">
-                        {incident.websiteId?.siteName || "Unknown System"}
+                        {incident.websiteId?.siteName || incident.serverId?.name || "Unknown System"}
                         <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold tracking-wider ${incident.type === 'DOWN' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>
                           {incident.type}
                         </span>
