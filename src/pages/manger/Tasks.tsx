@@ -3353,7 +3353,7 @@ export default function Tasks() {
                                             {!isSameAuthor ? (
                                               <Avatar className="w-9 h-9 border-2 border-background shadow-sm flex-shrink-0 mb-1 ring-1 ring-border">
                                                 {c.authorAvatar ? (
-                                                  <img src={c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
+                                                  <img src={toProxiedUrl(c.authorAvatar) || c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
                                                 ) : (
                                                   <AvatarFallback className="text-[11px] bg-gradient-to-br from-primary/20 to-primary/40 text-primary font-semibold">
                                                     {(c.authorFullName || c.authorUsername).substring(0, 2).toUpperCase()}
@@ -4471,9 +4471,16 @@ export default function Tasks() {
                                         )}
                                       >
                                         {showSenderName && (
-                                          <span className="chat-sender-name ml-10">
-                                            {c.authorFullName || c.authorUsername}
-                                          </span>
+                                          <div className="flex items-center gap-2 mb-1 ml-10">
+                                            <span className="chat-sender-name">
+                                              {c.authorFullName || c.authorUsername}
+                                            </span>
+                                            {c.authorRole && (
+                                              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4">
+                                                {c.authorRole}
+                                              </Badge>
+                                            )}
+                                          </div>
                                         )}
                                         
                                         <div className={cn(
@@ -4483,7 +4490,7 @@ export default function Tasks() {
                                           {!isMe && (
                                             <Avatar className="w-8 h-8 border shadow-sm flex-shrink-0 mb-1">
                                               {c.authorAvatar ? (
-                                                <img src={c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
+                                                <img src={toProxiedUrl(c.authorAvatar) || c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
                                               ) : (
                                                 <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
                                                   {(c.authorFullName || c.authorUsername).substring(0, 2).toUpperCase()}

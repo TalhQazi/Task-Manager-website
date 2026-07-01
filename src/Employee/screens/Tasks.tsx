@@ -191,6 +191,7 @@ type TaskComment = {
   message: string;
   authorUsername: string;
   authorFullName?: string;
+  authorAvatar?: string;
   authorRole?: string;
   createdAt: string;
   attachments?: Array<{
@@ -2478,9 +2479,13 @@ export default function Tasks() {
                             {comments.map((c) => (
                               <div key={c.id} className="flex gap-4 group relative">
                                 <Avatar className="w-10 h-10 border-2 border-background shadow-md flex-shrink-0 z-10 overflow-hidden ring-4 ring-muted/10">
-                                  <AvatarFallback className="text-xs bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-black uppercase tracking-tighter">
-                                    {(c.authorFullName || c.authorUsername || "U").split(" ").map((n: string) => n ? n[0] : "").join("").toUpperCase()}
-                                  </AvatarFallback>
+                                  {c.authorAvatar ? (
+                                    <img src={toProxiedUrl(c.authorAvatar) || c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
+                                  ) : (
+                                    <AvatarFallback className="text-xs bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-black uppercase tracking-tighter">
+                                      {(c.authorFullName || c.authorUsername || "U").split(" ").map((n: string) => n ? n[0] : "").join("").toUpperCase()}
+                                    </AvatarFallback>
+                                  )}
                                 </Avatar>
                                 <div className="flex-1 space-y-2 min-w-0 bg-card p-4 rounded-2xl border border-border/60 ml-2 group-hover:border-primary/20 transition-all shadow-xs group-hover:shadow-md">
                                   <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -2712,9 +2717,13 @@ export default function Tasks() {
                             {projectComments.map((c) => (
                               <div key={c.id} className="flex gap-4 group relative">
                                 <Avatar className="w-10 h-10 border-2 border-background shadow-md flex-shrink-0 z-10 overflow-hidden ring-4 ring-muted/10">
-                                  <AvatarFallback className="text-xs bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-black uppercase tracking-tighter">
-                                    {(c.authorFullName || c.authorUsername || "U").split(" ").map((n: string) => n ? n[0] : "").join("").toUpperCase()}
-                                  </AvatarFallback>
+                                  {c.authorAvatar ? (
+                                    <img src={toProxiedUrl(c.authorAvatar) || c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
+                                  ) : (
+                                    <AvatarFallback className="text-xs bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-black uppercase tracking-tighter">
+                                      {(c.authorFullName || c.authorUsername || "U").split(" ").map((n: string) => n ? n[0] : "").join("").toUpperCase()}
+                                    </AvatarFallback>
+                                  )}
                                 </Avatar>
                                 <div className="flex-1 space-y-2 min-w-0 bg-background/60 backdrop-blur-md p-4 rounded-2xl border border-border/40 ml-2 shadow-xs group-hover:shadow-md transition-all">
                                   <div className="flex items-center gap-2">

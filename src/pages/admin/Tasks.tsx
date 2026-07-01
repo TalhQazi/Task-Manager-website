@@ -3962,9 +3962,16 @@ export default function Tasks() {
                                   )}
                                 >
                                   {showSenderName && (
-                                    <span className="chat-sender-name ml-10">
-                                      {c.authorFullName || c.authorUsername}
-                                    </span>
+                                    <div className="flex items-center gap-2 mb-1 ml-10">
+                                      <span className="chat-sender-name">
+                                        {c.authorFullName || c.authorUsername}
+                                      </span>
+                                      {c.authorRole && (
+                                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4">
+                                          {c.authorRole}
+                                        </Badge>
+                                      )}
+                                    </div>
                                   )}
                                   
                                   <div className={cn(
