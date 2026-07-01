@@ -28,9 +28,26 @@ interface Task {
   dueDate: string;
   dueTime: string;
   createdAt: string;
+  firstStartedAt?: string | null;
+  startedByName?: string;
+  completedAt?: string | null;
+  completedByName?: string;
   attachmentFileName?: string;
   attachmentNote?: string;
 }
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return "";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+};
 
 const getInitials = (name: string) => {
   return String(name || "")
@@ -250,6 +267,18 @@ const EmployeeTaskHistory = () => {
                         <Clock className="h-3.5 w-3.5" />
                         <span>Due: {toDateOnly(task.dueDate) || "—"} {task.dueTime && `at ${task.dueTime}`}</span>
                       </div>
+                      {task.firstStartedAt && (
+                        <div className="flex items-center gap-1 text-[#3b82f6]">
+                          <Clock className="h-3.5 w-3.5" />
+                          <span>Started: {formatDateTime(task.firstStartedAt)}{task.startedByName ? ` by ${task.startedByName}` : ""}</span>
+                        </div>
+                      )}
+                      {task.completedAt && (
+                        <div className="flex items-center gap-1 text-[#22c55e]">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span>Completed: {formatDateTime(task.completedAt)}{task.completedByName ? ` by ${task.completedByName}` : ""}</span>
+                        </div>
+                      )}
                       {task.attachmentFileName && (
                         <div className="flex items-center gap-1">
                           <FileText className="h-3.5 w-3.5" />

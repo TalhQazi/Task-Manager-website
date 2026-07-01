@@ -111,6 +111,7 @@ import { useRewards } from "@/contexts/RewardContext";
 import FollowUpControlCenter from "@/components/shared/FollowUpControlCenter";
 import { VideoRecorderModal } from "@/components/admin/VideoRecorderModal";
 import { VideoUploadField } from "@/components/admin/VideoUploadField";
+import { TaskTimeline } from "@/components/shared/TaskTimeline";
 
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
   const [src, setSrc] = useState<string | null | undefined>(undefined);
@@ -348,6 +349,12 @@ interface Task {
   attachmentNote?: string;
   dropboxAttachmentCount?: number;
   executionPriority?: number | null;
+  introVideoUrl?: string;
+  startedAt?: string | null;
+  firstStartedAt?: string | null;
+  startedByName?: string;
+  completedAt?: string | null;
+  completedByName?: string;
   attachment?: {
     fileName: string;
     url: string;
@@ -507,6 +514,12 @@ function normalizeTask(t: any): Task {
     attachments: Array.isArray((t as any).attachments) ? (t as any).attachments : undefined,
     dropboxAttachmentCount: t.dropboxAttachmentCount,
     executionPriority: t.executionPriority ?? null,
+    introVideoUrl: t.introVideoUrl,
+    startedAt: t.startedAt ?? null,
+    firstStartedAt: t.firstStartedAt ?? null,
+    startedByName: t.startedByName,
+    completedAt: t.completedAt ?? null,
+    completedByName: t.completedByName,
   };
 }
 
@@ -3830,6 +3843,9 @@ export default function Tasks() {
                       )}
                     </div>
                   )}
+
+                  {/* Task Start/Close Timeline */}
+                  <TaskTimeline task={selectedTask} />
 
                   {/* Task Attachments Grid */}
                   {((selectedTask.attachments && selectedTask.attachments.length > 0) || selectedTask.attachment?.fileName) && (

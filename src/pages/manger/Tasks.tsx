@@ -107,6 +107,7 @@ import { Pagination } from "@/components/Pagination";
 import { useRewards } from "@/contexts/RewardContext";
 import FollowUpControlCenter from "@/components/shared/FollowUpControlCenter";
 import { VideoRecorderModal } from "@/components/admin/VideoRecorderModal";
+import { TaskTimeline } from "@/components/shared/TaskTimeline";
 import { useGlobalTimer } from "@/hooks/useGlobalTimer";
 import { getRemainingTime, getTimerState } from "@/lib/manger/time";
 import CreateExpenseSheet from "@/components/expense/CreateExpenseSheet";
@@ -128,6 +129,11 @@ interface Task {
   dueTime?: string;
   location?: string;
   introVideoUrl?: string;
+  startedAt?: string | null;
+  firstStartedAt?: string | null;
+  startedByName?: string;
+  completedAt?: string | null;
+  completedByName?: string;
   createdAt: string;
   projectId?: string;
   attachmentFileName?: string;
@@ -282,6 +288,12 @@ function normalizeTask(t: TaskApi): Task {
     attachmentNote: extra.attachmentNote,
     attachment: extra.attachment,
     attachments: Array.isArray((t as any).attachments) ? (t as any).attachments : undefined,
+    introVideoUrl: (t as any).introVideoUrl,
+    startedAt: (t as any).startedAt ?? null,
+    firstStartedAt: (t as any).firstStartedAt ?? null,
+    startedByName: (t as any).startedByName,
+    completedAt: (t as any).completedAt ?? null,
+    completedByName: (t as any).completedByName,
   };
 }
 
@@ -3248,6 +3260,9 @@ export default function Tasks() {
                           )}
                         </div>
                       )}
+
+                      {/* Task Start/Close Timeline */}
+                      <TaskTimeline task={selectedTask} />
 
                       {/* Task Attachments Grid - Same as Admin Panel */}
                       {((selectedTask.attachments && selectedTask.attachments.length > 0) || selectedTask.attachment?.fileName) && (
