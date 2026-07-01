@@ -92,6 +92,7 @@ import {
   Maximize2,
   Smile,
   Flame,
+  Video,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch, downloadTaskAttachment, toProxiedUrl, getTopContributors, downloadViaUrl, updateComment, deleteComment } from "@/lib/manger/api";
@@ -105,6 +106,7 @@ import jsPDF from "jspdf";
 import { Pagination } from "@/components/Pagination";
 import { useRewards } from "@/contexts/RewardContext";
 import FollowUpControlCenter from "@/components/shared/FollowUpControlCenter";
+import { VideoRecorderModal } from "@/components/admin/VideoRecorderModal";
 import { useGlobalTimer } from "@/hooks/useGlobalTimer";
 import { getRemainingTime, getTimerState } from "@/lib/manger/time";
 import CreateExpenseSheet from "@/components/expense/CreateExpenseSheet";
@@ -402,6 +404,11 @@ function CommentAttachmentImg({ taskId, projectId, commentId, index, mimeType, f
       </div>
     </div>
   );
+  if (src && mimeType?.startsWith("video/")) return (
+    <div className="w-full h-auto flex justify-center relative group/att">
+      <video src={src} controls className="w-full h-auto max-h-[180px] object-contain rounded-lg" />
+    </div>
+  );
   if (src && !mimeType?.startsWith("image/")) return (
     <div className="w-full h-full relative group/att">
       <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-white/10">
@@ -675,6 +682,7 @@ export default function Tasks() {
   const [editTaskFilePreview, setEditTaskFilePreview] = useState<string | null>(null);
   const [editTaskFiles, setEditTaskFiles] = useState<File[]>([]);
   const [editTaskFilePreviews, setEditTaskFilePreviews] = useState<string[]>([]);
+  const [isVideoRecorderOpen, setIsVideoRecorderOpen] = useState(false);
   // Project edit state
   const [isEditProjectOpen, setIsEditProjectOpen] = useState(false);
   const [isDeleteProjectOpen, setIsDeleteProjectOpen] = useState(false);
@@ -2497,7 +2505,7 @@ export default function Tasks() {
               ) : (
                 <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                  {paginatedTasks.map((task, index) => {
-    const timer = task.dueDate && task.status !== "completed"
+    const timer = task.dueDate
       ? getRemainingTime(task.dueDate, now)
       : null;
 
@@ -3594,6 +3602,9 @@ export default function Tasks() {
                               <button type="button" onClick={() => { const el = document.getElementById("comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-primary/20" title="Attach file">
                                 <Paperclip className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Attach</span>
                               </button>
+                              <button type="button" onClick={() => setIsVideoRecorderOpen(true)} className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-red-500/20" title="Record Video">
+                                <Video className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Video</span>
+                              </button>
                               {ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (
                                 <button type="button" onClick={() => { setDropboxPickerTarget("task"); setIsDropboxPickerOpen(true); }} className="p-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-blue-500/20" title="Attach from Dropbox">
                                   <DropboxIcon size={14} /> <span className="text-xs font-semibold hidden sm:inline">Dropbox</span>
@@ -4557,6 +4568,9 @@ export default function Tasks() {
                             <button type="button" onClick={() => { const el = document.getElementById("project-comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center gap-1.5" title="Attach file">
                               <Paperclip className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Attach Files</span>
                             </button>
+                            <button type="button" onClick={() => setIsVideoRecorderOpen(true)} className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-1.5" title="Record Video">
+                              <Video className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Record Video</span>
+                            </button>
                             {ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (
                               <button type="button" onClick={() => { setDropboxPickerTarget("project"); setIsDropboxPickerOpen(true); }} className="p-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-blue-500/20" title="Attach from Dropbox">
                                 <DropboxIcon size={14} /> <span className="text-xs font-semibold hidden sm:inline">Dropbox</span>
@@ -4824,10 +4838,16 @@ export default function Tasks() {
             </div>
             {previewUrl && (
               <div className="flex flex-col items-center">
-                {previewName.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i) ? (
+                {previewName.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i) || previewUrl.startsWith("data:image/") ? (
                   <img 
                     src={previewUrl} 
                     alt={previewName} 
+                    className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl" 
+                  />
+                ) : previewName.match(/\.(mp4|webm|ogg|mov)$/i) || previewUrl.startsWith("data:video/") ? (
+                  <video 
+                    src={previewUrl} 
+                    controls
                     className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl" 
                   />
                 ) : (
@@ -5000,6 +5020,13 @@ export default function Tasks() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Video Recorder Modal */}
+      <VideoRecorderModal
+        isOpen={isVideoRecorderOpen}
+        onClose={() => setIsVideoRecorderOpen(false)}
+        onSave={(file) => setCommentAttachments((prev) => [...prev, file])}
+      />
     </div>
   );
 }
