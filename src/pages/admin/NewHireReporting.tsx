@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Badge } from "@/components/admin/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/admin/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/admin/ui/avatar";
+import { useEmployeeAvatars } from "@/hooks/useEmployeeAvatars";
 import {
   Dialog,
   DialogContent,
@@ -140,6 +141,7 @@ function CountdownCell({ expiry, status }: { expiry: string; status: string }) {
 
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function NewHireReporting() {
+  const getAvatar = useEmployeeAvatars();
   const [reports, setReports] = useState<NewHireReport[]>([]);
   const [stats, setStats] = useState<Stats>({ total: 0, pending: 0, submitted: 0, failed: 0, overridden: 0, complianceRate: 100 });
   const [statusFilter, setStatusFilter] = useState("all");
@@ -384,6 +386,7 @@ export default function NewHireReporting() {
                     {/* User Details */}
                     <div className="flex items-center gap-3.5 sm:flex-1 min-w-0">
                       <Avatar className="h-11 w-11 flex-shrink-0 border-2 border-white/10 shadow-md">
+                        {getAvatar(report.employeeName) && <AvatarImage src={getAvatar(report.employeeName)} alt={report.employeeName} className="object-cover" />}
                         <AvatarFallback className="bg-gradient-to-br from-indigo-500/20 to-indigo-500/10 text-indigo-400 text-sm font-black tracking-tight">
                           {getInitials(report.employeeName)}
                         </AvatarFallback>

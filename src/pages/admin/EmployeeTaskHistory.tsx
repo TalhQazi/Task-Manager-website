@@ -4,7 +4,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Badge } from "@/components/admin/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/admin/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/admin/ui/avatar";
+import { useEmployeeAvatars } from "@/hooks/useEmployeeAvatars";
 import { 
   ArrowLeft, 
   CheckCircle2, 
@@ -115,6 +116,7 @@ const EmployeeTaskHistory = () => {
   const navigate = useNavigate();
   const { employee } = useParams<{ employee: string }>();
   const employeeName = decodeURIComponent(employee || "");
+  const getAvatar = useEmployeeAvatars();
   
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -178,6 +180,7 @@ const EmployeeTaskHistory = () => {
           </Button>
           <div className="flex items-center gap-3">
             <Avatar className="h-10 w-10 ring-2 ring-primary/20">
+              {getAvatar(employeeName) && <AvatarImage src={getAvatar(employeeName)} alt={employeeName} className="object-cover" />}
               <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white">
                 {getInitials(employeeName)}
               </AvatarFallback>
