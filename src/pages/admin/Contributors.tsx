@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Users, Search, Filter, Award, Clock, CheckCircle, ArrowUpRight, Eye, X, FileText, Calendar, CheckCircle2 } from "lucide-react";
-import { getContributors, getTopContributors, getContributor, getContributorContributions, type Contributor, type Contribution } from "@/lib/admin/apiClient";
+import { getContributors, getTopContributors, getContributor, getContributorContributions, toProxiedUrl, type Contributor, type Contribution } from "@/lib/admin/apiClient";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -144,7 +144,7 @@ export default function ContributorsPage() {
                 >
                   <div className="relative">
                     <Avatar className="h-16 w-16">
-                      <AvatarImage src={contributor.avatar} alt={contributor.name} />
+                      <AvatarImage src={toProxiedUrl(contributor.avatar) || contributor.avatar} alt={contributor.name} />
                       <AvatarFallback className="bg-[#133767] text-white text-lg">
                         {getInitials(contributor.name)}
                       </AvatarFallback>
@@ -254,7 +254,7 @@ export default function ContributorsPage() {
                 >
                   <div className="flex items-center gap-4 w-full sm:w-auto">
                     <Avatar className="h-12 w-12">
-                      <AvatarImage src={contributor.avatar} alt={contributor.name} />
+                      <AvatarImage src={toProxiedUrl(contributor.avatar) || contributor.avatar} alt={contributor.name} />
                       <AvatarFallback className="bg-[#133767] text-white">
                         {getInitials(contributor.name)}
                       </AvatarFallback>
@@ -384,7 +384,7 @@ export default function ContributorsPage() {
                 {/* Contributor Header */}
                 <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
                   <Avatar className="h-16 w-16">
-                    <AvatarImage src={selectedContributor.avatar} alt={selectedContributor.name} />
+                    <AvatarImage src={toProxiedUrl(selectedContributor.avatar) || selectedContributor.avatar} alt={selectedContributor.name} />
                     <AvatarFallback className="bg-[#133767] text-white text-lg">
                       {getInitials(selectedContributor.name)}
                     </AvatarFallback>
