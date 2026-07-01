@@ -89,6 +89,7 @@ import {
   Layers,
   Maximize2,
   Flame,
+  Video,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { useSocket } from "@/contexts/SocketContext";
@@ -102,6 +103,7 @@ import { Pagination } from "@/components/Pagination";
 import { DropboxIcon, formatBytes } from "@/components/admin/DropboxFilePicker";
 import { useRewards } from "@/contexts/RewardContext";
 import FollowUpControlCenter from "@/components/shared/FollowUpControlCenter";
+import { VideoRecorderModal } from "@/components/admin/VideoRecorderModal";
 
 interface Task {
   id: string;
@@ -526,6 +528,14 @@ function CommentAttachmentImg({
     );
   }
 
+  if (src && (mimeType?.startsWith("video/") || fileName.match(/\.(webm|mp4|mov)$/i))) {
+    return (
+      <div className="w-full h-auto flex justify-center relative rounded-lg bg-black/40 overflow-hidden">
+        <video src={src} controls className="w-full h-auto max-h-[180px] rounded-lg" />
+      </div>
+    );
+  }
+
   if (src && !mimeType?.startsWith("image/")) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-muted/10 rounded-lg">
@@ -599,6 +609,7 @@ export default function Tasks() {
   const [editAssigneesOpen, setEditAssigneesOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState<string>("");
+  const [isVideoRecorderOpen, setIsVideoRecorderOpen] = useState(false);
   const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
   const [attachmentFiles, setAttachmentFiles] = useState<File[]>([]);
   const [attachmentFilePreviews, setAttachmentFilePreviews] = useState<string[]>([]);
@@ -2534,9 +2545,14 @@ export default function Tasks() {
                             autoComplete="on"
                           />
                           <div className="flex items-center justify-between p-3 pl-5 bg-muted/20 border-t border-border/40 rounded-b-[22px]">
-                            <button type="button" onClick={() => { const el = document.getElementById("task-comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground/70 hover:text-primary hover:bg-primary/10 rounded-xl transition-all flex items-center gap-2 group" title="Shared assets">
-                              <Paperclip className="w-4 h-4 group-hover:rotate-12 transition-transform" /> <span className="text-[12px] font-bold uppercase tracking-wider hidden sm:inline">Attach Files</span>
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button type="button" onClick={() => { const el = document.getElementById("task-comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground/70 hover:text-primary hover:bg-primary/10 rounded-xl transition-all flex items-center gap-2 group" title="Shared assets">
+                                <Paperclip className="w-4 h-4 group-hover:rotate-12 transition-transform" /> <span className="text-[12px] font-bold uppercase tracking-wider hidden sm:inline">Attach Files</span>
+                              </button>
+                              <button type="button" onClick={() => setIsVideoRecorderOpen(true)} className="p-2 text-muted-foreground/70 hover:text-red-500 hover:bg-red-500/10 rounded-xl transition-all flex items-center gap-2 group" title="Record Video">
+                                <Video className="w-4 h-4" /> <span className="text-[12px] font-bold uppercase tracking-wider hidden sm:inline">Record</span>
+                              </button>
+                            </div>
                             <input id="task-comment-attachment-input" type="file" multiple className="hidden" aria-label="Attach files to comment" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value = ''; }} />
                             <Button type="button" onClick={() => void sendComment()} disabled={(!commentDraft.trim() && commentAttachments.length === 0) || isSendingComment} className="h-10 px-6 rounded-xl font-black uppercase tracking-widest text-[11px] shadow-lg hover:shadow-primary/20 transition-all border-none">
                               {isSendingComment ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send Message"}
@@ -2746,9 +2762,14 @@ export default function Tasks() {
                             className="w-full min-h-[80px] border-0 focus:ring-0 resize-none p-5 text-[14px] bg-transparent outline-none placeholder-muted-foreground/40 font-bold"
                           />
                           <div className="flex items-center justify-between p-3 bg-muted/20 border-t border-border/40">
-                            <button type="button" onClick={() => { const el = document.getElementById("proj-comment-attachment-input-emp") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground/70 hover:text-primary transition-colors flex items-center gap-2 group">
-                              <Paperclip className="w-4 h-4" /> <span className="text-[11px] font-black uppercase tracking-wider">Add files</span>
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button type="button" onClick={() => { const el = document.getElementById("proj-comment-attachment-input-emp") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground/70 hover:text-primary transition-colors flex items-center gap-2 group">
+                                <Paperclip className="w-4 h-4" /> <span className="text-[11px] font-black uppercase tracking-wider">Add files</span>
+                              </button>
+                              <button type="button" onClick={() => setIsVideoRecorderOpen(true)} className="p-2 text-muted-foreground/70 hover:text-red-500 transition-colors flex items-center gap-2 group" title="Record Video">
+                                <Video className="w-4 h-4" /> <span className="text-[11px] font-black uppercase tracking-wider">Record</span>
+                              </button>
+                            </div>
                             <input id="proj-comment-attachment-input-emp" type="file" multiple className="hidden" aria-label="Attach files to project comment" onChange={(e) => { if (e.target.files) { setCommentAttachments(prev => [...prev, ...Array.from(e.target.files!)]); } e.target.value = ''; }} />
                             <Button type="button" onClick={() => void sendComment(true)} disabled={(!commentDraft.trim() && commentAttachments.length === 0) || isSendingComment} className="h-9 px-5 rounded-xl font-black uppercase tracking-[0.1em] text-[10px] shadow-lg">
                               {isSendingComment ? <Loader2 className="w-3 h-3 animate-spin mr-2" /> : null}
@@ -3226,11 +3247,26 @@ export default function Tasks() {
             </div>
             {previewUrl && (
               <div className="flex flex-col items-center">
-                <img
-                  src={previewUrl}
-                  alt={previewName}
-                  className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl"
-                />
+                {previewName.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i) || previewUrl.startsWith("data:image/") ? (
+                  <img
+                    src={previewUrl}
+                    alt={previewName}
+                    className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl"
+                  />
+                ) : previewName.match(/\.(webm|mp4|mov|ogg|3gp)$/i) || previewUrl.startsWith("data:video/") ? (
+                  <video
+                    src={previewUrl}
+                    controls
+                    className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl"
+                    autoPlay
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center p-8 sm:p-12 bg-white/5 rounded-2xl border border-white/10 min-w-[260px] sm:min-w-[300px] max-w-full">
+                    <FileText className="w-20 h-20 text-white/40 mb-4" />
+                    <p className="text-white font-semibold mb-2">{previewName}</p>
+                    <p className="text-white/40 text-xs mb-6">Preview not available for this type</p>
+                  </div>
+                )}
                 <div className="mt-4 px-4 py-2 bg-black/50 backdrop-blur-md rounded-full text-white text-sm font-medium shadow-lg">
                   {previewName}
                 </div>
@@ -3239,6 +3275,12 @@ export default function Tasks() {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Video Recorder Modal */}
+      <VideoRecorderModal
+        isOpen={isVideoRecorderOpen}
+        onClose={() => setIsVideoRecorderOpen(false)}
+        onSave={(file) => setCommentAttachments((prev) => [...prev, file])}
+      />
     </div>
   );
 }

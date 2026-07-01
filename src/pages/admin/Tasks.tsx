@@ -92,6 +92,7 @@ import {
   Smile,
   Flame,
   Image as ImageIcon,
+  Video,
 } from "lucide-react";
 import { cn } from "@/lib/admin/utils";
 import { apiFetch, downloadTaskAttachment, toProxiedUrl, downloadViaUrl } from "@/lib/admin/apiClient";
@@ -108,6 +109,7 @@ import { TaskContributors } from "@/components/admin/tasks/TaskContributors";
 import DropboxFilePicker, { type DropboxSelectedFile, formatBytes, DropboxIcon } from "@/components/admin/DropboxFilePicker";
 import { useRewards } from "@/contexts/RewardContext";
 import FollowUpControlCenter from "@/components/shared/FollowUpControlCenter";
+import { VideoRecorderModal } from "@/components/admin/VideoRecorderModal";
 
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
   const [src, setSrc] = useState<string | null | undefined>(undefined);
@@ -264,6 +266,11 @@ function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fa
       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-all duration-200 rounded-lg">
         <Maximize2 className="w-5 h-5 text-white" />
       </div>
+    </div>
+  );
+  if (src && (mimeType?.startsWith("video/") || fileName.match(/\.(webm|mp4|mov)$/i))) return (
+    <div className="w-full h-auto flex justify-center relative rounded-lg bg-black/40 overflow-hidden">
+      <video src={src} controls className="w-full h-auto max-h-[180px] rounded-lg" />
     </div>
   );
   if (src && !mimeType?.startsWith("image/")) return (
@@ -760,6 +767,7 @@ export default function Tasks() {
   // Lightbox / File Preview State
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState<string>("");
+  const [isVideoRecorderOpen, setIsVideoRecorderOpen] = useState(false);
 
   // Asset Library Picker states
   const [isProjectLogoPickerOpen, setIsProjectLogoPickerOpen] = useState(false);
@@ -2706,9 +2714,9 @@ export default function Tasks() {
           </div>
 
           {/* Banner Overlapping Logo & Main details */}
-          <div className="px-6 pb-6 pt-16 relative flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border/40">
-            {/* Oversized logo container */}
-            <div className="absolute top-0 left-6 -translate-y-1/2 w-28 h-28 rounded-2xl bg-card border-4 border-card shadow-xl overflow-hidden flex-shrink-0 flex items-center justify-center">
+          <div className="px-6 pb-6 pt-6 relative flex flex-col items-center sm:items-start gap-6 border-b border-border/40">
+            {/* Large logo container */}
+            <div className="w-44 h-44 rounded-2xl bg-card border-4 border-muted/30 shadow-xl overflow-hidden flex-shrink-0 flex items-center justify-center">
               <ProjectLogoImgLarge 
                 projectId={selectedProject.id} 
                 projectName={selectedProject.name} 
@@ -2717,10 +2725,10 @@ export default function Tasks() {
             </div>
 
             {/* Project info details */}
-            <div className="flex-1 min-w-0 space-y-1.5 mt-2 sm:mt-0">
-              <div className="flex items-center gap-3">
+            <div className="flex-1 w-full min-w-0 space-y-3 text-center sm:text-left">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <Input
-                  className="font-extrabold text-2xl tracking-tight text-foreground border-transparent hover:border-border focus:border-primary px-1 -ml-1 !bg-transparent h-auto py-0 shadow-none focus-visible:ring-0"
+                  className="font-extrabold text-2xl tracking-tight text-foreground border-transparent hover:border-border focus:border-primary px-1 -ml-1 !bg-transparent h-auto py-0 shadow-none focus-visible:ring-0 text-center sm:text-left"
                   value={projectViewName}
                   onChange={(e) => {
                     setProjectViewName(e.target.value);
@@ -2728,10 +2736,10 @@ export default function Tasks() {
                   }}
                   placeholder="Project Name"
                 />
-                <Badge className="capitalize font-semibold text-xs" variant="secondary">{selectedProject.status || "No tasks"}</Badge>
+                <Badge className="capitalize font-semibold text-xs w-fit mx-auto sm:mx-0" variant="secondary">{selectedProject.status || "No tasks"}</Badge>
               </div>
               <Textarea
-                className="text-sm text-muted-foreground border-transparent hover:border-border focus:border-primary px-1 -ml-1 !bg-transparent resize-none min-h-[40px] py-0 shadow-none focus-visible:ring-0"
+                className="text-sm text-muted-foreground border-transparent hover:border-border focus:border-primary px-1 -ml-1 !bg-transparent resize-none min-h-[40px] py-0 shadow-none focus-visible:ring-0 text-center sm:text-left"
                 value={projectViewDesc}
                 onChange={(e) => {
                   setProjectViewDesc(e.target.value);
@@ -2739,7 +2747,7 @@ export default function Tasks() {
                 }}
                 placeholder="Add project description..."
               />
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground pt-1">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-1 text-xs text-muted-foreground pt-1">
                 <span className="flex items-center gap-1.5">
                   <Users className="w-3.5 h-3.5 text-primary/60" />
                   {selectedProject.assignees && selectedProject.assignees.length > 0 ? selectedProject.assignees.join(", ") : "No assignees"}
@@ -4176,6 +4184,9 @@ export default function Tasks() {
                           <button type="button" onClick={() => { const el = document.getElementById("comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-primary/20" title="Attach file">
                             <Paperclip className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Attach</span>
                           </button>
+                          <button type="button" onClick={() => setIsVideoRecorderOpen(true)} className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-red-500/20" title="Record Video">
+                            <Video className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Record</span>
+                          </button>
                           {ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (
                             <button type="button" onClick={() => { setDropboxPickerTarget("task-comment"); setIsDropboxPickerOpen(true); }} className="p-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-blue-500/20" title="Attach from Dropbox">
                               <DropboxIcon size={14} /> <span className="text-xs font-semibold hidden sm:inline">Dropbox</span>
@@ -5296,6 +5307,13 @@ export default function Tasks() {
                     alt={previewName} 
                     className="max-h-[75vh] max-w-full object-contain rounded-lg shadow-2xl transition-transform duration-300 hover:scale-[1.02]" 
                   />
+                ) : (previewUrl.match(/\.(webm|mp4|mov|ogg|3gp)/i) || previewUrl.startsWith("data:video/")) ? (
+                  <video 
+                    src={previewUrl} 
+                    controls 
+                    className="max-h-[75vh] max-w-full object-contain rounded-lg shadow-2xl" 
+                    autoPlay
+                  />
                 ) : (
                   <div className="flex flex-col items-center justify-center p-12 bg-white/5 rounded-2xl border border-white/10 min-w-[300px]">
                     <FileText className="w-20 h-20 text-white/40 mb-4" />
@@ -5373,6 +5391,12 @@ export default function Tasks() {
           }
         }}
         multiple={true}
+      />
+      {/* Video Recorder Modal */}
+      <VideoRecorderModal
+        isOpen={isVideoRecorderOpen}
+        onClose={() => setIsVideoRecorderOpen(false)}
+        onSave={(file) => setCommentAttachments((prev) => [...prev, file])}
       />
     </div>
   );

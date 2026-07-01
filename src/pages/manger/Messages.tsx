@@ -95,6 +95,20 @@ function normalizeMessage(m: any): Message {
   };
 }
 
+function isDuplicateMessage(prev: Message[], newMsg: Message): boolean {
+  if (newMsg.id && prev.some((m) => m.id === newMsg.id)) return true;
+  return prev.some((m) => {
+    const isSameMetadata = 
+      m.sender === newMsg.sender && 
+      m.recipient === newMsg.recipient && 
+      m.content === newMsg.content;
+    if (!isSameMetadata) return false;
+    const t1 = new Date(m.timestamp).getTime();
+    const t2 = new Date(newMsg.timestamp).getTime();
+    return Math.abs(t1 - t2) < 10000;
+  });
+}
+
 function getInitials(name: string): string {
   return String(name || "")
     .split(" ")
@@ -370,7 +384,10 @@ export default function Messages() {
 
       if (res?.item) {
         const newMsg = normalizeMessage(res.item);
-        setConversationMessages((prev) => [...prev, newMsg]);
+        setConversationMessages((prev) => {
+          if (isDuplicateMessage(prev, newMsg)) return prev;
+          return [...prev, newMsg];
+        });
         setNewMessageContent("");
         await queryClient.invalidateQueries({ queryKey: ["conversations", currentUser] });
       }
@@ -410,7 +427,7 @@ export default function Messages() {
         (normalized.sender === selectedEmployee.name || normalized.recipient === selectedEmployee.name)
       ) {
         setConversationMessages((prev) => {
-          if (prev.some((m) => m.id === normalized.id)) return prev;
+          if (isDuplicateMessage(prev, normalized)) return prev;
           return [...prev, normalized].sort((a, b) => a.id.localeCompare(b.id));
         });
       }
@@ -586,7 +603,10 @@ export default function Messages() {
 
       if (res?.item) {
         const newMsg = normalizeMessage(res.item);
-        setConversationMessages((prev) => [...prev, newMsg]);
+        setConversationMessages((prev) => {
+          if (isDuplicateMessage(prev, newMsg)) return prev;
+          return [...prev, newMsg];
+        });
         setNewMessageContent("");
         await queryClient.invalidateQueries({ queryKey: ["conversations", currentUser] });
       }

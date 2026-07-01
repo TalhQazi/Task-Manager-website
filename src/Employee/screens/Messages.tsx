@@ -88,6 +88,20 @@ const normalizeMessage = (m: any): Message => {
   };
 };
 
+const isDuplicateMessage = (prev: Message[], newMsg: Message): boolean => {
+  if (newMsg.id && prev.some((m) => m.id === newMsg.id)) return true;
+  return prev.some((m) => {
+    const isSameMetadata = 
+      m.sender === newMsg.sender && 
+      m.recipient === newMsg.recipient && 
+      m.content === newMsg.content;
+    if (!isSameMetadata) return false;
+    const t1 = new Date(m.timestamp).getTime();
+    const t2 = new Date(newMsg.timestamp).getTime();
+    return Math.abs(t1 - t2) < 10000;
+  });
+};
+
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 export default function EmployeeMessages() {
@@ -235,7 +249,7 @@ export default function EmployeeMessages() {
         const partnerName = selectedConversation?.employee?.name;
         if (partnerName && (normalized.sender === partnerName || normalized.recipient === partnerName)) {
           setMessages((prev) => {
-            if (prev.some((m) => m.id === normalized.id)) return prev;
+            if (isDuplicateMessage(prev, normalized)) return prev;
             return [...prev, normalized].sort((a, b) => a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id));
           });
         }
@@ -393,7 +407,7 @@ export default function EmployeeMessages() {
       setMessages((prev) => {
         const normalized = normalizeMessage(res.item);
         if (!normalized.id) return prev;
-        if (prev.some((m) => m.id === normalized.id)) return prev;
+        if (isDuplicateMessage(prev, normalized)) return prev;
         return [...prev, normalized].sort((a, b) => a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id));
       });
       setMessageInput("");
@@ -452,7 +466,7 @@ export default function EmployeeMessages() {
       setMessages((prev) => {
         const normalized = normalizeMessage(res.item);
         if (!normalized.id) return prev;
-        if (prev.some((m) => m.id === normalized.id)) return prev;
+        if (isDuplicateMessage(prev, normalized)) return prev;
         return [...prev, normalized].sort((a, b) => a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id));
       });
       setMessageInput("");

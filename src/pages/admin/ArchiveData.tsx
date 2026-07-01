@@ -168,7 +168,7 @@ export default function ArchiveData() {
   const filtered = items.filter((item) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
-    const data = item.itemData;
+    const data = item.itemData || {};
     return (
       (data.message || "").toLowerCase().includes(q) ||
       (data.fileName || "").toLowerCase().includes(q) ||
@@ -282,6 +282,7 @@ export default function ArchiveData() {
                 const colorClass = itemTypeColors[item.itemType] || "bg-gray-100 text-gray-700";
                 const letterIndex = String.fromCharCode(65 + (idx % 26));
                 const displayNumber = (pagination.page - 1) * pagination.limit + idx + 1;
+                const itemData = item.itemData || {};
 
                 return (
                   <motion.div
@@ -316,7 +317,7 @@ export default function ArchiveData() {
                             {/* Item-specific content */}
                             {item.itemType === "comment" && (
                               <p className="text-sm break-words line-clamp-3">
-                                {item.itemData.message || "—"}
+                                {itemData.message || "—"}
                               </p>
                             )}
                             {item.itemType === "attachment" && (
@@ -324,21 +325,21 @@ export default function ArchiveData() {
                                 <div className="flex items-center gap-2">
                                   <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
                                   <span className="text-sm font-medium truncate">
-                                    {item.itemData.fileName || "Unknown file"}
+                                    {itemData.fileName || "Unknown file"}
                                   </span>
-                                  {item.itemData.size > 0 && (
+                                  {(itemData.size || 0) > 0 && (
                                     <span className="text-[11px] text-muted-foreground">
-                                      ({(item.itemData.size / 1024).toFixed(1)} KB)
+                                      ({(itemData.size / 1024).toFixed(1)} KB)
                                     </span>
                                   )}
                                 </div>
-                                {item.itemData.mimeType?.startsWith("image/") && item.itemData.url && (
+                                {itemData.mimeType?.startsWith("image/") && itemData.url && (
                                   <div className="w-32 h-20 rounded-md overflow-hidden border bg-muted/20">
                                     <img 
-                                      src={toProxiedUrl(item.itemData.url) || item.itemData.url} 
+                                      src={toProxiedUrl(itemData.url) || itemData.url} 
                                       alt="preview" 
                                       className="w-full h-full object-cover opacity-80 hover:opacity-100 transition-opacity cursor-pointer"
-                                      onClick={() => { setPreviewUrl(toProxiedUrl(item.itemData.url) || item.itemData.url); setPreviewName(item.itemData.fileName); }}
+                                      onClick={() => { setPreviewUrl(toProxiedUrl(itemData.url) || itemData.url); setPreviewName(itemData.fileName); }}
                                     />
                                   </div>
                                 )}
@@ -347,26 +348,26 @@ export default function ArchiveData() {
                             {item.itemType === "task" && (
                               <div className="space-y-2">
                                 <p className="text-sm font-medium break-words">
-                                  {item.itemData.title || "—"}
+                                  {itemData.title || "—"}
                                 </p>
                                 <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground">
-                                  {item.itemData.status && (
-                                    <span className="px-1.5 py-0.5 rounded bg-muted capitalize">{item.itemData.status}</span>
+                                  {itemData.status && (
+                                    <span className="px-1.5 py-0.5 rounded bg-muted capitalize">{itemData.status}</span>
                                   )}
-                                  {item.itemData.priority && (
-                                    <span className="px-1.5 py-0.5 rounded bg-muted capitalize">{item.itemData.priority}</span>
+                                  {itemData.priority && (
+                                    <span className="px-1.5 py-0.5 rounded bg-muted capitalize">{itemData.priority}</span>
                                   )}
-                                  {item.itemData.assignees?.length > 0 && (
-                                    <span>Assigned: {item.itemData.assignees.join(", ")}</span>
+                                  {itemData.assignees?.length > 0 && (
+                                    <span>Assigned: {itemData.assignees.join(", ")}</span>
                                   )}
                                 </div>
-                                {item.itemData.attachment?.url && item.itemData.attachment?.mimeType?.startsWith("image/") && (
+                                {itemData.attachment?.url && itemData.attachment?.mimeType?.startsWith("image/") && (
                                   <div className="w-32 h-20 rounded-md overflow-hidden border bg-muted/20 mt-1">
                                     <img 
-                                      src={toProxiedUrl(item.itemData.attachment.url) || item.itemData.attachment.url} 
+                                      src={toProxiedUrl(itemData.attachment.url) || itemData.attachment.url} 
                                       alt="task preview" 
                                       className="w-full h-full object-cover opacity-80 hover:opacity-100 transition-opacity cursor-pointer"
-                                      onClick={() => { setPreviewUrl(toProxiedUrl(item.itemData.attachment.url) || item.itemData.attachment.url); setPreviewName(item.itemData.title); }}
+                                      onClick={() => { setPreviewUrl(toProxiedUrl(itemData.attachment.url) || itemData.attachment.url); setPreviewName(itemData.title); }}
                                     />
                                   </div>
                                 )}
@@ -375,21 +376,21 @@ export default function ArchiveData() {
                             {item.itemType === "user" && (
                               <div className="space-y-1">
                                 <p className="text-sm font-medium break-words">
-                                  {item.itemData.name || "—"}
+                                  {itemData.name || "—"}
                                 </p>
                                 <div className="flex items-center gap-2 flex-wrap text-[11px] text-muted-foreground">
-                                  <span>{item.itemData.email}</span>
-                                  <span className="px-1.5 py-0.5 rounded bg-muted capitalize">{item.itemData.role}</span>
-                                  <span className="px-1.5 py-0.5 rounded bg-muted">username: {item.itemData.username}</span>
+                                  <span>{itemData.email}</span>
+                                  <span className="px-1.5 py-0.5 rounded bg-muted capitalize">{itemData.role}</span>
+                                  <span className="px-1.5 py-0.5 rounded bg-muted">username: {itemData.username}</span>
                                 </div>
                               </div>
                             )}
 
                             {/* Meta */}
                             <div className="flex items-center gap-3 text-[11px] text-muted-foreground flex-wrap">
-                              {item.itemData.authorUsername && (
+                              {itemData.authorUsername && (
                                 <span className="flex items-center gap-1">
-                                  <User className="h-3 w-3" /> {item.itemData.authorUsername}
+                                  <User className="h-3 w-3" /> {itemData.authorUsername}
                                 </span>
                               )}
                               <span className="flex items-center gap-1">

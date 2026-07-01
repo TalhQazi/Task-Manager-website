@@ -2497,7 +2497,7 @@ export default function Tasks() {
               ) : (
                 <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                  {paginatedTasks.map((task, index) => {
-    const timer = task.dueDate
+    const timer = task.dueDate && task.status !== "completed"
       ? getRemainingTime(task.dueDate, now)
       : null;
 
