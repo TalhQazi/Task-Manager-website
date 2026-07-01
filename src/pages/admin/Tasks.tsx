@@ -110,6 +110,7 @@ import DropboxFilePicker, { type DropboxSelectedFile, formatBytes, DropboxIcon }
 import { useRewards } from "@/contexts/RewardContext";
 import FollowUpControlCenter from "@/components/shared/FollowUpControlCenter";
 import { VideoRecorderModal } from "@/components/admin/VideoRecorderModal";
+import { VideoUploadField } from "@/components/admin/VideoUploadField";
 
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
   const [src, setSrc] = useState<string | null | undefined>(undefined);
@@ -2801,25 +2802,36 @@ export default function Tasks() {
           {/* Intro video & attachments list inside premium header */}
           <div className="p-4 sm:p-6 space-y-4">
             {selectedProject.introVideoUrl && (
-              <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-                    <RefreshCw className="h-4 w-4 animate-spin-slow" />
+              /youtube\.com|youtu\.be|vimeo\.com/i.test(selectedProject.introVideoUrl) ? (
+                <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                      <RefreshCw className="h-4 w-4 animate-spin-slow" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-primary uppercase tracking-wider">Project Synopsis</p>
+                      <p className="text-sm font-medium">Watch the introductory video for this project.</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs font-bold text-primary uppercase tracking-wider">Project Synopsis</p>
-                    <p className="text-sm font-medium">Watch the introductory video for this project.</p>
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-white border-primary/20 hover:bg-primary/5 text-primary font-bold"
+                    onClick={() => window.open(selectedProject.introVideoUrl, "_blank")}
+                  >
+                    Watch Video
+                  </Button>
                 </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="bg-white border-primary/20 hover:bg-primary/5 text-primary font-bold"
-                  onClick={() => window.open(selectedProject.introVideoUrl, "_blank")}
-                >
-                  Watch Video
-                </Button>
-              </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-bold text-primary uppercase tracking-wider">Project Synopsis</p>
+                  <video
+                    src={toProxiedUrl(selectedProject.introVideoUrl) || selectedProject.introVideoUrl}
+                    controls
+                    className="w-full max-h-[320px] object-contain rounded-lg border border-primary/10 bg-black"
+                  />
+                </div>
+              )
             )}
             {selectedProject.attachments && selectedProject.attachments.length > 0 && (
               <div>
@@ -3357,8 +3369,8 @@ export default function Tasks() {
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Intro Video URL (YouTube/Vimeo)</label>
-                <Input placeholder="https://youtube.com/watch?v=..." value={projectIntroVideoUrl} onChange={(e) => setProjectIntroVideoUrl(e.target.value)} />
+                <label className="text-sm font-medium">Intro Video</label>
+                <VideoUploadField value={projectIntroVideoUrl} onChange={setProjectIntroVideoUrl} />
               </div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Logo</label>
@@ -3628,8 +3640,8 @@ export default function Tasks() {
             </div>
             
             <div className="sm:col-span-2 space-y-1.5">
-              <label className="text-sm font-medium">Intro Video URL (YouTube/Vimeo)</label>
-              <Input placeholder="https://youtube.com/watch?v=..." value={formData.introVideoUrl || ""} onChange={(e) => setFormData((prev) => ({ ...prev, introVideoUrl: e.target.value }))} />
+              <label className="text-sm font-medium">Task Video</label>
+              <VideoUploadField value={formData.introVideoUrl || ""} onChange={(val) => setFormData((prev) => ({ ...prev, introVideoUrl: val }))} />
             </div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Task Attachments</label><div className="space-y-2"><div className="flex gap-2"><button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1" onClick={() => { const el = document.getElementById("task-attachments-input") as HTMLInputElement | null; el?.click(); }}>+ Add Files/Images</button>{ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (<button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1 flex items-center justify-center gap-2" onClick={() => { setDropboxPickerTarget("task"); setIsDropboxPickerOpen(true); }}><DropboxIcon size={14} />Dropbox</button>)}</div><input id="task-attachments-input" type="file" accept="*" multiple className="hidden" onChange={async (e) => {
   const files = Array.from(e.target.files ?? []);
@@ -3795,6 +3807,29 @@ export default function Tasks() {
                       autoCorrect="on"
                     />
                   </div>
+
+                  {/* Task Video */}
+                  {selectedTask.introVideoUrl && (
+                    <div className="space-y-2 pt-2">
+                      <h4 className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><Video className="w-4 h-4" /> Video</h4>
+                      {/youtube\.com|youtu\.be|vimeo\.com/i.test(selectedTask.introVideoUrl) ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          onClick={() => window.open(selectedTask.introVideoUrl, "_blank")}
+                        >
+                          <Video className="w-4 h-4" /> Watch Video
+                        </Button>
+                      ) : (
+                        <video
+                          src={toProxiedUrl(selectedTask.introVideoUrl) || selectedTask.introVideoUrl}
+                          controls
+                          className="w-full max-h-[320px] object-contain rounded-xl border border-border/60 bg-black"
+                        />
+                      )}
+                    </div>
+                  )}
 
                   {/* Task Attachments Grid */}
                   {((selectedTask.attachments && selectedTask.attachments.length > 0) || selectedTask.attachment?.fileName) && (
@@ -4453,9 +4488,9 @@ export default function Tasks() {
                 name="introVideoUrl"
                 render={({ field }) => (
                   <FormItem className="sm:col-span-2">
-                    <FormLabel>Intro Video URL (YouTube/Vimeo)</FormLabel>
+                    <FormLabel>Task Video</FormLabel>
                     <FormControl>
-                      <Input placeholder="https://youtube.com/watch?v=..." {...field} value={field.value || ""} />
+                      <VideoUploadField value={field.value || ""} onChange={field.onChange} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -4770,12 +4805,8 @@ export default function Tasks() {
                 />
               </div>
               <div className="sm:col-span-2 space-y-1.5">
-                <label className="text-sm font-medium">Intro Video URL (YouTube/Vimeo)</label>
-                <Input 
-                  placeholder="https://youtube.com/watch?v=..." 
-                  value={editProjectIntroVideoUrl} 
-                  onChange={(e) => setEditProjectIntroVideoUrl(e.target.value)} 
-                />
+                <label className="text-sm font-medium">Intro Video</label>
+                <VideoUploadField value={editProjectIntroVideoUrl} onChange={setEditProjectIntroVideoUrl} />
               </div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Logo</label>
