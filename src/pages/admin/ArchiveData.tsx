@@ -361,6 +361,24 @@ export default function ArchiveData() {
                                     <span>Assigned: {itemData.assignees.join(", ")}</span>
                                   )}
                                 </div>
+                                {/* Start/Close timeline */}
+                                <div className="flex flex-col gap-0.5 text-[11px] text-muted-foreground border-l-2 border-muted pl-2 mt-1">
+                                  {itemData.createdAt && (
+                                    <span>Created: {new Date(itemData.createdAt).toLocaleDateString()}</span>
+                                  )}
+                                  {itemData.firstStartedAt && (
+                                    <span className="text-blue-600">
+                                      Started: {new Date(itemData.firstStartedAt).toLocaleString()}
+                                      {itemData.startedByName ? ` by ${itemData.startedByName}` : ""}
+                                    </span>
+                                  )}
+                                  {itemData.completedAt && (
+                                    <span className="text-emerald-600">
+                                      Completed: {new Date(itemData.completedAt).toLocaleString()}
+                                      {itemData.completedByName ? ` by ${itemData.completedByName}` : ""}
+                                    </span>
+                                  )}
+                                </div>
                                 {itemData.attachment?.url && itemData.attachment?.mimeType?.startsWith("image/") && (
                                   <div className="w-32 h-20 rounded-md overflow-hidden border bg-muted/20 mt-1">
                                     <img 

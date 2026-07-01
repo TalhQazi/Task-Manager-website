@@ -15,7 +15,22 @@ import {
   User,
   AlertTriangle
 } from "lucide-react";
-import { listResource } from "@/lib/admin/apiClient";
+import { apiFetch } from "@/lib/admin/apiClient";
+
+// Fetch every task across all pages (the list endpoint defaults to 25/page).
+async function fetchAllTasks<T>(): Promise<T[]> {
+  const all: T[] = [];
+  let page = 1;
+  for (;;) {
+    const res = await apiFetch<{ items: T[]; totalPages?: number }>(`/api/tasks?limit=100&page=${page}`);
+    const items = res.items || [];
+    all.push(...items);
+    const totalPages = res.totalPages || 1;
+    if (page >= totalPages || items.length === 0) break;
+    page++;
+  }
+  return all;
+}
 
 interface Task {
   id: string;
@@ -108,7 +123,7 @@ const EmployeeTaskHistory = () => {
     const loadTasks = async () => {
       try {
         setLoading(true);
-        const taskList = await listResource<Task>("tasks");
+        const taskList = await fetchAllTasks<Task>();
         const normalizedTasks = taskList.map(normalizeTaskAssignees);
         
         // Filter tasks for this employee

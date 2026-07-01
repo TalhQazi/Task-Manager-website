@@ -3,16 +3,32 @@ import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Input } from "@/components/admin/ui/input";
-import { Avatar, AvatarFallback } from "@/components/admin/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/admin/ui/avatar";
 import { Badge } from "@/components/admin/ui/badge";
 import { Search, Users, ChevronRight, CheckCircle2, Clock, AlertCircle } from "lucide-react";
-import { listResource } from "@/lib/admin/apiClient";
+import { listResource, apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 
 interface Employee {
   id: string;
   name: string;
   email: string;
   status: "active" | "inactive" | "on-leave";
+  avatarUrl?: string;
+}
+
+// Fetch every task across all pages (the list endpoint defaults to 25/page).
+async function fetchAllTasks<T>(): Promise<T[]> {
+  const all: T[] = [];
+  let page = 1;
+  for (;;) {
+    const res = await apiFetch<{ items: T[]; totalPages?: number }>(`/api/tasks?limit=100&page=${page}`);
+    const items = res.items || [];
+    all.push(...items);
+    const totalPages = res.totalPages || 1;
+    if (page >= totalPages || items.length === 0) break;
+    page++;
+  }
+  return all;
 }
 
 interface User {
@@ -85,8 +101,8 @@ const TaskHistory = () => {
       try {
         setLoading(true);
 
-        // Fetch tasks
-        const taskList = await listResource<Task>("tasks");
+        // Fetch tasks (all pages — endpoint defaults to 25/page)
+        const taskList = await fetchAllTasks<Task>();
         setTasks(taskList.map(normalizeTaskAssignees));
 
         // Fetch employees
@@ -206,6 +222,7 @@ const TaskHistory = () => {
                     >
                       <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10 ring-2 ring-primary/20">
+                          {employee.avatarUrl && <AvatarImage src={toProxiedUrl(employee.avatarUrl) || employee.avatarUrl} alt={employee.name} className="object-cover" />}
                           <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white">
                             {getInitials(employee.name)}
                           </AvatarFallback>
