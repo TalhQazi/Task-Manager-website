@@ -18,20 +18,9 @@ import {
 } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 
-// Fetch every task across all pages (the list endpoint defaults to 25/page).
-async function fetchAllTasks<T>(): Promise<T[]> {
-  const all: T[] = [];
-  let page = 1;
-  for (;;) {
-    const res = await apiFetch<{ items: T[]; totalPages?: number }>(`/api/tasks?limit=100&page=${page}`);
-    const items = res.items || [];
-    all.push(...items);
-    const totalPages = res.totalPages || 1;
-    if (page >= totalPages || items.length === 0) break;
-    page++;
-  }
-  return all;
-}
+const PAGE_SIZE = 25;
+
+type TaskStats = { total: number; completed: number; pending: number; overdue: number };
 
 interface Task {
   id: string;
@@ -120,44 +109,48 @@ const EmployeeTaskHistory = () => {
   
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [stats, setStats] = useState<TaskStats>({ total: 0, completed: 0, pending: 0, overdue: 0 });
 
+  // Load this employee's tasks 25 per page (server-side filter + pagination)
   useEffect(() => {
+    if (!employeeName) return;
     const loadTasks = async () => {
       try {
         setLoading(true);
-        const taskList = await fetchAllTasks<Task>();
-        const normalizedTasks = taskList.map(normalizeTaskAssignees);
-        
-        // Filter tasks for this employee
-        const employeeTasks = normalizedTasks.filter(
-          (task) =>
-            task.assignees?.includes(employeeName) || task.assignee === employeeName
+        const res = await apiFetch<{ items: Task[]; total?: number; totalPages?: number }>(
+          `/api/tasks?assignee=${encodeURIComponent(employeeName)}&page=${page}&limit=${PAGE_SIZE}`
         );
-        
-        setTasks(employeeTasks);
+        setTasks((res.items || []).map(normalizeTaskAssignees));
+        setTotal(res.total || 0);
+        setTotalPages(res.totalPages || 1);
       } catch (err) {
         console.error("Failed to load tasks:", err);
       } finally {
         setLoading(false);
       }
     };
+    loadTasks();
+  }, [employeeName, page]);
 
-    if (employeeName) {
-      loadTasks();
-    }
+  // Load accurate summary stats once (aggregation, not the visible page)
+  useEffect(() => {
+    if (!employeeName) return;
+    (async () => {
+      try {
+        const res = await apiFetch<{ stats: Record<string, TaskStats> }>("/api/tasks/assignee-stats");
+        const key = Object.keys(res.stats || {}).find((k) => k.toLowerCase().trim() === employeeName.toLowerCase().trim());
+        setStats(key ? res.stats[key] : { total: 0, completed: 0, pending: 0, overdue: 0 });
+      } catch (err) {
+        console.error("Failed to load stats:", err);
+      }
+    })();
   }, [employeeName]);
 
-  const stats = {
-    total: tasks.length,
-    completed: tasks.filter((t) => t.status === "completed").length,
-    pending: tasks.filter((t) => t.status === "pending" || t.status === "in-progress").length,
-    overdue: tasks.filter((t) => t.status === "overdue").length,
-  };
-
-  // Sort tasks by created date (newest first)
-  const sortedTasks = [...tasks].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
+  // Server already returns newest-first
+  const sortedTasks = tasks;
 
   return (
     <>
@@ -225,7 +218,7 @@ const EmployeeTaskHistory = () => {
           <CardHeader className="pb-3">
             <CardTitle className="text-base sm:text-lg flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
-              All Tasks ({sortedTasks.length})
+              All Tasks ({total})
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -337,6 +330,32 @@ const EmployeeTaskHistory = () => {
                     </div>
                   </motion.div>
                 ))}
+              </div>
+            )}
+
+            {/* Pagination — 25 tasks per page */}
+            {!loading && totalPages > 1 && (
+              <div className="flex items-center justify-between gap-2 p-4 border-t">
+                <span className="text-xs text-muted-foreground">
+                  Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="px-3 py-1.5 text-xs rounded-md border disabled:opacity-50 hover:bg-muted/50"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                  >
+                    Previous
+                  </button>
+                  <span className="text-xs text-muted-foreground">Page {page} of {totalPages}</span>
+                  <button
+                    className="px-3 py-1.5 text-xs rounded-md border disabled:opacity-50 hover:bg-muted/50"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             )}
           </CardContent>

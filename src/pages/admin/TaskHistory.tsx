@@ -16,21 +16,6 @@ interface Employee {
   avatarUrl?: string;
 }
 
-// Fetch every task across all pages (the list endpoint defaults to 25/page).
-async function fetchAllTasks<T>(): Promise<T[]> {
-  const all: T[] = [];
-  let page = 1;
-  for (;;) {
-    const res = await apiFetch<{ items: T[]; totalPages?: number }>(`/api/tasks?limit=100&page=${page}`);
-    const items = res.items || [];
-    all.push(...items);
-    const totalPages = res.totalPages || 1;
-    if (page >= totalPages || items.length === 0) break;
-    page++;
-  }
-  return all;
-}
-
 interface User {
   id: string;
   name: string;
@@ -39,15 +24,11 @@ interface User {
   status: "active" | "inactive" | "pending";
 }
 
-interface Task {
-  id: string;
-  title: string;
-  assignees: string[];
-  assignee?: string;
-  status: "pending" | "in-progress" | "completed" | "overdue";
-  dueDate: string;
-  createdAt: string;
-}
+type TaskStats = { total: number; completed: number; pending: number; overdue: number };
+
+const EMPTY_STATS: TaskStats = { total: 0, completed: 0, pending: 0, overdue: 0 };
+
+const PAGE_SIZE = 25;
 
 const getInitials = (name: string) => {
   return String(name || "")
@@ -57,29 +38,6 @@ const getInitials = (name: string) => {
     .slice(0, 2)
     .join("")
     .toUpperCase();
-};
-
-const getEmployeeTaskStats = (employeeName: string, allTasks: Task[]) => {
-  const employeeTasks = allTasks.filter((task) =>
-    task.assignees?.includes(employeeName) || task.assignee === employeeName
-  );
-
-  const total = employeeTasks.length;
-  const completed = employeeTasks.filter((t) => t.status === "completed").length;
-  const pending = employeeTasks.filter((t) => t.status === "pending" || t.status === "in-progress").length;
-  const overdue = employeeTasks.filter((t) => t.status === "overdue").length;
-
-  return { total, completed, pending, overdue };
-};
-//noramlize the task assinged
-const normalizeTaskAssignees = (task: Task): Task => {
-  const legacyAssignee = typeof task.assignee === "string" ? task.assignee.trim() : "";
-  const assignees = Array.isArray(task.assignees)
-    ? task.assignees.filter(Boolean)
-    : legacyAssignee
-      ? [legacyAssignee]
-      : [];
-  return { ...task, assignees };
 };
 
 const statusClasses = {
@@ -92,18 +50,27 @@ const statusClasses = {
 const TaskHistory = () => {
   const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [stats, setStats] = useState<Record<string, TaskStats>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
 
-        // Fetch tasks (all pages — endpoint defaults to 25/page)
-        const taskList = await fetchAllTasks<Task>();
-        setTasks(taskList.map(normalizeTaskAssignees));
+        // Per-assignee stats via aggregation (no full task download → no hang)
+        try {
+          const res = await apiFetch<{ stats: Record<string, TaskStats> }>("/api/tasks/assignee-stats");
+          const lowerKeyed: Record<string, TaskStats> = {};
+          Object.entries(res.stats || {}).forEach(([name, s]) => {
+            lowerKeyed[name.toLowerCase().trim()] = s;
+          });
+          setStats(lowerKeyed);
+        } catch (err) {
+          console.error("Failed to load task stats:", err);
+        }
 
         // Fetch employees
         let allEmployees: Employee[] = [];
@@ -151,6 +118,16 @@ const TaskHistory = () => {
     emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     emp.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const totalPages = Math.max(1, Math.ceil(filteredEmployees.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedEmployees = filteredEmployees.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  // Reset to first page whenever the search changes
+  useEffect(() => { setPage(1); }, [searchQuery]);
+
+  const statsFor = (employeeName: string): TaskStats =>
+    stats[employeeName.toLowerCase().trim()] || EMPTY_STATS;
 
   const handleEmployeeClick = (employeeName: string) => {
     navigate(`/admin/task-history/${encodeURIComponent(employeeName)}`);
@@ -209,8 +186,8 @@ const TaskHistory = () => {
               </div>
             ) : (
               <div className="divide-y">
-                {filteredEmployees.map((employee, index) => {
-                  const stats = getEmployeeTaskStats(employee.name, tasks);
+                {pagedEmployees.map((employee, index) => {
+                  const stats = statsFor(employee.name);
                   return (
                     <motion.div
                       key={employee.id}
@@ -271,6 +248,32 @@ const TaskHistory = () => {
                     </motion.div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Pagination — 25 employees per page */}
+            {!loading && filteredEmployees.length > PAGE_SIZE && (
+              <div className="flex items-center justify-between gap-2 p-4 border-t">
+                <span className="text-xs text-muted-foreground">
+                  Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filteredEmployees.length)} of {filteredEmployees.length}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    className="px-3 py-1.5 text-xs rounded-md border disabled:opacity-50 hover:bg-muted/50"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </button>
+                  <span className="text-xs text-muted-foreground">Page {currentPage} of {totalPages}</span>
+                  <button
+                    className="px-3 py-1.5 text-xs rounded-md border disabled:opacity-50 hover:bg-muted/50"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
             )}
           </CardContent>
