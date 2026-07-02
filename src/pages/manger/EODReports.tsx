@@ -81,7 +81,7 @@ export default function ManagerEODReports() {
   const [dateFilter, setDateFilter] = useState(today);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedReport, setSelectedReport] = useState<EODReport | null>(null);
-  const [viewMode, setViewMode] = useState<"status" | "reports">("reports");
+  const [viewMode, setViewMode] = useState<"status" | "reports">("status");
   const [commentText, setCommentText] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
 
@@ -230,17 +230,13 @@ export default function ManagerEODReports() {
             Monitor employee daily reports and attendance status
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-3">
           <Button
-            variant={viewMode === "reports" ? "default" : "outline"}
-            onClick={() => {
-              setViewMode("reports");
-              setDateFilter("");
-            }}
-          >
-            All Reports
-          </Button>
-          <Button
+            className={`font-bold transition-all duration-250 ${
+              viewMode === "status"
+                ? "bg-gradient-to-r from-red-650 to-orange-550 hover:from-red-700 hover:to-orange-600 text-white shadow-md border-0 h-11 px-6 text-sm"
+                : "border-border text-foreground hover:bg-muted h-11 px-6 text-sm"
+            }`}
             variant={viewMode === "status" ? "default" : "outline"}
             onClick={() => {
               setViewMode("status");
@@ -248,6 +244,16 @@ export default function ManagerEODReports() {
             }}
           >
             Status Dashboard
+          </Button>
+          <Button
+            className="font-semibold transition-all duration-250 h-11 px-6 text-sm"
+            variant={viewMode === "reports" ? "default" : "outline"}
+            onClick={() => {
+              setViewMode("reports");
+              setDateFilter("");
+            }}
+          >
+            All Reports
           </Button>
         </div>
       </div>
