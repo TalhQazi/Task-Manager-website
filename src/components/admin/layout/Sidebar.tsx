@@ -269,19 +269,25 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
       }
     });
 
-    // Separate Settings from the list to ensure it's always last
+    // Separate Dashboard and Settings from the list to ensure Dashboard is first and Settings is last
+    const dashboardItem = items.find((i) => i.label === "Dashboard");
     const settingsItem = items.find((i) => i.label === "Settings");
-    const otherItems = items.filter((i) => i.label !== "Settings");
+    const otherItems = items.filter((i) => i.label !== "Settings" && i.label !== "Dashboard");
 
     // Sort all other items alphabetically
     const sortedItems = [...otherItems].sort((a, b) => a.label.localeCompare(b.label));
 
-    // Combine sorted items with Settings at the end
+    // Combine: Dashboard first, then sorted items, then Settings at the end
+    const finalItems = [];
+    if (dashboardItem) {
+      finalItems.push(dashboardItem);
+    }
+    finalItems.push(...sortedItems);
     if (settingsItem) {
-      sortedItems.push(settingsItem);
+      finalItems.push(settingsItem);
     }
 
-    return sortedItems;
+    return finalItems;
   }, [auth.role]);
 
   const onLogout = async () => {

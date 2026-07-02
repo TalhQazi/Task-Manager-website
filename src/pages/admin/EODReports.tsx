@@ -344,25 +344,23 @@ export default function AdminEODReports() {
           </p>
         </div>
 
-        <div className="flex gap-3">
-          <Button
-            className={`font-bold transition-all duration-250 ${
-              activeTab === "dashboard"
-                ? "bg-gradient-to-r from-red-650 to-orange-550 hover:from-red-700 hover:to-orange-600 text-white shadow-md border-0 h-11 px-6 text-sm"
-                : "border-border text-slate-500 hover:text-slate-700 h-11 px-6 text-sm"
-            }`}
-            variant={activeTab === "dashboard" ? "default" : "outline"}
+        <div className="flex p-1 bg-muted rounded-lg w-fit border border-border/40">
+          <button
             onClick={() => setActiveTab("dashboard")}
+            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${
+              activeTab === "dashboard" ? "bg-white dark:bg-zinc-800 text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+            }`}
           >
             Status Dashboard
-          </Button>
-          <Button
-            className="font-semibold transition-all duration-250 h-11 px-6 text-sm"
-            variant={activeTab === "print" ? "default" : "outline"}
+          </button>
+          <button
             onClick={() => setActiveTab("print")}
+            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${
+              activeTab === "print" ? "bg-white dark:bg-zinc-800 text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+            }`}
           >
             Print & Export Reports
-          </Button>
+          </button>
         </div>
       </div>
 
