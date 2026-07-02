@@ -58,7 +58,6 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [healthOverview, setHealthOverview] = useState<any>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -66,13 +65,9 @@ const Dashboard = () => {
       try {
         setLoading(true);
         setApiError(null);
-        const [data, health] = await Promise.all([
-          apiFetch<DashboardSummary>("/api/dashboard/summary"),
-          apiFetch<any>("/api/health/overview").catch(() => null)
-        ]);
+        const data = await apiFetch<DashboardSummary>("/api/dashboard/summary");
         if (!mounted) return;
         setSummary(data);
-        setHealthOverview(health);
       } catch (e) {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load dashboard");
@@ -142,15 +137,7 @@ const Dashboard = () => {
             { title: "Pending Bugs", value: metrics.pendingBugs, icon: Bug, variant: "red", changeType: "neutral" as const, onClick: () => navigate("/admin/bug-reports") },
             { title: "Total Vehicles", value: metrics.totalVehicles, icon: Car, variant: "orange", changeType: "positive" as const, onClick: () => navigate("/admin/vehicles") },
             { title: "Websites", value: `${metrics.websiteActive} / ${metrics.websiteFuture}`, change: "active / future", icon: Globe, variant: "teal", changeType: "positive" as const, onClick: () => navigate("/admin/digital-assets") },
-            { 
-              title: "System Health", 
-              value: healthOverview ? `${healthOverview.servers?.live || 0}/${healthOverview.servers?.total || 0} Live` : "Monitor", 
-              change: healthOverview ? `${healthOverview.openIncidents || 0} incidents` : "servers · RAM · disk", 
-              icon: Activity, 
-              variant: "purple", 
-              changeType: "neutral" as const, 
-              onClick: () => navigate("/admin/health") 
-            },
+            { title: "System Health", value: "Monitor", change: "servers · RAM · disk", icon: Activity, variant: "purple", changeType: "neutral" as const, onClick: () => navigate("/admin/health") },
           ].map((stat, idx) => (
             <motion.div
               key={stat.title}
