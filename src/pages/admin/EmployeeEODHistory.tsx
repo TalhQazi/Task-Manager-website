@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Table,
@@ -30,6 +31,7 @@ interface EODReport {
   clockInAt?: string | null;
   clockOutAt?: string | null;
   totalHours?: number;
+  comments?: any[];
 }
 
 export default function EmployeeEODHistory() {
@@ -40,6 +42,34 @@ export default function EmployeeEODHistory() {
   const [reports, setReports] = useState<EODReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedReport, setSelectedReport] = useState<EODReport | null>(null);
+  const [commentText, setCommentText] = useState("");
+  const [submittingComment, setSubmittingComment] = useState(false);
+
+  const handleAddComment = async () => {
+    if (!selectedReport || !commentText.trim()) return;
+    setSubmittingComment(true);
+    try {
+      const res = await apiFetch<{ success: boolean; comments: any[] }>(
+        `/api/admin/eod-reports/${selectedReport.id}/comments`,
+        {
+          method: "POST",
+          body: JSON.stringify({ message: commentText }),
+        }
+      );
+      if (res.success) {
+        toast.success("Comment added successfully");
+        setCommentText("");
+        const updatedReport = { ...selectedReport, comments: res.comments };
+        setSelectedReport(updatedReport);
+        setReports(prev => prev.map(r => r.id === selectedReport.id ? updatedReport : r));
+      }
+    } catch (err) {
+      console.error("Failed to add comment:", err);
+      toast.error("Failed to add comment");
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
 
   useEffect(() => {
     if (employeeName) {
@@ -414,6 +444,72 @@ export default function EmployeeEODHistory() {
                       </>
                     );
                   })()}
+                </div>
+
+                {/* Comment Section */}
+                <div className="border-t pt-4 space-y-4">
+                  <h4 className="text-sm font-semibold text-slate-800 dark:text-zinc-200">
+                    Comments & Feedback ({selectedReport.comments?.length || 0})
+                  </h4>
+                  
+                  {/* Comments List */}
+                  <div className="space-y-3 max-h-[200px] overflow-y-auto pr-1">
+                    {(!selectedReport.comments || selectedReport.comments.length === 0) ? (
+                      <p className="text-xs text-muted-foreground italic text-center py-2">
+                        No comments yet. Add the first comment below!
+                      </p>
+                    ) : (
+                      selectedReport.comments.map((comment: any, idx: number) => (
+                        <div key={idx} className="bg-slate-50 dark:bg-zinc-900 rounded-lg p-3 space-y-1">
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">
+                                {comment.authorName}
+                              </span>
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0.2 capitalize bg-slate-100 dark:bg-zinc-805">
+                                {comment.authorRole}
+                              </Badge>
+                            </div>
+                            <span className="text-[10px] text-muted-foreground">
+                              {new Date(comment.createdAt).toLocaleString([], {
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit"
+                              })}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-705 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                            {comment.message}
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Comment Input */}
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Write a comment..."
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      disabled={submittingComment}
+                      className="flex-1 text-xs"
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleAddComment();
+                        }
+                      }}
+                    />
+                    <Button
+                      onClick={handleAddComment}
+                      disabled={submittingComment || !commentText.trim()}
+                      className="text-xs px-3 bg-[#133767] hover:bg-[#0d2654] text-white"
+                    >
+                      Post
+                    </Button>
+                  </div>
                 </div>
               </div>
 
