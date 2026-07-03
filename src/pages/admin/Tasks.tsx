@@ -92,6 +92,7 @@ import {
   Smile,
   Flame,
   Image as ImageIcon,
+  Video,
 } from "lucide-react";
 import { cn } from "@/lib/admin/utils";
 import { apiFetch, downloadTaskAttachment, toProxiedUrl, downloadViaUrl } from "@/lib/admin/apiClient";
@@ -108,6 +109,9 @@ import { TaskContributors } from "@/components/admin/tasks/TaskContributors";
 import DropboxFilePicker, { type DropboxSelectedFile, formatBytes, DropboxIcon } from "@/components/admin/DropboxFilePicker";
 import { useRewards } from "@/contexts/RewardContext";
 import FollowUpControlCenter from "@/components/shared/FollowUpControlCenter";
+import { VideoRecorderModal } from "@/components/admin/VideoRecorderModal";
+import { VideoUploadField } from "@/components/admin/VideoUploadField";
+import { TaskTimeline } from "@/components/shared/TaskTimeline";
 
 function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string; projectName: string; logoUrl?: string }) {
   const [src, setSrc] = useState<string | null | undefined>(undefined);
@@ -266,6 +270,11 @@ function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fa
       </div>
     </div>
   );
+  if (src && (mimeType?.startsWith("video/") || fileName.match(/\.(webm|mp4|mov)$/i))) return (
+    <div className="w-full h-auto flex justify-center relative rounded-lg bg-black/40 overflow-hidden">
+      <video src={src} controls className="w-full h-auto max-h-[180px] rounded-lg" />
+    </div>
+  );
   if (src && !mimeType?.startsWith("image/")) return (
     <div className="w-full h-full relative group/att">
       <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-white/10">
@@ -340,6 +349,12 @@ interface Task {
   attachmentNote?: string;
   dropboxAttachmentCount?: number;
   executionPriority?: number | null;
+  introVideoUrl?: string;
+  startedAt?: string | null;
+  firstStartedAt?: string | null;
+  startedByName?: string;
+  completedAt?: string | null;
+  completedByName?: string;
   attachment?: {
     fileName: string;
     url: string;
@@ -499,6 +514,12 @@ function normalizeTask(t: any): Task {
     attachments: Array.isArray((t as any).attachments) ? (t as any).attachments : undefined,
     dropboxAttachmentCount: t.dropboxAttachmentCount,
     executionPriority: t.executionPriority ?? null,
+    introVideoUrl: t.introVideoUrl,
+    startedAt: t.startedAt ?? null,
+    firstStartedAt: t.firstStartedAt ?? null,
+    startedByName: t.startedByName,
+    completedAt: t.completedAt ?? null,
+    completedByName: t.completedByName,
   };
 }
 
@@ -760,6 +781,7 @@ export default function Tasks() {
   // Lightbox / File Preview State
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState<string>("");
+  const [isVideoRecorderOpen, setIsVideoRecorderOpen] = useState(false);
 
   // Asset Library Picker states
   const [isProjectLogoPickerOpen, setIsProjectLogoPickerOpen] = useState(false);
@@ -2676,13 +2698,13 @@ export default function Tasks() {
       {selectedProject ? (
         <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden mb-4">
           {/* Modern SaaS Header Banner */}
-          <div className="h-32 sm:h-40 bg-gradient-to-r from-indigo-955 via-purple-955 to-slate-955 relative overflow-hidden flex items-end p-4">
+          <div className="h-16 bg-gradient-to-r from-indigo-955 via-purple-955 to-slate-955 relative overflow-hidden">
             {/* SaaS Glow Decorative background */}
             <div className="absolute top-[-55px] left-[5%] w-56 h-56 bg-indigo-500/10 rounded-full blur-3xl" />
             <div className="absolute bottom-[-55px] right-[15%] w-72 h-72 bg-purple-500/10 rounded-full blur-3xl" />
 
             {/* Premium action header overlay */}
-            <div className="absolute top-4 right-4 flex gap-2">
+            <div className="absolute inset-y-0 right-4 flex items-center gap-2">
               {isAdminRole && (
                 <Button
                   variant="secondary"
@@ -2706,9 +2728,9 @@ export default function Tasks() {
           </div>
 
           {/* Banner Overlapping Logo & Main details */}
-          <div className="px-6 pb-6 pt-16 relative flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-border/40">
-            {/* Oversized logo container */}
-            <div className="absolute top-0 left-6 -translate-y-1/2 w-28 h-28 rounded-2xl bg-card border-4 border-card shadow-xl overflow-hidden flex-shrink-0 flex items-center justify-center">
+          <div className="px-6 pb-6 pt-4 relative flex flex-col items-center sm:items-start gap-4 border-b border-border/40">
+            {/* Large logo container */}
+            <div className="w-32 h-32 rounded-2xl bg-card border-4 border-muted/30 shadow-xl overflow-hidden flex-shrink-0 flex items-center justify-center">
               <ProjectLogoImgLarge 
                 projectId={selectedProject.id} 
                 projectName={selectedProject.name} 
@@ -2717,10 +2739,10 @@ export default function Tasks() {
             </div>
 
             {/* Project info details */}
-            <div className="flex-1 min-w-0 space-y-1.5 mt-2 sm:mt-0">
-              <div className="flex items-center gap-3">
+            <div className="flex-1 w-full min-w-0 space-y-3 text-center sm:text-left">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                 <Input
-                  className="font-extrabold text-2xl tracking-tight text-foreground border-transparent hover:border-border focus:border-primary px-1 -ml-1 !bg-transparent h-auto py-0 shadow-none focus-visible:ring-0"
+                  className="font-extrabold text-2xl tracking-tight text-foreground border-transparent hover:border-border focus:border-primary px-1 -ml-1 !bg-transparent h-auto py-0 shadow-none focus-visible:ring-0 text-center sm:text-left"
                   value={projectViewName}
                   onChange={(e) => {
                     setProjectViewName(e.target.value);
@@ -2728,10 +2750,10 @@ export default function Tasks() {
                   }}
                   placeholder="Project Name"
                 />
-                <Badge className="capitalize font-semibold text-xs" variant="secondary">{selectedProject.status || "No tasks"}</Badge>
+                <Badge className="capitalize font-semibold text-xs w-fit mx-auto sm:mx-0" variant="secondary">{selectedProject.status || "No tasks"}</Badge>
               </div>
               <Textarea
-                className="text-sm text-muted-foreground border-transparent hover:border-border focus:border-primary px-1 -ml-1 !bg-transparent resize-none min-h-[40px] py-0 shadow-none focus-visible:ring-0"
+                className="text-sm text-muted-foreground border-transparent hover:border-border focus:border-primary px-1 -ml-1 !bg-transparent resize-none min-h-[40px] py-0 shadow-none focus-visible:ring-0 text-center sm:text-left"
                 value={projectViewDesc}
                 onChange={(e) => {
                   setProjectViewDesc(e.target.value);
@@ -2739,7 +2761,7 @@ export default function Tasks() {
                 }}
                 placeholder="Add project description..."
               />
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground pt-1">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-1 text-xs text-muted-foreground pt-1">
                 <span className="flex items-center gap-1.5">
                   <Users className="w-3.5 h-3.5 text-primary/60" />
                   {selectedProject.assignees && selectedProject.assignees.length > 0 ? selectedProject.assignees.join(", ") : "No assignees"}
@@ -2793,25 +2815,36 @@ export default function Tasks() {
           {/* Intro video & attachments list inside premium header */}
           <div className="p-4 sm:p-6 space-y-4">
             {selectedProject.introVideoUrl && (
-              <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
-                    <RefreshCw className="h-4 w-4 animate-spin-slow" />
+              /youtube\.com|youtu\.be|vimeo\.com/i.test(selectedProject.introVideoUrl) ? (
+                <div className="p-3 bg-primary/5 border border-primary/10 rounded-lg flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+                      <RefreshCw className="h-4 w-4 animate-spin-slow" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-primary uppercase tracking-wider">Project Synopsis</p>
+                      <p className="text-sm font-medium">Watch the introductory video for this project.</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs font-bold text-primary uppercase tracking-wider">Project Synopsis</p>
-                    <p className="text-sm font-medium">Watch the introductory video for this project.</p>
-                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="bg-white border-primary/20 hover:bg-primary/5 text-primary font-bold"
+                    onClick={() => window.open(selectedProject.introVideoUrl, "_blank")}
+                  >
+                    Watch Video
+                  </Button>
                 </div>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="bg-white border-primary/20 hover:bg-primary/5 text-primary font-bold"
-                  onClick={() => window.open(selectedProject.introVideoUrl, "_blank")}
-                >
-                  Watch Video
-                </Button>
-              </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-bold text-primary uppercase tracking-wider">Project Synopsis</p>
+                  <video
+                    src={toProxiedUrl(selectedProject.introVideoUrl) || selectedProject.introVideoUrl}
+                    controls
+                    className="w-full max-h-[320px] object-contain rounded-lg border border-primary/10 bg-black"
+                  />
+                </div>
+              )
             )}
             {selectedProject.attachments && selectedProject.attachments.length > 0 && (
               <div>
@@ -3349,8 +3382,8 @@ export default function Tasks() {
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Intro Video URL (YouTube/Vimeo)</label>
-                <Input placeholder="https://youtube.com/watch?v=..." value={projectIntroVideoUrl} onChange={(e) => setProjectIntroVideoUrl(e.target.value)} />
+                <label className="text-sm font-medium">Intro Video</label>
+                <VideoUploadField value={projectIntroVideoUrl} onChange={setProjectIntroVideoUrl} />
               </div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Logo</label>
@@ -3620,8 +3653,8 @@ export default function Tasks() {
             </div>
             
             <div className="sm:col-span-2 space-y-1.5">
-              <label className="text-sm font-medium">Intro Video URL (YouTube/Vimeo)</label>
-              <Input placeholder="https://youtube.com/watch?v=..." value={formData.introVideoUrl || ""} onChange={(e) => setFormData((prev) => ({ ...prev, introVideoUrl: e.target.value }))} />
+              <label className="text-sm font-medium">Task Video</label>
+              <VideoUploadField value={formData.introVideoUrl || ""} onChange={(val) => setFormData((prev) => ({ ...prev, introVideoUrl: val }))} />
             </div>
             <div className="space-y-1.5"><label className="text-sm font-medium">Task Attachments</label><div className="space-y-2"><div className="flex gap-2"><button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1" onClick={() => { const el = document.getElementById("task-attachments-input") as HTMLInputElement | null; el?.click(); }}>+ Add Files/Images</button>{ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (<button type="button" className="py-2 px-3 border border-border rounded-md text-sm hover:bg-muted flex-1 flex items-center justify-center gap-2" onClick={() => { setDropboxPickerTarget("task"); setIsDropboxPickerOpen(true); }}><DropboxIcon size={14} />Dropbox</button>)}</div><input id="task-attachments-input" type="file" accept="*" multiple className="hidden" onChange={async (e) => {
   const files = Array.from(e.target.files ?? []);
@@ -3787,6 +3820,32 @@ export default function Tasks() {
                       autoCorrect="on"
                     />
                   </div>
+
+                  {/* Task Video */}
+                  {selectedTask.introVideoUrl && (
+                    <div className="space-y-2 pt-2">
+                      <h4 className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><Video className="w-4 h-4" /> Video</h4>
+                      {/youtube\.com|youtu\.be|vimeo\.com/i.test(selectedTask.introVideoUrl) ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-2"
+                          onClick={() => window.open(selectedTask.introVideoUrl, "_blank")}
+                        >
+                          <Video className="w-4 h-4" /> Watch Video
+                        </Button>
+                      ) : (
+                        <video
+                          src={toProxiedUrl(selectedTask.introVideoUrl) || selectedTask.introVideoUrl}
+                          controls
+                          className="w-full max-h-[320px] object-contain rounded-xl border border-border/60 bg-black"
+                        />
+                      )}
+                    </div>
+                  )}
+
+                  {/* Task Start/Close Timeline */}
+                  <TaskTimeline task={selectedTask} />
 
                   {/* Task Attachments Grid */}
                   {((selectedTask.attachments && selectedTask.attachments.length > 0) || selectedTask.attachment?.fileName) && (
@@ -3954,9 +4013,16 @@ export default function Tasks() {
                                   )}
                                 >
                                   {showSenderName && (
-                                    <span className="chat-sender-name ml-10">
-                                      {c.authorFullName || c.authorUsername}
-                                    </span>
+                                    <div className="flex items-center gap-2 mb-1 ml-10">
+                                      <span className="chat-sender-name">
+                                        {c.authorFullName || c.authorUsername}
+                                      </span>
+                                      {c.authorRole && (
+                                        <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4">
+                                          {c.authorRole}
+                                        </Badge>
+                                      )}
+                                    </div>
                                   )}
                                   
                                   <div className={cn(
@@ -4175,6 +4241,9 @@ export default function Tasks() {
                         <div className="flex items-center gap-1">
                           <button type="button" onClick={() => { const el = document.getElementById("comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-primary/20" title="Attach file">
                             <Paperclip className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Attach</span>
+                          </button>
+                          <button type="button" onClick={() => setIsVideoRecorderOpen(true)} className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-red-500/20" title="Record Video">
+                            <Video className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Record</span>
                           </button>
                           {ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (
                             <button type="button" onClick={() => { setDropboxPickerTarget("task-comment"); setIsDropboxPickerOpen(true); }} className="p-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-blue-500/20" title="Attach from Dropbox">
@@ -4435,9 +4504,9 @@ export default function Tasks() {
                 name="introVideoUrl"
                 render={({ field }) => (
                   <FormItem className="sm:col-span-2">
-                    <FormLabel>Intro Video URL (YouTube/Vimeo)</FormLabel>
+                    <FormLabel>Task Video</FormLabel>
                     <FormControl>
-                      <Input placeholder="https://youtube.com/watch?v=..." {...field} value={field.value || ""} />
+                      <VideoUploadField value={field.value || ""} onChange={field.onChange} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -4752,12 +4821,8 @@ export default function Tasks() {
                 />
               </div>
               <div className="sm:col-span-2 space-y-1.5">
-                <label className="text-sm font-medium">Intro Video URL (YouTube/Vimeo)</label>
-                <Input 
-                  placeholder="https://youtube.com/watch?v=..." 
-                  value={editProjectIntroVideoUrl} 
-                  onChange={(e) => setEditProjectIntroVideoUrl(e.target.value)} 
-                />
+                <label className="text-sm font-medium">Intro Video</label>
+                <VideoUploadField value={editProjectIntroVideoUrl} onChange={setEditProjectIntroVideoUrl} />
               </div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Logo</label>
@@ -5296,6 +5361,13 @@ export default function Tasks() {
                     alt={previewName} 
                     className="max-h-[75vh] max-w-full object-contain rounded-lg shadow-2xl transition-transform duration-300 hover:scale-[1.02]" 
                   />
+                ) : (previewUrl.match(/\.(webm|mp4|mov|ogg|3gp)/i) || previewUrl.startsWith("data:video/")) ? (
+                  <video 
+                    src={previewUrl} 
+                    controls 
+                    className="max-h-[75vh] max-w-full object-contain rounded-lg shadow-2xl" 
+                    autoPlay
+                  />
                 ) : (
                   <div className="flex flex-col items-center justify-center p-12 bg-white/5 rounded-2xl border border-white/10 min-w-[300px]">
                     <FileText className="w-20 h-20 text-white/40 mb-4" />
@@ -5373,6 +5445,12 @@ export default function Tasks() {
           }
         }}
         multiple={true}
+      />
+      {/* Video Recorder Modal */}
+      <VideoRecorderModal
+        isOpen={isVideoRecorderOpen}
+        onClose={() => setIsVideoRecorderOpen(false)}
+        onSave={(file) => setCommentAttachments((prev) => [...prev, file])}
       />
     </div>
   );

@@ -92,6 +92,7 @@ import {
   Maximize2,
   Smile,
   Flame,
+  Video,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch, downloadTaskAttachment, toProxiedUrl, getTopContributors, downloadViaUrl, updateComment, deleteComment } from "@/lib/manger/api";
@@ -105,6 +106,8 @@ import jsPDF from "jspdf";
 import { Pagination } from "@/components/Pagination";
 import { useRewards } from "@/contexts/RewardContext";
 import FollowUpControlCenter from "@/components/shared/FollowUpControlCenter";
+import { VideoRecorderModal } from "@/components/admin/VideoRecorderModal";
+import { TaskTimeline } from "@/components/shared/TaskTimeline";
 import { useGlobalTimer } from "@/hooks/useGlobalTimer";
 import { getRemainingTime, getTimerState } from "@/lib/manger/time";
 import CreateExpenseSheet from "@/components/expense/CreateExpenseSheet";
@@ -126,6 +129,11 @@ interface Task {
   dueTime?: string;
   location?: string;
   introVideoUrl?: string;
+  startedAt?: string | null;
+  firstStartedAt?: string | null;
+  startedByName?: string;
+  completedAt?: string | null;
+  completedByName?: string;
   createdAt: string;
   projectId?: string;
   attachmentFileName?: string;
@@ -183,6 +191,8 @@ interface Employee {
   status: "active" | "inactive" | "on-leave";
   milestoneLevel?: string;
   milestoneLabel?: string;
+  avatarUrl?: string;
+  avatarDataUrl?: string;
 }
 
 type TaskComment = {
@@ -278,6 +288,12 @@ function normalizeTask(t: TaskApi): Task {
     attachmentNote: extra.attachmentNote,
     attachment: extra.attachment,
     attachments: Array.isArray((t as any).attachments) ? (t as any).attachments : undefined,
+    introVideoUrl: (t as any).introVideoUrl,
+    startedAt: (t as any).startedAt ?? null,
+    firstStartedAt: (t as any).firstStartedAt ?? null,
+    startedByName: (t as any).startedByName,
+    completedAt: (t as any).completedAt ?? null,
+    completedByName: (t as any).completedByName,
   };
 }
 
@@ -400,6 +416,11 @@ function CommentAttachmentImg({ taskId, projectId, commentId, index, mimeType, f
       <div className="absolute inset-0 bg-black/40 opacity-100 sm:opacity-0 sm:group-hover/att:opacity-100 flex items-center justify-center transition-all duration-200 rounded-lg">
         <Maximize2 className="w-5 h-5 text-white" />
       </div>
+    </div>
+  );
+  if (src && mimeType?.startsWith("video/")) return (
+    <div className="w-full h-auto flex justify-center relative group/att">
+      <video src={src} controls className="w-full h-auto max-h-[180px] object-contain rounded-lg" />
     </div>
   );
   if (src && !mimeType?.startsWith("image/")) return (
@@ -579,6 +600,7 @@ function TaskContributorsList({ taskId }: { taskId: string }) {
     contributionType: string;
     actions: string[];
     addedAt: string;
+    avatar?: string;
   }>>([]);
   const [loading, setLoading] = useState(true);
 
@@ -620,9 +642,13 @@ function TaskContributorsList({ taskId }: { taskId: string }) {
       {contributors.map((contributor, idx) => (
         <div key={idx} className="flex items-center gap-2.5 bg-background border border-border/60 rounded-lg px-3 py-2 shadow-sm">
           <Avatar className="w-6 h-6">
-            <AvatarFallback className="text-[10px] bg-amber-100 text-amber-700 font-bold">
-              {contributor.name?.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase() || "?"}
-            </AvatarFallback>
+            {contributor.avatar ? (
+              <img src={toProxiedUrl(contributor.avatar) || contributor.avatar} alt={contributor.name || "avatar"} className="w-full h-full object-cover" />
+            ) : (
+              <AvatarFallback className="text-[10px] bg-amber-100 text-amber-700 font-bold">
+                {contributor.name?.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase() || "?"}
+              </AvatarFallback>
+            )}
           </Avatar>
           <div className="flex-1 min-w-0">
             <span className="text-sm font-medium text-foreground/80 truncate">{contributor.name || "Unknown"}</span>
@@ -655,7 +681,6 @@ export default function Tasks() {
   const PAGE_SIZE = 25;
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [projectName, setProjectName] = useState("");
-  const [projectIntroVideoUrl, setProjectIntroVideoUrl] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [projectLogoFile, setProjectLogoFile] = useState<File | null>(null);
   const [projectLogoPreview, setProjectLogoPreview] = useState<string>("");
@@ -675,6 +700,7 @@ export default function Tasks() {
   const [editTaskFilePreview, setEditTaskFilePreview] = useState<string | null>(null);
   const [editTaskFiles, setEditTaskFiles] = useState<File[]>([]);
   const [editTaskFilePreviews, setEditTaskFilePreviews] = useState<string[]>([]);
+  const [isVideoRecorderOpen, setIsVideoRecorderOpen] = useState(false);
   // Project edit state
   const [isEditProjectOpen, setIsEditProjectOpen] = useState(false);
   const [isDeleteProjectOpen, setIsDeleteProjectOpen] = useState(false);
@@ -1018,6 +1044,17 @@ export default function Tasks() {
       const emailKey = val.toLowerCase().trim();
       const nameKey = val.toLowerCase().trim();
       return byEmail.get(emailKey) || byName.get(nameKey) || val;
+    };
+  }, [employees]);
+
+  // Resolve an assignee string (email or name) to their profile picture URL
+  const resolveAssigneeAvatar = useMemo(() => {
+    const byEmail = new Map(employees.map((e) => [e.email.toLowerCase(), e.avatarDataUrl || e.avatarUrl || ""]));
+    const byName  = new Map(employees.map((e) => [e.name.toLowerCase(),  e.avatarDataUrl || e.avatarUrl || ""]));
+    return (val: string): string | undefined => {
+      const key = val.toLowerCase().trim();
+      const raw = byEmail.get(key) || byName.get(key) || "";
+      return raw ? (toProxiedUrl(raw) || raw) : undefined;
     };
   }, [employees]);
 
@@ -2365,6 +2402,22 @@ export default function Tasks() {
             </div>
             <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> Created {new Date(selectedProject.createdAt).toLocaleDateString()}</span>
           </div>
+          {selectedProject.introVideoUrl && (
+            <div className="mt-4 pt-3 border-t space-y-1.5">
+              <p className="text-[11px] font-bold text-primary uppercase tracking-wider flex items-center gap-1.5"><Video className="w-3.5 h-3.5" /> Project Video</p>
+              {/youtube\.com|youtu\.be|vimeo\.com/i.test(selectedProject.introVideoUrl) ? (
+                <Button variant="outline" size="sm" className="gap-2" onClick={() => window.open(selectedProject.introVideoUrl, "_blank")}>
+                  <Video className="w-4 h-4" /> Watch Video
+                </Button>
+              ) : (
+                <video
+                  src={toProxiedUrl(selectedProject.introVideoUrl) || selectedProject.introVideoUrl}
+                  controls
+                  className="w-full max-h-[320px] object-contain rounded-lg border border-border bg-black"
+                />
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <>
@@ -2730,7 +2783,6 @@ export default function Tasks() {
                 />
               </div>
 
-              <div className="space-y-2"><label className="text-sm font-medium">Intro Video URL (YouTube/Vimeo)</label><Input placeholder="https://youtube.com/watch?v=..." value={projectIntroVideoUrl} onChange={(e) => setProjectIntroVideoUrl(e.target.value)} /></div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Project Attachments</label>
                 <div className="space-y-2">
@@ -3188,6 +3240,30 @@ export default function Tasks() {
                         </div>
                       </div>
 
+                      {/* Task Video */}
+                      {selectedTask.introVideoUrl && (
+                        <div className="space-y-2 pt-2">
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <Video className="w-4 h-4" />
+                            <h4 className="text-[13px] font-bold uppercase tracking-wider">Video</h4>
+                          </div>
+                          {/youtube\.com|youtu\.be|vimeo\.com/i.test(selectedTask.introVideoUrl) ? (
+                            <Button variant="outline" size="sm" className="gap-2" onClick={() => window.open(selectedTask.introVideoUrl, "_blank")}>
+                              <Video className="w-4 h-4" /> Watch Video
+                            </Button>
+                          ) : (
+                            <video
+                              src={toProxiedUrl(selectedTask.introVideoUrl) || selectedTask.introVideoUrl}
+                              controls
+                              className="w-full max-h-[320px] object-contain rounded-xl border border-border/60 bg-black"
+                            />
+                          )}
+                        </div>
+                      )}
+
+                      {/* Task Start/Close Timeline */}
+                      <TaskTimeline task={selectedTask} />
+
                       {/* Task Attachments Grid - Same as Admin Panel */}
                       {((selectedTask.attachments && selectedTask.attachments.length > 0) || selectedTask.attachment?.fileName) && (
                         <div className="space-y-3 pt-2">
@@ -3345,7 +3421,7 @@ export default function Tasks() {
                                             {!isSameAuthor ? (
                                               <Avatar className="w-9 h-9 border-2 border-background shadow-sm flex-shrink-0 mb-1 ring-1 ring-border">
                                                 {c.authorAvatar ? (
-                                                  <img src={c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
+                                                  <img src={toProxiedUrl(c.authorAvatar) || c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
                                                 ) : (
                                                   <AvatarFallback className="text-[11px] bg-gradient-to-br from-primary/20 to-primary/40 text-primary font-semibold">
                                                     {(c.authorFullName || c.authorUsername).substring(0, 2).toUpperCase()}
@@ -3593,6 +3669,9 @@ export default function Tasks() {
                             <div className="flex items-center gap-1">
                               <button type="button" onClick={() => { const el = document.getElementById("comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-primary/20" title="Attach file">
                                 <Paperclip className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Attach</span>
+                              </button>
+                              <button type="button" onClick={() => setIsVideoRecorderOpen(true)} className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-red-500/20" title="Record Video">
+                                <Video className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Video</span>
                               </button>
                               {ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (
                                 <button type="button" onClick={() => { setDropboxPickerTarget("task"); setIsDropboxPickerOpen(true); }} className="p-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-blue-500/20" title="Attach from Dropbox">
@@ -4261,11 +4340,16 @@ export default function Tasks() {
                               <div className="flex -space-x-2">
                                 {task.assignees.slice(0, 3).map((assignee, idx) => {
                                   const displayName = resolveAssigneeName(assignee);
+                                  const avatar = resolveAssigneeAvatar(assignee);
                                   return (
                                     <Avatar key={idx} className="w-7 h-7 border-2 border-background">
-                                      <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
-                                        {displayName.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()}
-                                      </AvatarFallback>
+                                      {avatar ? (
+                                        <img src={avatar} alt={displayName} className="w-full h-full object-cover" />
+                                      ) : (
+                                        <AvatarFallback className="text-xs bg-primary/10 text-primary font-semibold">
+                                          {displayName.split(" ").map((n) => n ? n[0] : "").join("").toUpperCase()}
+                                        </AvatarFallback>
+                                      )}
                                     </Avatar>
                                   );
                                 })}
@@ -4460,9 +4544,16 @@ export default function Tasks() {
                                         )}
                                       >
                                         {showSenderName && (
-                                          <span className="chat-sender-name ml-10">
-                                            {c.authorFullName || c.authorUsername}
-                                          </span>
+                                          <div className="flex items-center gap-2 mb-1 ml-10">
+                                            <span className="chat-sender-name">
+                                              {c.authorFullName || c.authorUsername}
+                                            </span>
+                                            {c.authorRole && (
+                                              <Badge variant="secondary" className="text-[9px] px-1.5 py-0 h-4">
+                                                {c.authorRole}
+                                              </Badge>
+                                            )}
+                                          </div>
                                         )}
                                         
                                         <div className={cn(
@@ -4472,7 +4563,7 @@ export default function Tasks() {
                                           {!isMe && (
                                             <Avatar className="w-8 h-8 border shadow-sm flex-shrink-0 mb-1">
                                               {c.authorAvatar ? (
-                                                <img src={c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
+                                                <img src={toProxiedUrl(c.authorAvatar) || c.authorAvatar} alt="avatar" className="w-full h-full object-cover" />
                                               ) : (
                                                 <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
                                                   {(c.authorFullName || c.authorUsername).substring(0, 2).toUpperCase()}
@@ -4556,6 +4647,9 @@ export default function Tasks() {
                           <div className="flex items-center gap-1">
                             <button type="button" onClick={() => { const el = document.getElementById("project-comment-attachment-input") as HTMLInputElement; el?.click(); }} className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors flex items-center gap-1.5" title="Attach file">
                               <Paperclip className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Attach Files</span>
+                            </button>
+                            <button type="button" onClick={() => setIsVideoRecorderOpen(true)} className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-1.5" title="Record Video">
+                              <Video className="w-4 h-4" /> <span className="text-xs font-semibold hidden sm:inline">Record Video</span>
                             </button>
                             {ROLE_GROUPS.DROPBOX_ALLOWED.includes(currentRole) && (
                               <button type="button" onClick={() => { setDropboxPickerTarget("project"); setIsDropboxPickerOpen(true); }} className="p-2 text-muted-foreground hover:text-blue-500 hover:bg-blue-500/10 rounded-lg transition-colors flex items-center gap-1.5 border border-transparent hover:border-blue-500/20" title="Attach from Dropbox">
@@ -4824,10 +4918,16 @@ export default function Tasks() {
             </div>
             {previewUrl && (
               <div className="flex flex-col items-center">
-                {previewName.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i) ? (
+                {previewName.match(/\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i) || previewUrl.startsWith("data:image/") ? (
                   <img 
                     src={previewUrl} 
                     alt={previewName} 
+                    className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl" 
+                  />
+                ) : previewName.match(/\.(mp4|webm|ogg|mov)$/i) || previewUrl.startsWith("data:video/") ? (
+                  <video 
+                    src={previewUrl} 
+                    controls
                     className="max-h-[85vh] max-w-full object-contain rounded-lg shadow-2xl" 
                   />
                 ) : (
@@ -5000,6 +5100,13 @@ export default function Tasks() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Video Recorder Modal */}
+      <VideoRecorderModal
+        isOpen={isVideoRecorderOpen}
+        onClose={() => setIsVideoRecorderOpen(false)}
+        onSave={(file) => setCommentAttachments((prev) => [...prev, file])}
+      />
     </div>
   );
 }

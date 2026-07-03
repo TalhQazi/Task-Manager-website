@@ -6,7 +6,7 @@ import { ActiveEmployees } from "@/components/admin/dashboard/ActiveEmployees";
 import { TaskCharts } from "@/components/admin/dashboard/TaskCharts";
 import { DayAheadCard } from "@/components/admin/dashboard/DayAheadCard";
 import { WeekAheadCard } from "@/components/admin/dashboard/WeekAheadCard";
-import { Users, CheckSquare, AlertTriangle, Clock, Car, FileSearch, Globe, FolderRoot, Bug, CalendarCheck, Building2 } from "lucide-react";
+import { Users, CheckSquare, AlertTriangle, Clock, Car, FileSearch, Globe, FolderRoot, Bug, CalendarCheck, Building2, Activity } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useNavigate } from "react-router-dom";
 
@@ -137,7 +137,9 @@ const Dashboard = () => {
             { title: "Pending Bugs", value: metrics.pendingBugs, icon: Bug, variant: "red", changeType: "neutral" as const, onClick: () => navigate("/admin/bug-reports") },
             { title: "Total Vehicles", value: metrics.totalVehicles, icon: Car, variant: "orange", changeType: "positive" as const, onClick: () => navigate("/admin/vehicles") },
             { title: "Websites", value: `${metrics.websiteActive} / ${metrics.websiteFuture}`, change: "active / future", icon: Globe, variant: "teal", changeType: "positive" as const, onClick: () => navigate("/admin/digital-assets") },
-          ].map((stat, idx) => ( 
+  { title: "System Health", value: "Monitor", change: "servers · RAM · disk", icon: Activity, variant: "purple", changeType: "neutral" as const, onClick: () => navigate("/admin/health") },
+          ].map((stat, idx) => (
+
             <motion.div
               key={stat.title}
               variants={itemVariants}

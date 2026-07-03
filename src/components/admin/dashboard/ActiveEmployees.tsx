@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Users, ArrowRight, Briefcase } from "lucide-react";
 import { apiFetch, listResource, toProxiedUrl } from "@/lib/admin/apiClient";
@@ -133,6 +133,7 @@ export function ActiveEmployees({ basePath = "/employees" }: { basePath?: string
               >
                 {/* Avatar */}
                 <Avatar className="h-9 w-9 sm:h-10 sm:w-10 flex-shrink-0">
+                  {employee.avatarUrl && <AvatarImage src={employee.avatarUrl} alt={employee.name} className="object-cover" />}
                   <AvatarFallback className="bg-primary text-primary-foreground text-sm font-medium">
                     {employee.initials}
                   </AvatarFallback>

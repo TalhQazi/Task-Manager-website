@@ -61,7 +61,7 @@ import {
   Calendar
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
-import { apiFetch, listResource } from "@/lib/manger/api";
+import { apiFetch, listResource, toProxiedUrl } from "@/lib/manger/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import MilestoneBadge from "@/components/shared/MilestoneBadge";
 import { useSocket } from "@/contexts/SocketContext";
@@ -797,7 +797,7 @@ export default function Employees() {
                       >
                         {employee.imageUrl ? (
                           <img
-                            src={employee.imageUrl}
+                            src={toProxiedUrl(employee.imageUrl) || employee.imageUrl}
                             alt={employee.name}
                             className="w-full h-full object-cover"
                           />
@@ -1271,7 +1271,7 @@ export default function Employees() {
                 >
                   {selectedEmployee.imageUrl ? (
                     <img
-                      src={selectedEmployee.imageUrl}
+                      src={toProxiedUrl(selectedEmployee.imageUrl) || selectedEmployee.imageUrl}
                       alt={selectedEmployee.name}
                       className="w-full h-full object-cover rounded-full"
                     />

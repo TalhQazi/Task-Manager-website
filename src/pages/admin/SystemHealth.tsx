@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { ServerGraphs } from "@/components/health/ServerGraphs";
+import { SystemResourcePies } from "@/components/health/SystemResourcePies";
 import { WebsiteStatusTable } from "@/components/health/WebsiteStatusTable";
 import { IncidentHistory } from "@/components/health/IncidentHistory";
 import { Activity } from "lucide-react";
@@ -64,6 +65,9 @@ export default function SystemHealth() {
             </div>
           </div>
         </div>
+
+        {/* Host Resource Usage (RAM & Disk pie charts) */}
+        <SystemResourcePies />
 
         {/* Main Content Grids */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">

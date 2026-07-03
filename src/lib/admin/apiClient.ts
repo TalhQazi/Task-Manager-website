@@ -31,14 +31,22 @@ export function toProxiedUrl(url: string | undefined | null): string | undefined
   if (!url) return undefined;
   // Don't proxy data: URLs, already-proxied URLs, or non-S3 URLs
   if (url.startsWith("data:") || url.includes("/api/s3-proxy/")) return url;
-  
+
+  const baseUrl = getApiBaseUrl().replace(/\/$/, "");
+  const token = getAuthState().token;
+
+  // Local server uploads ("/uploads/<key>") — served by the backend, so route them
+  // through the backend origin (via the s3-proxy, which reads local disk first).
+  if (url.startsWith("/uploads/")) {
+    const key = url.replace(/^\/uploads\//, "");
+    return `${baseUrl}/api/s3-proxy/${key}${token ? `?token=${token}` : ""}`;
+  }
+
   // Match S3 URLs pattern: https://<bucket>.s3.<region>.amazonaws.com/<key>
   const s3Match = url.match(/https:\/\/[^/]+\.s3\.[^/]+\.amazonaws\.com\/(.+)/);
   if (!s3Match) return url;
-  
+
   const s3Key = s3Match[1];
-  const baseUrl = getApiBaseUrl().replace(/\/$/, "");
-  const token = getAuthState().token;
   return `${baseUrl}/api/s3-proxy/${s3Key}${token ? `?token=${token}` : ""}`;
 }
 
