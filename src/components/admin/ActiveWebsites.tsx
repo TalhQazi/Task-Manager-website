@@ -336,6 +336,7 @@ export function ActiveWebsites() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+        </div>
 
           {websitesQuery.isLoading ? (
             <div className="flex justify-center py-8">

@@ -365,6 +365,7 @@ export function FutureWebsites() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
 
       {websitesQuery.isLoading ? (
         <Card>
