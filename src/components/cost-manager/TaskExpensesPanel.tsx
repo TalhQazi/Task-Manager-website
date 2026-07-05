@@ -9,6 +9,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { AlertTriangle, DollarSign, MapPin } from "lucide-react";
 
+const FALLBACK_META = { label: "Unknown", className: "bg-gray-100 text-gray-700 border-gray-200" };
+
 // Compact read-only panel of Cost Manager expenses linked to one task.
 // Items are managed in the project Cost Manager; totals roll up automatically.
 export default function TaskExpensesPanel({ taskId }: { taskId: string }) {
@@ -19,11 +21,12 @@ export default function TaskExpensesPanel({ taskId }: { taskId: string }) {
     staleTime: 30 * 1000,
   });
 
-  const items = itemsQuery.data?.items || [];
-  if (!taskId || itemsQuery.isLoading || items.length === 0) return null;
+  // Guard: bail out early on missing taskId, loading, error, or empty results
+  const items = Array.isArray(itemsQuery.data?.items) ? itemsQuery.data.items : [];
+  if (!taskId || itemsQuery.isLoading || itemsQuery.isError || items.length === 0) return null;
 
-  const estimated = items.reduce((s, i) => s + i.estimatedTotalCents, 0);
-  const paid = items.reduce((s, i) => s + i.paidCents, 0);
+  const estimated = items.reduce((s, i) => s + (Number(i.estimatedTotalCents) || 0), 0);
+  const paid = items.reduce((s, i) => s + (Number(i.paidCents) || 0), 0);
   const warningCount = items.reduce((s, i) => s + (i.warnings?.length || 0), 0);
 
   return (
@@ -45,18 +48,18 @@ export default function TaskExpensesPanel({ taskId }: { taskId: string }) {
       </div>
       <div className="space-y-1">
         {items.map((item) => {
-          const meta = PURCHASE_STATUS_META[item.purchaseStatus];
+          const meta = PURCHASE_STATUS_META[item.purchaseStatus] || FALLBACK_META;
           const location = [item.storage?.locationName, item.storage?.shelf, item.storage?.bin]
             .filter(Boolean)
             .join(" / ");
           return (
             <div key={item.id} className="flex items-center justify-between gap-2 text-xs">
               <span className="flex items-center gap-1.5 min-w-0">
-                <span className="truncate font-medium">{item.itemName}</span>
+                <span className="truncate font-medium">{String(item.itemName || "")}</span>
                 {(item.warnings || []).length > 0 && (
                   <span
                     className="text-amber-500 flex-shrink-0"
-                    title={(item.warnings || []).map((w) => WARNING_LABELS[w]).join("\n")}
+                    title={(item.warnings || []).map((w: string) => WARNING_LABELS[w as keyof typeof WARNING_LABELS] || w).join("\n")}
                   >
                     <AlertTriangle className="w-3 h-3" />
                   </span>
@@ -71,7 +74,7 @@ export default function TaskExpensesPanel({ taskId }: { taskId: string }) {
                 <Badge variant="outline" className={`text-[9px] ${meta.className}`}>
                   {meta.label}
                 </Badge>
-                <span className="font-semibold whitespace-nowrap">{formatMoney(item.estimatedTotalCents)}</span>
+                <span className="font-semibold whitespace-nowrap">{formatMoney(Number(item.estimatedTotalCents) || 0)}</span>
               </span>
             </div>
           );
