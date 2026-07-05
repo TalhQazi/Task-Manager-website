@@ -149,6 +149,39 @@ export default function CostManager({ projectId, projectName = "Project", tasks 
   const [showLocationFinder, setShowLocationFinder] = useState(false);
   const [buyMode, setBuyMode] = useState(false);
 
+  // What-Can-I-Buy: greedy suggestion — required first, priority order, cheapest remaining first.
+  // Must run unconditionally (before any early return) to keep hook order stable across renders.
+  const querySections = sheetQuery.data?.sections;
+  const queryBudgetCents = sheetQuery.data?.summary.availableBudgetCents ?? 0;
+  const buySuggestions = useMemo(() => {
+    if (!buyMode || !querySections) return new Set<string>();
+    const priorityRank: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
+    const candidates = querySections
+      .flatMap((s) => s.items)
+      .filter(
+        (i) =>
+          i.isActive &&
+          !PURCHASED_STATUSES.includes(i.purchaseStatus) &&
+          i.purchaseStatus !== "canceled" &&
+          i.remainingCents > 0
+      )
+      .sort((a, b) => {
+        if (a.requiredForPrototype !== b.requiredForPrototype) return a.requiredForPrototype ? -1 : 1;
+        const p = (priorityRank[a.priority] ?? 2) - (priorityRank[b.priority] ?? 2);
+        if (p !== 0) return p;
+        return a.remainingCents - b.remainingCents;
+      });
+    let budget = queryBudgetCents;
+    const picked = new Set<string>();
+    for (const item of candidates) {
+      if (item.remainingCents <= budget) {
+        picked.add(item.id);
+        budget -= item.remainingCents;
+      }
+    }
+    return picked;
+  }, [buyMode, querySections, queryBudgetCents]);
+
   if (!projectId) return null;
 
   if (sheetQuery.isLoading) {
@@ -183,36 +216,6 @@ export default function CostManager({ projectId, projectName = "Project", tasks 
     {} as Record<CostItemWarning, number>
   );
   const warningEntries = Object.entries(warningCounts) as Array<[CostItemWarning, number]>;
-
-  // What-Can-I-Buy: greedy suggestion — required first, priority order, cheapest remaining first.
-  const buySuggestions = useMemo(() => {
-    if (!buyMode) return new Set<string>();
-    const priorityRank: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
-    const candidates = sections
-      .flatMap((s) => s.items)
-      .filter(
-        (i) =>
-          i.isActive &&
-          !PURCHASED_STATUSES.includes(i.purchaseStatus) &&
-          i.purchaseStatus !== "canceled" &&
-          i.remainingCents > 0
-      )
-      .sort((a, b) => {
-        if (a.requiredForPrototype !== b.requiredForPrototype) return a.requiredForPrototype ? -1 : 1;
-        const p = (priorityRank[a.priority] ?? 2) - (priorityRank[b.priority] ?? 2);
-        if (p !== 0) return p;
-        return a.remainingCents - b.remainingCents;
-      });
-    let budget = summary.availableBudgetCents;
-    const picked = new Set<string>();
-    for (const item of candidates) {
-      if (item.remainingCents <= budget) {
-        picked.add(item.id);
-        budget -= item.remainingCents;
-      }
-    }
-    return picked;
-  }, [buyMode, sections, summary.availableBudgetCents]);
 
   const setStatus = (item: CostLineItem, status: PurchaseStatus) => {
     if (status === "stored") {
