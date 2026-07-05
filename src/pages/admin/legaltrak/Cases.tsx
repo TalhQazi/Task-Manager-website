@@ -98,6 +98,16 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
+const formatCaseNumber = (val: string): string => {
+  const clean = val.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  const parts = [];
+  if (clean.length > 0) parts.push(clean.slice(0, 4));
+  if (clean.length > 4) parts.push(clean.slice(4, 7));
+  if (clean.length > 7) parts.push(clean.slice(7, 13));
+  if (clean.length > 13) parts.push(clean.slice(13, 17));
+  return parts.join("-");
+};
+
 export default function Cases() {
   const [searchQuery, setSearchQuery] = useState("");
   const [casesList, setCasesList] = useState<LegalCase[]>([]);
@@ -121,6 +131,7 @@ export default function Cases() {
   const isAdminRole = auth.role === "admin" || auth.role === "super-admin" || auth.role === "manager";
 
   const [formData, setFormData] = useState<{
+    caseNumber: string;
     title: string;
     clientName: string;
     type: string;
@@ -133,6 +144,7 @@ export default function Cases() {
     closeDate: string;
     attachments: Array<{ fileName: string; url: string; mimeType: string; size: number }>;
   }>({
+    caseNumber: "",
     title: "",
     clientName: "",
     type: "",
@@ -168,6 +180,7 @@ export default function Cases() {
 
   const resetForm = () => {
     setFormData({
+      caseNumber: "",
       title: "",
       clientName: "",
       type: "",
@@ -203,6 +216,7 @@ export default function Cases() {
   const handleEditOpen = (c: LegalCase) => {
     setSelectedCase(c);
     setFormData({
+      caseNumber: c.caseNumber || "",
       title: c.title,
       clientName: c.clientName,
       type: c.type,
@@ -320,6 +334,16 @@ export default function Cases() {
           className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" 
           placeholder="Case Title" 
           required 
+        />
+      </div>
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-slate-300">Case Number (Format: PENC-CIV-000061-2026)</label>
+        <input 
+          type="text" 
+          value={formData.caseNumber} 
+          onChange={e => setFormData({...formData, caseNumber: formatCaseNumber(e.target.value)})} 
+          className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 font-mono" 
+          placeholder="PENC-CIV-000061-2026" 
         />
       </div>
       <div className="space-y-1">

@@ -23,6 +23,7 @@ import {
 } from "../lib/api";
 import { toast } from "sonner";
 import FollowUpControlCenter from "@/components/shared/FollowUpControlCenter";
+import { renderMessageContent } from "@/lib/linkify";
 import {
   ArrowLeft,
   Download,
@@ -93,7 +94,7 @@ function formatMessageTime(dateString: string) {
 
 function renderMessageWithMentions(text: string) {
   if (!text) return null;
-  const parts = text.split(/(@\S+)/g);
+  const parts = text.split(/(\s+|@\S+)/g);
   return (
     <>
       {parts.map((part, i) => {
@@ -104,7 +105,7 @@ function renderMessageWithMentions(text: string) {
             </span>
           );
         }
-        return <span key={i}>{part}</span>;
+        return <React.Fragment key={i}>{renderMessageContent(part)}</React.Fragment>;
       })}
     </>
   );

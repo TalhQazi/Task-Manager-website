@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
-import { User, Shield, Save, Camera } from "lucide-react";
+import { User, Shield, Save, Camera, Bell } from "lucide-react";
+import { Switch } from "@/components/manger/ui/switch";
 import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
 import { toast } from "@/components/manger/ui/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -526,6 +527,64 @@ export default function Settings() {
               Role
             </label>
             <Input value={draft?.role ?? ""} disabled />
+          </div>
+        </div>
+      </div>
+
+      {/* Notification Settings */}
+      <div className="bg-card rounded-xl border border-border shadow-card p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Bell className="w-5 h-5 text-primary" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-foreground">Notification Settings</h3>
+            <p className="text-sm text-muted-foreground">
+              Configure your email and alert preferences
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium text-foreground">Email Notifications</p>
+              <p className="text-xs text-muted-foreground">Receive daily system update emails</p>
+            </div>
+            <Switch
+              checked={Boolean(draft?.notifications?.emailNotifications)}
+              onCheckedChange={(val) => setNotification("emailNotifications", val)}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium text-foreground">Task Alerts</p>
+              <p className="text-xs text-muted-foreground">Receive real-time alerts when tasks are updated</p>
+            </div>
+            <Switch
+              checked={Boolean(draft?.notifications?.taskAlerts)}
+              onCheckedChange={(val) => setNotification("taskAlerts", val)}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium text-foreground">Employee Updates</p>
+              <p className="text-xs text-muted-foreground">Get notified when employees check in/out</p>
+            </div>
+            <Switch
+              checked={Boolean(draft?.notifications?.employeeUpdates)}
+              onCheckedChange={(val) => setNotification("employeeUpdates", val)}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <p className="text-sm font-medium text-foreground">Weekly Reports</p>
+              <p className="text-xs text-muted-foreground">Receive a summary report at the end of the week</p>
+            </div>
+            <Switch
+              checked={Boolean(draft?.notifications?.weeklyReports)}
+              onCheckedChange={(val) => setNotification("weeklyReports", val)}
+            />
           </div>
         </div>
       </div>

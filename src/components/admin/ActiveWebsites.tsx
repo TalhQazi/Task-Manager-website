@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/admin/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Badge } from "@/components/admin/ui/badge";
-import { Plus, Edit2, Trash2, ExternalLink, Lock } from "lucide-react";
+import { Plus, Edit2, Trash2, ExternalLink, Lock, Search } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -79,6 +79,7 @@ export function ActiveWebsites() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCredentials, setShowCredentials] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const websitesQuery = useQuery<Website[]>({
     queryKey: ["active-websites"],
@@ -88,10 +89,16 @@ export function ActiveWebsites() {
     },
   });
 
-  const websites = useMemo(() => 
-    (websitesQuery.data || []).slice().sort((a, b) => a.siteName.localeCompare(b.siteName)),
-    [websitesQuery.data]
-  );
+  const websites = useMemo(() => {
+    const list = websitesQuery.data || [];
+    const filtered = list.filter(w => 
+      (w.siteName || "").toLowerCase().includes(searchQuery.toLowerCase()) || 
+      (w.url || "").toLowerCase().includes(searchQuery.toLowerCase()) || 
+      (w.platform || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (w.hostingProvider || "").toLowerCase().includes(searchQuery.toLowerCase())
+    );
+    return filtered.slice().sort((a, b) => (a.siteName || "").localeCompare(b.siteName || ""));
+  }, [websitesQuery.data, searchQuery]);
 
   const resetForm = () => {
     setFormData({
@@ -105,6 +112,7 @@ export function ActiveWebsites() {
       notes: "",
     });
     setSelectedWebsite(null);
+    setSearchQuery("");
   };
 
   const handleSave = async () => {
@@ -163,19 +171,31 @@ export function ActiveWebsites() {
 
   return (
     <div className="space-y-4">
-          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-            <DialogTrigger asChild>
-              <Button
-                onClick={() => {
-                  resetForm();
-                  setIsEditDialogOpen(true);
-                }}
-                className="w-full sm:w-auto bg-gradient-to-r from-primary to-primary/80"
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Website
-              </Button>
-            </DialogTrigger>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-muted/20 p-3 rounded-xl border border-border/50">
+        <div className="relative w-full sm:w-80">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            placeholder="Search active websites..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/20 h-10"
+          />
+        </div>
+
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogTrigger asChild>
+            <Button
+              onClick={() => {
+                resetForm();
+                setIsEditDialogOpen(true);
+              }}
+              className="w-full sm:w-auto bg-gradient-to-r from-primary to-primary/80 h-10 shrink-0"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Website
+            </Button>
+          </DialogTrigger>
 
             <DialogContent className="w-[95vw] max-w-md">
               <DialogHeader>

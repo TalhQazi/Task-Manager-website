@@ -44,6 +44,7 @@ import {
   SlidersHorizontal,
   LayoutGrid,
   List,
+  ArrowUpDown,
 } from "lucide-react";
 import { getApiBaseUrl } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
@@ -236,6 +237,7 @@ export default function CompanyRegistry() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [colorFilter, setColorFilter] = useState("all");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -283,14 +285,22 @@ export default function CompanyRegistry() {
 
   useEffect(() => { fetchEntries(); }, [fetchEntries]);
 
-  const filteredEntries = useMemo(() => entries.filter((entry) => {
-    const q = searchQuery.toLowerCase();
-    return (
-      (!q || entry.companyName.toLowerCase().includes(q) || entry.fein.toLowerCase().includes(q) || entry.email.toLowerCase().includes(q)) &&
-      (statusFilter === "all" || entry.status === statusFilter) &&
-      (colorFilter === "all" || entry.colorTag === colorFilter)
-    );
-  }), [entries, searchQuery, statusFilter, colorFilter]);
+  const filteredEntries = useMemo(() => {
+    const filtered = entries.filter((entry) => {
+      const q = searchQuery.toLowerCase();
+      return (
+        (!q || entry.companyName.toLowerCase().includes(q) || entry.fein.toLowerCase().includes(q) || entry.email.toLowerCase().includes(q)) &&
+        (statusFilter === "all" || entry.status === statusFilter) &&
+        (colorFilter === "all" || entry.colorTag === colorFilter)
+      );
+    });
+
+    return filtered.sort((a, b) => {
+      const nameA = a.companyName.toLowerCase();
+      const nameB = b.companyName.toLowerCase();
+      return sortOrder === "asc" ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+    });
+  }, [entries, searchQuery, statusFilter, colorFilter, sortOrder]);
 
   const resetForm = () => {
     setFormData({ ...initialFormData });
@@ -628,6 +638,15 @@ export default function CompanyRegistry() {
             <SelectItem value="gray">⚫ Archived</SelectItem>
           </SelectContent>
         </Select>
+        <Button 
+          variant="outline" 
+          size="icon" 
+          className="h-9 w-9 shrink-0"
+          onClick={() => setSortOrder(prev => prev === "asc" ? "desc" : "asc")}
+          title={sortOrder === "asc" ? "Sort Z-A" : "Sort A-Z"}
+        >
+          <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+        </Button>
       </motion.div>
 
       {/* ── Table ── */}

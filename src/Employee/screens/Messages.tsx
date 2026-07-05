@@ -39,6 +39,7 @@ import {
 } from "../lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { renderMessageContent } from "@/lib/linkify";
 
 interface Conversation {
   employee: {
@@ -716,7 +717,7 @@ export default function EmployeeMessages() {
                         ) : null}
 
                         {msg.content?.trim() ? (
-                          <p className="text-sm whitespace-pre-wrap break-all">{msg.content}</p>
+                          <p className="text-sm whitespace-pre-wrap break-all">{renderMessageContent(msg.content, isSentByMe)}</p>
                         ) : null}
                         <div
                           className={cn(

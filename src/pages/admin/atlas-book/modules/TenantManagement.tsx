@@ -10,17 +10,37 @@ import { apiFetch } from "@/lib/admin/apiClient";
 
 export default function TenantManagement() {
   const [items, setItems] = useState<any[]>([]);
+  const [properties, setProperties] = useState<any[]>([]);
+  const [units, setUnits] = useState<any[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   
-  const [form, setForm] = useState({ name: "", email: "", phone: "", type: "Individual", status: "Active" });
+  const [form, setForm] = useState({ 
+    name: "", 
+    email: "", 
+    phone: "", 
+    type: "Individual", 
+    status: "Active",
+    assignedProperty: "",
+    assignedUnit: "",
+    locationName: ""
+  });
 
   const load = async () => {
     try {
       setLoading(true);
-      const res = await apiFetch("/api/atlasbook/tenants");
-      if (res?.success) setItems(res.items || []);
+      const [tenantsRes, propsRes, unitsRes, locationsRes] = await Promise.all([
+        apiFetch("/api/atlasbook/tenants"),
+        apiFetch("/api/atlasbook/properties").catch(() => null),
+        apiFetch("/api/atlasbook/units").catch(() => null),
+        apiFetch("/api/locations").catch(() => null)
+      ]);
+      if (tenantsRes?.success) setItems(tenantsRes.items || []);
+      if (propsRes?.success) setProperties(propsRes.items || []);
+      if (unitsRes?.success) setUnits(unitsRes.items || []);
+      if (locationsRes?.items) setLocations(locationsRes.items || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -38,7 +58,16 @@ export default function TenantManagement() {
       });
       if (res?.success) {
         setOpen(false);
-        setForm({ name: "", email: "", phone: "", type: "Individual", status: "Active" });
+        setForm({ 
+          name: "", 
+          email: "", 
+          phone: "", 
+          type: "Individual", 
+          status: "Active",
+          assignedProperty: "",
+          assignedUnit: "",
+          locationName: ""
+        });
         load();
       }
     } catch (e) {
@@ -48,7 +77,10 @@ export default function TenantManagement() {
 
   const filtered = items.filter(i => 
     i.name?.toLowerCase().includes(q.toLowerCase()) || 
-    i.email?.toLowerCase().includes(q.toLowerCase())
+    i.email?.toLowerCase().includes(q.toLowerCase()) ||
+    i.assignedProperty?.toLowerCase().includes(q.toLowerCase()) ||
+    i.assignedUnit?.toLowerCase().includes(q.toLowerCase()) ||
+    i.locationName?.toLowerCase().includes(q.toLowerCase())
   );
 
   return (
@@ -70,7 +102,7 @@ export default function TenantManagement() {
       <Card className="shadow-soft p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input placeholder="Search tenants by name or email..." className="pl-10" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input placeholder="Search tenants by name, email, property, unit, or location..." className="pl-10" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
       </Card>
 
@@ -82,6 +114,9 @@ export default function TenantManagement() {
                 <TableHead>Tenant Name</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Contact</TableHead>
+                <TableHead>Property</TableHead>
+                <TableHead>Unit</TableHead>
+                <TableHead>Location</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>History</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -89,9 +124,9 @@ export default function TenantManagement() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-10"><RefreshCw className="animate-spin mx-auto" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-10"><RefreshCw className="animate-spin mx-auto" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground italic">No tenants found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center py-10 text-muted-foreground italic">No tenants found.</TableCell></TableRow>
               ) : (
                 filtered.map((item) => (
                   <TableRow key={item._id}>
@@ -103,6 +138,9 @@ export default function TenantManagement() {
                         <div className="flex items-center gap-1 text-xs text-muted-foreground"><Phone size={10} /> {item.phone || "No phone"}</div>
                       </div>
                     </TableCell>
+                    <TableCell className="text-sm">{item.assignedProperty || "None"}</TableCell>
+                    <TableCell className="text-sm">{item.assignedUnit || "None"}</TableCell>
+                    <TableCell className="text-sm">{item.locationName || "None"}</TableCell>
                     <TableCell>
                       <Badge variant={item.status === "Active" ? "default" : "secondary"}>
                         {item.status}
@@ -125,7 +163,7 @@ export default function TenantManagement() {
           <DialogHeader>
             <DialogTitle>Add New Tenant</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto px-1 custom-scrollbar">
             <div className="space-y-2">
               <label className="text-sm font-medium">Full Name / Entity Name</label>
               <Input placeholder="e.g., Jane Smith" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
@@ -147,6 +185,44 @@ export default function TenantManagement() {
                 </select>
               </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Property</label>
+                <select 
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-ring text-foreground"
+                  value={form.assignedProperty}
+                  onChange={e => setForm({...form, assignedProperty: e.target.value})}
+                >
+                  <option value="">None</option>
+                  {properties.map(p => <option key={p._id} value={p.name}>{p.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Location</label>
+                <select 
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-ring text-foreground"
+                  value={form.locationName}
+                  onChange={e => setForm({...form, locationName: e.target.value})}
+                >
+                  <option value="">None</option>
+                  {locations.map(loc => <option key={loc.id} value={loc.name}>{loc.name}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Unit</label>
+              <select 
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-ring text-foreground"
+                value={form.assignedUnit}
+                onChange={e => setForm({...form, assignedUnit: e.target.value})}
+              >
+                <option value="">None</option>
+                {units.map(u => <option key={u._id} value={u.unitNumber}>{u.unitNumber}</option>)}
+              </select>
+            </div>
+
             <div className="space-y-2">
               <label className="text-sm font-medium">Email</label>
               <Input type="email" placeholder="email@example.com" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />

@@ -111,8 +111,11 @@ import { TaskTimeline } from "@/components/shared/TaskTimeline";
 import { useGlobalTimer } from "@/hooks/useGlobalTimer";
 import { getRemainingTime, getTimerState } from "@/lib/manger/time";
 import CreateExpenseSheet from "@/components/expense/CreateExpenseSheet";
+import CostManager from "@/components/cost-manager/CostManager";
+import TaskExpensesPanel from "@/components/cost-manager/TaskExpensesPanel";
 import ExpenseSheetList from "@/components/expense/ExpenseSheetList";
 import DropboxFilePicker, { type DropboxSelectedFile, formatBytes, DropboxIcon } from "@/components/admin/DropboxFilePicker";
+import { renderMessageContent } from "@/lib/linkify";
 
 
 interface Task {
@@ -531,7 +534,7 @@ async function filesToAttachments(files: File[]) {
 
 function renderMessageWithMentions(text: string) {
   if (!text) return null;
-  const parts = text.split(/(@\S+)/g);
+  const parts = text.split(/(\s+|@\S+)/g);
   return (
     <>
       {parts.map((part, i) => {
@@ -542,7 +545,7 @@ function renderMessageWithMentions(text: string) {
             </span>
           );
         }
-        return <span key={i}>{part}</span>;
+        return <React.Fragment key={i}>{renderMessageContent(part)}</React.Fragment>;
       })}
     </>
   );
@@ -2418,6 +2421,15 @@ export default function Tasks() {
               )}
             </div>
           )}
+
+          {/* Project Cost Manager™ — prototype cost, purchasing, and storage tracking */}
+          <div className="mt-4 pt-3 border-t">
+            <CostManager
+              projectId={selectedProject.id}
+              projectName={selectedProject.name}
+              tasks={(selectedProject.tasks || []).map((t) => ({ id: t.id, title: t.title }))}
+            />
+          </div>
         </div>
       ) : (
         <>
@@ -3239,6 +3251,9 @@ export default function Tasks() {
                           </p>
                         </div>
                       </div>
+
+                      {/* Cost Manager expenses linked to this task */}
+                      <TaskExpensesPanel taskId={selectedTask.id} />
 
                       {/* Task Video */}
                       {selectedTask.introVideoUrl && (

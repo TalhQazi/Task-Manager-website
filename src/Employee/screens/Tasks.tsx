@@ -105,6 +105,7 @@ import { useRewards } from "@/contexts/RewardContext";
 import FollowUpControlCenter from "@/components/shared/FollowUpControlCenter";
 import { VideoRecorderModal } from "@/components/admin/VideoRecorderModal";
 import { TaskTimeline } from "@/components/shared/TaskTimeline";
+import { renderMessageContent } from "@/lib/linkify";
 
 interface Task {
   id: string;
@@ -346,7 +347,7 @@ function formatMessageTime(value: string) {
 
 function renderMessageWithMentions(text: string) {
   if (!text) return null;
-  const parts = text.split(/(@\S+)/g);
+  const parts = text.split(/(\s+|@\S+)/g);
   return (
     <>
       {parts.map((part, i) => {
@@ -360,7 +361,7 @@ function renderMessageWithMentions(text: string) {
             </span>
           );
         }
-        return <span key={i}>{part}</span>;
+        return <React.Fragment key={i}>{renderMessageContent(part)}</React.Fragment>;
       })}
     </>
   );
