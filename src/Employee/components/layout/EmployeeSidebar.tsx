@@ -46,7 +46,7 @@ const navItemsBase = [
   { icon: FileText, label: "Company Information", path: "/employee/company-information" },
   // { icon: UserCircle, label: "Profile", path: "/employee/profile" },
   { icon: Bell, label: "Notifications", path: "/employee/notifications" },
-  { icon: FileText, label: "My Notes", path: "/employee/personal-notes" },
+  { icon: FileText, label: "Knowledge Vault", path: "/employee/personal-notes" },
   { icon: Palette, label: "Theme Engine", path: "/employee/ui-customization" },
   { icon: ShoppingCart, label: "Shopping Lists", path: "/employee/shopping-lists" },
   { icon: Bug, label: "Bugs", path: "/employee/bugs" },

@@ -4,7 +4,7 @@ import {
   Plus, 
   Trash2, 
   Pin, 
-  Calendar, 
+  Calendar as CalendarIcon, 
   Clock, 
   Tag as TagIcon, 
   MoreVertical,
@@ -24,11 +24,28 @@ import {
   FolderSync,
   History,
   FileCode,
-  ImageIcon,
+  Image as ImageIcon,
   Play,
   Upload,
   CheckSquare,
-  ListPlus
+  ListPlus,
+  LayoutGrid,
+  List,
+  Filter,
+  ArrowUpDown,
+  BookOpen,
+  Bold,
+  Italic,
+  Underline,
+  List as ListIcon,
+  Table as TableIcon,
+  Link as LinkIcon,
+  Sparkles,
+  RefreshCw,
+  Globe,
+  CornerDownRight,
+  Grid,
+  ChevronDown
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -91,26 +108,29 @@ const DEFAULT_FOLDERS = [
   "Business",
   "Operations",
   "Patents",
-  "Legal",
-  "Employees",
-  "SOPs & Procedures",
-  "Projects",
   "Research",
-  "Ideas",
-  "Personal",
-  "Finance",
+  "Employees",
   "Marketing",
-  "Vehicles",
-  "Properties"
+  "Projects",
+  "Finance",
+  "Legal",
+  "Personal"
 ];
 
 const COLORS = [
   { name: "Default", value: "rgba(30, 41, 59, 0.5)" },
-  { name: "Blue", value: "rgba(59, 130, 246, 0.15)" },
-  { name: "Green", value: "rgba(34, 197, 94, 0.15)" },
-  { name: "Yellow", value: "rgba(234, 179, 8, 0.15)" },
-  { name: "Red", value: "rgba(239, 68, 68, 0.15)" },
-  { name: "Purple", value: "rgba(168, 85, 247, 0.15)" },
+  { name: "Blue", value: "rgba(79, 124, 255, 0.25)" },
+  { name: "Green", value: "rgba(22, 199, 132, 0.25)" },
+  { name: "Yellow", value: "rgba(245, 158, 11, 0.25)" },
+  { name: "Red", value: "rgba(239, 68, 68, 0.25)" },
+  { name: "Purple", value: "rgba(168, 85, 247, 0.25)" },
+];
+
+const HERO_COVER_IMAGES = [
+  "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=1200&q=80",
+  "https://images.unsplash.com/photo-1604871000636-074fa5117945?auto=format&fit=crop&w=1200&q=80"
 ];
 
 export default function PersonalNotes({ getNotes, createNote, updateNote, deleteNote }: PersonalNotesProps) {
@@ -124,7 +144,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
   const [activeTag, setActiveTag] = useState<string>("All");
   const [customFolders, setCustomFolders] = useState<string[]>([]);
   const [newFolderName, setNewFolderName] = useState("");
-  const [customTags, setCustomTags] = useState<string[]>(["AI", "Important", "Meeting", "Ideas", "Patent", "SOP"]);
+  const [customTags, setCustomTags] = useState<string[]>(["AI", "Meeting", "Ideas", "Important", "Design", "Development", "Finance"]);
   const [newTagName, setNewTagName] = useState("");
 
   // Editor states
@@ -133,6 +153,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
   const [editContent, setEditContent] = useState("");
   const [editFolder, setEditFolder] = useState("");
   const [editTags, setEditTags] = useState<string[]>([]);
+  const [coverImageIndex, setCoverImageIndex] = useState(0);
   
   // Canvas custom list elements
   const [actionItems, setActionItems] = useState<ActionItem[]>([]);
@@ -145,14 +166,20 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [detailsOpen, setDetailsOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "alphabetical">("newest");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // AI Assistant Mock State
+  const [aiOutput, setAiOutput] = useState<string>("");
+  const [aiGenerating, setAiGenerating] = useState(false);
 
   useEffect(() => {
     loadNotes();
   }, []);
 
   useEffect(() => {
-    const mq = window.matchMedia("(max-width: 1023px)");
+    const mq = window.matchMedia("(max-width: 1200px)");
     const sync = () => {
       const next = mq.matches;
       setIsMobile(next);
@@ -200,12 +227,12 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
 
   const handleCreateNote = async () => {
     try {
-      const initialFolder = activeFolder !== "All" && activeFolder !== "Favorites" && activeFolder !== "Pinned" ? activeFolder : "";
-      const initialTags = activeTag !== "All" ? [activeTag] : [];
+      const initialFolder = activeFolder !== "All" && activeFolder !== "Favorites" && activeFolder !== "Pinned" ? activeFolder : "Projects";
+      const initialTags = activeTag !== "All" ? [activeTag] : ["Ideas"];
       
       const { item } = await createNote({ 
-        title: "New Note Document", 
-        content: "Provide a quick overview or introduction for this knowledge note.", 
+        title: "Untitled Vault Document", 
+        content: "Overview details go here...", 
         color: "rgba(30, 41, 59, 0.5)",
         folder: initialFolder,
         tags: initialTags,
@@ -225,7 +252,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
       setNotes([normalizedItem, ...notes]);
       selectNote(normalizedItem);
       setIsEditing(true);
-      toast.success("Knowledge note created");
+      toast.success("Knowledge note initialized");
     } catch (err) {
       toast.error("Failed to initialize note");
     }
@@ -240,7 +267,10 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
     setActionItems(note.actionItems);
     setNotesList(note.notesList);
     setAttachments(note.attachments);
+    setAiOutput("");
     setIsEditing(false);
+    // Alternate hero cover image just for aesthetic diversity
+    setCoverImageIndex(note.title.length % HERO_COVER_IMAGES.length);
   };
 
   const handleSaveNote = async () => {
@@ -269,7 +299,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
       setNotes(notes.map(n => n.id === item.id ? normalizedItem : n));
       setSelectedNote(normalizedItem);
       setIsEditing(false);
-      toast.success("Knowledge Vault saved successfully");
+      toast.success("Vault auto-save synced");
     } catch (err) {
       toast.error("Failed to save note");
     }
@@ -285,7 +315,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
         setSelectedNote(null);
         setIsEditing(false);
       }
-      toast.success("Note deleted");
+      toast.success("Vault Note permanently deleted");
     } catch (err) {
       toast.error("Failed to delete note");
     }
@@ -335,7 +365,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
     if (customFolders.includes(newFolderName.trim())) return;
     setCustomFolders([...customFolders, newFolderName.trim()]);
     setNewFolderName("");
-    toast.success("Folder category created");
+    toast.success("Collection folder created");
   };
 
   const handleAddTag = (e: React.FormEvent) => {
@@ -424,7 +454,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
 
       const updatedAttachments = [...attachments, newAttachment];
       setAttachments(updatedAttachments);
-      toast.success(`${file.name} uploaded`);
+      toast.success(`${file.name} uploaded to Vault`);
 
       if (!isEditing) {
         try {
@@ -445,7 +475,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
       try {
         const { item } = await updateNote(selectedNote!.id, { attachments: updated });
         setNotes(notes.map(n => n.id === item.id ? { ...n, attachments: item.attachments } : n));
-        toast.success("Attachment deleted");
+        toast.success("Attachment removed");
       } catch {
         toast.error("Failed to delete attachment");
       }
@@ -460,16 +490,46 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
     }
   };
 
-  // Filter logic
+  // AI Assistant Action Generator
+  const runAiAssistant = (actionType: string) => {
+    if (!selectedNote) return;
+    setAiGenerating(true);
+    setAiOutput("");
+    
+    let templateOutput = "";
+    if (actionType === "summarize") {
+      templateOutput = `✨ **DOCUMENT SUMMARY (AI Assistant)**:\nThis vault document titled "${selectedNote.title}" focuses on key administrative logs and project items. It contains ${selectedNote.actionItems.length} active action targets and ${selectedNote.notesList.length} highlighted notes. The primary folder is "${selectedNote.folder || "General"}".`;
+    } else if (actionType === "actionItems") {
+      templateOutput = `✨ **EXTRACTED TASKS (AI Assistant)**:\n1. [ ] Finalize the overview details for "${selectedNote.title}"\n2. [ ] Review current folders: Business, Operations, Patents\n3. [ ] Verify attachments count: ${selectedNote.attachments.length} items`;
+    } else if (actionType === "translate") {
+      templateOutput = `✨ **TRANSLATION (ES - AI Assistant)**:\nResumen del documento: "${selectedNote.title}". Contenido de introducción y notas del proyecto de cámara centralizada.`;
+    } else if (actionType === "improve") {
+      templateOutput = `✨ **REFINED OVERVIEW (AI Assistant)**:\n"${selectedNote.content || "N/A"}" -> (Optimized for Business Clarity): Let's prioritize folder structure optimization and ensure clean tags like #Important and #AI are correctly formatted.`;
+    } else if (actionType === "tasks") {
+      templateOutput = `✨ **RECOMMENDED TASKS (AI Assistant)**:\n- Develop test cases for ${selectedNote.folder || "Projects"}\n- Audit the attached files (${selectedNote.attachments.length})\n- Set up collaborative editing channels`;
+    } else {
+      templateOutput = `✨ **RELATED VAULT ITEMS (AI Assistant)**:\n- Project Genesis - Update (94% match)\n- Operations Standard Procedures (88% match)\n- Patent & IP Filing Index (82% match)`;
+    }
+
+    // Stream text generation simulation
+    let currentLength = 0;
+    const interval = setInterval(() => {
+      setAiOutput(templateOutput.substring(0, currentLength + 3));
+      currentLength += 3;
+      if (currentLength >= templateOutput.length) {
+        clearInterval(interval);
+        setAiGenerating(false);
+        toast.success("AI Analysis Completed");
+      }
+    }, 15);
+  };
+
+  // Filter & Sorting Logic
   const filteredNotes = notes.filter(n => {
-    // Search query match
     const matchesSearch = n.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           n.content.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    // Tag match
     const matchesTag = activeTag === "All" || n.tags.includes(activeTag);
 
-    // Folder match
     let matchesFolder = true;
     if (activeFolder === "Favorites") {
       matchesFolder = n.isFavorite;
@@ -482,26 +542,41 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
     return matchesSearch && matchesTag && matchesFolder;
   });
 
+  const sortedNotes = [...filteredNotes].sort((a, b) => {
+    if (sortOrder === "alphabetical") {
+      return a.title.localeCompare(b.title);
+    } else if (sortOrder === "oldest") {
+      return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
+    } else {
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    }
+  });
+
   // Group notes chronologically
   const getGroupedNotes = () => {
     const today = new Date();
     const yesterday = new Date();
     yesterday.setDate(today.getDate() - 1);
+    const lastWeek = new Date();
+    lastWeek.setDate(today.getDate() - 7);
 
     const groups: { [key: string]: Note[] } = {
-      "TODAY": [],
-      "YESTERDAY": [],
-      "OLDER": []
+      "Today": [],
+      "Yesterday": [],
+      "Last Week": [],
+      "Older": []
     };
 
-    filteredNotes.forEach(n => {
+    sortedNotes.forEach(n => {
       const noteDate = new Date(n.updatedAt);
       if (noteDate.toDateString() === today.toDateString()) {
-        groups["TODAY"].push(n);
+        groups["Today"].push(n);
       } else if (noteDate.toDateString() === yesterday.toDateString()) {
-        groups["YESTERDAY"].push(n);
+        groups["Yesterday"].push(n);
+      } else if (noteDate.getTime() > lastWeek.getTime()) {
+        groups["Last Week"].push(n);
       } else {
-        groups["OLDER"].push(n);
+        groups["Older"].push(n);
       }
     });
 
@@ -511,9 +586,9 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
   const groupedNotes = getGroupedNotes();
 
   const getFileIcon = (mimeType: string) => {
-    if (mimeType.startsWith("image/")) return <TagIcon className="w-8 h-8 text-green-500" />;
-    if (mimeType.startsWith("video/")) return <Play className="w-8 h-8 text-blue-500 fill-current" />;
-    return <FileText className="w-8 h-8 text-red-500" />;
+    if (mimeType.startsWith("image/")) return <ImageIcon className="w-8 h-8 text-[#16C784]" />;
+    if (mimeType.startsWith("video/")) return <Play className="w-8 h-8 text-[#4F7CFF] fill-current" />;
+    return <FileText className="w-8 h-8 text-[#EF4444]" />;
   };
 
   const formatBytes = (bytes: number) => {
@@ -548,7 +623,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
 
       setNotes([normalizedItem, ...notes]);
       selectNote(normalizedItem);
-      toast.success("Note duplicated");
+      toast.success("Document duplicated successfully");
     } catch {
       toast.error("Failed to duplicate note");
     }
@@ -587,17 +662,29 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
     toast.success("Note exported as text file");
   };
 
+  // Word count utility
+  const getWordCount = () => {
+    if (!selectedNote) return 0;
+    const text = (selectedNote.content || "") + " " + selectedNote.notesList.join(" ");
+    return text.split(/\s+/).filter(Boolean).length;
+  };
+
   return (
-    <div className="flex flex-col min-h-[calc(100vh-140px)] xl:h-[calc(100vh-140px)] bg-[#0B0F17] rounded-3xl border border-gray-800 overflow-hidden shadow-2xl relative text-slate-100">
+    <div className="flex flex-col min-h-[calc(100vh-140px)] xl:h-[calc(100vh-140px)] bg-[#0B0F17] rounded-3xl border border-[#2B313D] overflow-hidden shadow-2xl relative text-slate-100 font-sans">
       
-      {/* Top Header Bar matching the screenshot */}
-      <div className="px-6 py-4 bg-[#0a0e16] border-b border-gray-850 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex flex-col">
-          <h1 className="text-xl font-black tracking-tight text-white flex items-center gap-1.5">
-            <span>Knowledge Vault</span>
-            <div className="h-1.5 w-1.5 rounded-full bg-blue-500 animate-pulse mt-1" />
-          </h1>
-          <p className="text-[10px] text-gray-500 font-mono tracking-wider">Your centralized knowledge. Anytime. Anywhere.</p>
+      {/* Top Header Bar matching the screenshot & modern dashboard standard */}
+      <div className="px-6 py-4 bg-[#161B22] border-b border-[#2B313D] flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-[#4F7CFF]/10 rounded-xl text-[#4F7CFF] border border-[#4F7CFF]/20">
+            <BookOpen className="w-5 h-5" />
+          </div>
+          <div className="flex flex-col">
+            <h1 className="text-lg font-black tracking-tight text-white flex items-center gap-1.5">
+              <span>Knowledge Vault</span>
+              <div className="h-1.5 w-1.5 rounded-full bg-[#4F7CFF] animate-pulse mt-0.5" />
+            </h1>
+            <p className="text-[10px] text-[#9CA3AF] font-mono tracking-wider">Your centralized intelligence chamber.</p>
+          </div>
         </div>
 
         {/* Global Search */}
@@ -607,7 +694,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
             placeholder="Search notes, documents, tags, and more..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 h-9 w-full rounded-xl bg-gray-900 border-gray-800 focus-visible:ring-blue-500/20 text-xs text-slate-200 placeholder:text-gray-650"
+            className="pl-9 h-9.5 w-full rounded-xl bg-[#0B0F17] border-[#2B313D] focus-visible:ring-[#4F7CFF]/20 text-xs text-slate-200 placeholder:text-gray-500"
           />
         </div>
 
@@ -615,130 +702,111 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
         <div className="flex items-center gap-4">
           <Button 
             onClick={handleCreateNote}
-            className="rounded-xl h-8.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs gap-1.5 shadow-lg shadow-blue-500/10"
+            className="rounded-xl h-9 px-4 bg-[#4F7CFF] hover:bg-[#3d65df] text-white font-bold text-xs gap-1.5 shadow-lg shadow-[#4F7CFF]/15"
           >
             <Plus className="w-4 h-4" /> Quick Add
           </Button>
 
-          <div className="relative p-1.5 hover:bg-gray-800 rounded-lg text-gray-500 hover:text-white cursor-pointer transition-colors">
-            <div className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+          <div className="relative p-1.5 hover:bg-gray-800 rounded-lg text-gray-400 hover:text-white cursor-pointer transition-colors">
+            <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
           </div>
 
-          <div className="flex items-center gap-2 border-l border-gray-800 pl-4">
-            <div className="w-8 h-8 rounded-full bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center text-xs font-bold font-mono">
+          <div className="flex items-center gap-2 border-l border-[#2B313D] pl-4">
+            <div className="w-8 h-8 rounded-full bg-[#4F7CFF]/25 text-[#4F7CFF] border border-[#4F7CFF]/35 flex items-center justify-center text-xs font-bold font-mono">
               NR
             </div>
             <div className="hidden sm:block text-left">
               <p className="text-xs font-bold text-slate-200">Nathan Reardon</p>
-              <p className="text-[8px] text-gray-500 uppercase font-mono tracking-wider">Super Admin</p>
+              <p className="text-[9px] text-[#9CA3AF] uppercase font-mono tracking-wider">Super Admin</p>
             </div>
           </div>
         </div>
       </div>
 
-      {/* COLUMN CONTAINER */}
+      {/* Main Multi-Panel Container */}
       <div className="flex-1 flex flex-col xl:flex-row overflow-hidden relative">
         
-        {/* COLUMN 1: Navigation & Collections Sidebar */}
+        {/* COLUMN 1: LEFT SIDEBAR (280px) */}
         <AnimatePresence initial={false}>
           {(sidebarOpen || !isMobile) && (
             <motion.div 
-              initial={isMobile ? { x: -300, opacity: 0 } : false}
+              initial={isMobile ? { x: -280, opacity: 0 } : false}
               animate={{ x: 0, opacity: 1, width: 280 }}
-              exit={{ x: -300, opacity: 0 }}
+              exit={{ x: -280, opacity: 0 }}
               className={cn(
-                "h-full border-r border-gray-800 bg-[#0e1420] flex flex-shrink-0 flex-col z-30",
+                "h-full border-r border-[#2B313D] bg-[#161B22] flex flex-shrink-0 flex-col z-30 justify-between",
                 isMobile ? "absolute inset-y-0 left-0" : "relative"
               )}
             >
               <ScrollArea className="flex-1 p-3">
                 <div className="space-y-6">
                   
-                  {/* Favorites & System views */}
+                  {/* System Views / Navigation */}
                   <div className="space-y-1">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 px-2.5 mb-1.5">NAVIGATION</p>
-                    <button 
-                      onClick={() => setActiveFolder("All")} 
-                      className={cn(
-                        "w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl transition-all",
-                        activeFolder === "All" ? "bg-blue-600/10 text-blue-400 font-bold" : "text-gray-400 hover:bg-gray-800/30"
-                      )}
-                    >
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4" />
-                        <span>All Documents</span>
-                      </div>
-                      <Badge variant="outline" className="h-4 text-[9px] border-gray-700 bg-gray-800 text-gray-400 font-mono">{notes.length}</Badge>
-                    </button>
-
-                    <button 
-                      onClick={() => setActiveFolder("Favorites")} 
-                      className={cn(
-                        "w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl transition-all",
-                        activeFolder === "Favorites" ? "bg-amber-600/10 text-amber-400 font-bold" : "text-gray-400 hover:bg-gray-800/30"
-                      )}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Star className="w-4 h-4 fill-amber-500/20 text-amber-500" />
-                        <span>Favorites</span>
-                      </div>
-                      <Badge variant="outline" className="h-4 text-[9px] border-gray-700 bg-gray-800 text-gray-400 font-mono">
-                        {notes.filter(n => n.isFavorite).length}
-                      </Badge>
-                    </button>
-
-                    <button 
-                      onClick={() => setActiveFolder("Pinned")} 
-                      className={cn(
-                        "w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl transition-all",
-                        activeFolder === "Pinned" ? "bg-purple-600/10 text-purple-400 font-bold" : "text-gray-400 hover:bg-gray-800/30"
-                      )}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Pin className="w-4 h-4 text-purple-400" />
-                        <span>Pinned Notes</span>
-                      </div>
-                      <Badge variant="outline" className="h-4 text-[9px] border-gray-700 bg-gray-800 text-gray-400 font-mono">
-                        {notes.filter(n => n.isPinned).length}
-                      </Badge>
-                    </button>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF] px-2.5 mb-1.5">NAVIGATION</p>
+                    {[
+                      { label: "Dashboard", icon: Grid, active: false, count: null },
+                      { label: "Tasks", icon: CheckSquare, active: false, count: null },
+                      { label: "Projects", icon: FolderIcon, active: false, count: null },
+                      { label: "Calendar", icon: CalendarIcon, active: false, count: null },
+                      { label: "Knowledge Vault", icon: BookOpen, active: true, count: notes.length },
+                      { label: "Favorites", icon: Star, active: activeFolder === "Favorites", count: notes.filter(n => n.isFavorite).length },
+                      { label: "Pinned Notes", icon: Pin, active: activeFolder === "Pinned", count: notes.filter(n => n.isPinned).length }
+                    ].map(nav => (
+                      <button 
+                        key={nav.label}
+                        onClick={() => {
+                          if (nav.label === "Favorites") setActiveFolder("Favorites");
+                          else if (nav.label === "Pinned Notes") setActiveFolder("Pinned");
+                          else if (nav.label === "Knowledge Vault") setActiveFolder("All");
+                        }} 
+                        className={cn(
+                          "w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl transition-all",
+                          nav.active ? "bg-[#4F7CFF]/15 text-[#4F7CFF] font-bold border-l-2 border-[#4F7CFF] pl-2.5" : "text-[#9CA3AF] hover:bg-gray-800/40 hover:text-white"
+                        )}
+                      >
+                        <div className="flex items-center gap-2">
+                          <nav.icon className="w-4 h-4" />
+                          <span>{nav.label}</span>
+                        </div>
+                        {nav.count !== null && (
+                          <Badge variant="outline" className="h-4.5 text-[9px] border-gray-700 bg-gray-800/40 text-gray-400 font-mono">{nav.count}</Badge>
+                        )}
+                      </button>
+                    ))}
                   </div>
 
-                  {/* Collections / Folders */}
+                  {/* Collections Section */}
                   <div className="space-y-1">
-                    <div className="flex items-center justify-between px-2.5 mb-1.5">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500">COLLECTIONS</p>
-                    </div>
-                    
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF] px-2.5 mb-1.5">COLLECTIONS</p>
                     {customFolders.map(folder => (
                       <button 
                         key={folder}
                         onClick={() => setActiveFolder(folder)}
                         className={cn(
-                          "w-full flex items-center justify-between px-3 py-1.5 text-xs font-semibold rounded-xl transition-all",
-                          activeFolder === folder ? "bg-blue-600/15 text-blue-400 font-bold border-l-2 border-blue-500 pl-2.5" : "text-gray-400 hover:bg-gray-800/30"
+                          "w-full flex items-center justify-between px-3 py-1.5 text-xs font-medium rounded-xl transition-all",
+                          activeFolder === folder ? "bg-[#4F7CFF]/10 text-[#4F7CFF] font-bold" : "text-[#9CA3AF] hover:bg-gray-800/30 hover:text-white"
                         )}
                       >
                         <div className="flex items-center gap-2 truncate">
-                          <FolderIcon className={cn("w-3.5 h-3.5 flex-shrink-0", activeFolder === folder ? "text-blue-400 fill-blue-400/20" : "text-gray-500")} />
+                          <FolderIcon className={cn("w-3.5 h-3.5 flex-shrink-0", activeFolder === folder ? "text-[#4F7CFF] fill-[#4F7CFF]/10" : "text-gray-500")} />
                           <span className="truncate">{folder}</span>
                         </div>
-                        <span className="text-[9px] font-mono text-gray-600">
+                        <span className="text-[9px] font-mono text-gray-650">
                           {notes.filter(n => n.folder === folder).length || ""}
                         </span>
                       </button>
                     ))}
 
-                    {/* Add Folder Form */}
                     <form onSubmit={handleAddFolder} className="flex gap-1.5 p-1 mt-2">
                       <Input 
-                        placeholder="Add Category..." 
+                        placeholder="Add Collection..." 
                         value={newFolderName}
                         onChange={(e) => setNewFolderName(e.target.value)}
-                        className="h-8 text-xs bg-gray-900 border-gray-800 rounded-lg placeholder:text-gray-650"
+                        className="h-8 text-xs bg-[#0B0F17] border-[#2B313D] rounded-lg placeholder:text-gray-600 focus-visible:ring-[#4F7CFF]/10"
                       />
                       <Button size="icon" className="h-8 w-8 rounded-lg bg-gray-800 border border-gray-700 hover:bg-gray-700 text-slate-300">
                         <Plus className="w-4 h-4" />
@@ -746,112 +814,149 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
                     </form>
                   </div>
 
-                  {/* Tag Filters */}
+                  {/* Tags Section */}
                   <div className="space-y-2">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-500 px-2.5">TAGS</p>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-[#9CA3AF] px-2.5">TAGS</p>
                     <div className="flex flex-wrap gap-1.5 px-2">
                       <button 
                         onClick={() => setActiveTag("All")}
                         className={cn(
-                          "px-2 py-0.5 rounded text-[10px] font-bold tracking-tight uppercase border transition-all",
+                          "px-2 py-0.5 rounded text-[9px] font-bold tracking-tight uppercase border transition-all",
                           activeTag === "All" 
-                            ? "bg-blue-600 border-blue-500 text-white" 
-                            : "bg-gray-900 border-gray-800 text-gray-400 hover:bg-gray-800"
+                            ? "bg-[#4F7CFF] border-[#4F7CFF] text-white" 
+                            : "bg-gray-900 border-[#2B313D] text-[#9CA3AF] hover:bg-gray-800"
                         )}
                       >
-                        All Tags
+                        All
                       </button>
-                      {customTags.map(tag => {
-                        const noteCount = notes.filter(n => n.tags?.includes(tag)).length;
-                        if (noteCount === 0 && !["AI", "Important", "Meeting", "Ideas"].includes(tag)) return null;
-                        return (
-                          <button
-                            key={tag}
-                            onClick={() => setActiveTag(tag)}
-                            className={cn(
-                              "px-2 py-0.5 rounded text-[10px] font-bold tracking-tight uppercase border transition-all flex items-center gap-1",
-                              activeTag === tag
-                                ? "bg-blue-600 border-blue-500 text-white"
-                                : "bg-gray-900 border-gray-800 text-gray-400 hover:bg-gray-800"
-                            )}
-                          >
-                            <span>#{tag}</span>
-                            <span className="opacity-40 font-mono text-[8px]">{noteCount}</span>
-                          </button>
-                        );
-                      })}
+                      {customTags.map(tag => (
+                        <button
+                          key={tag}
+                          onClick={() => setActiveTag(tag)}
+                          className={cn(
+                            "px-2 py-0.5 rounded text-[9px] font-bold tracking-tight uppercase border transition-all flex items-center gap-1",
+                            activeTag === tag
+                              ? "bg-[#4F7CFF] border-[#4F7CFF] text-white"
+                              : "bg-gray-900 border-[#2B313D] text-[#9CA3AF] hover:bg-gray-800"
+                          )}
+                        >
+                          <span>#{tag}</span>
+                        </button>
+                      ))}
                     </div>
-
-                    {/* Add Tag Form */}
-                    <form onSubmit={handleAddTag} className="flex gap-1.5 p-1 mt-2">
-                      <Input 
-                        placeholder="#Add Tag..." 
-                        value={newTagName}
-                        onChange={(e) => setNewTagName(e.target.value)}
-                        className="h-8 text-xs bg-gray-900 border-gray-800 rounded-lg placeholder:text-gray-650"
-                      />
-                      <Button size="icon" className="h-8 w-8 rounded-lg bg-gray-800 border border-gray-700 hover:bg-gray-700 text-slate-300">
-                        <Plus className="w-4 h-4" />
-                      </Button>
-                    </form>
                   </div>
 
                 </div>
               </ScrollArea>
+
+              {/* Bottom Storage Card & Profile */}
+              <div className="p-4 border-t border-[#2B313D] bg-[#0E131F]/50 space-y-4">
+                {/* Storage Card */}
+                <div className="bg-[#111827] border border-[#2B313D] p-3 rounded-2xl space-y-2">
+                  <div className="flex justify-between items-center text-[10px]">
+                    <span className="font-bold text-slate-300">Vault Storage</span>
+                    <span className="text-[#9CA3AF] font-mono">4.2 GB / 10 GB</span>
+                  </div>
+                  <div className="w-full bg-[#2B313D] rounded-full h-1.5 overflow-hidden">
+                    <div className="bg-[#4F7CFF] h-1.5 rounded-full" style={{ width: "42%" }} />
+                  </div>
+                  <p className="text-[8px] text-[#9CA3AF] italic">Encryption protocol active.</p>
+                </div>
+                
+                {/* Small footer brand */}
+                <p className="text-[9px] font-mono text-center text-gray-600">Secure Vault v1.1.2026</p>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* COLUMN 2: All Notes List with Date Groups */}
-        <div className="w-full lg:w-80 h-full border-r border-gray-800 bg-[#090D14] flex flex-shrink-0 flex-col z-20">
-          <div className="p-4 border-b border-gray-800/80 space-y-3">
+        {/* COLUMN 2: SECOND PANEL (320px) */}
+        <div className="w-full lg:w-80 h-full border-r border-[#2B313D] bg-[#0B0F17] flex flex-shrink-0 flex-col z-20">
+          
+          {/* Header & Tools */}
+          <div className="p-4 border-b border-[#2B313D] space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="font-extrabold text-xs tracking-wider uppercase text-gray-400 flex items-center gap-1.5">
-                <span>{activeFolder === "All" ? "All Notes" : activeFolder === "Favorites" ? "Favorites" : activeFolder === "Pinned" ? "Pinned" : activeFolder}</span>
-                {activeTag !== "All" && <span className="text-[9px] uppercase font-mono text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded">#{activeTag}</span>}
+              <h3 className="font-black text-sm tracking-wider uppercase text-white flex items-center gap-1.5">
+                <span>All Notes</span>
+                {activeFolder !== "All" && (
+                  <span className="text-[9px] uppercase font-mono text-[#4F7CFF] bg-[#4F7CFF]/10 px-1.5 py-0.5 rounded">
+                    {activeFolder}
+                  </span>
+                )}
               </h3>
+              
+              {/* Grid / List controls */}
+              <div className="flex items-center gap-1">
+                <Button 
+                  size="icon" 
+                  variant="ghost" 
+                  onClick={() => setViewMode(viewMode === "list" ? "grid" : "list")}
+                  className="h-7 w-7 rounded-lg border border-gray-800 bg-[#111827] text-gray-400 hover:text-white"
+                  title="Toggle Grid/List"
+                >
+                  {viewMode === "list" ? <LayoutGrid className="w-3.5 h-3.5" /> : <List className="w-3.5 h-3.5" />}
+                </Button>
+
+                <Button 
+                  size="icon" 
+                  variant="ghost" 
+                  onClick={() => setSortOrder(sortOrder === "newest" ? "alphabetical" : sortOrder === "alphabetical" ? "oldest" : "newest")}
+                  className="h-7 w-7 rounded-lg border border-gray-800 bg-[#111827] text-gray-400 hover:text-white"
+                  title={`Sort Order: ${sortOrder}`}
+                >
+                  <ArrowUpDown className="w-3.5 h-3.5" />
+                </Button>
+              </div>
             </div>
             
+            {/* Inner Feed search */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-505" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
               <Input 
-                placeholder="Search note contents..." 
+                placeholder="Search note overview..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-9 w-full rounded-xl bg-gray-900 border-gray-800 focus-visible:ring-blue-500/20 text-xs text-slate-200 placeholder:text-gray-650"
+                className="pl-9 h-9 w-full rounded-xl bg-[#111827] border-[#2B313D] focus-visible:ring-[#4F7CFF]/20 text-xs text-slate-200 placeholder:text-gray-600"
               />
             </div>
           </div>
 
-          <ScrollArea className="flex-1 p-2 bg-gradient-to-b from-[#090D14] to-[#0A0E16]">
+          {/* Chronological card list */}
+          <ScrollArea className="flex-1 p-2 bg-[#090D14]">
             {loading ? (
               <div className="text-center py-12 text-gray-500">
-                <Clock className="w-6 h-6 animate-spin mx-auto mb-2 text-blue-500/40" />
-                <p className="text-xs">Loading Knowledge Vault...</p>
+                <Clock className="w-6 h-6 animate-spin mx-auto mb-2 text-[#4F7CFF]" />
+                <p className="text-xs">Accessing vault records...</p>
               </div>
-            ) : filteredNotes.length === 0 ? (
+            ) : sortedNotes.length === 0 ? (
               <div className="text-center py-20 text-gray-600 italic text-xs">
                 <FileText className="w-8 h-8 mx-auto mb-2 opacity-25" />
-                No notes found in filter
+                No records match current filter
               </div>
             ) : (
               <div className="space-y-4 pb-6 px-1">
-                {["TODAY", "YESTERDAY", "OLDER"].map(dateGroup => {
+                {["Today", "Yesterday", "Last Week", "Older"].map(dateGroup => {
                   const notesInGroup = groupedNotes[dateGroup];
-                  if (notesInGroup.length === 0) return null;
+                  if (!notesInGroup || notesInGroup.length === 0) return null;
                   return (
                     <div key={dateGroup} className="space-y-1.5">
-                      <p className="text-[9px] font-bold text-gray-600 tracking-widest px-2">{dateGroup}</p>
-                      {notesInGroup.map(n => (
-                        <NoteCard 
-                          key={n.id} 
-                          note={n} 
-                          isSelected={selectedNote?.id === n.id}
-                          onClick={() => selectNote(n)}
-                          onPin={(e) => togglePin(n.id, e)}
-                          onFavorite={(e) => toggleFavorite(n.id, e)}
-                        />
-                      ))}
+                      <p className="text-[9px] font-extrabold text-gray-500 tracking-widest px-2 uppercase">{dateGroup}</p>
+                      
+                      <div className={cn(
+                        viewMode === "grid" ? "grid grid-cols-2 gap-2" : "space-y-1.5"
+                      )}>
+                        {notesInGroup.map(n => (
+                          <NoteCard 
+                            key={n.id} 
+                            note={n} 
+                            isSelected={selectedNote?.id === n.id}
+                            viewMode={viewMode}
+                            onClick={() => selectNote(n)}
+                            onPin={(e) => togglePin(n.id, e)}
+                            onFavorite={(e) => toggleFavorite(n.id, e)}
+                          />
+                        ))}
+                      </div>
                     </div>
                   );
                 })}
@@ -860,454 +965,495 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
           </ScrollArea>
         </div>
 
-        {/* COLUMN 3: Rich-Text Editor & Attachments Canvas */}
-        <div className="flex-1 flex flex-col bg-[#070A0F] overflow-hidden relative">
+        {/* COLUMN 3: MAIN EDITOR CANVAS */}
+        <div className="flex-1 flex flex-col bg-[#070A0F] overflow-hidden relative border-r border-[#2B313D]">
           
+          {/* Panel collapse trigger */}
           <div className="absolute left-2 top-4 z-10 flex gap-1.5">
             <Button 
               variant="ghost" 
               size="icon" 
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="w-7 h-10 rounded-lg border border-gray-800 bg-[#0e1420]/80 backdrop-blur-md shadow-lg hover:bg-gray-800 hover:text-white"
+              className="w-7 h-10 rounded-lg border border-[#2B313D] bg-[#161B22]/85 backdrop-blur-md shadow-lg hover:bg-gray-800 hover:text-white"
             >
               {sidebarOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
             </Button>
           </div>
 
           {selectedNote ? (
-            <ScrollArea className="flex-1 p-4 sm:p-8 md:p-10">
-              <div className="max-w-3xl mx-auto w-full space-y-8 pb-12">
+            <div className="flex-1 flex flex-col h-full overflow-hidden">
+              
+              {/* Cover Hero Image */}
+              <div className="h-32 sm:h-44 w-full relative overflow-hidden flex-shrink-0 group/cover">
+                <img 
+                  src={HERO_COVER_IMAGES[coverImageIndex]} 
+                  alt="Vault Cover" 
+                  className="w-full h-full object-cover brightness-[0.4] group-hover/cover:scale-105 transition-transform duration-500" 
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#070A0F] via-transparent to-transparent" />
                 
-                {/* Note Header / Meta Actions */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-800 pb-5">
+                {/* Visual Accent badge */}
+                <div className="absolute bottom-4 left-6 flex items-center gap-1.5">
+                  <Badge className="bg-[#4F7CFF]/85 text-white border-none rounded-lg px-2.5 py-0.5 font-bold uppercase tracking-wider text-[9px]">
+                    SECURED NODE
+                  </Badge>
+                </div>
+              </div>
+
+              {/* Rich Visual Editor Area */}
+              <ScrollArea className="flex-1 px-6 sm:px-10 py-6">
+                <div className="max-w-3xl mx-auto w-full space-y-8 pb-12">
+                  
+                  {/* Breadcrumbs */}
                   <div className="flex items-center gap-2 text-xs font-semibold text-gray-400">
-                    <FolderIcon className="w-4 h-4 text-blue-400" />
-                    <span className="hover:underline cursor-pointer text-gray-300">{selectedNote.folder || "Unclassified"}</span>
-                    <span>/</span>
+                    <span className="hover:underline cursor-pointer text-slate-400">Projects</span>
+                    <ChevronRight className="w-3 h-3 text-gray-600" />
+                    <span className="hover:underline cursor-pointer text-slate-300">{selectedNote.folder || "Knowledge Vault"}</span>
+                    <ChevronRight className="w-3 h-3 text-gray-600" />
                     <span className="text-slate-100 truncate max-w-[150px]">{selectedNote.title || "Untitled Note"}</span>
                   </div>
 
-                  <div className="flex items-center gap-2 self-end">
-                    <div className="flex items-center mr-2 border border-gray-800 bg-gray-900/40 rounded-xl p-1">
-                      {COLORS.map(c => (
-                        <button 
-                          key={c.name}
-                          onClick={() => updateColor(selectedNote.id, c.value)}
-                          className={cn(
-                            "w-3.5 h-3.5 rounded-full border border-gray-800 mr-1 transition-transform hover:scale-125",
-                            selectedNote.color === c.value && "ring-1 ring-blue-500 ring-offset-1 ring-offset-[#0B0F17] scale-110"
-                          )}
-                          style={{ backgroundColor: c.value === "transparent" ? "#fff" : c.value }}
-                          title={c.name}
-                        />
-                      ))}
-                    </div>
-
-                    <Button 
-                      size="icon" 
-                      variant="ghost" 
-                      onClick={(e) => toggleFavorite(selectedNote.id, e)}
-                      className={cn("h-8 w-8 rounded-lg hover:bg-gray-800/80 border border-gray-800", selectedNote.isFavorite && "text-amber-500 fill-amber-500/10")}
-                    >
-                      <Star className="w-4 h-4" />
-                    </Button>
-
-                    <Button 
-                      size="icon" 
-                      variant="ghost" 
-                      onClick={(e) => togglePin(selectedNote.id, e)}
-                      className={cn("h-8 w-8 rounded-lg hover:bg-gray-800/80 border border-gray-800", selectedNote.isPinned && "text-purple-400")}
-                    >
-                      <Pin className="w-4 h-4" />
-                    </Button>
-
+                  {/* Note header actions */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-850 pb-5">
+                    
+                    {/* Note title / edit toggle */}
                     {isEditing ? (
-                      <>
-                        <Button variant="ghost" size="sm" onClick={() => selectNote(selectedNote)} className="h-8 rounded-xl text-xs gap-1 border border-gray-800">
-                          <X className="w-3.5 h-3.5" /> Cancel
-                        </Button>
-                        <Button size="sm" onClick={handleSaveNote} className="h-8 rounded-xl text-xs gap-1 bg-blue-600 hover:bg-blue-700 text-white font-bold px-3">
-                          <Check className="w-3.5 h-3.5" /> Save Note
-                        </Button>
-                      </>
-                    ) : (
-                      <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)} className="h-8 rounded-xl text-xs gap-1 border border-gray-850 bg-gray-900/30 text-blue-400 hover:bg-blue-600/10">
-                        <FileText className="w-3.5 h-3.5" /> Edit Canvas
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Title & Document Details */}
-                <div className="space-y-4">
-                  {isEditing ? (
-                    <div className="space-y-4">
                       <Input 
                         value={editTitle}
                         onChange={(e) => setEditTitle(e.target.value)}
-                        className="text-3xl sm:text-4xl font-extrabold bg-transparent border-none shadow-none p-0 h-auto focus-visible:ring-0 placeholder:text-gray-700 text-slate-100"
+                        className="text-2xl sm:text-3xl font-extrabold bg-transparent border-none shadow-none p-0 h-auto focus-visible:ring-0 placeholder:text-gray-700 text-slate-100"
                         placeholder="Enter Vault Document Title..."
                       />
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#0e1420]/40 p-4 border border-gray-800/60 rounded-2xl">
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-gray-500 uppercase">Collection Folder</label>
-                          <select 
-                            value={editFolder}
-                            onChange={(e) => setEditFolder(e.target.value)}
-                            className="w-full h-8 rounded-lg bg-gray-900 border border-gray-800 px-2 text-xs focus:ring-1 focus:ring-blue-500"
-                          >
-                            <option value="">Unclassified</option>
-                            {customFolders.map(f => (
-                              <option key={f} value={f}>{f}</option>
-                            ))}
-                          </select>
-                        </div>
+                    ) : (
+                      <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
+                        {selectedNote.title || "Untitled Vault Document"}
+                      </h1>
+                    )}
 
-                        <div className="space-y-1.5">
-                          <label className="text-[10px] font-bold text-gray-500 uppercase">Document Tags</label>
-                          <div className="flex flex-wrap gap-1 max-h-[80px] overflow-y-auto p-1 border border-gray-800 rounded-lg bg-gray-900/30">
-                            {customTags.map(t => {
-                              const selected = editTags.includes(t);
-                              return (
-                                <button
-                                  key={t}
-                                  type="button"
-                                  onClick={() => toggleTagSelection(t)}
-                                  className={cn(
-                                    "px-2 py-0.5 rounded text-[9px] uppercase tracking-wide border font-bold",
-                                    selected ? "bg-blue-600 border-blue-500 text-white" : "bg-gray-800 border-gray-700 text-gray-400 hover:text-gray-200"
-                                  )}
-                                >
-                                  #{t}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      <div className="flex flex-wrap gap-1.5 items-center">
-                        {selectedNote.folder && (
-                          <Badge variant="outline" className="bg-blue-600/10 border-blue-500/20 text-blue-400 capitalize text-[10px] font-bold py-0.5">
-                            Folder: {selectedNote.folder}
-                          </Badge>
-                        )}
-                        {selectedNote.tags.map(t => (
-                          <Badge key={t} variant="outline" className="bg-gray-800/40 border-gray-700 text-slate-300 text-[10px] py-0.5">
-                            #{t}
-                          </Badge>
+                    <div className="flex items-center gap-2 self-end">
+                      <div className="flex items-center mr-2 border border-[#2B313D] bg-gray-900/40 rounded-xl p-1">
+                        {COLORS.map(c => (
+                          <button 
+                            key={c.name}
+                            onClick={() => updateColor(selectedNote.id, c.value)}
+                            className={cn(
+                              "w-3.5 h-3.5 rounded-full border border-gray-800 mr-1 transition-transform hover:scale-125",
+                              selectedNote.color === c.value && "ring-1 ring-[#4F7CFF] ring-offset-1 ring-offset-[#0B0F17] scale-110"
+                            )}
+                            style={{ backgroundColor: c.value === "transparent" ? "#fff" : c.value }}
+                            title={c.name}
+                          />
                         ))}
                       </div>
-                      
-                      <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight text-white">{selectedNote.title || "Untitled Vault Document"}</h1>
-                    </div>
-                  )}
-                </div>
 
-                {/* SECTION A: Overview */}
-                <div className="space-y-2">
-                  <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                    <FileText className="w-4 h-4 text-blue-400" />
-                    Overview
-                  </h3>
-                  {isEditing ? (
-                    <Textarea 
-                      value={editContent}
-                      onChange={(e) => setEditContent(e.target.value)}
-                      className="w-full text-base leading-relaxed bg-[#0b0f17]/40 border border-gray-800 rounded-xl p-3 resize-none focus-visible:ring-blue-500/20 placeholder:text-gray-700 scrollbar-hide text-slate-200"
-                      placeholder="Enter document overview..."
-                      rows={4}
-                    />
-                  ) : (
-                    <div className="bg-[#0b0f17]/50 border border-gray-800/50 p-4 rounded-2xl">
-                      <p className="text-sm leading-relaxed text-slate-300 whitespace-pre-wrap">
-                        {selectedNote.content || <span className="opacity-30 italic">Add overview text here...</span>}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* SECTION B: Checklist / Action Items */}
-                <div className="space-y-3 bg-[#0d1420]/20 border border-gray-850 p-5 rounded-2xl">
-                  <div className="flex items-center justify-between border-b border-gray-800 pb-2">
-                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                      <CheckSquare className="w-4 h-4 text-green-400" />
-                      Action Items
-                    </h3>
-                    <span className="text-[10px] text-gray-500 font-mono">
-                      {actionItems.filter(i => i.completed).length} / {actionItems.length} Completed
-                    </span>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    {actionItems.map((item, idx) => (
-                      <div key={idx} className="flex items-center justify-between gap-3 bg-[#090e16]/60 p-2.5 rounded-xl border border-gray-800/40">
-                        <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                          <input 
-                            type="checkbox"
-                            checked={item.completed}
-                            onChange={() => toggleActionItem(idx)}
-                            className="h-4 w-4 rounded border-gray-700 bg-gray-950 text-green-500 focus:ring-green-500 focus:ring-offset-gray-900"
-                          />
-                          <span className={cn(
-                            "text-sm font-medium truncate",
-                            item.completed ? "line-through text-gray-500" : "text-slate-200"
-                          )}>
-                            {item.text}
-                          </span>
-                        </div>
-                        <Button size="icon" variant="ghost" onClick={() => handleRemoveActionItem(idx)} className="h-6 w-6 text-gray-500 hover:text-red-400 rounded-md">
-                          <Trash2 className="w-3.5 h-3.5" />
+                      {isEditing ? (
+                        <>
+                          <Button variant="ghost" size="sm" onClick={() => selectNote(selectedNote)} className="h-8 rounded-xl text-xs gap-1 border border-[#2B313D]">
+                            <X className="w-3.5 h-3.5" /> Cancel
+                          </Button>
+                          <Button size="sm" onClick={handleSaveNote} className="h-8 rounded-xl text-xs gap-1 bg-[#4F7CFF] hover:bg-[#3d65df] text-white font-bold px-3">
+                            <Check className="w-3.5 h-3.5" /> Save Note
+                          </Button>
+                        </>
+                      ) : (
+                        <Button variant="ghost" size="sm" onClick={() => setIsEditing(true)} className="h-8 rounded-xl text-xs gap-1 border border-[#2B313D] bg-[#111827] text-[#4F7CFF] hover:bg-[#4F7CFF]/10">
+                          <FileText className="w-3.5 h-3.5" /> Edit Canvas
                         </Button>
-                      </div>
-                    ))}
-
-                    {actionItems.length === 0 && (
-                      <p className="text-xs text-gray-600 italic p-2">No action items defined for this vault note.</p>
-                    )}
-
-                    <div className="flex gap-2 mt-3">
-                      <Input 
-                        placeholder="Add new task checklist item..."
-                        value={newActionItem}
-                        onChange={(e) => setNewActionItem(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleAddActionItem();
-                          }
-                        }}
-                        className="h-9 text-xs bg-gray-900 border-gray-800 rounded-xl placeholder:text-gray-600 text-slate-200"
-                      />
-                      <Button onClick={handleAddActionItem} className="h-9 text-xs rounded-xl bg-green-600/10 hover:bg-green-600/25 text-green-400 border border-green-500/20 font-bold px-3">
-                        Add Task
-                      </Button>
+                      )}
                     </div>
                   </div>
-                </div>
 
-                {/* SECTION C: Notes & Highlights */}
-                <div className="space-y-3 bg-[#0d1420]/20 border border-gray-855 p-5 rounded-2xl">
-                  <div className="border-b border-gray-800 pb-2">
-                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                      <ListPlus className="w-4 h-4 text-purple-400" />
-                      Key Notes & Highlights
-                    </h3>
+                  {/* Rich Text Editor Toolbars */}
+                  <div className="flex flex-wrap items-center gap-1.5 p-2 bg-[#161B22] border border-[#2B313D] rounded-2xl">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-white rounded-lg"><Bold className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-white rounded-lg"><Italic className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-white rounded-lg"><Underline className="w-4 h-4" /></Button>
+                    <div className="w-[1px] h-4 bg-gray-800 mx-1" />
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-white rounded-lg"><ListIcon className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-white rounded-lg"><TableIcon className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-white rounded-lg"><ImageIcon className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-white rounded-lg"><LinkIcon className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-white rounded-lg"><FileCode className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-400 hover:text-white rounded-lg"><CheckSquare className="w-4 h-4" /></Button>
                   </div>
 
-                  <div className="space-y-2">
-                    {notesList.map((item, idx) => (
-                      <div key={idx} className="flex items-start justify-between gap-3 bg-[#090e16]/60 p-2.5 rounded-xl border border-gray-800/40">
-                        <div className="flex items-start gap-2.5 flex-1 min-w-0">
-                          <span className="text-purple-400 font-bold mt-0.5">•</span>
-                          <p className="text-sm text-slate-300 leading-relaxed break-words flex-1">
-                            {item}
-                          </p>
-                        </div>
-                        <Button size="icon" variant="ghost" onClick={() => handleRemoveNoteListItem(idx)} className="h-6 w-6 text-gray-500 hover:text-red-400 rounded-md flex-shrink-0">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    ))}
-
-                    {notesList.length === 0 && (
-                      <p className="text-xs text-gray-600 italic p-2">No highlight bullets defined yet.</p>
-                    )}
-
-                    <div className="flex gap-2 mt-3">
-                      <Input 
-                        placeholder="Add key note bullet..."
-                        value={newNoteListItem}
-                        onChange={(e) => setNewNoteListItem(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            handleAddNoteListItem();
-                          }
-                        }}
-                        className="h-9 text-xs bg-gray-900 border-gray-800 rounded-xl placeholder:text-gray-600 text-slate-200"
+                  {/* SECTION 1: Overview */}
+                  <div className="space-y-2.5">
+                    <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                      <FileText className="w-4 h-4 text-[#4F7CFF]" />
+                      Overview
+                    </h3>
+                    {isEditing ? (
+                      <Textarea 
+                        value={editContent}
+                        onChange={(e) => setEditContent(e.target.value)}
+                        className="w-full text-base leading-relaxed bg-[#0b0f17]/40 border border-[#2B313D] rounded-2xl p-3.5 resize-none focus-visible:ring-[#4F7CFF]/15 placeholder:text-gray-700 text-slate-200"
+                        placeholder="Enter document overview..."
+                        rows={4}
                       />
-                      <Button onClick={handleAddNoteListItem} className="h-9 text-xs rounded-xl bg-purple-600/10 hover:bg-purple-600/25 text-purple-400 border border-purple-500/20 font-bold px-3">
-                        Add Bullet
-                      </Button>
-                    </div>
+                    ) : (
+                      <div className="bg-[#111827]/40 border border-[#2B313D]/40 p-4.5 rounded-2xl shadow-sm">
+                        <p className="text-sm leading-relaxed text-slate-350 whitespace-pre-wrap">
+                          {selectedNote.content || <span className="opacity-30 italic">Describe this vault node...</span>}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                </div>
 
-                {/* SECTION D: Attachments Panel */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between border-b border-gray-800 pb-2">
-                    <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
-                      <Upload className="w-4 h-4 text-blue-400" />
-                      Vault Attachments ({attachments.length})
-                    </h3>
-                    <Button 
-                      onClick={() => fileInputRef.current?.click()}
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-7 text-[10px] gap-1 hover:bg-blue-600/10 text-blue-400 border border-blue-500/10 rounded-lg px-2.5 font-bold"
+                  {/* AI Assistant Output Card (dynamic rendering if output is generated) */}
+                  {aiOutput && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-[#4F7CFF]/10 border border-[#4F7CFF]/20 rounded-2xl p-5 relative overflow-hidden"
                     >
-                      <Upload className="w-3 h-3" /> Upload File
-                    </Button>
-                    <input 
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                  </div>
+                      <div className="flex items-center gap-2 text-xs font-bold text-[#4F7CFF] mb-2 uppercase tracking-wide">
+                        <Sparkles className="w-4 h-4 animate-spin text-[#4F7CFF]" />
+                        <span>AI Output Stream</span>
+                      </div>
+                      <p className="text-sm leading-relaxed text-slate-200 whitespace-pre-wrap font-mono">{aiOutput}</p>
+                      <button 
+                        onClick={() => setAiOutput("")}
+                        className="absolute top-3 right-3 p-1 hover:bg-[#4F7CFF]/25 rounded text-gray-400 hover:text-white"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </motion.div>
+                  )}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    {attachments.map((file, idx) => (
-                      <Card key={idx} className="bg-[#0e1420]/80 border-gray-800 hover:border-gray-700/60 shadow-md flex flex-col justify-between p-3.5 rounded-xl group/att relative overflow-hidden transition-all duration-200">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-gray-900 rounded-lg border border-gray-850">
-                            {getFileIcon(file.mimeType)}
+                  {/* SECTION 2: Checklist / Action Items */}
+                  <div className="space-y-3 bg-[#161B22]/40 border border-[#2B313D] p-5.5 rounded-2xl">
+                    <div className="flex items-center justify-between border-b border-gray-800 pb-2">
+                      <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <CheckSquare className="w-4 h-4 text-[#16C784]" />
+                        Action Items
+                      </h3>
+                      <span className="text-[9px] text-[#9CA3AF] font-mono">
+                        {actionItems.filter(i => i.completed).length} / {actionItems.length} Done
+                      </span>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      {actionItems.map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between gap-3 bg-[#0b0f17]/60 p-2.5 rounded-xl border border-gray-850">
+                          <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                            <input 
+                              type="checkbox"
+                              checked={item.completed}
+                              onChange={() => toggleActionItem(idx)}
+                              className="h-4 w-4 rounded border-[#2B313D] bg-gray-950 text-[#16C784] focus:ring-[#16C784] focus:ring-offset-gray-900"
+                            />
+                            <span className={cn(
+                              "text-sm font-semibold truncate",
+                              item.completed ? "line-through text-gray-500" : "text-slate-200"
+                            )}>
+                              {item.text}
+                            </span>
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-xs font-bold text-slate-100 truncate" title={file.fileName}>{file.fileName}</p>
-                            <p className="text-[9px] text-gray-500 font-mono mt-0.5">{formatBytes(file.size)}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 justify-end mt-4 border-t border-gray-800/60 pt-2">
-                          <a 
-                            href={file.url} 
-                            download={file.fileName}
-                            className="p-1 text-gray-400 hover:text-blue-400 bg-gray-900 rounded border border-gray-800 hover:border-blue-500/20"
-                            title="Download File"
-                          >
-                            <Download className="w-3.5 h-3.5" />
-                          </a>
-                          <Button 
-                            onClick={() => handleRemoveAttachment(idx)}
-                            variant="ghost" 
-                            size="icon" 
-                            className="h-6.5 w-6.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 rounded-md"
-                            title="Delete Attachment"
-                          >
+                          <Button size="icon" variant="ghost" onClick={() => handleRemoveActionItem(idx)} className="h-6.5 w-6.5 text-gray-500 hover:text-[#EF4444] rounded-md">
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         </div>
-                      </Card>
-                    ))}
+                      ))}
 
-                    {attachments.length === 0 && (
-                      <div className="col-span-full text-center py-8 border border-dashed border-gray-800/80 rounded-2xl text-gray-600 text-xs">
-                        No document attachments. Drop images, videos, or PDFs here.
+                      {actionItems.length === 0 && (
+                        <p className="text-xs text-gray-650 italic p-1">No action items defined yet.</p>
+                      )}
+
+                      <div className="flex gap-2 mt-3">
+                        <Input 
+                          placeholder="Add new checklist target..."
+                          value={newActionItem}
+                          onChange={(e) => setNewActionItem(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleAddActionItem();
+                            }
+                          }}
+                          className="h-9 text-xs bg-gray-900 border-gray-800 rounded-xl placeholder:text-gray-600 text-slate-200"
+                        />
+                        <Button onClick={handleAddActionItem} className="h-9 text-xs rounded-xl bg-[#16C784]/10 hover:bg-[#16C784]/25 text-[#16C784] border border-[#16C784]/20 font-bold px-3">
+                          Add Task
+                        </Button>
                       </div>
-                    )}
+                    </div>
                   </div>
-                </div>
 
+                  {/* SECTION 3: Notes Highlights */}
+                  <div className="space-y-3 bg-[#161B22]/40 border border-[#2B313D] p-5.5 rounded-2xl">
+                    <div className="border-b border-gray-800 pb-2">
+                      <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <ListPlus className="w-4 h-4 text-purple-400" />
+                        Key Highlights
+                      </h3>
+                    </div>
+
+                    <div className="space-y-2">
+                      {notesList.map((item, idx) => (
+                        <div key={idx} className="flex items-start justify-between gap-3 bg-[#0b0f17]/60 p-2.5 rounded-xl border border-gray-850">
+                          <div className="flex items-start gap-2.5 flex-1 min-w-0">
+                            <span className="text-purple-400 font-bold mt-0.5">•</span>
+                            <p className="text-sm text-slate-350 leading-relaxed break-words flex-1">
+                              {item}
+                            </p>
+                          </div>
+                          <Button size="icon" variant="ghost" onClick={() => handleRemoveNoteListItem(idx)} className="h-6.5 w-6.5 text-gray-500 hover:text-[#EF4444] rounded-md flex-shrink-0">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      ))}
+
+                      {notesList.length === 0 && (
+                        <p className="text-xs text-gray-655 italic p-1">No highlights bullets defined.</p>
+                      )}
+
+                      <div className="flex gap-2 mt-3">
+                        <Input 
+                          placeholder="Add bullet item..."
+                          value={newNoteListItem}
+                          onChange={(e) => setNewNoteListItem(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              handleAddNoteListItem();
+                            }
+                          }}
+                          className="h-9 text-xs bg-gray-900 border-gray-800 rounded-xl placeholder:text-gray-600 text-slate-200"
+                        />
+                        <Button onClick={handleAddNoteListItem} className="h-9 text-xs rounded-xl bg-purple-600/10 hover:bg-purple-600/25 text-purple-400 border border-purple-500/20 font-bold px-3">
+                          Add Bullet
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SECTION 4: Attachments Grid */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between border-b border-gray-800 pb-2">
+                      <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+                        <Upload className="w-4 h-4 text-[#4F7CFF]" />
+                        Attachments Grid ({attachments.length})
+                      </h3>
+                      <Button 
+                        onClick={() => fileInputRef.current?.click()}
+                        variant="ghost" 
+                        size="sm" 
+                        className="h-7 text-[9px] gap-1 hover:bg-[#4F7CFF]/10 text-[#4F7CFF] border border-[#4F7CFF]/10 rounded-lg px-2.5 font-bold"
+                      >
+                        <Upload className="w-3.5 h-3.5" /> Upload File
+                      </Button>
+                      <input 
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                      {attachments.map((file, idx) => (
+                        <Card key={idx} className="bg-[#111827] border-[#2B313D] hover:border-gray-700/60 shadow-md flex flex-col justify-between p-3.5 rounded-xl group/att relative overflow-hidden transition-all duration-200">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-gray-950 rounded-lg border border-gray-850">
+                              {getFileIcon(file.mimeType)}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-bold text-slate-100 truncate" title={file.fileName}>{file.fileName}</p>
+                              <p className="text-[9px] text-[#9CA3AF] font-mono mt-0.5">{formatBytes(file.size)}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 justify-end mt-4 border-t border-gray-800/60 pt-2">
+                            <a 
+                              href={file.url} 
+                              download={file.fileName}
+                              className="p-1 text-gray-400 hover:text-blue-400 bg-gray-950 rounded border border-gray-800 hover:border-blue-500/20"
+                              title="Download File"
+                            >
+                              <Download className="w-3.5 h-3.5" />
+                            </a>
+                            <Button 
+                              onClick={() => handleRemoveAttachment(idx)}
+                              variant="ghost" 
+                              size="icon" 
+                              className="h-6.5 w-6.5 text-gray-500 hover:text-[#EF4444] hover:bg-red-500/10 rounded-md"
+                              title="Delete Attachment"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </Card>
+                      ))}
+
+                      {attachments.length === 0 && (
+                        <div className="col-span-full text-center py-8 border border-dashed border-[#2B313D]/50 rounded-2xl text-gray-600 text-xs">
+                          Empty grid. Drop PDF, Image, Video, or Folders here.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                </div>
+              </ScrollArea>
+
+              {/* Editor Footer Status */}
+              <div className="h-10 bg-[#161B22] border-t border-[#2B313D] px-6 flex items-center justify-between text-[10px] text-[#9CA3AF] font-mono flex-shrink-0 select-none">
+                <div className="flex items-center gap-2">
+                  <span>{getWordCount()} words</span>
+                  <span>•</span>
+                  <span>{selectedNote.content.length} characters</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[#16C784]">
+                  <div className="w-1.5 h-1.5 bg-[#16C784] rounded-full animate-ping" />
+                  <span>Draft saved locally</span>
+                </div>
               </div>
-            </ScrollArea>
+
+            </div>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-6">
-              <div className="w-24 h-24 rounded-full bg-blue-500/5 border border-blue-500/10 flex items-center justify-center relative">
-                 <FileText className="w-10 h-10 text-blue-400 opacity-40" />
-                 <div className="absolute inset-0 bg-blue-500/20 blur-2xl rounded-full opacity-20" />
+              <div className="w-24 h-24 rounded-full bg-[#4F7CFF]/5 border border-[#4F7CFF]/10 flex items-center justify-center relative">
+                 <BookOpen className="w-10 h-10 text-[#4F7CFF] opacity-40" />
+                 <div className="absolute inset-0 bg-[#4F7CFF]/20 blur-2xl rounded-full opacity-20" />
               </div>
               <div>
-                <h3 className="text-2xl font-bold mb-2">Knowledge Chamber</h3>
-                <p className="text-muted-foreground max-w-[280px] mx-auto text-sm leading-relaxed text-slate-400">
-                  Organize projects, SOPs, legal records, and design specs inside your secure local Knowledge Vault.
+                <h3 className="text-2xl font-bold mb-2">Knowledge Core</h3>
+                <p className="text-muted-foreground max-w-[280px] mx-auto text-sm leading-relaxed text-[#9CA3AF]">
+                  Organize your corporate collections, project highlights, folders, and secure checklists.
                 </p>
               </div>
-              <Button onClick={handleCreateNote} className="rounded-2xl h-11 px-8 shadow-xl shadow-blue-500/20 bg-blue-600 hover:bg-blue-700 text-white font-bold gap-2">
-                <Plus className="w-5 h-5" /> Initialize First Note
+              <Button onClick={handleCreateNote} className="rounded-2xl h-11 px-8 shadow-xl shadow-[#4F7CFF]/15 bg-[#4F7CFF] hover:bg-[#3d65df] text-white font-bold gap-2">
+                <Plus className="w-5 h-5" /> Initialize Note
               </Button>
             </div>
           )}
         </div>
 
-        {/* COLUMN 4: Note Details & Actions Column */}
+        {/* COLUMN 4: RIGHT PANEL (300px) */}
         <AnimatePresence>
           {(detailsOpen && selectedNote) && (
             <motion.div
               initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 280, opacity: 1 }}
+              animate={{ width: 300, opacity: 1 }}
               exit={{ width: 0, opacity: 0 }}
-              className="hidden xl:flex h-full border-l border-gray-800 bg-[#0e1420] flex-shrink-0 flex-col z-20"
+              className="hidden xl:flex h-full bg-[#161B22] flex-shrink-0 flex-col z-20"
             >
-              <div className="p-4 border-b border-gray-800/80">
-                <h3 className="text-xs font-bold uppercase tracking-widest text-slate-400">Document Settings</h3>
+              <div className="p-4 border-b border-[#2B313D] flex items-center justify-between">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Settings & AI</h3>
+                <Button size="icon" variant="ghost" onClick={() => setDetailsOpen(false)} className="h-7 w-7 rounded-lg">
+                  <X className="w-4 h-4 text-gray-500" />
+                </Button>
               </div>
 
               <ScrollArea className="flex-1 p-4">
                 <div className="space-y-6">
                   
-                  {/* Details Section */}
-                  <div className="space-y-4">
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Document Info</p>
-                    <div className="space-y-3 bg-[#070a0f]/50 p-3.5 border border-gray-800 rounded-xl font-mono text-[10px] text-gray-400">
+                  {/* Note Details Section */}
+                  <div className="space-y-3">
+                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Note Details</p>
+                    <div className="space-y-3 bg-[#0B0F17]/60 p-3.5 border border-[#2B313D] rounded-2xl font-mono text-[10px] text-gray-400 shadow-sm">
                       <div className="flex justify-between">
                         <span>Created:</span>
-                        <span className="text-slate-300 font-bold">{format(new Date(selectedNote.createdAt), "MMM d, yyyy")}</span>
+                        <span className="text-slate-350 font-bold">{format(new Date(selectedNote.createdAt), "MMM d, yyyy")}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Updated:</span>
-                        <span className="text-slate-300 font-bold">{format(new Date(selectedNote.updatedAt), "MMM d, yyyy")}</span>
+                        <span className="text-slate-350 font-bold">{format(new Date(selectedNote.updatedAt), "MMM d, yyyy")}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Author:</span>
+                        <span className="text-[#4F7CFF] font-bold">Nathan Reardon</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Access:</span>
-                        <span className="text-blue-400 font-bold flex items-center gap-1">
-                          <Lock className="w-3 h-3" /> Private
+                        <span className="text-[#16C784] font-bold flex items-center gap-1">
+                          <Lock className="w-3 h-3" /> Private Node
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Sharing:</span>
+                        <span className="text-[#9CA3AF] flex items-center gap-1">
+                          <Globe className="w-3 h-3" /> Not Shared
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* Note Tools Section */}
+                  {/* AI Assistant Panel */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between border-b border-gray-800 pb-1.5">
+                      <p className="text-[9px] font-bold text-[#4F7CFF] uppercase tracking-widest flex items-center gap-1">
+                        <Sparkles className="w-3.5 h-3.5 text-[#4F7CFF] fill-[#4F7CFF]/10 animate-bounce" />
+                        <span>AI Assistant Panel</span>
+                      </p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {[
+                        { label: "Summarize", action: "summarize" },
+                        { label: "Action Items", action: "actionItems" },
+                        { label: "Translate", action: "translate" },
+                        { label: "Improve Writing", action: "improve" },
+                        { label: "Generate Tasks", action: "tasks" },
+                        { label: "Find Related", action: "related" }
+                      ].map(aiBtn => (
+                        <Button 
+                          key={aiBtn.label}
+                          disabled={aiGenerating}
+                          onClick={() => runAiAssistant(aiBtn.action)}
+                          className="h-8.5 rounded-xl border border-gray-800 bg-[#0B0F17]/50 text-slate-300 hover:text-white hover:bg-[#4F7CFF]/10 font-bold text-[10px] w-full text-center transition-all"
+                        >
+                          {aiGenerating && aiBtn.action === "summarize" ? (
+                            <Clock className="w-3 h-3 animate-spin mr-1 text-[#4F7CFF]" />
+                          ) : (
+                            <Sparkles className="w-3 h-3 text-[#4F7CFF]/60 mr-1" />
+                          )}
+                          {aiBtn.label}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Standard Tools Section */}
                   <div className="space-y-2">
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wide">Chamber Actions</p>
+                    <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Document Tools</p>
                     
                     <Button 
                       variant="ghost" 
                       onClick={() => toggleFavorite(selectedNote.id)}
-                      className="w-full justify-start text-xs font-semibold hover:bg-gray-800 hover:text-white rounded-xl gap-2.5 text-gray-400"
+                      className="w-full justify-start text-xs font-semibold hover:bg-gray-800/85 hover:text-white rounded-xl gap-2.5 text-[#9CA3AF]"
                     >
-                      <Star className="w-4 h-4 text-amber-500 fill-amber-500/10" />
+                      <Star className="w-4 h-4 text-[#F59E0B] fill-[#F59E0B]/10" />
                       <span>{selectedNote.isFavorite ? "Remove Favorite" : "Add to Favorites"}</span>
                     </Button>
 
                     <Button 
                       variant="ghost" 
                       onClick={handleDuplicateNote}
-                      className="w-full justify-start text-xs font-semibold hover:bg-gray-800 hover:text-white rounded-xl gap-2.5 text-gray-400"
+                      className="w-full justify-start text-xs font-semibold hover:bg-gray-800/85 hover:text-white rounded-xl gap-2.5 text-[#9CA3AF]"
                     >
-                      <Copy className="w-4 h-4 text-blue-400" />
+                      <Copy className="w-4 h-4 text-[#4F7CFF]" />
                       <span>Duplicate Document</span>
                     </Button>
 
                     <Button 
                       variant="ghost" 
                       onClick={exportNoteAsTxt}
-                      className="w-full justify-start text-xs font-semibold hover:bg-gray-800 hover:text-white rounded-xl gap-2.5 text-gray-400"
+                      className="w-full justify-start text-xs font-semibold hover:bg-gray-800/85 hover:text-white rounded-xl gap-2.5 text-[#9CA3AF]"
                     >
-                      <Download className="w-4 h-4 text-green-400" />
+                      <Download className="w-4 h-4 text-[#16C784]" />
                       <span>Export Text File</span>
                     </Button>
 
                     <Button 
                       variant="ghost" 
                       onClick={() => handleDeleteNote(selectedNote.id)}
-                      className="w-full justify-start text-xs font-semibold hover:bg-red-955/20 hover:text-red-400 rounded-xl gap-2.5 text-red-500/80"
+                      className="w-full justify-start text-xs font-semibold hover:bg-red-950/20 hover:text-[#EF4444] rounded-xl gap-2.5 text-[#EF4444]"
                     >
                       <Trash2 className="w-4 h-4" />
                       <span>Delete Vault Note</span>
                     </Button>
-                  </div>
-
-                  {/* Instructions */}
-                  <div className="bg-[#070a0f]/40 p-4 border border-gray-850 rounded-xl space-y-2">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-blue-400">Vault Security</p>
-                    <p className="text-[11px] text-gray-500 leading-normal">
-                      This document is encrypted and stored in your private local chamber. Documents are not shared unless explicitly requested.
-                    </p>
                   </div>
 
                 </div>
@@ -1324,63 +1470,113 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
 interface NoteCardProps {
   note: Note;
   isSelected: boolean;
+  viewMode: "list" | "grid";
   onClick: () => void;
   onPin: (e: React.MouseEvent) => void;
   onFavorite: (e: React.MouseEvent) => void;
 }
 
-function NoteCard({ note, isSelected, onClick, onPin, onFavorite }: NoteCardProps) {
+function NoteCard({ note, isSelected, viewMode, onClick, onPin, onFavorite }: NoteCardProps) {
+  // Select color borders based on tags or properties
+  const accentColor = note.isPinned ? "#A855F7" : "#4F7CFF";
+  
+  if (viewMode === "grid") {
+    return (
+      <motion.div
+        whileHover={{ scale: 1.02, y: -2 }}
+        whileTap={{ scale: 0.98 }}
+        onClick={onClick}
+        className={cn(
+          "group relative p-3 rounded-2xl cursor-pointer transition-all border flex flex-col justify-between min-h-[110px] bg-[#111827] shadow-sm",
+          isSelected 
+            ? "border-[#4F7CFF]/55 bg-[#4F7CFF]/5" 
+            : "border-[#2B313D] hover:bg-[#161B22]"
+        )}
+      >
+        <div className="space-y-1">
+          <div className="flex justify-between items-start gap-1">
+            <h4 className={cn("font-bold text-[11px] truncate flex-1", isSelected ? "text-[#4F7CFF]" : "text-slate-100")}>
+              {note.title || "Untitled Document"}
+            </h4>
+          </div>
+          <p className="text-[9px] text-[#9CA3AF] line-clamp-3 leading-normal font-medium">
+            {note.content || "No details..."}
+          </p>
+        </div>
+
+        <div className="flex justify-between items-center mt-2.5 pt-1.5 border-t border-gray-800/40 text-[8px] text-[#9CA3AF]">
+          <span>{format(new Date(note.updatedAt), "MMM d")}</span>
+          {note.isFavorite && <Star className="w-2.5 h-2.5 text-[#F59E0B] fill-current" />}
+        </div>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
-      whileHover={{ scale: 1.01 }}
+      whileHover={{ scale: 1.01, y: -1 }}
       whileTap={{ scale: 0.99 }}
       onClick={onClick}
       className={cn(
-        "group relative p-3 rounded-2xl cursor-pointer transition-all border mb-1 flex flex-col justify-between min-h-[90px]",
+        "group relative p-3.5 rounded-2xl cursor-pointer transition-all border flex gap-3 min-h-[92px] items-center justify-between",
         isSelected 
-          ? "bg-blue-600/10 border-blue-500/35 shadow-md shadow-blue-900/10" 
-          : "bg-gray-900/20 border-gray-900 hover:bg-gray-950/30 hover:border-gray-850"
+          ? "bg-[#4F7CFF]/5 border-[#4F7CFF]/45 shadow-lg shadow-[#4F7CFF]/5" 
+          : "bg-[#111827] border-[#2B313D] hover:bg-[#161B22]"
       )}
       style={{
-        borderLeftColor: note.isPinned ? "rgba(168, 85, 247, 0.4)" : undefined,
-        borderLeftWidth: note.isPinned ? "3px" : undefined
+        borderLeftColor: accentColor,
+        borderLeftWidth: "3px"
       }}
     >
-      <div className="space-y-1">
-        <div className="flex justify-between items-start gap-2">
-          <h4 className={cn("font-bold text-xs truncate flex-1", isSelected ? "text-blue-400" : "text-slate-100")}>
-            {note.title || "Untitled Document"}
-          </h4>
-          <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button 
-              onClick={onFavorite}
-              className={cn("p-0.5 rounded text-gray-500 hover:text-amber-500", note.isFavorite && "opacity-100 text-amber-500")}
-            >
-              <Star className={cn("w-3.5 h-3.5", note.isFavorite && "fill-current")} />
-            </button>
-            <button 
-              onClick={onPin}
-              className={cn("p-0.5 rounded text-gray-500 hover:text-purple-400", note.isPinned && "opacity-100 text-purple-400")}
-            >
-              <Pin className={cn("w-3.5 h-3.5", note.isPinned && "fill-current")} />
-            </button>
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        {/* Mock Thumbnail Image matching the note color index */}
+        <div className="w-12 h-12 rounded-xl flex-shrink-0 overflow-hidden relative border border-[#2B313D] bg-gradient-to-br from-[#161B22] to-gray-900 flex items-center justify-center">
+          <FileText className="w-5 h-5 text-gray-600 group-hover:text-[#4F7CFF]/70 transition-colors" />
+          {note.isPinned && (
+            <div className="absolute top-1 left-1 w-2.5 h-2.5 bg-purple-500 rounded-full" />
+          )}
+        </div>
+
+        <div className="space-y-1.5 flex-1 min-w-0">
+          <div className="flex justify-between items-center gap-2">
+            <h4 className={cn("font-bold text-xs truncate", isSelected ? "text-[#4F7CFF]" : "text-slate-100")}>
+              {note.title || "Untitled Document"}
+            </h4>
+          </div>
+          
+          <p className="text-[10px] text-[#9CA3AF] line-clamp-1 leading-relaxed font-medium">
+            {note.content || "Empty document..."}
+          </p>
+
+          <div className="flex flex-wrap gap-1">
+            {note.tags.slice(0, 2).map(tag => (
+              <span key={tag} className="text-[8px] px-1.5 py-0.2 bg-[#0B0F17] text-gray-400 rounded-md border border-[#2B313D]/60 uppercase tracking-tight font-bold">
+                #{tag}
+              </span>
+            ))}
           </div>
         </div>
-        
-        <p className="text-[10px] text-gray-450 line-clamp-2 leading-relaxed font-medium">
-          {note.content || "Empty document..."}
-        </p>
       </div>
 
-      <div className="flex justify-between items-center mt-3 pt-1.5 border-t border-gray-800/40">
-        <span className="text-[8px] font-bold font-mono text-gray-500 uppercase">
+      <div className="flex flex-col items-end justify-between h-full min-h-[50px] flex-shrink-0">
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button 
+            onClick={onFavorite}
+            className={cn("p-0.5 rounded text-gray-500 hover:text-[#F59E0B]", note.isFavorite && "opacity-100 text-[#F59E0B]")}
+          >
+            <Star className={cn("w-3.5 h-3.5", note.isFavorite && "fill-current")} />
+          </button>
+          <button 
+            onClick={onPin}
+            className={cn("p-0.5 rounded text-gray-500 hover:text-purple-400", note.isPinned && "opacity-100 text-purple-400")}
+          >
+            <Pin className={cn("w-3.5 h-3.5", note.isPinned && "fill-current")} />
+          </button>
+        </div>
+
+        <span className="text-[8px] font-bold font-mono text-[#9CA3AF] uppercase">
           {format(new Date(note.updatedAt), "MMM d")}
         </span>
-        {note.folder && (
-          <span className="text-[8px] px-1.5 py-0.2 uppercase bg-blue-500/10 text-blue-400 rounded-md font-bold tracking-wide font-mono">
-            {note.folder}
-          </span>
-        )}
       </div>
     </motion.div>
   );

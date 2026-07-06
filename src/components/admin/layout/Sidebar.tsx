@@ -194,12 +194,12 @@ const navItemsBase: NavItem[] = [
     ],
   },
   {
-    label: "Personal Notes",
+    label: "Knowledge Vault",
     path: "/admin/personal-notes",
     customIcon: (
       <img
         src="/kn_vlt.png"
-        alt="Personal Notes"
+        alt="Knowledge Vault"
         className="h-5 w-5 flex-shrink-0 object-contain opacity-80 group-hover:opacity-100 transition-opacity"
       />
     ),
