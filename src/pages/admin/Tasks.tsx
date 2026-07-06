@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import React, { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import CostManager from "@/components/cost-manager/CostManager";
 import TaskExpensesPanel from "@/components/cost-manager/TaskExpensesPanel";

@@ -86,19 +86,21 @@ export default function EmployeeEODHistory() {
 
       // Proactively fetch today's EOD status to see if today's report is missing/not submitted
       try {
-        const todayStatusRes = await apiFetch<Array<{
-          employeeId: string;
-          employeeName: string;
-          avatar?: string;
-          status: string; // "submitted" | "missing" | "late" | "not_clocked_in"
-          clockIn?: string;
-          clockOut?: string;
-          clockInAt?: string | null;
-          clockOutAt?: string | null;
-          reportSubmittedAt?: string;
-        }>>("/api/admin/eod-status");
+        const todayStatusRes = await apiFetch<{
+          items: Array<{
+            employeeId: string;
+            employeeName: string;
+            avatar?: string;
+            status: string; // "submitted" | "missing" | "late" | "not_clocked_in"
+            clockIn?: string;
+            clockOut?: string;
+            clockInAt?: string | null;
+            clockOutAt?: string | null;
+            reportSubmittedAt?: string;
+          }>;
+        }>("/api/admin/eod-status");
 
-        const myTodayStatus = todayStatusRes.find(
+        const myTodayStatus = (todayStatusRes?.items || []).find(
           (emp) => emp.employeeName.toLowerCase() === decodedName.toLowerCase()
         );
 
