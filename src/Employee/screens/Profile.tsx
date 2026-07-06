@@ -431,7 +431,6 @@ const hasTaxInfo =
   const calculateProgress = () => {
     if (!onboardingData) return 0;
     let completed = 0;
-    const total = 7;
 
     // Basic Information
     if (onboardingData.basicInfo?.completed) completed++;
@@ -452,7 +451,8 @@ const hasTaxInfo =
     }
 
     // W-4 Form
-    if (onboardingData.w4Form?.status === "submitted" || onboardingData.w4Form?.status === "verified") {
+    const hasW4 = onboardingData.w4Form?.status === "submitted" || onboardingData.w4Form?.status === "verified";
+    if (hasW4) {
       completed++;
     }
 
@@ -466,6 +466,7 @@ const hasTaxInfo =
       completed++;
     }
 
+    const total = hasW4 ? 7 : 6;
     return Math.round((completed / total) * 100);
   };
 
@@ -1341,7 +1342,7 @@ const hasTaxInfo =
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium">Primary ID</p>
-                    <p className="text-sm text-gray-500">Driver License or Passport</p>
+                    <p className="text-sm text-gray-500">Driver License, Passport or National ID Card</p>
                   </div>
                   <Badge className={`${
                     onboardingData?.identityVerification?.primaryId?.status === "verified" ? "bg-green-100 text-green-700" :
@@ -1362,6 +1363,7 @@ const hasTaxInfo =
                     <option value="">Select ID Type</option>
                     <option value="driver_license">Driver License</option>
                     <option value="passport">Passport</option>
+                    <option value="national_id">National ID Card</option>
                   </select>
                   <div className="flex items-center gap-3">
                     <Button
@@ -1480,11 +1482,13 @@ const hasTaxInfo =
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <div className={`h-8 w-8 rounded-full flex items-center justify-center text-sm font-bold ${
-                  onboardingData?.w4Form?.status === "verified" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                  onboardingData?.w4Form?.status === "verified" ? "bg-green-100 text-green-700" : 
+                  onboardingData?.w4Form?.status === "submitted" ? "bg-yellow-100 text-yellow-700" :
+                  "bg-gray-100 text-gray-700"
                 }`}>5</div>
-                W-4 Tax Form
+                W-4 Tax Form (Optional)
               </CardTitle>
-              <CardDescription>Complete your tax withholding information</CardDescription>
+              <CardDescription>Complete your tax withholding information (Optional)</CardDescription>
               {onboardingData?.w4Form?.status === "verified" && (
                 <Badge className="bg-green-100 text-green-700">Verified</Badge>
               )}
@@ -1658,8 +1662,8 @@ const hasTaxInfo =
                         <span>Identity Verification - {idDone ? "Completed" : "Not completed"}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
-                        {docDone(onboardingData?.w4Form?.status) ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-red-500" />}
-                        <span>W-4 Form - {docDone(onboardingData?.w4Form?.status) ? "Completed" : "Not completed"}</span>
+                        {docDone(onboardingData?.w4Form?.status) ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <CheckCircle2 className="h-4 w-4 text-gray-400" />}
+                        <span>W-4 Form (Optional) - {docDone(onboardingData?.w4Form?.status) ? "Completed" : "Not completed"}</span>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
                         {docDone(onboardingData?.employeeHandbook?.status) ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <X className="h-4 w-4 text-red-500" />}
@@ -1682,7 +1686,6 @@ const hasTaxInfo =
                   clearHireStatus?.status !== "GREEN" ||
                   !["submitted", "verified"].includes(onboardingData?.identityVerification?.primaryId?.status ?? "") ||
                   !["submitted", "verified"].includes(onboardingData?.identityVerification?.secondaryId?.status ?? "") ||
-                  !["submitted", "verified"].includes(onboardingData?.w4Form?.status ?? "") ||
                   !["submitted", "verified"].includes(onboardingData?.employeeHandbook?.status ?? "") ||
                   !["submitted", "verified"].includes(onboardingData?.digitalSignature?.status ?? "")
                 }
