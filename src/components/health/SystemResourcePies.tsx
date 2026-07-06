@@ -14,6 +14,7 @@ interface SystemStats {
   platform?: string;
   uptimeSeconds?: number;
   cpuCount?: number;
+  cpuUsage?: number;
   ram?: ResourceUsage;
   disk?: ResourceUsage | null;
 }
@@ -33,10 +34,12 @@ function UsagePie({
   title,
   icon,
   usage,
+  isPercent = false,
 }: {
   title: string;
   icon: React.ReactNode;
   usage: ResourceUsage | null | undefined;
+  isPercent?: boolean;
 }) {
   if (!usage || !usage.total) {
     return (
@@ -57,6 +60,11 @@ function UsagePie({
     { name: "Used", value: usage.used },
     { name: "Available", value: usage.free },
   ];
+
+  const formatVal = (v: number) => isPercent ? `${v}%` : formatBytes(v);
+  const usedLabel = isPercent ? "Load" : "Used";
+  const freeLabel = isPercent ? "Idle" : "Available";
+  const totalLabel = isPercent ? "Capacity" : "Total";
 
   return (
     <div className="bg-white/[0.02] border border-white/10 rounded-xl p-6 flex flex-col">
@@ -83,7 +91,7 @@ function UsagePie({
               <Cell fill={FREE_COLOR} />
             </Pie>
             <Tooltip
-              formatter={(value: number, name: string) => [formatBytes(value), name]}
+              formatter={(value: number, name: string) => [formatVal(value), name]}
               contentStyle={{ backgroundColor: "#1e293b", border: "1px solid #334155", borderRadius: "8px" }}
               itemStyle={{ color: "#e2e8f0" }}
             />
@@ -92,7 +100,7 @@ function UsagePie({
         {/* Center label */}
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
           <span className="text-2xl font-bold text-white">{usedPct}%</span>
-          <span className="text-[11px] text-white/50 uppercase tracking-wider">Used</span>
+          <span className="text-[11px] text-white/50 uppercase tracking-wider">{isPercent ? "Load" : "Used"}</span>
         </div>
       </div>
 
@@ -100,20 +108,20 @@ function UsagePie({
         <div className="flex items-center justify-between">
           <span className="flex items-center gap-2 text-white/70">
             <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: USED_COLOR }} />
-            Used
+            {usedLabel}
           </span>
-          <span className="text-white font-medium">{formatBytes(usage.used)}</span>
+          <span className="text-white font-medium">{formatVal(usage.used)}</span>
         </div>
         <div className="flex items-center justify-between">
           <span className="flex items-center gap-2 text-white/70">
             <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: FREE_COLOR }} />
-            Available
+            {freeLabel}
           </span>
-          <span className="text-white font-medium">{formatBytes(usage.free)}</span>
+          <span className="text-white font-medium">{formatVal(usage.free)}</span>
         </div>
         <div className="flex items-center justify-between border-t border-white/10 pt-2">
-          <span className="text-white/50">Total</span>
-          <span className="text-white/80 font-medium">{formatBytes(usage.total)}</span>
+          <span className="text-white/50">{totalLabel}</span>
+          <span className="text-white/80 font-medium">{formatVal(usage.total)}</span>
         </div>
       </div>
     </div>
@@ -165,7 +173,13 @@ export function SystemResourcePies() {
       ) : error ? (
         <div className="text-white/40 text-sm py-10 text-center">Failed to load system resources.</div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <UsagePie
+            title="CPU Load"
+            icon={<Server className="h-4 w-4 text-purple-400" />}
+            usage={stats?.cpuUsage !== undefined ? { total: 100, used: stats.cpuUsage, free: Math.max(100 - stats.cpuUsage, 0) } : null}
+            isPercent={true}
+          />
           <UsagePie
             title="RAM Usage"
             icon={<MemoryStick className="h-4 w-4 text-amber-400" />}

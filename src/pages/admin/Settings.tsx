@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
-import { Camera, User, Loader2, CheckCircle, XCircle, AlertCircle, Upload, FileImage, Image as ImageIcon, Quote, ToggleLeft, ToggleRight, Plus } from "lucide-react";
+import { Camera, User, Loader2, CheckCircle, XCircle, AlertCircle, Upload, FileImage, Image as ImageIcon, Quote, ToggleLeft, ToggleRight, Plus, Bell } from "lucide-react";
 import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -1266,6 +1266,58 @@ export default function Settings() {
                     <ToggleLeft className="h-6 w-6 text-gray-400" />
                   )}
                 </button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Notification Settings Card */}
+          <Card className="shadow-soft border-0 sm:border">
+            <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
+              <CardTitle className="text-base sm:text-lg md:text-xl font-semibold flex items-center gap-2">
+                <Bell className="h-5 w-5 text-primary" />
+                Notification Settings
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 px-4 sm:px-6 pb-5 sm:pb-6 pt-0">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium">Email Notifications</p>
+                  <p className="text-xs text-muted-foreground">Receive daily system update emails</p>
+                </div>
+                <Switch
+                  checked={Boolean(notifications.emailNotifications)}
+                  onCheckedChange={(val) => setBackendNotification("emailNotifications", val)}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium">Task Alerts</p>
+                  <p className="text-xs text-muted-foreground">Receive real-time alerts when tasks are updated</p>
+                </div>
+                <Switch
+                  checked={Boolean(notifications.taskAlerts)}
+                  onCheckedChange={(val) => setBackendNotification("taskAlerts", val)}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium">Employee Updates</p>
+                  <p className="text-xs text-muted-foreground">Get notified when employees check in/out</p>
+                </div>
+                <Switch
+                  checked={Boolean(notifications.employeeUpdates)}
+                  onCheckedChange={(val) => setBackendNotification("employeeUpdates", val)}
+                />
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <p className="text-sm font-medium">Weekly Reports</p>
+                  <p className="text-xs text-muted-foreground">Receive a summary report at the end of the week</p>
+                </div>
+                <Switch
+                  checked={Boolean(notifications.weeklyReports)}
+                  onCheckedChange={(val) => setBackendNotification("weeklyReports", val)}
+                />
               </div>
             </CardContent>
           </Card>

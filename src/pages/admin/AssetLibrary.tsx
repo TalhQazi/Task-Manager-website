@@ -711,7 +711,7 @@ export default function AssetLibrary({
       ) : null}
 
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4">
-        <Card className="h-[calc(100vh-260px)] min-h-[420px] overflow-hidden">
+        <Card className="flex flex-col h-[calc(100vh-260px)] min-h-[420px] overflow-hidden">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between gap-2">
               <CardTitle className="text-base">Folders</CardTitle>
@@ -760,7 +760,7 @@ export default function AssetLibrary({
               ) : null}
             </div>
           </CardHeader>
-          <CardContent className="pt-0 h-full overflow-y-auto">
+          <CardContent className="pt-0 flex-1 overflow-y-auto">
             <div className="space-y-1">
               <button
                 type="button"

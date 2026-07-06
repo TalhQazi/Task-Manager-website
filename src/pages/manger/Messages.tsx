@@ -26,6 +26,7 @@ import {
   Smile,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
+import { renderMessageContent } from "@/lib/linkify";
 import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSocket } from "@/contexts/SocketContext";
@@ -1222,7 +1223,7 @@ export default function Messages() {
                           )
                         ) : null}
 
-                        {msg.content?.trim() ? <p className="break-words">{msg.content}</p> : null}
+                        {msg.content?.trim() ? <p className="break-words">{renderMessageContent(msg.content, isMe)}</p> : null}
                         <p className={cn("text-[9px] sm:text-[10px] md:text-xs mt-0.5 sm:mt-1", isMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
                           {formatMessageTime(msg.timestamp)}
                           {isMe && (

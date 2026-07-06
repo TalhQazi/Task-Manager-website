@@ -146,6 +146,25 @@ export function ServerGraphs() {
                 </LineChart>
               </ResponsiveContainer>
             </div>
+
+            {/* Disk Chart */}
+            <div className="flex-1 min-h-0 relative">
+              <div className="absolute top-0 left-0 flex items-center gap-2 text-xs text-rose-400 font-medium">
+                <HardDrive className="h-3.5 w-3.5" /> Disk Usage (%)
+              </div>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={metrics} margin={{ top: 25, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+                  <XAxis dataKey="time" stroke="#ffffff40" fontSize={10} tickMargin={8} minTickGap={30} />
+                  <YAxis stroke="#ffffff40" fontSize={10} domain={[0, 100]} />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#1e293b', border: '1px solid #334155', borderRadius: '8px' }}
+                    itemStyle={{ color: '#fb7185' }}
+                  />
+                  <Line type="monotone" dataKey="disk" stroke="#fb7185" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </>
         )}
       </div>

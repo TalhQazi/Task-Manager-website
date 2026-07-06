@@ -19,6 +19,7 @@ import { apiFetch, listResource, toProxiedUrl } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
 import { Textarea } from "@/components/admin/ui/textarea";
 import { cn } from "@/lib/utils";
+import { renderMessageContent } from "@/lib/linkify";
 
 interface Employee {
   id: string;
@@ -1151,7 +1152,7 @@ export default function Messaging() {
                             )
                           ) : null}
 
-                          {msg.content?.trim() ? <p className="text-sm">{msg.content}</p> : null}
+                          {msg.content?.trim() ? <p className="text-sm">{renderMessageContent(msg.content, isMe)}</p> : null}
                           <p className={cn(
                             "text-xs mt-1",
                             isMe ? "text-primary-foreground/70" : "text-muted-foreground"
