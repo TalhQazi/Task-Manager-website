@@ -57,6 +57,8 @@ import { Card, CardContent } from "@/components/manger/ui/card";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/manger/ui/scroll-area";
 import { Badge } from "@/components/manger/ui/badge";
+import { getAuthState } from "@/lib/auth";
+import { useNavigate } from "react-router-dom";
 
 interface Attachment {
   fileName: string;
@@ -144,7 +146,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
   const [activeTag, setActiveTag] = useState<string>("All");
   const [customFolders, setCustomFolders] = useState<string[]>([]);
   const [newFolderName, setNewFolderName] = useState("");
-  const [customTags, setCustomTags] = useState<string[]>(["AI", "Meeting", "Ideas", "Important", "Design", "Development", "Finance"]);
+  const [customTags, setCustomTags] = useState<string[]>(["AI", "Important", "Meeting", "Ideas", "Patent", "SOP"]);
   const [newTagName, setNewTagName] = useState("");
 
   // Editor states
@@ -170,9 +172,16 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "alphabetical">("newest");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // AI Assistant Mock State
+  // Router & Auth Info
+  const navigate = useNavigate();
+  const auth = getAuthState();
+  const currentUsername = auth?.username || "Nathan Reardon";
+  const currentRole = auth?.role || "super-admin";
+
+  // AI Assistant Output State
   const [aiOutput, setAiOutput] = useState<string>("");
   const [aiGenerating, setAiGenerating] = useState(false);
+  const [relatedNotesList, setRelatedNotesList] = useState<Note[]>([]);
 
   useEffect(() => {
     loadNotes();
@@ -268,8 +277,8 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
     setNotesList(note.notesList);
     setAttachments(note.attachments);
     setAiOutput("");
+    setRelatedNotesList([]);
     setIsEditing(false);
-    // Alternate hero cover image just for aesthetic diversity
     setCoverImageIndex(note.title.length % HERO_COVER_IMAGES.length);
   };
 
@@ -490,38 +499,150 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
     }
   };
 
-  // AI Assistant Action Generator
-  const runAiAssistant = (actionType: string) => {
+  // FULLY DYNAMIC AI ASSISTANT FUNCTIONS
+  const runAiAssistant = async (actionType: string) => {
     if (!selectedNote) return;
     setAiGenerating(true);
     setAiOutput("");
-    
-    let templateOutput = "";
-    if (actionType === "summarize") {
-      templateOutput = `✨ **DOCUMENT SUMMARY (AI Assistant)**:\nThis vault document titled "${selectedNote.title}" focuses on key administrative logs and project items. It contains ${selectedNote.actionItems.length} active action targets and ${selectedNote.notesList.length} highlighted notes. The primary folder is "${selectedNote.folder || "General"}".`;
-    } else if (actionType === "actionItems") {
-      templateOutput = `✨ **EXTRACTED TASKS (AI Assistant)**:\n1. [ ] Finalize the overview details for "${selectedNote.title}"\n2. [ ] Review current folders: Business, Operations, Patents\n3. [ ] Verify attachments count: ${selectedNote.attachments.length} items`;
-    } else if (actionType === "translate") {
-      templateOutput = `✨ **TRANSLATION (ES - AI Assistant)**:\nResumen del documento: "${selectedNote.title}". Contenido de introducción y notas del proyecto de cámara centralizada.`;
-    } else if (actionType === "improve") {
-      templateOutput = `✨ **REFINED OVERVIEW (AI Assistant)**:\n"${selectedNote.content || "N/A"}" -> (Optimized for Business Clarity): Let's prioritize folder structure optimization and ensure clean tags like #Important and #AI are correctly formatted.`;
-    } else if (actionType === "tasks") {
-      templateOutput = `✨ **RECOMMENDED TASKS (AI Assistant)**:\n- Develop test cases for ${selectedNote.folder || "Projects"}\n- Audit the attached files (${selectedNote.attachments.length})\n- Set up collaborative editing channels`;
-    } else {
-      templateOutput = `✨ **RELATED VAULT ITEMS (AI Assistant)**:\n- Project Genesis - Update (94% match)\n- Operations Standard Procedures (88% match)\n- Patent & IP Filing Index (82% match)`;
-    }
+    setRelatedNotesList([]);
 
-    // Stream text generation simulation
+    const textToAnalyze = `${selectedNote.title}. ${selectedNote.content}. ${selectedNote.notesList.join(". ")}`;
+
+    try {
+      if (actionType === "summarize") {
+        if (!selectedNote.content || selectedNote.content === "Overview details go here...") {
+          simulateStreamingOutput("✨ **AI Summary**:\nThis note contains no custom content to summarize yet. Please add overview text or highlights first.");
+          return;
+        }
+        // Extract key sentences dynamically
+        const sentences = selectedNote.content.split(/[.!?]+/).map(s => s.trim()).filter(Boolean);
+        const topSentences = sentences.slice(0, 3).join(". ") + ".";
+        simulateStreamingOutput(`✨ **AI Summary**:\nThis document is collection categorized under "${selectedNote.folder || "Unassigned"}". Summary: ${topSentences}`);
+
+      } else if (actionType === "actionItems") {
+        // Scan text dynamically for triggers
+        const sentences = textToAnalyze.split(/[.!?\n]+/).map(s => s.trim()).filter(Boolean);
+        const keywords = ["todo", "need to", "must", "action", "task", "should", "checklist", "verify", "call", "write", "check"];
+        const foundTasks = sentences.filter(s => keywords.some(k => s.toLowerCase().includes(k)));
+
+        if (foundTasks.length > 0) {
+          const listText = foundTasks.map((t, idx) => `${idx + 1}. [ ] ${t}`).join("\n");
+          simulateStreamingOutput(`✨ **Extracted Actions**:\n${listText}`);
+        } else {
+          // Generate realistic ones based on Title and Folder
+          simulateStreamingOutput(`✨ **AI Actions (Generated)**:\n1. [ ] Finalize implementation parameters for "${selectedNote.title}"\n2. [ ] Audit folder alignment within "${selectedNote.folder || "General Collections"}"\n3. [ ] Verify and catalog attached documents (${selectedNote.attachments.length} items)`);
+        }
+
+      } else if (actionType === "translate") {
+        if (!selectedNote.content || selectedNote.content === "Overview details go here...") {
+          simulateStreamingOutput("✨ **AI Translation**:\nNo overview content to translate.");
+          return;
+        }
+        // Call public google translation API dynamically for real translation!
+        const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=es&dt=t&q=${encodeURIComponent(selectedNote.content)}`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          const translatedText = data[0].map((x: any) => x[0]).join("");
+          simulateStreamingOutput(`✨ **Spanish Translation (Real-time)**:\n${translatedText}`);
+        } else {
+          simulateStreamingOutput("✨ **AI Translation**:\n(Language Translation offline. Please try again.)");
+        }
+
+      } else if (actionType === "improve") {
+        if (!selectedNote.content) {
+          simulateStreamingOutput("✨ **AI Enhancer**:\nWrite overview details first.");
+          return;
+        }
+        // Dynamic sentence correction & optimization
+        let improved = selectedNote.content
+          .replace(/\s+/g, " ")
+          .replace(/\bi\b/g, "I")
+          .replace(/(\b(need to|have to)\b)/gi, "must")
+          .trim();
+        improved = improved.charAt(0).toUpperCase() + improved.slice(1);
+        simulateStreamingOutput(`✨ **AI Writing Improvement**:\n${improved}`);
+
+      } else if (actionType === "tasks") {
+        simulateStreamingOutput(`✨ **AI Task Proposals for "${selectedNote.title}"**:\n- [ ] Draft specifications for ${selectedNote.folder || "Projects"}\n- [ ] Review current tags index: ${selectedNote.tags.map(t => `#` + t).join(", ") || "#None"}\n- [ ] Confirm compliance check on attachments list`);
+
+      } else if (actionType === "related") {
+        // Dynamic semantic Jaccard similarity compare with other notes
+        const currentWords = new Set((selectedNote.title + " " + selectedNote.tags.join(" ")).toLowerCase().split(/\s+/).filter(Boolean));
+        
+        const scored = notes
+          .filter(n => n.id !== selectedNote.id)
+          .map(n => {
+            const words = (n.title + " " + n.tags.join(" ")).toLowerCase().split(/\s+/).filter(Boolean);
+            let match = 0;
+            words.forEach(w => { if (currentWords.has(w)) match++; });
+            const score = match / (currentWords.size + words.length - match || 1);
+            return { note: n, score };
+          })
+          .filter(x => x.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 3)
+          .map(x => x.note);
+
+        if (scored.length > 0) {
+          setRelatedNotesList(scored);
+          simulateStreamingOutput(`✨ **AI Related Documents**:\nLocated ${scored.length} matching vault items. Click a document card in the details box below to switch to it.`);
+        } else {
+          simulateStreamingOutput("✨ **AI Related Documents**:\nNo notes sharing similar tags or title keywords found in the local vault.");
+        }
+      }
+    } catch {
+      setAiGenerating(false);
+      toast.error("AI engine encountered an error");
+    }
+  };
+
+  const simulateStreamingOutput = (text: string) => {
     let currentLength = 0;
     const interval = setInterval(() => {
-      setAiOutput(templateOutput.substring(0, currentLength + 3));
-      currentLength += 3;
-      if (currentLength >= templateOutput.length) {
+      setAiOutput(text.substring(0, currentLength + 4));
+      currentLength += 4;
+      if (currentLength >= text.length) {
         clearInterval(interval);
         setAiGenerating(false);
-        toast.success("AI Analysis Completed");
+        toast.success("Analysis Complete");
       }
     }, 15);
+  };
+
+  // Nav routing redirect handler
+  const handleNavClick = (label: string) => {
+    const prefix = currentRole === "super-admin" || currentRole === "admin" 
+      ? "/admin" 
+      : currentRole === "manager" 
+        ? "/manager" 
+        : "/employee";
+
+    switch (label.toLowerCase()) {
+      case "dashboard":
+        navigate(prefix);
+        break;
+      case "tasks":
+        navigate(`${prefix}/tasks`);
+        break;
+      case "projects":
+        navigate(currentRole === "employee" ? "/employee" : `${prefix}/company-registry`);
+        break;
+      case "calendar":
+        navigate(`${prefix}/travel-calendar`);
+        break;
+      case "team":
+        navigate(currentRole === "employee" ? `${prefix}/notifications` : `${prefix}/employees`);
+        break;
+      case "reports":
+        navigate(currentRole === "employee" ? `${prefix}/settings` : `${prefix}/reports`);
+        break;
+      case "settings":
+        navigate(`${prefix}/settings`);
+        break;
+      default:
+        break;
+    }
   };
 
   // Filter & Sorting Logic
@@ -599,70 +720,6 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const handleDuplicateNote = async () => {
-    if (!selectedNote) return;
-    try {
-      const { item } = await createNote({
-        title: `${selectedNote.title} (Copy)`,
-        content: selectedNote.content,
-        color: selectedNote.color,
-        folder: selectedNote.folder,
-        tags: selectedNote.tags,
-        actionItems: selectedNote.actionItems,
-        notesList: selectedNote.notesList,
-        attachments: selectedNote.attachments
-      });
-      
-      const normalizedItem = {
-        ...item,
-        tags: item.tags || [],
-        actionItems: item.actionItems || [],
-        notesList: item.notesList || [],
-        attachments: item.attachments || []
-      };
-
-      setNotes([normalizedItem, ...notes]);
-      selectNote(normalizedItem);
-      toast.success("Document duplicated successfully");
-    } catch {
-      toast.error("Failed to duplicate note");
-    }
-  };
-
-  const exportNoteAsTxt = () => {
-    if (!selectedNote) return;
-    let exportText = `TITLE: ${selectedNote.title}\n`;
-    exportText += `COLLECTION: ${selectedNote.folder || "Unclassified"}\n`;
-    exportText += `TAGS: ${selectedNote.tags.join(", ") || "None"}\n`;
-    exportText += `LAST UPDATED: ${new Date(selectedNote.updatedAt).toLocaleString()}\n\n`;
-    exportText += `OVERVIEW:\n${selectedNote.content}\n\n`;
-    
-    if (selectedNote.actionItems.length > 0) {
-      exportText += `ACTION ITEMS:\n`;
-      selectedNote.actionItems.forEach(item => {
-        exportText += ` [${item.completed ? "x" : " "}] ${item.text}\n`;
-      });
-      exportText += `\n`;
-    }
-
-    if (selectedNote.notesList.length > 0) {
-      exportText += `NOTES & HIGHLIGHTS:\n`;
-      selectedNote.notesList.forEach(item => {
-        exportText += ` - ${item}\n`;
-      });
-    }
-
-    const blob = new Blob([exportText], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `${selectedNote.title.replace(/\s+/g, "_")}_Knowledge_Vault.txt`;
-    link.click();
-    URL.revokeObjectURL(url);
-    toast.success("Note exported as text file");
-  };
-
-  // Word count utility
   const getWordCount = () => {
     if (!selectedNote) return 0;
     const text = (selectedNote.content || "") + " " + selectedNote.notesList.join(" ");
@@ -716,11 +773,11 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
 
           <div className="flex items-center gap-2 border-l border-[#2B313D] pl-4">
             <div className="w-8 h-8 rounded-full bg-[#4F7CFF]/25 text-[#4F7CFF] border border-[#4F7CFF]/35 flex items-center justify-center text-xs font-bold font-mono">
-              NR
+              {currentUsername.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2)}
             </div>
             <div className="hidden sm:block text-left">
-              <p className="text-xs font-bold text-slate-200">Nathan Reardon</p>
-              <p className="text-[9px] text-[#9CA3AF] uppercase font-mono tracking-wider">Super Admin</p>
+              <p className="text-xs font-bold text-slate-200">{currentUsername}</p>
+              <p className="text-[8px] text-[#9CA3AF] uppercase font-mono tracking-wider">{currentRole}</p>
             </div>
           </div>
         </div>
@@ -752,7 +809,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
                       { label: "Tasks", icon: CheckSquare, active: false, count: null },
                       { label: "Projects", icon: FolderIcon, active: false, count: null },
                       { label: "Calendar", icon: CalendarIcon, active: false, count: null },
-                      { label: "Knowledge Vault", icon: BookOpen, active: true, count: notes.length },
+                      { label: "Knowledge Vault", icon: BookOpen, active: activeFolder === "All", count: notes.length },
                       { label: "Favorites", icon: Star, active: activeFolder === "Favorites", count: notes.filter(n => n.isFavorite).length },
                       { label: "Pinned Notes", icon: Pin, active: activeFolder === "Pinned", count: notes.filter(n => n.isPinned).length }
                     ].map(nav => (
@@ -762,6 +819,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
                           if (nav.label === "Favorites") setActiveFolder("Favorites");
                           else if (nav.label === "Pinned Notes") setActiveFolder("Pinned");
                           else if (nav.label === "Knowledge Vault") setActiveFolder("All");
+                          else handleNavClick(nav.label);
                         }} 
                         className={cn(
                           "w-full flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl transition-all",
@@ -848,24 +906,6 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
 
                 </div>
               </ScrollArea>
-
-              {/* Bottom Storage Card & Profile */}
-              <div className="p-4 border-t border-[#2B313D] bg-[#0E131F]/50 space-y-4">
-                {/* Storage Card */}
-                <div className="bg-[#111827] border border-[#2B313D] p-3 rounded-2xl space-y-2">
-                  <div className="flex justify-between items-center text-[10px]">
-                    <span className="font-bold text-slate-300">Vault Storage</span>
-                    <span className="text-[#9CA3AF] font-mono">4.2 GB / 10 GB</span>
-                  </div>
-                  <div className="w-full bg-[#2B313D] rounded-full h-1.5 overflow-hidden">
-                    <div className="bg-[#4F7CFF] h-1.5 rounded-full" style={{ width: "42%" }} />
-                  </div>
-                  <p className="text-[8px] text-[#9CA3AF] italic">Encryption protocol active.</p>
-                </div>
-                
-                {/* Small footer brand */}
-                <p className="text-[9px] font-mono text-center text-gray-600">Secure Vault v1.1.2026</p>
-              </div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -885,7 +925,6 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
                 )}
               </h3>
               
-              {/* Grid / List controls */}
               <div className="flex items-center gap-1">
                 <Button 
                   size="icon" 
@@ -909,14 +948,13 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
               </div>
             </div>
             
-            {/* Inner Feed search */}
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-505" />
               <Input 
                 placeholder="Search note overview..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-9 w-full rounded-xl bg-[#111827] border-[#2B313D] focus-visible:ring-[#4F7CFF]/20 text-xs text-slate-200 placeholder:text-gray-600"
+                className="pl-9 h-9 w-full rounded-xl bg-[#111827] border-[#2B313D] focus-visible:ring-[#4F7CFF]/20 text-xs text-slate-200 placeholder:text-gray-605"
               />
             </div>
           </div>
@@ -968,7 +1006,6 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
         {/* COLUMN 3: MAIN EDITOR CANVAS */}
         <div className="flex-1 flex flex-col bg-[#070A0F] overflow-hidden relative border-r border-[#2B313D]">
           
-          {/* Panel collapse trigger */}
           <div className="absolute left-2 top-4 z-10 flex gap-1.5">
             <Button 
               variant="ghost" 
@@ -992,7 +1029,6 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-[#070A0F] via-transparent to-transparent" />
                 
-                {/* Visual Accent badge */}
                 <div className="absolute bottom-4 left-6 flex items-center gap-1.5">
                   <Badge className="bg-[#4F7CFF]/85 text-white border-none rounded-lg px-2.5 py-0.5 font-bold uppercase tracking-wider text-[9px]">
                     SECURED NODE
@@ -1016,7 +1052,6 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
                   {/* Note header actions */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-850 pb-5">
                     
-                    {/* Note title / edit toggle */}
                     {isEditing ? (
                       <Input 
                         value={editTitle}
@@ -1087,7 +1122,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
                       <Textarea 
                         value={editContent}
                         onChange={(e) => setEditContent(e.target.value)}
-                        className="w-full text-base leading-relaxed bg-[#0b0f17]/40 border border-[#2B313D] rounded-2xl p-3.5 resize-none focus-visible:ring-[#4F7CFF]/15 placeholder:text-gray-700 text-slate-200"
+                        className="w-full text-base leading-relaxed bg-[#0b0f17]/40 border border-[#2B313D] rounded-2xl p-3.5 resize-none focus-visible:ring-[#4F7CFF]/15 placeholder:text-gray-705 text-slate-205"
                         placeholder="Enter document overview..."
                         rows={4}
                       />
@@ -1100,7 +1135,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
                     )}
                   </div>
 
-                  {/* AI Assistant Output Card (dynamic rendering if output is generated) */}
+                  {/* AI Assistant Output Card */}
                   {aiOutput && (
                     <motion.div 
                       initial={{ opacity: 0, y: 10 }}
@@ -1112,8 +1147,28 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
                         <span>AI Output Stream</span>
                       </div>
                       <p className="text-sm leading-relaxed text-slate-200 whitespace-pre-wrap font-mono">{aiOutput}</p>
+                      
+                      {/* Render Dynamic Related Note Selection Cards */}
+                      {relatedNotesList.length > 0 && (
+                        <div className="mt-4 border-t border-[#4F7CFF]/10 pt-3 space-y-2">
+                          <p className="text-[10px] font-bold uppercase text-[#4F7CFF]/80 tracking-widest">Dynamic Connections:</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {relatedNotesList.map(n => (
+                              <button 
+                                key={n.id} 
+                                onClick={() => selectNote(n)}
+                                className="text-left bg-black/35 hover:bg-[#4F7CFF]/20 p-2.5 border border-[#2B313D] rounded-xl text-xs flex items-center justify-between group transition-all"
+                              >
+                                <span className="font-bold truncate text-slate-200 group-hover:text-white">{n.title}</span>
+                                <CornerDownRight className="w-3.5 h-3.5 text-gray-500 group-hover:text-[#4F7CFF]" />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       <button 
-                        onClick={() => setAiOutput("")}
+                        onClick={() => { setAiOutput(""); setRelatedNotesList([]); }}
                         className="absolute top-3 right-3 p-1 hover:bg-[#4F7CFF]/25 rounded text-gray-400 hover:text-white"
                       >
                         <X className="w-4 h-4" />
@@ -1157,7 +1212,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
                       ))}
 
                       {actionItems.length === 0 && (
-                        <p className="text-xs text-gray-650 italic p-1">No action items defined yet.</p>
+                        <p className="text-xs text-gray-655 italic p-1">No action items defined yet.</p>
                       )}
 
                       <div className="flex gap-2 mt-3">
@@ -1255,7 +1310,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
                       {attachments.map((file, idx) => (
                         <Card key={idx} className="bg-[#111827] border-[#2B313D] hover:border-gray-700/60 shadow-md flex flex-col justify-between p-3.5 rounded-xl group/att relative overflow-hidden transition-all duration-200">
                           <div className="flex items-center gap-3">
-                            <div className="p-2 bg-gray-950 rounded-lg border border-gray-850">
+                            <div className="p-2 bg-gray-950 rounded-lg border border-gray-855">
                               {getFileIcon(file.mimeType)}
                             </div>
                             <div className="min-w-0 flex-1">
@@ -1352,7 +1407,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
                   {/* Note Details Section */}
                   <div className="space-y-3">
                     <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">Note Details</p>
-                    <div className="space-y-3 bg-[#0B0F17]/60 p-3.5 border border-[#2B313D] rounded-2xl font-mono text-[10px] text-gray-400 shadow-sm">
+                    <div className="space-y-3 bg-[#0B0F17]/60 p-3.5 border border-[#2B313D] rounded-2xl font-mono text-[10px] text-gray-405 shadow-sm">
                       <div className="flex justify-between">
                         <span>Created:</span>
                         <span className="text-slate-350 font-bold">{format(new Date(selectedNote.createdAt), "MMM d, yyyy")}</span>
@@ -1363,7 +1418,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
                       </div>
                       <div className="flex justify-between">
                         <span>Author:</span>
-                        <span className="text-[#4F7CFF] font-bold">Nathan Reardon</span>
+                        <span className="text-[#4F7CFF] font-bold">{currentUsername}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Access:</span>
@@ -1402,7 +1457,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
                           key={aiBtn.label}
                           disabled={aiGenerating}
                           onClick={() => runAiAssistant(aiBtn.action)}
-                          className="h-8.5 rounded-xl border border-gray-800 bg-[#0B0F17]/50 text-slate-300 hover:text-white hover:bg-[#4F7CFF]/10 font-bold text-[10px] w-full text-center transition-all"
+                          className="h-8.5 rounded-xl border border-gray-800 bg-[#0B0F17]/50 text-slate-350 hover:text-white hover:bg-[#4F7CFF]/10 font-bold text-[10px] w-full text-center transition-all"
                         >
                           {aiGenerating && aiBtn.action === "summarize" ? (
                             <Clock className="w-3 h-3 animate-spin mr-1 text-[#4F7CFF]" />
@@ -1449,7 +1504,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
                     <Button 
                       variant="ghost" 
                       onClick={() => handleDeleteNote(selectedNote.id)}
-                      className="w-full justify-start text-xs font-semibold hover:bg-red-950/20 hover:text-[#EF4444] rounded-xl gap-2.5 text-[#EF4444]"
+                      className="w-full justify-start text-xs font-semibold hover:bg-red-955/20 hover:text-[#EF4444] rounded-xl gap-2.5 text-[#EF4444]"
                     >
                       <Trash2 className="w-4 h-4" />
                       <span>Delete Vault Note</span>
@@ -1477,7 +1532,6 @@ interface NoteCardProps {
 }
 
 function NoteCard({ note, isSelected, viewMode, onClick, onPin, onFavorite }: NoteCardProps) {
-  // Select color borders based on tags or properties
   const accentColor = note.isPinned ? "#A855F7" : "#4F7CFF";
   
   if (viewMode === "grid") {
@@ -1529,7 +1583,6 @@ function NoteCard({ note, isSelected, viewMode, onClick, onPin, onFavorite }: No
       }}
     >
       <div className="flex items-center gap-3 flex-1 min-w-0">
-        {/* Mock Thumbnail Image matching the note color index */}
         <div className="w-12 h-12 rounded-xl flex-shrink-0 overflow-hidden relative border border-[#2B313D] bg-gradient-to-br from-[#161B22] to-gray-900 flex items-center justify-center">
           <FileText className="w-5 h-5 text-gray-600 group-hover:text-[#4F7CFF]/70 transition-colors" />
           {note.isPinned && (
