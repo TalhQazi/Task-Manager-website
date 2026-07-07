@@ -721,7 +721,7 @@ export default function EmployeeMessages() {
                         ) : null}
                         <div
                           className={cn(
-                            "flex items-center gap-1 mt-1 text-xs",
+                            "flex items-center gap-1 mt-0.5 text-[10px]",
                             isSentByMe ? "text-white/70" : "text-gray-500"
                           )}
                         >
@@ -751,7 +751,7 @@ export default function EmployeeMessages() {
           <div className="p-4 relative">
             {showEmojiPicker && (
               <div ref={emojiPickerRef} className="absolute bottom-full right-4 mb-2 z-50">
-                <EmojiPicker onEmojiClick={onEmojiClick} width={300} height={380} />
+                <EmojiPicker onEmojiClick={onEmojiClick} width={300} height={380} emojiStyle="native" />
               </div>
             )}
             <div className="flex items-center gap-2">

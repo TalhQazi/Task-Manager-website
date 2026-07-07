@@ -1224,7 +1224,7 @@ export default function Messages() {
                         ) : null}
 
                         {msg.content?.trim() ? <p className="break-words">{renderMessageContent(msg.content, isMe)}</p> : null}
-                        <p className={cn("text-[9px] sm:text-[10px] md:text-xs mt-0.5 sm:mt-1", isMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                        <p className={cn("text-[9px] sm:text-[10px] md:text-[10px] mt-0.5 sm:mt-0.5", isMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
                           {formatMessageTime(msg.timestamp)}
                           {isMe && (
                             <span className="ml-1">
@@ -1247,7 +1247,7 @@ export default function Messages() {
           <div className="p-2 sm:p-3 md:p-4 border-t relative">
             {showEmojiPicker && (
               <div ref={emojiPickerRef} className="absolute bottom-full right-4 mb-2 z-50">
-                <EmojiPicker onEmojiClick={onEmojiClick} width={300} height={380} />
+                <EmojiPicker onEmojiClick={onEmojiClick} width={300} height={380} emojiStyle="native" />
               </div>
             )}
             <div className="flex flex-col gap-2 sm:gap-2.5 md:gap-3">

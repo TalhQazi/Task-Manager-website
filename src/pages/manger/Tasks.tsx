@@ -727,6 +727,12 @@ export default function Tasks() {
   const [isLoadingProject, setIsLoadingProject] = useState(false);
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
   const [editSelectedAssignees, setEditSelectedAssignees] = useState<string[]>([]);
+  const [openReactionPopoverId, setOpenReactionPopoverId] = useState<string | null>(null);
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
+
+  useEffect(() => {
+    setAssigneeFilter("all");
+  }, [selectedProject?.id]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -2049,6 +2055,21 @@ export default function Tasks() {
   // Otherwise tasks come from the server-paginated query
   const sourceTasks = selectedProject ? selectedProject.tasks : (tasksQuery.data?.items || []);
 
+  const uniqueAssignees = useMemo(() => {
+    if (!selectedProject) return [];
+    const set = new Set<string>();
+    sourceTasks.forEach((t: any) => {
+      if (Array.isArray(t.assignees)) {
+        t.assignees.forEach((a: string) => {
+          if (a && typeof a === "string" && a.trim()) {
+            set.add(a.trim());
+          }
+        });
+      }
+    });
+    return Array.from(set).sort();
+  }, [sourceTasks, selectedProject]);
+
   const filteredTasks = useMemo(() => {
     if (!selectedProject) return sourceTasks; // already filtered server-side
     // Client-side filter only for selected-project task view
@@ -2070,9 +2091,12 @@ export default function Tasks() {
           const meName = (authState.name || "").toLowerCase().trim();
           return (meUsername && term === meUsername) || (meName && term === meName);
         }));
-      return matchesSearch && matchesStatus && matchesPriority && matchesAssignment;
+      const matchesAssignee =
+        assigneeFilter === "all" ||
+        (Array.isArray(task.assignees) && task.assignees.includes(assigneeFilter));
+      return matchesSearch && matchesStatus && matchesPriority && matchesAssignment && matchesAssignee;
     });
-  }, [sourceTasks, searchQuery, statusFilter, priorityFilter, assignmentFilter, selectedProject]);
+  }, [sourceTasks, searchQuery, statusFilter, priorityFilter, assignmentFilter, assigneeFilter, selectedProject]);
 
   // Projects come from server-paginated query (filtering handled server-side)
   const filteredProjects = projects;
@@ -2202,6 +2226,19 @@ export default function Tasks() {
               <SelectItem value="unassigned">Unassigned</SelectItem>
             </SelectContent>
           </Select>
+          {uniqueAssignees.length > 0 && (
+            <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+              <SelectTrigger className="w-[130px] sm:w-[140px]">
+                <SelectValue placeholder="Assignee" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Assignees</SelectItem>
+                {uniqueAssignees.map((a) => (
+                  <SelectItem key={a} value={a}>{a}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Button variant="outline" size="icon" className="shrink-0">
             <Filter className="w-4 h-4" />
           </Button>
@@ -3461,7 +3498,7 @@ export default function Tasks() {
                                               "absolute -top-4 opacity-0 group-hover/bubble:opacity-100 transition-opacity flex items-center gap-1 bg-background border border-border shadow-sm rounded-full px-1.5 py-0.5 z-20",
                                               isMe ? "right-0" : "left-0"
                                             )}>
-                                              <Popover>
+                                              <Popover open={openReactionPopoverId === c.id} onOpenChange={(open) => setOpenReactionPopoverId(open ? c.id : null)}>
                                                 <PopoverTrigger asChild>
                                                   <button className="p-1 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground">
                                                     <Smile className="w-3.5 h-3.5" />
@@ -3471,7 +3508,10 @@ export default function Tasks() {
                                                   {["👍", "❤️", "🔥", "🚀", "👏", "🎉", "😮", "🙏"].map(emoji => (
                                                     <button
                                                       key={emoji}
-                                                      onClick={() => void toggleReaction(c.id, emoji)}
+                                                      onClick={() => {
+                                                        void toggleReaction(c.id, emoji);
+                                                        setOpenReactionPopoverId(null);
+                                                      }}
                                                       className="p-1.5 hover:bg-muted rounded text-lg transition-transform hover:scale-125"
                                                     >
                                                       {emoji}

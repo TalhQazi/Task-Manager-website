@@ -200,7 +200,7 @@ function AttachmentCard({
         {isImage ? <Image className="w-4 h-4 text-blue-500" /> : <FileText className="w-4 h-4 text-orange-500" />}
       </div>
       <span className="text-sm font-medium truncate flex-1">{att.name}</span>
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
         <button
           onClick={onPreview}
           className="w-7 h-7 rounded-lg flex items-center justify-center text-blue-500 hover:bg-blue-500/10 transition-colors"
@@ -406,7 +406,7 @@ export default function CompanyRegistry() {
   /* ── shared form body ── */
   const renderForm = (isOpen: boolean, onClose: () => void, onSubmit: () => void, title: string) => (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto p-0">
+      <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[92vh] overflow-y-auto p-0">
         {/* Modal header bar */}
         <div className="sticky top-0 z-10 flex items-center justify-between px-6 py-4 border-b bg-background/95 backdrop-blur-sm">
           <h2 className="text-lg font-semibold">{title}</h2>
@@ -782,7 +782,7 @@ export default function CompanyRegistry() {
 
       {/* ── View Drawer ── */}
       <Dialog open={isViewDrawerOpen} onOpenChange={setIsViewDrawerOpen}>
-        <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto p-0">
+        <DialogContent className="w-[95vw] sm:max-w-lg max-h-[92vh] overflow-y-auto p-0">
           {/* Top band */}
           <div className="px-6 pt-6 pb-4 border-b space-y-3 bg-muted/30">
             <div className="flex items-start gap-3">
@@ -852,7 +852,7 @@ export default function CompanyRegistry() {
 
       {/* ── Preview Modal ── */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto p-0">
+        <DialogContent className="w-[95vw] sm:max-w-3xl max-h-[92vh] overflow-y-auto p-0">
           <div className="sticky top-0 z-10 flex items-center gap-3 px-5 py-3.5 border-b bg-background/95 backdrop-blur-sm">
             <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${previewAttachment && isImg(previewAttachment.type) ? "bg-blue-500/10" : "bg-orange-500/10"}`}>
               {previewAttachment && isImg(previewAttachment.type) ? <Image className="w-4 h-4 text-blue-500" /> : <FileText className="w-4 h-4 text-orange-500" />}
@@ -902,7 +902,7 @@ export default function CompanyRegistry() {
 
       {/* ── Delete Confirm ── */}
       <Dialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
-        <DialogContent className="max-w-sm p-0">
+        <DialogContent className="w-[95vw] sm:max-w-sm p-0">
           <div className="p-6 space-y-4">
             <div className="w-12 h-12 rounded-xl bg-red-500/10 flex items-center justify-center ring-1 ring-red-500/20 mx-auto">
               <Trash2 className="w-6 h-6 text-red-500" />

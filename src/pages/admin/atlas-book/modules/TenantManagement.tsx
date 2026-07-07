@@ -25,7 +25,8 @@ export default function TenantManagement() {
     status: "Active",
     assignedProperty: "",
     assignedUnit: "",
-    locationName: ""
+    locationName: "",
+    address: ""
   });
 
   const load = async () => {
@@ -66,7 +67,8 @@ export default function TenantManagement() {
           status: "Active",
           assignedProperty: "",
           assignedUnit: "",
-          locationName: ""
+          locationName: "",
+          address: ""
         });
         load();
       }
@@ -116,6 +118,7 @@ export default function TenantManagement() {
                 <TableHead>Contact</TableHead>
                 <TableHead>Property</TableHead>
                 <TableHead>Unit</TableHead>
+                <TableHead>Address</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>History</TableHead>
@@ -124,9 +127,9 @@ export default function TenantManagement() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={9} className="text-center py-10"><RefreshCw className="animate-spin mx-auto" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center py-10"><RefreshCw className="animate-spin mx-auto" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={9} className="text-center py-10 text-muted-foreground italic">No tenants found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={10} className="text-center py-10 text-muted-foreground italic">No tenants found.</TableCell></TableRow>
               ) : (
                 filtered.map((item) => (
                   <TableRow key={item._id}>
@@ -140,6 +143,7 @@ export default function TenantManagement() {
                     </TableCell>
                     <TableCell className="text-sm">{item.assignedProperty || "None"}</TableCell>
                     <TableCell className="text-sm">{item.assignedUnit || "None"}</TableCell>
+                    <TableCell className="text-sm">{item.address || "None"}</TableCell>
                     <TableCell className="text-sm">{item.locationName || "None"}</TableCell>
                     <TableCell>
                       <Badge variant={item.status === "Active" ? "default" : "secondary"}>
@@ -213,14 +217,12 @@ export default function TenantManagement() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Unit</label>
-              <select 
-                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-ring text-foreground"
-                value={form.assignedUnit}
-                onChange={e => setForm({...form, assignedUnit: e.target.value})}
-              >
-                <option value="">None</option>
-                {units.map(u => <option key={u._id} value={u.unitNumber}>{u.unitNumber}</option>)}
-              </select>
+              <Input placeholder="e.g. Apt 4B, Suite 100" value={form.assignedUnit} onChange={e => setForm({...form, assignedUnit: e.target.value})} />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Address</label>
+              <Input placeholder="Street Address, City, State, ZIP" value={form.address} onChange={e => setForm({...form, address: e.target.value})} />
             </div>
 
             <div className="space-y-2">

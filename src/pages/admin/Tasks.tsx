@@ -709,6 +709,12 @@ export default function Tasks() {
   const [isLoadingProject, setIsLoadingProject] = useState(false);
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
   const [editSelectedAssignees, setEditSelectedAssignees] = useState<string[]>([]);
+  const [openReactionPopoverId, setOpenReactionPopoverId] = useState<string | null>(null);
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
+
+  useEffect(() => {
+    setAssigneeFilter("all");
+  }, [selectedProject?.id]);
   const [taskTeamLead, setTaskTeamLead] = useState("");
   const [taskTeamLeadPopoverOpen, setTaskTeamLeadPopoverOpen] = useState(false);
   const [editTaskTeamLead, setEditTaskTeamLead] = useState("");
@@ -2356,6 +2362,20 @@ export default function Tasks() {
 
   const sourceTasks = selectedProject ? selectedProject.tasks : (tasksQuery.data?.items || []);
 
+  const uniqueAssignees = useMemo(() => {
+    const set = new Set<string>();
+    sourceTasks.forEach((t: any) => {
+      if (Array.isArray(t.assignees)) {
+        t.assignees.forEach((a: string) => {
+          if (a && typeof a === "string" && a.trim()) {
+            set.add(a.trim());
+          }
+        });
+      }
+    });
+    return Array.from(set).sort();
+  }, [sourceTasks]);
+
   const filteredTasks = useMemo(() => {
     const filtered = sourceTasks.filter((task) => {
       const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
@@ -2378,11 +2398,14 @@ export default function Tasks() {
           const meName = (authState.name || "").toLowerCase().trim();
           return (meUsername && term === meUsername) || (meName && term === meName);
         }));
+      const matchesAssignee =
+        assigneeFilter === "all" ||
+        (Array.isArray(task.assignees) && task.assignees.includes(assigneeFilter));
  
       // Archive logic: only filter if specifically requested via showArchivedTasks toggle
       if (showArchivedTasks && task.status !== "completed") return false;
  
-      return matchesSearch && matchesStatus && matchesPriority && matchesAssignment;
+      return matchesSearch && matchesStatus && matchesPriority && matchesAssignment && matchesAssignee;
     });
 
     // Sort by execution priority when viewByPriority is enabled
@@ -2580,6 +2603,19 @@ export default function Tasks() {
               <SelectItem value="unassigned">Unassigned</SelectItem>
             </SelectContent>
           </Select>
+          {uniqueAssignees.length > 0 && (
+            <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+              <SelectTrigger className="w-full sm:w-[150px] h-10">
+                <SelectValue placeholder="Assignee" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Assignees</SelectItem>
+                {uniqueAssignees.map((a) => (
+                  <SelectItem key={a} value={a}>{a}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Button 
             variant={showArchivedTasks ? "secondary" : "outline"}
             onClick={() => setShowArchivedTasks(!showArchivedTasks)}
@@ -4069,7 +4105,7 @@ export default function Tasks() {
                                         "absolute -top-4 opacity-0 group-hover/bubble:opacity-100 transition-opacity flex items-center gap-1 bg-background border border-border shadow-sm rounded-full px-1.5 py-0.5 z-20",
                                         isMe ? "right-0" : "left-0"
                                       )}>
-                                        <Popover>
+                                        <Popover open={openReactionPopoverId === c.id} onOpenChange={(open) => setOpenReactionPopoverId(open ? c.id : null)}>
                                           <PopoverTrigger asChild>
                                             <button className="p-1 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground">
                                               <Smile className="w-3.5 h-3.5" />
@@ -4079,7 +4115,10 @@ export default function Tasks() {
                                             {["👍", "❤️", "🔥", "🚀", "👏", "🎉", "😮", "🙏"].map(emoji => (
                                               <button
                                                 key={emoji}
-                                                onClick={() => { toggleReaction(c.id, emoji); }}
+                                                onClick={() => {
+                                                  toggleReaction(c.id, emoji);
+                                                  setOpenReactionPopoverId(null);
+                                                }}
                                                 className="p-1.5 hover:bg-muted rounded text-lg transition-transform hover:scale-125"
                                               >
                                                 {emoji}
@@ -4150,7 +4189,7 @@ export default function Tasks() {
                                       )}
 
                                       <div className={cn(
-                                        "chat-timestamp",
+                                        "text-[10px] text-muted-foreground/60 font-medium mt-1",
                                         isMe ? "text-right mr-1" : "text-left ml-1"
                                       )}>
                                         {formatMessageTime(c.createdAt)}

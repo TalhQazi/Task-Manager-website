@@ -659,7 +659,7 @@ export default function EmployeeTaskDetails() {
                                 </div>
                                 
                                 <div className={cn(
-                                  "chat-timestamp",
+                                  "text-[10px] text-muted-foreground/60 font-medium mt-1",
                                   isMe ? "text-right mr-1" : "text-left ml-1"
                                 )}>
                                   {formatMessageTime(c.createdAt)}

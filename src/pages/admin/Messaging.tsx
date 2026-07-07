@@ -1154,7 +1154,7 @@ export default function Messaging() {
 
                           {msg.content?.trim() ? <p className="text-sm">{renderMessageContent(msg.content, isMe)}</p> : null}
                           <p className={cn(
-                            "text-xs mt-1",
+                            "text-[10px] mt-0.5",
                             isMe ? "text-primary-foreground/70" : "text-muted-foreground"
                           )}>
                             {formatMessageTime(msg.timestamp)}
@@ -1167,21 +1167,21 @@ export default function Messaging() {
                             )}
                           </p>
                         </div>
-                      </div>
-                    );
-                  })}
-                  <div ref={messagesEndRef} />
-                </>
-              )}
-              </div>
-
-              {/* Message Input */}
-              <div className="p-4 border-t relative">
-                {showEmojiPicker && (
-                  <div ref={emojiPickerRef} className="absolute bottom-full right-4 mb-2 z-50">
-                    <EmojiPicker onEmojiClick={onEmojiClick} width={320} height={400} />
-                  </div>
-                )}
+                       </div>
+                     );
+                   })}
+                   <div ref={messagesEndRef} />
+                 </>
+               )}
+               </div>
+ 
+               {/* Message Input */}
+               <div className="p-4 border-t relative">
+                 {showEmojiPicker && (
+                   <div ref={emojiPickerRef} className="absolute bottom-full right-4 mb-2 z-50">
+                     <EmojiPicker onEmojiClick={onEmojiClick} width={320} height={400} emojiStyle="native" />
+                   </div>
+                 )}
                 <div className="flex items-center gap-3">
                   <input
                     ref={fileInputRef}
