@@ -7,7 +7,7 @@ import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/admin/ui/avatar";
 import { useSocket } from "@/contexts/SocketContext";
-import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
+import EmojiPicker, { EmojiStyle, type EmojiClickData } from "emoji-picker-react";
 import {
   Dialog,
   DialogContent,
@@ -17,9 +17,10 @@ import {
 import { Plus, Search, Send, ArrowLeft, MessageCircle, User, Archive, Bookmark, Paperclip, Download, Smile } from "lucide-react";
 import { apiFetch, listResource, toProxiedUrl } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
-import { Textarea } from "@/components/admin/ui/textarea";
 import { cn } from "@/lib/utils";
 import { renderMessageContent } from "@/lib/linkify";
+import MessageReactionBar, { type MessageReaction } from "@/components/shared/MessageReactionBar";
+import MentionsTextarea from "@/components/shared/MentionsTextarea";
 
 interface Employee {
   id: string;
@@ -48,6 +49,7 @@ interface Message {
   status: "sent" | "delivered" | "read";
   createdAt?: string;
   attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number };
+  reactions?: MessageReaction[];
 }
 
 type MessageApi = Omit<Message, "id"> & {
@@ -80,6 +82,9 @@ function normalizeMessage(m: any): Message {
     status: m.status || "sent",
     createdAt: m.createdAt,
     attachment: m.attachment,
+    reactions: Array.isArray(m.reactions)
+      ? m.reactions.map((r: any) => ({ emoji: String(r.emoji || ""), username: String(r.username || "") }))
+      : [],
   };
 }
 
@@ -228,6 +233,19 @@ export default function Messaging() {
     socket.on("new-message", handleNewMessage);
     return () => { socket.off("new-message", handleNewMessage); };
   }, [socket, view, selectedEmployee?.name]);
+
+  // Real-time reaction updates via socket
+  useEffect(() => {
+    if (!socket) return;
+    const handleReaction = (payload: { messageId?: string; reactions?: MessageReaction[] }) => {
+      if (!payload?.messageId) return;
+      setConversationMessages((prev) =>
+        prev.map((m) => (m.id === payload.messageId ? { ...m, reactions: payload.reactions || [] } : m))
+      );
+    };
+    socket.on("message-reaction", handleReaction);
+    return () => { socket.off("message-reaction", handleReaction); };
+  }, [socket]);
 
   // Real-time status updates via socket
   useEffect(() => {
@@ -383,6 +401,21 @@ export default function Messaging() {
 
   const { name: authName, username: authUsername } = getAuthState();
   const currentUser = (authName || authUsername || "Admin").trim();
+
+  // Toggle the current user's emoji reaction on a message
+  const toggleReaction = async (messageId: string, emoji: string) => {
+    try {
+      const res = await apiFetch<{ messageId: string; reactions: MessageReaction[] }>(
+        `/api/messages/${encodeURIComponent(messageId)}/react`,
+        { method: "POST", body: JSON.stringify({ emoji, username: currentUser }) }
+      );
+      setConversationMessages((prev) =>
+        prev.map((m) => (m.id === res.messageId ? { ...m, reactions: res.reactions } : m))
+      );
+    } catch (err) {
+      console.error("Failed to toggle reaction:", err);
+    }
+  };
 
   // Handle navigation state - auto-open conversation from header dropdown
   useEffect(() => {
@@ -1117,10 +1150,11 @@ export default function Messaging() {
                         ) : (
                           <div className="w-8 flex-shrink-0" />
                         )}
+                        <div className={cn("max-w-[70%] flex flex-col", isMe ? "items-end" : "items-start")}>
                         <div
                           className={cn(
-                            "max-w-[70%] rounded-2xl px-4 py-2",
-                            isMe 
+                            "rounded-2xl px-4 py-2",
+                            isMe
                               ? "bg-primary text-primary-foreground rounded-br-none"
                               : "bg-muted rounded-bl-none"
                           )}
@@ -1167,6 +1201,13 @@ export default function Messaging() {
                             )}
                           </p>
                         </div>
+                        <MessageReactionBar
+                          reactions={msg.reactions || []}
+                          currentUser={currentUser}
+                          isMe={isMe}
+                          onToggle={(emoji) => void toggleReaction(msg.id, emoji)}
+                        />
+                        </div>
                        </div>
                      );
                    })}
@@ -1179,7 +1220,7 @@ export default function Messaging() {
                <div className="p-4 border-t relative">
                  {showEmojiPicker && (
                    <div ref={emojiPickerRef} className="absolute bottom-full right-4 mb-2 z-50">
-                     <EmojiPicker onEmojiClick={onEmojiClick} width={320} height={400} emojiStyle="native" />
+                     <EmojiPicker onEmojiClick={onEmojiClick} width={320} height={400} emojiStyle={EmojiStyle.NATIVE} />
                    </div>
                  )}
                 <div className="flex items-center gap-3">
@@ -1207,17 +1248,15 @@ export default function Messaging() {
                   >
                     <Smile className="h-4 w-4" />
                   </Button>
-                  <Textarea
-                    placeholder={`Message ${selectedEmployee.name}...`}
+                  <MentionsTextarea
+                    placeholder={`Message ${selectedEmployee.name}... (type @ to mention)`}
                     className="min-h-[60px] resize-none"
                     value={newMessageContent}
-                    onChange={(e) => setNewMessageContent(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        sendMessage();
-                      }
-                    }}
+                    onChange={setNewMessageContent}
+                    onSubmit={sendMessage}
+                    users={employees
+                      .filter((e) => e.name && e.name !== currentUser)
+                      .map((e) => ({ name: e.name, avatarUrl: toProxiedUrl(e.avatarUrl) || e.avatarUrl, role: e.role }))}
                   />
                   <Button
                     onClick={sendMessage}

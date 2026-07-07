@@ -72,6 +72,8 @@ import {
   Printer,
   Check,
   ChevronsUpDown,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   AlertCircle,
   CheckCircle2,
@@ -790,6 +792,44 @@ export default function Tasks() {
   // Lightbox / File Preview State
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState<string>("");
+  // Gallery navigation for the preview dialog: browse sibling images without closing it
+  const [previewGallery, setPreviewGallery] = useState<Array<{ url: string; name: string }>>([]);
+  const [previewIdx, setPreviewIdx] = useState(0);
+
+  const openImagePreview = (url: string, name: string, gallery?: Array<{ url: string; name: string }>) => {
+    setPreviewUrl(url);
+    setPreviewName(name);
+    if (gallery && gallery.length > 1) {
+      let idx = gallery.findIndex((g) => g.url === url);
+      if (idx < 0) idx = gallery.findIndex((g) => g.name === name);
+      setPreviewGallery(gallery);
+      setPreviewIdx(idx >= 0 ? idx : 0);
+    } else {
+      setPreviewGallery([]);
+      setPreviewIdx(0);
+    }
+  };
+
+  const stepPreview = useCallback((dir: 1 | -1) => {
+    setPreviewIdx((prev) => {
+      if (previewGallery.length < 2) return prev;
+      const next = (prev + dir + previewGallery.length) % previewGallery.length;
+      setPreviewUrl(previewGallery[next].url);
+      setPreviewName(previewGallery[next].name);
+      return next;
+    });
+  }, [previewGallery]);
+
+  // Arrow-key navigation while the preview is open
+  useEffect(() => {
+    if (!previewUrl || previewGallery.length < 2) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") { e.preventDefault(); stepPreview(1); }
+      if (e.key === "ArrowLeft") { e.preventDefault(); stepPreview(-1); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [previewUrl, previewGallery, stepPreview]);
   const [isVideoRecorderOpen, setIsVideoRecorderOpen] = useState(false);
 
   // Asset Library Picker states
@@ -3904,15 +3944,19 @@ export default function Tasks() {
                       <h4 className="text-[13px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-2"><Paperclip className="w-4 h-4" /> Attached Files</h4>
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 bg-muted/20 p-3 rounded-xl border border-border/50">
                         {selectedTask.attachments && selectedTask.attachments.length > 0
-                          ? selectedTask.attachments.map((attachment, idx) => (
+                          ? selectedTask.attachments.map((attachment, idx) => {
+                            const taskImageGallery = (selectedTask.attachments || [])
+                              .filter((a) => a.url && (a.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(a.fileName || "")))
+                              .map((a) => ({ url: toProxiedUrl(a.url) || a.url, name: a.fileName || "Attachment" }));
+                            return (
                             <div key={idx} className="relative group">
-                              <TaskAttachmentItem attachment={attachment} onPreview={(url, fileName) => { setPreviewUrl(url); setPreviewName(fileName); }} />
+                              <TaskAttachmentItem attachment={attachment} onPreview={(url, fileName) => openImagePreview(url, fileName, taskImageGallery)} />
                               <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
 
                               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[1px]">
                                 <button
                                   type="button"
-                                  onClick={(e) => { e.stopPropagation(); setPreviewUrl(toProxiedUrl(attachment.url) || attachment.url); setPreviewName(attachment.fileName || "Attachment"); }}
+                                  onClick={(e) => { e.stopPropagation(); openImagePreview(toProxiedUrl(attachment.url) || attachment.url, attachment.fileName || "Attachment", taskImageGallery); }}
                                   className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white"
                                   title="Preview"
                                 >
@@ -3929,7 +3973,8 @@ export default function Tasks() {
                               </div>
                               {isAdminRole && (<button type="button" onClick={(e) => { e.stopPropagation(); setConfirmArchiveAttachmentIndex(idx); }} disabled={archivingAttachment === idx} className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100/90 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-lg z-10" title="Archive attachment">{archivingAttachment === idx ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}</button>)}
                             </div>
-                          ))
+                          );
+                          })
                           : selectedTask.attachment?.fileName ? (
                             <div className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => { if (selectedTask.attachment?.url) { setPreviewUrl(toProxiedUrl(selectedTask.attachment.url) || selectedTask.attachment.url); setPreviewName(selectedTask.attachment.fileName || "Attachment"); } }}>
                               {selectedTask.attachment.mimeType?.startsWith("image/") && selectedTask.attachment.url ? (
@@ -4142,14 +4187,22 @@ export default function Tasks() {
                                           )}>
                                             {c.attachments.map((att, attIdx) => (
                                               <div key={attIdx} className="relative rounded-xl overflow-hidden border border-white/20 bg-black/10 min-w-[120px] max-w-full h-auto">
-                                                <CommentAttachmentImg 
-                                                  taskId={selectedTask.id} 
-                                                  commentId={c.id} 
-                                                  index={attIdx} 
-                                                  mimeType={att.mimeType} 
-                                                  fileName={att.fileName} 
-                                                  fallbackUrl={att.url} 
-                                                  onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
+                                                <CommentAttachmentImg
+                                                  taskId={selectedTask.id}
+                                                  commentId={c.id}
+                                                  index={attIdx}
+                                                  mimeType={att.mimeType}
+                                                  fileName={att.fileName}
+                                                  fallbackUrl={att.url}
+                                                  onPreview={(url, name) => {
+                                                    // Gallery of every image in the whole comment thread
+                                                    const gallery = comments.flatMap((cm) =>
+                                                      (cm.attachments || [])
+                                                        .filter((a) => a.url && a.mimeType?.startsWith("image/"))
+                                                        .map((a) => ({ url: toProxiedUrl(a.url) || a.url, name: a.fileName || "image" }))
+                                                    );
+                                                    openImagePreview(url, name, gallery);
+                                                  }}
                                                 />
                                               </div>
                                             ))}
@@ -5384,13 +5437,34 @@ export default function Tasks() {
       )}
 
       {/* File Preview Lightbox */}
-      <Dialog open={!!previewUrl} onOpenChange={(open) => !open && setPreviewUrl(null)}>
+      <Dialog open={!!previewUrl} onOpenChange={(open) => { if (!open) { setPreviewUrl(null); setPreviewGallery([]); } }}>
         <DialogContent className="max-w-[95vw] w-fit p-0 border-none bg-transparent shadow-none">
           <DialogHeader className="sr-only">
             <DialogTitle>File Preview: {previewName}</DialogTitle>
             <DialogDescription>Previewing attachment file</DialogDescription>
           </DialogHeader>
           <div className="relative group/preview-modal">
+            {previewGallery.length > 1 && (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); stepPreview(-1); }}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 z-50 p-2.5 bg-black/50 hover:bg-black/80 backdrop-blur-md rounded-full text-white shadow-lg transition-all hover:scale-110"
+                  title="Previous image (←)"
+                >
+                  <ChevronLeft className="w-6 h-6" />
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); stepPreview(1); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 z-50 p-2.5 bg-black/50 hover:bg-black/80 backdrop-blur-md rounded-full text-white shadow-lg transition-all hover:scale-110"
+                  title="Next image (→)"
+                >
+                  <ChevronRight className="w-6 h-6" />
+                </button>
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-50 px-3 py-1 bg-black/50 backdrop-blur-md rounded-full text-white text-xs font-bold shadow-lg">
+                  {previewIdx + 1} / {previewGallery.length}
+                </div>
+              </>
+            )}
             <div className="absolute top-4 right-4 z-50 flex items-center gap-3 opacity-0 group-hover/preview-modal:opacity-100 transition-opacity">
               <button 
                 onClick={(e) => { e.stopPropagation(); if (previewUrl) void downloadViaUrl(previewUrl, previewName); }}
@@ -5400,7 +5474,7 @@ export default function Tasks() {
                 <Download className="w-5 h-5" />
               </button>
               <button
-                onClick={() => setPreviewUrl(null)}
+                onClick={() => { setPreviewUrl(null); setPreviewGallery([]); }}
                 className="p-2 bg-black/50 hover:bg-black/70 backdrop-blur-md rounded-full text-white shadow-lg transition-all"
                 title="Close"
               >

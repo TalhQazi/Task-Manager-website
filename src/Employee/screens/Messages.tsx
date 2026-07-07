@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 
 import { useSocket } from "@/contexts/SocketContext";
-import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
+import EmojiPicker, { EmojiStyle, type EmojiClickData } from "emoji-picker-react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   MessageCircle,
@@ -40,6 +40,9 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { renderMessageContent } from "@/lib/linkify";
+import MessageReactionBar, { type MessageReaction } from "@/components/shared/MessageReactionBar";
+import MentionsTextarea from "@/components/shared/MentionsTextarea";
+import { toggleMessageReaction } from "../lib/api";
 
 interface Conversation {
   employee: {
@@ -74,6 +77,7 @@ interface Message {
   type: string;
   status: string;
   attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number };
+  reactions?: MessageReaction[];
 }
 
 const normalizeMessage = (m: any): Message => {
@@ -86,6 +90,9 @@ const normalizeMessage = (m: any): Message => {
     type: String(m.type || "direct"),
     status: String(m.status || "sent"),
     attachment: m.attachment,
+    reactions: Array.isArray(m.reactions)
+      ? m.reactions.map((r: any) => ({ emoji: String(r.emoji || ""), username: String(r.username || "") }))
+      : [],
   };
 };
 
@@ -266,6 +273,32 @@ export default function EmployeeMessages() {
 
     return () => { socket.off("new-message", handleNewMessage); };
   }, [socket, employeeName, selectedConversation?.employee?.name]);
+
+  // Real-time reaction updates via socket
+  useEffect(() => {
+    if (!socket) return;
+    const handleReaction = (payload: { messageId?: string; reactions?: MessageReaction[] }) => {
+      if (!payload?.messageId) return;
+      setMessages((prev) =>
+        prev.map((m) => (m.id === payload.messageId ? { ...m, reactions: payload.reactions || [] } : m))
+      );
+    };
+    socket.on("message-reaction", handleReaction);
+    return () => { socket.off("message-reaction", handleReaction); };
+  }, [socket]);
+
+  // Toggle the current user's emoji reaction on a message
+  const toggleReaction = async (messageId: string, emoji: string) => {
+    if (!employeeName) return;
+    try {
+      const res = await toggleMessageReaction(messageId, emoji, employeeName);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === res.messageId ? { ...m, reactions: res.reactions } : m))
+      );
+    } catch (err) {
+      console.error("Failed to toggle reaction:", err);
+    }
+  };
 
   // Real-time employee status update via socket
   useEffect(() => {
@@ -681,9 +714,10 @@ export default function EmployeeMessages() {
                           <div className="w-7 flex-shrink-0" />
                         )
                       )}
+                      <div className={cn("max-w-[80%] sm:max-w-[65%] min-w-0 flex flex-col", isSentByMe ? "items-end" : "items-start")}>
                       <div
                         className={cn(
-                          "max-w-[80%] sm:max-w-[65%] min-w-0 rounded-2xl p-2 sm:p-3 shadow-sm",
+                          "rounded-2xl p-2 sm:p-3 shadow-sm",
                           isSentByMe
                             ? "bg-[#133767] text-white rounded-br-sm"
                             : "bg-white border border-gray-200 text-gray-900 rounded-bl-sm"
@@ -737,6 +771,13 @@ export default function EmployeeMessages() {
                           )}
                         </div>
                       </div>
+                      <MessageReactionBar
+                        reactions={msg.reactions || []}
+                        currentUser={employeeName}
+                        isMe={isSentByMe}
+                        onToggle={(emoji) => void toggleReaction(msg.id, emoji)}
+                      />
+                      </div>
                     </div>
                   );
                 })
@@ -751,7 +792,7 @@ export default function EmployeeMessages() {
           <div className="p-4 relative">
             {showEmojiPicker && (
               <div ref={emojiPickerRef} className="absolute bottom-full right-4 mb-2 z-50">
-                <EmojiPicker onEmojiClick={onEmojiClick} width={300} height={380} emojiStyle="native" />
+                <EmojiPicker onEmojiClick={onEmojiClick} width={300} height={380} emojiStyle={EmojiStyle.NATIVE} />
               </div>
             )}
             <div className="flex items-center gap-2">
@@ -779,20 +820,21 @@ export default function EmployeeMessages() {
               >
                 <Smile className="h-4 w-4" />
               </Button>
-              <textarea
+              <MentionsTextarea
                 ref={messageInputRef}
-                placeholder="Type a message..."
+                placeholder="Type a message... (type @ to mention)"
                 value={messageInput}
-                onChange={(e) => setMessageInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                rows={1}
-                className={cn(
-                  "flex-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm",
-                  "ring-offset-background placeholder:text-muted-foreground",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                  "disabled:cursor-not-allowed disabled:opacity-50",
-                  "resize-none overflow-y-auto leading-5"
-                )}
+                onChange={setMessageInput}
+                onSubmit={handleSendMessage}
+                users={conversations
+                  .map((c) => c.employee)
+                  .filter((e) => e.name && e.name !== employeeName)
+                  .map((e) => ({
+                    name: e.name,
+                    avatarUrl: toProxiedUrl(e.avatarUrl) || e.avatarUrl,
+                    role: e.department,
+                  }))}
+                className="resize-none overflow-y-auto leading-5"
               />
               <Button
                 onClick={handleSendMessage}
