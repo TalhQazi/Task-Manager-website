@@ -126,49 +126,91 @@ export default function NotificationSettingsTable({
   });
 
   return (
-    <div className="w-full overflow-x-auto rounded-lg border border-border bg-card">
-      <table className="w-full min-w-[600px] border-collapse text-left text-sm">
-        <thead>
-          <tr className="border-b border-border bg-muted/50">
-            <th className="p-4 font-semibold text-foreground">Notification Category</th>
-            <th className="p-4 text-center font-semibold text-foreground w-36">Email Alerts</th>
-            <th className="p-4 text-center font-semibold text-foreground w-36">In-App Alerts</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-border">
-          {visibleCategories.map((cat) => {
-            const isEmailOn = emailPreferences[cat.key] !== false;
-            const isWebOn = webPreferences[cat.key] !== false;
+    <div className="w-full space-y-4">
+      {/* Desktop/Tablet View - Wide Table */}
+      <div className="hidden md:block w-full overflow-x-auto rounded-lg border border-border bg-card">
+        <table className="w-full min-w-[600px] border-collapse text-left text-sm">
+          <thead>
+            <tr className="border-b border-border bg-muted/50">
+              <th className="p-4 font-semibold text-foreground">Notification Category</th>
+              <th className="p-4 text-center font-semibold text-foreground w-36">Email Alerts</th>
+              <th className="p-4 text-center font-semibold text-foreground w-36">In-App Alerts</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {visibleCategories.map((cat) => {
+              const isEmailOn = emailPreferences[cat.key] !== false;
+              const isWebOn = webPreferences[cat.key] !== false;
 
-            return (
-              <tr key={cat.key} className="hover:bg-muted/20 transition-colors">
-                <td className="p-4">
-                  <div className="font-medium text-foreground">{cat.name}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5 max-w-md">
-                    {cat.description}
-                  </div>
-                </td>
-                <td className="p-4 text-center">
-                  <div className="flex justify-center">
-                    <Switch
-                      checked={isEmailOn}
-                      onCheckedChange={(val) => onChange("email", cat.key, val)}
-                    />
-                  </div>
-                </td>
-                <td className="p-4 text-center">
-                  <div className="flex justify-center">
-                    <Switch
-                      checked={isWebOn}
-                      onCheckedChange={(val) => onChange("web", cat.key, val)}
-                    />
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+              return (
+                <tr key={cat.key} className="hover:bg-muted/20 transition-colors">
+                  <td className="p-4">
+                    <div className="font-medium text-foreground">{cat.name}</div>
+                    <div className="text-xs text-muted-foreground mt-0.5 max-w-md">
+                      {cat.description}
+                    </div>
+                  </td>
+                  <td className="p-4 text-center">
+                    <div className="flex justify-center">
+                      <Switch
+                        checked={isEmailOn}
+                        onCheckedChange={(val) => onChange("email", cat.key, val)}
+                      />
+                    </div>
+                  </td>
+                  <td className="p-4 text-center">
+                    <div className="flex justify-center">
+                      <Switch
+                        checked={isWebOn}
+                        onCheckedChange={(val) => onChange("web", cat.key, val)}
+                      />
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile View - Stacked Cards */}
+      <div className="md:hidden space-y-3">
+        {visibleCategories.map((cat) => {
+          const isEmailOn = emailPreferences[cat.key] !== false;
+          const isWebOn = webPreferences[cat.key] !== false;
+
+          return (
+            <div
+              key={cat.key}
+              className="p-4 rounded-xl border border-border bg-card hover:bg-muted/5 transition-all space-y-3 shadow-sm text-left"
+            >
+              <div>
+                <h4 className="font-semibold text-foreground text-sm leading-snug">{cat.name}</h4>
+                <p className="text-xs text-muted-foreground mt-1 leading-normal">
+                  {cat.description}
+                </p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3 pt-3 border-t border-border/50 text-xs">
+                <div className="flex flex-col items-start gap-1.5 p-2 rounded-lg bg-muted/30">
+                  <span className="font-medium text-muted-foreground">Email Alerts</span>
+                  <Switch
+                    checked={isEmailOn}
+                    onCheckedChange={(val) => onChange("email", cat.key, val)}
+                  />
+                </div>
+                <div className="flex flex-col items-start gap-1.5 p-2 rounded-lg bg-muted/30">
+                  <span className="font-medium text-muted-foreground">In-App Alerts</span>
+                  <Switch
+                    checked={isWebOn}
+                    onCheckedChange={(val) => onChange("web", cat.key, val)}
+                  />
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
