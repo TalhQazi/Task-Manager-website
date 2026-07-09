@@ -9,7 +9,7 @@ export type DriveStatus =
   | "failed"
   | "empty";
 
-export type SummaryStatus = "healthy" | "warning" | "failed" | "rebuilding";
+export type SummaryStatus = "healthy" | "warning" | "failed" | "rebuilding" | "unavailable";
 
 export interface Drive {
   bay: number;
@@ -19,6 +19,7 @@ export interface Drive {
   serial: string | null;
   capacityGB: number | null;
   rpm?: number | null;
+  transport?: string | null;
   temperatureC: number | null;
   powerOnHours: number | null;
   smartStatus: "PASSED" | "FAILED" | "FAILING" | "UNKNOWN" | null;
@@ -45,7 +46,19 @@ export interface StorageSummary {
   raidStatus: string;
   raidLevel: string;
   diskUsagePercent: number;
-  source: "live" | "simulated";
+  source: "live" | "unavailable";
+  message?: string;
+}
+
+export interface StorageDiagnostics {
+  platform?: string;
+  hostname?: string;
+  lsblk?: string;
+  smartctl?: string;
+  iostat?: string;
+  storcli?: string;
+  ranAsRoot?: boolean;
+  notes?: string[];
 }
 
 export interface StorageHealthPayload {
@@ -53,6 +66,7 @@ export interface StorageHealthPayload {
   model: string;
   timestamp: string;
   summary: StorageSummary;
+  diagnostics?: StorageDiagnostics;
   drives: Drive[];
 }
 
@@ -123,4 +137,12 @@ export const SUMMARY_STATUS_TOKENS: Record<SummaryStatus, StatusTokens> = {
   warning: DRIVE_STATUS_TOKENS.warning,
   failed: DRIVE_STATUS_TOKENS.failed,
   rebuilding: DRIVE_STATUS_TOKENS.rebuilding,
+  unavailable: {
+    label: "Unavailable",
+    dot: "#64748b",
+    text: "text-slate-300",
+    bg: "bg-slate-500/10",
+    border: "border-slate-400/30",
+    glow: "rgba(100, 116, 139, 0.3)",
+  },
 };
