@@ -61,31 +61,41 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
-  const [onboardingStatus, setOnboardingStatus] = useState<string>("approved");
+  // null = not resolved yet. Never default to "approved": an admin whose status
+  // we failed to load must not have the onboarding prompt silently suppressed.
+  const [onboardingStatus, setOnboardingStatus] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
-    const load = async () => {
+
+    // /api/dashboard is behind requireClearHire, so it 403s for exactly the
+    // admins who have not onboarded yet. Load the two independently — coupling
+    // them in a Promise.all lets a summary failure hide the onboarding prompt.
+    const loadSummary = async () => {
       try {
-        setLoading(true);
         setApiError(null);
-        const [data, onboardingRes] = await Promise.all([
-          apiFetch<DashboardSummary>("/api/dashboard/summary"),
-          auth.role === "admin"
-            ? apiFetch<{ item: { overallStatus: string } }>("/api/onboarding/me").catch(() => ({ item: { overallStatus: "not_started" } }))
-            : Promise.resolve({ item: { overallStatus: "approved" } }),
-        ]);
-        if (!mounted) return;
-        setSummary(data);
-        setOnboardingStatus(onboardingRes.item.overallStatus);
+        const data = await apiFetch<DashboardSummary>("/api/dashboard/summary");
+        if (mounted) setSummary(data);
       } catch (e) {
-        if (!mounted) return;
-        setApiError(e instanceof Error ? e.message : "Failed to load dashboard");
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
+        if (mounted) setApiError(e instanceof Error ? e.message : "Failed to load dashboard");
       }
+    };
+
+    const loadOnboarding = async () => {
+      if (auth.role !== "admin") return;
+      try {
+        const res = await apiFetch<{ item: { overallStatus: string } }>("/api/onboarding/me");
+        if (mounted) setOnboardingStatus(res.item.overallStatus);
+      } catch {
+        // Unreachable status is treated as incomplete, not as approved.
+        if (mounted) setOnboardingStatus("not_started");
+      }
+    };
+
+    const load = async () => {
+      setLoading(true);
+      await Promise.allSettled([loadSummary(), loadOnboarding()]);
+      if (mounted) setLoading(false);
     };
 
     void load();
@@ -94,6 +104,11 @@ const Dashboard = () => {
       mounted = false;
     };
   }, [auth.role]);
+
+  // An admin who hasn't onboarded is expected to 403 on /api/dashboard/summary
+  // (requireClearHire). Show the onboarding prompt, not a scary error.
+  const onboardingIncomplete =
+    auth.role === "admin" && onboardingStatus !== null && onboardingStatus !== "approved";
 
   const metrics = useMemo(() => {
     if (!summary) return null;
@@ -131,7 +146,7 @@ const Dashboard = () => {
         animate="visible"
       >
 
-        {auth.role === "admin" && onboardingStatus !== "approved" && (
+        {onboardingIncomplete && (
           <motion.div variants={itemVariants}>
             <div className="border-l-4 border-l-orange-500 bg-orange-50/10 backdrop-blur-md rounded-xl p-4 border border-orange-500/20 shadow-lg">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -259,9 +274,11 @@ const Dashboard = () => {
           </motion.div>
         </motion.div>
 
-        {/* API Error Message with animation */}
+        {/* API Error Message with animation.
+            Suppressed while onboarding is incomplete — the 403 from
+            requireClearHire is expected there, and the banner above explains it. */}
         <AnimatePresence>
-          {apiError && (
+          {apiError && !onboardingIncomplete && (
             <motion.div
               initial={{ opacity: 0, y: -20, height: 0 }}
               animate={{ opacity: 1, y: 0, height: "auto" }}
