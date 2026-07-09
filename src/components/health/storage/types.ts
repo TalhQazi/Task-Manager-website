@@ -47,6 +47,8 @@ export interface StorageSummary {
   raidLevel: string;
   diskUsagePercent: number;
   source: "live" | "unavailable";
+  /** "physical" = per-drive SMART/RAID; "filesystem" = real logical volumes only. */
+  mode?: "physical" | "filesystem";
   message?: string;
 }
 

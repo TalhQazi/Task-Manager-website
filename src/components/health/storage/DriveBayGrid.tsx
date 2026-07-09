@@ -121,10 +121,17 @@ function DriveBay({
         ) : (
           <div className="flex items-end justify-between pl-2">
             <div className="space-y-0.5">
-              <div className="flex items-center gap-1 text-[9px] text-white/45">
-                <Thermometer className="h-2.5 w-2.5" />
-                {drive.temperatureC}°C
-              </div>
+              {drive.temperatureC != null ? (
+                <div className="flex items-center gap-1 text-[9px] text-white/45">
+                  <Thermometer className="h-2.5 w-2.5" />
+                  {drive.temperatureC}°C
+                </div>
+              ) : drive.utilizationPercent != null ? (
+                <div className="flex items-center gap-1 text-[9px] text-white/45">
+                  <Gauge className="h-2.5 w-2.5" />
+                  {drive.utilizationPercent}%
+                </div>
+              ) : null}
               {drive.status === "rebuilding" && drive.rebuildPercent != null ? (
                 <div className="flex items-center gap-1 text-[9px] font-semibold text-yellow-300">
                   <Gauge className="h-2.5 w-2.5" />

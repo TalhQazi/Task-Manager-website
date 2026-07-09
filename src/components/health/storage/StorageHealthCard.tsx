@@ -17,7 +17,7 @@ import { useStorageHealth } from "./useStorageHealth";
 import { DriveBayGrid } from "./DriveBayGrid";
 import { DriveDetailDrawer } from "./DriveDetailDrawer";
 import { SUMMARY_STATUS_TOKENS, type Drive, type StorageDiagnostics, type SummaryStatus } from "./types";
-import { HardDriveDownload, Terminal } from "lucide-react";
+import { HardDriveDownload, Terminal, Info } from "lucide-react";
 
 interface StorageHealthCardProps {
   serverId?: string;
@@ -277,13 +277,17 @@ export function StorageHealthCard({ serverId = "host", className }: StorageHealt
         ) : summary?.source === "unavailable" ? (
           <UnavailableState message={summary.message} diagnostics={data?.diagnostics} onRetry={refresh} />
         ) : summary && data ? (
+          (() => {
+            const fsMode = summary.mode === "filesystem";
+            const noun = fsMode ? "Volumes" : "Drives";
+            return (
           <>
             {/* Summary */}
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <SummaryPill
                 icon={<HardDrive className="h-5 w-5" />}
                 value={`${summary.trueHealthyDrives} / ${summary.installedDrives}`}
-                label="Drives Healthy"
+                label={`${noun} Healthy`}
                 tone={summary.failed > 0 ? "bad" : summary.warnings > 0 ? "warn" : "good"}
               />
               <SummaryPill
@@ -306,10 +310,23 @@ export function StorageHealthCard({ serverId = "host", className }: StorageHealt
               />
               <SummaryPill
                 icon={<Layers className="h-5 w-5" />}
-                value={`${summary.installedDrives} / ${summary.totalBays}`}
-                label="Bays Populated"
+                value={fsMode ? String(summary.installedDrives) : `${summary.installedDrives} / ${summary.totalBays}`}
+                label={fsMode ? "Volumes" : "Bays Populated"}
               />
             </div>
+
+            {/* Filesystem-mode notice — real data, but volume-level (no SMART/RAID) */}
+            {fsMode && (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-400/15 bg-amber-500/[0.04] px-3 py-2.5 text-xs text-white/60">
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-300/80" />
+                <span>
+                  Showing <span className="font-medium text-white/80">real filesystem volumes</span> for this host.
+                  Install <code className="rounded bg-black/40 px-1 py-0.5 font-mono text-[11px]">smartmontools</code> /{" "}
+                  <code className="rounded bg-black/40 px-1 py-0.5 font-mono text-[11px]">perccli</code> and run the
+                  backend as root to unlock per-drive SMART, temperature &amp; RAID health.
+                </span>
+              </div>
+            )}
 
             {/* Visual drive panel */}
             <DriveBayGrid drives={data.drives} onSelect={setSelected} selectedBay={selected?.bay} />
@@ -332,6 +349,8 @@ export function StorageHealthCard({ serverId = "host", className }: StorageHealt
               </span>
             </div>
           </>
+            );
+          })()
         ) : null}
       </div>
 
