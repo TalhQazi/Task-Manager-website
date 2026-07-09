@@ -5,6 +5,7 @@ import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
 import { Camera, User, Loader2, CheckCircle, XCircle, AlertCircle, Upload, FileImage, Image as ImageIcon, Quote, ToggleLeft, ToggleRight, Plus, Bell } from "lucide-react";
 import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
+import NotificationSettingsTable from "@/components/shared/NotificationSettingsTable";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Cropper from "react-easy-crop";
@@ -377,12 +378,14 @@ export default function Settings() {
     }
   };
 
-  const setBackendNotification = async (key: string, value: boolean) => {
+  const onPreferenceChange = async (type: "email" | "web", key: string, value: boolean) => {
+    const prefKey = type === "email" ? "emailPreferences" : "webPreferences";
+    const currentPrefs = backendSettingsQuery.data?.item?.[prefKey] || {};
     await apiFetch<{ item: any }>("/api/settings", {
       method: "PUT",
       body: JSON.stringify({
-        notifications: {
-          ...notifications,
+        [prefKey]: {
+          ...currentPrefs,
           [key]: value,
         },
       }),
@@ -1278,47 +1281,13 @@ export default function Settings() {
                 Notification Settings
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 px-4 sm:px-6 pb-5 sm:pb-6 pt-0">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <p className="text-sm font-medium">Email Notifications</p>
-                  <p className="text-xs text-muted-foreground">Receive daily system update emails</p>
-                </div>
-                <Switch
-                  checked={Boolean(notifications.emailNotifications)}
-                  onCheckedChange={(val) => setBackendNotification("emailNotifications", val)}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <p className="text-sm font-medium">Task Alerts</p>
-                  <p className="text-xs text-muted-foreground">Receive real-time alerts when tasks are updated</p>
-                </div>
-                <Switch
-                  checked={Boolean(notifications.taskAlerts)}
-                  onCheckedChange={(val) => setBackendNotification("taskAlerts", val)}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <p className="text-sm font-medium">Employee Updates</p>
-                  <p className="text-xs text-muted-foreground">Get notified when employees check in/out</p>
-                </div>
-                <Switch
-                  checked={Boolean(notifications.employeeUpdates)}
-                  onCheckedChange={(val) => setBackendNotification("employeeUpdates", val)}
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <p className="text-sm font-medium">Weekly Reports</p>
-                  <p className="text-xs text-muted-foreground">Receive a summary report at the end of the week</p>
-                </div>
-                <Switch
-                  checked={Boolean(notifications.weeklyReports)}
-                  onCheckedChange={(val) => setBackendNotification("weeklyReports", val)}
-                />
-              </div>
+            <CardContent className="px-4 sm:px-6 pb-5 sm:pb-6 pt-0">
+              <NotificationSettingsTable
+                emailPreferences={backendSettingsQuery.data?.item?.emailPreferences || {}}
+                webPreferences={backendSettingsQuery.data?.item?.webPreferences || {}}
+                userRole={backendSettingsQuery.data?.item?.role || "admin"}
+                onChange={onPreferenceChange}
+              />
             </CardContent>
           </Card>
 

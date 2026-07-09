@@ -9,6 +9,7 @@ import { employeeApiFetch } from "@/Employee/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Mail, Bell, Save, CheckCircle, AlertCircle, Send, FlaskConical } from "lucide-react";
 import { toast } from "sonner";
+import NotificationSettingsTable from "@/components/shared/NotificationSettingsTable";
 
 type EmailPreferences = {
   userRegistration: boolean;
@@ -147,14 +148,15 @@ export default function EmployeeEmailSettings() {
     );
   }
 
-  const handlePreferenceChange = (template: keyof EmailPreferences, value: boolean) => {
-    setFormData((prev) => {
+  const onPreferenceChange = (type: "email" | "web", key: string, value: boolean) => {
+    setFormData((prev: any) => {
       if (!prev) return null;
+      const prefKey = type === "email" ? "preferences" : "webPreferences";
       const updated = {
         ...prev,
-        preferences: {
-          ...prev.preferences,
-          [template]: value,
+        [prefKey]: {
+          ...(prev[prefKey] || {}),
+          [key]: value,
         },
       };
       // Auto-save immediately
@@ -208,34 +210,17 @@ export default function EmployeeEmailSettings() {
               </div>
               <div>
                 <CardTitle>Notification Preferences</CardTitle>
-                <CardDescription>Choose which email notifications you want to receive</CardDescription>
+                <CardDescription>Choose which email and in-app alerts you want to receive</CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent className="pt-6">
-            <div className="space-y-4">
-              {Object.entries(formData.preferences).map(([key, enabled]) => (
-                <div key={key} className="flex items-center justify-between p-4 rounded-lg border border-border hover:bg-muted/50 transition-colors">
-                  <div className="flex-1">
-                    <div className="font-medium">
-                      {templateDescriptions[key as keyof EmailPreferences].title}
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      {templateDescriptions[key as keyof EmailPreferences].description}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 ml-4 shrink-0">
-                    <span className={`text-xs font-medium ${enabled ? "text-primary" : "text-muted-foreground"}`}>
-                      {enabled ? "ON" : "OFF"}
-                    </span>
-                    <Switch
-                      checked={enabled}
-                      onCheckedChange={(val) => handlePreferenceChange(key as keyof EmailPreferences, val)}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+            <NotificationSettingsTable
+              emailPreferences={formData.preferences || {}}
+              webPreferences={formData.webPreferences || {}}
+              userRole="employee"
+              onChange={onPreferenceChange}
+            />
           </CardContent>
         </Card>
 
