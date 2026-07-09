@@ -13,6 +13,8 @@ interface PreferenceObject {
   patentExpiration?: boolean;
   complianceReminder?: boolean;
   userRegistration?: boolean;
+  lunchBreakAlert?: boolean;
+  websiteDownAlert?: boolean;
   [key: string]: boolean | undefined;
 }
 
@@ -95,6 +97,17 @@ const CATEGORIES: CategoryItem[] = [
     name: "New User Registrations",
     description: "Notification when new user or manager accounts are registered in the system.",
     roles: ["super-admin", "admin", "manager"],
+  },
+  {
+    key: "lunchBreakAlert",
+    name: "Lunch & Break Status Alerts",
+    description: "Triggered when employees start/end lunch/breaks or exceed status limits.",
+    roles: ["super-admin", "admin", "manager"],
+  },
+  {
+    key: "websiteDownAlert",
+    name: "Website Down Alerts",
+    description: "Triggered immediately when monitored websites go down or fail health checks.",
   },
 ];
 

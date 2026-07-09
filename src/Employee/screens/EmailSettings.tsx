@@ -21,6 +21,10 @@ type EmailPreferences = {
   replyAdded: boolean;
   projectAssignment: boolean;
   projectReassignment: boolean;
+  preAdverseAction?: boolean;
+  finalAdverseAction?: boolean;
+  patentExpiration?: boolean;
+  lunchBreakAlert?: boolean;
 };
 
 type Template = {
@@ -40,6 +44,10 @@ type SystemEmailSettings = {
     replyAdded: Template;
     projectAssignment: Template;
     projectReassignment: Template;
+    preAdverseAction?: Template;
+    finalAdverseAction?: Template;
+    patentExpiration?: Template;
+    lunchBreakAlert?: Template;
   };
 };
 
@@ -247,7 +255,9 @@ export default function EmployeeEmailSettings() {
           </CardHeader>
           {showDetails && (
             <CardContent className="pt-6 space-y-6">
-              {Object.entries(systemData.templates).map(([key, template]) => (
+              {Object.entries(systemData.templates)
+                .filter(([key]) => key in templateDescriptions)
+                .map(([key, template]) => (
                 <div key={key} className="border border-border rounded-lg p-4 bg-muted/30">
                   <div className="flex items-center justify-between mb-3">
                     <div>
