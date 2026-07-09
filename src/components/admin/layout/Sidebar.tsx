@@ -262,6 +262,11 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
       items.push(systemHealthNavItem);
     }
 
+    // Add Attendance only for admin (not super-admin)
+    if (auth.role === "admin") {
+      items.push({ icon: CalendarCheck, label: "Attendance", path: "/admin/attendance" });
+    }
+
     // Sort children within items first
     items.forEach(item => {
       if (item.children) {
