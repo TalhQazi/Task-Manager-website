@@ -126,12 +126,12 @@ export default function NotificationSettingsTable({
   });
 
   return (
-    <div className="w-full space-y-4">
+    <div className="w-full max-h-[450px] overflow-y-auto rounded-lg border border-border bg-card shadow-soft scrollbar-thin">
       {/* Desktop/Tablet View - Wide Table */}
-      <div className="hidden md:block w-full overflow-x-auto rounded-lg border border-border bg-card">
-        <table className="w-full min-w-[600px] border-collapse text-left text-sm">
-          <thead>
-            <tr className="border-b border-border bg-muted/50">
+      <div className="hidden md:block w-full overflow-x-auto">
+        <table className="w-full min-w-[600px] border-collapse text-left text-sm relative">
+          <thead className="sticky top-0 bg-muted/95 backdrop-blur-sm z-10 shadow-[0_1px_0_0_rgba(0,0,0,0.1)] dark:shadow-[0_1px_0_0_rgba(255,255,255,0.1)]">
+            <tr>
               <th className="p-4 font-semibold text-foreground">Notification Category</th>
               <th className="p-4 text-center font-semibold text-foreground w-36">Email Alerts</th>
               <th className="p-4 text-center font-semibold text-foreground w-36">In-App Alerts</th>
@@ -174,7 +174,7 @@ export default function NotificationSettingsTable({
       </div>
 
       {/* Mobile View - Stacked Cards */}
-      <div className="md:hidden space-y-3">
+      <div className="md:hidden p-3 space-y-3">
         {visibleCategories.map((cat) => {
           const isEmailOn = emailPreferences[cat.key] !== false;
           const isWebOn = webPreferences[cat.key] !== false;
@@ -182,7 +182,7 @@ export default function NotificationSettingsTable({
           return (
             <div
               key={cat.key}
-              className="p-4 rounded-xl border border-border bg-card hover:bg-muted/5 transition-all space-y-3 shadow-sm text-left"
+              className="p-4 rounded-xl border border-border bg-card/50 hover:bg-muted/5 transition-all space-y-3 shadow-sm text-left"
             >
               <div>
                 <h4 className="font-semibold text-foreground text-sm leading-snug">{cat.name}</h4>
