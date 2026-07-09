@@ -263,10 +263,9 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
       items.push(systemHealthNavItem);
     }
 
-    // Add Attendance and My Onboarding only for admin (not super-admin)
+    // Add Attendance only for admin (not super-admin)
     if (auth.role === "admin") {
       items.push({ icon: CalendarCheck, label: "Attendance", path: "/admin/attendance" });
-      items.push({ icon: UserPlus, label: "My Onboarding", path: "/admin/profile?tab=onboarding" });
     }
 
     // Sort children within items first

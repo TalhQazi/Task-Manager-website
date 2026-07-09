@@ -9,6 +9,7 @@ import { WeekAheadCard } from "@/components/admin/dashboard/WeekAheadCard";
 import { WipDashboardWidget } from "@/components/wip/WipDashboardWidget";
 import { Users, CheckSquare, AlertTriangle, Clock, Car, FileSearch, Globe, FolderRoot, Bug, CalendarCheck, Building2, Activity } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
+import { getAuthState } from "@/lib/auth";
 import { useNavigate } from "react-router-dom";
 
 type DashboardSummary = {
@@ -56,9 +57,11 @@ const itemVariants: Variants = {
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const auth = getAuthState();
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [onboardingStatus, setOnboardingStatus] = useState<string>("approved");
 
   useEffect(() => {
     let mounted = true;
@@ -66,9 +69,15 @@ const Dashboard = () => {
       try {
         setLoading(true);
         setApiError(null);
-        const data = await apiFetch<DashboardSummary>("/api/dashboard/summary");
+        const [data, onboardingRes] = await Promise.all([
+          apiFetch<DashboardSummary>("/api/dashboard/summary"),
+          auth.role === "admin"
+            ? apiFetch<{ item: { overallStatus: string } }>("/api/onboarding/me").catch(() => ({ item: { overallStatus: "not_started" } }))
+            : Promise.resolve({ item: { overallStatus: "approved" } }),
+        ]);
         if (!mounted) return;
         setSummary(data);
+        setOnboardingStatus(onboardingRes.item.overallStatus);
       } catch (e) {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load dashboard");
@@ -84,7 +93,7 @@ const Dashboard = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [auth.role]);
 
   const metrics = useMemo(() => {
     if (!summary) return null;
@@ -121,6 +130,36 @@ const Dashboard = () => {
         initial="hidden"
         animate="visible"
       >
+
+        {auth.role === "admin" && onboardingStatus !== "approved" && (
+          <motion.div variants={itemVariants}>
+            <div className="border-l-4 border-l-orange-500 bg-orange-50/10 backdrop-blur-md rounded-xl p-4 border border-orange-500/20 shadow-lg">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-full bg-orange-500/10 flex items-center justify-center flex-shrink-0">
+                    <AlertTriangle className="h-5 w-5 text-orange-400" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-white">Complete Your Onboarding</p>
+                    <p className="text-sm text-gray-300">
+                      {onboardingStatus === "not_started" || onboardingStatus === "in_progress"
+                        ? "Please complete your onboarding to access all features."
+                        : onboardingStatus === "submitted"
+                        ? "Your onboarding is submitted and pending approval."
+                        : "Please complete your onboarding to access all features."}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => navigate("/admin/profile?tab=onboarding")}
+                  className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-2 rounded-xl text-sm transition-all w-full sm:w-auto flex-shrink-0"
+                >
+                  Complete Onboarding
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         <motion.div 
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-4 lg:gap-6"
