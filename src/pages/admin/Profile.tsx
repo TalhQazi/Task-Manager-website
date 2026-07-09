@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
@@ -37,6 +38,9 @@ type MeItem = {
 
 export default function Profile() {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab") || "personal";
+  const [activeTab, setActiveTab] = useState(initialTab);
 
   const meQuery = useQuery({
     queryKey: ["auth", "me"],
@@ -470,7 +474,7 @@ export default function Profile() {
         </div>
 
         {roleLabel === "admin" ? (
-          <Tabs defaultValue="personal" className="space-y-4 sm:space-y-6 w-full">
+          <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setSearchParams({ tab: v }, { replace: true }); }} className="space-y-4 sm:space-y-6 w-full">
             <TabsList className="flex flex-wrap h-auto gap-2 bg-gray-100 p-1 rounded-lg">
               <TabsTrigger value="personal" className="text-xs sm:text-sm">Personal Information</TabsTrigger>
               <TabsTrigger value="onboarding" className="text-xs sm:text-sm">Onboarding</TabsTrigger>

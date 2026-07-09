@@ -73,6 +73,7 @@ type NavItem = {
 
 const navItemsBase: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin", end: true },
+  { icon: Activity, label: "Work In Progress", path: "/admin/wip" },
   {
     label: "Atlas Books",
     customIcon: (
@@ -262,9 +263,10 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
       items.push(systemHealthNavItem);
     }
 
-    // Add Attendance only for admin (not super-admin)
+    // Add Attendance and My Onboarding only for admin (not super-admin)
     if (auth.role === "admin") {
       items.push({ icon: CalendarCheck, label: "Attendance", path: "/admin/attendance" });
+      items.push({ icon: UserPlus, label: "My Onboarding", path: "/admin/profile?tab=onboarding" });
     }
 
     // Sort children within items first

@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/admin/layout/AdminLayout";
 
 // Lazy-loaded page components for code splitting
 const Dashboard = lazy(() => import("@/pages/admin/Dashboard"));
+const WipDashboard = lazy(() => import("@/pages/admin/WipDashboard"));
 const Users = lazy(() => import("@/pages/admin/Users"));
 const Tasks = lazy(() => import("@/pages/admin/Tasks"));
 const Employees = lazy(() => import("@/pages/admin/Employees"));
@@ -114,6 +115,7 @@ export default function AdminRoutes() {
       { path: "contracts", element: <SignaCore /> },
       { path: "uph-maintenance", element: <UphMaintenance /> },
       { index: true, element: <Dashboard /> },
+      { path: "wip", element: <WipDashboard /> },
       { path: "users", element: <Users /> },
       { path: "roles", element: <RolesPermissions /> },
       { path: "tasks", element: <Tasks /> },

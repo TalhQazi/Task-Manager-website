@@ -6,6 +6,7 @@ import { ActiveEmployees } from "@/components/admin/dashboard/ActiveEmployees";
 import { TaskCharts } from "@/components/admin/dashboard/TaskCharts";
 import { DayAheadCard } from "@/components/admin/dashboard/DayAheadCard";
 import { WeekAheadCard } from "@/components/admin/dashboard/WeekAheadCard";
+import { WipDashboardWidget } from "@/components/wip/WipDashboardWidget";
 import { Users, CheckSquare, AlertTriangle, Clock, Car, FileSearch, Globe, FolderRoot, Bug, CalendarCheck, Building2, Activity } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useNavigate } from "react-router-dom";
@@ -176,8 +177,13 @@ const Dashboard = () => {
           </div>
         </motion.div>
 
+        {/* Work In Progress — live operational panel. Additive: no existing card changed. */}
+        <motion.div variants={itemVariants} className="transition-all duration-300">
+          <WipDashboardWidget />
+        </motion.div>
+
         {/* Bottom Section with animated cards */}
-        <motion.div 
+        <motion.div
           className="grid grid-cols-1 gap-4 sm:gap-5 md:gap-6 lg:grid-cols-2"
           variants={containerVariants}
         >
