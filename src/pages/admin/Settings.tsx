@@ -1063,7 +1063,7 @@ export default function Settings() {
         </div>
 
         {/* Settings Grid - Responsive */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6 items-start">
 
           {/* Profile Card */}
           <Card className="shadow-soft border-0 sm:border">
