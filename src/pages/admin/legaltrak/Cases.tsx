@@ -99,13 +99,7 @@ const fileToBase64 = (file: File): Promise<string> => {
 };
 
 const formatCaseNumber = (val: string): string => {
-  const clean = val.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
-  const parts = [];
-  if (clean.length > 0) parts.push(clean.slice(0, 4));
-  if (clean.length > 4) parts.push(clean.slice(4, 7));
-  if (clean.length > 7) parts.push(clean.slice(7, 13));
-  if (clean.length > 13) parts.push(clean.slice(13, 17));
-  return parts.join("-");
+  return val.replace(/[^A-Za-z0-9\s\-_./()]/g, "").toUpperCase();
 };
 
 export default function Cases() {
@@ -337,13 +331,13 @@ export default function Cases() {
         />
       </div>
       <div className="space-y-1">
-        <label className="text-xs font-medium text-slate-300">Case Number (Format: PENC-CIV-000061-2026)</label>
+        <label className="text-xs font-medium text-slate-300">Case Number (Format: PENC-CIV-000061-2026 or PENSC-REA-2025-00021)</label>
         <input 
           type="text" 
           value={formData.caseNumber} 
           onChange={e => setFormData({...formData, caseNumber: formatCaseNumber(e.target.value)})} 
           className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 font-mono" 
-          placeholder="PENC-CIV-000061-2026" 
+          placeholder="e.g. PENSC-REA-2025-00021" 
         />
       </div>
       <div className="space-y-1">
@@ -506,7 +500,7 @@ export default function Cases() {
                 Add Case
               </Button>
             </DialogTrigger>
-            <DialogContent className="bg-[#0f172a] border-white/10 text-white sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="bg-[#0f172a] border-white/10 text-white w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create New Case</DialogTitle>
                 <DialogDescription className="text-slate-400">
@@ -612,7 +606,7 @@ export default function Cases() {
 
       {/* Edit Dialog */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="bg-[#0f172a] border-white/10 text-white sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="bg-[#0f172a] border-white/10 text-white w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Case {selectedCase?.caseNumber}</DialogTitle>
           </DialogHeader>
@@ -631,7 +625,7 @@ export default function Cases() {
 
       {/* View Dialog */}
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-        <DialogContent className="bg-[#0f172a] border-white/10 text-white sm:max-w-lg">
+        <DialogContent className="bg-[#0f172a] border-white/10 text-white w-[95vw] sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Case Details</DialogTitle>
           </DialogHeader>
@@ -711,7 +705,7 @@ export default function Cases() {
 
       {/* Delete Dialog */}
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-        <DialogContent className="bg-[#0f172a] border-rose-500/20 text-white sm:max-w-md">
+        <DialogContent className="bg-[#0f172a] border-rose-500/20 text-white w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-rose-500 flex items-center gap-2">
               <AlertTriangle className="h-5 w-5" /> Delete Case
@@ -731,7 +725,7 @@ export default function Cases() {
 
       {/* Add Court Dialog */}
       <Dialog open={addCourtOpen} onOpenChange={setAddCourtOpen}>
-        <DialogContent className="bg-[#0f172a] border-white/10 text-white sm:max-w-md">
+        <DialogContent className="bg-[#0f172a] border-white/10 text-white w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Add New Court</DialogTitle>
           </DialogHeader>

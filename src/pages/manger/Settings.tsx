@@ -4,6 +4,7 @@ import { Input } from "@/components/manger/ui/input";
 import { User, Shield, Save, Camera, Bell } from "lucide-react";
 import { Switch } from "@/components/manger/ui/switch";
 import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
+import NotificationSettingsTable from "@/components/shared/NotificationSettingsTable";
 import { toast } from "@/components/manger/ui/use-toast";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -141,13 +142,14 @@ export default function Settings() {
     });
   };
 
-  const setNotification = (key: string, value: boolean) => {
+  const onPreferenceChange = (type: "email" | "web", key: string, val: boolean) => {
     setDraft((p: any) => {
+      const prefKey = type === "email" ? "emailPreferences" : "webPreferences";
       const next = {
         ...(p || {}),
-        notifications: {
-          ...((p && p.notifications) || {}),
-          [key]: value,
+        [prefKey]: {
+          ...((p && p[prefKey]) || {}),
+          [key]: val,
         },
       };
 
@@ -540,53 +542,17 @@ export default function Settings() {
           <div>
             <h3 className="font-semibold text-foreground">Notification Settings</h3>
             <p className="text-sm text-muted-foreground">
-              Configure your email and alert preferences
+              Configure your email and alert preferences separately
             </p>
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <p className="text-sm font-medium text-foreground">Email Notifications</p>
-              <p className="text-xs text-muted-foreground">Receive daily system update emails</p>
-            </div>
-            <Switch
-              checked={Boolean(draft?.notifications?.emailNotifications)}
-              onCheckedChange={(val) => setNotification("emailNotifications", val)}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <p className="text-sm font-medium text-foreground">Task Alerts</p>
-              <p className="text-xs text-muted-foreground">Receive real-time alerts when tasks are updated</p>
-            </div>
-            <Switch
-              checked={Boolean(draft?.notifications?.taskAlerts)}
-              onCheckedChange={(val) => setNotification("taskAlerts", val)}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <p className="text-sm font-medium text-foreground">Employee Updates</p>
-              <p className="text-xs text-muted-foreground">Get notified when employees check in/out</p>
-            </div>
-            <Switch
-              checked={Boolean(draft?.notifications?.employeeUpdates)}
-              onCheckedChange={(val) => setNotification("employeeUpdates", val)}
-            />
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <p className="text-sm font-medium text-foreground">Weekly Reports</p>
-              <p className="text-xs text-muted-foreground">Receive a summary report at the end of the week</p>
-            </div>
-            <Switch
-              checked={Boolean(draft?.notifications?.weeklyReports)}
-              onCheckedChange={(val) => setNotification("weeklyReports", val)}
-            />
-          </div>
-        </div>
+        <NotificationSettingsTable
+          emailPreferences={draft?.emailPreferences || {}}
+          webPreferences={draft?.webPreferences || {}}
+          userRole={draft?.role || "manager"}
+          onChange={onPreferenceChange}
+        />
       </div>
 
       {/* Security Settings */}

@@ -6,8 +6,10 @@ import { ActiveEmployees } from "@/components/admin/dashboard/ActiveEmployees";
 import { TaskCharts } from "@/components/admin/dashboard/TaskCharts";
 import { DayAheadCard } from "@/components/admin/dashboard/DayAheadCard";
 import { WeekAheadCard } from "@/components/admin/dashboard/WeekAheadCard";
+import { WipDashboardWidget } from "@/components/wip/WipDashboardWidget";
 import { Users, CheckSquare, AlertTriangle, Clock, Car, FileSearch, Globe, FolderRoot, Bug, CalendarCheck, Building2, Activity } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
+import { getAuthState } from "@/lib/auth";
 import { useNavigate } from "react-router-dom";
 
 type DashboardSummary = {
@@ -55,27 +57,45 @@ const itemVariants: Variants = {
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const auth = getAuthState();
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  // null = not resolved yet. Never default to "approved": an admin whose status
+  // we failed to load must not have the onboarding prompt silently suppressed.
+  const [onboardingStatus, setOnboardingStatus] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
-    const load = async () => {
+
+    // /api/dashboard is behind requireClearHire, so it 403s for exactly the
+    // admins who have not onboarded yet. Load the two independently — coupling
+    // them in a Promise.all lets a summary failure hide the onboarding prompt.
+    const loadSummary = async () => {
       try {
-        setLoading(true);
         setApiError(null);
         const data = await apiFetch<DashboardSummary>("/api/dashboard/summary");
-        if (!mounted) return;
-        setSummary(data);
+        if (mounted) setSummary(data);
       } catch (e) {
-        if (!mounted) return;
-        setApiError(e instanceof Error ? e.message : "Failed to load dashboard");
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
+        if (mounted) setApiError(e instanceof Error ? e.message : "Failed to load dashboard");
       }
+    };
+
+    const loadOnboarding = async () => {
+      if (auth.role !== "admin") return;
+      try {
+        const res = await apiFetch<{ item: { overallStatus: string } }>("/api/onboarding/me");
+        if (mounted) setOnboardingStatus(res.item.overallStatus);
+      } catch {
+        // Unreachable status is treated as incomplete, not as approved.
+        if (mounted) setOnboardingStatus("not_started");
+      }
+    };
+
+    const load = async () => {
+      setLoading(true);
+      await Promise.allSettled([loadSummary(), loadOnboarding()]);
+      if (mounted) setLoading(false);
     };
 
     void load();
@@ -83,7 +103,12 @@ const Dashboard = () => {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [auth.role]);
+
+  // An admin who hasn't onboarded is expected to 403 on /api/dashboard/summary
+  // (requireClearHire). Show the onboarding prompt, not a scary error.
+  const onboardingIncomplete =
+    auth.role === "admin" && onboardingStatus !== null && onboardingStatus !== "approved";
 
   const metrics = useMemo(() => {
     if (!summary) return null;
@@ -120,6 +145,36 @@ const Dashboard = () => {
         initial="hidden"
         animate="visible"
       >
+
+        {onboardingIncomplete && (
+          <motion.div variants={itemVariants}>
+            <div className="border-l-4 border-l-orange-500 bg-orange-50/10 backdrop-blur-md rounded-xl p-4 border border-orange-500/20 shadow-lg">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-full bg-orange-500/10 flex items-center justify-center flex-shrink-0">
+                    <AlertTriangle className="h-5 w-5 text-orange-400" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-white">Complete Your Onboarding</p>
+                    <p className="text-sm text-gray-300">
+                      {onboardingStatus === "not_started" || onboardingStatus === "in_progress"
+                        ? "Please complete your onboarding to access all features."
+                        : onboardingStatus === "submitted"
+                        ? "Your onboarding is submitted and pending approval."
+                        : "Please complete your onboarding to access all features."}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => navigate("/admin/profile?tab=onboarding")}
+                  className="bg-orange-600 hover:bg-orange-700 text-white font-bold px-4 py-2 rounded-xl text-sm transition-all w-full sm:w-auto flex-shrink-0"
+                >
+                  Complete Onboarding
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         <motion.div 
           className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-4 lg:gap-6"
@@ -177,8 +232,13 @@ const Dashboard = () => {
           </div>
         </motion.div>
 
+        {/* Work In Progress — live operational panel. Additive: no existing card changed. */}
+        <motion.div variants={itemVariants} className="transition-all duration-300">
+          <WipDashboardWidget />
+        </motion.div>
+
         {/* Bottom Section with animated cards */}
-        <motion.div 
+        <motion.div
           className="grid grid-cols-1 gap-4 sm:gap-5 md:gap-6 lg:grid-cols-2"
           variants={containerVariants}
         >
@@ -215,9 +275,11 @@ const Dashboard = () => {
           </motion.div>
         </motion.div>
 
-        {/* API Error Message with animation */}
+        {/* API Error Message with animation.
+            Suppressed while onboarding is incomplete — the 403 from
+            requireClearHire is expected there, and the banner above explains it. */}
         <AnimatePresence>
-          {apiError && (
+          {apiError && !onboardingIncomplete && (
             <motion.div
               initial={{ opacity: 0, y: -20, height: 0 }}
               animate={{ opacity: 1, y: 0, height: "auto" }}

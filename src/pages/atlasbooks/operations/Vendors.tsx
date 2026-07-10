@@ -52,7 +52,9 @@ const Vendors: React.FC = () => {
 
       setBills(resBills.items || []);
       
-      const vendorList = Array.isArray(resVendors) ? resVendors : (resVendors.items || []);
+      // Only vendors already approved on the Vendors page are usable here
+      const allVendors = Array.isArray(resVendors) ? resVendors : (resVendors.items || []);
+      const vendorList = allVendors.filter((v: any) => v.status === "approved");
       setVendors(vendorList);
       if (vendorList.length > 0) {
         setSelectedVendorId(vendorList[0]._id);
@@ -94,11 +96,14 @@ const Vendors: React.FC = () => {
       const newVendor = res.item || res;
       toast.success(`Vendor "${newVendorName}" registered successfully.`);
       
-      // Refresh vendor list
+      // Refresh vendor list (approved vendors only)
       const freshVendorsRes = await apiFetch<{ success?: boolean; items?: any[] } | any[]>("/api/vendors");
-      const freshVendors = Array.isArray(freshVendorsRes) ? freshVendorsRes : (freshVendorsRes.items || []);
+      const freshAll = Array.isArray(freshVendorsRes) ? freshVendorsRes : (freshVendorsRes.items || []);
+      const freshVendors = freshAll.filter((v: any) => v.status === "approved");
       setVendors(freshVendors);
-      setSelectedVendorId(newVendor._id);
+      if (freshVendors.some((v: any) => v._id === newVendor._id)) {
+        setSelectedVendorId(newVendor._id);
+      }
 
       // Reset vendor fields and close sub-form
       setNewVendorName("");

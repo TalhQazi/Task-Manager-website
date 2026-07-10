@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +39,8 @@ import {
   User,
   Maximize2,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   Dialog,
@@ -196,6 +198,44 @@ export default function EmployeeTaskDetails() {
   const [refreshing, setRefreshing] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewName, setPreviewName] = useState<string | null>(null);
+  // Gallery navigation for the preview dialog: browse sibling images without closing it
+  const [previewGallery, setPreviewGallery] = useState<Array<{ url: string; name: string }>>([]);
+  const [previewIdx, setPreviewIdx] = useState(0);
+
+  const openImagePreview = (url: string, name: string, gallery?: Array<{ url: string; name: string }>) => {
+    setPreviewUrl(url);
+    setPreviewName(name);
+    if (gallery && gallery.length > 1) {
+      let idx = gallery.findIndex((g) => g.url === url);
+      if (idx < 0) idx = gallery.findIndex((g) => g.name === name);
+      setPreviewGallery(gallery);
+      setPreviewIdx(idx >= 0 ? idx : 0);
+    } else {
+      setPreviewGallery([]);
+      setPreviewIdx(0);
+    }
+  };
+
+  const stepPreview = useCallback((dir: 1 | -1) => {
+    setPreviewIdx((prev) => {
+      if (previewGallery.length < 2) return prev;
+      const next = (prev + dir + previewGallery.length) % previewGallery.length;
+      setPreviewUrl(previewGallery[next].url);
+      setPreviewName(previewGallery[next].name);
+      return next;
+    });
+  }, [previewGallery]);
+
+  // Arrow-key navigation while the preview is open
+  useEffect(() => {
+    if (!previewUrl || previewGallery.length < 2) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight") { e.preventDefault(); stepPreview(1); }
+      if (e.key === "ArrowLeft") { e.preventDefault(); stepPreview(-1); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [previewUrl, previewGallery, stepPreview]);
   const [profile, setProfile] = useState<{ avatarUrl?: string } | null>(null);
 
   const [statusUpdating, setStatusUpdating] = useState(false);
@@ -650,7 +690,15 @@ export default function EmployeeTaskDetails() {
                                             mimeType={att.mimeType}
                                             fileName={att.fileName}
                                             fallbackUrl={att.url}
-                                            onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
+                                            onPreview={(url, name) => {
+                                              // Gallery of every image in the whole comment thread
+                                              const gallery = comments.flatMap((cm) =>
+                                                (cm.attachments || [])
+                                                  .filter((a) => a.url && a.mimeType?.startsWith("image/"))
+                                                  .map((a) => ({ url: toProxiedUrl(a.url) || a.url, name: a.fileName || "image" }))
+                                              );
+                                              openImagePreview(url, name, gallery);
+                                            }}
                                           />
                                         </div>
                                       ))}
@@ -659,7 +707,7 @@ export default function EmployeeTaskDetails() {
                                 </div>
                                 
                                 <div className={cn(
-                                  "chat-timestamp",
+                                  "text-[10px] text-muted-foreground/60 font-medium mt-1",
                                   isMe ? "text-right mr-1" : "text-left ml-1"
                                 )}>
                                   {formatMessageTime(c.createdAt)}
@@ -730,22 +778,47 @@ export default function EmployeeTaskDetails() {
 
       {/* Preview Dialog */}
       {previewUrl && (
-        <Dialog open={Boolean(previewUrl)} onOpenChange={(open) => !open && setPreviewUrl(null)}>
+        <Dialog open={Boolean(previewUrl)} onOpenChange={(open) => { if (!open) { setPreviewUrl(null); setPreviewGallery([]); } }}>
           <DialogContent className="max-w-4xl">
             <DialogHeader>
               <DialogTitle className="flex items-center justify-between">
-                <span className="truncate">{previewName}</span>
+                <span className="truncate">
+                  {previewName}
+                  {previewGallery.length > 1 && (
+                    <span className="ml-2 text-xs text-muted-foreground font-normal">
+                      {previewIdx + 1} / {previewGallery.length}
+                    </span>
+                  )}
+                </span>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  onClick={() => setPreviewUrl(null)}
+                  onClick={() => { setPreviewUrl(null); setPreviewGallery([]); }}
                 >
                   <X className="h-4 w-4" />
                 </Button>
               </DialogTitle>
             </DialogHeader>
-            <div className="w-full">
+            <div className="w-full relative">
+              {previewGallery.length > 1 && (
+                <>
+                  <button
+                    onClick={() => stepPreview(-1)}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 z-10 p-2 bg-black/50 hover:bg-black/80 rounded-full text-white shadow-lg transition-all hover:scale-110"
+                    title="Previous image (←)"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={() => stepPreview(1)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 z-10 p-2 bg-black/50 hover:bg-black/80 rounded-full text-white shadow-lg transition-all hover:scale-110"
+                    title="Next image (→)"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </>
+              )}
               <img
                 src={previewUrl}
                 alt={previewName || "Preview"}

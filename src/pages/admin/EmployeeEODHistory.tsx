@@ -16,6 +16,12 @@ import {
 import { ClipboardList, Calendar, Clock, ChevronLeft, CheckCircle, AlertCircle } from "lucide-react";
 import { apiFetch, getAdminEmployeeEODReports, toProxiedUrl } from "@/lib/admin/apiClient";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/admin/ui/dialog";
 
 interface EODReport {
   id: string;
@@ -86,19 +92,21 @@ export default function EmployeeEODHistory() {
 
       // Proactively fetch today's EOD status to see if today's report is missing/not submitted
       try {
-        const todayStatusRes = await apiFetch<Array<{
-          employeeId: string;
-          employeeName: string;
-          avatar?: string;
-          status: string; // "submitted" | "missing" | "late" | "not_clocked_in"
-          clockIn?: string;
-          clockOut?: string;
-          clockInAt?: string | null;
-          clockOutAt?: string | null;
-          reportSubmittedAt?: string;
-        }>>("/api/admin/eod-status");
+        const todayStatusRes = await apiFetch<{
+          items: Array<{
+            employeeId: string;
+            employeeName: string;
+            avatar?: string;
+            status: string; // "submitted" | "missing" | "late" | "not_clocked_in"
+            clockIn?: string;
+            clockOut?: string;
+            clockInAt?: string | null;
+            clockOutAt?: string | null;
+            reportSubmittedAt?: string;
+          }>;
+        }>("/api/admin/eod-status");
 
-        const myTodayStatus = todayStatusRes.find(
+        const myTodayStatus = (todayStatusRes?.items || []).find(
           (emp) => emp.employeeName.toLowerCase() === decodedName.toLowerCase()
         );
 
@@ -347,179 +355,170 @@ export default function EmployeeEODHistory() {
       </Card>
 
       {/* EOD Detail Dialog */}
-      {selectedReport && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                  <ClipboardList className="h-5 w-5" />
-                  EOD Report Details
-                </h2>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setSelectedReport(null)}
-                >
-                  ✕
-                </Button>
-              </div>
-              
-              <div className="space-y-4">
-                {/* Header Info */}
-                <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
-                  <div>
-                    <p className="text-xs text-gray-500">Employee</p>
-                    <p className="text-sm font-medium">{selectedReport.employeeName}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Date</p>
-                    <p className="text-sm font-medium">{formatDate(selectedReport.date)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Clock In</p>
-                    <p className="text-sm font-medium">{formatLocalClock(selectedReport.clockIn, selectedReport.clockInAt)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Clock Out</p>
-                    <p className="text-sm font-medium">{formatLocalClock(selectedReport.clockOut, selectedReport.clockOutAt)}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Total Hours</p>
-                    <p className="text-sm font-medium">
-                      {selectedReport.totalHours ? `${selectedReport.totalHours.toFixed(2)}h` : "—"}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">Status</p>
-                    <div className="mt-1">{getStatusBadge(selectedReport.status)}</div>
-                  </div>
-                </div>
+      <Dialog open={!!selectedReport} onOpenChange={() => setSelectedReport(null)}>
+        <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              <ClipboardList className="h-5 w-5 text-blue-500" />
+              EOD Report Details
+            </DialogTitle>
+          </DialogHeader>
 
-                {/* EOD Content */}
-                <div className="space-y-4">
-                  {(() => {
-                    const eodData = parseEODData(selectedReport.rawInput);
-                    return (
-                      <>
+          {selectedReport && (
+            <div className="space-y-4 pt-2">
+              {/* Header Info */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 p-4 bg-zinc-50 dark:bg-zinc-900 border border-border/40 rounded-lg">
+                <div>
+                  <p className="text-xs text-muted-foreground font-semibold">Employee</p>
+                  <p className="text-sm font-medium text-foreground">{selectedReport.employeeName}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-semibold">Date</p>
+                  <p className="text-sm font-medium text-foreground">{formatDate(selectedReport.date)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-semibold">Clock In</p>
+                  <p className="text-sm font-medium text-foreground">{formatLocalClock(selectedReport.clockIn, selectedReport.clockInAt)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-semibold">Clock Out</p>
+                  <p className="text-sm font-medium text-foreground">{formatLocalClock(selectedReport.clockOut, selectedReport.clockOutAt)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-semibold">Total Hours</p>
+                  <p className="text-sm font-medium text-foreground">
+                    {selectedReport.totalHours ? `${selectedReport.totalHours.toFixed(2)}h` : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground font-semibold">Status</p>
+                  <div className="mt-1">{getStatusBadge(selectedReport.status)}</div>
+                </div>
+              </div>
+
+              {/* EOD Content */}
+              <div className="space-y-4">
+                {(() => {
+                  const eodData = parseEODData(selectedReport.rawInput);
+                  return (
+                    <>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium flex items-center gap-2">
+                          <CheckCircle className="h-4 w-4 text-green-600" />
+                          Tasks Completed
+                        </label>
+                        <div className="p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-900/30 rounded-lg">
+                          <p className="text-sm text-zinc-805 dark:text-zinc-200 whitespace-pre-wrap leading-relaxed">
+                            {eodData.tasksCompleted || "No tasks reported"}
+                          </p>
+                        </div>
+                      </div>
+
+                      {eodData.issuesBlockers && (
                         <div className="space-y-2">
                           <label className="text-sm font-medium flex items-center gap-2">
-                            <CheckCircle className="h-4 w-4 text-green-600" />
-                            Tasks Completed
+                            <AlertCircle className="h-4 w-4 text-yellow-600" />
+                            Issues / Blockers
                           </label>
-                          <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                            <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                              {eodData.tasksCompleted || "No tasks reported"}
+                          <div className="p-3 bg-yellow-50 dark:bg-yellow-950/20 border border-yellow-200 dark:border-yellow-900/30 rounded-lg">
+                            <p className="text-sm text-zinc-805 dark:text-zinc-200 whitespace-pre-wrap leading-relaxed">
+                              {eodData.issuesBlockers}
                             </p>
                           </div>
                         </div>
+                      )}
 
-                        {eodData.issuesBlockers && (
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium flex items-center gap-2">
-                              <AlertCircle className="h-4 w-4 text-yellow-600" />
-                              Issues / Blockers
-                            </label>
-                            <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                              <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                                {eodData.issuesBlockers}
-                              </p>
-                            </div>
+                      {eodData.notes && (
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium flex items-center gap-2">
+                            <ClipboardList className="h-4 w-4 text-blue-600" />
+                            Notes
+                          </label>
+                          <div className="p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/30 rounded-lg">
+                            <p className="text-sm text-zinc-805 dark:text-zinc-200 whitespace-pre-wrap leading-relaxed">
+                              {eodData.notes}
+                            </p>
                           </div>
-                        )}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
 
-                        {eodData.notes && (
-                          <div className="space-y-2">
-                            <label className="text-sm font-medium flex items-center gap-2">
-                              <ClipboardList className="h-4 w-4 text-blue-600" />
-                              Notes
-                            </label>
-                            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                              <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                                {eodData.notes}
-                              </p>
-                            </div>
+              {/* Comment Section */}
+              <div className="border-t border-border/45 pt-4 space-y-4">
+                <h4 className="text-sm font-semibold text-foreground">
+                  Comments & Feedback ({selectedReport.comments?.length || 0})
+                </h4>
+                
+                {/* Comments List */}
+                <div className="space-y-3 sm:max-h-[200px] sm:overflow-y-auto pr-1">
+                  {(!selectedReport.comments || selectedReport.comments.length === 0) ? (
+                    <p className="text-xs text-muted-foreground italic text-center py-2">
+                      No comments yet. Add the first comment below!
+                    </p>
+                  ) : (
+                    selectedReport.comments.map((comment: any, idx: number) => (
+                      <div key={idx} className="bg-slate-50 dark:bg-zinc-900 rounded-lg p-3 space-y-1 border border-border/20">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-foreground">
+                              {comment.authorName}
+                            </span>
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0.2 capitalize bg-slate-100 dark:bg-zinc-800 border-border">
+                              {comment.authorRole}
+                            </Badge>
                           </div>
-                        )}
-                      </>
-                    );
-                  })()}
+                          <span className="text-[10px] text-muted-foreground">
+                            {new Date(comment.createdAt).toLocaleString([], {
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit"
+                            })}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-700 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
+                          {comment.message}
+                        </p>
+                      </div>
+                    ))
+                  )}
                 </div>
 
-                {/* Comment Section */}
-                <div className="border-t pt-4 space-y-4">
-                  <h4 className="text-sm font-semibold text-slate-800 dark:text-zinc-200">
-                    Comments & Feedback ({selectedReport.comments?.length || 0})
-                  </h4>
-                  
-                  {/* Comments List */}
-                  <div className="space-y-3 max-h-[200px] overflow-y-auto pr-1">
-                    {(!selectedReport.comments || selectedReport.comments.length === 0) ? (
-                      <p className="text-xs text-muted-foreground italic text-center py-2">
-                        No comments yet. Add the first comment below!
-                      </p>
-                    ) : (
-                      selectedReport.comments.map((comment: any, idx: number) => (
-                        <div key={idx} className="bg-slate-50 dark:bg-zinc-900 rounded-lg p-3 space-y-1">
-                          <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-bold text-slate-900 dark:text-zinc-100">
-                                {comment.authorName}
-                              </span>
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0.2 capitalize bg-slate-100 dark:bg-zinc-805">
-                                {comment.authorRole}
-                              </Badge>
-                            </div>
-                            <span className="text-[10px] text-muted-foreground">
-                              {new Date(comment.createdAt).toLocaleString([], {
-                                month: "short",
-                                day: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit"
-                              })}
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-705 dark:text-zinc-300 leading-relaxed whitespace-pre-wrap">
-                            {comment.message}
-                          </p>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
-                  {/* Comment Input */}
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Write a comment..."
-                      value={commentText}
-                      onChange={(e) => setCommentText(e.target.value)}
-                      disabled={submittingComment}
-                      className="flex-1 text-xs"
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleAddComment();
-                        }
-                      }}
-                    />
-                    <Button
-                      onClick={handleAddComment}
-                      disabled={submittingComment || !commentText.trim()}
-                      className="text-xs px-3 bg-[#133767] hover:bg-[#0d2654] text-white"
-                    >
-                      Post
-                    </Button>
-                  </div>
+                {/* Comment Input */}
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Write a comment..."
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    disabled={submittingComment}
+                    className="flex-1 text-xs border-border/50"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleAddComment();
+                      }
+                    }}
+                  />
+                  <Button
+                    onClick={handleAddComment}
+                    disabled={submittingComment || !commentText.trim()}
+                    className="text-xs px-3 bg-[#133767] hover:bg-[#0d2654] text-white"
+                  >
+                    Post
+                  </Button>
                 </div>
               </div>
 
-              <div className="mt-6 flex justify-end">
-                <Button onClick={() => setSelectedReport(null)}>Close</Button>
+              <div className="pt-2 flex justify-end">
+                <Button onClick={() => setSelectedReport(null)} className="text-xs px-4">Close</Button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

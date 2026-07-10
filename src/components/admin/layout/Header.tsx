@@ -802,7 +802,7 @@ export function Header({ onMenuClick }: HeaderProps) {
                   <DropdownMenuContent align="start" side="bottom" className="w-56 mt-2">
                     <DropdownMenuLabel className="text-xs text-foreground">Account Settings</DropdownMenuLabel>
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => navigate("/admin/settings")}>
+                    <DropdownMenuItem onClick={() => navigate("/admin/profile")}>
                       <User className="mr-2 h-4 w-4" /> Profile Details
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => navigate("/admin/settings")}>

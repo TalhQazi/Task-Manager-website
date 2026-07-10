@@ -38,6 +38,10 @@ type SystemSettings = {
     replyAdded: Template;
     projectAssignment: Template;
     projectReassignment: Template;
+    preAdverseAction: Template;
+    finalAdverseAction: Template;
+    patentExpiration: Template;
+    lunchBreakAlert: Template;
   };
   taskRewardSystemEnabled?: boolean;
   scheConfig?: {
@@ -362,6 +366,42 @@ export default function SystemEmailSettings() {
               template={formData.templates.projectReassignment}
               onChange={(field, val) => handleTemplateChange("projectReassignment", field, val)}
               placeholders={["{name}", "{projectName}"]}
+            />
+
+            {/* Pre-Adverse Action */}
+            <TemplateCard
+              title="Pre-Adverse Action"
+              description="Sent when background check triggers potential adverse action"
+              template={formData.templates.preAdverseAction}
+              onChange={(field, val) => handleTemplateChange("preAdverseAction", field, val)}
+              placeholders={["{name}"]}
+            />
+
+            {/* Final Adverse Action */}
+            <TemplateCard
+              title="Final Adverse Action"
+              description="Sent when adverse action is finalized"
+              template={formData.templates.finalAdverseAction}
+              onChange={(field, val) => handleTemplateChange("finalAdverseAction", field, val)}
+              placeholders={["{name}"]}
+            />
+
+            {/* Patent Expiration */}
+            <TemplateCard
+              title="Patent Expiration"
+              description="Sent daily for patents close to expiration"
+              template={formData.templates.patentExpiration}
+              onChange={(field, val) => handleTemplateChange("patentExpiration", field, val)}
+              placeholders={["{name}", "{patentName}", "{daysUntilExpiration}", "{expirationDate}", "{applicationNumber}", "{category}"]}
+            />
+
+            {/* Lunch/Break Status Alert */}
+            <TemplateCard
+              title="Lunch/Break Status Alert"
+              description="Sent when employee went on lunch/break or exceeded time limit"
+              template={formData.templates.lunchBreakAlert}
+              onChange={(field, val) => handleTemplateChange("lunchBreakAlert", field, val)}
+              placeholders={["{name}", "{employeeName}", "{statusUpdate}", "{time}"]}
             />
           </div>
         </div>

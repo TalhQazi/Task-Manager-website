@@ -4,6 +4,7 @@ import { ServerGraphs } from "@/components/health/ServerGraphs";
 import { SystemResourcePies } from "@/components/health/SystemResourcePies";
 import { WebsiteStatusTable } from "@/components/health/WebsiteStatusTable";
 import { IncidentHistory } from "@/components/health/IncidentHistory";
+import { StorageHealthCard } from "@/components/health/storage/StorageHealthCard";
 import { Activity } from "lucide-react";
 
 export default function SystemHealth() {
@@ -66,8 +67,12 @@ export default function SystemHealth() {
           </div>
         </div>
 
-        {/* Host Resource Usage (RAM & Disk pie charts) */}
+        {/* Host Resource Usage (CPU / RAM / Disk pie charts) */}
         <SystemResourcePies />
+
+        {/* Storage Health — physical drive & RAID monitoring (wraps below on
+            narrower screens, sitting naturally under the Host Resources cards) */}
+        <StorageHealthCard />
 
         {/* Main Content Grids */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">

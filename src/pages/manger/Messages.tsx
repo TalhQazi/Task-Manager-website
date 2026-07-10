@@ -3,7 +3,6 @@ import { useLocation } from "react-router-dom";
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
 import { Badge } from "@/components/manger/ui/badge";
-import { Textarea } from "@/components/manger/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -28,10 +27,12 @@ import {
 import { cn } from "@/lib/manger/utils";
 import { renderMessageContent } from "@/lib/linkify";
 import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
+import MessageReactionBar, { type MessageReaction } from "@/components/shared/MessageReactionBar";
+import MentionsTextarea from "@/components/shared/MentionsTextarea";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSocket } from "@/contexts/SocketContext";
 import { getAuthState } from "@/lib/auth";
-import EmojiPicker, { type EmojiClickData } from "emoji-picker-react";
+import EmojiPicker, { EmojiStyle, type EmojiClickData } from "emoji-picker-react";
 import MilestoneBadge from "@/components/shared/MilestoneBadge";
 
 interface Employee {
@@ -63,6 +64,7 @@ interface Message {
   status: "sent" | "delivered" | "read";
   createdAt?: string;
   attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number };
+  reactions?: MessageReaction[];
 }
 
 type MessageApi = Omit<Message, "id"> & {
@@ -93,6 +95,9 @@ function normalizeMessage(m: any): Message {
     status: m.status || "sent",
     createdAt: m.createdAt,
     attachment: m.attachment,
+    reactions: Array.isArray(m.reactions)
+      ? m.reactions.map((r: any) => ({ emoji: String(r.emoji || ""), username: String(r.username || "") }))
+      : [],
   };
 }
 
@@ -436,6 +441,34 @@ export default function Messages() {
     socket.on("new-message", handleNewMessage);
     return () => { socket.off("new-message", handleNewMessage); };
   }, [socket, view, selectedEmployee?.name]);
+
+  // Real-time reaction updates via socket
+  useEffect(() => {
+    if (!socket) return;
+    const handleReaction = (payload: { messageId?: string; reactions?: MessageReaction[] }) => {
+      if (!payload?.messageId) return;
+      setConversationMessages((prev) =>
+        prev.map((m) => (m.id === payload.messageId ? { ...m, reactions: payload.reactions || [] } : m))
+      );
+    };
+    socket.on("message-reaction", handleReaction);
+    return () => { socket.off("message-reaction", handleReaction); };
+  }, [socket]);
+
+  // Toggle the current user's emoji reaction on a message
+  const toggleReaction = async (messageId: string, emoji: string) => {
+    try {
+      const res = await apiFetch<{ messageId: string; reactions: MessageReaction[] }>(
+        `/api/messages/${encodeURIComponent(messageId)}/react`,
+        { method: "POST", body: JSON.stringify({ emoji, username: currentUser }) }
+      );
+      setConversationMessages((prev) =>
+        prev.map((m) => (m.id === res.messageId ? { ...m, reactions: res.reactions } : m))
+      );
+    } catch (err) {
+      console.error("Failed to toggle reaction:", err);
+    }
+  };
 
   // Real-time status updates via socket
   useEffect(() => {
@@ -1188,9 +1221,10 @@ export default function Messages() {
                       ) : (
                         <div className="w-5 sm:w-6 md:w-8 flex-shrink-0" />
                       )}
+                      <div className={cn("max-w-[80%] sm:max-w-[75%] md:max-w-[70%] flex flex-col", isMe ? "items-end" : "items-start")}>
                       <div
                         className={cn(
-                          "max-w-[80%] sm:max-w-[75%] md:max-w-[70%] rounded-2xl px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 text-xs sm:text-sm md:text-base",
+                          "rounded-2xl px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 text-xs sm:text-sm md:text-base",
                           isMe
                             ? "bg-primary text-primary-foreground rounded-br-none"
                             : "bg-muted rounded-bl-none"
@@ -1224,7 +1258,7 @@ export default function Messages() {
                         ) : null}
 
                         {msg.content?.trim() ? <p className="break-words">{renderMessageContent(msg.content, isMe)}</p> : null}
-                        <p className={cn("text-[9px] sm:text-[10px] md:text-xs mt-0.5 sm:mt-1", isMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                        <p className={cn("text-[9px] sm:text-[10px] md:text-[10px] mt-0.5 sm:mt-0.5", isMe ? "text-primary-foreground/70" : "text-muted-foreground")}>
                           {formatMessageTime(msg.timestamp)}
                           {isMe && (
                             <span className="ml-1">
@@ -1234,6 +1268,13 @@ export default function Messages() {
                             </span>
                           )}
                         </p>
+                      </div>
+                      <MessageReactionBar
+                        reactions={msg.reactions || []}
+                        currentUser={currentUser}
+                        isMe={isMe}
+                        onToggle={(emoji) => void toggleReaction(msg.id, emoji)}
+                      />
                       </div>
                     </div>
                   );
@@ -1247,7 +1288,7 @@ export default function Messages() {
           <div className="p-2 sm:p-3 md:p-4 border-t relative">
             {showEmojiPicker && (
               <div ref={emojiPickerRef} className="absolute bottom-full right-4 mb-2 z-50">
-                <EmojiPicker onEmojiClick={onEmojiClick} width={300} height={380} />
+                <EmojiPicker onEmojiClick={onEmojiClick} width={300} height={380} emojiStyle={EmojiStyle.NATIVE} />
               </div>
             )}
             <div className="flex flex-col gap-2 sm:gap-2.5 md:gap-3">
@@ -1278,17 +1319,15 @@ export default function Messages() {
                 >
                   <Smile className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
                 </Button>
-                <Textarea
-                  placeholder={`Message ${selectedEmployee.name}...`}
+                <MentionsTextarea
+                  placeholder={`Message ${selectedEmployee.name}... (type @ to mention)`}
                   className="min-h-[40px] sm:min-h-[48px] md:min-h-[60px] resize-none text-xs sm:text-sm md:text-base"
                   value={newMessageContent}
-                  onChange={(e) => setNewMessageContent(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      sendMessage();
-                    }
-                  }}
+                  onChange={setNewMessageContent}
+                  onSubmit={sendMessage}
+                  users={employees
+                    .filter((e) => e.name && e.name !== currentUser)
+                    .map((e) => ({ name: e.name, avatarUrl: toProxiedUrl(e.avatarUrl) || e.avatarUrl, role: e.role }))}
                 />
                 <Button 
                   onClick={sendMessage} 

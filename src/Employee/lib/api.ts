@@ -480,6 +480,16 @@ export async function markMessagesAsRead(sender: string, recipient: string) {
   });
 }
 
+export async function toggleMessageReaction(messageId: string, emoji: string, username: string) {
+  return employeeApiFetch<{ messageId: string; reactions: Array<{ emoji: string; username: string }> }>(
+    `/api/messages/${encodeURIComponent(messageId)}/react`,
+    {
+      method: "POST",
+      body: JSON.stringify({ emoji, username }),
+    }
+  );
+}
+
 // Personal Notes API
 export async function getPersonalNotes() {
   return employeeApiFetch<{ items: Array<{ id: string; title: string; content: string; color: string; isPinned: boolean; updatedAt: string }> }>("/api/notes");

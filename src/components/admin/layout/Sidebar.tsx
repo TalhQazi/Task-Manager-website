@@ -73,6 +73,7 @@ type NavItem = {
 
 const navItemsBase: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin", end: true },
+  { icon: Activity, label: "Work In Progress", path: "/admin/wip" },
   {
     label: "Atlas Books",
     customIcon: (
@@ -194,12 +195,12 @@ const navItemsBase: NavItem[] = [
     ],
   },
   {
-    label: "Personal Notes",
+    label: "Knowledge Vault",
     path: "/admin/personal-notes",
     customIcon: (
       <img
         src="/kn_vlt.png"
-        alt="Personal Notes"
+        alt="Knowledge Vault"
         className="h-5 w-5 flex-shrink-0 object-contain opacity-80 group-hover:opacity-100 transition-opacity"
       />
     ),
@@ -260,6 +261,11 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
     // Add System Health for admin and super-admin
     if (auth.role === "admin" || auth.role === "super-admin") {
       items.push(systemHealthNavItem);
+    }
+
+    // Add Attendance only for admin (not super-admin)
+    if (auth.role === "admin") {
+      items.push({ icon: CalendarCheck, label: "Attendance", path: "/admin/attendance" });
     }
 
     // Sort children within items first

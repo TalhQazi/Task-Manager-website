@@ -237,7 +237,7 @@ export function SidebarProfile() {
         <DropdownMenuContent align="end" side="top" className="w-56 mb-2">
           <DropdownMenuLabel className="text-xs">Account Settings</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => navigate("/admin/settings")}>
+          <DropdownMenuItem onClick={() => navigate("/admin/profile")}>
             <User className="mr-2 h-4 w-4" /> Profile Details
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => navigate("/admin/settings")}>
