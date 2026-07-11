@@ -557,6 +557,14 @@ export function MainLayout({ children }: MainLayoutProps) {
     });
   }, []);
 
+  useEffect(() => {
+    const handleUpdate = () => {
+      queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+    };
+    window.addEventListener("header-settings-updated", handleUpdate);
+    return () => window.removeEventListener("header-settings-updated", handleUpdate);
+  }, [queryClient]);
+
   // System notifications (broadcasts only)
   const notificationsQuery = useQuery({
     queryKey: ["manager-notifications"],
@@ -859,7 +867,9 @@ export function MainLayout({ children }: MainLayoutProps) {
                 alt="header background"
                 className="absolute inset-0 w-full h-full"
                 style={{
-                  objectFit: 'cover',
+                  objectFit: (activeHoliday?.backgroundType === "image"
+                    ? (activeHoliday.imageConfig?.size === "100% 100%" ? "fill" : activeHoliday.imageConfig?.size === "auto" ? "none" : activeHoliday.imageConfig?.size || "cover")
+                    : (headerSettings?.imageConfig?.size === "100% 100%" ? "fill" : headerSettings?.imageConfig?.size === "auto" ? "none" : headerSettings?.imageConfig?.size || "cover")) as any,
                   objectPosition: activeHoliday?.backgroundType === "image"
                     ? activeHoliday.imageConfig?.position || 'center'
                     : headerSettings?.imageConfig?.position || 'center',
@@ -1185,7 +1195,15 @@ export function MainLayout({ children }: MainLayoutProps) {
               <div className="flex flex-col items-center gap-4">
                 <div className="w-full h-32 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center bg-muted/5 overflow-hidden relative group">
                   {headerImageUrl ? (
-                    <img src={headerImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                    <img 
+                      src={headerImageUrl} 
+                      alt="Preview" 
+                      className="w-full h-full" 
+                      style={{ 
+                        objectFit: (headerSettings?.imageConfig?.size === "100% 100%" ? "fill" : headerSettings?.imageConfig?.size === "auto" ? "none" : headerSettings?.imageConfig?.size || "cover") as any,
+                        objectPosition: headerSettings?.imageConfig?.position || "center"
+                      }} 
+                    />
                   ) : (
                     <div className="text-center">
                       <Camera className="h-8 w-8 mx-auto text-muted-foreground/50" />
@@ -1217,6 +1235,63 @@ export function MainLayout({ children }: MainLayoutProps) {
                   </div>
                 )}
               </div>
+
+              {hasImageBackground && (
+                <div className="grid grid-cols-2 gap-4 border-t pt-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">Cover Resize Size</label>
+                    <select
+                      value={headerSettings?.imageConfig?.size || "cover"}
+                      onChange={async (e) => {
+                        const newSize = e.target.value;
+                        await apiFetch("/api/header-settings", {
+                          method: "PUT",
+                          body: JSON.stringify({
+                            imageConfig: {
+                              size: newSize
+                            }
+                          })
+                        });
+                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                      }}
+                      className="w-full h-9 rounded-md border bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="cover">Cover (Fill Header)</option>
+                      <option value="contain">Contain (Fit Image)</option>
+                      <option value="100% 100%">Fill/Stretch</option>
+                      <option value="auto">Auto (Original)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">Cover Position</label>
+                    <select
+                      value={headerSettings?.imageConfig?.position || "center"}
+                      onChange={async (e) => {
+                        const newPos = e.target.value;
+                        await apiFetch("/api/header-settings", {
+                          method: "PUT",
+                          body: JSON.stringify({
+                            imageConfig: {
+                              position: newPos
+                            }
+                          })
+                        });
+                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                      }}
+                      className="w-full h-9 rounded-md border bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="center">Center</option>
+                      <option value="top">Top</option>
+                      <option value="bottom">Bottom</option>
+                      <option value="left">Left</option>
+                      <option value="right">Right</option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
             <DialogFooter className="flex justify-between sm:justify-between w-full">
               <Button variant="outline" size="sm" onClick={handleResetHeader} className="text-red-600 hover:text-red-700 hover:bg-red-50">

@@ -340,6 +340,14 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
     };
   }, []);
 
+  useEffect(() => {
+    const handleUpdate = () => {
+      queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+    };
+    window.addEventListener("header-settings-updated", handleUpdate);
+    return () => window.removeEventListener("header-settings-updated", handleUpdate);
+  }, [queryClient]);
+
   // Header settings from admin panel
   const headerSettingsQuery = useQuery({
     queryKey: ["header-settings"],
@@ -631,7 +639,9 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
               alt="header background"
               className="absolute inset-0 w-full h-full"
               style={{
-                objectFit: 'cover',
+                objectFit: (activeHoliday?.backgroundType === "image"
+                  ? (activeHoliday.imageConfig?.size === "100% 100%" ? "fill" : activeHoliday.imageConfig?.size === "auto" ? "none" : activeHoliday.imageConfig?.size || "cover")
+                  : (headerSettings?.imageConfig?.size === "100% 100%" ? "fill" : headerSettings?.imageConfig?.size === "auto" ? "none" : headerSettings?.imageConfig?.size || "cover")) as any,
                 objectPosition: activeHoliday?.backgroundType === "image"
                   ? activeHoliday.imageConfig?.position || 'center'
                   : headerSettings?.imageConfig?.position || 'center',
@@ -813,7 +823,11 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                   <img
                     src={headerImageUrl || undefined}
                     alt="Header preview"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full"
+                    style={{ 
+                      objectFit: (headerSettings?.imageConfig?.size === "100% 100%" ? "fill" : headerSettings?.imageConfig?.size === "auto" ? "none" : headerSettings?.imageConfig?.size || "cover") as any,
+                      objectPosition: headerSettings?.imageConfig?.position || "center"
+                    }}
                   />
                 ) : (
                   <div className="flex items-center justify-center h-full">
@@ -842,6 +856,63 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                 <div className="flex items-center gap-2 text-primary">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span className="text-sm">Uploading image...</span>
+                </div>
+              )}
+
+              {hasImageBackground && (
+                <div className="grid grid-cols-2 gap-4 border-t pt-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">Cover Resize Size</label>
+                    <select
+                      value={headerSettings?.imageConfig?.size || "cover"}
+                      onChange={async (e) => {
+                        const newSize = e.target.value;
+                        await apiFetch("/api/header-settings", {
+                          method: "PUT",
+                          body: JSON.stringify({
+                            imageConfig: {
+                              size: newSize
+                            }
+                          })
+                        });
+                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                      }}
+                      className="w-full h-9 rounded-md border bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="cover">Cover (Fill Header)</option>
+                      <option value="contain">Contain (Fit Image)</option>
+                      <option value="100% 100%">Fill/Stretch</option>
+                      <option value="auto">Auto (Original)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">Cover Position</label>
+                    <select
+                      value={headerSettings?.imageConfig?.position || "center"}
+                      onChange={async (e) => {
+                        const newPos = e.target.value;
+                        await apiFetch("/api/header-settings", {
+                          method: "PUT",
+                          body: JSON.stringify({
+                            imageConfig: {
+                              position: newPos
+                            }
+                          })
+                        });
+                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                      }}
+                      className="w-full h-9 rounded-md border bg-background px-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="center">Center</option>
+                      <option value="top">Top</option>
+                      <option value="bottom">Bottom</option>
+                      <option value="left">Left</option>
+                      <option value="right">Right</option>
+                    </select>
+                  </div>
                 </div>
               )}
             </div>
