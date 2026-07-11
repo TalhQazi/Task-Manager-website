@@ -432,6 +432,7 @@ export function Header({ onMenuClick }: HeaderProps) {
       ? headerSettings?.imageConfig?.url || headerSettings?.imageConfig?.dataUrl
       : null;
   const headerImageUrl = headerImageUrlRaw ? toProxiedUrl(headerImageUrlRaw) : null;
+  const hasImageBackground = Boolean(headerImageUrl);
 
   // Banner header height (static 300px)
   const headerHeight = 300;
