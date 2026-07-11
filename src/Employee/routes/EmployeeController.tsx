@@ -82,6 +82,7 @@ function EmployeeController() {
           <Route path="/bugs" element={<EmployeeBugs />} />
           <Route path="/announcements" element={<EmployeeAnnouncements />} />
           <Route path="/email-settings" element={<EmployeeEmailSettings />} />
+          <Route path="/settings" element={<EmployeeEmailSettings />} />
           <Route path="/itinerary" element={<EmployeeItinerary />} />
         </Route>
         <Route path="*" element={<Navigate to="/employee" replace />} />
