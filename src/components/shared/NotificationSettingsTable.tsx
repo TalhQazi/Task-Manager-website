@@ -139,8 +139,12 @@ export default function NotificationSettingsTable({
           </thead>
           <tbody className="divide-y divide-border">
             {visibleCategories.map((cat) => {
-              const isEmailOn = emailPreferences[cat.key] !== false;
-              const isWebOn = webPreferences[cat.key] !== false;
+              const isEmailOn = cat.key === "websiteDownAlert"
+                ? emailPreferences[cat.key] === true
+                : emailPreferences[cat.key] !== false;
+              const isWebOn = cat.key === "websiteDownAlert"
+                ? webPreferences[cat.key] === true
+                : webPreferences[cat.key] !== false;
 
               return (
                 <tr key={cat.key} className="hover:bg-muted/20 transition-colors">
@@ -176,8 +180,12 @@ export default function NotificationSettingsTable({
       {/* Mobile View - Stacked Cards */}
       <div className="md:hidden p-3 space-y-3">
         {visibleCategories.map((cat) => {
-          const isEmailOn = emailPreferences[cat.key] !== false;
-          const isWebOn = webPreferences[cat.key] !== false;
+          const isEmailOn = cat.key === "websiteDownAlert"
+            ? emailPreferences[cat.key] === true
+            : emailPreferences[cat.key] !== false;
+          const isWebOn = cat.key === "websiteDownAlert"
+            ? webPreferences[cat.key] === true
+            : webPreferences[cat.key] !== false;
 
           return (
             <div
