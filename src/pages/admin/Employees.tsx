@@ -224,6 +224,7 @@ const Employees = () => {
     email: string;
     phone: string;
     category: string;
+    customCategory?: string;
     createUser: "no" | "yes";
     userRole: "super-admin" | "admin" | "manager" | "team-lead" | "employee";
     userStatus: "active" | "inactive" | "pending";
@@ -233,6 +234,7 @@ const Employees = () => {
     payType: "hourly" | "monthly";
     payRate: string;
     shift: string;
+    shiftObject?: Shift;
     hireDate: string;
     password: string;
     department: string;
@@ -247,6 +249,7 @@ const Employees = () => {
       email: "",
       phone: "",
       category: "",
+      customCategory: "",
       createUser: "no",
       userRole: "manager",
       userStatus: "active",
@@ -267,10 +270,13 @@ const Employees = () => {
   } = addForm;
 
   const createUserChoice = addForm.watch("createUser");
+  const watchedCategory = addForm.watch("category");
 
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [viewProfileOpen, setViewProfileOpen] = useState(false);
   const [editEmployeeOpen, setEditEmployeeOpen] = useState(false);
+  const [showCustomCategoryEdit, setShowCustomCategoryEdit] = useState(false);
+  const [customCategoryEditVal, setCustomCategoryEditVal] = useState("");
   const [deactivateConfirmOpen, setDeactivateConfirmOpen] = useState(false);
   const [shiftOpen, setShiftOpen] = useState(false);
 
@@ -407,7 +413,7 @@ const Employees = () => {
           .toUpperCase(),
         email: values.email.trim(),
         phone: values.phone,
-        category: values.category,
+        category: values.category === "__custom__" ? (values.customCategory || "").trim().toLowerCase() : values.category,
         role: values.role,
         company: values.company || "",
         status: values.status,
@@ -478,6 +484,8 @@ const Employees = () => {
 
   const handleEditEmployee = (employee: Employee) => {
     setSelectedEmployee(employee);
+    setShowCustomCategoryEdit(false);
+    setCustomCategoryEditVal("");
     setEditFormData({
       name: employee.name,
       email: employee.email,
@@ -566,6 +574,8 @@ const Employees = () => {
 
       setEditEmployeeOpen(false);
       setSelectedEmployee(null);
+      setShowCustomCategoryEdit(false);
+      setCustomCategoryEditVal("");
 
       // 3. Sync linked user login account in the background (best-effort)
       listResource<any>("users", { limit: 1000 }).then((usersResult) => {
@@ -885,7 +895,18 @@ const Employees = () => {
                             {c}
                           </option>
                         ))}
+                        <option value="__custom__">+ Add Custom Category...</option>
                       </select>
+                      {watchedCategory === "__custom__" && (
+                        <input
+                          type="text"
+                          {...addForm.register("customCategory", {
+                            required: watchedCategory === "__custom__" ? "Custom category is required" : false
+                          })}
+                          placeholder="Enter custom category"
+                          className="w-full mt-2 rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                        />
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <label className="block text-xs sm:text-sm font-medium mb-1.5">Role *</label>
@@ -2000,18 +2021,47 @@ const Employees = () => {
                     className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
                   />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Category</label>
-                  <select
-                    value={editFormData.category}
-                    onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
-                    className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
-                  >
-                    <option value="">Select category</option>
-                    {categoryOptions.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
+                 <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="block text-xs sm:text-sm font-medium">Category</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCustomCategoryEdit(!showCustomCategoryEdit);
+                        if (!showCustomCategoryEdit) {
+                          setCustomCategoryEditVal(editFormData.category);
+                        } else {
+                          setEditFormData({ ...editFormData, category: "" });
+                        }
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      {showCustomCategoryEdit ? "Select existing" : "+ Add custom"}
+                    </button>
+                  </div>
+                  {showCustomCategoryEdit ? (
+                    <input
+                      type="text"
+                      value={customCategoryEditVal}
+                      onChange={(e) => {
+                        setCustomCategoryEditVal(e.target.value);
+                        setEditFormData({ ...editFormData, category: e.target.value });
+                      }}
+                      placeholder="Enter custom category"
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
+                    />
+                  ) : (
+                    <select
+                      value={editFormData.category}
+                      onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
+                      className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
+                    >
+                      <option value="">Select category</option>
+                      {categoryOptions.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <label className="block text-xs sm:text-sm font-medium mb-1.5">Role *</label>
