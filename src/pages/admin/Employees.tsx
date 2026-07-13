@@ -236,6 +236,7 @@ const Employees = () => {
     hireDate: string;
     password: string;
     department: string;
+    onboardingRequired: boolean;
   };
 
   const addForm = useForm<AddEmployeeValues>({
@@ -257,6 +258,7 @@ const Employees = () => {
       shift: "",
       hireDate: "",
       password: "",
+      onboardingRequired: true,
     },
   });
 
@@ -296,6 +298,7 @@ const Employees = () => {
     hireDate: "",
     userRole: "employee" as "super-admin" | "admin" | "manager" | "team-lead" | "employee",
     userStatus: "active" as "active" | "inactive" | "pending",
+    onboardingRequired: true,
   });
 
   const [shiftFormData, setShiftFormData] = useState({
@@ -412,6 +415,7 @@ const Employees = () => {
         payRate: values.payRate,
         shift: values.shift,
         hireDate: values.hireDate,
+        onboardingRequired: values.onboardingRequired,
         // Login credentials — only set if this employee should have task manager access
         ...(isLoginUser && {
           password: values.password,
@@ -489,6 +493,7 @@ const Employees = () => {
       hireDate: employee.hireDate,
       userRole: (employee as any).userRole || "employee",
       userStatus: (employee as any).userStatus || "active",
+      onboardingRequired: (employee as any).onboardingRequired !== false,
     });
 
     setEditEmployeeOpen(true);
@@ -523,6 +528,7 @@ const Employees = () => {
         hireDate: editFormData.hireDate,
         userRole: editFormData.userRole,
         userStatus: editFormData.userStatus,
+        onboardingRequired: editFormData.onboardingRequired,
       } as any);
 
       // 2. Immediately update the local list so the table reflects changes without waiting for a re-fetch
@@ -552,6 +558,7 @@ const Employees = () => {
                 department: editFormData.department,
                 userRole: editFormData.userRole,
                 userStatus: editFormData.userStatus,
+                onboardingRequired: editFormData.onboardingRequired,
               } as any
             : emp
         )
@@ -1064,6 +1071,18 @@ const Employees = () => {
                         <option value="yes">Yes — can log in</option>
                       </select>
                     </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2">
+                    <input
+                      type="checkbox"
+                      id="onboardingRequired"
+                      {...addForm.register("onboardingRequired")}
+                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                    />
+                    <label htmlFor="onboardingRequired" className="text-xs sm:text-sm font-medium cursor-pointer select-none">
+                      On Boarding Required
+                    </label>
                   </div>
                 </motion.form>
 
@@ -2131,6 +2150,19 @@ const Employees = () => {
                     <option value="pending">Pending</option>
                   </select>
                 </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="editOnboardingRequired"
+                  checked={editFormData.onboardingRequired}
+                  onChange={(e) => setEditFormData({ ...editFormData, onboardingRequired: e.target.checked })}
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <label htmlFor="editOnboardingRequired" className="text-xs sm:text-sm font-medium cursor-pointer select-none">
+                  On Boarding Required
+                </label>
               </div>
             </motion.form>
           )}

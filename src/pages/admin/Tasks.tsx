@@ -878,12 +878,14 @@ export default function Tasks() {
 
   // Fetch projects with server-side pagination
   const projectsQuery = useQuery({
-    queryKey: ["projects", projectPage, projectSearchQuery],
+    queryKey: ["projects", projectPage, projectSearchQuery, statusFilter, assignmentFilter],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: projectPage.toString(),
         limit: PAGE_SIZE.toString(),
         search: projectSearchQuery,
+        status: statusFilter,
+        assignment: assignmentFilter,
       });
       const res = await apiFetch<{ items: Project[], totalPages: number, total: number }>(`/api/projects?${params.toString()}`);
       return {
@@ -894,6 +896,10 @@ export default function Tasks() {
     },
     placeholderData: (previousData) => previousData,
   });
+
+  useEffect(() => {
+    setProjectPage(1);
+  }, [statusFilter, assignmentFilter]);
 
   useEffect(() => {
     if (tasksQuery.data) {

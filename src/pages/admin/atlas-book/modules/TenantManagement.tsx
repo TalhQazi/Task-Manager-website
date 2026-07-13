@@ -13,9 +13,14 @@ export default function TenantManagement() {
   const [properties, setProperties] = useState<any[]>([]);
   const [units, setUnits] = useState<any[]>([]);
   const [locations, setLocations] = useState<any[]>([]);
+  const [leases, setLeases] = useState<any[]>([]);
+  const [invoices, setInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const [selectedTenant, setSelectedTenant] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState("profile");
   
   const [form, setForm] = useState({ 
     name: "", 
@@ -32,16 +37,20 @@ export default function TenantManagement() {
   const load = async () => {
     try {
       setLoading(true);
-      const [tenantsRes, propsRes, unitsRes, locationsRes] = await Promise.all([
+      const [tenantsRes, propsRes, unitsRes, locationsRes, leasesRes, invoicesRes] = await Promise.all([
         apiFetch("/api/atlasbook/tenants"),
         apiFetch("/api/atlasbook/properties").catch(() => null),
         apiFetch("/api/atlasbook/units").catch(() => null),
-        apiFetch("/api/locations").catch(() => null)
+        apiFetch("/api/locations").catch(() => null),
+        apiFetch("/api/atlasbook/leases").catch(() => null),
+        apiFetch("/api/atlasbook/invoices").catch(() => null)
       ]);
       if (tenantsRes?.success) setItems(tenantsRes.items || []);
       if (propsRes?.success) setProperties(propsRes.items || []);
       if (unitsRes?.success) setUnits(unitsRes.items || []);
       if (locationsRes?.items) setLocations(locationsRes.items || []);
+      if (leasesRes?.success) setLeases(leasesRes.items || []);
+      if (invoicesRes?.success) setInvoices(invoicesRes.items || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -152,7 +161,11 @@ export default function TenantManagement() {
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground italic">No lease history</TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm">Details</Button>
+                      <Button variant="ghost" size="sm" onClick={() => {
+                        setSelectedTenant(item);
+                        setActiveTab("profile");
+                        setDetailsOpen(true);
+                      }}>Details</Button>
                     </TableCell>
                   </TableRow>
                 ))
@@ -237,6 +250,204 @@ export default function TenantManagement() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button onClick={handleCreate}>Save Tenant</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="max-w-2xl rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+              <Users className="h-6 w-6 text-primary" />
+              Tenant Details
+            </DialogTitle>
+          </DialogHeader>
+          
+          {selectedTenant && (
+            <div className="space-y-6 py-4">
+              {/* Tab Selector */}
+              <div className="flex border-b border-border">
+                <button
+                  onClick={() => setActiveTab("profile")}
+                  className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all ${
+                    activeTab === "profile" 
+                      ? "border-primary text-primary" 
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Profile
+                </button>
+                <button
+                  onClick={() => setActiveTab("leases")}
+                  className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all ${
+                    activeTab === "leases" 
+                      ? "border-primary text-primary" 
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Lease History ({leases.filter(l => l.tenant?._id === selectedTenant._id).length})
+                </button>
+                <button
+                  onClick={() => setActiveTab("invoices")}
+                  className={`px-4 py-2 text-sm font-semibold border-b-2 transition-all ${
+                    activeTab === "invoices" 
+                      ? "border-primary text-primary" 
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Invoices ({invoices.filter(i => i.tenant?._id === selectedTenant._id).length})
+                </button>
+              </div>
+
+              {/* Tab Content */}
+              <div className="max-h-[50vh] overflow-y-auto pr-1">
+                {activeTab === "profile" && (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <span className="text-xs text-muted-foreground block font-medium">Full Name</span>
+                        <span className="text-sm font-bold text-foreground">{selectedTenant.name}</span>
+                      </div>
+                      <div>
+                        <span className="text-xs text-muted-foreground block font-medium">Tenant Type</span>
+                        <Badge variant="outline" className="mt-1">{selectedTenant.type}</Badge>
+                      </div>
+                      <div>
+                        <span className="text-xs text-muted-foreground block font-medium">Email</span>
+                        <span className="text-sm text-foreground">{selectedTenant.email || "N/A"}</span>
+                      </div>
+                      <div>
+                        <span className="text-xs text-muted-foreground block font-medium">Phone</span>
+                        <span className="text-sm text-foreground">{selectedTenant.phone || "N/A"}</span>
+                      </div>
+                      <div>
+                        <span className="text-xs text-muted-foreground block font-medium">Assigned Property</span>
+                        <span className="text-sm text-foreground">{selectedTenant.assignedProperty || "None"}</span>
+                      </div>
+                      <div>
+                        <span className="text-xs text-muted-foreground block font-medium">Assigned Unit</span>
+                        <span className="text-sm text-foreground">{selectedTenant.assignedUnit || "None"}</span>
+                      </div>
+                      <div>
+                        <span className="text-xs text-muted-foreground block font-medium">Location</span>
+                        <span className="text-sm text-foreground">{selectedTenant.locationName || "None"}</span>
+                      </div>
+                      <div>
+                        <span className="text-xs text-muted-foreground block font-medium">Status</span>
+                        <Badge variant={selectedTenant.status === "Active" ? "default" : "secondary"} className="mt-1">
+                          {selectedTenant.status}
+                        </Badge>
+                      </div>
+                    </div>
+                    {selectedTenant.address && (
+                      <div>
+                        <span className="text-xs text-muted-foreground block font-medium">Address</span>
+                        <span className="text-sm text-foreground">{selectedTenant.address}</span>
+                      </div>
+                    )}
+                    {selectedTenant.notes && (
+                      <div className="bg-muted/30 p-3 rounded-lg border border-border">
+                        <span className="text-xs text-muted-foreground block font-medium mb-1">Notes</span>
+                        <p className="text-xs text-foreground whitespace-pre-wrap">{selectedTenant.notes}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === "leases" && (
+                  <div className="space-y-4">
+                    {leases.filter(l => l.tenant?._id === selectedTenant._id).length === 0 ? (
+                      <p className="text-sm text-muted-foreground italic text-center py-6">No leases on file for this tenant.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {leases.filter(l => l.tenant?._id === selectedTenant._id).map((lease: any) => (
+                          <div key={lease._id} className="border border-border rounded-xl p-4 bg-card shadow-soft space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold text-sm text-foreground">
+                                {lease.property?.name || "Property"} - Unit {lease.unit?.unitNumber || "N/A"}
+                              </span>
+                              <Badge variant={lease.status === "Active" ? "default" : "secondary"}>
+                                {lease.status}
+                              </Badge>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                              <div>
+                                <span className="text-muted-foreground block">Rent</span>
+                                <span className="font-semibold text-foreground">${lease.rentAmount?.toLocaleString()}</span>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground block">Deposit</span>
+                                <span className="font-semibold text-foreground">${lease.depositAmount?.toLocaleString() || "N/A"}</span>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground block">Start Date</span>
+                                <span className="font-semibold text-foreground">
+                                  {lease.startDate ? new Date(lease.startDate).toLocaleDateString() : "N/A"}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-muted-foreground block">End Date</span>
+                                <span className="font-semibold text-foreground">
+                                  {lease.endDate ? new Date(lease.endDate).toLocaleDateString() : "No end date"}
+                                </span>
+                              </div>
+                            </div>
+                            {lease.terms && (
+                              <div className="pt-2 border-t border-border mt-2">
+                                <span className="text-[10px] text-muted-foreground block">Terms</span>
+                                <p className="text-xs text-foreground italic">{lease.terms}</p>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {activeTab === "invoices" && (
+                  <div className="space-y-4">
+                    {invoices.filter(i => i.tenant?._id === selectedTenant._id).length === 0 ? (
+                      <p className="text-sm text-muted-foreground italic text-center py-6">No invoices on file for this tenant.</p>
+                    ) : (
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Invoice #</TableHead>
+                            <TableHead>Issue Date</TableHead>
+                            <TableHead>Due Date</TableHead>
+                            <TableHead>Amount</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {invoices.filter(i => i.tenant?._id === selectedTenant._id).map((invoice: any) => (
+                            <TableRow key={invoice._id}>
+                              <TableCell className="font-bold">{invoice.invoiceNumber || invoice._id.slice(-6).toUpperCase()}</TableCell>
+                              <TableCell className="text-xs">
+                                {invoice.issueDate ? new Date(invoice.issueDate).toLocaleDateString() : "N/A"}
+                              </TableCell>
+                              <TableCell className="text-xs">
+                                {invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : "N/A"}
+                              </TableCell>
+                              <TableCell className="font-semibold text-sm">${invoice.amount?.toLocaleString()}</TableCell>
+                              <TableCell>
+                                <Badge variant={invoice.status === "Paid" ? "default" : "secondary"}>
+                                  {invoice.status}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setDetailsOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

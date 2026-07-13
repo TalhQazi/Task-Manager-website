@@ -58,6 +58,14 @@ interface Website {
   overrideReason?: string;
   createdAt: string;
   updatedAt: string;
+  largeHeaderImage?: string;
+  contactInfoSection?: string;
+  adaCompliance?: string;
+  faq?: string;
+  contactUsPage?: string;
+  privacyPolicy?: string;
+  seo?: string;
+  siteMap?: string;
 }
 
 interface ChecklistItem {
@@ -328,6 +336,29 @@ export default function ComplianceCenter() {
       void loadData();
     } catch (err: any) {
       toast.error(err.message || "Failed to update checklist item.");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleToggleCoreReq = async (key: string, status: string) => {
+    if (!selectedWebsite) return;
+    setActionLoading(true);
+    try {
+      const res = await apiFetch<{ item: Website }>(`/api/websites/${selectedWebsite._id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          [key]: status
+        }),
+      });
+      
+      toast.success("Updated core requirement status successfully.");
+      setSelectedWebsite(res.item);
+      setWebsites((prev) =>
+        prev.map((w) => (w._id === selectedWebsite._id ? res.item : w))
+      );
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update core requirement status.");
     } finally {
       setActionLoading(false);
     }
@@ -1084,6 +1115,77 @@ export default function ComplianceCenter() {
                   </div>
                 )}
               </div>
+
+              {/* Core Requirements Section */}
+              <Card className={`p-4 border ${isMetallic ? "bg-black/30 border-[#ffd27a]/15 text-white" : "bg-card border-border"}`}>
+                <h3 className="font-bold text-sm text-foreground mb-3 uppercase tracking-wider flex items-center gap-1.5">
+                  <ShieldCheck className="h-4 w-4 text-green-500" />
+                  Core Website Requirements
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[
+                    { key: "largeHeaderImage", label: "Large Header Image" },
+                    { key: "contactInfoSection", label: "Contact Info Section" },
+                    { key: "adaCompliance", label: "ADA Compliance" },
+                    { key: "faq", label: "FAQ" },
+                    { key: "contactUsPage", label: "Contact Us Page" },
+                    { key: "privacyPolicy", label: "Privacy Policy" },
+                    { key: "seo", label: "SEO" },
+                    { key: "siteMap", label: "Site Map" }
+                  ].map((reqItem) => {
+                    const val = (selectedWebsite as any)[reqItem.key] || "none";
+                    return (
+                      <div key={reqItem.key} className={`flex items-center justify-between p-2 rounded-lg border ${
+                        isMetallic ? "bg-[#1b1c1d]/50 border-zinc-800" : "bg-muted/30 border-muted"
+                      }`}>
+                        <span className="text-xs font-semibold text-foreground truncate mr-2">{reqItem.label}</span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {/* Current Status Indicator */}
+                          <div className="mr-1">
+                            {val === "green" ? (
+                              <CheckCircle2 className="h-4 w-4 text-green-500" title="Compliant (Green)" />
+                            ) : val === "red" ? (
+                              <XCircle className="h-4 w-4 text-red-500" title="Non-Compliant / Missing (Red)" />
+                            ) : (
+                              <AlertCircle className="h-4 w-4 text-muted-foreground" title="Not Checked" />
+                            )}
+                          </div>
+                          
+                          {/* Toggle buttons */}
+                          <button
+                            onClick={() => handleToggleCoreReq(reqItem.key, "green")}
+                            disabled={actionLoading}
+                            className={`p-1 rounded transition-colors ${
+                              val === "green" ? "bg-green-500/20 text-green-500" : "hover:bg-green-500/10 text-muted-foreground"
+                            }`}
+                            title="Set Compliant"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleToggleCoreReq(reqItem.key, "red")}
+                            disabled={actionLoading}
+                            className={`p-1 rounded transition-colors ${
+                              val === "red" ? "bg-red-500/20 text-red-500" : "hover:bg-red-500/10 text-muted-foreground"
+                            }`}
+                            title="Set Non-Compliant"
+                          >
+                            <XCircle className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleToggleCoreReq(reqItem.key, "none")}
+                            disabled={actionLoading}
+                            className={`p-1.5 rounded hover:bg-muted text-muted-foreground flex items-center justify-center`}
+                            title="Reset / Close Status"
+                          >
+                            <span className="text-[10px] font-black leading-none">X</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
 
               {/* Override Parameter Button for Administrators */}
               {isAdmin && (
