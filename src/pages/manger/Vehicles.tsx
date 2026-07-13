@@ -1957,7 +1957,10 @@ export default function Vehicles() {
         />
       </div>
     </div>
-  );const VehicleNeedsSection = ({ 
+  );
+};
+
+const VehicleNeedsSection = ({ 
   vehicle, 
   employees,
   onAddNeed,
