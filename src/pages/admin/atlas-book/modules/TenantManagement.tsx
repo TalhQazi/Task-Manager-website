@@ -212,7 +212,7 @@ export default function TenantManagement() {
                   onChange={e => setForm({...form, assignedProperty: e.target.value})}
                 >
                   <option value="">None</option>
-                  {properties.map(p => <option key={p._id} value={p.name}>{p.name}</option>)}
+                  {locations.map(p => <option key={p.id || p._id} value={p.name}>{p.name}</option>)}
                 </select>
               </div>
               <div className="space-y-2">
