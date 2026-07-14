@@ -79,7 +79,7 @@ function EmployeeController() {
           <Route path="/leave-requests" element={<EmployeeLeaveRequests />} />
           <Route path="/shopping-lists" element={<ShoppingLists />} />
           <Route path="/travel-calendar" element={<TravelCalendar />} />
-          <Route path="/bugs" element={<EmployeeBugs />} />
+          <Route path="/bugs" element={employeeAuth.role === "coder" ? <EmployeeBugs /> : <Navigate to="/employee" replace />} />
           <Route path="/announcements" element={<EmployeeAnnouncements />} />
           <Route path="/email-settings" element={<EmployeeEmailSettings />} />
           <Route path="/settings" element={<EmployeeEmailSettings />} />

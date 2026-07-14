@@ -54,6 +54,7 @@ const ComplianceCenter = lazy(() => import("@/pages/manger/ComplianceCenter"));
 const Contributors = lazy(() => import("@/pages/admin/Contributors"));
 const ThemeEngine = lazy(() => import("@/pages/admin/ThemeEngine"));
 const Memes = lazy(() => import("@/pages/admin/Memes"));
+const ExpenseSheets = lazy(() => import("@/pages/admin/ExpenseSheets"));
 
 const TeamLeadMappings = lazy(() => import("@/pages/admin/TeamLeadMappings"));
 const TaskPermissions = lazy(() => import("@/pages/admin/TaskPermissions"));
@@ -182,11 +183,12 @@ export default function AdminRoutes() {
       { path: "crm/communication", element: <CRMCommunication /> },
       { path: "crm/files", element: <CRMFiles /> },
       { path: "crm/commandcore", element: <CRMCommandCore /> },
-      { path: "bug-reports", element: <BugReport /> },
+      { path: "bug-reports", element: auth.role === "super-admin" ? <BugReport /> : <Navigate to="/admin" replace /> },
       { path: "compliance-center", element: <ComplianceCenter /> },
       { path: "theme-engine", element: <ThemeEngine /> },
       { path: "memes", element: <Memes /> },
       { path: "shopping-lists", element: <ShoppingLists /> },
+      { path: "expense-sheets", element: <ExpenseSheets /> },
       { path: "system-email-settings", element: auth.role === "super-admin" ? <SystemEmailSettings /> : <Navigate to="/admin" replace /> },
       { path: "company-registry", element: <CompanyRegistry /> },
       { path: "travel-calendar", element: <TravelCalendar /> },

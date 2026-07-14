@@ -94,22 +94,30 @@ export function toProxiedUrl(url: string | undefined): string {
   if (!url) return "";
   if (url.startsWith("data:")) return url;
 
+  let token = "";
+  const authRaw = localStorage.getItem("employee_auth");
+  if (authRaw) {
+    try {
+      const parsed = JSON.parse(authRaw);
+      token = parsed.token || "";
+    } catch (e) {
+      void e;
+    }
+  }
+
+  // Local server uploads ("/uploads/<key>") — served by the backend, so route them
+  // through the backend origin (via the s3-proxy, which reads local disk first).
+  if (url.startsWith("/uploads/")) {
+    const key = url.replace(/^\/uploads\//, "");
+    return `${API_BASE_URL}/api/s3-proxy/${key}${token ? `?token=${token}` : ""}`;
+  }
+
   // Pattern for S3 URLs: https://<bucket>.s3.<region>.amazonaws.com/<key>
   const s3Pattern = /^https:\/\/([\w.-]+)\.s3\.([\w.-]+)\.amazonaws\.com\/(.+)$/;
   const match = url.match(s3Pattern);
 
   if (match) {
     const key = match[3];
-    let token = "";
-    const authRaw = localStorage.getItem("employee_auth");
-    if (authRaw) {
-      try {
-        const parsed = JSON.parse(authRaw);
-        token = parsed.token || "";
-      } catch (e) {
-        void e;
-      }
-    }
     return `${API_BASE_URL}/api/s3-proxy/${key}${token ? `?token=${token}` : ""}`;
   }
 

@@ -28,6 +28,9 @@ import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 
+import { getAuthState } from "@/lib/auth";
+import { useMemo } from "react";
+
 const navItemsBase = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/employee", end: true },
   { icon: Megaphone, label: "Announcements", path: "/employee/announcements" },
@@ -56,15 +59,6 @@ const navItemsBase = [
   { icon: Settings, label: "Settings", path: "/employee/settings" },
 ];
 
-// 🔥 Logic: Settings ko alag karein → baki ko sort karein → Settings ko end mein lagayein
-const settingsItem = navItemsBase.find(item => item.label === "Settings");
-const otherItems = navItemsBase.filter(item => item.label !== "Settings");
-
-const navItems = [
-  ...otherItems.sort((a, b) => a.label.localeCompare(b.label)),
-  ...(settingsItem ? [settingsItem] : [])  // Settings hamesha last mein
-];
-
 type SidebarMode = "desktop" | "mobile";
 
 interface EmployeeSidebarProps {
@@ -74,8 +68,22 @@ interface EmployeeSidebarProps {
 
 export function EmployeeSidebar({ mode = "desktop", onNavigate }: EmployeeSidebarProps) {
   const navigate = useNavigate();
+  const auth = getAuthState();
   const topOffset = 300;
   const [sidebarBg, setSidebarBg] = useState("var(--tb-sidebar-bg, #0B1323)");
+
+  const navItems = useMemo(() => {
+    let items = [...navItemsBase];
+    if (auth.role !== "coder") {
+      items = items.filter(item => item.label !== "Bugs");
+    }
+    const settingsItem = items.find(item => item.label === "Settings");
+    const otherItems = items.filter(item => item.label !== "Settings");
+    return [
+      ...otherItems.sort((a, b) => a.label.localeCompare(b.label)),
+      ...(settingsItem ? [settingsItem] : [])
+    ];
+  }, [auth.role]);
 
   const isMobile = mode === "mobile";
 

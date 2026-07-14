@@ -230,8 +230,10 @@ const navItemsBase: NavItem[] = [
   { icon: ShoppingCart, label: "Shopping Lists", path: "/admin/shopping-lists" },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
   { icon: Palette, label: "Theme Engine", path: "/admin/theme-engine" },
-  { icon: Bug, label: "Bug", path: "/admin/bug-reports" },
 ];
+
+const bugNavItem = { icon: Bug, label: "Bug", path: "/admin/bug-reports" };
+const expenseSheetsNavItem = { icon: Wallet, label: "Expense Sheets", path: "/admin/expense-sheets" };
 
 // Activity Logs only for super-admin
 const activityLogNavItem = { icon: Activity, label: "Activity Logs", path: "/admin/activity-logs" };
@@ -255,12 +257,12 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
 
     // Add super-admin items
     if (auth.role === "super-admin") {
-      items.push(systemEmailSettingsNavItem, activityLogNavItem);
+      items.push(systemEmailSettingsNavItem, activityLogNavItem, bugNavItem);
     }
     
-    // Add System Health for admin and super-admin
+    // Add System Health and Expense Sheets for admin and super-admin
     if (auth.role === "admin" || auth.role === "super-admin") {
-      items.push(systemHealthNavItem);
+      items.push(systemHealthNavItem, expenseSheetsNavItem);
     }
 
     // Add Attendance only for admin (not super-admin)

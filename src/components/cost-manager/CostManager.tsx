@@ -18,6 +18,8 @@ import {
   dollarsToCents,
   formatMoney,
   getProjectCostSheet,
+  getTaskCostSheet,
+  getCostSheetById,
   updateCostLineItem,
   updateCostSheet,
 } from "@/lib/costManager";
@@ -95,7 +97,9 @@ interface TaskOption {
 }
 
 interface CostManagerProps {
-  projectId: string;
+  projectId?: string;
+  taskId?: string;
+  sheetId?: string;
   projectName?: string;
   tasks?: TaskOption[];
   readOnly?: boolean;
@@ -106,15 +110,27 @@ const NO_TASK = "__none__";
 
 // ---------------------------------------------------------------- main
 
-export default function CostManager({ projectId, projectName = "Project", tasks = [], readOnly = false }: CostManagerProps) {
+export default function CostManager({
+  projectId,
+  taskId,
+  sheetId,
+  projectName = "Cost Manager",
+  tasks = [],
+  readOnly = false,
+}: CostManagerProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const queryKey = ["cost-sheet", projectId];
+  const queryKey = useMemo(() => ["cost-sheet", { projectId, taskId, sheetId }], [projectId, taskId, sheetId]);
 
   const sheetQuery = useQuery({
     queryKey,
-    queryFn: () => getProjectCostSheet(projectId),
-    enabled: !!projectId,
+    queryFn: () => {
+      if (sheetId) return getCostSheetById(sheetId);
+      if (taskId) return getTaskCostSheet(taskId);
+      if (projectId) return getProjectCostSheet(projectId);
+      return Promise.resolve(null);
+    },
+    enabled: !!sheetId || !!taskId || !!projectId,
   });
 
   const vendorsQuery = useQuery({
@@ -785,7 +801,7 @@ function ItemRow({
       </td>
       <td className="px-2 py-1.5 text-right whitespace-nowrap">
         {item.qty}
-        {item.unit ? ` ${item.unit}` : ""}
+        {item.unit ? ` × ${item.unit}` : ""}
       </td>
       <td className="px-2 py-1.5 text-right whitespace-nowrap">{formatMoney(item.unitCostCents, currency)}</td>
       <td className="px-2 py-1.5 text-right font-semibold whitespace-nowrap">

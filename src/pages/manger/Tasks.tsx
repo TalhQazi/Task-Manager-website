@@ -95,6 +95,7 @@ import {
   Smile,
   Flame,
   Video,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { apiFetch, downloadTaskAttachment, toProxiedUrl, getTopContributors, downloadViaUrl, updateComment, deleteComment } from "@/lib/manger/api";
@@ -115,6 +116,7 @@ import { getRemainingTime, getTimerState } from "@/lib/manger/time";
 import CreateExpenseSheet from "@/components/expense/CreateExpenseSheet";
 import CostManager from "@/components/cost-manager/CostManager";
 import TaskExpensesPanel from "@/components/cost-manager/TaskExpensesPanel";
+import { getProjectCostSheet, getTaskCostSheet } from "@/lib/costManager";
 import ExpenseSheetList from "@/components/expense/ExpenseSheetList";
 import DropboxFilePicker, { type DropboxSelectedFile, formatBytes, DropboxIcon } from "@/components/admin/DropboxFilePicker";
 import { renderMessageContent } from "@/lib/linkify";
@@ -674,6 +676,9 @@ function TaskContributorsList({ taskId }: { taskId: string }) {
 
 export default function Tasks() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const [costManagerModalOpen, setCostManagerModalOpen] = useState(false);
+  const [costManagerModalSheetId, setCostManagerModalSheetId] = useState<string | null>(null);
+  const [costManagerModalSheetName, setCostManagerModalSheetName] = useState("");
   const activeTab = searchParams.get("tab") || "all";
   const [searchQuery, setSearchQuery] = useState("");
   const [projectSearchQuery, setProjectSearchQuery] = useState("");
@@ -2501,14 +2506,15 @@ export default function Tasks() {
             </div>
           )}
 
-          {/* Project Cost Manager™ — prototype cost, purchasing, and storage tracking */}
-          <div className="mt-4 pt-3 border-t">
-            <CostManager
-              projectId={selectedProject.id}
-              projectName={selectedProject.name}
-              tasks={(selectedProject.tasks || []).map((t) => ({ id: t.id, title: t.title }))}
-            />
-          </div>
+          {/* Project Cost Manager Link */}
+          <ProjectCostSheetLink
+            projectId={selectedProject.id}
+            onOpenSheet={(id, name) => {
+              setCostManagerModalSheetId(id);
+              setCostManagerModalSheetName(name);
+              setCostManagerModalOpen(true);
+            }}
+          />
         </div>
       ) : (
         <>
@@ -3331,8 +3337,15 @@ export default function Tasks() {
                         </div>
                       </div>
 
-                      {/* Cost Manager expenses linked to this task */}
-                      <TaskExpensesPanel taskId={selectedTask.id} />
+                      {/* Task Cost Manager Link */}
+                      <TaskCostSheetLink
+                        taskId={selectedTask.id}
+                        onOpenSheet={(id, name) => {
+                          setCostManagerModalSheetId(id);
+                          setCostManagerModalSheetName(name);
+                          setCostManagerModalOpen(true);
+                        }}
+                      />
 
                       {/* Task Video */}
                       {selectedTask.introVideoUrl && (
@@ -5247,6 +5260,116 @@ export default function Tasks() {
         onClose={() => setIsVideoRecorderOpen(false)}
         onSave={(file) => setCommentAttachments((prev) => [...prev, file])}
       />
+
+      {/* Global Cost Manager Modal */}
+      <Dialog open={costManagerModalOpen} onOpenChange={setCostManagerModalOpen}>
+        <DialogContent className="max-w-[95vw] sm:max-w-5xl max-h-[90vh] overflow-y-auto rounded-xl p-4 sm:p-6 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              <Wallet className="h-5 w-5 text-indigo-500" />
+              {costManagerModalSheetName}
+            </DialogTitle>
+            <DialogDescription>
+              Attached Cost Sheet Details
+            </DialogDescription>
+          </DialogHeader>
+          <div className="my-4">
+            {costManagerModalSheetId && (
+              <CostManager sheetId={costManagerModalSheetId} projectName={costManagerModalSheetName} />
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setCostManagerModalOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function ProjectCostSheetLink({ projectId, onOpenSheet }: { projectId: string; onOpenSheet: (id: string, name: string) => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["project-cost-sheet-link", projectId],
+    queryFn: () => getProjectCostSheet(projectId),
+    enabled: !!projectId,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="px-4 sm:px-6 pb-6 flex items-center gap-2 text-xs text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-500" /> Checking attached cost sheet...
+      </div>
+    );
+  }
+
+  const sheet = data?.sheet;
+  if (!sheet) {
+    return (
+      <div className="px-4 sm:px-6 pb-6">
+        <div className="text-xs text-muted-foreground flex items-center gap-1.5 bg-slate-50 border border-slate-200/60 p-4 rounded-xl">
+          <AlertCircle className="h-4 w-4 text-slate-400" />
+          <span>No Expense Sheet attached to this project.</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-4 sm:px-6 pb-6">
+      <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm hover:border-indigo-200 transition-colors">
+        <div className="space-y-0.5">
+          <h4 className="font-semibold text-indigo-900 text-sm flex items-center gap-1.5">
+            <Wallet className="h-4 w-4 text-indigo-500" />
+            Attached Expense Sheet
+          </h4>
+          <p className="text-xs text-indigo-700/80">{sheet.name}</p>
+        </div>
+        <Button
+          onClick={() => onOpenSheet(sheet.id, sheet.name)}
+          className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-8 px-3 flex items-center gap-1.5"
+        >
+          <Maximize2 className="h-3.5 w-3.5" /> View Expense Sheet
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function TaskCostSheetLink({ taskId, onOpenSheet }: { taskId: string; onOpenSheet: (id: string, name: string) => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["task-cost-sheet-link", taskId],
+    queryFn: () => getTaskCostSheet(taskId),
+    enabled: !!taskId,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-500" /> Checking attached cost sheet...
+      </div>
+    );
+  }
+
+  const sheet = data?.sheet;
+  if (!sheet) {
+    return null;
+  }
+
+  return (
+    <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm hover:border-emerald-200 transition-colors my-2">
+      <div className="space-y-0.5">
+        <h4 className="font-semibold text-emerald-950 text-sm flex items-center gap-1.5">
+          <Wallet className="h-4 w-4 text-emerald-600" />
+          Attached Expense Sheet
+        </h4>
+        <p className="text-xs text-emerald-800/80">{sheet.name}</p>
+      </div>
+      <Button
+        onClick={() => onOpenSheet(sheet.id, sheet.name)}
+        className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 px-3 flex items-center gap-1.5"
+      >
+        <Maximize2 className="h-3.5 w-3.5" /> View Expense Sheet
+      </Button>
     </div>
   );
 }
