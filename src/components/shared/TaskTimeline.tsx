@@ -30,6 +30,31 @@ function formatDate(value?: string | null): string | null {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+/**
+ * Human readable elapsed duration between two instants, e.g. "2d 4h 15m".
+ * `to` defaults to now, so it doubles as "time since start" for running tasks.
+ */
+function formatDuration(from?: string | null, to?: string | null): string | null {
+  if (!from) return null;
+  const start = new Date(from).getTime();
+  const end = to ? new Date(to).getTime() : Date.now();
+  if (isNaN(start) || isNaN(end)) return null;
+  let diff = Math.max(0, Math.floor((end - start) / 1000)); // seconds
+
+  const days = Math.floor(diff / 86400);
+  diff -= days * 86400;
+  const hours = Math.floor(diff / 3600);
+  diff -= hours * 3600;
+  const minutes = Math.floor(diff / 60);
+
+  const parts: string[] = [];
+  if (days > 0) parts.push(`${days}d`);
+  if (hours > 0) parts.push(`${hours}h`);
+  // Always show minutes so short-running tasks aren't blank.
+  if (minutes > 0 || parts.length === 0) parts.push(`${minutes}m`);
+  return parts.join(" ");
+}
+
 interface Row {
   icon: React.ReactNode;
   label: string;
@@ -66,21 +91,29 @@ export function TaskTimeline({ task }: { task: TaskTimelineData }) {
     });
   }
 
+  const startRef = task.firstStartedAt || task.startedAt;
+
   const completed = formatDateTime(task.completedAt);
   if (completed) {
+    const took = formatDuration(startRef, task.completedAt);
+    const byPart = task.completedByName ? `by ${task.completedByName}` : "";
+    const tookPart = took ? `Took ${took}` : "";
+    const sub = [byPart, tookPart].filter(Boolean).join(" · ");
     rows.push({
       icon: <CheckCircle2 className="w-4 h-4" />,
       label: "Completed",
       value: completed,
-      sub: task.completedByName ? `by ${task.completedByName}` : undefined,
+      sub: sub || undefined,
       tone: "text-emerald-500",
     });
   } else if (task.status === "in-progress") {
     const runningSince = formatDateTime(task.startedAt) || started;
+    const elapsed = formatDuration(startRef);
     rows.push({
       icon: <Loader2 className="w-4 h-4 animate-spin" />,
       label: "In progress",
       value: runningSince ? `since ${runningSince}` : "Currently running",
+      sub: elapsed ? `Running for ${elapsed}` : undefined,
       tone: "text-amber-500",
     });
   }

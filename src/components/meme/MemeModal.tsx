@@ -156,7 +156,7 @@ export function MemeModal({ isOpen, imageUrl, caption, onClose }: MemeModalProps
               fontWeight: 600,
             }}
           >
-            Got it
+            I Agree
           </button>
         </div>
       </div>
