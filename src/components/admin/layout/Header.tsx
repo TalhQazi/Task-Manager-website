@@ -1,5 +1,6 @@
 import { Bell, Bug, Camera, CheckCircle2, ChevronDown, ChevronUp, Loader2, LogOut, Mail, Menu, Move, Save, Search, User, Settings, X as XIcon, Paperclip, Palette, Sparkles } from "lucide-react";
 import { useSocket } from "@/contexts/SocketContext";
+import { GlobalSearchButton } from "@/components/GlobalSearchButton";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -993,7 +994,12 @@ export function Header({ onMenuClick }: HeaderProps) {
                     <Bug className="h-5 w-5" />
                   </button>
 
-                  <button 
+                  <GlobalSearchButton
+                    isEmployee={false}
+                    className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white"
+                  />
+
+                  <button
                     onClick={() => { clearAuthState(); navigate("/login"); }}
                     className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white hover:text-red-400"
                     title="Logout"

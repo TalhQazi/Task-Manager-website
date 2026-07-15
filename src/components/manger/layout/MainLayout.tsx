@@ -2,6 +2,7 @@ import { Sidebar } from "./Sidebar";
 import { ReactNode, useState, useEffect, useRef } from "react";
 import { Bell, Bug, Camera, Loader2, LogOut, Mail, Menu, Palette, Search, Settings, User, Sparkles } from "lucide-react";
 import { ThemeShell } from "./ThemeShell";
+import { GlobalSearchButton } from "@/components/GlobalSearchButton";
 import { useTheme } from "@/contexts/ThemeContext";
 
 function HolidayEffects({ type }: { type: string }) {
@@ -1169,7 +1170,20 @@ export function MainLayout({ children }: MainLayoutProps) {
                       <Bug className="h-4.5 w-4.5 relative z-10" />
                     </button>
 
-                    <button 
+                    <GlobalSearchButton
+                      isEmployee={false}
+                      iconClassName="h-4.5 w-4.5 relative z-10"
+                      className={cn(
+                        "relative group p-2 rounded-lg backdrop-blur-sm transition-all duration-150 active:scale-95",
+                        isMetallic
+                          ? "bg-gradient-to-br from-[#2b2c2d] to-[#111315] border border-[#ffd27a]/25 text-[#ffd27a] hover:border-[#ffd27a]/40 hover:text-white shadow-[0_2px_4px_rgba(0,0,0,0.4)]"
+                          : "bg-black/20 hover:bg-black/40 text-white/70 hover:text-white"
+                      )}
+                    >
+                      {isMetallic && <div className="absolute inset-px rounded-md border border-white/5 pointer-events-none" />}
+                    </GlobalSearchButton>
+
+                    <button
                       onClick={() => { clearAuthState(); navigate("/login"); }}
                       className={cn(
                         "relative group p-2 rounded-lg backdrop-blur-sm transition-all duration-150 active:scale-95",
