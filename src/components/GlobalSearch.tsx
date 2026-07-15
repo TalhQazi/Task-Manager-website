@@ -1,25 +1,27 @@
 import React, { useEffect, useState, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useNavigate } from "react-router-dom";
-import { Search as SearchIcon, FileText, Users, Briefcase, CornerDownLeft, X, Loader2, ArrowRight } from "lucide-react";
+import { Search as SearchIcon, FileText, Users, Briefcase, CornerDownLeft, X, Loader2, ArrowRight, ListTodo, FolderKanban } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface GlobalSearchProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   isEmployee?: boolean;
+  /** Panel root used to build deep-links, e.g. "/admin", "/manager", "/employee". */
+  basePath?: string;
 }
 
 interface SearchItem {
   id: string;
-  type: "page" | "case" | "employee" | "task";
+  type: "page" | "case" | "employee" | "task" | "project";
   title: string;
   subtitle: string;
   url: string;
   keywords: string[];
 }
 
-export function GlobalSearch({ open, onOpenChange, isEmployee = false }: GlobalSearchProps) {
+export function GlobalSearch({ open, onOpenChange, isEmployee = false, basePath }: GlobalSearchProps) {
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<SearchItem[]>([]);
@@ -80,14 +82,16 @@ export function GlobalSearch({ open, onOpenChange, isEmployee = false }: GlobalS
         const API_BASE_URL = import.meta.env.VITE_API_URL || "https://task.se7eninc.com";
         let token = localStorage.getItem("token") || "";
 
-        if (isEmployee) {
-          const authRaw = localStorage.getItem("employee_auth");
-          if (authRaw) {
-            try {
-              const authObj = JSON.parse(authRaw);
-              token = authObj.token || "";
-            } catch {}
-          }
+        // Employees authenticate under "employee_auth"; admin/super-admin/manager
+        // under "taskflow_auth". Without the right token the case/employee search
+        // requests come back 401 and nothing but static pages shows up.
+        const authKey = isEmployee ? "employee_auth" : "taskflow_auth";
+        const authRaw = localStorage.getItem(authKey);
+        if (authRaw) {
+          try {
+            const authObj = JSON.parse(authRaw);
+            if (authObj.token) token = authObj.token;
+          } catch {}
         }
 
         const headers: Record<string, string> = {
@@ -97,64 +101,78 @@ export function GlobalSearch({ open, onOpenChange, isEmployee = false }: GlobalS
           headers["Authorization"] = `Bearer ${token}`;
         }
 
+        // Deep-links target the panel the search is opened from.
+        const panelBase = basePath || (isEmployee ? "/employee" : "/admin");
+
         const pages = getStaticPages();
         const loadedItems: SearchItem[] = [...pages];
 
-        if (isEmployee) {
-          // Load Employee Tasks
-          const response = await fetch(`${API_BASE_URL}/api/employees/me/tasks`, { headers });
-          if (response.ok) {
-            const data = await response.json();
-            const tasks = (data.items || []).map((t: any) => ({
+        // Search across the whole Task Manager. Tasks & projects for everyone
+        // (the backend already scopes them by role); legal cases & staff are
+        // admin/manager-only. limit=100 is the server's max page size.
+        const requests: { key: string; url: string }[] = [
+          { key: "tasks", url: `${API_BASE_URL}/api/tasks?limit=100` },
+          { key: "projects", url: `${API_BASE_URL}/api/projects?limit=100` },
+        ];
+        if (!isEmployee) {
+          requests.push({ key: "cases", url: `${API_BASE_URL}/api/legal/cases?limit=100` });
+          requests.push({ key: "employees", url: `${API_BASE_URL}/api/employees?limit=100` });
+        }
+
+        const settled = await Promise.allSettled(
+          requests.map((r) =>
+            fetch(r.url, { headers }).then(async (res) => ({
+              key: r.key,
+              ok: res.ok,
+              data: res.ok ? await res.json() : null,
+            }))
+          )
+        );
+
+        for (const result of settled) {
+          if (result.status !== "fulfilled" || !result.value.ok || !result.value.data) continue;
+          const { key, data } = result.value;
+          const items: any[] = Array.isArray(data.items) ? data.items : [];
+
+          if (key === "tasks") {
+            loadedItems.push(...items.map((t) => ({
               id: `task-${t.id}`,
               type: "task" as const,
               title: t.title || "Untitled Task",
-              subtitle: `Status: ${t.status || "Pending"} | Priority: ${t.priority || "Medium"}`,
-              url: `/employee/tasks/${t.id}`,
-              keywords: [t.title, t.description, t.status, t.priority].filter(Boolean).map(s => String(s).toLowerCase())
-            }));
-            loadedItems.push(...tasks);
-          }
-        } else {
-          // Load Cases and Employees
-          const [casesRes, empsRes] = await Promise.allSettled([
-            fetch(`${API_BASE_URL}/api/legal/cases`, { headers }),
-            fetch(`${API_BASE_URL}/api/employees`, { headers })
-          ]);
-
-          if (casesRes.status === "fulfilled" && casesRes.value.ok) {
-            const data = await casesRes.value.json();
-            const cases = (data.items || []).map((c: any) => ({
+              subtitle: `Task · ${t.status || "pending"}${t.priority ? ` · ${t.priority}` : ""}`,
+              url: `${panelBase}/tasks?view=${t.id}`,
+              keywords: [t.title, t.description, t.status, t.priority, ...(t.assignees || [])]
+                .filter(Boolean).map((s: any) => String(s).toLowerCase()),
+            })));
+          } else if (key === "projects") {
+            loadedItems.push(...items.map((p) => ({
+              id: `project-${p.id}`,
+              type: "project" as const,
+              title: p.name || "Untitled Project",
+              subtitle: `Project${p.teamLead ? ` · Lead: ${p.teamLead}` : ""}${typeof p.taskCount === "number" ? ` · ${p.taskCount} tasks` : ""}`,
+              url: `${panelBase}/tasks?project=${p.id}`,
+              keywords: [p.name, p.description, p.teamLead, ...(p.assignees || [])]
+                .filter(Boolean).map((s: any) => String(s).toLowerCase()),
+            })));
+          } else if (key === "cases") {
+            loadedItems.push(...items.map((c) => ({
               id: `case-${c.id}`,
               type: "case" as const,
               title: c.title || "Untitled Case",
               subtitle: `Case No: ${c.caseNumber || ""} | Client: ${c.clientName || ""}`,
               url: `/admin/legal/cases?view=${c.id}`,
-              keywords: [
-                c.caseNumber,
-                c.title,
-                c.clientName,
-                c.court,
-                c.judge,
-                c.originatingCaseNumber,
-                c.originatingCourt,
-                ...(c.judges || [])
-              ].filter(Boolean).map(s => String(s).toLowerCase())
-            }));
-            loadedItems.push(...cases);
-          }
-
-          if (empsRes.status === "fulfilled" && empsRes.value.ok) {
-            const data = await empsRes.value.json();
-            const emps = (data.items || []).map((e: any) => ({
+              keywords: [c.caseNumber, c.title, c.clientName, c.court, c.judge, c.originatingCaseNumber, c.originatingCourt, ...(c.judges || [])]
+                .filter(Boolean).map((s: any) => String(s).toLowerCase()),
+            })));
+          } else if (key === "employees") {
+            loadedItems.push(...items.map((e) => ({
               id: `emp-${e.id}`,
               type: "employee" as const,
               title: e.name || "Unnamed Employee",
               subtitle: `${e.role || "Employee"} | Email: ${e.email || ""}`,
               url: `/admin/employees?view=${e.id}`,
-              keywords: [e.name, e.email, e.role, e.category].filter(Boolean).map(s => String(s).toLowerCase())
-            }));
-            loadedItems.push(...emps);
+              keywords: [e.name, e.email, e.role, e.category].filter(Boolean).map((s: any) => String(s).toLowerCase()),
+            })));
           }
         }
 
@@ -167,7 +185,7 @@ export function GlobalSearch({ open, onOpenChange, isEmployee = false }: GlobalS
     };
 
     void loadSearchIndex();
-  }, [open, isEmployee]);
+  }, [open, isEmployee, basePath]);
 
   // Focus input on open
   useEffect(() => {
@@ -230,6 +248,8 @@ export function GlobalSearch({ open, onOpenChange, isEmployee = false }: GlobalS
         return <Badge variant="outline" className="bg-sky-500/10 text-sky-400 border-sky-500/20">Staff Profile</Badge>;
       case "task":
         return <Badge variant="outline" className="bg-amber-500/10 text-amber-400 border-amber-500/20">Task</Badge>;
+      case "project":
+        return <Badge variant="outline" className="bg-violet-500/10 text-violet-400 border-violet-500/20">Project</Badge>;
     }
   };
 
@@ -242,7 +262,9 @@ export function GlobalSearch({ open, onOpenChange, isEmployee = false }: GlobalS
       case "employee":
         return <Users className="h-4 w-4 text-sky-400" />;
       case "task":
-        return <Briefcase className="h-4 w-4 text-amber-400" />;
+        return <ListTodo className="h-4 w-4 text-amber-400" />;
+      case "project":
+        return <FolderKanban className="h-4 w-4 text-violet-400" />;
     }
   };
 
@@ -262,7 +284,7 @@ export function GlobalSearch({ open, onOpenChange, isEmployee = false }: GlobalS
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={isEmployee ? "Search pages, tasks..." : "Search pages, cases, employees..."}
+            placeholder={isEmployee ? "Search tasks, projects, pages..." : "Search tasks, projects, cases, staff..."}
             className="flex-1 bg-transparent text-white border-0 outline-none placeholder-slate-400 text-base"
           />
           {loading ? (

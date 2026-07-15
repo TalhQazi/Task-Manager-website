@@ -1172,6 +1172,7 @@ export function MainLayout({ children }: MainLayoutProps) {
 
                     <GlobalSearchButton
                       isEmployee={false}
+                      basePath="/manager"
                       iconClassName="h-4.5 w-4.5 relative z-10"
                       className={cn(
                         "relative group p-2 rounded-lg backdrop-blur-sm transition-all duration-150 active:scale-95",

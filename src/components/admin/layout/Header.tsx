@@ -996,6 +996,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
                   <GlobalSearchButton
                     isEmployee={false}
+                    basePath="/admin"
                     className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white"
                   />
 

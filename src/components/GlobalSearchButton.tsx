@@ -3,8 +3,10 @@ import { Search } from "lucide-react";
 import { GlobalSearch } from "@/components/GlobalSearch";
 
 interface GlobalSearchButtonProps {
-  /** true => employee search index (pages + own tasks); false => admin/manager index. */
+  /** true => employee search index (own tasks/projects); false => admin/manager index (adds cases + staff). */
   isEmployee?: boolean;
+  /** Panel root for result deep-links, e.g. "/admin", "/manager", "/employee". */
+  basePath?: string;
   /** Styling for the trigger button so it matches the surrounding toolbar icons. */
   className?: string;
   /** Styling for the search icon. */
@@ -21,6 +23,7 @@ interface GlobalSearchButtonProps {
  */
 export function GlobalSearchButton({
   isEmployee = false,
+  basePath,
   className,
   iconClassName = "h-5 w-5",
   title = "Search",
@@ -34,7 +37,7 @@ export function GlobalSearchButton({
         {children}
         <Search className={iconClassName} />
       </button>
-      <GlobalSearch open={open} onOpenChange={setOpen} isEmployee={isEmployee} />
+      <GlobalSearch open={open} onOpenChange={setOpen} isEmployee={isEmployee} basePath={basePath} />
     </>
   );
 }

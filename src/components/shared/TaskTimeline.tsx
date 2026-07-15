@@ -91,15 +91,14 @@ export function TaskTimeline({ task }: { task: TaskTimelineData }) {
     });
   }
 
+  // Measure duration strictly from when the task actually started (the moment it
+  // was moved to in-progress) — never from createdAt, which would wildly inflate
+  // the running time for tasks that sat in "pending" for a while.
   const startRef = task.firstStartedAt || task.startedAt;
-  // Fallback basis so a duration can always be shown, even for tasks that were
-  // set in-progress/completed without a recorded start time (e.g. created
-  // directly in that status or imported before start-time tracking existed).
-  const durationBasis = startRef || task.createdAt;
 
   const completed = formatDateTime(task.completedAt);
   if (completed) {
-    const took = formatDuration(durationBasis, task.completedAt);
+    const took = formatDuration(startRef, task.completedAt);
     const byPart = task.completedByName ? `by ${task.completedByName}` : "";
     const tookPart = took ? `Took ${took}` : "";
     const sub = [byPart, tookPart].filter(Boolean).join(" · ");
@@ -112,14 +111,14 @@ export function TaskTimeline({ task }: { task: TaskTimelineData }) {
     });
   } else if (task.status === "in-progress") {
     const runningSince = formatDateTime(task.startedAt) || started;
-    const elapsed = formatDuration(durationBasis);
+    const elapsed = formatDuration(startRef);
     rows.push({
       icon: <Loader2 className="w-4 h-4 animate-spin" />,
       label: "In progress",
-      // Lead with the elapsed duration (days/hours/minutes) — that's the value
-      // users care about — and keep the exact start time as a subline when known.
+      // Lead with the elapsed duration (days/hours/minutes) since the task was
+      // started; keep the exact start time as a subline when known.
       value: elapsed ? `Running for ${elapsed}` : runningSince ? `since ${runningSince}` : "Currently running",
-      sub: runningSince ? `since ${runningSince}` : undefined,
+      sub: elapsed && runningSince ? `since ${runningSince}` : undefined,
       tone: "text-amber-500",
     });
   }
