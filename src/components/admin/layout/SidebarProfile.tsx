@@ -4,7 +4,8 @@ import { getAuthState, clearAuthState } from "@/lib/auth";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { LogOut, Mail, Bell, Bug, User, Settings, Loader2, X as XIcon, Camera } from "lucide-react";
+import { LogOut, Mail, Bell, Bug, User, Settings, Loader2, X as XIcon, Camera, Search } from "lucide-react";
+import { GlobalSearch } from "@/components/GlobalSearch";
 import { useNavigate } from "react-router-dom";
 import { useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -75,6 +76,9 @@ export function SidebarProfile() {
 
   const unreadCount = (notificationsQuery.data || []).filter((n) => n.status !== "read").length;
   const unreadMessageCount = (messagesQuery.data || []).reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+
+  // Global Search State
+  const [searchOpen, setSearchOpen] = useState(false);
 
   // Bug Report State
   const [reportOpen, setReportOpen] = useState(false);
@@ -205,6 +209,14 @@ export function SidebarProfile() {
         </button>
 
         <button 
+          onClick={() => setSearchOpen(true)}
+          className="relative group p-2 rounded-lg hover:bg-white/10 transition-colors text-white/70 hover:text-white"
+          title="Search"
+        >
+          <Search className="h-4.5 w-4.5" />
+        </button>
+
+        <button 
           onClick={() => { clearAuthState(); navigate("/login"); }}
           className="p-2 rounded-lg hover:bg-red-500/10 text-red-400/70 hover:text-red-400 transition-colors"
           title="Logout"
@@ -303,6 +315,9 @@ export function SidebarProfile() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Global Search Palette */}
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} isEmployee={false} />
     </div>
   );
 }

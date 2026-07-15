@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Bell, Menu, Mail, User, Settings, LogOut, Camera, Palette, Loader2, Megaphone, Sparkles } from "lucide-react";
+import { Bell, Menu, Mail, User, Settings, LogOut, Camera, Palette, Loader2, Megaphone, Sparkles, Search } from "lucide-react";
+import { GlobalSearch } from "@/components/GlobalSearch";
 import { useSocket } from "@/contexts/SocketContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -261,6 +262,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
   const [headerModalOpen, setHeaderModalOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [isHeaderPickerOpen, setIsHeaderPickerOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const auth = getEmployeeAuth();
 
@@ -799,6 +801,15 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                   </DropdownMenu>
 
                   <button
+                    onClick={() => setSearchOpen(true)}
+                    className="p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-black/40"
+                    title="Search"
+                    style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, white)', opacity: 0.7 }}
+                  >
+                    <Search className="h-4.5 w-4.5" />
+                  </button>
+
+                  <button
                     onClick={onLogout}
                     className="p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-red-500/20"
                     title="Logout"
@@ -967,6 +978,9 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
           }
         }}
       />
+
+      {/* Global Search Palette */}
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} isEmployee={true} />
     </header>
   );
 }

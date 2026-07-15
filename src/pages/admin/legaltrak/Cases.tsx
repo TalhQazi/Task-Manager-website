@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "@/components/admin/ui/button";
 import { Badge } from "@/components/admin/ui/badge";
@@ -54,6 +55,9 @@ interface LegalCase {
   priority: "Low" | "Medium" | "High" | "Critical";
   court?: string;
   judge?: string;
+  judges?: string[];
+  originatingCaseNumber?: string;
+  originatingCourt?: string;
   description?: string;
   openDate?: string;
   closeDate?: string;
@@ -99,11 +103,12 @@ const fileToBase64 = (file: File): Promise<string> => {
 };
 
 const formatCaseNumber = (val: string): string => {
-  return val.replace(/[^A-Za-z0-9\s\-_./()]/g, "").toUpperCase();
+  return val.replace(/[^A-Za-z0-9\s\-_./():]/g, "").toUpperCase();
 };
 
 export default function Cases() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
   const [casesList, setCasesList] = useState<LegalCase[]>([]);
   const [courtsList, setCourtsList] = useState<LegalCourt[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,6 +138,9 @@ export default function Cases() {
     priority: LegalCase["priority"];
     court: string;
     judge: string;
+    judges: string[];
+    originatingCaseNumber: string;
+    originatingCourt: string;
     description: string;
     openDate: string;
     closeDate: string;
@@ -146,6 +154,9 @@ export default function Cases() {
     priority: "Medium",
     court: "",
     judge: "",
+    judges: [],
+    originatingCaseNumber: "",
+    originatingCourt: "",
     description: "",
     openDate: "",
     closeDate: "",
@@ -172,6 +183,20 @@ export default function Cases() {
     loadData();
   }, []);
 
+  // Listen to deep linking query parameter 'view' to auto-open case
+  useEffect(() => {
+    const viewId = searchParams.get("view");
+    if (!viewId) return;
+    const match = casesList.find((c) => String(c.id) === viewId);
+    if (match) {
+      setSelectedCase(match);
+      setViewOpen(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete("view");
+      setSearchParams(next, { replace: true });
+    }
+  }, [casesList, searchParams, setSearchParams]);
+
   const resetForm = () => {
     setFormData({
       caseNumber: "",
@@ -182,6 +207,9 @@ export default function Cases() {
       priority: "Medium",
       court: "",
       judge: "",
+      judges: [],
+      originatingCaseNumber: "",
+      originatingCourt: "",
       description: "",
       openDate: "",
       closeDate: "",
@@ -194,6 +222,7 @@ export default function Cases() {
       setIsSubmitting(true);
       await createResource<LegalCase>("legal/cases", {
         ...formData,
+        judge: formData.judges.join(", "),
         openDate: formData.openDate || undefined,
         closeDate: formData.closeDate || undefined,
       });
@@ -218,6 +247,9 @@ export default function Cases() {
       priority: c.priority,
       court: c.court || "",
       judge: c.judge || "",
+      judges: c.judges && c.judges.length > 0 ? c.judges : (c.judge ? [c.judge] : []),
+      originatingCaseNumber: c.originatingCaseNumber || "",
+      originatingCourt: c.originatingCourt || "",
       description: c.description || "",
       openDate: c.openDate ? c.openDate.split("T")[0] : "",
       closeDate: c.closeDate ? c.closeDate.split("T")[0] : "",
@@ -232,6 +264,7 @@ export default function Cases() {
       setIsSubmitting(true);
       await updateResource<LegalCase>("legal/cases", selectedCase.id, {
         ...formData,
+        judge: formData.judges.join(", "),
         openDate: formData.openDate || undefined,
         closeDate: formData.closeDate || undefined,
       });
@@ -404,14 +437,79 @@ export default function Cases() {
           </Button>
         </div>
       </div>
+      <div className="space-y-2 sm:col-span-2">
+        <label className="text-xs font-medium text-slate-300">Judges Panel (Press Enter or click Add to append multiple judges)</label>
+        <div className="flex flex-wrap gap-2 mb-1.5 min-h-[36px] p-2 bg-black/20 border border-white/10 rounded-md">
+          {formData.judges && formData.judges.map((j, idx) => (
+            <Badge key={idx} variant="outline" className="bg-blue-500/10 text-blue-300 border-blue-500/20 py-1 px-2.5 flex items-center gap-1.5">
+              <span>{j}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setFormData(prev => ({ ...prev, judges: prev.judges.filter((_, i) => i !== idx) }));
+                }}
+                className="text-slate-400 hover:text-slate-200 focus:outline-none"
+              >
+                &times;
+              </button>
+            </Badge>
+          ))}
+          {(!formData.judges || formData.judges.length === 0) && (
+            <span className="text-xs text-slate-500 italic">No judges assigned yet.</span>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            id="new-judge-input"
+            placeholder="Enter judge name..."
+            className="flex-1 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                const val = e.currentTarget.value.trim();
+                if (val && !formData.judges.includes(val)) {
+                  setFormData(prev => ({ ...prev, judges: [...prev.judges, val] }));
+                  e.currentTarget.value = '';
+                }
+              }
+            }}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              const input = document.getElementById("new-judge-input") as HTMLInputElement;
+              const val = input?.value.trim();
+              if (val && !formData.judges.includes(val)) {
+                setFormData(prev => ({ ...prev, judges: [...prev.judges, val] }));
+                input.value = '';
+              }
+            }}
+            className="border-white/10 bg-white/5 hover:bg-white/10 text-white px-3"
+          >
+            Add
+          </Button>
+        </div>
+      </div>
       <div className="space-y-1">
-        <label className="text-xs font-medium text-slate-300">Judge</label>
+        <label className="text-xs font-medium text-slate-300">Originating Court (Origin)</label>
         <input 
           type="text" 
-          value={formData.judge} 
-          onChange={e => setFormData({...formData, judge: e.target.value})} 
+          value={formData.originatingCourt} 
+          onChange={e => setFormData({...formData, originatingCourt: e.target.value})} 
           className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50" 
-          placeholder="Judge Name" 
+          placeholder="e.g. SDNY, 9th Circuit" 
+        />
+      </div>
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-slate-300">Originating Case Number</label>
+        <input 
+          type="text" 
+          value={formData.originatingCaseNumber} 
+          onChange={e => setFormData({...formData, originatingCaseNumber: formatCaseNumber(e.target.value)})} 
+          className="w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 font-mono" 
+          placeholder="e.g. 22-1486" 
         />
       </div>
       <div className="space-y-1">
@@ -661,8 +759,34 @@ export default function Cases() {
                   <div>{selectedCase.court || "N/A"}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-slate-400">Judge</div>
-                  <div>{selectedCase.judge || "N/A"}</div>
+                  <div className="text-xs text-slate-400">Judges Panel</div>
+                  <div className="flex flex-wrap gap-1 mt-0.5">
+                    {selectedCase.judges && selectedCase.judges.length > 0 ? (
+                      selectedCase.judges.map((j, idx) => (
+                        <Badge key={idx} variant="outline" className="bg-white/5 text-slate-300 border-white/10 text-[10px]">
+                          {j}
+                        </Badge>
+                      ))
+                    ) : (
+                      selectedCase.judge ? (
+                        selectedCase.judge.split(",").map((j, idx) => (
+                          <Badge key={idx} variant="outline" className="bg-white/5 text-slate-300 border-white/10 text-[10px]">
+                            {j.trim()}
+                          </Badge>
+                        ))
+                      ) : (
+                        "N/A"
+                      )
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-400">Originating Court (Origin)</div>
+                  <div className="font-medium">{selectedCase.originatingCourt || "N/A"}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-slate-400">Originating Case Number</div>
+                  <div className="font-mono">{selectedCase.originatingCaseNumber || "N/A"}</div>
                 </div>
               </div>
               {selectedCase.description && (
