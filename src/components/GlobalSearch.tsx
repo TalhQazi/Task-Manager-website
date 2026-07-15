@@ -195,18 +195,39 @@ export function GlobalSearch({ open, onOpenChange, isEmployee = false, basePath 
     }
   }, [open]);
 
-  // Filter matching items client side
+  // Filter + rank matching items client side
   const filteredItems = React.useMemo(() => {
     if (!query.trim()) return items.filter(item => item.type === "page"); // default show pages
-    const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
-    return items.filter(item => {
-      const matchText = `${item.title} ${item.subtitle}`.toLowerCase();
-      // must match all split query terms
-      return terms.every(term => 
-        matchText.includes(term) || 
-        item.keywords.some(kw => kw.includes(term))
-      );
-    });
+    const q = query.toLowerCase().trim();
+    const terms = q.split(/\s+/).filter(Boolean);
+
+    // A term matches only at the START of the whole string or at the start of a
+    // word within it — so "t" finds "Talha" / "Tax Report", not the "t" buried
+    // inside "meeting". Substrings in the middle of words no longer match.
+    const wordPrefixMatch = (text: string, term: string) => {
+      if (!text) return false;
+      if (text.startsWith(term)) return true;
+      return text.split(/[^a-z0-9]+/i).some(word => word.startsWith(term));
+    };
+
+    const scored: { item: SearchItem; score: number }[] = [];
+    for (const item of items) {
+      const title = item.title.toLowerCase();
+      const haystacks = [title, ...item.keywords.map(k => String(k).toLowerCase())];
+      const allMatch = terms.every(term => haystacks.some(h => wordPrefixMatch(h, term)));
+      if (!allMatch) continue;
+
+      // Relevance: whole-title matches rank above word/keyword-only matches.
+      let score = 0;
+      if (title === q) score += 100;
+      else if (title.startsWith(q)) score += 60;
+      else if (terms.every(t => wordPrefixMatch(title, t))) score += 30;
+      scored.push({ item, score });
+    }
+
+    return scored
+      .sort((a, b) => b.score - a.score || a.item.title.localeCompare(b.item.title))
+      .map(s => s.item);
   }, [items, query]);
 
   // Reset index selection when results change

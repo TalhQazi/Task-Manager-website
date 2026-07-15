@@ -110,13 +110,17 @@ export function TaskTimeline({ task }: { task: TaskTimelineData }) {
       tone: "text-emerald-500",
     });
   } else if (task.status === "in-progress") {
-    const runningSince = formatDateTime(task.startedAt) || started;
-    const elapsed = formatDuration(startRef);
+    // The current running session starts at `startedAt` (the backend resets it
+    // each time the task is moved to in-progress); fall back to the permanent
+    // first-start only for older records that never recorded a session.
+    const sessionStart = task.startedAt || task.firstStartedAt;
+    const runningSince = formatDateTime(sessionStart);
+    const elapsed = formatDuration(sessionStart);
     rows.push({
       icon: <Loader2 className="w-4 h-4 animate-spin" />,
       label: "In progress",
-      // Lead with the elapsed duration (days/hours/minutes) since the task was
-      // started; keep the exact start time as a subline when known.
+      // Lead with the elapsed duration (days/hours/minutes) since it was started;
+      // keep the exact start time as a subline when known.
       value: elapsed ? `Running for ${elapsed}` : runningSince ? `since ${runningSince}` : "Currently running",
       sub: elapsed && runningSince ? `since ${runningSince}` : undefined,
       tone: "text-amber-500",
