@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { CalendarPlus, PlayCircle, CheckCircle2, Loader2 } from "lucide-react";
 
 export interface TaskTimelineData {
@@ -34,7 +35,7 @@ function formatDate(value?: string | null): string | null {
  * Human readable elapsed duration between two instants, e.g. "2d 4h 15m".
  * `to` defaults to now, so it doubles as "time since start" for running tasks.
  */
-function formatDuration(from?: string | null, to?: string | null): string | null {
+function formatDuration(from?: string | null, to?: string | null, withSeconds = false): string | null {
   if (!from) return null;
   const start = new Date(from).getTime();
   const end = to ? new Date(to).getTime() : Date.now();
@@ -46,12 +47,14 @@ function formatDuration(from?: string | null, to?: string | null): string | null
   const hours = Math.floor(diff / 3600);
   diff -= hours * 3600;
   const minutes = Math.floor(diff / 60);
+  const seconds = diff - minutes * 60;
 
   const parts: string[] = [];
   if (days > 0) parts.push(`${days}d`);
   if (hours > 0) parts.push(`${hours}h`);
   // Always show minutes so short-running tasks aren't blank.
   if (minutes > 0 || parts.length === 0) parts.push(`${minutes}m`);
+  if (withSeconds) parts.push(`${seconds}s`);
   return parts.join(" ");
 }
 
@@ -68,6 +71,16 @@ interface Row {
  * Theme-token based so it works in the admin, manager and employee panels.
  */
 export function TaskTimeline({ task }: { task: TaskTimelineData }) {
+  // Tick every second while the task is running so "Running for Xd Xh Xm"
+  // stays live — same behaviour as the manager panel's global timer.
+  const [, setTick] = useState(0);
+  const running = task.status === "in-progress" && !task.completedAt;
+  useEffect(() => {
+    if (!running) return;
+    const interval = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, [running]);
+
   const rows: Row[] = [];
 
   const created = formatDate(task.createdAt);
@@ -115,7 +128,7 @@ export function TaskTimeline({ task }: { task: TaskTimelineData }) {
     // first-start only for older records that never recorded a session.
     const sessionStart = task.startedAt || task.firstStartedAt;
     const runningSince = formatDateTime(sessionStart);
-    const elapsed = formatDuration(sessionStart);
+    const elapsed = formatDuration(sessionStart, null, true);
     rows.push({
       icon: <Loader2 className="w-4 h-4 animate-spin" />,
       label: "In progress",

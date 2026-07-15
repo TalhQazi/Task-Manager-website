@@ -105,7 +105,9 @@ export function GlobalSearch({ open, onOpenChange, isEmployee = false, basePath 
         const panelBase = basePath || (isEmployee ? "/employee" : "/admin");
 
         const pages = getStaticPages();
-        const loadedItems: SearchItem[] = [...pages];
+        // Make static pages searchable immediately so the palette is usable even
+        // if the data fetches below are slow, fail, or hang.
+        setItems(pages);
 
         // Search across the whole Task Manager. Tasks & projects for everyone
         // (the backend already scopes them by role); legal cases & staff are
@@ -119,23 +121,32 @@ export function GlobalSearch({ open, onOpenChange, isEmployee = false, basePath 
           requests.push({ key: "employees", url: `${API_BASE_URL}/api/employees?limit=100` });
         }
 
-        const settled = await Promise.allSettled(
-          requests.map((r) =>
-            fetch(r.url, { headers }).then(async (res) => ({
-              key: r.key,
-              ok: res.ok,
-              data: res.ok ? await res.json() : null,
-            }))
-          )
+        // Never let a slow/hanging endpoint block the whole index — each request
+        // resolves within the timeout, failing soft to null.
+        const fetchSafely = async (url: string) => {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 8000);
+          try {
+            const res = await fetch(url, { headers, signal: controller.signal });
+            return res.ok ? await res.json() : null;
+          } catch {
+            return null;
+          } finally {
+            clearTimeout(timer);
+          }
+        };
+
+        const settled = await Promise.all(
+          requests.map(async (r) => ({ key: r.key, data: await fetchSafely(r.url) }))
         );
 
-        for (const result of settled) {
-          if (result.status !== "fulfilled" || !result.value.ok || !result.value.data) continue;
-          const { key, data } = result.value;
+        const dynamic: SearchItem[] = [];
+        for (const { key, data } of settled) {
+          if (!data) continue;
           const items: any[] = Array.isArray(data.items) ? data.items : [];
 
           if (key === "tasks") {
-            loadedItems.push(...items.map((t) => ({
+            dynamic.push(...items.map((t) => ({
               id: `task-${t.id}`,
               type: "task" as const,
               title: t.title || "Untitled Task",
@@ -145,7 +156,7 @@ export function GlobalSearch({ open, onOpenChange, isEmployee = false, basePath 
                 .filter(Boolean).map((s: any) => String(s).toLowerCase()),
             })));
           } else if (key === "projects") {
-            loadedItems.push(...items.map((p) => ({
+            dynamic.push(...items.map((p) => ({
               id: `project-${p.id}`,
               type: "project" as const,
               title: p.name || "Untitled Project",
@@ -155,7 +166,7 @@ export function GlobalSearch({ open, onOpenChange, isEmployee = false, basePath 
                 .filter(Boolean).map((s: any) => String(s).toLowerCase()),
             })));
           } else if (key === "cases") {
-            loadedItems.push(...items.map((c) => ({
+            dynamic.push(...items.map((c) => ({
               id: `case-${c.id}`,
               type: "case" as const,
               title: c.title || "Untitled Case",
@@ -165,7 +176,7 @@ export function GlobalSearch({ open, onOpenChange, isEmployee = false, basePath 
                 .filter(Boolean).map((s: any) => String(s).toLowerCase()),
             })));
           } else if (key === "employees") {
-            loadedItems.push(...items.map((e) => ({
+            dynamic.push(...items.map((e) => ({
               id: `emp-${e.id}`,
               type: "employee" as const,
               title: e.name || "Unnamed Employee",
@@ -176,7 +187,7 @@ export function GlobalSearch({ open, onOpenChange, isEmployee = false, basePath 
           }
         }
 
-        setItems(loadedItems);
+        setItems([...pages, ...dynamic]);
       } catch (err) {
         console.error("Error generating search index:", err);
       } finally {
