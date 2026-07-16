@@ -262,14 +262,9 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
       items.push(systemEmailSettingsNavItem, activityLogNavItem, bugNavItem);
     }
     
-    // Add System Health and Expense Sheets for admin and super-admin
+    // Add System Health, Expense Sheets and Knowledge Vault for admin/super-admin
     if (auth.role === "admin" || auth.role === "super-admin") {
-      items.push(systemHealthNavItem, expenseSheetsNavItem);
-      // Knowledge Vault v2 — only shown when the feature is enabled at build time
-      // (VITE_KV_V2_ENABLED=true), matching the backend KV_V2_ENABLED flag.
-      if (import.meta.env.VITE_KV_V2_ENABLED === "true") {
-        items.push(knowledgeVaultNavItem);
-      }
+      items.push(systemHealthNavItem, expenseSheetsNavItem, knowledgeVaultNavItem);
     }
 
     // Add Attendance only for admin (not super-admin)
