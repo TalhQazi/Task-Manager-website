@@ -25,6 +25,7 @@ import {
   Activity,
   History,
   Wallet,
+  BookText,
   Database,
   Globe,
   Lightbulb,
@@ -234,6 +235,7 @@ const navItemsBase: NavItem[] = [
 
 const bugNavItem = { icon: Bug, label: "Bug", path: "/admin/bug-reports" };
 const expenseSheetsNavItem = { icon: Wallet, label: "Expense Sheets", path: "/admin/expense-sheets" };
+const knowledgeVaultNavItem = { icon: BookText, label: "Knowledge Vault", path: "/admin/knowledge-vault" };
 
 // Activity Logs only for super-admin
 const activityLogNavItem = { icon: Activity, label: "Activity Logs", path: "/admin/activity-logs" };
@@ -263,6 +265,11 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
     // Add System Health and Expense Sheets for admin and super-admin
     if (auth.role === "admin" || auth.role === "super-admin") {
       items.push(systemHealthNavItem, expenseSheetsNavItem);
+      // Knowledge Vault v2 — only shown when the feature is enabled at build time
+      // (VITE_KV_V2_ENABLED=true), matching the backend KV_V2_ENABLED flag.
+      if (import.meta.env.VITE_KV_V2_ENABLED === "true") {
+        items.push(knowledgeVaultNavItem);
+      }
     }
 
     // Add Attendance only for admin (not super-admin)
