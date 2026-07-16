@@ -198,7 +198,9 @@ export default function CostManager({
     return picked;
   }, [buyMode, querySections, queryBudgetCents]);
 
-  if (!projectId) return null;
+  // The sheet can be opened by project, by task, or directly by sheet id
+  // (Expense Sheets page / task modal). Bail out only when none is provided.
+  if (!projectId && !taskId && !sheetId) return null;
 
   if (sheetQuery.isLoading) {
     return (
@@ -364,14 +366,17 @@ export default function CostManager({
         />
       ))}
 
-      <CertificationTracker
-        projectId={projectId}
-        certifications={certifications || []}
-        currency={currency}
-        readOnly={readOnly}
-        onSaved={applyPayload}
-        onError={onError}
-      />
+      {/* Certifications are project-scoped; hide the tracker for standalone/task sheets */}
+      {projectId && (
+        <CertificationTracker
+          projectId={projectId}
+          certifications={certifications || []}
+          currency={currency}
+          readOnly={readOnly}
+          onSaved={applyPayload}
+          onError={onError}
+        />
+      )}
 
       {!readOnly && (
         <div className="flex items-center gap-2">
