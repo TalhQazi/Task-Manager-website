@@ -301,6 +301,7 @@ function normalizeTask(t: TaskApi): Task {
     startedByName: (t as any).startedByName,
     completedAt: (t as any).completedAt ?? null,
     completedByName: (t as any).completedByName,
+    totalTimeSpent: (t as any).totalTimeSpent ?? 0,
   };
 }
 

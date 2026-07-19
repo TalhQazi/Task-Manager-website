@@ -8,6 +8,7 @@ export interface TaskTimelineData {
   startedAt?: string | null;
   completedAt?: string | null;
   completedByName?: string;
+  totalTimeSpent?: number;
   status?: string;
 }
 
@@ -32,15 +33,22 @@ function formatDate(value?: string | null): string | null {
 }
 
 /**
- * Human readable elapsed duration between two instants, e.g. "2d 4h 15m".
- * `to` defaults to now, so it doubles as "time since start" for running tasks.
+ * Human readable elapsed duration formatted as Days, Hours, Minutes, and Seconds.
+ * e.g., "2 Days, 4 Hours, 15 Mins" or "3 Hours, 25 Mins" or "45 Mins, 10 Secs".
  */
-function formatDuration(from?: string | null, to?: string | null, withSeconds = false): string | null {
-  if (!from) return null;
-  const start = new Date(from).getTime();
-  const end = to ? new Date(to).getTime() : Date.now();
-  if (isNaN(start) || isNaN(end)) return null;
-  let diff = Math.max(0, Math.floor((end - start) / 1000)); // seconds
+function formatDuration(from?: string | null, to?: string | null, withSeconds = false, pastSeconds = 0): string | null {
+  if (!from && pastSeconds <= 0) return null;
+
+  let diff = Math.max(0, pastSeconds);
+  if (from) {
+    const start = new Date(from).getTime();
+    const end = to ? new Date(to).getTime() : Date.now();
+    if (!isNaN(start) && !isNaN(end)) {
+      diff += Math.max(0, Math.floor((end - start) / 1000));
+    }
+  }
+
+  if (diff <= 0) return "0 Mins";
 
   const days = Math.floor(diff / 86400);
   diff -= days * 86400;
@@ -50,12 +58,12 @@ function formatDuration(from?: string | null, to?: string | null, withSeconds = 
   const seconds = diff - minutes * 60;
 
   const parts: string[] = [];
-  if (days > 0) parts.push(`${days}d`);
-  if (hours > 0) parts.push(`${hours}h`);
-  // Always show minutes so short-running tasks aren't blank.
-  if (minutes > 0 || parts.length === 0) parts.push(`${minutes}m`);
-  if (withSeconds) parts.push(`${seconds}s`);
-  return parts.join(" ");
+  if (days > 0) parts.push(`${days} ${days === 1 ? "Day" : "Days"}`);
+  if (hours > 0) parts.push(`${hours} ${hours === 1 ? "Hour" : "Hours"}`);
+  if (minutes > 0 || (days === 0 && hours === 0)) parts.push(`${minutes} ${minutes === 1 ? "Min" : "Mins"}`);
+  if (withSeconds && seconds > 0) parts.push(`${seconds} ${seconds === 1 ? "Sec" : "Secs"}`);
+
+  return parts.join(", ");
 }
 
 interface Row {
@@ -67,12 +75,11 @@ interface Row {
 }
 
 /**
- * Compact vertical timeline showing when a task was created, started and closed.
- * Theme-token based so it works in the admin, manager and employee panels.
+ * Compact vertical timeline showing when a task was created, started and closed with Days, Hours, Minutes duration.
+ * Theme-token based so it works seamlessly in Admin, Manager, and Employee panels.
  */
 export function TaskTimeline({ task }: { task: TaskTimelineData }) {
-  // Tick every second while the task is running so "Running for Xd Xh Xm"
-  // stays live — same behaviour as the manager panel's global timer.
+  // Tick every second while the task is running so "Running for X Days, Y Hours, Z Mins" stays live
   const [, setTick] = useState(0);
   const running = task.status === "in-progress" && !task.completedAt;
   useEffect(() => {
@@ -93,7 +100,7 @@ export function TaskTimeline({ task }: { task: TaskTimelineData }) {
     });
   }
 
-  const started = formatDateTime(task.firstStartedAt);
+  const started = formatDateTime(task.firstStartedAt || task.startedAt);
   if (started) {
     rows.push({
       icon: <PlayCircle className="w-4 h-4" />,
@@ -104,14 +111,11 @@ export function TaskTimeline({ task }: { task: TaskTimelineData }) {
     });
   }
 
-  // Measure duration strictly from when the task actually started (the moment it
-  // was moved to in-progress) — never from createdAt, which would wildly inflate
-  // the running time for tasks that sat in "pending" for a while.
-  const startRef = task.firstStartedAt || task.startedAt;
+  const startRef = task.startedAt || task.firstStartedAt;
 
   const completed = formatDateTime(task.completedAt);
   if (completed) {
-    const took = formatDuration(startRef, task.completedAt);
+    const took = formatDuration(startRef, task.completedAt, false, task.totalTimeSpent || 0);
     const byPart = task.completedByName ? `by ${task.completedByName}` : "";
     const tookPart = took ? `Took ${took}` : "";
     const sub = [byPart, tookPart].filter(Boolean).join(" · ");
@@ -123,19 +127,14 @@ export function TaskTimeline({ task }: { task: TaskTimelineData }) {
       tone: "text-emerald-500",
     });
   } else if (task.status === "in-progress") {
-    // The current running session starts at `startedAt` (the backend resets it
-    // each time the task is moved to in-progress); fall back to the permanent
-    // first-start only for older records that never recorded a session.
     const sessionStart = task.startedAt || task.firstStartedAt;
     const runningSince = formatDateTime(sessionStart);
-    const elapsed = formatDuration(sessionStart, null, true);
+    const elapsed = formatDuration(sessionStart, null, true, task.totalTimeSpent || 0);
     rows.push({
       icon: <Loader2 className="w-4 h-4 animate-spin" />,
       label: "In progress",
-      // Lead with the elapsed duration (days/hours/minutes) since it was started;
-      // keep the exact start time as a subline when known.
       value: elapsed ? `Running for ${elapsed}` : runningSince ? `since ${runningSince}` : "Currently running",
-      sub: elapsed && runningSince ? `since ${runningSince}` : undefined,
+      sub: elapsed && runningSince ? `started ${runningSince}` : undefined,
       tone: "text-amber-500",
     });
   }
