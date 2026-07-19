@@ -1271,6 +1271,28 @@ export default function Tasks() {
     };
   }, [socket, selectedProject?.id]);
 
+  const handleCloseProject = async (projectId: string) => {
+    try {
+      await apiFetch(`/api/projects/${encodeURIComponent(projectId)}/close`, {
+        method: "POST",
+      });
+      toast({
+        title: "Project Closed",
+        description: "The project and all its tasks have been marked as completed.",
+      });
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      setIsViewProjectOpen(false);
+      setSelectedProject(null);
+    } catch (err) {
+      toast({
+        title: "Failed to close project",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    }
+  };
+
   const updateStatus = async (next: Task["status"], event?: React.MouseEvent | React.TouchEvent | { x: number; y: number }) => {
     if (!selectedTask) return;
     const previousStatus = selectedTask.status;
@@ -2734,9 +2756,23 @@ export default function Tasks() {
                       <DialogTitle className="text-xl sm:text-2xl font-black truncate leading-tight tracking-tight text-foreground">{selectedProject.name}</DialogTitle>
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => setIsViewProjectOpen(false)} className="rounded-full h-9 w-9 hover:bg-muted/80 transition-colors">
-                    <X className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {selectedProject.status !== "Completed" && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCloseProject(selectedProject.id)}
+                        className="h-8 border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10 font-bold text-xs flex items-center gap-1.5"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Close Project
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="icon" onClick={() => setIsViewProjectOpen(false)} className="rounded-full h-9 w-9 hover:bg-muted/80 transition-colors">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </DialogHeader>
 
