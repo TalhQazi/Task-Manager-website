@@ -2702,8 +2702,8 @@ export default function Tasks() {
         {/* Card Body */}
         <div className="p-4 flex-1 space-y-3">
 
-          {/* ✅ TIMER ADDED HERE */}
-          {timer && (
+          {/* ✅ TIMER ADDED HERE (Only displayed once task has started / status is not pending) */}
+          {timer && task.status !== "pending" && (
             <div
               className={`text-xs font-mono font-bold ${
                 state === "normal"

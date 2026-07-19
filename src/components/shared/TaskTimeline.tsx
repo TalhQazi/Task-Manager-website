@@ -100,7 +100,7 @@ export function TaskTimeline({ task }: { task: TaskTimelineData }) {
     });
   }
 
-  const started = formatDateTime(task.firstStartedAt || task.startedAt);
+  const started = task.status !== "pending" ? formatDateTime(task.firstStartedAt || task.startedAt) : null;
   if (started) {
     rows.push({
       icon: <PlayCircle className="w-4 h-4" />,
