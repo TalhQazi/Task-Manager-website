@@ -1170,20 +1170,20 @@ export function Header({ onMenuClick }: HeaderProps) {
                   {reportError && <div className="text-red-500 text-sm mt-1">{reportError}</div>}
                   <div className="flex flex-col gap-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">Attachments ({reportImageFiles.length}/5)</span>
+                      <span className="text-sm font-medium">Attachments: Images & Videos ({reportImageFiles.length}/5)</span>
                       <Button variant="outline" size="sm" type="button" onClick={handlePasteImage} title="Click to paste image from clipboard">
                         <Paperclip className="h-4 w-4 mr-2" /> Paste Image
                       </Button>
                     </div>
                     <input 
                       type="file" 
-                      accept="image/*" 
+                      accept="image/*,video/*" 
                       multiple 
                       className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 text-foreground"
                       onChange={(e) => {
                         const files = Array.from(e.target.files || []);
                         if (files.length + reportImageFiles.length > 5) {
-                          setReportError("You can only attach up to 5 images.");
+                          setReportError("You can only attach up to 5 files.");
                           return;
                         }
                         const newFiles = [...reportImageFiles, ...files].slice(0, 5);
@@ -1194,25 +1194,33 @@ export function Header({ onMenuClick }: HeaderProps) {
                     />
                     {reportImagePreviewUrls.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-2">
-                        {reportImagePreviewUrls.map((url, i) => (
-                          <div key={i} className="relative w-16 h-16 rounded-md overflow-hidden border">
-                            <img src={url} alt={`Preview ${i}`} className="w-full h-full object-cover" />
-                            <button
-                              className="absolute top-0 right-0 bg-red-500 text-white rounded-bl-md p-0.5"
-                              onClick={() => {
-                                const newFiles = [...reportImageFiles];
-                                newFiles.splice(i, 1);
-                                setReportImageFiles(newFiles);
-                                const newUrls = [...reportImagePreviewUrls];
-                                URL.revokeObjectURL(newUrls[i]);
-                                newUrls.splice(i, 1);
-                                setReportImagePreviewUrls(newUrls);
-                              }}
-                            >
-                              <XIcon className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))}
+                        {reportImagePreviewUrls.map((url, i) => {
+                          const file = reportImageFiles[i];
+                          const isVid = file?.type?.startsWith("video/") || url.startsWith("data:video/") || /\.(mp4|webm|mov|ogg|m4v|mkv)$/i.test(url);
+                          return (
+                            <div key={i} className="relative w-16 h-16 rounded-md overflow-hidden border bg-black">
+                              {isVid ? (
+                                <video src={url} className="w-full h-full object-cover" muted />
+                              ) : (
+                                <img src={url} alt={`Preview ${i}`} className="w-full h-full object-cover" />
+                              )}
+                              <button
+                                className="absolute top-0 right-0 bg-red-500 text-white rounded-bl-md p-0.5 z-10"
+                                onClick={() => {
+                                  const newFiles = [...reportImageFiles];
+                                  newFiles.splice(i, 1);
+                                  setReportImageFiles(newFiles);
+                                  const newUrls = [...reportImagePreviewUrls];
+                                  URL.revokeObjectURL(newUrls[i]);
+                                  newUrls.splice(i, 1);
+                                  setReportImagePreviewUrls(newUrls);
+                                }}
+                              >
+                                <XIcon className="h-3 w-3" />
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

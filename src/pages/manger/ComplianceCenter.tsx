@@ -66,6 +66,12 @@ interface Website {
   privacyPolicy?: string;
   seo?: string;
   siteMap?: string;
+  stripeIntegration?: string;
+  bugReportButton?: string;
+  googleMaps?: string;
+  appleMaps?: string;
+  infoEmailSetup?: string;
+  nathanEmailSetup?: string;
 }
 
 interface ChecklistItem {
@@ -357,6 +363,13 @@ export default function ComplianceCenter() {
       setWebsites((prev) =>
         prev.map((w) => (w._id === selectedWebsite._id ? res.item : w))
       );
+
+      // Reload compliance items to keep drawer checklist in sync
+      const complianceRes = await apiFetch<{ items: ChecklistItem[] }>("/api/websites/" + selectedWebsite._id + "/compliance");
+      setChecklistItems(complianceRes.items || []);
+
+      // Refresh overview analytics report
+      void loadData();
     } catch (err: any) {
       toast.error(err.message || "Failed to update core requirement status.");
     } finally {
@@ -1131,7 +1144,13 @@ export default function ComplianceCenter() {
                     { key: "contactUsPage", label: "Contact Us Page" },
                     { key: "privacyPolicy", label: "Privacy Policy" },
                     { key: "seo", label: "SEO" },
-                    { key: "siteMap", label: "Site Map" }
+                    { key: "siteMap", label: "Site Map" },
+                    { key: "stripeIntegration", label: "Stripe Integration" },
+                    { key: "bugReportButton", label: "Bug Report Button" },
+                    { key: "googleMaps", label: "Google Maps" },
+                    { key: "appleMaps", label: "Apple Maps" },
+                    { key: "infoEmailSetup", label: "info@ Email Setup" },
+                    { key: "nathanEmailSetup", label: "nathan@ Email Setup" }
                   ].map((reqItem) => {
                     const val = (selectedWebsite as any)[reqItem.key] || "none";
                     return (

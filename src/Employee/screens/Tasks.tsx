@@ -1636,14 +1636,37 @@ export default function Tasks() {
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 mb-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <div className="relative flex-1 min-w-0 w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
           <Input
-            placeholder="Search tasks or assignee..."
-            className="pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={selectedProject ? "Search tasks in this project..." : "Search projects, tasks, or assignee..."}
+            className="pl-10 pr-10 h-10 w-full bg-background border border-border text-foreground text-sm font-medium focus-visible:ring-2 focus-visible:ring-primary shadow-sm rounded-lg"
+            value={selectedProject ? searchQuery : projectSearchQuery}
+            onChange={(e) => {
+              const next = e.target.value;
+              if (selectedProject) {
+                setSearchQuery(next);
+              } else {
+                setProjectSearchQuery(next);
+              }
+            }}
           />
+          {(selectedProject ? searchQuery : projectSearchQuery) && (
+            <button
+              type="button"
+              onClick={() => {
+                if (selectedProject) {
+                  setSearchQuery("");
+                } else {
+                  setProjectSearchQuery("");
+                }
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+              title="Clear search"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
         <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 sm:mx-0 sm:px-0 sm:pb-0">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -1919,7 +1942,7 @@ export default function Tasks() {
       )}
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-[620px] max-h-[85dvh] sm:max-h-[90vh] overflow-y-auto overscroll-contain pb-6 sm:pb-4">
           <DialogHeader>
             <DialogTitle>Create Project</DialogTitle>
             <DialogDescription>Create a project and assign it.</DialogDescription>
@@ -2191,7 +2214,7 @@ export default function Tasks() {
         setIsCreateTaskOpen(open);
         if (!open) setIsDirectTask(false);
       }}>
-        <DialogContent className="w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-[620px] max-h-[85dvh] sm:max-h-[90vh] overflow-y-auto overscroll-contain pb-6 sm:pb-4">
           <DialogHeader>
             <DialogTitle>{isDirectTask ? "Create Standalone Task" : "Create Task"}</DialogTitle>
             <DialogDescription>
@@ -2929,7 +2952,7 @@ export default function Tasks() {
           if (!open) setSelectedTask(null);
         }}
       >
-        <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[85dvh] sm:max-h-[90vh] overflow-y-auto overscroll-contain pb-6 sm:pb-4">
           <DialogHeader>
             <DialogTitle>Edit Task</DialogTitle>
             <DialogDescription>Update task details.</DialogDescription>

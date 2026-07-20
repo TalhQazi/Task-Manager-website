@@ -1413,10 +1413,10 @@ export function MainLayout({ children }: MainLayoutProps) {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-xs sm:text-sm font-medium">Screenshot (optional)</label>
+              <label className="block text-xs sm:text-sm font-medium">Attachment (Image or Video)</label>
               <input
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*"
                 onChange={(e) => {
                   const file = e.target.files?.[0] || null;
                   setReportImageFile(file);
@@ -1425,8 +1425,12 @@ export function MainLayout({ children }: MainLayoutProps) {
                 }}
               />
               {reportImagePreviewUrl ? (
-                <div className="w-full overflow-hidden rounded-lg border bg-white">
-                  <img src={reportImagePreviewUrl} alt="preview" className="w-full h-auto max-h-64 object-contain" />
+                <div className="w-full overflow-hidden rounded-lg border bg-black flex justify-center">
+                  {reportImageFile?.type?.startsWith("video/") ? (
+                    <video src={reportImagePreviewUrl} controls className="w-full h-auto max-h-64 object-contain" />
+                  ) : (
+                    <img src={reportImagePreviewUrl} alt="preview" className="w-full h-auto max-h-64 object-contain" />
+                  )}
                 </div>
               ) : null}
             </div>
