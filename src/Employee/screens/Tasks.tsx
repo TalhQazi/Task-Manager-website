@@ -590,6 +590,7 @@ function TaskContributorsList({ assignees }: { assignees: string[] }) {
 
 export default function Tasks() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") || "tasks";
   const [searchQuery, setSearchQuery] = useState("");
   const [projectSearchQuery, setProjectSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -1783,86 +1784,86 @@ export default function Tasks() {
         </div>
       ) : (
         <>
-          <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
-            <h2 className="font-semibold text-lg mb-3">Projects</h2>
-            {projectsQuery.isLoading ? (
-              <p className="text-muted-foreground">Loading projects...</p>
-            ) : projectsQuery.isError ? (
-              <p className="text-destructive">Failed to load projects</p>
-            ) : projects.length === 0 ? (
-              <p className="text-muted-foreground">No projects found. Create one to begin.</p>
-            ) : (
-              <>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {paginatedProjects.map((project, idx) => {
-                    const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0
-                      ? project.assignees.map(resolveAssigneeName)
-                      : [];
-                    const taskNum = project.taskCount ?? 0;
-                    const projectNumber = (projectPage - 1) * PAGE_SIZE + idx + 1;
+          {(activeTab === "all" || activeTab === "projects") && (
+            <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
+              <h2 className="font-semibold text-lg mb-3">Projects</h2>
+              {projectsQuery.isLoading ? (
+                <p className="text-muted-foreground">Loading projects...</p>
+              ) : projectsQuery.isError ? (
+                <p className="text-destructive">Failed to load projects</p>
+              ) : projects.length === 0 ? (
+                <p className="text-muted-foreground">No projects found. Create one to begin.</p>
+              ) : (
+                <>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {paginatedProjects.map((project, idx) => {
+                      const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0
+                        ? project.assignees.map(resolveAssigneeName)
+                        : [];
+                      const taskNum = project.taskCount ?? 0;
+                      const projectNumber = (projectPage - 1) * PAGE_SIZE + idx + 1;
 
-                    return (
-                      <button
-                        key={project.id}
-                        onClick={() => void loadProject(project.id)}
-                        className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card"
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="flex-shrink-0 text-xs font-bold text-muted-foreground w-5 text-right">{projectNumber}.</span>
-                          <ProjectLogoImg projectId={project.id} projectName={project.name} logoUrl={project.logo?.url} />
-                          <div className="min-w-0">
-                            <p className="font-medium truncate">{project.name}</p>
-                            <p className="text-xs text-muted-foreground truncate">{project.description || "No description"}</p>
+                      return (
+                        <button
+                          key={project.id}
+                          onClick={() => void loadProject(project.id)}
+                          className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card"
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="flex-shrink-0 text-xs font-bold text-muted-foreground w-5 text-right">{projectNumber}.</span>
+                            <ProjectLogoImg projectId={project.id} projectName={project.name} logoUrl={project.logo?.url} />
+                            <div className="min-w-0">
+                              <p className="font-medium truncate">{project.name}</p>
+                              <p className="text-xs text-muted-foreground truncate">{project.description || "No description"}</p>
+                            </div>
                           </div>
-                        </div>
 
-                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                          <span className="truncate">{assigneeList.length > 0 ? assigneeList.join(", ") : "No assignees"}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="ml-2 flex-shrink-0">{taskNum} task{taskNum === 1 ? "" : "s"}</span>
-                            {(() => {
-                              const { images, files } = getAttachmentCounts(project.attachments);
-                              return (images > 0 || files > 0) && (
-                                <div className="flex items-center gap-1.5 border-l pl-1.5 border-border/40">
-                                  {images > 0 && <span className="text-primary/70"><Paperclip className="w-2.5 h-2.5" /></span>}
-                                  {files > 0 && <span className="text-indigo-600/70"><FileText className="w-2.5 h-2.5" /></span>}
-                                </div>
-                              );
-                            })()}
+                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                            <span className="truncate">{assigneeList.length > 0 ? assigneeList.join(", ") : "No assignees"}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="ml-2 flex-shrink-0">{taskNum} task{taskNum === 1 ? "" : "s"}</span>
+                              {(() => {
+                                const { images, files } = getAttachmentCounts(project.attachments);
+                                return (images > 0 || files > 0) && (
+                                  <div className="flex items-center gap-1.5 border-l pl-1.5 border-border/40">
+                                    {images > 0 && <span className="text-primary/70"><Paperclip className="w-2.5 h-2.5" /></span>}
+                                    {files > 0 && <span className="text-indigo-600/70"><FileText className="w-2.5 h-2.5" /></span>}
+                                  </div>
+                                );
+                              })()}
+                            </div>
                           </div>
-                        </div>
-
-                        <div className="flex items-center justify-between text-xs mt-auto pt-2 border-t border-dashed border-border/40">
-                          <Badge className="capitalize font-black text-[9px] px-1.5 h-4" variant="outline">
-                            {project.status || "No tasks"}
-                          </Badge>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedProject({ ...project, tasks: [] });
-                              void loadProjectComments(project.id);
-                            }}
-                            className="text-primary font-black text-[9px] uppercase tracking-widest hover:underline flex items-center gap-1 bg-primary/5 px-2 py-0.5 rounded-full"
-                          >
-                            <MessageSquare className="w-2.5 h-2.5" /> Activity
-                          </button>
-                          <span className="text-[10px] text-muted-foreground/60 font-bold">
-                            {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-                <Pagination
-                  currentPage={projectPage}
-                  totalPages={projectTotalPages}
-                  onPageChange={setProjectPage}
-                  className="mt-4"
-                />
-              </>
-            )}
-          </div>
+                          <div className="flex items-center justify-between text-xs border-t border-border/40 pt-2 mt-1">
+                            <Badge className="capitalize text-[10px]" variant="outline">{project.status || "No tasks"}</Badge>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedProject({ ...project, tasks: [] });
+                                void loadProjectComments(project.id);
+                              }}
+                              className="text-primary font-black text-[9px] uppercase tracking-widest hover:underline flex items-center gap-1 bg-primary/5 px-2 py-0.5 rounded-full"
+                            >
+                              <MessageSquare className="w-2.5 h-2.5" /> Activity
+                            </button>
+                            <span className="text-[10px] text-muted-foreground/60 font-bold">
+                              {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <Pagination
+                    currentPage={projectPage}
+                    totalPages={projectTotalPages}
+                    onPageChange={setProjectPage}
+                    className="mt-4"
+                  />
+                </>
+              )}
+            </div>
+          )}
 
           {/* Tasks Section */}
           <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">

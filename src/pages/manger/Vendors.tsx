@@ -4,6 +4,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/manger/ui/card";
 import { Input } from "@/components/manger/ui/input";
 import { Badge } from "@/components/manger/ui/badge";
+import { Button } from "@/components/manger/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/manger/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -21,6 +29,8 @@ import {
   XCircle,
   Users,
   Contact,
+  Globe,
+  Eye,
 } from "lucide-react";
 import { apiFetch } from "@/lib/manger/api";
 
@@ -29,7 +39,12 @@ interface Vendor {
   name: string;
   phone: string;
   email: string;
-  address: string;
+  street?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  website?: string;
+  address?: string;
   serviceType: string;
   location: string;
   status: "approved" | "not-approved";
@@ -43,8 +58,8 @@ interface Location {
 }
 
 const statusStyles = {
-  approved: "bg-emerald-100 text-emerald-800 border-emerald-200",
-  "not-approved": "bg-rose-100 text-rose-800 border-rose-200",
+  approved: "bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
+  "not-approved": "bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800",
 };
 
 const containerVariants = {
@@ -73,6 +88,10 @@ export default function Vendors() {
   const [locationFilter, setLocationFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
+  // View modal state
+  const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
+  const [isViewOpen, setIsViewOpen] = useState(false);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -91,6 +110,11 @@ export default function Vendors() {
     fetchData();
   }, []);
 
+  const openView = (vendor: Vendor) => {
+    setSelectedVendor(vendor);
+    setIsViewOpen(true);
+  };
+
   useEffect(() => {
     const viewId = String(searchParams.get("view") || "").trim();
     if (!viewId) return;
@@ -99,7 +123,7 @@ export default function Vendors() {
     const match = vendors.find((v) => String(v._id) === viewId);
     if (!match) return;
 
-    setSearchQuery(match.name || match.phone || "");
+    openView(match);
 
     const next = new URLSearchParams(searchParams);
     next.delete("view");
@@ -138,6 +162,14 @@ export default function Vendors() {
         Not Approved
       </Badge>
     );
+  };
+
+  const formatWebsite = (url?: string) => {
+    if (!url) return "";
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      return `https://${url}`;
+    }
+    return url;
   };
 
   return (
@@ -289,56 +321,221 @@ export default function Vendors() {
                 whileHover={{ scale: 1.02 }}
                 transition={{ type: "spring", stiffness: 400, damping: 30 }}
               >
-                <Card className="h-full">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Contact className="w-5 h-5 text-primary" />
+                <Card 
+                  className="h-full cursor-pointer hover:border-primary/50 transition-all flex flex-col justify-between"
+                  onClick={() => openView(vendor)}
+                >
+                  <div>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <Contact className="w-5 h-5 text-primary" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-lg hover:text-primary transition-colors">{vendor.name}</CardTitle>
+                            <p className="text-sm text-muted-foreground">{vendor.serviceType}</p>
+                          </div>
                         </div>
-                        <div>
-                          <CardTitle className="text-lg">{vendor.name}</CardTitle>
-                          <p className="text-sm text-muted-foreground">{vendor.serviceType}</p>
+                        {getStatusBadge(vendor.status)}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-2.5">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <MapPin className="w-4 h-4 flex-shrink-0" />
+                        <span>{vendor.location || "No Location"}</span>
+                      </div>
+                      
+                      {vendor.phone && (
+                        <div className="flex items-center gap-2 text-sm" onClick={(e) => e.stopPropagation()}>
+                          <Phone className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                          <a
+                            href={`tel:${vendor.phone}`}
+                            className="font-medium text-emerald-600 dark:text-emerald-400 hover:underline"
+                            title="Click to Call"
+                          >
+                            {vendor.phone}
+                          </a>
                         </div>
-                      </div>
-                      {getStatusBadge(vendor.status)}
+                      )}
+
+                      {vendor.email && (
+                        <div className="flex items-center gap-2 text-sm" onClick={(e) => e.stopPropagation()}>
+                          <Mail className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                          <a
+                            href={`mailto:${vendor.email}`}
+                            className="font-medium text-blue-600 dark:text-blue-400 hover:underline truncate"
+                            title="Click to Send Email"
+                          >
+                            {vendor.email}
+                          </a>
+                        </div>
+                      )}
+
+                      {(vendor.address || vendor.street) && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Building className="w-4 h-4 flex-shrink-0" />
+                          <span className="truncate">
+                            {vendor.address || [vendor.street, vendor.city, vendor.state].filter(Boolean).join(", ")}
+                          </span>
+                        </div>
+                      )}
+
+                      {vendor.notes && (
+                        <div className="pt-2 border-t">
+                          <p className="text-sm text-muted-foreground line-clamp-2">
+                            {vendor.notes}
+                          </p>
+                        </div>
+                      )}
+                    </CardContent>
+                  </div>
+
+                  {/* 1-Click Action Footer */}
+                  <div className="px-6 pb-4 pt-2 border-t flex items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-2">
+                      {vendor.phone && (
+                        <Button asChild size="sm" variant="outline" className="h-8 text-xs gap-1.5 text-emerald-600 border-emerald-500/30 hover:bg-emerald-50 dark:hover:bg-emerald-950/40">
+                          <a href={`tel:${vendor.phone}`}>
+                            <Phone className="w-3.5 h-3.5" /> Call
+                          </a>
+                        </Button>
+                      )}
+                      {vendor.email && (
+                        <Button asChild size="sm" variant="outline" className="h-8 text-xs gap-1.5 text-blue-600 border-blue-500/30 hover:bg-blue-50 dark:hover:bg-blue-950/40">
+                          <a href={`mailto:${vendor.email}`}>
+                            <Mail className="w-3.5 h-3.5" /> Email
+                          </a>
+                        </Button>
+                      )}
                     </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm">
-                      <MapPin className="w-4 h-4 text-muted-foreground" />
-                      <span>{vendor.location}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-sm">
-                      <Phone className="w-4 h-4 text-muted-foreground" />
-                      <span>{vendor.phone}</span>
-                    </div>
-                    {vendor.email && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Mail className="w-4 h-4 text-muted-foreground" />
-                        <span className="truncate">{vendor.email}</span>
-                      </div>
-                    )}
-                    {vendor.address && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <Building className="w-4 h-4 text-muted-foreground" />
-                        <span className="truncate">{vendor.address}</span>
-                      </div>
-                    )}
-                    {vendor.notes && (
-                      <div className="pt-2 border-t">
-                        <p className="text-sm text-muted-foreground line-clamp-2">
-                          {vendor.notes}
-                        </p>
-                      </div>
-                    )}
-                  </CardContent>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-8 text-xs text-muted-foreground hover:text-foreground gap-1"
+                      onClick={() => openView(vendor)}
+                    >
+                      <Eye className="w-3.5 h-3.5" /> View Info
+                    </Button>
+                  </div>
                 </Card>
               </motion.div>
             ))
           )}
         </AnimatePresence>
       </motion.div>
+
+      {/* Vendor Details Dialog */}
+      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Vendor Details</DialogTitle>
+          </DialogHeader>
+          {selectedVendor && (
+            <div className="space-y-4 py-4">
+              <div className="flex items-center justify-between border-b pb-3">
+                <div>
+                  <h3 className="text-xl font-bold">{selectedVendor.name}</h3>
+                  <p className="text-xs text-muted-foreground">{selectedVendor.serviceType}</p>
+                </div>
+                {getStatusBadge(selectedVendor.status)}
+              </div>
+
+              {/* 1-Click Call & Email buttons */}
+              <div className="flex flex-wrap gap-2 py-1">
+                {selectedVendor.phone && (
+                  <Button asChild size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1.5 shadow-sm">
+                    <a href={`tel:${selectedVendor.phone}`}>
+                      <Phone className="w-4 h-4" />
+                      Call ({selectedVendor.phone})
+                    </a>
+                  </Button>
+                )}
+                {selectedVendor.email && (
+                  <Button asChild size="sm" variant="outline" className="border-blue-500/30 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 font-semibold gap-1.5">
+                    <a href={`mailto:${selectedVendor.email}`}>
+                      <Mail className="w-4 h-4" />
+                      Send Email
+                    </a>
+                  </Button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 text-sm pt-2">
+                <div>
+                  <p className="text-muted-foreground text-xs font-medium">Service Category</p>
+                  <Badge variant="secondary" className="mt-0.5">{selectedVendor.serviceType}</Badge>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs font-medium">Location</p>
+                  <p className="font-medium flex items-center gap-1 mt-0.5">
+                    <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+                    {selectedVendor.location || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs font-medium">Phone</p>
+                  {selectedVendor.phone ? (
+                    <a href={`tel:${selectedVendor.phone}`} className="font-medium text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 mt-0.5">
+                      <Phone className="w-3.5 h-3.5" />
+                      {selectedVendor.phone}
+                    </a>
+                  ) : (
+                    <p className="font-medium mt-0.5">—</p>
+                  )}
+                </div>
+                <div>
+                  <p className="text-muted-foreground text-xs font-medium">Email</p>
+                  {selectedVendor.email ? (
+                    <a href={`mailto:${selectedVendor.email}`} className="font-medium text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 mt-0.5 truncate">
+                      <Mail className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="truncate">{selectedVendor.email}</span>
+                    </a>
+                  ) : (
+                    <p className="font-medium mt-0.5">—</p>
+                  )}
+                </div>
+                {selectedVendor.website && (
+                  <div className="col-span-2">
+                    <p className="text-muted-foreground text-xs font-medium">Website</p>
+                    <a 
+                      href={formatWebsite(selectedVendor.website)} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="font-medium flex items-center gap-1 text-primary hover:underline mt-0.5"
+                    >
+                      <Globe className="w-3.5 h-3.5" />
+                      {selectedVendor.website}
+                    </a>
+                  </div>
+                )}
+                <div className="col-span-2">
+                  <p className="text-muted-foreground text-xs font-medium">Address</p>
+                  <p className="font-medium flex items-start gap-1 mt-0.5">
+                    <Building className="w-3.5 h-3.5 mt-0.5 text-muted-foreground" />
+                    <span>
+                      {selectedVendor.address || selectedVendor.street || ""}
+                      {selectedVendor.city && `, ${selectedVendor.city}`}
+                      {selectedVendor.state && `, ${selectedVendor.state}`}
+                      {selectedVendor.zip && ` ${selectedVendor.zip}`}
+                      {(!selectedVendor.address && !selectedVendor.street && !selectedVendor.city) && "—"}
+                    </span>
+                  </p>
+                </div>
+                {selectedVendor.notes && (
+                  <div className="col-span-2">
+                    <p className="text-muted-foreground text-xs font-medium mb-1">Notes</p>
+                    <p className="font-medium bg-muted/30 p-2.5 rounded-lg border text-sm">{selectedVendor.notes}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setIsViewOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -767,7 +767,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
           </div>
           <div className="flex flex-col">
             <h1 className="text-lg font-black tracking-tight text-white flex items-center gap-1.5">
-              <span>Knowledge Vault</span>
+              <span>Personal Notes</span>
               <div className="h-1.5 w-1.5 rounded-full bg-[#4F7CFF] animate-pulse mt-0.5" />
             </h1>
             <p className="text-[10px] text-[#9CA3AF] font-mono tracking-wider">Your centralized intelligence chamber.</p>
@@ -839,7 +839,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
                       { label: "Tasks", icon: CheckSquare, active: false, count: null },
                       { label: "Projects", icon: FolderIcon, active: false, count: null },
                       { label: "Calendar", icon: CalendarIcon, active: false, count: null },
-                      { label: "Knowledge Vault", icon: BookOpen, active: activeFolder === "All", count: notes.length },
+                      { label: "Personal Notes", icon: BookOpen, active: activeFolder === "All", count: notes.length },
                       { label: "Favorites", icon: Star, active: activeFolder === "Favorites", count: notes.filter(n => n.isFavorite).length },
                       { label: "Pinned Notes", icon: Pin, active: activeFolder === "Pinned", count: notes.filter(n => n.isPinned).length }
                     ].map(nav => (
@@ -848,7 +848,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
                         onClick={() => {
                           if (nav.label === "Favorites") setActiveFolder("Favorites");
                           else if (nav.label === "Pinned Notes") setActiveFolder("Pinned");
-                          else if (nav.label === "Knowledge Vault") setActiveFolder("All");
+                          else if (nav.label === "Personal Notes") setActiveFolder("All");
                           else handleNavClick(nav.label);
                         }} 
                         className={cn(
@@ -1074,7 +1074,7 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
                   <div className="flex items-center gap-2 text-xs font-semibold text-gray-400">
                     <span className="hover:underline cursor-pointer text-slate-400">Projects</span>
                     <ChevronRight className="w-3 h-3 text-gray-600" />
-                    <span className="hover:underline cursor-pointer text-slate-300">{selectedNote.folder || "Knowledge Vault"}</span>
+                    <span className="hover:underline cursor-pointer text-slate-300">{selectedNote.folder || "Personal Notes"}</span>
                     <ChevronRight className="w-3 h-3 text-gray-600" />
                     <span className="text-slate-100 truncate max-w-[150px]">{selectedNote.title || "Untitled Note"}</span>
                   </div>

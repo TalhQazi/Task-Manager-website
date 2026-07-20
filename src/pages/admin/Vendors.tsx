@@ -475,28 +475,25 @@ export default function Vendors() {
                 </TableHeader>
                 <TableBody>
                   {filteredVendors.map((vendor) => (
-                    <TableRow key={vendor._id}>
+                    <TableRow 
+                      key={vendor._id} 
+                      className="cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => openView(vendor)}
+                    >
                       <TableCell>
                         <div className="space-y-1">
-                          <p className="font-medium">{vendor.name}</p>
-                          <div className="flex flex-col text-sm text-muted-foreground">
-                            {vendor.email && (
-                              <span className="flex items-center gap-1">
-                                <Mail className="w-3 h-3" /> {vendor.email}
-                              </span>
-                            )}
-                            {vendor.website && (
-                              <a 
-                                href={formatWebsite(vendor.website)} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1 text-primary hover:underline"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Globe className="w-3 h-3" /> {vendor.website}
-                              </a>
-                            )}
-                          </div>
+                          <p className="font-medium hover:text-primary transition-colors">{vendor.name}</p>
+                          {vendor.website && (
+                            <a 
+                              href={formatWebsite(vendor.website)} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Globe className="w-3 h-3" /> {vendor.website}
+                            </a>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -505,19 +502,39 @@ export default function Vendors() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-muted-foreground" />
-                          {vendor.location}
+                        <div className="flex items-center gap-1 text-sm">
+                          <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+                          {vendor.location || "—"}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Phone className="w-3 h-3 text-muted-foreground" />
-                          {vendor.phone}
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1.5">
+                          {vendor.phone ? (
+                            <a 
+                              href={`tel:${vendor.phone}`} 
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-medium text-xs border border-emerald-500/20 transition-all"
+                              title="Click to Call"
+                            >
+                              <Phone className="w-3.5 h-3.5" />
+                              <span>{vendor.phone}</span>
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
+                          {vendor.email && (
+                            <a 
+                              href={`mailto:${vendor.email}`} 
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-medium text-xs border border-blue-500/20 transition-all"
+                              title="Click to Send Email"
+                            >
+                              <Mail className="w-3.5 h-3.5" />
+                              <span className="truncate max-w-[140px]">{vendor.email}</span>
+                            </a>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>{getStatusBadge(vendor.status)}</TableCell>
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon">
@@ -527,8 +544,24 @@ export default function Vendors() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => openView(vendor)}>
                               <Eye className="w-4 h-4 mr-2" />
-                              View
+                              View Info
                             </DropdownMenuItem>
+                            {vendor.phone && (
+                              <DropdownMenuItem asChild>
+                                <a href={`tel:${vendor.phone}`} className="text-emerald-600 cursor-pointer">
+                                  <Phone className="w-4 h-4 mr-2" />
+                                  Call Vendor
+                                </a>
+                              </DropdownMenuItem>
+                            )}
+                            {vendor.email && (
+                              <DropdownMenuItem asChild>
+                                <a href={`mailto:${vendor.email}`} className="text-blue-600 cursor-pointer">
+                                  <Mail className="w-4 h-4 mr-2" />
+                                  Send Email
+                                </a>
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => openEdit(vendor)}>
                               <Edit className="w-4 h-4 mr-2" />
                               Edit
@@ -749,35 +782,66 @@ export default function Vendors() {
             </DialogHeader>
             {selectedVendor && (
               <div className="space-y-4 py-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">{selectedVendor.name}</h3>
+                <div className="flex items-center justify-between border-b pb-3">
+                  <div>
+                    <h3 className="text-xl font-bold">{selectedVendor.name}</h3>
+                    <p className="text-xs text-muted-foreground">{selectedVendor.serviceType}</p>
+                  </div>
                   {getStatusBadge(selectedVendor.status)}
                 </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+
+                <div className="flex flex-wrap gap-2 py-1">
+                  {selectedVendor.phone && (
+                    <Button asChild size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1.5 shadow-sm">
+                      <a href={`tel:${selectedVendor.phone}`}>
+                        <Phone className="w-4 h-4" />
+                        Call ({selectedVendor.phone})
+                      </a>
+                    </Button>
+                  )}
+                  {selectedVendor.email && (
+                    <Button asChild size="sm" variant="outline" className="border-blue-500/30 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 font-semibold gap-1.5">
+                      <a href={`mailto:${selectedVendor.email}`}>
+                        <Mail className="w-4 h-4" />
+                        Send Email
+                      </a>
+                    </Button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-sm pt-2">
                   <div>
-                    <p className="text-muted-foreground">Service Category</p>
-                    <Badge variant="secondary">{selectedVendor.serviceType}</Badge>
+                    <p className="text-muted-foreground text-xs font-medium">Service Category</p>
+                    <Badge variant="secondary" className="mt-0.5">{selectedVendor.serviceType}</Badge>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Location</p>
-                    <p className="font-medium flex items-center gap-1">
-                      <MapPin className="w-3 h-3" />
-                      {selectedVendor.location}
+                    <p className="text-muted-foreground text-xs font-medium">Location</p>
+                    <p className="font-medium flex items-center gap-1 mt-0.5">
+                      <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+                      {selectedVendor.location || "—"}
                     </p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Phone</p>
-                    <p className="font-medium flex items-center gap-1">
-                      <Phone className="w-3 h-3" />
-                      {selectedVendor.phone}
-                    </p>
+                    <p className="text-muted-foreground text-xs font-medium">Phone</p>
+                    {selectedVendor.phone ? (
+                      <a href={`tel:${selectedVendor.phone}`} className="font-medium text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 mt-0.5">
+                        <Phone className="w-3.5 h-3.5" />
+                        {selectedVendor.phone}
+                      </a>
+                    ) : (
+                      <p className="font-medium mt-0.5">—</p>
+                    )}
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Email</p>
-                    <p className="font-medium flex items-center gap-1">
-                      <Mail className="w-3 h-3" />
-                      {selectedVendor.email || "—"}
-                    </p>
+                    <p className="text-muted-foreground text-xs font-medium">Email</p>
+                    {selectedVendor.email ? (
+                      <a href={`mailto:${selectedVendor.email}`} className="font-medium text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 mt-0.5 truncate">
+                        <Mail className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span className="truncate">{selectedVendor.email}</span>
+                      </a>
+                    ) : (
+                      <p className="font-medium mt-0.5">—</p>
+                    )}
                   </div>
                   <div className="col-span-2">
                     <p className="text-muted-foreground">Website</p>
