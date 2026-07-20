@@ -66,6 +66,7 @@ import { getAuthState } from "@/lib/auth";
 import { Pagination } from "@/components/Pagination";
 import { useSocket } from "@/contexts/SocketContext";
 import { cn } from "@/lib/utils";
+import { DEPARTMENTS_AND_POSITIONS, DEPARTMENTS } from "@/constants/jobPositions";
 
 interface Employee {
   id: string;
@@ -909,27 +910,37 @@ const Employees = () => {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Role *</label>
+                      <label className="block text-xs sm:text-sm font-medium mb-1.5">Role (Position / Title) *</label>
                       <input
                         type="text"
+                        list="admin-add-job-positions-list"
                         {...addForm.register("role", {
                           required: "Role is required",
                           validate: (v) => (String(v || "").trim() ? true : "Role is required"),
                         })}
                         aria-invalid={!!addErrors.role}
-                        placeholder="e.g., Maintenance Technician"
+                        placeholder="Select or type position (e.g., Software Engineer)"
                         className={
                           "w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all " +
                           (addErrors.role ? "border-destructive focus:ring-destructive/20" : "")
                         }
                       />
+                      <datalist id="admin-add-job-positions-list">
+                        {DEPARTMENTS_AND_POSITIONS.map((group) => (
+                          <optgroup key={group.department} label={group.department}>
+                            {group.positions.map((pos) => (
+                              <option key={pos} value={pos}>
+                                {pos} ({group.department})
+                              </option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </datalist>
                       {addErrors.role && (
                         <p className="mt-1 text-xs text-destructive">{String(addErrors.role.message || "Role is required")}</p>
                       )}
                     </div>
                   </div>
-
-                
 
                   <div>
                     <label className="block text-xs sm:text-sm font-medium mb-1.5">Company</label>
@@ -953,9 +964,11 @@ const Employees = () => {
                       className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
                     >
                       <option value="">Select department</option>
-                      <option value="Coding">Coding</option>
-                      <option value="Electrician">Electrician</option>
-                      <option value="Mechanic">Mechanic</option>
+                      {DEPARTMENTS.map((dept) => (
+                        <option key={dept} value={dept}>
+                          {dept}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
@@ -2064,14 +2077,27 @@ const Employees = () => {
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Role *</label>
+                  <label className="block text-xs sm:text-sm font-medium mb-1.5">Role (Position / Title) *</label>
                   <input
                     type="text"
+                    list="admin-edit-job-positions-list"
                     value={editFormData.role}
                     onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value })}
+                    placeholder="Select or type position (e.g., Software Engineer)"
                     className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base focus:ring-2 focus:ring-primary/20 transition-all"
                     required
                   />
+                  <datalist id="admin-edit-job-positions-list">
+                    {DEPARTMENTS_AND_POSITIONS.map((group) => (
+                      <optgroup key={group.department} label={group.department}>
+                        {group.positions.map((pos) => (
+                          <option key={pos} value={pos}>
+                            {pos} ({group.department})
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </datalist>
                 </div>
               </div>
 
@@ -2098,9 +2124,11 @@ const Employees = () => {
                     className="w-full rounded-lg border px-3 py-2 text-sm sm:text-base bg-white focus:ring-2 focus:ring-primary/20 transition-all"
                   >
                     <option value="">Select department</option>
-                    <option value="Coding">Coding</option>
-                    <option value="Electrician">Electrician</option>
-                    <option value="Mechanic">Mechanic</option>
+                    {DEPARTMENTS.map((dept) => (
+                      <option key={dept} value={dept}>
+                        {dept}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>

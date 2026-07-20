@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/manger/ui/dialog";
+import { DEPARTMENTS_AND_POSITIONS } from "@/constants/jobPositions";
 import {
   Form,
   FormControl,
@@ -1089,9 +1090,22 @@ export default function Employees() {
                     name="role"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Role</FormLabel>
+                        <FormLabel>Role (Position / Title)</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g. Field Technician" {...field} />
+                          <>
+                            <Input list="manager-add-job-positions-list" placeholder="Select or type position (e.g., Software Engineer)" {...field} />
+                            <datalist id="manager-add-job-positions-list">
+                              {DEPARTMENTS_AND_POSITIONS.map((group) => (
+                                <optgroup key={group.department} label={group.department}>
+                                  {group.positions.map((pos) => (
+                                    <option key={pos} value={pos}>
+                                      {pos} ({group.department})
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              ))}
+                            </datalist>
+                          </>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1456,9 +1470,22 @@ export default function Employees() {
                   name="role"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Role</FormLabel>
+                      <FormLabel>Role (Position / Title)</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. Field Technician" {...field} />
+                        <>
+                          <Input list="manager-edit-job-positions-list" placeholder="Select or type position (e.g., Software Engineer)" {...field} />
+                          <datalist id="manager-edit-job-positions-list">
+                            {DEPARTMENTS_AND_POSITIONS.map((group) => (
+                              <optgroup key={group.department} label={group.department}>
+                                {group.positions.map((pos) => (
+                                  <option key={pos} value={pos}>
+                                    {pos} ({group.department})
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ))}
+                          </datalist>
+                        </>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
