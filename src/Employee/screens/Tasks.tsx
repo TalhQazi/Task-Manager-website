@@ -590,7 +590,7 @@ function TaskContributorsList({ assignees }: { assignees: string[] }) {
 
 export default function Tasks() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get("tab") || "tasks";
+  const activeTab = searchParams.get("tab") || "all";
   const [searchQuery, setSearchQuery] = useState("");
   const [projectSearchQuery, setProjectSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");

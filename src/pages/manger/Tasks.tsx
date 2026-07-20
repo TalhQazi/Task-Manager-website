@@ -680,7 +680,7 @@ export default function Tasks() {
   const [costManagerModalOpen, setCostManagerModalOpen] = useState(false);
   const [costManagerModalSheetId, setCostManagerModalSheetId] = useState<string | null>(null);
   const [costManagerModalSheetName, setCostManagerModalSheetName] = useState("");
-  const activeTab = searchParams.get("tab") || "tasks";
+  const activeTab = searchParams.get("tab") || "all";
   const [searchQuery, setSearchQuery] = useState("");
   const [projectSearchQuery, setProjectSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
