@@ -53,6 +53,7 @@ const navItemsBase = [
   { icon: Palette, label: "Theme Engine", path: "/employee/ui-customization" },
   { icon: ShoppingCart, label: "Shopping Lists", path: "/employee/shopping-lists" },
   { icon: Bug, label: "Bugs", path: "/employee/bugs" },
+  { icon: FileText, label: "EOD Reports", path: "/employee/eod-reports" },
   { icon: Mail, label: "Email Settings", path: "/employee/email-settings" },
   
   // 👇 Settings item ko yahan add karein (ye sort se pehle filter ho jayega)
