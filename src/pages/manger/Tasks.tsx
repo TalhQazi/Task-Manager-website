@@ -2122,8 +2122,12 @@ export default function Tasks() {
   const sourceTasks = selectedProject ? selectedProject.tasks : (tasksQuery.data?.items || []);
 
   const uniqueAssignees = useMemo(() => {
-    if (!selectedProject) return [];
     const set = new Set<string>();
+    activeEmployees.forEach((e) => {
+      if (e.name && e.name.trim()) {
+        set.add(e.name.trim());
+      }
+    });
     sourceTasks.forEach((t: any) => {
       if (Array.isArray(t.assignees)) {
         t.assignees.forEach((a: string) => {
@@ -2134,7 +2138,7 @@ export default function Tasks() {
       }
     });
     return Array.from(set).sort();
-  }, [sourceTasks, selectedProject]);
+  }, [activeEmployees, sourceTasks]);
 
   const filteredTasks = useMemo(() => {
     if (!selectedProject) return sourceTasks; // already filtered server-side
@@ -2308,19 +2312,17 @@ export default function Tasks() {
               <SelectItem value="unassigned">Unassigned</SelectItem>
             </SelectContent>
           </Select>
-          {uniqueAssignees.length > 0 && (
-            <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-              <SelectTrigger className="w-[130px] sm:w-[140px]">
-                <SelectValue placeholder="Assignee" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Assignees</SelectItem>
-                {uniqueAssignees.map((a) => (
-                  <SelectItem key={a} value={a}>{a}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+          <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+            <SelectTrigger className="w-[140px] sm:w-[160px]">
+              <SelectValue placeholder="All Assignees" />
+            </SelectTrigger>
+            <SelectContent className="max-h-[300px] overflow-y-auto">
+              <SelectItem value="all">All Assignees</SelectItem>
+              {uniqueAssignees.map((a) => (
+                <SelectItem key={a} value={a}>{a}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button variant="outline" size="icon" className="shrink-0">
             <Filter className="w-4 h-4" />
           </Button>

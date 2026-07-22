@@ -2425,6 +2425,11 @@ export default function Tasks() {
 
   const uniqueAssignees = useMemo(() => {
     const set = new Set<string>();
+    activeEmployees.forEach((e) => {
+      if (e.name && e.name.trim()) {
+        set.add(e.name.trim());
+      }
+    });
     sourceTasks.forEach((t: any) => {
       if (Array.isArray(t.assignees)) {
         t.assignees.forEach((a: string) => {
@@ -2435,7 +2440,7 @@ export default function Tasks() {
       }
     });
     return Array.from(set).sort();
-  }, [sourceTasks]);
+  }, [activeEmployees, sourceTasks]);
 
   const filteredTasks = useMemo(() => {
     const filtered = sourceTasks.filter((task) => {
@@ -2683,19 +2688,17 @@ export default function Tasks() {
               <SelectItem value="unassigned">Unassigned</SelectItem>
             </SelectContent>
           </Select>
-          {uniqueAssignees.length > 0 && (
-            <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-              <SelectTrigger className="w-full sm:w-[150px] h-10">
-                <SelectValue placeholder="Assignee" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Assignees</SelectItem>
-                {uniqueAssignees.map((a) => (
-                  <SelectItem key={a} value={a}>{a}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+          <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+            <SelectTrigger className="w-full sm:w-[160px] h-10">
+              <SelectValue placeholder="All Assignees" />
+            </SelectTrigger>
+            <SelectContent className="max-h-[300px] overflow-y-auto">
+              <SelectItem value="all">All Assignees</SelectItem>
+              {uniqueAssignees.map((a) => (
+                <SelectItem key={a} value={a}>{a}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button 
             variant={showArchivedTasks ? "secondary" : "outline"}
             onClick={() => setShowArchivedTasks(!showArchivedTasks)}
