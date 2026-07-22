@@ -2351,8 +2351,8 @@ export default function Tasks() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-4">
-        <div className="relative flex-1 min-w-0 w-full">
+      <div className="flex flex-col md:flex-row gap-3 md:gap-4 mb-4 items-stretch md:items-center">
+        <div className="relative flex-1 min-w-[220px] w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
           <Input
             placeholder={selectedProject ? "Search tasks in this project..." : "Search projects or tasks..."}
@@ -2384,9 +2384,9 @@ export default function Tasks() {
             </button>
           )}
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2 w-full">
+        <div className="flex flex-wrap gap-2 items-center">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full lg:w-[140px] h-10 text-xs sm:text-sm">
+            <SelectTrigger className="w-[125px] sm:w-[140px] h-10 text-xs sm:text-sm">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -2397,7 +2397,7 @@ export default function Tasks() {
             </SelectContent>
           </Select>
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-full lg:w-[140px] h-10 text-xs sm:text-sm">
+            <SelectTrigger className="w-[125px] sm:w-[140px] h-10 text-xs sm:text-sm">
               <SelectValue placeholder="Priority" />
             </SelectTrigger>
             <SelectContent>
@@ -2408,7 +2408,7 @@ export default function Tasks() {
             </SelectContent>
           </Select>
           <Select value={assignmentFilter} onValueChange={setAssignmentFilter}>
-            <SelectTrigger className="w-full lg:w-[140px] h-10 text-xs sm:text-sm">
+            <SelectTrigger className="w-[130px] sm:w-[140px] h-10 text-xs sm:text-sm">
               <SelectValue placeholder="Assignment" />
             </SelectTrigger>
             <SelectContent>
@@ -2419,7 +2419,7 @@ export default function Tasks() {
             </SelectContent>
           </Select>
           <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-            <SelectTrigger className="w-full lg:w-[160px] h-10 text-xs sm:text-sm">
+            <SelectTrigger className="w-[140px] sm:w-[160px] h-10 text-xs sm:text-sm">
               <SelectValue placeholder="All Assignees" />
             </SelectTrigger>
             <SelectContent className="max-h-[300px] overflow-y-auto">
@@ -2669,8 +2669,8 @@ export default function Tasks() {
                 <p className="text-muted-foreground">Loading projects...</p>
               ) : projectsQuery.isError ? (
                 <p className="text-destructive">Failed to load projects</p>
-              ) : projects.length === 0 ? (
-                <p className="text-muted-foreground">No projects found. Create one to begin.</p>
+              ) : filteredProjects.length === 0 ? (
+                <p className="text-muted-foreground">{(searchQuery || assigneeFilter !== "all" || statusFilter !== "all" || priorityFilter !== "all" || assignmentFilter !== "all") ? "No projects match your filter criteria." : "No projects found. Create one to begin."}</p>
               ) : (
                 <>
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">

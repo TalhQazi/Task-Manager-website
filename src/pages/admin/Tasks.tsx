@@ -2685,8 +2685,8 @@ export default function Tasks() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-3 md:gap-4 mb-4">
-        <div className="relative flex-1 min-w-0 w-full">
+      <div className="flex flex-col md:flex-row gap-3 md:gap-4 mb-4 items-stretch md:items-center">
+        <div className="relative flex-1 min-w-[220px] w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
           <Input
             placeholder={selectedProject ? "Search tasks in this project..." : "Search projects, tasks, or assignee..."}
@@ -2724,9 +2724,9 @@ export default function Tasks() {
             </button>
           )}
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2 w-full">
+        <div className="flex flex-wrap gap-2 items-center">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full lg:w-[140px] h-10 text-xs sm:text-sm">
+            <SelectTrigger className="w-[125px] sm:w-[140px] h-10 text-xs sm:text-sm">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -2737,7 +2737,7 @@ export default function Tasks() {
             </SelectContent>
           </Select>
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-full lg:w-[140px] h-10 text-xs sm:text-sm">
+            <SelectTrigger className="w-[125px] sm:w-[140px] h-10 text-xs sm:text-sm">
               <SelectValue placeholder="Priority" />
             </SelectTrigger>
             <SelectContent>
@@ -2748,7 +2748,7 @@ export default function Tasks() {
             </SelectContent>
           </Select>
           <Select value={assignmentFilter} onValueChange={setAssignmentFilter}>
-            <SelectTrigger className="w-full lg:w-[140px] h-10 text-xs sm:text-sm">
+            <SelectTrigger className="w-[130px] sm:w-[140px] h-10 text-xs sm:text-sm">
               <SelectValue placeholder="Assignment" />
             </SelectTrigger>
             <SelectContent>
@@ -2759,7 +2759,7 @@ export default function Tasks() {
             </SelectContent>
           </Select>
           <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-            <SelectTrigger className="w-full lg:w-[160px] h-10 text-xs sm:text-sm">
+            <SelectTrigger className="w-[140px] sm:w-[160px] h-10 text-xs sm:text-sm">
               <SelectValue placeholder="All Assignees" />
             </SelectTrigger>
             <SelectContent className="max-h-[300px] overflow-y-auto">
@@ -2772,7 +2772,7 @@ export default function Tasks() {
           <Button 
             variant={showArchivedTasks ? "secondary" : "outline"}
             onClick={() => setShowArchivedTasks(!showArchivedTasks)}
-            className="h-10 px-3 flex items-center justify-center gap-2 text-xs sm:text-sm col-span-1 lg:w-auto"
+            className="h-10 px-3 flex items-center justify-center gap-2 text-xs sm:text-sm"
           >
             <Archive className="h-4 w-4" />
             <span className="text-xs font-medium">{showArchivedTasks ? "Hide Archived" : "Show Archived"}</span>
@@ -3145,12 +3145,12 @@ export default function Tasks() {
                 <p className="text-muted-foreground">Loading projects...</p>
               ) : projectsQuery.isError ? (
                 <p className="text-destructive">{(() => { const msg = projectsQuery.error instanceof Error ? projectsQuery.error.message : "Failed to load projects"; return msg.startsWith("<") ? "Server error: failed to load projects. The server may be temporarily unavailable (504 Gateway Timeout). Please try again later." : msg; })()}</p>
-              ) : projectsQuery.data?.items.length === 0 ? (
-                <p className="text-muted-foreground">{projectSearchQuery ? "No projects match your search." : "No projects found. Create one to begin."}</p>
+              ) : filteredProjects.length === 0 ? (
+                <p className="text-muted-foreground">{(projectSearchQuery || assigneeFilter !== "all" || statusFilter !== "all" || priorityFilter !== "all" || assignmentFilter !== "all") ? "No projects match your filter criteria." : "No projects found. Create one to begin."}</p>
               ) : (
                 <>
                   <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                    {projectsQuery.data?.items.map((project, idx) => {
+                    {filteredProjects.map((project, idx) => {
                       const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0 ? project.assignees : [];
                       const taskNum = project.taskCount ?? 0;
                       const projectLetter = String.fromCharCode(65 + (idx % 26));
