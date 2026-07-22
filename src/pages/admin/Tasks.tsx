@@ -422,6 +422,10 @@ interface Employee {
   name: string;
   initials: string;
   email: string;
+  role?: string;
+  department?: string;
+  avatarUrl?: string;
+  avatarDataUrl?: string;
   status: "active" | "inactive" | "on-leave";
 }
 
@@ -988,25 +992,30 @@ export default function Tasks() {
     }
   }, [tasks, searchParams, setSearchParams, isViewOpen, isEditOpen, isDeleteOpen, isCreateOpen]);
 
-  // Fetch employees/users for mentions and assignees
+  // Fetch employees for mentions and assignees
   useEffect(() => {
     const loadEmployees = async () => {
       try {
-        const res = await apiFetch<{ items: any[] }>("/api/users/all");
-        const list = (res.items || []).map(u => ({
-          id: u.id,
-          name: u.name,
-          email: u.email,
-          avatarUrl: toProxiedUrl(u.avatarUrl) || u.avatarUrl,
-          avatarDataUrl: toProxiedUrl(u.avatarUrl) || u.avatarUrl,
-          status: (u.status || "active") as Employee["status"],
-          initials: (u.name || u.username || "??")
-            .split(" ")
-            .map((n: string) => n[0])
-            .join("")
-            .toUpperCase()
-            .substring(0, 2)
-        }));
+        const res = await apiFetch<{ items: any[] }>("/api/employees");
+        const list = (res.items || []).map(u => {
+          const avatar = u.avatarUrl || u.avatarDataUrl || "";
+          return {
+            id: String(u.id || u._id),
+            name: u.name,
+            email: u.email || "",
+            role: u.role || u.userRole || "",
+            department: u.department || "",
+            avatarUrl: avatar ? (toProxiedUrl(avatar) || avatar) : "",
+            avatarDataUrl: avatar ? (toProxiedUrl(avatar) || avatar) : "",
+            status: (u.status || "active") as Employee["status"],
+            initials: u.initials || (u.name || "??")
+              .split(" ")
+              .map((n: string) => n[0])
+              .join("")
+              .toUpperCase()
+              .substring(0, 2)
+          };
+        });
 
         // Ensure current user is in the list of assignees for selection
         const auth = getAuthState();
@@ -1017,7 +1026,9 @@ export default function Tasks() {
             name: myUsername,
             initials: myUsername.substring(0, 2).toUpperCase(),
             status: "active",
-            email: myUsername
+            email: myUsername,
+            role: "",
+            department: ""
           } as any);
         }
 
@@ -1032,9 +1043,8 @@ export default function Tasks() {
 
   const activeEmployees = useMemo(() => {
     return employees.filter((e) => {
-      const s = String(e.status || "").toLowerCase();
-      // Only show employees who are strictly 'active'
-      return s === "active";
+      const s = String(e.status || "active").toLowerCase();
+      return s !== "inactive";
     });
   }, [employees]);
 
@@ -3718,7 +3728,55 @@ export default function Tasks() {
                 </div>
                 {validationErrors.description && <p className="text-xs text-destructive">{validationErrors.description}</p>}
               </div>
-              <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Assignees</label><Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}><PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{selectedAssignees.length > 0 ? selectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] max-w-[380px] p-0 z-[150]" align="start" collisionPadding={20}><Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); }}><Check className={cn("mr-2 h-4 w-4", selectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover></div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Assignees</label>
+                <Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}>
+                  <PopoverTrigger asChild>
+                    <Button type="button" variant="outline" className="w-full justify-between h-10">
+                      <span className="truncate">{selectedAssignees.length > 0 ? selectedAssignees.join(", ") : "Select assignees"}</span>
+                      <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] max-w-[380px] p-0 z-[150]" align="start" collisionPadding={20}>
+                    <Command>
+                      <CommandInput placeholder="Search employees..." />
+                      <CommandList className="max-h-[260px] overflow-y-auto custom-scrollbar">
+                        <CommandEmpty>No employee found.</CommandEmpty>
+                        <CommandGroup>
+                          {activeEmployees.map((employee) => (
+                            <CommandItem
+                              key={employee.id}
+                              value={`${employee.name} ${employee.role || ""} ${employee.department || ""} ${employee.email || ""}`}
+                              onSelect={() => {
+                                setSelectedAssignees((prev) =>
+                                  prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]
+                                );
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4 shrink-0", selectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} />
+                              <Avatar className="h-6 w-6 mr-2 shrink-0">
+                                {(employee.avatarDataUrl || employee.avatarUrl) ? (
+                                  <img src={employee.avatarDataUrl || employee.avatarUrl} alt={employee.name} className="w-full h-full object-cover rounded-full" />
+                                ) : (
+                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-semibold">{employee.initials}</AvatarFallback>
+                                )}
+                              </Avatar>
+                              <div className="flex flex-col min-w-0 flex-1">
+                                <span className="truncate text-sm font-medium">{employee.name}</span>
+                                {(employee.role || employee.department || employee.email) && (
+                                  <span className="truncate text-[11px] text-muted-foreground">
+                                    {[employee.role, employee.department || employee.email].filter(Boolean).join(" • ")}
+                                  </span>
+                                )}
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Team Lead (Optional)</label>
                 <Popover open={taskTeamLeadPopoverOpen} onOpenChange={setTaskTeamLeadPopoverOpen}>
@@ -3731,7 +3789,7 @@ export default function Tasks() {
                   <PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] max-w-[380px] p-0 z-[150]" align="start" collisionPadding={20}>
                     <Command>
                       <CommandInput placeholder="Search team lead..." />
-                      <CommandList>
+                      <CommandList className="max-h-[260px] overflow-y-auto custom-scrollbar">
                         <CommandEmpty>No employee found.</CommandEmpty>
                         <CommandGroup>
                           <CommandItem value="" onSelect={() => { setTaskTeamLead(""); setTaskTeamLeadPopoverOpen(false); }}>
@@ -3739,10 +3797,27 @@ export default function Tasks() {
                             <span className="text-muted-foreground">None</span>
                           </CommandItem>
                           {activeEmployees.map((employee) => (
-                            <CommandItem key={employee.id} value={employee.name} onSelect={() => { setTaskTeamLead(employee.name); setTaskTeamLeadPopoverOpen(false); }}>
-                              <Check className={cn("mr-2 h-4 w-4", taskTeamLead === employee.name ? "opacity-100" : "opacity-0")} />
-                              <Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>
-                              {employee.name}
+                            <CommandItem
+                              key={employee.id}
+                              value={`${employee.name} ${employee.role || ""} ${employee.department || ""} ${employee.email || ""}`}
+                              onSelect={() => { setTaskTeamLead(employee.name); setTaskTeamLeadPopoverOpen(false); }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4 shrink-0", taskTeamLead === employee.name ? "opacity-100" : "opacity-0")} />
+                              <Avatar className="h-6 w-6 mr-2 shrink-0">
+                                {(employee.avatarDataUrl || employee.avatarUrl) ? (
+                                  <img src={employee.avatarDataUrl || employee.avatarUrl} alt={employee.name} className="w-full h-full object-cover rounded-full" />
+                                ) : (
+                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-semibold">{employee.initials}</AvatarFallback>
+                                )}
+                              </Avatar>
+                              <div className="flex flex-col min-w-0 flex-1">
+                                <span className="truncate text-sm font-medium">{employee.name}</span>
+                                {(employee.role || employee.department || employee.email) && (
+                                  <span className="truncate text-[11px] text-muted-foreground">
+                                    {[employee.role, employee.department || employee.email].filter(Boolean).join(" • ")}
+                                  </span>
+                                )}
+                              </div>
                             </CommandItem>
                           ))}
                         </CommandGroup>

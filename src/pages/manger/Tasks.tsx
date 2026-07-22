@@ -1080,8 +1080,23 @@ export default function Tasks() {
   useEffect(() => {
     const loadEmployees = async () => {
       try {
-        const res = await apiFetch<{ items: Employee[] }>("/api/employees");
-        setEmployees(res.items.filter((e) => e.status === "active"));
+        const res = await apiFetch<{ items: any[] }>("/api/employees");
+        const list = (res.items || []).map((u) => {
+          const avatar = u.avatarUrl || u.avatarDataUrl || "";
+          return {
+            ...u,
+            id: String(u.id || u._id),
+            avatarUrl: avatar ? (toProxiedUrl(avatar) || avatar) : "",
+            avatarDataUrl: avatar ? (toProxiedUrl(avatar) || avatar) : "",
+            initials: u.initials || (u.name || "??")
+              .split(" ")
+              .map((n: string) => n[0])
+              .join("")
+              .toUpperCase()
+              .substring(0, 2)
+          };
+        });
+        setEmployees(list);
       } catch {
         setEmployees([]);
       }
@@ -1090,7 +1105,10 @@ export default function Tasks() {
   }, []);
 
   const activeEmployees = useMemo(() => {
-    return employees.filter((e) => e.status === "active");
+    return employees.filter((e) => {
+      const s = String(e.status || "active").toLowerCase();
+      return s !== "inactive";
+    });
   }, [employees]);
 
   // Resolve an assignee string (could be email or name) to display name
@@ -3008,7 +3026,7 @@ export default function Tasks() {
                           {activeEmployees.map((employee) => (
                             <CommandItem
                               key={employee.id}
-                              value={employee.name}
+                              value={`${employee.name} ${employee.role || ""} ${employee.department || ""} ${employee.email || ""}`}
                               onSelect={() => {
                                 setProjectCreationAssignees((prev) =>
                                   prev.includes(employee.name)
@@ -3019,18 +3037,29 @@ export default function Tasks() {
                             >
                               <Check
                                 className={cn(
-                                  "mr-2 h-4 w-4",
+                                  "mr-2 h-4 w-4 shrink-0",
                                   projectCreationAssignees.includes(employee.name)
                                     ? "opacity-100"
                                     : "opacity-0"
                                 )}
                               />
-                              <Avatar className="h-6 w-6 mr-2">
-                                <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                  {employee.initials}
-                                </AvatarFallback>
+                              <Avatar className="h-6 w-6 mr-2 shrink-0">
+                                {(employee.avatarDataUrl || employee.avatarUrl) ? (
+                                  <img src={employee.avatarDataUrl || employee.avatarUrl} alt={employee.name} className="w-full h-full object-cover rounded-full" />
+                                ) : (
+                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-semibold">
+                                    {employee.initials}
+                                  </AvatarFallback>
+                                )}
                               </Avatar>
-                              {employee.name}
+                              <div className="flex flex-col min-w-0 flex-1">
+                                <span className="truncate text-sm font-medium">{employee.name}</span>
+                                {(employee.role || employee.department || employee.email) && (
+                                  <span className="truncate text-[11px] text-muted-foreground">
+                                    {[employee.role, employee.department || employee.email].filter(Boolean).join(" • ")}
+                                  </span>
+                                )}
+                              </div>
                             </CommandItem>
                           ))}
                         </CommandGroup>
@@ -3174,7 +3203,7 @@ export default function Tasks() {
                             {activeEmployees.map((employee) => (
                               <CommandItem
                                 key={employee.id}
-                                value={employee.name}
+                                value={`${employee.name} ${employee.role || ""} ${employee.department || ""} ${employee.email || ""}`}
                                 onSelect={() => {
                                   setSelectedAssignees((prev) =>
                                     prev.includes(employee.name)
@@ -3185,16 +3214,27 @@ export default function Tasks() {
                               >
                                 <Check
                                   className={cn(
-                                    "mr-2 h-4 w-4",
+                                    "mr-2 h-4 w-4 shrink-0",
                                     selectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0"
                                   )}
                                 />
-                                <Avatar className="h-6 w-6 mr-2">
-                                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                    {employee.initials}
-                                  </AvatarFallback>
+                                <Avatar className="h-6 w-6 mr-2 shrink-0">
+                                  {(employee.avatarDataUrl || employee.avatarUrl) ? (
+                                    <img src={employee.avatarDataUrl || employee.avatarUrl} alt={employee.name} className="w-full h-full object-cover rounded-full" />
+                                  ) : (
+                                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-semibold">
+                                      {employee.initials}
+                                    </AvatarFallback>
+                                  )}
                                 </Avatar>
-                                {employee.name}
+                                <div className="flex flex-col min-w-0 flex-1">
+                                  <span className="truncate text-sm font-medium">{employee.name}</span>
+                                  {(employee.role || employee.department || employee.email) && (
+                                    <span className="truncate text-[11px] text-muted-foreground">
+                                      {[employee.role, employee.department || employee.email].filter(Boolean).join(" • ")}
+                                    </span>
+                                  )}
+                                </div>
                               </CommandItem>
                             ))}
                           </CommandGroup>
@@ -4107,7 +4147,7 @@ export default function Tasks() {
                             {activeEmployees.map((employee) => (
                               <CommandItem
                                 key={employee.id}
-                                value={employee.name}
+                                value={`${employee.name} ${employee.role || ""} ${employee.department || ""} ${employee.email || ""}`}
                                 onSelect={() => {
                                   setEditSelectedAssignees((prev) =>
                                     prev.includes(employee.name)
@@ -4118,18 +4158,29 @@ export default function Tasks() {
                               >
                                 <Check
                                   className={cn(
-                                    "mr-2 h-4 w-4",
+                                    "mr-2 h-4 w-4 shrink-0",
                                     editSelectedAssignees.includes(employee.name)
                                       ? "opacity-100"
                                       : "opacity-0"
                                   )}
                                 />
-                                <Avatar className="h-6 w-6 mr-2">
-                                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                    {employee.initials}
-                                  </AvatarFallback>
+                                <Avatar className="h-6 w-6 mr-2 shrink-0">
+                                  {(employee.avatarDataUrl || employee.avatarUrl) ? (
+                                    <img src={employee.avatarDataUrl || employee.avatarUrl} alt={employee.name} className="w-full h-full object-cover rounded-full" />
+                                  ) : (
+                                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-semibold">
+                                      {employee.initials}
+                                    </AvatarFallback>
+                                  )}
                                 </Avatar>
-                                {employee.name}
+                                <div className="flex flex-col min-w-0 flex-1">
+                                  <span className="truncate text-sm font-medium">{employee.name}</span>
+                                  {(employee.role || employee.department || employee.email) && (
+                                    <span className="truncate text-[11px] text-muted-foreground">
+                                      {[employee.role, employee.department || employee.email].filter(Boolean).join(" • ")}
+                                    </span>
+                                  )}
+                                </div>
                               </CommandItem>
                             ))}
                           </CommandGroup>
