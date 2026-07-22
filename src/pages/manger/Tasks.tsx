@@ -2140,36 +2140,142 @@ export default function Tasks() {
     return Array.from(set).sort();
   }, [activeEmployees, sourceTasks]);
 
+  // Helper to match an assignee string against assigneeFilter
+  const matchesSelectedAssignee = useCallback((assigneesList: string[], filter: string, teamLead?: string) => {
+    if (!filter || filter === "all") return true;
+    const filterLower = filter.toLowerCase().trim();
+
+    const emp = activeEmployees.find(
+      (e) => (e.name && e.name.toLowerCase().trim() === filterLower) || (e.email && e.email.toLowerCase().trim() === filterLower)
+    );
+
+    const variants = new Set<string>();
+    variants.add(filterLower);
+    if (emp) {
+      if (emp.name) variants.add(emp.name.toLowerCase().trim());
+      if (emp.email) variants.add(emp.email.toLowerCase().trim());
+    }
+
+    if (teamLead && Array.from(variants).some((v) => teamLead.toLowerCase().trim().includes(v))) {
+      return true;
+    }
+
+    if (Array.isArray(assigneesList)) {
+      return assigneesList.some((a) => {
+        if (!a || typeof a !== "string") return false;
+        const aLower = a.toLowerCase().trim();
+        return Array.from(variants).some((v) => aLower === v || aLower.includes(v) || v.includes(aLower));
+      });
+    }
+
+    return false;
+  }, [activeEmployees]);
+
   const filteredTasks = useMemo(() => {
-    if (!selectedProject) return sourceTasks; // already filtered server-side
-    // Client-side filter only for selected-project task view
+    if (!selectedProject) {
+      // Filter standalone tasks on server-paginated items
+      return sourceTasks.filter((task) => {
+        const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
+        const matchesSearch = !searchQuery || task.title.toLowerCase().includes(searchQuery.toLowerCase()) || assigneesText.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesStatus = statusFilter === "all" || task.status === statusFilter;
+        const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
+        const matchesAssignment =
+          assignmentFilter === "all" ||
+          (assignmentFilter === "assigned" && task.assignees && task.assignees.length > 0) ||
+          (assignmentFilter === "unassigned" && (!task.assignees || task.assignees.length === 0)) ||
+          (assignmentFilter === "me" && (task.assignees || []).some((a: string) => {
+            const term = a.toLowerCase().trim();
+            const meUsername = currentUsername.toLowerCase().trim();
+            const meName = (getAuthState().name || "").toLowerCase().trim();
+            return (meUsername && term === meUsername) || (meName && term === meName);
+          }));
+        const matchesAssignee = matchesSelectedAssignee(task.assignees || [], assigneeFilter);
+        return matchesSearch && matchesStatus && matchesPriority && matchesAssignment && matchesAssignee;
+      });
+    }
+    // Client-side filter for selected-project task view
     return sourceTasks.filter((task) => {
       const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
       const matchesSearch =
+        !searchQuery ||
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         assigneesText.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = statusFilter === "all" || task.status === statusFilter;
       const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
       const matchesAssignment =
         assignmentFilter === "all" ||
-        (assignmentFilter === "assigned" && task.assignees.length > 0) ||
-        (assignmentFilter === "unassigned" && task.assignees.length === 0) ||
-        (assignmentFilter === "me" && task.assignees.some((a) => {
+        (assignmentFilter === "assigned" && task.assignees && task.assignees.length > 0) ||
+        (assignmentFilter === "unassigned" && (!task.assignees || task.assignees.length === 0)) ||
+        (assignmentFilter === "me" && (task.assignees || []).some((a: string) => {
           const term = a.toLowerCase().trim();
           const meUsername = currentUsername.toLowerCase().trim();
-          const authState = getAuthState();
-          const meName = (authState.name || "").toLowerCase().trim();
+          const meName = (getAuthState().name || "").toLowerCase().trim();
           return (meUsername && term === meUsername) || (meName && term === meName);
         }));
-      const matchesAssignee =
-        assigneeFilter === "all" ||
-        (Array.isArray(task.assignees) && task.assignees.includes(assigneeFilter));
+      const matchesAssignee = matchesSelectedAssignee(task.assignees || [], assigneeFilter);
       return matchesSearch && matchesStatus && matchesPriority && matchesAssignment && matchesAssignee;
     });
-  }, [sourceTasks, searchQuery, statusFilter, priorityFilter, assignmentFilter, assigneeFilter, selectedProject]);
+  }, [sourceTasks, searchQuery, statusFilter, priorityFilter, assignmentFilter, assigneeFilter, selectedProject, matchesSelectedAssignee]);
 
-  // Projects come from server-paginated query (filtering handled server-side)
-  const filteredProjects = projects;
+  // Filter projects by status, priority, assignment, assignee, and search
+  const filteredProjects = useMemo(() => {
+    const qMain = searchQuery.trim().toLowerCase();
+    const sFilter = statusFilter.toLowerCase();
+    const pFilter = priorityFilter.toLowerCase();
+
+    return projects.filter((p) => {
+      const name = p.name.toLowerCase();
+      const desc = (p.description || "").toLowerCase();
+      const assigneesText = (p.assignees || []).join(" ").toLowerCase();
+      const teamLeadText = (p.teamLead || "").toLowerCase();
+      const status = (p.status || "").toLowerCase();
+      const priority = (p.priority || "").toLowerCase();
+
+      // Status Filter
+      if (sFilter !== "all" && status !== sFilter) {
+        return false;
+      }
+
+      // Priority Filter
+      if (pFilter !== "all" && priority !== pFilter) {
+        return false;
+      }
+
+      // Assignee Filter
+      if (assigneeFilter !== "all") {
+        const directAssigneeMatch = matchesSelectedAssignee(p.assignees || [], assigneeFilter, p.teamLead);
+        const taskAssigneeMatch = Array.isArray(p.tasks) && p.tasks.some((t: any) => matchesSelectedAssignee(t.assignees || [], assigneeFilter));
+        if (!directAssigneeMatch && !taskAssigneeMatch) {
+          return false;
+        }
+      }
+
+      // Assignment Filter ("me", "assigned", "unassigned")
+      if (assignmentFilter === "assigned") {
+        const hasProjectAssignees = (p.assignees && p.assignees.length > 0) || !!p.teamLead;
+        const hasTaskAssignees = Array.isArray(p.tasks) && p.tasks.some((t: any) => t.assignees && t.assignees.length > 0);
+        if (!hasProjectAssignees && !hasTaskAssignees) return false;
+      } else if (assignmentFilter === "unassigned") {
+        const hasProjectAssignees = (p.assignees && p.assignees.length > 0) || !!p.teamLead;
+        const hasTaskAssignees = Array.isArray(p.tasks) && p.tasks.some((t: any) => t.assignees && t.assignees.length > 0);
+        if (hasProjectAssignees || hasTaskAssignees) return false;
+      } else if (assignmentFilter === "me") {
+        const meUsername = currentUsername.toLowerCase().trim();
+        const meName = (getAuthState().name || "").toLowerCase().trim();
+        const meVariants = [meUsername, meName].filter(Boolean);
+        const isProjectMe = (p.assignees || []).some((a: string) => meVariants.includes(a.toLowerCase().trim())) || (p.teamLead && meVariants.includes(p.teamLead.toLowerCase().trim()));
+        const isTaskMe = Array.isArray(p.tasks) && p.tasks.some((t: any) => (t.assignees || []).some((a: string) => meVariants.includes(a.toLowerCase().trim())));
+        if (!isProjectMe && !isTaskMe) return false;
+      }
+
+      // Search Query
+      if (qMain && !name.includes(qMain) && !desc.includes(qMain) && !assigneesText.includes(qMain) && !teamLeadText.includes(qMain)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [projects, searchQuery, statusFilter, priorityFilter, assignmentFilter, assigneeFilter, matchesSelectedAssignee]);
 
   // Pagination is server-driven when no project is selected; client-driven when project is selected
   const paginatedProjects = filteredProjects;
@@ -2278,9 +2384,9 @@ export default function Tasks() {
             </button>
           )}
         </div>
-        <div className="flex flex-wrap gap-2 sm:gap-3 sm:flex-nowrap sm:overflow-x-auto sm:pb-0">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex lg:flex-wrap gap-2 w-full">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[130px] sm:w-[140px]">
+            <SelectTrigger className="w-full lg:w-[140px] h-10 text-xs sm:text-sm">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -2291,7 +2397,7 @@ export default function Tasks() {
             </SelectContent>
           </Select>
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-[130px] sm:w-[140px]">
+            <SelectTrigger className="w-full lg:w-[140px] h-10 text-xs sm:text-sm">
               <SelectValue placeholder="Priority" />
             </SelectTrigger>
             <SelectContent>
@@ -2302,7 +2408,7 @@ export default function Tasks() {
             </SelectContent>
           </Select>
           <Select value={assignmentFilter} onValueChange={setAssignmentFilter}>
-            <SelectTrigger className="w-[130px] sm:w-[140px]">
+            <SelectTrigger className="w-full lg:w-[140px] h-10 text-xs sm:text-sm">
               <SelectValue placeholder="Assignment" />
             </SelectTrigger>
             <SelectContent>
@@ -2313,7 +2419,7 @@ export default function Tasks() {
             </SelectContent>
           </Select>
           <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-            <SelectTrigger className="w-[140px] sm:w-[160px]">
+            <SelectTrigger className="w-full lg:w-[160px] h-10 text-xs sm:text-sm">
               <SelectValue placeholder="All Assignees" />
             </SelectTrigger>
             <SelectContent className="max-h-[300px] overflow-y-auto">
