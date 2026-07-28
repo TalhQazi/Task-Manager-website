@@ -1,4 +1,13 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || "https://task.se7eninc.com";
+const getApiBaseUrl = () => {
+  const raw = String(import.meta.env.VITE_API_URL || "").trim();
+  if (raw) return raw;
+  if (typeof window !== "undefined" && window.location?.hostname === "localhost") {
+    return "http://localhost:5000";
+  }
+  return "https://task.se7eninc.com";
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export async function employeeApiFetch<T>(
   endpoint: string,

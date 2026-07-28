@@ -77,8 +77,12 @@ export async function deleteResource(resource: CrudResource, id: string) {
 function getApiBaseUrl(): string {
   const raw = String(import.meta.env.VITE_API_URL || "").trim();
   if (raw) return raw;
- return "https://task.se7eninc.com";
-  //return "http://localhost:5000";
+
+  if (typeof window !== "undefined" && window.location?.hostname === "localhost") {
+    return "http://localhost:5000";
+  }
+
+  return "https://task.se7eninc.com";
 }
 
 /**
@@ -112,8 +116,11 @@ function readTokenFrom(key: string): string | null {
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as StoredAuth;
-    return typeof parsed.token === "string" && parsed.token ? parsed.token : null;
+    if (raw.startsWith("{")) {
+      const parsed = JSON.parse(raw) as StoredAuth;
+      return typeof parsed.token === "string" && parsed.token ? parsed.token : null;
+    }
+    return raw;
   } catch {
     return null;
   }
@@ -130,8 +137,8 @@ function getStoredToken(): string | null {
 
   // Admin/manager token is stored under "taskflow_auth"; employee under "employee_auth".
   const order = onEmployeePanel
-    ? ["employee_auth", "taskflow_auth"]
-    : ["taskflow_auth", "employee_auth"];
+    ? ["employee_auth", "taskflow_auth", "token"]
+    : ["taskflow_auth", "employee_auth", "token"];
 
   for (const key of order) {
     const token = readTokenFrom(key);
