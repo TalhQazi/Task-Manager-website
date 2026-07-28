@@ -336,7 +336,7 @@ export function Sidebar({ mode = "desktop", onNavigate, isCollapsed = false, onT
   };
 
   const navItems = useMemo(() => {
-    return navItemsBase.filter(item => item.label !== "Bugs");
+    return navItemsBase;
   }, []);
 
   return (

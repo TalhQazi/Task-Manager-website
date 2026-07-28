@@ -420,7 +420,7 @@ export default function EmployeeDashboard() {
       try {
         const res = await employeeApiFetch<{ items?: any[] }>("/api/bugs");
         const items = Array.isArray(res?.items) ? res.items : [];
-        const open = items.filter((b: any) => b.status !== "closed");
+        const open = items.filter((b: any) => !["CLOSED_VERIFIED", "CLOSED_ADMIN_OVERRIDE", "CLOSED", "closed"].includes((b.status || "").toUpperCase()));
         setMyBugCount(open.length);
       } catch {
         // silently ignore

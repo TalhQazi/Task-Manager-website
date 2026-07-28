@@ -261,12 +261,12 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
 
     // Add super-admin items
     if (auth.role === "super-admin") {
-      items.push(systemEmailSettingsNavItem, activityLogNavItem, bugNavItem);
+      items.push(systemEmailSettingsNavItem, activityLogNavItem);
     }
     
-    // Add System Health, Expense Sheets and Knowledge Vault for admin/super-admin
+    // Add System Health, Bug Reports, Expense Sheets and Knowledge Vault for admin/super-admin
     if (auth.role === "admin" || auth.role === "super-admin") {
-      items.push(systemHealthNavItem, expenseSheetsNavItem, knowledgeVaultNavItem);
+      items.push(bugNavItem, systemHealthNavItem, expenseSheetsNavItem, knowledgeVaultNavItem);
     }
 
     // Add Attendance only for admin (not super-admin)

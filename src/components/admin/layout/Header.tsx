@@ -356,8 +356,8 @@ export function Header({ onMenuClick }: HeaderProps) {
       return "/admin/tasks";
     }
     if (resourceType === "bug") {
-      if (resourceId) return `/developer/bugs?view=${encodeURIComponent(resourceId)}`;
-      return "/developer/bugs";
+      if (resourceId) return `/admin/bug-reports?view=${encodeURIComponent(resourceId)}`;
+      return "/admin/bug-reports";
     }
 
     // Fall back to direct link if the backend provided one and it looks like a real SPA route

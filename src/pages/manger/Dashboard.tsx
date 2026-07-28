@@ -166,7 +166,7 @@ const Dashboard = () => {
 
         // Count open bugs
         const bugItems = Array.isArray(bugsRes?.items) ? bugsRes.items : [];
-        setPendingBugs(bugItems.filter((b: any) => b.status !== "closed").length);
+        setPendingBugs(bugItems.filter((b: any) => !["CLOSED_VERIFIED", "CLOSED_ADMIN_OVERRIDE", "CLOSED", "closed"].includes((b.status || "").toUpperCase())).length);
 
       } catch (e) {
         if (mounted) setApiError(e instanceof Error ? e.message : "Failed to load dashboard");

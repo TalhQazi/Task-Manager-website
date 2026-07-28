@@ -75,16 +75,13 @@ export function EmployeeSidebar({ mode = "desktop", onNavigate }: EmployeeSideba
 
   const navItems = useMemo(() => {
     let items = [...navItemsBase];
-    if (auth.role !== "coder") {
-      items = items.filter(item => item.label !== "Bugs");
-    }
     const settingsItem = items.find(item => item.label === "Settings");
     const otherItems = items.filter(item => item.label !== "Settings");
     return [
       ...otherItems.sort((a, b) => a.label.localeCompare(b.label)),
       ...(settingsItem ? [settingsItem] : [])
     ];
-  }, [auth.role]);
+  }, []);
 
   const isMobile = mode === "mobile";
 
