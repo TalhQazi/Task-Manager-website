@@ -2916,22 +2916,40 @@ export default function Tasks() {
                                   </div>
                                   {c.attachments && c.attachments.length > 0 && (
                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
-                                      {c.attachments.map((att: { url?: string; mimeType?: string; fileName?: string }, attIdx: number) => (
-                                        <div key={attIdx} className="relative rounded-lg overflow-hidden border border-border/40 bg-background shadow-xs group/att aspect-square flex flex-col items-center justify-center cursor-pointer">
-                                          {att.mimeType?.startsWith("image/") ? <img src={att.url} alt={att.fileName} className="w-full h-full object-cover" /> : <FileText className="h-6 w-6 text-muted-foreground/30" />}
-                                          <button
-                                             type="button"
-                                             onClick={async (e) => {
-                                               e.stopPropagation();
-                                               if (att.url) await downloadViaUrl(att.url, att.fileName || "Attachment");
-                                             }}
-                                             className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]"
-                                             title="Download attachment"
-                                           >
-                                             <Download className="h-4 w-4 text-white" />
-                                           </button>
+                                      {c.attachments.map((att: { url?: string; mimeType?: string; fileName?: string }, attIdx: number) => {
+                                        const proxied = toProxiedUrl(att.url) || att.url || "";
+                                        const isImg = att.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(att.fileName || "");
+                                        return (
+                                        <div
+                                          key={attIdx}
+                                          className="relative rounded-lg overflow-hidden border border-border/40 bg-background shadow-xs group/att aspect-square flex flex-col items-center justify-center cursor-zoom-in"
+                                          onClick={() => { if (proxied) { setPreviewUrl(proxied); setPreviewName(att.fileName || "Attachment"); } }}
+                                        >
+                                          {isImg && proxied ? <img src={proxied} alt={att.fileName} className="w-full h-full object-cover" /> : <FileText className="h-6 w-6 text-muted-foreground/30" />}
+                                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
+                                            <button
+                                              type="button"
+                                              onClick={(e) => { e.stopPropagation(); if (proxied) { setPreviewUrl(proxied); setPreviewName(att.fileName || "Attachment"); } }}
+                                              className="p-1.5 rounded-full bg-white/15 hover:bg-white/25 transition-colors"
+                                              title="Preview attachment"
+                                            >
+                                              <Maximize2 className="h-4 w-4 text-white" />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={async (e) => {
+                                                e.stopPropagation();
+                                                if (att.url) await downloadViaUrl(att.url, att.fileName || "Attachment");
+                                              }}
+                                              className="p-1.5 rounded-full bg-white/15 hover:bg-white/25 transition-colors"
+                                              title="Download attachment"
+                                            >
+                                              <Download className="h-4 w-4 text-white" />
+                                            </button>
+                                          </div>
                                         </div>
-                                      ))}
+                                        );
+                                      })}
                                     </div>
                                   )}
                                 </div>
@@ -3007,12 +3025,41 @@ export default function Tasks() {
                       <div className="space-y-3">
                         <label className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-[0.2em] block">Shared Resources</label>
                         <div className="grid grid-cols-2 gap-2">
-                          {selectedProject.attachments?.map((att, idx) => (
-                            <a href={att.url} target="_blank" rel="noopener noreferrer" key={idx} className="bg-background border border-border/40 p-2 rounded-xl flex flex-col items-center justify-center gap-2 group hover:border-primary/20 transition-all">
-                              {att.mimeType?.startsWith("image/") ? <img src={att.url} alt={att.fileName} className="w-full h-12 object-cover rounded-md" /> : <FileText className="w-6 h-6 text-muted-foreground/30" />}
-                              <span className="text-[8px] font-black text-muted-foreground/60 truncate w-full text-center">{att.fileName}</span>
-                            </a>
-                          ))}
+                          {selectedProject.attachments?.map((att, idx) => {
+                            const proxied = toProxiedUrl(att.url) || att.url || "";
+                            const isImg = att.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(att.fileName || "");
+                            return (
+                              <div
+                                key={idx}
+                                className="relative bg-background border border-border/40 p-2 rounded-xl flex flex-col items-center justify-center gap-2 group hover:border-primary/20 transition-all cursor-zoom-in overflow-hidden"
+                                onClick={() => { if (proxied) { setPreviewUrl(proxied); setPreviewName(att.fileName || "Attachment"); } }}
+                              >
+                                {isImg && proxied ? <img src={proxied} alt={att.fileName} className="w-full h-12 object-cover rounded-md" /> : <FileText className="w-6 h-6 text-muted-foreground/30" />}
+                                <span className="text-[8px] font-black text-muted-foreground/60 truncate w-full text-center">{att.fileName}</span>
+                                <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); if (proxied) { setPreviewUrl(proxied); setPreviewName(att.fileName || "Attachment"); } }}
+                                    className="p-1.5 bg-primary text-primary-foreground rounded-full shadow-lg hover:scale-110 transition-transform"
+                                    title="Preview"
+                                  >
+                                    <Maximize2 className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      if (att.url) await downloadViaUrl(att.url, att.fileName || "Attachment");
+                                    }}
+                                    className="p-1.5 bg-primary text-primary-foreground rounded-full shadow-lg hover:scale-110 transition-transform"
+                                    title="Download"
+                                  >
+                                    <Download className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>
