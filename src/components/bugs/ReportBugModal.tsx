@@ -164,14 +164,6 @@ export default function ReportBugModal({ open, onOpenChange, onSuccess, defaultS
     setSubmitError(null);
     setSubmitSuccess(null);
   };
-    setPriority("medium");
-    setModule("");
-    setCompany("");
-    attachments.forEach((a) => URL.revokeObjectURL(a.previewUrl));
-    setAttachments([]);
-    setSubmitError(null);
-    setSubmitSuccess(null);
-  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const rawFiles = Array.from(e.target.files || []);
