@@ -533,6 +533,47 @@ export async function deletePersonalNote(id: string) {
 }
 
 
+// Download task attachment with authentication for Employee
+export async function downloadTaskAttachment(
+  taskId: string,
+  attachmentIndex: number,
+  fileName: string
+): Promise<void> {
+  const url = `${API_BASE_URL}/api/tasks/${encodeURIComponent(taskId)}/attachments/${attachmentIndex}/download`;
+  
+  const authRaw = localStorage.getItem("employee_auth");
+  let token = "";
+  if (authRaw) {
+    try {
+      const auth = JSON.parse(authRaw);
+      token = auth.token || "";
+    } catch {}
+  }
+  if (!token) {
+    token = localStorage.getItem("token") || "";
+  }
+  
+  const res = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  
+  if (!res.ok) {
+    throw new Error(`Download failed (${res.status})`);
+  }
+  
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  
+  URL.revokeObjectURL(objectUrl);
+}
+
 // Download any URL with authentication for Employee
 export async function downloadViaUrl(url: string, fileName: string): Promise<void> {
   const authRaw = localStorage.getItem("employee_auth");
@@ -543,8 +584,13 @@ export async function downloadViaUrl(url: string, fileName: string): Promise<voi
       token = auth.token || "";
     } catch {}
   }
+  if (!token) {
+    token = localStorage.getItem("token") || "";
+  }
   
-  const res = await fetch(url, {
+  const targetUrl = toProxiedUrl(url) || url;
+  
+  const res = await fetch(targetUrl, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   

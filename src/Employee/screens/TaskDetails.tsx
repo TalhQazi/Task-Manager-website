@@ -18,6 +18,7 @@ import {
   updateTaskStatus,
   employeeApiFetch,
   toProxiedUrl,
+  downloadTaskAttachment,
   downloadViaUrl,
   getEmployeeProfile,
 } from "../lib/api";
@@ -283,20 +284,35 @@ export default function EmployeeTaskDetails() {
     }
   };
 
-  const canDownloadAttachment = Boolean(task?.attachment?.url) || Boolean(task?.attachments && task.attachments.length > 0);
+  const canDownloadAttachment =
+    Boolean(task?.attachment?.url || task?.attachment?.fileName || task?.attachmentFileName) ||
+    Boolean(task?.attachments && task.attachments.length > 0);
 
-  const downloadAttachment = () => {
-    // Handle single attachment
-    if (task?.attachment?.url) {
-      const url = toProxiedUrl(task.attachment.url) || task.attachment.url;
-      void downloadViaUrl(url, task.attachment.fileName || task.attachmentFileName || "attachment");
+  const downloadAttachment = async () => {
+    if (!task) return;
+    try {
+      await downloadTaskAttachment(task.id, -1, task.attachment?.fileName || task.attachmentFileName || "attachment");
       return;
+    } catch {
+      // Fallback
     }
-    // Handle attachments array - download first attachment
-    if (task?.attachments && task.attachments.length > 0) {
-      const firstAttachment = task.attachments[0];
-      const url = toProxiedUrl(firstAttachment.url) || firstAttachment.url;
-      void downloadViaUrl(url, firstAttachment.fileName || "attachment");
+
+    if (task.attachment?.url) {
+      try {
+        await downloadViaUrl(task.attachment.url, task.attachment.fileName || task.attachmentFileName || "attachment");
+        return;
+      } catch {
+        // Fallback
+      }
+    }
+
+    if (task.attachments && task.attachments.length > 0) {
+      const first = task.attachments[0];
+      try {
+        await downloadTaskAttachment(task.id, 0, first.fileName || "attachment");
+      } catch {
+        if (first.url) await downloadViaUrl(first.url, first.fileName || "attachment");
+      }
     }
   };
 
@@ -591,10 +607,20 @@ export default function EmployeeTaskDetails() {
 
               {task.attachments && task.attachments.length > 0 ? (
                 <div className="space-y-2">
-                  <div className="text-xs font-medium text-muted-foreground">Attachments ({task.attachments.length})</div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                     {task.attachments.map((att, idx) => (
-                      <AttachmentItem key={idx} att={att} idx={idx} onDownload={(url, fileName) => void downloadViaUrl(url, fileName)} />
+                      <AttachmentItem
+                        key={idx}
+                        att={att}
+                        idx={idx}
+                        onDownload={async (url, fileName) => {
+                          try {
+                            await downloadTaskAttachment(task.id, idx, fileName || "attachment");
+                          } catch {
+                            if (url) await downloadViaUrl(url, fileName || "attachment");
+                          }
+                        }}
+                      />
                     ))}
                   </div>
                 </div>
