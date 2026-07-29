@@ -34,6 +34,18 @@ export interface Drive {
   reallocatedSectors?: number;
 }
 
+export interface RaidControllerInfo {
+  name: string;
+  tool?: string;
+  status: string;
+  level: string;
+  bbuStatus?: string;
+  cacheStatus?: string;
+  firmwareVersion?: string | null;
+  hardwareDetected?: boolean;
+  hardwareNotice?: string | null;
+}
+
 export interface StorageSummary {
   status: SummaryStatus;
   totalBays: number;
@@ -50,6 +62,7 @@ export interface StorageSummary {
   /** "physical" = per-drive SMART/RAID; "filesystem" = real logical volumes only. */
   mode?: "physical" | "filesystem";
   message?: string;
+  raidController?: RaidControllerInfo | null;
 }
 
 export interface StorageDiagnostics {

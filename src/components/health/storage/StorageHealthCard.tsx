@@ -16,6 +16,7 @@ import {
 import { useStorageHealth } from "./useStorageHealth";
 import { DriveBayGrid } from "./DriveBayGrid";
 import { DriveDetailDrawer } from "./DriveDetailDrawer";
+import { RaidControllerCard } from "./RaidControllerCard";
 import { SUMMARY_STATUS_TOKENS, type Drive, type StorageDiagnostics, type SummaryStatus } from "./types";
 import { HardDriveDownload, Terminal, Info } from "lucide-react";
 
@@ -327,6 +328,13 @@ export function StorageHealthCard({ serverId = "host", className }: StorageHealt
                 </span>
               </div>
             )}
+
+            {/* Dedicated RAID Controller Status Panel */}
+            <RaidControllerCard
+              controller={summary.raidController}
+              raidLevel={summary.raidLevel}
+              raidStatus={summary.raidStatus}
+            />
 
             {/* Visual drive panel */}
             <DriveBayGrid drives={data.drives} onSelect={setSelected} selectedBay={selected?.bay} />

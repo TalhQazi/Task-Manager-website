@@ -2,6 +2,8 @@ import React, { useMemo, useState, useEffect, useRef, useCallback } from "react"
 import { useSearchParams } from "react-router-dom";
 import CostManager from "@/components/cost-manager/CostManager";
 import TaskExpensesPanel from "@/components/cost-manager/TaskExpensesPanel";
+import { AsanaQuickAddBar } from "@/components/tasks/AsanaQuickAddBar";
+import { AsanaTaskDrawer } from "@/components/tasks/AsanaTaskDrawer";
 import { getProjectCostSheet, getTaskCostSheet } from "@/lib/costManager";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/admin/ui/button";
@@ -780,6 +782,7 @@ export default function Tasks() {
   const [priorityModeEnabled, setPriorityModeEnabled] = useState(false);
   const [viewByPriority, setViewByPriority] = useState(false);
   const [assigningPriority, setAssigningPriority] = useState(false);
+  const [isAsanaDrawerOpen, setIsAsanaDrawerOpen] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -1835,6 +1838,7 @@ export default function Tasks() {
     setTaskViewDesc(task.description);
     setTaskViewEdited(false);
     setIsViewOpen(true);
+    setIsAsanaDrawerOpen(true);
     void loadComments(task.id);
     void loadDropboxAttachments(task.id);
   };
@@ -2689,6 +2693,22 @@ export default function Tasks() {
             </>
           )}
         </div>
+      </div>
+
+      {/* Asana Style Quick-Add Bar */}
+      <div className="mb-4">
+        <AsanaQuickAddBar
+          projectId={selectedProject?.id}
+          projectName={selectedProject?.name}
+          onTaskCreated={() => {
+            void tasksQuery.refetch();
+            if (selectedProject) void loadProject(selectedProject.id);
+          }}
+          onOpenFullModal={() => {
+            setIsDirectTask(true);
+            setIsCreateTaskOpen(true);
+          }}
+        />
       </div>
 
       {/* Filters */}
@@ -5796,6 +5816,22 @@ export default function Tasks() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Asana Style Right-Side Task Detail Drawer */}
+      <AsanaTaskDrawer
+        task={selectedTask}
+        open={isAsanaDrawerOpen}
+        onOpenChange={setIsAsanaDrawerOpen}
+        onTaskUpdated={() => {
+          void tasksQuery.refetch();
+          if (selectedProject) void loadProject(selectedProject.id);
+        }}
+        onTaskDeleted={() => {
+          if (selectedTask) void deleteTask(selectedTask.id);
+          setIsAsanaDrawerOpen(false);
+        }}
+        employees={employees}
+      />
     </div>
   );
 }
