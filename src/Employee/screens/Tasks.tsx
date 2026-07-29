@@ -94,7 +94,8 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { useSocket } from "@/contexts/SocketContext";
 import { cn } from "@/lib/manger/utils";
-import { apiFetch, downloadTaskAttachment, downloadViaUrl, toProxiedUrl, updateComment, deleteComment } from "@/lib/manger/api";
+import { apiFetch, toProxiedUrl, updateComment, deleteComment } from "@/lib/manger/api";
+import { downloadTaskAttachment, downloadViaUrl } from "@/Employee/lib/api";
 
 import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -3415,15 +3416,17 @@ export default function Tasks() {
         <DialogContent className="max-w-[95vw] w-fit p-0 border-none bg-transparent shadow-none">
           <div className="relative group/preview-modal">
             <div className="absolute top-4 right-4 z-50 flex items-center gap-3 opacity-0 group-hover/preview-modal:opacity-100 transition-opacity">
-              <a
-                href={previewUrl || ""}
-                download={previewName}
+              <button
+                type="button"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  if (previewUrl) await downloadViaUrl(previewUrl, previewName || "download");
+                }}
                 className="p-2 bg-black/50 hover:bg-black/70 backdrop-blur-md rounded-full text-white shadow-lg transition-all"
                 title="Download"
-                onClick={(e) => e.stopPropagation()}
               >
                 <Download className="w-5 h-5" />
-              </a>
+              </button>
               <button
                 onClick={() => setPreviewUrl(null)}
                 className="p-2 bg-black/50 hover:bg-black/70 backdrop-blur-md rounded-full text-white shadow-lg transition-all"
