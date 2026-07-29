@@ -2603,8 +2603,6 @@ export default function Tasks() {
                             </div>
                           </div>
                         )}
-                      </div>
-                    ) : null}
 
                     {/* Activity Feed */}
                     <div className="pt-6 border-t border-border/60">
