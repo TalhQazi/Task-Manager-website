@@ -581,7 +581,6 @@ export async function downloadTaskAttachment(
   URL.revokeObjectURL(objectUrl);
 }
 
-// Download any URL with authentication for Employee
 export async function downloadViaUrl(url: string, fileName: string): Promise<void> {
   const authRaw = localStorage.getItem("employee_auth");
   let token = "";
@@ -597,25 +596,37 @@ export async function downloadViaUrl(url: string, fileName: string): Promise<voi
   
   const targetUrl = toProxiedUrl(url) || url;
   
-  const res = await fetch(targetUrl, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  
-  if (!res.ok) {
-    throw new Error(`Download failed (${res.status})`);
+  try {
+    const res = await fetch(targetUrl, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    
+    if (!res.ok) {
+      throw new Error(`Download failed (${res.status})`);
+    }
+    
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    URL.revokeObjectURL(objectUrl);
+  } catch (err) {
+    console.warn("downloadViaUrl fetch failed, using direct link fallback:", err);
+    const windowUrl = toProxiedUrl(url) || url;
+    const a = document.createElement("a");
+    a.href = windowUrl;
+    a.download = fileName;
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }
-  
-  const blob = await res.blob();
-  const objectUrl = URL.createObjectURL(blob);
-  
-  const a = document.createElement("a");
-  a.href = objectUrl;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  
-  URL.revokeObjectURL(objectUrl);
 }
 
 

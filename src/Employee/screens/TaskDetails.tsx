@@ -125,11 +125,28 @@ function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fa
     return () => { cancelled = true; };
   }, [taskId, commentId, index, fallbackUrl]);
 
-  if (src && mimeType?.startsWith("image/")) return (
+  const isImage = mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(fileName || "");
+
+  if (src && isImage) return (
     <div className="w-full h-auto flex justify-center relative group/att cursor-zoom-in" onClick={() => onPreview?.(src, fileName)}>
       <img src={src} alt={fileName} className="w-full h-auto max-h-[180px] object-contain rounded-lg" />
-      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-all duration-200 rounded-lg">
-        <Maximize2 className="w-5 h-5 text-white" />
+      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center gap-3 transition-all duration-200 rounded-lg backdrop-blur-[1px]">
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onPreview?.(src, fileName); }}
+          className="p-1.5 bg-white/20 hover:bg-white/35 rounded-full text-white transition-all shadow-md"
+          title="Preview"
+        >
+          <Maximize2 className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
+          onClick={async (e) => { e.stopPropagation(); await downloadViaUrl(src, fileName); }}
+          className="p-1.5 bg-white/20 hover:bg-white/35 rounded-full text-white transition-all shadow-md"
+          title="Download"
+        >
+          <Download className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );
