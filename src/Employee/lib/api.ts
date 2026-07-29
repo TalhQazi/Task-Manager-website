@@ -99,7 +99,7 @@ export async function deleteLeaveRequest(id: string) {
  * Transforms a direct S3 URL into a backend-proxied URL to avoid CORS/OpaqueResponseBlocking issues.
  * If the URL is already a data URL or doesn't match the S3 pattern, it's returned as-is.
  */
-export function toProxiedUrl(url: string | undefined): string {
+export function toProxiedUrl(url: string | undefined | null): string {
   if (!url) return "";
   if (url.startsWith("data:")) return url;
 
@@ -113,24 +113,31 @@ export function toProxiedUrl(url: string | undefined): string {
       void e;
     }
   }
+  if (!token) {
+    token = localStorage.getItem("token") || "";
+  }
 
-  // Local server uploads ("/uploads/<key>") — served by the backend, so route them
-  // through the backend origin (via the s3-proxy, which reads local disk first).
-  if (url.startsWith("/uploads/")) {
-    const key = url.replace(/^\/uploads\//, "");
+  if (url.includes("/api/s3-proxy/")) {
+    if (token && !url.includes("token=")) {
+      return `${url}${url.includes("?") ? "&" : "?"}token=${token}`;
+    }
+    return url;
+  }
+
+  // Local server uploads ("/uploads/<key>", "uploads/<key>", "http://.../uploads/<key>")
+  const uploadsMatch = url.match(/(?:\/|^)uploads\/(.+)$/);
+  if (uploadsMatch) {
+    const key = uploadsMatch[1];
     return `${API_BASE_URL}/api/s3-proxy/${key}${token ? `?token=${token}` : ""}`;
   }
 
   // Pattern for S3 URLs: https://<bucket>.s3.<region>.amazonaws.com/<key>
-  const s3Pattern = /^https:\/\/([\w.-]+)\.s3\.([\w.-]+)\.amazonaws\.com\/(.+)$/;
-  const match = url.match(s3Pattern);
-
-  if (match) {
-    const key = match[3];
+  const s3Match = url.match(/https:\/\/[^/]+\.s3\.[^/]+\.amazonaws\.com\/(.+)/);
+  if (s3Match) {
+    const key = s3Match[1];
     return `${API_BASE_URL}/api/s3-proxy/${key}${token ? `?token=${token}` : ""}`;
   }
 
-  // Fallback for cases where it's already a relative path or other non-S3 URL
   return url;
 }
 

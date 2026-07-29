@@ -2451,93 +2451,117 @@ export default function Tasks() {
                     <TaskTimeline task={selectedTask} />
 
                     {/* Attachments Deck */}
-                    {(selectedTask.attachments?.length || selectedTask.attachment?.url || selectedProject?.attachments?.length) ? (
-                      <div className="space-y-5">
-                        <div className="flex items-center gap-2 text-muted-foreground/80">
-                          <Paperclip className="w-4 h-4" />
-                          <h4 className="text-[12px] font-bold uppercase tracking-widest">Shared Assets</h4>
-                        </div>
+                    {(() => {
+                      const taskAttachmentsList = (Array.isArray(selectedTask.attachments) && selectedTask.attachments.length > 0)
+                        ? selectedTask.attachments
+                        : (selectedTask.attachment?.fileName || selectedTask.attachment?.url)
+                          ? [selectedTask.attachment]
+                          : [];
+                      const hasTaskAtts = taskAttachmentsList.length > 0;
+                      const hasProjAtts = Boolean(selectedProject?.attachments?.length);
+                      if (!hasTaskAtts && !hasProjAtts) return null;
 
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                          {/* Task Specific Attachments */}
-                          {selectedTask.attachments?.map((att, idx) => (
-                            <div key={`task-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-border/60 bg-background shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-zoom-in" onClick={() => {
-                              if (att.url) {
-                                setPreviewUrl(att.url);
-                                setPreviewName(att.fileName || "Attachment");
-                              }
-                            }}>
-                              <TaskAttachmentImg taskId={selectedTask.id} index={idx} mimeType={att.mimeType} fileName={att.fileName} fallbackUrl={att.url} onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }} />
-                              <div className="p-2.5 border-t text-[11px] font-bold truncate bg-card/50 backdrop-blur-sm text-muted-foreground">{att.fileName}</div>
-                              <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setPreviewUrl(att.url);
+                      return (
+                        <div className="space-y-5">
+                          <div className="flex items-center gap-2 text-muted-foreground/80">
+                            <Paperclip className="w-4 h-4" />
+                            <h4 className="text-[12px] font-bold uppercase tracking-widest">Shared Assets</h4>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {/* Task Specific Attachments */}
+                            {taskAttachmentsList.map((att, idx) => {
+                              const proxied = toProxiedUrl(att.url) || att.url || "";
+                              const isSingle = !selectedTask.attachments?.length;
+                              const attIndex = isSingle ? -1 : idx;
+                              return (
+                                <div key={`task-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-border/60 bg-background shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-zoom-in" onClick={() => {
+                                  if (proxied) {
+                                    setPreviewUrl(proxied);
                                     setPreviewName(att.fileName || "Attachment");
-                                  }}
-                                  className="bg-primary text-primary-foreground p-2 rounded-full shadow-lg hover:scale-110 transition-transform"
-                                  title="Preview"
-                                >
-                                  <Maximize2 className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    try {
-                                      await downloadTaskAttachment(selectedTask.id, idx, att.fileName || "attachment");
-                                    } catch {
-                                      if (att.url) await downloadViaUrl(att.url, att.fileName || "attachment");
-                                    }
-                                  }}
-                                  className="bg-primary text-primary-foreground p-2 rounded-full shadow-lg hover:scale-110 transition-transform"
-                                  title="Download"
-                                >
-                                  <Download className="h-4 w-4" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
+                                  }
+                                }}>
+                                  <TaskAttachmentImg taskId={selectedTask.id} index={attIndex} mimeType={att.mimeType} fileName={att.fileName} fallbackUrl={att.url} onPreview={(url, name) => { setPreviewUrl(toProxiedUrl(url) || url); setPreviewName(name); }} />
+                                  <div className="p-2.5 border-t text-[11px] font-bold truncate bg-card/50 backdrop-blur-sm text-muted-foreground">{att.fileName}</div>
+                                  <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (proxied) setPreviewUrl(proxied);
+                                        setPreviewName(att.fileName || "Attachment");
+                                      }}
+                                      className="bg-primary text-primary-foreground p-2 rounded-full shadow-lg hover:scale-110 transition-transform"
+                                      title="Preview"
+                                    >
+                                      <Maximize2 className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                          await downloadTaskAttachment(selectedTask.id, attIndex, att.fileName || "attachment");
+                                        } catch {
+                                          if (att.url) await downloadViaUrl(att.url, att.fileName || "attachment");
+                                        }
+                                      }}
+                                      className="bg-primary text-primary-foreground p-2 rounded-full shadow-lg hover:scale-110 transition-transform"
+                                      title="Download"
+                                    >
+                                      <Download className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
 
-                          {/* Project Attachments */}
-                          {selectedProject?.attachments?.map((att, idx) => (
-                            <div key={`proj-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-primary/20 bg-primary/5 shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-zoom-in" onClick={() => {
-                              if (att.url) {
-                                setPreviewUrl(att.url);
-                                setPreviewName(att.fileName || "Attachment");
-                              }
-                            }}>
-                              <div className="absolute top-2 left-2 z-10"><Badge className="text-[8px] h-4 bg-primary text-white font-black border-none px-1.5 uppercase">Project</Badge></div>
-                              {(att.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(att.fileName || "")) && att.url ? (
-                                <img src={att.url} alt={att.fileName} className="w-full h-24 object-cover" />
-                              ) : (
-                                <div className="w-full h-24 flex items-center justify-center bg-muted/20"><FileText className="h-8 w-8 text-muted-foreground/40" /></div>
-                              )}
-                              <div className="p-2.5 border-t text-[11px] font-bold truncate bg-white/40 backdrop-blur-sm text-primary/70">{att.fileName}</div>
-                              <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 backdrop-blur-[2px]">
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setPreviewUrl(att.url); setPreviewName(att.fileName || "Attachment"); }}
-                                  className="p-2 bg-primary text-primary-foreground rounded-full shadow-lg hover:scale-110 transition-transform"
-                                  title="Preview"
-                                >
-                                  <Maximize2 className="h-4 w-4" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    if (att.url) await downloadViaUrl(att.url, att.fileName || "Attachment");
-                                  }}
-                                  className="p-2 bg-primary text-primary-foreground rounded-full shadow-lg hover:scale-110 transition-transform"
-                                  title="Download"
-                                >
-                                  <Download className="h-4 w-4" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
+                            {/* Project Attachments */}
+                            {selectedProject?.attachments?.map((att, idx) => {
+                              const proxied = toProxiedUrl(att.url) || att.url || "";
+                              return (
+                                <div key={`proj-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-primary/20 bg-primary/5 shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-zoom-in" onClick={() => {
+                                  if (proxied) {
+                                    setPreviewUrl(proxied);
+                                    setPreviewName(att.fileName || "Attachment");
+                                  }
+                                }}>
+                                  <div className="absolute top-2 left-2 z-10"><Badge className="text-[8px] h-4 bg-primary text-white font-black border-none px-1.5 uppercase">Project</Badge></div>
+                                  {(att.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(att.fileName || "")) && proxied ? (
+                                    <img src={proxied} alt={att.fileName} className="w-full h-24 object-cover" />
+                                  ) : (
+                                    <div className="w-full h-24 flex items-center justify-center bg-muted/20"><FileText className="h-8 w-8 text-muted-foreground/40" /></div>
+                                  )}
+                                  <div className="p-2.5 border-t text-[11px] font-bold truncate bg-white/40 backdrop-blur-sm text-primary/70">{att.fileName}</div>
+                                  <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 backdrop-blur-[2px]">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); if (proxied) setPreviewUrl(proxied); setPreviewName(att.fileName || "Attachment"); }}
+                                      className="p-2 bg-primary text-primary-foreground rounded-full shadow-lg hover:scale-110 transition-transform"
+                                      title="Preview"
+                                    >
+                                      <Maximize2 className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (att.url) await downloadViaUrl(att.url, att.fileName || "Attachment");
+                                      }}
+                                      className="p-2 bg-primary text-primary-foreground rounded-full shadow-lg hover:scale-110 transition-transform"
+                                      title="Download"
+                                    >
+                                      <Download className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {selectedTask.attachmentNote && <p className="text-[11px] font-medium text-muted-foreground bg-muted/20 p-3 rounded-lg border border-dashed border-border/60 flex items-start gap-2"><AlertCircle className="w-3.5 h-3.5 mt-0.5" /> {selectedTask.attachmentNote}</p>}
                         </div>
-                        {selectedTask.attachmentNote && <p className="text-[11px] font-medium text-muted-foreground bg-muted/20 p-3 rounded-lg border border-dashed border-border/60 flex items-start gap-2"><AlertCircle className="w-3.5 h-3.5 mt-0.5" /> {selectedTask.attachmentNote}</p>}
+                      );
+                    })()}
 
                         {/* Dropbox Attachments (View-only for employees) */}
                         {((selectedTask as any).dropboxAttachments?.length > 0 || (selectedProject as any)?.dropboxAttachments?.length > 0) && (
