@@ -193,7 +193,7 @@ const Dashboard = () => {
             { title: "Total Vehicles", value: metrics.totalVehicles, icon: Car, variant: "orange", changeType: "positive" as const, onClick: () => navigate("/admin/vehicles") },
             { title: "Websites", value: `${metrics.websiteActive} / ${metrics.websiteFuture}`, change: "active / future", icon: Globe, variant: "teal", changeType: "positive" as const, onClick: () => navigate("/admin/digital-assets") },
             { title: "System Health", value: "Monitor", change: "servers · RAM · disk", icon: Activity, variant: "purple", changeType: "neutral" as const, onClick: () => navigate("/admin/health") },
-          ].map((stat, idx) => (
+          ].sort((a, b) => a.title.localeCompare(b.title)).map((stat, idx) => (
             <motion.div
               key={stat.title}
               variants={itemVariants}

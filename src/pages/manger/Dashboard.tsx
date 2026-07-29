@@ -481,7 +481,7 @@ const Dashboard = () => {
               onClick: () => navigate("/manager/bugs"),
               description: "Open bug reports"
             },
-          ].map((stat) => (
+          ].sort((a, b) => a.title.localeCompare(b.title)).map((stat) => (
             <motion.div
               key={stat.title}
               variants={itemVariants}
