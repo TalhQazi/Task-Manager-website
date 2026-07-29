@@ -94,7 +94,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { useSocket } from "@/contexts/SocketContext";
 import { cn } from "@/lib/manger/utils";
-import { apiFetch, downloadTaskAttachment, toProxiedUrl, updateComment, deleteComment } from "@/lib/manger/api";
+import { apiFetch, downloadTaskAttachment, downloadViaUrl, toProxiedUrl, updateComment, deleteComment } from "@/lib/manger/api";
 
 import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -2481,9 +2481,13 @@ export default function Tasks() {
                                   <Maximize2 className="h-4 w-4" />
                                 </button>
                                 <button
-                                  onClick={(e) => {
+                                  onClick={async (e) => {
                                     e.stopPropagation();
-                                    void downloadTaskAttachment(selectedTask.id, idx, att.fileName);
+                                    try {
+                                      await downloadTaskAttachment(selectedTask.id, idx, att.fileName || "attachment");
+                                    } catch {
+                                      if (att.url) await downloadViaUrl(att.url, att.fileName || "attachment");
+                                    }
                                   }}
                                   className="bg-primary text-primary-foreground p-2 rounded-full shadow-lg hover:scale-110 transition-transform"
                                   title="Download"
@@ -2517,15 +2521,17 @@ export default function Tasks() {
                                 >
                                   <Maximize2 className="h-4 w-4" />
                                 </button>
-                                <a
-                                  href={att.url}
-                                  download={att.fileName}
-                                  onClick={(e) => e.stopPropagation()}
+                                <button
+                                  type="button"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (att.url) await downloadViaUrl(att.url, att.fileName || "Attachment");
+                                  }}
                                   className="p-2 bg-primary text-primary-foreground rounded-full shadow-lg hover:scale-110 transition-transform"
                                   title="Download"
                                 >
                                   <Download className="h-4 w-4" />
-                                </a>
+                                </button>
                               </div>
                             </div>
                           ))}
@@ -2641,7 +2647,17 @@ export default function Tasks() {
                                             onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
                                           />
                                           <div className="p-1 px-2 text-[9px] w-full text-center font-bold text-muted-foreground/70 truncate border-t bg-muted/10">{att.fileName}</div>
-                                          <a href={att.url || "#"} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]"><Download className="h-5 w-5 text-white" /></a>
+                                          <button
+                                            type="button"
+                                            onClick={async (e) => {
+                                              e.stopPropagation();
+                                              if (att.url) await downloadViaUrl(att.url, att.fileName || "Attachment");
+                                            }}
+                                            className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]"
+                                            title="Download attachment"
+                                          >
+                                            <Download className="h-5 w-5 text-white" />
+                                          </button>
                                         </div>
                                       ))}
                                     </div>
@@ -2880,7 +2896,17 @@ export default function Tasks() {
                                       {c.attachments.map((att: { url?: string; mimeType?: string; fileName?: string }, attIdx: number) => (
                                         <div key={attIdx} className="relative rounded-lg overflow-hidden border border-border/40 bg-background shadow-xs group/att aspect-square flex flex-col items-center justify-center cursor-pointer">
                                           {att.mimeType?.startsWith("image/") ? <img src={att.url} alt={att.fileName} className="w-full h-full object-cover" /> : <FileText className="h-6 w-6 text-muted-foreground/30" />}
-                                          <a href={att.url || "#"} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]" title="Download attachment"><Download className="h-4 w-4 text-white" /></a>
+                                          <button
+                                             type="button"
+                                             onClick={async (e) => {
+                                               e.stopPropagation();
+                                               if (att.url) await downloadViaUrl(att.url, att.fileName || "Attachment");
+                                             }}
+                                             className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]"
+                                             title="Download attachment"
+                                           >
+                                             <Download className="h-4 w-4 text-white" />
+                                           </button>
                                         </div>
                                       ))}
                                     </div>

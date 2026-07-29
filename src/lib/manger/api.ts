@@ -283,9 +283,10 @@ export async function downloadTaskAttachment(
 // Download any URL with authentication for Manager/Admin
 export async function downloadViaUrl(url: string, fileName: string): Promise<void> {
   const token = getStoredToken();
+  const targetUrl = toProxiedUrl(url) || url;
   
   // Use fetch to get the blob with headers
-  const res = await fetch(url, {
+  const res = await fetch(targetUrl, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   
