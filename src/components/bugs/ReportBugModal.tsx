@@ -4,7 +4,7 @@ import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Textarea } from "@/components/admin/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/admin/ui/select";
-import { Bug, Upload, X, Video, RefreshCw, FileText, AlertCircle } from "lucide-react";
+import { Bug, Upload, X, Video, RefreshCw, FileText, AlertCircle, Camera, Monitor, Square, Check } from "lucide-react";
 import { apiFetch } from "@/lib/manger/api";
 
 type ReportBugModalProps = {
@@ -37,12 +37,133 @@ export default function ReportBugModal({ open, onOpenChange, onSuccess, defaultS
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
 
+  // Video recording states
+  const [recordingState, setRecordingState] = useState<"idle" | "recording" | "preview">("idle");
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [isScreenRecording, setIsScreenRecording] = useState(true);
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
+  const [recordedPreviewUrl, setRecordedPreviewUrl] = useState<string | null>(null);
+
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingTimerRef = useRef<any>(null);
+  const chunksRef = useRef<Blob[]>([]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const startRecording = async (type: "screen" | "camera") => {
+    try {
+      setSubmitError(null);
+      let stream: MediaStream;
+      if (type === "screen") {
+        stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      } else {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      }
+
+      mediaStreamRef.current = stream;
+      chunksRef.current = [];
+
+      const recorder = new MediaRecorder(stream, {
+        mimeType: MediaRecorder.isTypeSupported("video/webm;codecs=vp9")
+          ? "video/webm;codecs=vp9"
+          : MediaRecorder.isTypeSupported("video/webm")
+          ? "video/webm"
+          : "",
+      });
+      mediaRecorderRef.current = recorder;
+
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) chunksRef.current.push(e.data);
+      };
+
+      recorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: "video/webm" });
+        const url = URL.createObjectURL(blob);
+        setRecordedBlob(blob);
+        setRecordedPreviewUrl(url);
+        setRecordingState("preview");
+        if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+      };
+
+      // Handle user stopping screen share via browser bar
+      if (stream.getVideoTracks()[0]) {
+        stream.getVideoTracks()[0].onended = () => {
+          if (recorder.state !== "inactive") recorder.stop();
+        };
+      }
+
+      recorder.start(1000);
+      setRecordingState("recording");
+      setIsScreenRecording(type === "screen");
+      setRecordingTime(0);
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingTime((prev) => {
+          if (prev >= 179) {
+            stopRecording();
+            return 180;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "Failed to start video recording.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+    }
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach((track) => track.stop());
+    }
+    if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
+  };
+
+  const cancelRecording = () => {
+    stopRecording();
+    if (recordedPreviewUrl) URL.revokeObjectURL(recordedPreviewUrl);
+    setRecordedBlob(null);
+    setRecordedPreviewUrl(null);
+    setRecordingState("idle");
+  };
+
+  const attachRecordedVideo = () => {
+    if (!recordedBlob) return;
+    const file = new File([recordedBlob], `bug-recording-${Date.now()}.webm`, { type: "video/webm" });
+    const previewUrl = recordedPreviewUrl || URL.createObjectURL(file);
+
+    const att: AttachmentFile = {
+      id: Math.random().toString(36).substring(2, 9),
+      file,
+      previewUrl,
+      progress: 100,
+      isVideo: true,
+      isDoc: false,
+      duration: recordingTime,
+    };
+
+    setAttachments((prev) => [...prev, att]);
+    setRecordingState("idle");
+    setRecordedBlob(null);
+    setRecordedPreviewUrl(null);
+  };
 
   const resetForm = () => {
     setTitle("");
     setDescription("");
     setSeverity("medium");
+    setPriority("medium");
+    setModule("");
+    setCompany("");
+    cancelRecording();
+    attachments.forEach((a) => URL.revokeObjectURL(a.previewUrl));
+    setAttachments([]);
+    setSubmitError(null);
+    setSubmitSuccess(null);
+  };
     setPriority("medium");
     setModule("");
     setCompany("");
@@ -281,6 +402,76 @@ export default function ReportBugModal({ open, onOpenChange, onSuccess, defaultS
               onChange={(e) => setDescription(e.target.value)}
               className="text-sm resize-y min-h-[100px]"
             />
+          </div>
+
+          {/* Live Video Recording Widget */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs sm:text-sm font-semibold flex items-center gap-1.5">
+                <Video className="h-4 w-4 text-primary" /> Record Bug Video (Screen or Camera)
+              </label>
+              <span className="text-[10px] text-muted-foreground">Max 3 minutes</span>
+            </div>
+
+            {recordingState === "recording" && (
+              <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-3 w-3 rounded-full bg-red-600 animate-ping" />
+                  <div>
+                    <p className="text-xs font-bold text-red-600 dark:text-red-400 flex items-center gap-1">
+                      {isScreenRecording ? <Monitor className="h-3.5 w-3.5" /> : <Camera className="h-3.5 w-3.5" />}
+                      Recording {isScreenRecording ? "Screen" : "Camera"}...
+                    </p>
+                    <p className="text-[11px] font-mono text-muted-foreground">
+                      Duration: {Math.floor(recordingTime / 60).toString().padStart(2, "0")}:
+                      {(recordingTime % 60).toString().padStart(2, "0")} / 03:00
+                    </p>
+                  </div>
+                </div>
+                <Button size="sm" variant="destructive" onClick={stopRecording} className="gap-1.5 h-8 text-xs font-semibold">
+                  <Square className="h-3.5 w-3.5 fill-current" /> Stop Recording
+                </Button>
+              </div>
+            )}
+
+            {recordingState === "preview" && recordedPreviewUrl && (
+              <div className="p-3 rounded-lg border bg-card space-y-2">
+                <div className="relative aspect-video max-h-48 rounded bg-black overflow-hidden">
+                  <video src={recordedPreviewUrl} controls className="w-full h-full object-contain" />
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                  <Button size="sm" variant="outline" onClick={cancelRecording} className="h-8 text-xs">
+                    Discard
+                  </Button>
+                  <Button size="sm" onClick={attachRecordedVideo} className="h-8 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">
+                    <Check className="h-3.5 w-3.5" /> Attach Video to Report
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {recordingState === "idle" && (
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void startRecording("screen")}
+                  className="h-8 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+                >
+                  <Monitor className="h-3.5 w-3.5" /> Record Screen
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void startRecording("camera")}
+                  className="h-8 text-xs gap-1.5 border-blue-500/30 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                >
+                  <Camera className="h-3.5 w-3.5" /> Record Camera
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* Evidence & Attachments Dropzone */}

@@ -131,16 +131,37 @@ export default function Vendors() {
   }, [vendors, loading, searchParams, setSearchParams]);
 
   const filteredVendors = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
     return vendors.filter((vendor) => {
-      const matchesSearch =
-        vendor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        vendor.phone.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        vendor.serviceType.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesLocation =
         locationFilter === "all" || vendor.location === locationFilter;
-      const matchesStatus =
+      const matchesStatusFilter =
         statusFilter === "all" || vendor.status === statusFilter;
-      return matchesSearch && matchesLocation && matchesStatus;
+
+      if (!matchesLocation || !matchesStatusFilter) return false;
+
+      const isApproved = vendor.status === "approved";
+      const isNameMatch = q !== "" && vendor.name.toLowerCase().includes(q);
+      const isGeneralSearchMatch =
+        q !== "" &&
+        (vendor.name.toLowerCase().includes(q) ||
+          vendor.phone.toLowerCase().includes(q) ||
+          vendor.serviceType.toLowerCase().includes(q));
+
+      // If user explicitly selected "not-approved" status filter, allow standard matching
+      if (statusFilter === "not-approved") {
+        return q === "" || isGeneralSearchMatch;
+      }
+
+      // If vendor is not-approved:
+      // DO NOT show in default/empty listing (unless statusFilter was set to not-approved)
+      // DO NOT match on phone or serviceType search. ONLY match if query matches vendor.name.
+      if (!isApproved) {
+        return isNameMatch;
+      }
+
+      // Approved vendor: match search query or show in default listing
+      return q === "" || isGeneralSearchMatch;
     });
   }, [vendors, searchQuery, locationFilter, statusFilter]);
 

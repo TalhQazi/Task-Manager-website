@@ -58,6 +58,7 @@ interface Website {
   overrideReason?: string;
   createdAt: string;
   updatedAt: string;
+  humanVerification?: string;
   largeHeaderImage?: string;
   contactInfoSection?: string;
   adaCompliance?: string;
@@ -72,6 +73,17 @@ interface Website {
   appleMaps?: string;
   infoEmailSetup?: string;
   nathanEmailSetup?: string;
+  // Social Media Compliance
+  youtubeCompliance?: string;
+  rumbleCompliance?: string;
+  libertySocialCompliance?: string;
+  facebookCompliance?: string;
+  xCompliance?: string;
+  instagramCompliance?: string;
+  tikTokCompliance?: string;
+  yelpCompliance?: string;
+  truthSocialCompliance?: string;
+  threadsCompliance?: string;
 }
 
 interface ChecklistItem {
@@ -347,7 +359,37 @@ export default function ComplianceCenter() {
     }
   };
 
-  const handleToggleCoreReq = async (key: string, status: string) => {
+  // Math Puzzle Human Verification dialog state
+  const [isMathPuzzleOpen, setIsMathPuzzleOpen] = useState(false);
+  const [mathNum1, setMathNum1] = useState(7);
+  const [mathNum2, setMathNum2] = useState(5);
+  const [mathInput, setMathInput] = useState("");
+  const [mathPuzzleError, setMathPuzzleError] = useState<string | null>(null);
+
+  const openMathPuzzle = () => {
+    const n1 = Math.floor(Math.random() * 15) + 5;
+    const n2 = Math.floor(Math.random() * 15) + 3;
+    setMathNum1(n1);
+    setMathNum2(n2);
+    setMathInput("");
+    setMathPuzzleError(null);
+    setIsMathPuzzleOpen(true);
+  };
+
+  const handleVerifyMathPuzzle = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const expected = mathNum1 + mathNum2;
+    if (parseInt(mathInput.trim(), 10) !== expected) {
+      setMathPuzzleError(`Incorrect answer (${mathInput}). Try again: What is ${mathNum1} + ${mathNum2}?`);
+      return;
+    }
+
+    setIsMathPuzzleOpen(false);
+    toast.success("Human verification math puzzle solved!");
+    await executeToggleCoreReq("humanVerification", "green");
+  };
+
+  const executeToggleCoreReq = async (key: string, status: string) => {
     if (!selectedWebsite) return;
     setActionLoading(true);
     try {
@@ -358,23 +400,29 @@ export default function ComplianceCenter() {
         }),
       });
       
-      toast.success("Updated core requirement status successfully.");
+      toast.success("Updated compliance requirement status successfully.");
       setSelectedWebsite(res.item);
       setWebsites((prev) =>
         prev.map((w) => (w._id === selectedWebsite._id ? res.item : w))
       );
 
-      // Reload compliance items to keep drawer checklist in sync
       const complianceRes = await apiFetch<{ items: ChecklistItem[] }>("/api/websites/" + selectedWebsite._id + "/compliance");
       setChecklistItems(complianceRes.items || []);
 
-      // Refresh overview analytics report
       void loadData();
     } catch (err: any) {
-      toast.error(err.message || "Failed to update core requirement status.");
+      toast.error(err.message || "Failed to update requirement status.");
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleToggleCoreReq = async (key: string, status: string) => {
+    if (key === "humanVerification" && status === "green") {
+      openMathPuzzle();
+      return;
+    }
+    await executeToggleCoreReq(key, status);
   };
 
   // Submit Admin Override
@@ -1137,6 +1185,7 @@ export default function ComplianceCenter() {
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {[
+                    { key: "humanVerification", label: "Human Verification (Math Puzzle)" },
                     { key: "largeHeaderImage", label: "Large Header Image" },
                     { key: "contactInfoSection", label: "Contact Info Section" },
                     { key: "adaCompliance", label: "ADA Compliance" },
@@ -1193,6 +1242,77 @@ export default function ComplianceCenter() {
                           </button>
                           <button
                             onClick={() => handleToggleCoreReq(reqItem.key, "none")}
+                            disabled={actionLoading}
+                            className={`p-1.5 rounded hover:bg-muted text-muted-foreground flex items-center justify-center`}
+                            title="Reset / Close Status"
+                          >
+                            <span className="text-[10px] font-black leading-none">X</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+
+              {/* Social Media Compliance Checklist Section */}
+              <Card className={`p-4 border ${isMetallic ? "bg-black/30 border-[#ffd27a]/15 text-white" : "bg-card border-border"}`}>
+                <h3 className="font-bold text-sm text-foreground mb-3 uppercase tracking-wider flex items-center gap-1.5">
+                  <Shield className="h-4 w-4 text-blue-500" />
+                  Social Media Compliance Checklist
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {[
+                    { key: "youtubeCompliance", label: "YouTube" },
+                    { key: "rumbleCompliance", label: "Rumble" },
+                    { key: "libertySocialCompliance", label: "Liberty Social" },
+                    { key: "facebookCompliance", label: "Facebook" },
+                    { key: "xCompliance", label: "X (Twitter)" },
+                    { key: "instagramCompliance", label: "Instagram" },
+                    { key: "tikTokCompliance", label: "TikTok" },
+                    { key: "yelpCompliance", label: "Yelp" },
+                    { key: "truthSocialCompliance", label: "Truth Social" },
+                    { key: "threadsCompliance", label: "Threads" }
+                  ].map((socialItem) => {
+                    const val = (selectedWebsite as any)[socialItem.key] || "none";
+                    return (
+                      <div key={socialItem.key} className={`flex items-center justify-between p-2 rounded-lg border ${
+                        isMetallic ? "bg-[#1b1c1d]/50 border-zinc-800" : "bg-muted/30 border-muted"
+                      }`}>
+                        <span className="text-xs font-semibold text-foreground truncate mr-2">{socialItem.label}</span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <div className="mr-1">
+                            {val === "green" ? (
+                              <CheckCircle2 className="h-4 w-4 text-green-500" title="Compliant (Green)" />
+                            ) : val === "red" ? (
+                              <XCircle className="h-4 w-4 text-red-500" title="Non-Compliant / Missing (Red)" />
+                            ) : (
+                              <AlertCircle className="h-4 w-4 text-muted-foreground" title="Not Checked" />
+                            )}
+                          </div>
+                          
+                          <button
+                            onClick={() => handleToggleCoreReq(socialItem.key, "green")}
+                            disabled={actionLoading}
+                            className={`p-1 rounded transition-colors ${
+                              val === "green" ? "bg-green-500/20 text-green-500" : "hover:bg-green-500/10 text-muted-foreground"
+                            }`}
+                            title="Set Compliant"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleToggleCoreReq(socialItem.key, "red")}
+                            disabled={actionLoading}
+                            className={`p-1 rounded transition-colors ${
+                              val === "red" ? "bg-red-500/20 text-red-500" : "hover:bg-red-500/10 text-muted-foreground"
+                            }`}
+                            title="Set Non-Compliant"
+                          >
+                            <XCircle className="h-3.5 w-3.5" />
+                          </button>
+                          <button
+                            onClick={() => handleToggleCoreReq(socialItem.key, "none")}
                             disabled={actionLoading}
                             className={`p-1.5 rounded hover:bg-muted text-muted-foreground flex items-center justify-center`}
                             title="Reset / Close Status"
@@ -1579,6 +1699,57 @@ export default function ComplianceCenter() {
         </DialogContent>
       </Dialog>
 
+      {/* Math Puzzle Human Verification Modal */}
+      <Dialog open={isMathPuzzleOpen} onOpenChange={setIsMathPuzzleOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold">
+              <Shield className="h-5 w-5 text-primary" />
+              Human Verification Required
+            </DialogTitle>
+            <DialogDescription>
+              To mark Human Verification as compliant for this website, solve the math puzzle below.
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleVerifyMathPuzzle} className="space-y-4 py-2">
+            <div className="p-4 rounded-xl bg-primary/10 border border-primary/20 text-center space-y-2">
+              <span className="text-xs uppercase font-semibold text-muted-foreground">Math Challenge</span>
+              <h3 className="text-2xl font-black tracking-widest text-primary">
+                {mathNum1} + {mathNum2} = ?
+              </h3>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold">Your Answer</label>
+              <Input
+                type="number"
+                placeholder="Enter calculation result..."
+                value={mathInput}
+                onChange={(e) => setMathInput(e.target.value)}
+                autoFocus
+                className="text-center font-bold text-lg"
+              />
+            </div>
+
+            {mathPuzzleError && (
+              <div className="p-2.5 rounded-lg bg-destructive/10 text-destructive text-xs font-semibold flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span>{mathPuzzleError}</span>
+              </div>
+            )}
+
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button type="button" variant="outline" onClick={() => setIsMathPuzzleOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={!mathInput.trim()}>
+                Verify Human
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

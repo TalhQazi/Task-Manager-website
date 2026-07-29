@@ -1517,7 +1517,7 @@ export default function Tasks() {
     setSelectedAssignees([]);
   };
 
-  // Handle task priority click in Priority Mode
+  // Handle task priority click in Priority Mode: 1-click sequencing
   const handleTaskPriorityClick = async (task: Task, e?: React.MouseEvent) => {
     if (e) {
       e.stopPropagation();
@@ -1525,34 +1525,41 @@ export default function Tasks() {
     }
     if (!priorityModeEnabled || assigningPriority) return;
 
-    const currentPriority = task.executionPriority || "";
-    const input = window.prompt(
-      `Set execution priority for "${task.title}":\n- Enter a positive integer (e.g., 1, 3, 5) to assign or move.\n- Leave empty and click OK to clear priority.`,
-      String(currentPriority)
-    );
-
-    if (input === null) return; // Cancelled
-
     setAssigningPriority(true);
     try {
-      const trimmed = input.trim();
-      if (trimmed === "") {
-        if (task.executionPriority) {
-          await removePriorityMutation.mutateAsync(task.id);
-          toast({ title: "Priority removed", description: `Task "${task.title}" removed from execution order.` });
-        }
+      if (task.executionPriority) {
+        // If task already has a priority, clicking it removes it (unassigns and re-sequences remaining)
+        await apiFetch<{ success: boolean }>(`/api/tasks/${encodeURIComponent(task.id)}/priority`, {
+          method: "DELETE",
+        });
+        toast({
+          title: "Priority removed",
+          description: `Removed "${task.title}" from execution sequence.`,
+        });
       } else {
-        const priorityVal = parseInt(trimmed, 10);
-        if (isNaN(priorityVal) || priorityVal < 1) {
-          toast({
-            title: "Invalid priority",
-            description: "Priority must be a positive integer.",
-            variant: "destructive",
-          });
-          return;
-        }
-        await assignPriorityMutation.mutateAsync({ id: task.id, priority: priorityVal });
-        toast({ title: "Priority assigned", description: `Task "${task.title}" set as #${priorityVal} in execution order.` });
+        // If task is not prioritized, assign next sequence number (max current priority + 1)
+        const allTasks = selectedProject ? (selectedProject.tasks || []) : tasks;
+        const currentPriorities = allTasks
+          .map((t) => t.executionPriority)
+          .filter((p): p is number => typeof p === "number" && p > 0);
+
+        const nextPriority = currentPriorities.length > 0 ? Math.max(...currentPriorities) + 1 : 1;
+
+        await apiFetch<{ success: boolean; item: Task }>(`/api/tasks/${encodeURIComponent(task.id)}/priority`, {
+          method: "POST",
+          body: JSON.stringify({ executionPriority: nextPriority }),
+        });
+
+        toast({
+          title: `Priority #${nextPriority} Assigned`,
+          description: `Set "${task.title}" as #${nextPriority} in execution order.`,
+        });
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      if (selectedProject) {
+        await loadProject(selectedProject.id);
       }
     } catch (err) {
       toast({

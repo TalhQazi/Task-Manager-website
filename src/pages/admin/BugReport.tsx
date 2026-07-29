@@ -48,20 +48,37 @@ export default function Bugs() {
   const [items, setItems] = useState<BugItem[]>([]);
 
   const [q, setQ] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("open");
   const [severityFilter, setSeverityFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
+
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const limit = 25;
 
   const [collabOpen, setCollabOpen] = useState(false);
   const [selectedBugId, setSelectedBugId] = useState<string | null>(null);
 
   const [reportOpen, setReportOpen] = useState(false);
 
-  const load = async () => {
+  const load = async (targetPage = page) => {
     try {
       setLoading(true);
       setApiError(null);
-      const res = await apiFetch<{ items?: any[] }>("/api/bugs");
+
+      const params = new URLSearchParams();
+      params.set("page", String(targetPage));
+      params.set("limit", String(limit));
+      if (statusFilter !== "all") params.set("status", statusFilter);
+      if (severityFilter !== "all") params.set("severity", severityFilter);
+      if (priorityFilter !== "all") params.set("priority", priorityFilter);
+      if (q.trim()) params.set("q", q.trim());
+
+      const res = await apiFetch<{ items?: any[]; pagination?: { totalItems: number; totalPages: number; currentPage: number } }>(
+        `/api/bugs?${params.toString()}`
+      );
+
       const list = Array.isArray(res?.items) ? res.items : [];
       const mapped: BugItem[] = list
         .map((x: any) => ({
@@ -83,6 +100,13 @@ export default function Bugs() {
         .filter((x) => Boolean(x.id));
 
       setItems(mapped);
+      if (res?.pagination) {
+        setTotalPages(res.pagination.totalPages || 1);
+        setTotalItems(res.pagination.totalItems || list.length);
+        setPage(res.pagination.currentPage || targetPage);
+      } else {
+        setTotalItems(list.length);
+      }
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "Failed to load bugs");
     } finally {
@@ -91,8 +115,8 @@ export default function Bugs() {
   };
 
   useEffect(() => {
-    void load();
-  }, []);
+    void load(1);
+  }, [statusFilter, severityFilter, priorityFilter, q]);
 
   useEffect(() => {
     const viewId = String(searchParams.get("view") || "").trim();
@@ -106,29 +130,7 @@ export default function Bugs() {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
-  const filtered = useMemo(() => {
-    let list = items;
-    if (statusFilter !== "all") {
-      if (statusFilter === "open") list = list.filter((b) => ["OPEN", "TRIAGED", "IN_PROGRESS", "NEEDS_INFO", "REOPENED", "open"].includes(b.status || ""));
-      else if (statusFilter === "closed") list = list.filter((b) => ["CLOSED_VERIFIED", "CLOSED_ADMIN_OVERRIDE", "closed"].includes(b.status || ""));
-      else list = list.filter((b) => (b.status || "").toUpperCase() === statusFilter.toUpperCase());
-    }
-
-    if (severityFilter !== "all") {
-      list = list.filter((b) => (b.severity || "").toLowerCase() === severityFilter.toLowerCase());
-    }
-
-    if (priorityFilter !== "all") {
-      list = list.filter((b) => (b.priority || "").toLowerCase() === priorityFilter.toLowerCase());
-    }
-
-    const query = q.trim().toLowerCase();
-    if (!query) return list;
-    return list.filter((b) => {
-      const where = `${b.title} ${b.description} ${b.taskTitle || ""} ${b.createdByUsername || ""} ${b.assignedDeveloperName || ""} ${b.module || ""} ${b.source?.path || ""}`.toLowerCase();
-      return where.includes(query);
-    });
-  }, [items, q, statusFilter, severityFilter, priorityFilter]);
+  const filtered = items;
 
   const openBug = (b: BugItem) => {
     setSelectedBugId(b.id);
@@ -288,6 +290,42 @@ export default function Bugs() {
                   )}
                 </TableBody>
               </Table>
+            </div>
+          )}
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t text-xs text-muted-foreground">
+              <div>
+                Showing <span className="font-semibold text-foreground">{Math.min((page - 1) * limit + 1, totalItems)}</span> to{" "}
+                <span className="font-semibold text-foreground">{Math.min(page * limit, totalItems)}</span> of{" "}
+                <span className="font-semibold text-foreground">{totalItems}</span> bugs
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void load(page - 1)}
+                  disabled={page <= 1 || loading}
+                  className="h-8 px-2.5 text-xs"
+                >
+                  Previous
+                </Button>
+
+                <div className="flex items-center gap-1 px-2 font-medium">
+                  Page {page} of {totalPages}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void load(page + 1)}
+                  disabled={page >= totalPages || loading}
+                  className="h-8 px-2.5 text-xs"
+                >
+                  Next
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
