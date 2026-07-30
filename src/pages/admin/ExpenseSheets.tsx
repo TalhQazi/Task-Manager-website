@@ -42,8 +42,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Wallet, Plus, Trash2, Link as LinkIcon, ArrowLeft, Loader2, Edit, AlertCircle, Sparkles } from "lucide-react";
+import { Wallet, Plus, Trash2, Link as LinkIcon, ArrowLeft, Loader2, Edit, AlertCircle, Sparkles, Check, ChevronsUpDown } from "lucide-react";
 import { toast } from "sonner";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/admin/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/admin/ui/command";
+import { cn } from "@/lib/utils";
 
 interface ExpenseSheetItem {
   id: string;
@@ -92,6 +102,10 @@ export default function ExpenseSheets() {
   const [selectedTaskId, setSelectedTaskId] = useState<string>("");
   const [savingAttach, setSavingAttach] = useState(false);
 
+  // Popover state for searchable comboboxes
+  const [projectPopoverOpen, setProjectPopoverOpen] = useState(false);
+  const [taskPopoverOpen, setTaskPopoverOpen] = useState(false);
+
   // Load expense sheets
   const loadSheets = async () => {
     try {
@@ -109,11 +123,29 @@ export default function ExpenseSheets() {
   const loadAttachOptions = async () => {
     try {
       const [projRes, taskRes] = await Promise.all([
-        apiFetch<{ items?: ProjectOption[] }>("/api/projects?limit=1000"),
-        apiFetch<{ items?: TaskOption[] }>("/api/tasks?limit=1000"),
+        apiFetch<{ items?: any[] }>("/api/projects?limit=5000&all=true"),
+        apiFetch<{ items?: any[] }>("/api/tasks?limit=5000&all=true"),
       ]);
-      setProjects(projRes.items || []);
-      setTasks(taskRes.items || []);
+      const rawProjects = Array.isArray(projRes) ? projRes : (projRes?.items || []);
+      const rawTasks = Array.isArray(taskRes) ? taskRes : (taskRes?.items || []);
+
+      setProjects(
+        rawProjects
+          .map((p: any) => ({
+            id: String(p.id || p._id || ""),
+            name: String(p.name || p.title || "Untitled Project"),
+          }))
+          .filter((p: any) => Boolean(p.id))
+      );
+
+      setTasks(
+        rawTasks
+          .map((t: any) => ({
+            id: String(t.id || t._id || ""),
+            title: String(t.title || t.name || "Untitled Task"),
+          }))
+          .filter((t: any) => Boolean(t.id))
+      );
     } catch (err) {
       console.error("Failed to load attachment options", err);
     }
@@ -494,36 +526,104 @@ export default function ExpenseSheets() {
             {attachType === "project" && (
               <div className="space-y-1.5 animate-fadeIn">
                 <Label className="text-sm font-semibold">Select Project</Label>
-                <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={projectPopoverOpen} onOpenChange={setProjectPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={projectPopoverOpen}
+                      className="w-full justify-between font-normal h-10 text-left bg-background border-input"
+                    >
+                      <span className="truncate">
+                        {selectedProjectId
+                          ? projects.find((p) => p.id === selectedProjectId)?.name || "Select project"
+                          : "Choose project..."}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[100]" align="start">
+                    <Command className="w-full">
+                      <CommandInput placeholder="Search project by name..." />
+                      <CommandList className="max-h-[220px] overflow-y-auto custom-scrollbar">
+                        <CommandEmpty>No project found.</CommandEmpty>
+                        <CommandGroup>
+                          {projects.map((p) => (
+                            <CommandItem
+                              key={p.id}
+                              value={p.name}
+                              onSelect={() => {
+                                setSelectedProjectId(p.id);
+                                setProjectPopoverOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedProjectId === p.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {p.name}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
 
             {attachType === "task" && (
               <div className="space-y-1.5 animate-fadeIn">
                 <Label className="text-sm font-semibold">Select Task</Label>
-                <Select value={selectedTaskId} onValueChange={setSelectedTaskId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose task" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tasks.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={taskPopoverOpen} onOpenChange={setTaskPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={taskPopoverOpen}
+                      className="w-full justify-between font-normal h-10 text-left bg-background border-input"
+                    >
+                      <span className="truncate">
+                        {selectedTaskId
+                          ? tasks.find((t) => t.id === selectedTaskId)?.title || "Select task"
+                          : "Choose task..."}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[100]" align="start">
+                    <Command className="w-full">
+                      <CommandInput placeholder="Search task by title..." />
+                      <CommandList className="max-h-[220px] overflow-y-auto custom-scrollbar">
+                        <CommandEmpty>No task found.</CommandEmpty>
+                        <CommandGroup>
+                          {tasks.map((t) => (
+                            <CommandItem
+                              key={t.id}
+                              value={t.title}
+                              onSelect={() => {
+                                setSelectedTaskId(t.id);
+                                setTaskPopoverOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  selectedTaskId === t.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {t.title}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
             )}
 
