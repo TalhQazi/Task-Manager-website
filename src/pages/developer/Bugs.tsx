@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/admin/ui/table";
-import { Bug, Plus } from "lucide-react";
+import { Bug, Plus, Search } from "lucide-react";
 
 import BugDashboardAnalytics from "@/components/bugs/BugDashboardAnalytics";
 import ReportBugModal from "@/components/bugs/ReportBugModal";
