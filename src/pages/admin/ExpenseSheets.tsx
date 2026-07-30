@@ -42,7 +42,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Wallet, Plus, Trash2, Link as LinkIcon, ArrowLeft, Loader2, Edit, AlertCircle, Sparkles, Check, ChevronsUpDown } from "lucide-react";
+import { Wallet, Plus, Trash2, Link as LinkIcon, ArrowLeft, Loader2, Edit, AlertCircle, Sparkles, Check, ChevronsUpDown, X } from "lucide-react";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/admin/ui/popover";
 import {
@@ -102,9 +102,23 @@ export default function ExpenseSheets() {
   const [selectedTaskId, setSelectedTaskId] = useState<string>("");
   const [savingAttach, setSavingAttach] = useState(false);
 
-  // Popover state for searchable comboboxes
-  const [projectPopoverOpen, setProjectPopoverOpen] = useState(false);
-  const [taskPopoverOpen, setTaskPopoverOpen] = useState(false);
+  // Direct inline search input state & dropdown open states
+  const [projectSearchInput, setProjectSearchInput] = useState("");
+  const [taskSearchInput, setTaskSearchInput] = useState("");
+  const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
+  const [taskDropdownOpen, setTaskDropdownOpen] = useState(false);
+
+  const filteredProjects = useMemo(() => {
+    if (!projectSearchInput.trim()) return projects;
+    const q = projectSearchInput.toLowerCase().trim();
+    return projects.filter((p) => p.name.toLowerCase().includes(q));
+  }, [projects, projectSearchInput]);
+
+  const filteredTasks = useMemo(() => {
+    if (!taskSearchInput.trim()) return tasks;
+    const q = taskSearchInput.toLowerCase().trim();
+    return tasks.filter((t) => t.title.toLowerCase().includes(q));
+  }, [tasks, taskSearchInput]);
 
   // Load expense sheets
   const loadSheets = async () => {
@@ -220,19 +234,30 @@ export default function ExpenseSheets() {
   };
 
   const handleOpenAttachModal = (sheet: ExpenseSheetItem) => {
+    loadAttachOptions();
     setAttachingSheet(sheet);
+    setProjectDropdownOpen(false);
+    setTaskDropdownOpen(false);
     if (sheet.projectId) {
       setAttachType("project");
       setSelectedProjectId(sheet.projectId);
+      const proj = projects.find((p) => p.id === sheet.projectId);
+      setProjectSearchInput(proj ? proj.name : "");
       setSelectedTaskId("");
+      setTaskSearchInput("");
     } else if (sheet.taskId) {
       setAttachType("task");
       setSelectedTaskId(sheet.taskId);
+      const t = tasks.find((tk) => tk.id === sheet.taskId);
+      setTaskSearchInput(t ? t.title : "");
       setSelectedProjectId("");
+      setProjectSearchInput("");
     } else {
       setAttachType("none");
       setSelectedProjectId("");
+      setProjectSearchInput("");
       setSelectedTaskId("");
+      setTaskSearchInput("");
     }
     setAttachModalOpen(true);
   };
@@ -524,106 +549,160 @@ export default function ExpenseSheets() {
             </div>
 
             {attachType === "project" && (
-              <div className="space-y-1.5 animate-fadeIn">
+              <div className="space-y-1.5 animate-fadeIn relative">
                 <Label className="text-sm font-semibold">Select Project</Label>
-                <Popover open={projectPopoverOpen} onOpenChange={setProjectPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
+                <div className="relative">
+                  <Input
+                    type="text"
+                    placeholder="Choose project..."
+                    value={projectSearchInput}
+                    onFocus={() => setProjectDropdownOpen(true)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setProjectSearchInput(val);
+                      setProjectDropdownOpen(true);
+                      if (!val.trim()) {
+                        setSelectedProjectId("");
+                      } else {
+                        const exact = projects.find(p => p.name.toLowerCase() === val.trim().toLowerCase());
+                        if (exact) setSelectedProjectId(exact.id);
+                      }
+                    }}
+                    className="w-full h-10 pr-10 bg-background border-input text-foreground text-sm rounded-lg focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
+                  />
+                  {projectSearchInput ? (
+                    <button
                       type="button"
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={projectPopoverOpen}
-                      className="w-full justify-between font-normal h-10 text-left bg-background border-input"
+                      onClick={() => {
+                        setProjectSearchInput("");
+                        setSelectedProjectId("");
+                        setProjectDropdownOpen(true);
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+                      title="Clear"
                     >
-                      <span className="truncate">
-                        {selectedProjectId
-                          ? projects.find((p) => p.id === selectedProjectId)?.name || "Select project"
-                          : "Choose project..."}
-                      </span>
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[100]" align="start">
-                    <Command className="w-full">
-                      <CommandInput placeholder="Search project by name..." />
-                      <CommandList className="max-h-[220px] overflow-y-auto custom-scrollbar">
-                        <CommandEmpty>No project found.</CommandEmpty>
-                        <CommandGroup>
-                          {projects.map((p) => (
-                            <CommandItem
-                              key={p.id}
-                              value={p.name}
-                              onSelect={() => {
-                                setSelectedProjectId(p.id);
-                                setProjectPopoverOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  selectedProjectId === p.id ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              {p.name}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                      <X className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <ChevronsUpDown
+                      className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none opacity-60"
+                    />
+                  )}
+                </div>
+
+                {projectDropdownOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-[90]"
+                      onClick={() => setProjectDropdownOpen(false)}
+                    />
+                    <div className="absolute left-0 right-0 top-full mt-1 z-[100] max-h-[220px] overflow-y-auto custom-scrollbar bg-popover text-popover-foreground border border-border rounded-lg shadow-xl p-1 animate-in fade-in-50 zoom-in-95">
+                      {filteredProjects.length > 0 ? (
+                        filteredProjects.map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            className={cn(
+                              "w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center justify-between hover:bg-accent hover:text-accent-foreground",
+                              selectedProjectId === p.id && "bg-primary/10 text-primary font-semibold"
+                            )}
+                            onClick={() => {
+                              setSelectedProjectId(p.id);
+                              setProjectSearchInput(p.name);
+                              setProjectDropdownOpen(false);
+                            }}
+                          >
+                            <span className="truncate">{p.name}</span>
+                            {selectedProjectId === p.id && <Check className="w-4 h-4 text-primary shrink-0 ml-2" />}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="p-3 text-center text-xs text-muted-foreground">
+                          No projects found{projectSearchInput ? ` for "${projectSearchInput}"` : ""}.
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
             {attachType === "task" && (
-              <div className="space-y-1.5 animate-fadeIn">
+              <div className="space-y-1.5 animate-fadeIn relative">
                 <Label className="text-sm font-semibold">Select Task</Label>
-                <Popover open={taskPopoverOpen} onOpenChange={setTaskPopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
+                <div className="relative">
+                  <Input
+                    type="text"
+                    placeholder="Choose task..."
+                    value={taskSearchInput}
+                    onFocus={() => setTaskDropdownOpen(true)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setTaskSearchInput(val);
+                      setTaskDropdownOpen(true);
+                      if (!val.trim()) {
+                        setSelectedTaskId("");
+                      } else {
+                        const exact = tasks.find(t => t.title.toLowerCase() === val.trim().toLowerCase());
+                        if (exact) setSelectedTaskId(exact.id);
+                      }
+                    }}
+                    className="w-full h-10 pr-10 bg-background border-input text-foreground text-sm rounded-lg focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
+                  />
+                  {taskSearchInput ? (
+                    <button
                       type="button"
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={taskPopoverOpen}
-                      className="w-full justify-between font-normal h-10 text-left bg-background border-input"
+                      onClick={() => {
+                        setTaskSearchInput("");
+                        setSelectedTaskId("");
+                        setTaskDropdownOpen(true);
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+                      title="Clear"
                     >
-                      <span className="truncate">
-                        {selectedTaskId
-                          ? tasks.find((t) => t.id === selectedTaskId)?.title || "Select task"
-                          : "Choose task..."}
-                      </span>
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0 z-[100]" align="start">
-                    <Command className="w-full">
-                      <CommandInput placeholder="Search task by title..." />
-                      <CommandList className="max-h-[220px] overflow-y-auto custom-scrollbar">
-                        <CommandEmpty>No task found.</CommandEmpty>
-                        <CommandGroup>
-                          {tasks.map((t) => (
-                            <CommandItem
-                              key={t.id}
-                              value={t.title}
-                              onSelect={() => {
-                                setSelectedTaskId(t.id);
-                                setTaskPopoverOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  selectedTaskId === t.id ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              {t.title}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                      <X className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <ChevronsUpDown
+                      className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none opacity-60"
+                    />
+                  )}
+                </div>
+
+                {taskDropdownOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-[90]"
+                      onClick={() => setTaskDropdownOpen(false)}
+                    />
+                    <div className="absolute left-0 right-0 top-full mt-1 z-[100] max-h-[220px] overflow-y-auto custom-scrollbar bg-popover text-popover-foreground border border-border rounded-lg shadow-xl p-1 animate-in fade-in-50 zoom-in-95">
+                      {filteredTasks.length > 0 ? (
+                        filteredTasks.map((t) => (
+                          <button
+                            key={t.id}
+                            type="button"
+                            className={cn(
+                              "w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center justify-between hover:bg-accent hover:text-accent-foreground",
+                              selectedTaskId === t.id && "bg-primary/10 text-primary font-semibold"
+                            )}
+                            onClick={() => {
+                              setSelectedTaskId(t.id);
+                              setTaskSearchInput(t.title);
+                              setTaskDropdownOpen(false);
+                            }}
+                          >
+                            <span className="truncate">{t.title}</span>
+                            {selectedTaskId === t.id && <Check className="w-4 h-4 text-primary shrink-0 ml-2" />}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="p-3 text-center text-xs text-muted-foreground">
+                          No tasks found{taskSearchInput ? ` for "${taskSearchInput}"` : ""}.
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
