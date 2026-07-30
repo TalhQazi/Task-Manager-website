@@ -1262,81 +1262,45 @@ const Employees = () => {
                   </div>
                 </div>
 
-                {/* Filter Dropdowns - Grid on mobile, row on tablet+ */}
-                <div className="grid grid-cols-2 sm:flex sm:flex-row gap-2 sm:gap-3">
-                  <div className="col-span-1">
-                    <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
-                      Status
-                    </label>
-                    <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger className="w-full h-9 sm:h-10 text-xs sm:text-sm rounded-lg border-0 bg-muted/50 focus:ring-2 focus:ring-primary/20">
-                        <SelectValue placeholder="Status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Status</SelectItem>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                        <SelectItem value="on-leave">On Leave</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="col-span-1">
-                    <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
-                      Category
-                    </label>
-                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                      <SelectTrigger className="w-full h-9 sm:h-10 text-xs sm:text-sm rounded-lg border-0 bg-muted/50 focus:ring-2 focus:ring-primary/20">
-                        <SelectValue placeholder="Category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
-                        {categoryOptions.map((c) => c ? (
-                          <SelectItem key={c} value={c} className="text-xs sm:text-sm">
-                            {c}
-                          </SelectItem>
-                        ) : null)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="col-span-1">
-                    <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
-                      Role
-                    </label>
-                    <Select value={roleFilter} onValueChange={setRoleFilter}>
-                      <SelectTrigger className="w-full h-9 sm:h-10 text-xs sm:text-sm rounded-lg border-0 bg-muted/50 focus:ring-2 focus:ring-primary/20">
-                        <SelectValue placeholder="Role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Roles</SelectItem>
-                        {roles.map((r) => r ? (
-                          <SelectItem key={r} value={r} className="text-xs sm:text-sm">
-                            {r}
-                          </SelectItem>
-                        ) : null)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="col-span-1">
-                    <label className="block text-xs text-muted-foreground mb-1.5 sm:hidden">
-                      Company
-                    </label>
-                    <Select value={companyFilter} onValueChange={setCompanyFilter}>
-                      <SelectTrigger className="w-full h-9 sm:h-10 text-xs sm:text-sm rounded-lg border-0 bg-muted/50 focus:ring-2 focus:ring-primary/20">
-                        <SelectValue placeholder="Company" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Companies</SelectItem>
-                        {companies.filter((company) => !!company.name).map((company) => (
-                          <SelectItem key={company.id} value={company.name} className="text-xs sm:text-sm">
-                            {company.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                {/* Quick Filter Chips (Replaces Mobile-Buggy Dropdowns) */}
+                <div className="w-full overflow-x-auto no-scrollbar py-1 flex items-center gap-1.5 shrink-0">
+                  <Button
+                    size="sm"
+                    variant={statusFilter === "all" && categoryFilter === "all" && roleFilter === "all" && companyFilter === "all" ? "default" : "outline"}
+                    onClick={() => {
+                      setStatusFilter("all");
+                      setCategoryFilter("all");
+                      setRoleFilter("all");
+                      setCompanyFilter("all");
+                    }}
+                    className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+                  >
+                    All Employees
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={statusFilter === "active" ? "default" : "outline"}
+                    onClick={() => setStatusFilter(statusFilter === "active" ? "all" : "active")}
+                    className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+                  >
+                    Active
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={statusFilter === "on-leave" ? "default" : "outline"}
+                    onClick={() => setStatusFilter(statusFilter === "on-leave" ? "all" : "on-leave")}
+                    className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+                  >
+                    On Leave
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={statusFilter === "inactive" ? "default" : "outline"}
+                    onClick={() => setStatusFilter(statusFilter === "inactive" ? "all" : "inactive")}
+                    className="h-8 text-xs font-semibold rounded-full px-3 shrink-0 text-destructive"
+                  >
+                    Inactive
+                  </Button>
                 </div>
               </div>
             </CardContent>

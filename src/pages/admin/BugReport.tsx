@@ -130,7 +130,25 @@ export default function Bugs() {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
-  const filtered = items;
+  const filtered = useMemo(() => {
+    return items.filter((b) => {
+      const term = q.trim().toLowerCase();
+      const matchesSearch =
+        !term ||
+        (b.title && b.title.toLowerCase().includes(term)) ||
+        (b.description && b.description.toLowerCase().includes(term)) ||
+        (b.module && b.module.toLowerCase().includes(term)) ||
+        (b.createdByUsername && b.createdByUsername.toLowerCase().includes(term)) ||
+        (b.assignedDeveloperName && b.assignedDeveloperName.toLowerCase().includes(term)) ||
+        (b.status && b.status.toLowerCase().includes(term)) ||
+        (b.severity && b.severity.toLowerCase().includes(term)) ||
+        (b.priority && b.priority.toLowerCase().includes(term));
+      const matchesStatus = statusFilter === "all" || b.status === statusFilter;
+      const matchesSeverity = severityFilter === "all" || b.severity === severityFilter;
+      const matchesPriority = priorityFilter === "all" || b.priority === priorityFilter;
+      return matchesSearch && matchesStatus && matchesSeverity && matchesPriority;
+    });
+  }, [items, q, statusFilter, severityFilter, priorityFilter]);
 
   const openBug = (b: BugItem) => {
     setSelectedBugId(b.id);
@@ -168,56 +186,65 @@ export default function Bugs() {
         </div>
       )}
 
-      {/* Filters Card */}
+      {/* Filter Card */}
       <Card className="shadow-sm border">
-        <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
-          <div className="relative flex-1 max-w-md">
+        <CardContent className="p-4 flex flex-col sm:flex-row gap-3 items-center justify-between">
+          <div className="relative flex-1 w-full">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search bugs by title, module, developer, reporter..."
-              className="h-9 text-xs sm:text-sm"
+              placeholder="Search bugs by title, module, developer, reporter, status..."
+              className="pl-8 h-9 text-xs sm:text-sm"
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
           </div>
 
-          <div className="flex flex-wrap gap-2 items-center">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[120px] h-9 text-xs">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="open">Open (Active)</SelectItem>
-                <SelectItem value="AWAITING_REPORTER_CONFIRMATION">Awaiting Verify</SelectItem>
-                <SelectItem value="closed">Closed</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={severityFilter} onValueChange={setSeverityFilter}>
-              <SelectTrigger className="w-[120px] h-9 text-xs">
-                <SelectValue placeholder="Severity" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Severity</SelectItem>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="critical">Critical</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-              <SelectTrigger className="w-[120px] h-9 text-xs">
-                <SelectValue placeholder="Priority" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Priority</SelectItem>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="medium">Medium</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="urgent">Urgent</SelectItem>
-              </SelectContent>
-            </Select>
+          {/* Quick Filter Chips (Replaces Mobile-Buggy Dropdowns) */}
+          <div className="w-full sm:w-auto overflow-x-auto no-scrollbar py-1 flex items-center gap-1.5 shrink-0">
+            <Button
+              size="sm"
+              variant={statusFilter === "all" && severityFilter === "all" && priorityFilter === "all" ? "default" : "outline"}
+              onClick={() => {
+                setStatusFilter("all");
+                setSeverityFilter("all");
+                setPriorityFilter("all");
+              }}
+              className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+            >
+              All Bugs
+            </Button>
+            <Button
+              size="sm"
+              variant={statusFilter === "open" ? "default" : "outline"}
+              onClick={() => setStatusFilter(statusFilter === "open" ? "all" : "open")}
+              className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+            >
+              Open (Active)
+            </Button>
+            <Button
+              size="sm"
+              variant={statusFilter === "AWAITING_REPORTER_CONFIRMATION" ? "default" : "outline"}
+              onClick={() => setStatusFilter(statusFilter === "AWAITING_REPORTER_CONFIRMATION" ? "all" : "AWAITING_REPORTER_CONFIRMATION")}
+              className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+            >
+              Awaiting Verify
+            </Button>
+            <Button
+              size="sm"
+              variant={statusFilter === "closed" ? "default" : "outline"}
+              onClick={() => setStatusFilter(statusFilter === "closed" ? "all" : "closed")}
+              className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+            >
+              Closed
+            </Button>
+            <Button
+              size="sm"
+              variant={severityFilter === "critical" ? "default" : "outline"}
+              onClick={() => setSeverityFilter(severityFilter === "critical" ? "all" : "critical")}
+              className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+            >
+              Critical Severity
+            </Button>
           </div>
         </CardContent>
       </Card>

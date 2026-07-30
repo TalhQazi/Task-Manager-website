@@ -2491,7 +2491,11 @@ export default function Tasks() {
       const matchesSearch =
         !taskSearch ||
         task.title.toLowerCase().includes(taskSearch.toLowerCase()) ||
-        assigneesText.toLowerCase().includes(taskSearch.toLowerCase());
+        (task.description && task.description.toLowerCase().includes(taskSearch.toLowerCase())) ||
+        assigneesText.toLowerCase().includes(taskSearch.toLowerCase()) ||
+        task.status.toLowerCase().includes(taskSearch.toLowerCase()) ||
+        task.priority.toLowerCase().includes(taskSearch.toLowerCase()) ||
+        (task.projectName && task.projectName.toLowerCase().includes(taskSearch.toLowerCase()));
       const matchesStatus =
         statusFilter === "all" || task.status === statusFilter;
       const matchesPriority =
@@ -2751,59 +2755,71 @@ export default function Tasks() {
             </button>
           )}
         </div>
-        <div className="flex flex-wrap gap-2 items-center">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[125px] sm:w-[140px] h-10 text-xs sm:text-sm">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-[125px] sm:w-[140px] h-10 text-xs sm:text-sm">
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Priority</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={assignmentFilter} onValueChange={setAssignmentFilter}>
-            <SelectTrigger className="w-[130px] sm:w-[140px] h-10 text-xs sm:text-sm">
-              <SelectValue placeholder="Assignment" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Assignment</SelectItem>
-              <SelectItem value="me">Assigned to Me</SelectItem>
-              <SelectItem value="assigned">Assigned</SelectItem>
-              <SelectItem value="unassigned">Unassigned</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-            <SelectTrigger className="w-[140px] sm:w-[160px] h-10 text-xs sm:text-sm">
-              <SelectValue placeholder="All Assignees" />
-            </SelectTrigger>
-            <SelectContent className="max-h-[300px] overflow-y-auto">
-              <SelectItem value="all">All Assignees</SelectItem>
-              {uniqueAssignees.map((a) => (
-                <SelectItem key={a} value={a}>{a}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button 
+        {/* Quick Filter Chips (Replaces Mobile-Buggy Dropdowns) */}
+        <div className="w-full overflow-x-auto no-scrollbar py-1 flex items-center gap-1.5 shrink-0">
+          <Button
+            size="sm"
+            variant={statusFilter === "all" && priorityFilter === "all" && assignmentFilter === "all" ? "default" : "outline"}
+            onClick={() => {
+              setStatusFilter("all");
+              setPriorityFilter("all");
+              setAssignmentFilter("all");
+              setAssigneeFilter("all");
+            }}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            All Tasks
+          </Button>
+          <Button
+            size="sm"
+            variant={assignmentFilter === "me" ? "default" : "outline"}
+            onClick={() => setAssignmentFilter(assignmentFilter === "me" ? "all" : "me")}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            Assigned to Me
+          </Button>
+          <Button
+            size="sm"
+            variant={statusFilter === "pending" ? "default" : "outline"}
+            onClick={() => setStatusFilter(statusFilter === "pending" ? "all" : "pending")}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            Pending
+          </Button>
+          <Button
+            size="sm"
+            variant={statusFilter === "active" ? "default" : "outline"}
+            onClick={() => setStatusFilter(statusFilter === "active" ? "all" : "active")}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            In Progress
+          </Button>
+          <Button
+            size="sm"
+            variant={statusFilter === "completed" ? "default" : "outline"}
+            onClick={() => setStatusFilter(statusFilter === "completed" ? "all" : "completed")}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            Completed
+          </Button>
+          <Button
+            size="sm"
+            variant={priorityFilter === "high" ? "default" : "outline"}
+            onClick={() => setPriorityFilter(priorityFilter === "high" ? "all" : "high")}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            High Priority
+          </Button>
+          <Button
+            size="sm"
             variant={showArchivedTasks ? "secondary" : "outline"}
             onClick={() => setShowArchivedTasks(!showArchivedTasks)}
-            className="h-10 px-3 flex items-center justify-center gap-2 text-xs sm:text-sm"
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0 gap-1.5"
           >
-            <Archive className="h-4 w-4" />
-            <span className="text-xs font-medium">{showArchivedTasks ? "Hide Archived" : "Show Archived"}</span>
+            <Archive className="h-3.5 w-3.5" />
+            <span>{showArchivedTasks ? "Hide Archived" : "Show Archived"}</span>
           </Button>
+        </div>
           {/* <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 hidden sm:flex">
             <Filter className="w-4 h-4" />
           </Button> */}
@@ -2869,7 +2885,6 @@ export default function Tasks() {
             </>
           )}
         </div>
-      </div>
 
       {/* Premium Tab Switcher */}
       {!selectedProject && (

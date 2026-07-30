@@ -238,8 +238,18 @@ export default function ExpenseSheets() {
   const filteredSheets = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return sheets;
-    return sheets.filter((s) => s.name.toLowerCase().includes(query));
-  }, [sheets, search]);
+    return sheets.filter((s) => {
+      const projName = s.projectId ? getProjectName(s.projectId).toLowerCase() : "";
+      const taskName = s.taskId ? getTaskName(s.taskId).toLowerCase() : "";
+      const creator = (s.createdByUsername || "").toLowerCase();
+      return (
+        s.name.toLowerCase().includes(query) ||
+        projName.includes(query) ||
+        taskName.includes(query) ||
+        creator.includes(query)
+      );
+    });
+  }, [sheets, search, projects, tasks]);
 
   // If a sheet is selected, display the CostManager
   if (activeSheetId) {
@@ -286,7 +296,7 @@ export default function ExpenseSheets() {
         <CardContent className="p-3 sm:p-6">
           <div className="relative w-full sm:max-w-md">
             <Input
-              placeholder="Search expense sheets..."
+              placeholder="Search expense sheets by name, project, task, creator..."
               className="h-9 sm:h-10 text-sm sm:text-base"
               value={search}
               onChange={(e) => setSearch(e.target.value)}

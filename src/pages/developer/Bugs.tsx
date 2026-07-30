@@ -166,18 +166,49 @@ export default function DeveloperBugs() {
             />
           </div>
 
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[130px] h-9 text-xs">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="open">Active Bugs</SelectItem>
-              <SelectItem value="IN_PROGRESS">In Progress</SelectItem>
-              <SelectItem value="AWAITING_REPORTER_CONFIRMATION">Awaiting Verify</SelectItem>
-              <SelectItem value="closed">Closed Bugs</SelectItem>
-            </SelectContent>
-          </Select>
+          {/* Quick Filter Chips (Replaces Mobile-Buggy Dropdown) */}
+          <div className="overflow-x-auto no-scrollbar py-1 flex items-center gap-1.5 shrink-0">
+            <Button
+              size="sm"
+              variant={statusFilter === "all" ? "default" : "outline"}
+              onClick={() => setStatusFilter("all")}
+              className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+            >
+              All Bugs
+            </Button>
+            <Button
+              size="sm"
+              variant={statusFilter === "open" ? "default" : "outline"}
+              onClick={() => setStatusFilter(statusFilter === "open" ? "all" : "open")}
+              className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+            >
+              Active Bugs
+            </Button>
+            <Button
+              size="sm"
+              variant={statusFilter === "IN_PROGRESS" ? "default" : "outline"}
+              onClick={() => setStatusFilter(statusFilter === "IN_PROGRESS" ? "all" : "IN_PROGRESS")}
+              className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+            >
+              In Progress
+            </Button>
+            <Button
+              size="sm"
+              variant={statusFilter === "AWAITING_REPORTER_CONFIRMATION" ? "default" : "outline"}
+              onClick={() => setStatusFilter(statusFilter === "AWAITING_REPORTER_CONFIRMATION" ? "all" : "AWAITING_REPORTER_CONFIRMATION")}
+              className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+            >
+              Awaiting Verify
+            </Button>
+            <Button
+              size="sm"
+              variant={statusFilter === "closed" ? "default" : "outline"}
+              onClick={() => setStatusFilter(statusFilter === "closed" ? "all" : "closed")}
+              className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+            >
+              Closed Bugs
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

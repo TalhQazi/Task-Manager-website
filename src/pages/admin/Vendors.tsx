@@ -141,10 +141,15 @@ export default function Vendors() {
 
   const filteredVendors = useMemo(() => {
     return vendors.filter((vendor) => {
+      const qLower = searchQuery.toLowerCase().trim();
       const matchesSearch =
-        vendor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        vendor.phone.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        vendor.serviceType.toLowerCase().includes(searchQuery.toLowerCase());
+        !qLower ||
+        vendor.name.toLowerCase().includes(qLower) ||
+        vendor.phone.toLowerCase().includes(qLower) ||
+        (vendor.email && vendor.email.toLowerCase().includes(qLower)) ||
+        (vendor.location && vendor.location.toLowerCase().includes(qLower)) ||
+        (vendor.status && vendor.status.toLowerCase().includes(qLower)) ||
+        vendor.serviceType.toLowerCase().includes(qLower);
       const matchesLocation =
         locationFilter === "all" || vendor.location === locationFilter;
       const matchesStatus =
@@ -403,48 +408,44 @@ export default function Vendors() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search vendors..."
-                  className="pl-10"
+                  placeholder="Search vendors by name, phone, service type, location, status..."
+                  className="pl-10 text-xs sm:text-sm"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="All Categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat._id} value={cat.name}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={locationFilter} onValueChange={setLocationFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="All Locations" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Locations</SelectItem>
-                  {locations.map((loc) => (
-                    <SelectItem key={loc._id} value={loc.name}>
-                      {loc.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="not-approved">Not Approved</SelectItem>
-                </SelectContent>
-              </Select>
+
+              {/* Quick Filter Chips (Replaces Mobile-Buggy Dropdowns) */}
+              <div className="overflow-x-auto no-scrollbar py-1 flex items-center gap-1.5 shrink-0">
+                <Button
+                  size="sm"
+                  variant={statusFilter === "all" && categoryFilter === "all" && locationFilter === "all" ? "default" : "outline"}
+                  onClick={() => {
+                    setStatusFilter("all");
+                    setCategoryFilter("all");
+                    setLocationFilter("all");
+                  }}
+                  className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+                >
+                  All Vendors
+                </Button>
+                <Button
+                  size="sm"
+                  variant={statusFilter === "approved" ? "default" : "outline"}
+                  onClick={() => setStatusFilter(statusFilter === "approved" ? "all" : "approved")}
+                  className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+                >
+                  Approved
+                </Button>
+                <Button
+                  size="sm"
+                  variant={statusFilter === "not-approved" ? "default" : "outline"}
+                  onClick={() => setStatusFilter(statusFilter === "not-approved" ? "all" : "not-approved")}
+                  className="h-8 text-xs font-semibold rounded-full px-3 shrink-0 text-destructive"
+                >
+                  Not Approved
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

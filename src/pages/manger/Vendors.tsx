@@ -273,35 +273,43 @@ export default function Vendors() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search vendors by name, phone, or service type..."
-                  className="pl-10"
+                  placeholder="Search vendors by name, phone, service type, location, status..."
+                  className="pl-10 text-xs sm:text-sm"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <Select value={locationFilter} onValueChange={setLocationFilter}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Filter by location" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Locations</SelectItem>
-                  {locations.map((loc) => (
-                    <SelectItem key={loc._id} value={loc.name}>
-                      {loc.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="not-approved">Not Approved</SelectItem>
-                </SelectContent>
-              </Select>
+
+              {/* Quick Filter Chips (Replaces Mobile-Buggy Dropdowns) */}
+              <div className="overflow-x-auto no-scrollbar py-1 flex items-center gap-1.5 shrink-0">
+                <Button
+                  size="sm"
+                  variant={statusFilter === "all" && locationFilter === "all" ? "default" : "outline"}
+                  onClick={() => {
+                    setStatusFilter("all");
+                    setLocationFilter("all");
+                  }}
+                  className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+                >
+                  All Vendors
+                </Button>
+                <Button
+                  size="sm"
+                  variant={statusFilter === "approved" ? "default" : "outline"}
+                  onClick={() => setStatusFilter(statusFilter === "approved" ? "all" : "approved")}
+                  className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+                >
+                  Approved
+                </Button>
+                <Button
+                  size="sm"
+                  variant={statusFilter === "not-approved" ? "default" : "outline"}
+                  onClick={() => setStatusFilter(statusFilter === "not-approved" ? "all" : "not-approved")}
+                  className="h-8 text-xs font-semibold rounded-full px-3 shrink-0 text-destructive"
+                >
+                  Not Approved
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
