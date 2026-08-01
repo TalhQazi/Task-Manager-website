@@ -1117,13 +1117,14 @@ function ItemDialog({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NO_VENDOR}>No vendor</SelectItem>
-                {vendors.map((v) => (
-                  <SelectItem key={v._id} value={v._id}>
-                    {v.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                    {vendors.map((v) => (
+                      <SelectItem key={v._id} value={v._id}>
+                        {v.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div>
                 <Label className="text-xs">Quote Number</Label>
                 <Input value={form.quoteNumber} onChange={(e) => set("quoteNumber", e.target.value)} />
