@@ -1124,11 +1124,12 @@ function ItemDialog({
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div>
-            <Label className="text-xs">Quote Number</Label>
-            <Input value={form.quoteNumber} onChange={(e) => set("quoteNumber", e.target.value)} />
-          </div>
+              <div>
+                <Label className="text-xs">Quote Number</Label>
+                <Input value={form.quoteNumber} onChange={(e) => set("quoteNumber", e.target.value)} />
+              </div>
+            </>
+          )}
           {tasks.length > 0 && (
             <div className="col-span-2">
               <Label className="text-xs">Link to Task (rolls up into project totals either way)</Label>
