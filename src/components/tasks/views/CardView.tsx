@@ -4,7 +4,7 @@ import { PRIORITY_META, STATUS_COLUMNS } from "@/lib/taskViews";
 import { ViewLoading, ViewEmpty, dueLabel, initials } from "./shared";
 
 export default function CardView() {
-  const { filters, setSelected } = useTaskView();
+  const { filters, setFilters, setSelected } = useTaskView();
   const { tasks, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } = useTaskDataset(filters);
 
   if (isLoading) return <ViewLoading />;
@@ -33,7 +33,15 @@ export default function CardView() {
                 <span className={`text-xs ${due.className}`}>{due.text}</span>
                 <div className="flex -space-x-1.5">
                   {t.assignees.slice(0, 3).map((a, i) => (
-                    <span key={i} title={a} className="h-6 w-6 rounded-full bg-primary/15 text-primary text-[10px] font-bold flex items-center justify-center border border-background">
+                    <span
+                      key={i}
+                      title={`Filter by ${a}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFilters({ assignment: a });
+                      }}
+                      className="h-6 w-6 rounded-full bg-primary/15 text-primary hover:bg-primary hover:text-white transition-colors cursor-pointer text-[10px] font-bold flex items-center justify-center border border-background"
+                    >
                       {initials(a)}
                     </span>
                   ))}

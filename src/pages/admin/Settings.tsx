@@ -1084,7 +1084,7 @@ export default function Settings() {
                   <div className="relative">
                     <Avatar className="h-20 w-20 border-2 border-border">
                       {settings.avatarUrl && avatarUpload.status !== "uploading" ? (
-                        <AvatarImage src={settings.avatarUrl} alt={settings.fullName || "Admin"} className="object-cover" crossOrigin="anonymous" />
+                        <AvatarImage src={settings.avatarUrl} alt={settings.fullName || "Admin"} className="object-cover" />
                       ) : (
                         <AvatarFallback className="text-2xl bg-primary/10 text-primary">
                           {avatarUpload.status === "uploading" ? (

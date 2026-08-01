@@ -427,6 +427,31 @@ export default function BugCollaborationModal({ bugId, open, onOpenChange, onBug
                     Submit Resolution
                   </Button>
                 )}
+                {/* Close Bug Button for Admins, Managers, & Reporters */}
+                {(isAdmin || ["manager"].includes(currentRole) || bug?.createdByUsername === currentUsername) &&
+                  bug?.status !== "CLOSED_VERIFIED" && bug?.status !== "CLOSED_ADMIN_OVERRIDE" && bug?.status !== "closed" && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 border-emerald-500/30 gap-1 font-semibold"
+                    onClick={async () => {
+                      if (!bug) return;
+                      try {
+                        setLoading(true);
+                        await apiFetch(`/api/bugs/${encodeURIComponent(bug.id)}/close`, { method: "PUT" });
+                        await loadData();
+                        if (onBugUpdated) onBugUpdated();
+                      } catch (e) {
+                        setApiError(e instanceof Error ? e.message : "Failed to close bug");
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                    Close Bug
+                  </Button>
+                )}
                 {isAdmin && bug?.status !== "CLOSED_ADMIN_OVERRIDE" && bug?.status !== "CLOSED_VERIFIED" && (
                   <Button size="sm" variant="destructive" onClick={() => void handleAdminOverride()}>
                     <ShieldAlert className="h-3.5 w-3.5 mr-1" />

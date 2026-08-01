@@ -272,6 +272,7 @@ export default function Bugs() {
                     <TableHead className="text-xs">Assigned Dev</TableHead>
                     <TableHead className="text-xs">Reported By</TableHead>
                     <TableHead className="text-xs">Date</TableHead>
+                    <TableHead className="text-xs text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -306,11 +307,32 @@ export default function Bugs() {
                       <TableCell className="text-xs text-muted-foreground">
                         {b.createdAt ? new Date(b.createdAt).toLocaleDateString() : "-"}
                       </TableCell>
+                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                        {b.status !== "CLOSED_VERIFIED" && b.status !== "CLOSED_ADMIN_OVERRIDE" && b.status !== "closed" ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10 font-semibold"
+                            onClick={async () => {
+                              try {
+                                await apiFetch(`/api/bugs/${encodeURIComponent(b.id)}/close`, { method: "PUT" });
+                                await load();
+                              } catch (e) {
+                                console.error("Failed to close bug", e);
+                              }
+                            }}
+                          >
+                            Close
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-emerald-600 font-semibold">Closed</span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                   {filtered.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-12 text-muted-foreground text-xs italic">
+                      <TableCell colSpan={7} className="text-center py-12 text-muted-foreground text-xs italic">
                         No bugs found matching criteria.
                       </TableCell>
                     </TableRow>

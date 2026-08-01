@@ -44,8 +44,41 @@ function ActiveView({ view }: { view: ViewId }) {
   }
 }
 
+import { useEffect, useState } from "react";
+import { apiFetch } from "@/lib/api";
+
 export function TaskViewSwitcher() {
   const { view, setView, filters, setFilters, selected, setSelected } = useTaskView();
+  const [employees, setEmployees] = useState<Array<{ id: string; name: string }>>([]);
+
+  useEffect(() => {
+    let mounted = true;
+    apiFetch<{ items?: any[] }>("/api/employees")
+      .then((res) => {
+        if (mounted && Array.isArray(res.items)) {
+          setEmployees(res.items.map((e) => ({ id: String(e.id || e._id), name: e.name })));
+        }
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleDueDateFilterChange = (val: string) => {
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 10);
+    if (val === "today") {
+      setFilters({ dueFrom: todayStr, dueTo: todayStr, status: "all" });
+    } else if (val === "week") {
+      const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+      setFilters({ dueFrom: todayStr, dueTo: nextWeek.toISOString().slice(0, 10), status: "all" });
+    } else if (val === "overdue") {
+      setFilters({ dueFrom: undefined, dueTo: undefined, status: "overdue" });
+    } else {
+      setFilters({ dueFrom: undefined, dueTo: undefined });
+    }
+  };
 
   return (
     <div className="flex flex-col gap-3 flex-1 min-h-0">
@@ -64,7 +97,7 @@ export function TaskViewSwitcher() {
         ))}
       </div>
 
-      {/* Shared filter bar (hidden for aggregate views that don't page rows) */}
+      {/* Shared filter bar */}
       {!["executive", "wip", "workload"].includes(view) && (
         <div className="flex items-center gap-2 flex-wrap">
           <div className="relative flex-1 min-w-[200px]">
@@ -77,11 +110,59 @@ export function TaskViewSwitcher() {
               className="pl-9"
             />
           </div>
-          <select value={filters.status} onChange={(e) => setFilters({ status: e.target.value })} className="h-9 rounded-md border border-border bg-background px-2 text-sm">
-            {["all", "pending", "in-progress", "completed", "overdue"].map((s) => <option key={s} value={s}>{s === "all" ? "All statuses" : s}</option>)}
+
+          {/* Assignee Filter Dropdown */}
+          <select
+            value={filters.assignment || "all"}
+            onChange={(e) => setFilters({ assignment: e.target.value })}
+            className="h-9 rounded-md border border-border bg-background px-2 text-sm max-w-[180px]"
+          >
+            <option value="all">All Assignees</option>
+            <option value="assigned">Assigned Tasks</option>
+            <option value="unassigned">Unassigned Tasks</option>
+            <option value="me">Assigned to Me</option>
+            {employees.map((emp) => (
+              <option key={emp.id} value={emp.name}>
+                {emp.name}
+              </option>
+            ))}
           </select>
-          <select value={filters.priority} onChange={(e) => setFilters({ priority: e.target.value })} className="h-9 rounded-md border border-border bg-background px-2 text-sm">
-            {["all", "high", "medium", "low"].map((p) => <option key={p} value={p}>{p === "all" ? "All priorities" : p}</option>)}
+
+          {/* Status Filter */}
+          <select
+            value={filters.status || "all"}
+            onChange={(e) => setFilters({ status: e.target.value })}
+            className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+          >
+            {["all", "pending", "in-progress", "completed", "overdue"].map((s) => (
+              <option key={s} value={s}>
+                {s === "all" ? "All Statuses" : s === "in-progress" ? "In Progress" : s.charAt(0).toUpperCase() + s.slice(1)}
+              </option>
+            ))}
+          </select>
+
+          {/* Priority Filter */}
+          <select
+            value={filters.priority || "all"}
+            onChange={(e) => setFilters({ priority: e.target.value })}
+            className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+          >
+            {["all", "high", "medium", "low"].map((p) => (
+              <option key={p} value={p}>
+                {p === "all" ? "All Priorities" : p.charAt(0).toUpperCase() + p.slice(1)}
+              </option>
+            ))}
+          </select>
+
+          {/* Due Date Filter */}
+          <select
+            onChange={(e) => handleDueDateFilterChange(e.target.value)}
+            className="h-9 rounded-md border border-border bg-background px-2 text-sm"
+          >
+            <option value="all">All Due Dates</option>
+            <option value="today">Due Today</option>
+            <option value="week">Next 7 Days</option>
+            <option value="overdue">Overdue</option>
           </select>
         </div>
       )}

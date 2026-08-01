@@ -604,7 +604,27 @@ export default function ComplianceCenter() {
 
       {/* Summary Analytics Cards */}
       {report && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Active Websites KPI Card */}
+          <Card className={`relative overflow-hidden ${isMetallic ? "bg-gradient-to-br from-[#2b2c2d] to-[#111315] border-[#ffd27a]/20 shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]" : "bg-card border border-border shadow-sm"}`}>
+            {renderRivets()}
+            <CardHeader className="pb-2">
+              <CardDescription className={isMetallic ? "text-zinc-400 font-bold" : ""}>Active Websites</CardDescription>
+              <CardTitle className="text-3xl font-black text-[#00C6FF]">
+                {websites.filter(w => w.websiteType === "active" || w.status === "Live").length} <span className="text-xs text-muted-foreground font-normal">active</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2 text-xs font-semibold text-emerald-500">
+                <ShieldCheck className="h-4 w-4" />
+                <span>{websites.length} total monitored</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Live & monitored production sites.
+              </p>
+            </CardContent>
+          </Card>
+
           {/* Average Readiness Score Card */}
           <Card className={`relative overflow-hidden ${isMetallic ? "bg-gradient-to-br from-[#2b2c2d] to-[#111315] border-[#ffd27a]/20 shadow-[inset_0_1px_2px_rgba(255,255,255,0.05)]" : "bg-card border border-border shadow-sm"}`}>
             {renderRivets()}
@@ -1185,6 +1205,7 @@ export default function ComplianceCenter() {
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {[
+                    { key: "googleAnalytics", label: "Google Analytics" },
                     { key: "humanVerification", label: "Human Verification (Math Puzzle)" },
                     { key: "largeHeaderImage", label: "Large Header Image" },
                     { key: "contactInfoSection", label: "Contact Info Section" },

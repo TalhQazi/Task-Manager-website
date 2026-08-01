@@ -715,7 +715,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                       <div className="relative">
                         <Avatar className="h-10 w-10 border shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20 transition-all" style={{ borderColor: 'var(--tb-header-border, rgba(255,255,255,0.2))', ...getAvatarStyles() }}>
                           {profile?.avatarUrl ? (
-                            <AvatarImage src={toProxiedUrl(profile.avatarUrl)} alt={fullName} crossOrigin="anonymous" className="object-cover" />
+                            <AvatarImage src={toProxiedUrl(profile.avatarUrl)} alt={fullName} className="object-cover" />
                           ) : (
                             <AvatarFallback className="bg-gradient-to-br from-[#00C6FF] to-[#0072FF] text-white text-xs font-bold">{initials}</AvatarFallback>
                           )}

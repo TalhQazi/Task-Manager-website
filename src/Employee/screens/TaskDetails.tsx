@@ -750,7 +750,7 @@ export default function EmployeeTaskDetails() {
                                 <div className="w-8 flex-shrink-0">
                                   {!isSameAuthor ? (
                                     <Avatar className="w-8 h-8 border shadow-sm flex-shrink-0 mb-1">
-                                      <AvatarImage src={toProxiedUrl(c.authorAvatar)} alt={c.authorUsername} crossOrigin="anonymous" />
+                                      <AvatarImage src={toProxiedUrl(c.authorAvatar)} alt={c.authorUsername} />
                                       <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
                                         {(c.authorUsername || "??").substring(0, 2).toUpperCase()}
                                       </AvatarFallback>
@@ -813,7 +813,7 @@ export default function EmployeeTaskDetails() {
                                 <div className="w-8 flex-shrink-0">
                                   {!isSameAuthor ? (
                                     <Avatar className="w-8 h-8 border shadow-sm flex-shrink-0 mb-1">
-                                      <AvatarImage src={toProxiedUrl(profile?.avatarUrl)} alt={currentUsername} crossOrigin="anonymous" />
+                                      <AvatarImage src={toProxiedUrl(profile?.avatarUrl)} alt={currentUsername} />
                                       <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
                                         {(currentUsername || "??").substring(0, 2).toUpperCase()}
                                       </AvatarFallback>

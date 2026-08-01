@@ -448,7 +448,7 @@ export default function Settings() {
           <div className="relative">
             <Avatar className="h-20 w-20 border-2 border-border">
               {draft?.avatarUrl ? (
-                <AvatarImage src={draft.avatarUrl} alt={draft?.fullName || "User"} className="object-cover" crossOrigin="anonymous" />
+                <AvatarImage src={draft.avatarUrl} alt={draft?.fullName || "User"} className="object-cover" />
               ) : (
                 <AvatarFallback className="text-2xl bg-primary/10 text-primary">
                   {initials}
