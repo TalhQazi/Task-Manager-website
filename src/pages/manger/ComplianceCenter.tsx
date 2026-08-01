@@ -50,6 +50,8 @@ interface Website {
   owner?: string;
   notes?: string;
   launchDate?: string;
+  originalPurchaseDate?: string;
+  expirationDate?: string;
   businessUnit: string;
   environment: string;
   leadDeveloper?: string;
@@ -199,6 +201,8 @@ export default function ComplianceCenter() {
     owner: "",
     notes: "",
     launchDate: "",
+    originalPurchaseDate: "",
+    expirationDate: "",
     businessUnit: "Marketing",
     environment: "Production",
     leadDeveloper: "",
@@ -891,27 +895,27 @@ export default function ComplianceCenter() {
                               <div className="text-xs text-muted-foreground">{site.businessUnit}</div>
                             </TableCell>
                             <TableCell>
-                              {site.launchDate ? (
-                                <div className="space-y-1">
+                              <div className="space-y-1">
+                                {site.launchDate ? (
                                   <div className="text-xs font-medium flex items-center gap-1">
                                     <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                                    {new Date(site.launchDate).toLocaleDateString()}
+                                    Launch: {new Date(site.launchDate).toLocaleDateString()}
                                   </div>
-                                  {countdown !== null && (
-                                    <div className="text-[11px]">
-                                      {countdown > 0 ? (
-                                        <span className="text-[#00C6FF] font-bold">{countdown} days left</span>
-                                      ) : countdown === 0 ? (
-                                        <span className="text-green-500 font-bold">Launch Today!</span>
-                                      ) : (
-                                        <span className="text-muted-foreground">{Math.abs(countdown)} days ago</span>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">Not set</span>
-                              )}
+                                ) : null}
+                                {site.originalPurchaseDate ? (
+                                  <div className="text-[11px] text-muted-foreground flex items-center gap-1">
+                                    Purchased: {new Date(site.originalPurchaseDate).toLocaleDateString()}
+                                  </div>
+                                ) : null}
+                                {site.expirationDate ? (
+                                  <div className="text-[11px] font-semibold text-rose-500 flex items-center gap-1">
+                                    Expires: {new Date(site.expirationDate).toLocaleDateString()}
+                                  </div>
+                                ) : null}
+                                {!site.launchDate && !site.originalPurchaseDate && !site.expirationDate && (
+                                  <span className="text-xs text-muted-foreground">Not set</span>
+                                )}
+                              </div>
                             </TableCell>
                             <TableCell>
                               <div className="space-y-1.5 max-w-[140px]">
@@ -1127,7 +1131,7 @@ export default function ComplianceCenter() {
                 </Select>
               </div>
 
-              <div className="space-y-1.5 col-span-2">
+              <div className="space-y-1.5">
                 <label className="text-xs font-semibold flex items-center gap-1">
                   <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
                   Target Launch Date
@@ -1136,6 +1140,30 @@ export default function ComplianceCenter() {
                   type="date"
                   value={newSite.launchDate}
                   onChange={(e) => setNewSite({ ...newSite, launchDate: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
+                  Original Purchase Date
+                </label>
+                <Input
+                  type="date"
+                  value={newSite.originalPurchaseDate}
+                  onChange={(e) => setNewSite({ ...newSite, originalPurchaseDate: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-1.5 col-span-2">
+                <label className="text-xs font-semibold flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5 text-rose-500" />
+                  Domain Expiration Date
+                </label>
+                <Input
+                  type="date"
+                  value={newSite.expirationDate}
+                  onChange={(e) => setNewSite({ ...newSite, expirationDate: e.target.value })}
                 />
               </div>
             </div>

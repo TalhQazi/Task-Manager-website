@@ -136,10 +136,23 @@ export function TaskViewSwitcher() {
           >
             {["all", "pending", "in-progress", "completed", "overdue"].map((s) => (
               <option key={s} value={s}>
-                {s === "all" ? "All Statuses" : s === "in-progress" ? "In Progress" : s.charAt(0).toUpperCase() + s.slice(1)}
+                {s === "all" ? "All Statuses" : s === "completed" ? "Completed (Corral)" : s === "in-progress" ? "In Progress" : s.charAt(0).toUpperCase() + s.slice(1)}
               </option>
             ))}
           </select>
+
+          {/* Quick Filter: Recently Completed Corral */}
+          <button
+            type="button"
+            onClick={() => setFilters({ status: filters.status === "completed" ? "all" : "completed" })}
+            className={`h-9 px-3 rounded-md text-xs font-semibold border transition-all flex items-center gap-1.5 ${
+              filters.status === "completed"
+                ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
+                : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+            }`}
+          >
+            Recently Completed Corral
+          </button>
 
           {/* Priority Filter */}
           <select

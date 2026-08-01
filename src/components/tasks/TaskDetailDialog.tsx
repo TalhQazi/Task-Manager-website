@@ -69,7 +69,20 @@ export function TaskDetailDialog({ task, onClose }: { task: TaskView | null; onC
         </div>
 
         <div className="flex justify-between items-center pt-2">
-          {statusMutation.isPending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          <div className="flex items-center gap-2">
+            {statusMutation.isPending && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+            {task.status === "completed" && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="bg-amber-500/10 text-amber-600 border-amber-500/30 hover:bg-amber-500/20 font-semibold gap-1.5 text-xs"
+                disabled={statusMutation.isPending}
+                onClick={() => statusMutation.mutate("in-progress")}
+              >
+                Mark Incomplete (Reopen)
+              </Button>
+            )}
+          </div>
           <Button className="ml-auto gap-1.5" onClick={() => navigate(`/admin/tasks?view=${task.id}`)}>
             <ExternalLink className="h-4 w-4" /> Open full editor
           </Button>

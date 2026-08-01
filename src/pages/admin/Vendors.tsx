@@ -503,9 +503,16 @@ export default function Vendors() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1 text-sm">
-                          <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
-                          {vendor.location || "—"}
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1 text-sm font-medium">
+                            <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                            <span>{vendor.location || "—"}</span>
+                          </div>
+                          {[vendor.street, vendor.city, vendor.state, vendor.zip].filter(Boolean).length > 0 && (
+                            <p className="text-xs text-muted-foreground font-mono truncate max-w-[220px]" title={[vendor.street, vendor.city, vendor.state, vendor.zip].filter(Boolean).join(", ")}>
+                              {[vendor.street, vendor.city, vendor.state, vendor.zip].filter(Boolean).join(", ")}
+                            </p>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell onClick={(e) => e.stopPropagation()}>
@@ -646,25 +653,20 @@ export default function Vendors() {
               </div>
 
               <div className="space-y-2">
-                <Label>Location</Label>
-                <Select
-                  value={formData.location || "none-selected"}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, location: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select location (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none-selected">None</SelectItem>
+                <Label>Location / City / Site</Label>
+                <div className="relative">
+                  <Input
+                    value={formData.location === "none-selected" ? "" : formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    placeholder="Type custom location or select below..."
+                    list="vendor-locations-list"
+                  />
+                  <datalist id="vendor-locations-list">
                     {locations.map((loc) => (
-                      <SelectItem key={loc._id} value={loc.name}>
-                        {loc.name}
-                      </SelectItem>
+                      <option key={loc._id} value={loc.name} />
                     ))}
-                  </SelectContent>
-                </Select>
+                  </datalist>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -941,25 +943,20 @@ export default function Vendors() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Location</Label>
-                <Select
-                  value={formData.location || "none-selected"}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, location: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select location (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none-selected">None</SelectItem>
+                <Label>Location / City / Site</Label>
+                <div className="relative">
+                  <Input
+                    value={formData.location === "none-selected" ? "" : formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    placeholder="Type custom location or select below..."
+                    list="vendor-locations-edit-list"
+                  />
+                  <datalist id="vendor-locations-edit-list">
                     {locations.map((loc) => (
-                      <SelectItem key={loc._id} value={loc.name}>
-                        {loc.name}
-                      </SelectItem>
+                      <option key={loc._id} value={loc.name} />
                     ))}
-                  </SelectContent>
-                </Select>
+                  </datalist>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Status *</Label>
