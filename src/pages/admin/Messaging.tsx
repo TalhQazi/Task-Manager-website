@@ -966,7 +966,6 @@ export default function Messaging() {
             </button>
           </div>
         )}
-        </div>
 
         {/* Error Message */}
         {apiError && (
