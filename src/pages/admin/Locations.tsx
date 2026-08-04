@@ -83,6 +83,24 @@ function normalizeLocationType(value: unknown): LocationType {
   return "Property";
 }
 
+export interface LocationComplianceChecklist {
+  water: { status: string; notes: string };
+  power: { status: string; notes: string };
+  townPermitDemo: { status: string; notes: string };
+  townPermitRenovations: { status: string; notes: string };
+  sitePlanReview: { option: string; notes: string };
+  certificateOfOccupancy: { status: string; date: string; notes: string };
+}
+
+const DEFAULT_COMPLIANCE_CHECKLIST: LocationComplianceChecklist = {
+  water: { status: "Pending", notes: "" },
+  power: { status: "Pending", notes: "" },
+  townPermitDemo: { status: "Pending", notes: "" },
+  townPermitRenovations: { status: "Pending", notes: "" },
+  sitePlanReview: { option: "Needed", notes: "" },
+  certificateOfOccupancy: { status: "Pending", date: "", notes: "" },
+};
+
 interface Location {
   id: string;
   name: string;
@@ -99,6 +117,7 @@ interface Location {
   photoDataUrl?: string;
   photoFileName?: string;
   attachments?: { fileName: string; url: string }[];
+  complianceChecklist?: LocationComplianceChecklist;
 }
 
 const toDateOnly = (value: string) => {
@@ -118,6 +137,8 @@ function normalizeLocation(l: BackendLocation): Location {
   const createdAt =
     String(l.createdAt || l.date || "").trim() || undefined;
 
+  const cl = l.complianceChecklist || {};
+
   return {
     id: String(l.id || l._id || "").trim(),
     name: String(l.name || "").trim(),
@@ -134,6 +155,14 @@ function normalizeLocation(l: BackendLocation): Location {
     photoDataUrl: String(l.photoDataUrl || "").trim() || undefined,
     photoFileName: String(l.photoFileName || "").trim() || undefined,
     attachments: Array.isArray(l.attachments) ? l.attachments : [],
+    complianceChecklist: {
+      water: { status: cl.water?.status || "Pending", notes: cl.water?.notes || "" },
+      power: { status: cl.power?.status || "Pending", notes: cl.power?.notes || "" },
+      townPermitDemo: { status: cl.townPermitDemo?.status || "Pending", notes: cl.townPermitDemo?.notes || "" },
+      townPermitRenovations: { status: cl.townPermitRenovations?.status || "Pending", notes: cl.townPermitRenovations?.notes || "" },
+      sitePlanReview: { option: cl.sitePlanReview?.option || "Needed", notes: cl.sitePlanReview?.notes || "" },
+      certificateOfOccupancy: { status: cl.certificateOfOccupancy?.status || "Pending", date: cl.certificateOfOccupancy?.date || "", notes: cl.certificateOfOccupancy?.notes || "" },
+    },
   };
 }
 
@@ -196,6 +225,7 @@ const Locations = () => {
     photoDataUrl: "",
     photoFileName: "",
     attachments: [] as { fileName: string; url: string }[],
+    complianceChecklist: { ...DEFAULT_COMPLIANCE_CHECKLIST },
   });
 
   const [editFormData, setEditFormData] = useState({
@@ -212,6 +242,7 @@ const Locations = () => {
     photoDataUrl: "",
     photoFileName: "",
     attachments: [] as { fileName: string; url: string }[],
+    complianceChecklist: { ...DEFAULT_COMPLIANCE_CHECKLIST },
   });
 
   useEffect(() => {
@@ -304,6 +335,7 @@ const Locations = () => {
         photoDataUrl: formData.photoDataUrl || undefined,
         photoFileName: formData.photoFileName || undefined,
         attachments: formData.attachments,
+        complianceChecklist: formData.complianceChecklist,
       };
       await createResource<Location>("locations", newLocation);
       setSubmitSuccess(true);
@@ -326,6 +358,7 @@ const Locations = () => {
         photoDataUrl: "",
         photoFileName: "",
         attachments: [],
+        complianceChecklist: { ...DEFAULT_COMPLIANCE_CHECKLIST },
       });
     } catch (e) {
       setFormError(e instanceof Error ? e.message : "Failed to add location");
@@ -367,6 +400,7 @@ const Locations = () => {
       photoDataUrl: location.photoDataUrl || "",
       photoFileName: location.photoFileName || "",
       attachments: location.attachments || [],
+      complianceChecklist: location.complianceChecklist || { ...DEFAULT_COMPLIANCE_CHECKLIST },
     });
     setEditLocationOpen(true);
 
@@ -404,6 +438,7 @@ const Locations = () => {
         photoDataUrl: editFormData.photoDataUrl || undefined,
         photoFileName: editFormData.photoFileName || undefined,
         attachments: editFormData.attachments,
+        complianceChecklist: editFormData.complianceChecklist,
       });
       await refreshLocations();
       setEditLocationOpen(false);
@@ -862,6 +897,46 @@ const Locations = () => {
                         {u}
                       </Badge>
                     )) : <p className="text-slate-300 italic text-sm">No business units defined</p>}
+                  </div>
+               </div>
+
+               {/* Location Compliance Checklist */}
+               <div className="col-span-2 space-y-3 pt-4 border-t border-slate-100">
+                  <p className="text-xs font-bold text-blue-600 uppercase tracking-widest flex items-center gap-1.5">
+                    <Sparkles className="h-4 w-4 text-blue-500" /> Location Compliance Checklist
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200/60 text-xs">
+                    <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
+                      <span className="font-bold text-slate-700">Water Utility</span>
+                      <Badge className="w-fit mt-1 text-[10px] bg-blue-100 text-blue-700 border-0">{selectedLocation?.complianceChecklist?.water?.status || "Pending"}</Badge>
+                      {selectedLocation?.complianceChecklist?.water?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.water.notes}"</p>}
+                    </div>
+                    <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
+                      <span className="font-bold text-slate-700">Power Utility</span>
+                      <Badge className="w-fit mt-1 text-[10px] bg-amber-100 text-amber-700 border-0">{selectedLocation?.complianceChecklist?.power?.status || "Pending"}</Badge>
+                      {selectedLocation?.complianceChecklist?.power?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.power.notes}"</p>}
+                    </div>
+                    <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
+                      <span className="font-bold text-slate-700">Town Permit for Demo</span>
+                      <Badge className="w-fit mt-1 text-[10px] bg-purple-100 text-purple-700 border-0">{selectedLocation?.complianceChecklist?.townPermitDemo?.status || "Pending"}</Badge>
+                      {selectedLocation?.complianceChecklist?.townPermitDemo?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.townPermitDemo.notes}"</p>}
+                    </div>
+                    <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
+                      <span className="font-bold text-slate-700">Town Permit for Renovations</span>
+                      <Badge className="w-fit mt-1 text-[10px] bg-indigo-100 text-indigo-700 border-0">{selectedLocation?.complianceChecklist?.townPermitRenovations?.status || "Pending"}</Badge>
+                      {selectedLocation?.complianceChecklist?.townPermitRenovations?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.townPermitRenovations.notes}"</p>}
+                    </div>
+                    <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
+                      <span className="font-bold text-slate-700">Site Plan Review</span>
+                      <Badge className="w-fit mt-1 text-[10px] bg-emerald-100 text-emerald-700 border-0">{selectedLocation?.complianceChecklist?.sitePlanReview?.option || "Needed"}</Badge>
+                      {selectedLocation?.complianceChecklist?.sitePlanReview?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.sitePlanReview.notes}"</p>}
+                    </div>
+                    <div className="p-3 bg-white rounded-lg border flex flex-col justify-between">
+                      <span className="font-bold text-slate-700">Certificate of Occupancy</span>
+                      <Badge className="w-fit mt-1 text-[10px] bg-green-100 text-green-700 border-0">{selectedLocation?.complianceChecklist?.certificateOfOccupancy?.status || "Pending"}</Badge>
+                      {selectedLocation?.complianceChecklist?.certificateOfOccupancy?.date && <p className="text-[10px] text-slate-400 mt-1 font-mono">Date: {selectedLocation.complianceChecklist.certificateOfOccupancy.date}</p>}
+                      {selectedLocation?.complianceChecklist?.certificateOfOccupancy?.notes && <p className="text-[11px] text-slate-500 mt-1.5 italic">"{selectedLocation.complianceChecklist.certificateOfOccupancy.notes}"</p>}
+                    </div>
                   </div>
                </div>
 

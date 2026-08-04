@@ -529,6 +529,33 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
     }
   };
 
+  const exportNoteAsTxt = () => {
+    if (!selectedNote) {
+      toast.error("No note selected to export");
+      return;
+    }
+    const title = selectedNote.title || "Untitled Document";
+    const content = selectedNote.content || "";
+    const actionItemsStr = selectedNote.actionItems?.length
+      ? "\n\nAction Items:\n" + selectedNote.actionItems.map((i) => `- [${i.completed ? "x" : " "}] ${i.text}`).join("\n")
+      : "";
+    const highlightsStr = selectedNote.notesList?.length
+      ? "\n\nKey Highlights:\n" + selectedNote.notesList.map((h) => `- ${h}`).join("\n")
+      : "";
+    const fullText = `${title}\n${"=".repeat(Math.max(title.length, 20))}\n\nFolder: ${selectedNote.folder || "None"}\nTags: ${selectedNote.tags?.join(", ") || "None"}\nCreated: ${selectedNote.createdAt}\nUpdated: ${selectedNote.updatedAt}\n\nOverview:\n${content}${actionItemsStr}${highlightsStr}\n`;
+
+    const blob = new Blob([fullText], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${title.replace(/[^a-z0-9]/gi, "_").toLowerCase()}.txt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success("Note exported as text file");
+  };
+
   // FULLY DYNAMIC AI ASSISTANT FUNCTIONS
   const runAiAssistant = async (actionType: string) => {
     if (!selectedNote) return;

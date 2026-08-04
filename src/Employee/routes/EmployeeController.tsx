@@ -29,10 +29,11 @@ const EmployeeAnnouncements = lazy(() => import("@/pages/employee/Announcements"
 const EmployeeEmailSettings = lazy(() => import("../screens/EmailSettings"));
 const EmployeeItinerary = lazy(() => import("../screens/EmployeeItinerary"));
 const EmployeeEODReports = lazy(() => import("../screens/EmployeeEODReports"));
+const ComplianceCenter = lazy(() => import("@/pages/manger/ComplianceCenter"));
 
 function PageLoader() {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh" }}>
+    <div style={{ display: "flex", flex: 1, alignItems: "center", justifyContent: "center", height: "60vh" }}>
       <div style={{
         width: 36, height: 36,
         border: "3px solid rgba(255,255,255,0.1)",
@@ -59,6 +60,7 @@ function EmployeeController() {
         <Route element={<EmployeeLayout />}>
           <Route path="/" element={<EmployeeDashboard />} />
           <Route path="/dashboard" element={<EmployeeDashboard />} />
+          <Route path="/compliance-center" element={<ComplianceCenter />} />
           <Route path="/tasks" element={<EmployeeTasks />} />
           <Route path="/tasks/:taskId" element={<EmployeeTaskDetails />} />
           <Route path="/schedule" element={<EmployeeSchedule />} />

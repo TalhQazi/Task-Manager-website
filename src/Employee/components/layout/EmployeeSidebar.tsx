@@ -33,6 +33,7 @@ import { useMemo } from "react";
 
 const navItemsBase = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/employee", end: true },
+  { icon: ClipboardCheck, label: "Compliance Center", path: "/employee/compliance-center" },
   { icon: Megaphone, label: "Announcements", path: "/employee/announcements" },
   { icon: ClipboardList, label: "My Tasks", path: "/employee/tasks" },
   { icon: MapPin, label: "Daily Itinerary", path: "/employee/itinerary" },
