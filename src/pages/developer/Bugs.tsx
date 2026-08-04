@@ -22,6 +22,8 @@ import {
   DialogTitle,
 } from "@/components/admin/ui/dialog";
 
+import { Video } from "lucide-react";
+
 type BugStatus = "open" | "closed";
 
 type BugItem = {
@@ -35,6 +37,18 @@ type BugItem = {
   createdAt?: string;
   source?: { panel?: string; path?: string };
   attachments?: { fileName?: string; url?: string; mimeType?: string; size?: number }[];
+};
+
+const isVideoAttachment = (att?: { url?: string; mimeType?: string; fileName?: string } | string | null) => {
+  if (!att) return false;
+  const url = typeof att === "string" ? att : att.url || "";
+  const mimeType = typeof att === "string" ? "" : att.mimeType || "";
+  const fileName = typeof att === "string" ? "" : att.fileName || "";
+
+  if (mimeType.startsWith("video/")) return true;
+  if (url.startsWith("data:video/")) return true;
+  const lowerUrl = (url || fileName).toLowerCase();
+  return /\.(mp4|webm|mov|ogg|m4v|mkv)(\?.*)?$/i.test(lowerUrl);
 };
 
 function toText(v: unknown) {
@@ -256,15 +270,30 @@ export default function Bugs() {
                 <div className="space-y-4">
                   <p className="text-xs sm:text-sm font-medium">Attachments ({selected.attachments.length})</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {selected.attachments.map((att, i) => (
-                      <div key={i} className="w-full overflow-hidden rounded-lg border bg-muted/20">
-                        <img
-                          src={String(att.url)}
-                          alt={String(att.fileName || `Attachment ${i + 1}`)}
-                          className="w-full h-auto max-h-[65vh] object-contain"
-                        />
-                      </div>
-                    ))}
+                    {selected.attachments.map((att, i) => {
+                      const src = String(att.url);
+                      const isVid = isVideoAttachment(att);
+                      if (isVid) {
+                        return (
+                          <div key={i} className="w-full overflow-hidden rounded-lg border bg-black flex flex-col">
+                            <video src={src} controls className="w-full h-auto max-h-[60vh] object-contain" />
+                            <div className="p-2 bg-muted/40 text-xs text-muted-foreground flex items-center gap-1.5 font-medium">
+                              <Video className="h-4 w-4 text-primary shrink-0" />
+                              <span className="truncate">{att.fileName || `Video ${i + 1}`}</span>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div key={i} className="w-full overflow-hidden rounded-lg border bg-muted/20">
+                          <img
+                            src={src}
+                            alt={String(att.fileName || `Attachment ${i + 1}`)}
+                            className="w-full h-auto max-h-[65vh] object-contain"
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ) : null}

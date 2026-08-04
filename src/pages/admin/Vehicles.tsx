@@ -89,6 +89,7 @@ interface Vehicle {
     assignee: string;
     dueDate: string;
     completed: boolean;
+    parts?: { name: string; cost: number }[];
   }[];
 }
 
@@ -309,6 +310,7 @@ const Vehicles = () => {
   const [newNeedAssignee, setNewNeedAssignee] = useState("");
   const [newNeedDueDate, setNewNeedDueDate] = useState("");
   const [isUpdatingNeed, setIsUpdatingNeed] = useState(false);
+  const [activeRowPartsNeedId, setActiveRowPartsNeedId] = useState<string | null>(null);
 
   const handleAddNeed = async () => {
     if (!selectedVehicle || !newNeedTaskName.trim()) return;
@@ -340,6 +342,21 @@ const Vehicles = () => {
       console.error("Failed to add need", e);
     } finally {
       setIsUpdatingNeed(false);
+    }
+  };
+
+  const handleUpdateNeedsForVehicle = async (vehicle: Vehicle, updatedNeeds: any[]) => {
+    try {
+      const res = await updateResource<Vehicle>("vehicles", vehicle.id, {
+        needs: updatedNeeds
+      });
+      const updatedVehicle = res?.item || res;
+      if (selectedVehicle && selectedVehicle.id === vehicle.id) {
+        setSelectedVehicle(updatedVehicle);
+      }
+      refreshVehicles();
+    } catch (e) {
+      console.error("Failed to update needs for vehicle", e);
     }
   };
 
@@ -1623,6 +1640,7 @@ const Vehicles = () => {
                             onAddNeed={handleAddNeedForVehicle}
                             onToggleNeed={handleToggleNeedForVehicle}
                             onDeleteNeed={handleDeleteNeedForVehicle}
+                            onUpdateNeeds={handleUpdateNeedsForVehicle}
                           />
                         </motion.div>
                       ))}
@@ -1819,6 +1837,7 @@ const Vehicles = () => {
                                       onAddNeed={handleAddNeedForVehicle}
                                       onToggleNeed={handleToggleNeedForVehicle}
                                       onDeleteNeed={handleDeleteNeedForVehicle}
+                                      onUpdateNeeds={handleUpdateNeedsForVehicle}
                                     />
                                   </TableCell>
                                 </TableRow>
@@ -1867,64 +1886,161 @@ const Vehicles = () => {
                                 <div className="col-span-3 sm:col-span-3">Assignee</div>
                                 <div className="col-span-3 sm:col-span-2">Due date</div>
                               </div>
-                              
-                              {/* List items */}
-                              <div className="space-y-1.5">
-                                {vehicleNeeds.length > 0 ? (
-                                  vehicleNeeds.map(need => (
-                                    <div key={need.id} className="grid grid-cols-12 gap-2 items-center p-2 rounded-lg bg-background border border-border/40 hover:bg-muted/20 transition-colors text-xs sm:text-sm">
-                                      {/* Task checkbox & name */}
-                                      <div className="col-span-6 sm:col-span-7 flex items-center gap-2.5 min-w-0">
-                                        <input 
-                                          type="checkbox"
-                                          checked={need.completed}
-                                          onChange={(e) => {
-                                            e.stopPropagation();
-                                            handleToggleNeedForVehicle(vehicle, need.id);
-                                          }}
-                                          className="h-4 w-4 rounded border-gray-300 text-primary accent-primary cursor-pointer flex-shrink-0"
-                                        />
-                                        <span className={`font-medium truncate ${need.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                                          {need.taskName}
-                                        </span>
-                                      </div>
-                                      
-                                      {/* Assignee */}
-                                      <div className="col-span-3 sm:col-span-3 min-w-0">
-                                        {need.assignee ? (
-                                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium truncate">
-                                            <span className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center text-[9px] font-bold">
-                                              {getInitials(need.assignee)}
-                                            </span>
-                                            <span className="hidden sm:inline">{need.assignee}</span>
-                                          </span>
-                                        ) : (
-                                          <span className="text-muted-foreground">—</span>
-                                        )}
-                                      </div>
-                                      
-                                      {/* Due Date & delete actions */}
-                                      <div className="col-span-3 sm:col-span-2 flex items-center justify-between min-w-0">
-                                        <span className="text-xs text-muted-foreground truncate">{need.dueDate || "—"}</span>
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="icon"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteNeedForVehicle(vehicle, need.id);
-                                          }}
-                                          className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
-                                        >
-                                          <Trash2 className="h-3.5 w-3.5" />
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  ))
-                                ) : (
-                                  <p className="text-xs text-muted-foreground italic py-2 text-center">No needs listed for this vehicle.</p>
-                                )}
+                                                    {/* List items */}
+                      <div className="space-y-1.5">
+                        {vehicleNeeds.length > 0 ? (
+                          vehicleNeeds.map(need => (
+                            <div key={need.id} className="space-y-1.5">
+                              <div className="grid grid-cols-12 gap-2 items-center p-2 rounded-lg bg-background border border-border/40 hover:bg-muted/20 transition-colors text-xs sm:text-sm">
+                                {/* Task checkbox & name */}
+                                <div className="col-span-6 sm:col-span-7 flex items-center gap-2.5 min-w-0">
+                                  <input 
+                                    type="checkbox"
+                                    checked={need.completed}
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      void handleToggleNeedForVehicle(vehicle, need.id);
+                                    }}
+                                    className="h-4 w-4 rounded border-gray-300 text-primary accent-primary cursor-pointer flex-shrink-0"
+                                  />
+                                  <div className="min-w-0 flex-1">
+                                    <span className={`font-medium truncate block ${need.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                                      {need.taskName}
+                                    </span>
+                                    {need.parts && need.parts.length > 0 && (
+                                      <span className="text-[10px] text-primary font-semibold block mt-0.5">
+                                        Parts: {need.parts.map(p => `${p.name} ($${(Number(p.cost) || 0).toFixed(2)})`).join(", ")}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                
+                                {/* Assignee */}
+                                <div className="col-span-3 sm:col-span-3 min-w-0">
+                                  {need.assignee ? (
+                                    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-medium truncate">
+                                      <span className="w-4 h-4 rounded-full bg-primary/20 flex items-center justify-center text-[9px] font-bold">
+                                        {getInitials(need.assignee)}
+                                      </span>
+                                      <span className="hidden sm:inline">{need.assignee}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground">—</span>
+                                  )}
+                                </div>
+                                
+                                {/* Due Date & delete actions */}
+                                <div className="col-span-3 sm:col-span-2 flex items-center justify-between min-w-0">
+                                  <span className="text-xs text-muted-foreground truncate">{need.dueDate || "—"}</span>
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setActiveRowPartsNeedId(activeRowPartsNeedId === need.id ? null : need.id);
+                                      }}
+                                      className={`h-6 w-6 text-muted-foreground rounded-md hover:bg-primary/10 hover:text-primary ${activeRowPartsNeedId === need.id ? "bg-primary/10 text-primary" : ""}`}
+                                    >
+                                      <Wrench className="h-3 w-3" />
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        void handleDeleteNeedForVehicle(vehicle, need.id);
+                                      }}
+                                      className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                                </div>
                               </div>
+
+                              {/* Row parts editor */}
+                              {activeRowPartsNeedId === need.id && (
+                                <div className="ml-8 p-3 bg-muted/40 rounded-lg border border-border/40 space-y-2 text-xs">
+                                  <div className="flex justify-between items-center font-semibold text-muted-foreground text-[10px] uppercase">
+                                    <span>Parts Required</span>
+                                    <span className="text-primary font-bold">Total: ${need.parts?.reduce((sum, p) => sum + (Number(p.cost) || 0), 0).toFixed(2) || "0.00"}</span>
+                                  </div>
+                                  {need.parts && need.parts.length > 0 ? (
+                                    <div className="space-y-1">
+                                      {need.parts.map((part, pIdx) => (
+                                        <div key={pIdx} className="flex justify-between items-center bg-background px-2 py-1 rounded border border-border/40">
+                                          <span className="font-medium">{part.name}</span>
+                                          <div className="flex items-center gap-1.5">
+                                            <span className="text-muted-foreground font-semibold">${(Number(part.cost) || 0).toFixed(2)}</span>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const updated = (vehicle.needs || []).map(n => {
+                                                  if (n.id === need.id) {
+                                                    return { ...n, parts: (n.parts || []).filter((_, i) => i !== pIdx) };
+                                                  }
+                                                  return n;
+                                                });
+                                                void handleUpdateNeedsForVehicle(vehicle, updated);
+                                              }}
+                                              className="text-muted-foreground hover:text-destructive transition-colors font-bold text-sm"
+                                            >
+                                              ×
+                                            </button>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="text-[10px] text-muted-foreground italic">No parts added yet.</p>
+                                  )}
+                                  <div className="flex gap-2 pt-2 border-t border-border/40">
+                                    <input
+                                      type="text"
+                                      placeholder="Part name"
+                                      id={`row-part-name-input-${need.id}`}
+                                      className="flex-1 rounded border border-input bg-background px-2 py-1 text-xs outline-none"
+                                    />
+                                    <input
+                                      type="number"
+                                      placeholder="Cost"
+                                      id={`row-part-cost-input-${need.id}`}
+                                      className="w-20 rounded border border-input bg-background px-2 py-1 text-xs outline-none"
+                                    />
+                                    <Button
+                                      type="button"
+                                      onClick={() => {
+                                        const nameEl = document.getElementById(`row-part-name-input-${need.id}`) as HTMLInputElement;
+                                        const costEl = document.getElementById(`row-part-cost-input-${need.id}`) as HTMLInputElement;
+                                        if (nameEl && nameEl.value.trim()) {
+                                          const costNum = parseFloat(costEl.value) || 0;
+                                          const updated = (vehicle.needs || []).map(n => {
+                                            if (n.id === need.id) {
+                                              return { ...n, parts: [...(n.parts || []), { name: nameEl.value.trim(), cost: costNum }] };
+                                            }
+                                            return n;
+                                          });
+                                          void handleUpdateNeedsForVehicle(vehicle, updated);
+                                          nameEl.value = "";
+                                          costEl.value = "";
+                                        }
+                                      }}
+                                      className="h-7 px-2.5 text-xs font-bold"
+                                    >
+                                      Add Part
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-xs text-muted-foreground italic py-2 text-center">No needs listed for this vehicle.</p>
+                        )}
+                      </div>
                               
                               {/* Inline Quick Add Row */}
                               <div className="pt-3 border-t border-border/40 bg-card/40 p-3 rounded-xl border border-border/40">
@@ -2614,19 +2730,27 @@ const VehicleNeedsSection = ({
   employees,
   onAddNeed,
   onToggleNeed,
-  onDeleteNeed
+  onDeleteNeed,
+  onUpdateNeeds
 }: {
   vehicle: Vehicle;
   employees: Employee[];
   onAddNeed: (vehicle: Vehicle, taskName: string, assignee: string, dueDate: string) => Promise<void>;
   onToggleNeed: (vehicle: Vehicle, needId: string) => Promise<void>;
   onDeleteNeed: (vehicle: Vehicle, needId: string) => Promise<void>;
+  onUpdateNeeds: (vehicle: Vehicle, updatedNeeds: any[]) => Promise<void>;
 }) => {
-  const [expanded, setExpanded] = useState(false);
+  const pendingCount = (vehicle.needs || []).filter(n => !n.completed).length;
+  const [expanded, setExpanded] = useState(pendingCount > 0);
   const [taskName, setTaskName] = useState("");
   const [assignee, setAssignee] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Parts management states
+  const [activePartsNeedId, setActivePartsNeedId] = useState<string | null>(null);
+  const [partName, setPartName] = useState("");
+  const [partCost, setPartCost] = useState("");
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2642,7 +2766,37 @@ const VehicleNeedsSection = ({
     }
   };
 
-  const pendingCount = (vehicle.needs || []).filter(n => !n.completed).length;
+  const handleAddPart = async (needId: string) => {
+    if (!partName.trim()) return;
+    const costNum = parseFloat(partCost) || 0;
+    const updatedNeeds = (vehicle.needs || []).map(n => {
+      if (n.id === needId) {
+        const existingParts = n.parts || [];
+        return {
+          ...n,
+          parts: [...existingParts, { name: partName.trim(), cost: costNum }]
+        };
+      }
+      return n;
+    });
+    await onUpdateNeeds(vehicle, updatedNeeds);
+    setPartName("");
+    setPartCost("");
+  };
+
+  const handleDeletePart = async (needId: string, partIndex: number) => {
+    const updatedNeeds = (vehicle.needs || []).map(n => {
+      if (n.id === needId) {
+        const existingParts = n.parts || [];
+        return {
+          ...n,
+          parts: existingParts.filter((_, idx) => idx !== partIndex)
+        };
+      }
+      return n;
+    });
+    await onUpdateNeeds(vehicle, updatedNeeds);
+  };
 
   return (
     <div className="border-t border-border/60 pt-3 mt-4">
@@ -2666,51 +2820,130 @@ const VehicleNeedsSection = ({
       {expanded && (
         <div className="mt-3 space-y-2 animate-fadeIn">
           {/* Needs List */}
-          <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+          <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
             {(vehicle.needs || []).length > 0 ? (
-              (vehicle.needs || []).map((need) => (
-                <div 
-                  key={need.id}
-                  className="flex items-center justify-between p-1.5 rounded-lg bg-muted/20 border border-muted/40 hover:bg-muted/30 transition-all text-xs"
-                >
-                  <div className="flex items-center gap-2 min-w-0 flex-1">
-                    <input
-                      type="checkbox"
-                      checked={need.completed}
-                      onChange={() => onToggleNeed(vehicle, need.id)}
-                      className="h-3.5 w-3.5 rounded border-gray-300 text-primary accent-primary cursor-pointer flex-shrink-0"
-                    />
-                    <div className="min-w-0 flex-1">
-                      <p className={`font-medium break-words ${need.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                        {need.taskName}
-                      </p>
-                      <div className="flex flex-wrap gap-2 mt-0.5 text-[9px] text-muted-foreground">
-                        {need.assignee && (
-                          <span className="flex items-center gap-0.5">
-                            <User className="h-2 w-2" />
-                            {need.assignee}
-                          </span>
-                        )}
-                        {need.dueDate && (
-                          <span className="flex items-center gap-0.5">
-                            <Calendar className="h-2 w-2" />
-                            {need.dueDate}
-                          </span>
-                        )}
+              (vehicle.needs || []).map((need) => {
+                const partsList = need.parts || [];
+                const partsTotal = partsList.reduce((sum, p) => sum + (Number(p.cost) || 0), 0);
+                const isPartsOpen = activePartsNeedId === need.id;
+
+                return (
+                  <div key={need.id} className="space-y-1.5">
+                    <div 
+                      className="flex items-center justify-between p-1.5 rounded-lg bg-muted/20 border border-muted/40 hover:bg-muted/30 transition-all text-xs"
+                    >
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <input
+                          type="checkbox"
+                          checked={need.completed}
+                          onChange={() => onToggleNeed(vehicle, need.id)}
+                          className="h-3.5 w-3.5 rounded border-gray-300 text-primary accent-primary cursor-pointer flex-shrink-0"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className={`font-medium break-words ${need.completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                            {need.taskName}
+                          </p>
+                          <div className="flex flex-wrap gap-2 mt-0.5 text-[9px] text-muted-foreground">
+                            {need.assignee && (
+                              <span className="flex items-center gap-0.5">
+                                <User className="h-2 w-2" />
+                                {need.assignee}
+                              </span>
+                            )}
+                            {need.dueDate && (
+                              <span className="flex items-center gap-0.5">
+                                <Calendar className="h-2 w-2" />
+                                {need.dueDate}
+                              </span>
+                            )}
+                            {partsList.length > 0 && (
+                              <span className="text-primary font-semibold">
+                                Parts: {partsList.length} (${partsTotal.toFixed(2)})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setActivePartsNeedId(isPartsOpen ? null : need.id)}
+                          className={`h-6 w-6 text-muted-foreground rounded-md hover:bg-primary/10 hover:text-primary ${isPartsOpen ? "bg-primary/10 text-primary" : ""}`}
+                          title="Manage Parts"
+                        >
+                          <Wrench className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onDeleteNeed(vehicle, need.id)}
+                          className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
                       </div>
                     </div>
+
+                    {/* Inline Parts Editor */}
+                    {isPartsOpen && (
+                      <div className="ml-4 p-2 bg-muted/40 rounded-lg border border-muted/50 space-y-2 text-xs">
+                        <div className="flex justify-between items-center font-semibold text-muted-foreground text-[10px] uppercase">
+                          <span>Parts Required</span>
+                          <span className="text-primary font-bold">Total: ${partsTotal.toFixed(2)}</span>
+                        </div>
+                        {partsList.length > 0 ? (
+                          <div className="space-y-1">
+                            {partsList.map((part, pIdx) => (
+                              <div key={pIdx} className="flex justify-between items-center bg-background px-2 py-1 rounded border border-border/40">
+                                <span className="font-medium">{part.name}</span>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-muted-foreground font-semibold">${(Number(part.cost) || 0).toFixed(2)}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeletePart(need.id, pIdx)}
+                                    className="text-muted-foreground hover:text-destructive transition-colors font-bold text-sm"
+                                  >
+                                    ×
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-[10px] text-muted-foreground italic">No parts added yet.</p>
+                        )}
+                        <div className="flex gap-1.5 pt-1.5 border-t border-border/40">
+                          <input
+                            type="text"
+                            placeholder="Part name"
+                            value={partName}
+                            onChange={(e) => setPartName(e.target.value)}
+                            className="flex-1 rounded border border-input bg-background px-1.5 py-0.5 text-[10px] outline-none"
+                          />
+                          <input
+                            type="number"
+                            placeholder="Cost"
+                            value={partCost}
+                            onChange={(e) => setPartCost(e.target.value)}
+                            className="w-16 rounded border border-input bg-background px-1.5 py-0.5 text-[10px] outline-none"
+                          />
+                          <Button
+                            type="button"
+                            onClick={() => handleAddPart(need.id)}
+                            disabled={!partName.trim()}
+                            className="h-5 px-1.5 text-[9px] font-bold"
+                          >
+                            Add
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => onDeleteNeed(vehicle, need.id)}
-                    className="h-6 w-6 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              ))
+                );
+              })
             ) : (
               <p className="text-[11px] text-muted-foreground italic py-1">No needs listed for this vehicle.</p>
             )}

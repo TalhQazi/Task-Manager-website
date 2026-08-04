@@ -108,22 +108,36 @@ export function toProxiedUrl(url: string | undefined | null): string | undefined
   return `${baseUrl}/api/s3-proxy/${s3Key}${token ? `?token=${token}` : ""}`;
 }
 
-function getStoredToken(): string | null {
+function readTokenFrom(key: string): string | null {
   try {
-    // Admin/manager token is stored under "taskflow_auth"
-    const adminRaw = localStorage.getItem("taskflow_auth");
-    if (adminRaw) {
-      const parsed = JSON.parse(adminRaw) as StoredAuth;
-      if (typeof parsed.token === "string" && parsed.token) return parsed.token;
-    }
-    // Employee token fallback
-    const empRaw = localStorage.getItem("employee_auth");
-    if (!empRaw) return null;
-    const parsed = JSON.parse(empRaw) as StoredAuth;
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredAuth;
     return typeof parsed.token === "string" && parsed.token ? parsed.token : null;
   } catch {
     return null;
   }
+}
+
+function getStoredToken(): string | null {
+  // Token precedence must follow the active panel. On the employee panel we must
+  // send the employee token even when a stale admin/manager token (taskflow_auth)
+  // is still in localStorage — otherwise the backend treats the request as an
+  // admin and returns every task/project instead of the employee's own.
+  const onEmployeePanel =
+    typeof window !== "undefined" &&
+    window.location.pathname.startsWith("/employee");
+
+  // Admin/manager token is stored under "taskflow_auth"; employee under "employee_auth".
+  const order = onEmployeePanel
+    ? ["employee_auth", "taskflow_auth"]
+    : ["taskflow_auth", "employee_auth"];
+
+  for (const key of order) {
+    const token = readTokenFrom(key);
+    if (token) return token;
+  }
+  return null;
 }
 
 

@@ -63,7 +63,7 @@ interface CompanyRegistryEntry {
   fein: string;
   phone: string;
   email: string;
-  status: "active" | "hold" | "archived";
+  status: "active" | "inactive" | "hold" | "archived";
   notes: string;
   attachments: Attachment[];
   colorTag: "green" | "blue" | "yellow" | "red" | "gray";
@@ -86,6 +86,7 @@ const COLOR_TAGS = {
 
 const STATUS_MAP = {
   active:   { label: "Active",   icon: CheckCircle2, class: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400" },
+  inactive: { label: "Inactive", icon: AlertCircle,  class: "bg-rose-500/10 text-rose-600 border-rose-500/20 dark:text-rose-400" },
   hold:     { label: "Hold",     icon: Clock,        class: "bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400" },
   archived: { label: "Archived", icon: Archive,      class: "bg-slate-500/10 text-slate-500 border-slate-400/20" },
 };
@@ -468,6 +469,7 @@ export default function CompanyRegistry() {
               <SelectTrigger className="h-10"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="active">✅ Active</SelectItem>
+                <SelectItem value="inactive">❌ Inactive</SelectItem>
                 <SelectItem value="hold">⏸️ Hold</SelectItem>
                 <SelectItem value="archived">📦 Archived</SelectItem>
               </SelectContent>
@@ -574,10 +576,11 @@ export default function CompanyRegistry() {
 
       {/* ── Stats bar ── */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1, transition: { delay: 0.08 } }}
-        className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
         {[
           { title: "Total",     value: entries.length,                                      icon: Building2,  variant: "blue" as const },
           { title: "Active",    value: entries.filter((e) => e.status === "active").length,  icon: CheckCircle2, variant: "green" as const },
+          { title: "Inactive",  value: entries.filter((e) => e.status === "inactive").length,icon: AlertCircle,  variant: "red" as const },
           { title: "On Hold",   value: entries.filter((e) => e.status === "hold").length,    icon: Clock,        variant: "amber" as const },
           { title: "Archived",  value: entries.filter((e) => e.status === "archived").length, icon: Archive,      variant: "dark-grey" as const },
         ].map((stat, idx) => (
@@ -620,6 +623,7 @@ export default function CompanyRegistry() {
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="inactive">Inactive</SelectItem>
             <SelectItem value="hold">Hold</SelectItem>
             <SelectItem value="archived">Archived</SelectItem>
           </SelectContent>

@@ -1,5 +1,6 @@
 import { Bell, Bug, Camera, CheckCircle2, ChevronDown, ChevronUp, Loader2, LogOut, Mail, Menu, Move, Save, Search, User, Settings, X as XIcon, Paperclip, Palette, Sparkles } from "lucide-react";
 import { useSocket } from "@/contexts/SocketContext";
+import { GlobalSearchButton } from "@/components/GlobalSearchButton";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -432,6 +433,25 @@ export function Header({ onMenuClick }: HeaderProps) {
       ? headerSettings?.imageConfig?.url || headerSettings?.imageConfig?.dataUrl
       : null;
   const headerImageUrl = headerImageUrlRaw ? toProxiedUrl(headerImageUrlRaw) : null;
+  const hasImageBackground = Boolean(headerImageUrl);
+
+  const [localPosition, setLocalPosition] = useState<string>("");
+
+  useEffect(() => {
+    if (headerSettings?.imageConfig?.position) {
+      setLocalPosition(headerSettings.imageConfig.position);
+    }
+  }, [headerSettings?.imageConfig?.position]);
+
+  const getVerticalPositionValue = (posStr: string | undefined): number => {
+    if (!posStr) return 50;
+    if (posStr === "center") return 50;
+    if (posStr === "top") return 0;
+    if (posStr === "bottom") return 100;
+    if (posStr === "left" || posStr === "right") return 50;
+    const match = posStr.match(/(\d+)%/);
+    return match ? parseInt(match[1], 10) : 50;
+  };
 
   // Banner header height (static 300px)
   const headerHeight = 300;
@@ -456,7 +476,7 @@ export function Header({ onMenuClick }: HeaderProps) {
     } else if (headerImageUrl && showImage) {
       baseStyle.backgroundImage = `url("${headerImageUrl}")`;
       baseStyle.backgroundSize = headerSettings?.imageConfig?.size || 'cover';
-      baseStyle.backgroundPosition = headerSettings?.imageConfig?.position || 'center';
+      baseStyle.backgroundPosition = localPosition || 'center';
       baseStyle.backgroundRepeat = headerSettings?.imageConfig?.repeat || 'no-repeat';
     } else {
       const { from = '#133767', via = '#133767', to = '#133767' } = headerSettings?.colorConfig || {};
@@ -464,7 +484,7 @@ export function Header({ onMenuClick }: HeaderProps) {
     }
 
     return baseStyle;
-  }, [headerImageUrl, headerSettings, activeHoliday, showImage]);
+  }, [headerImageUrl, headerSettings, activeHoliday, showImage, localPosition]);
 
   // Handle Image Upload for Header
   const [headerModalOpen, setHeaderModalOpen] = useState(false);
@@ -974,7 +994,13 @@ export function Header({ onMenuClick }: HeaderProps) {
                     <Bug className="h-5 w-5" />
                   </button>
 
-                  <button 
+                  <GlobalSearchButton
+                    isEmployee={false}
+                    basePath="/admin"
+                    className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white"
+                  />
+
+                  <button
                     onClick={() => { clearAuthState(); navigate("/login"); }}
                     className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white hover:text-red-400"
                     title="Logout"
@@ -1012,7 +1038,15 @@ export function Header({ onMenuClick }: HeaderProps) {
               <div className="flex flex-col items-center gap-4">
                 <div className="w-full h-32 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center bg-muted/5 overflow-hidden relative group">
                   {headerImageUrl ? (
-                    <img src={headerImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                    <img 
+                      src={headerImageUrl} 
+                      alt="Preview" 
+                      className="w-full h-full" 
+                      style={{ 
+                        objectFit: (headerSettings?.imageConfig?.size === "100% 100%" ? "fill" : headerSettings?.imageConfig?.size === "auto" ? "none" : headerSettings?.imageConfig?.size || "cover") as any,
+                        objectPosition: headerSettings?.imageConfig?.position || "center"
+                      }} 
+                    />
                   ) : (
                     <div className="text-center">
                       <Camera className="h-8 w-8 mx-auto text-muted-foreground/50" />
@@ -1044,6 +1078,59 @@ export function Header({ onMenuClick }: HeaderProps) {
                   </div>
                 )}
               </div>
+
+              {hasImageBackground && (
+                <div className="space-y-3 border-t pt-4">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-semibold text-foreground">Reposition Cover (Uplift / Downlift)</label>
+                    <span className="text-xs text-muted-foreground font-mono">{getVerticalPositionValue(localPosition)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={getVerticalPositionValue(localPosition)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setLocalPosition(`center ${val}%`);
+                    }}
+                    onMouseUp={async (e: any) => {
+                      const val = e.target.value;
+                      const newPos = `center ${val}%`;
+                      await apiFetch("/api/header-settings", {
+                        method: "PUT",
+                        body: JSON.stringify({
+                          imageConfig: {
+                            position: newPos
+                          }
+                        })
+                      });
+                      queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                      window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                    }}
+                    onTouchEnd={async (e: any) => {
+                      const val = e.target.value;
+                      const newPos = `center ${val}%`;
+                      await apiFetch("/api/header-settings", {
+                        method: "PUT",
+                        body: JSON.stringify({
+                          imageConfig: {
+                            position: newPos
+                          }
+                        })
+                      });
+                      queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                      window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                    }}
+                    className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+                  />
+                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                    <span>Downlift (Top)</span>
+                    <span>Center</span>
+                    <span>Uplift (Bottom)</span>
+                  </div>
+                </div>
+              )}
             </div>
             <DialogFooter className="flex justify-between sm:justify-between w-full">
               <Button variant="outline" size="sm" onClick={handleResetHeader} className="text-red-600 hover:text-red-700 hover:bg-red-50">
@@ -1083,20 +1170,20 @@ export function Header({ onMenuClick }: HeaderProps) {
                   {reportError && <div className="text-red-500 text-sm mt-1">{reportError}</div>}
                   <div className="flex flex-col gap-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">Attachments ({reportImageFiles.length}/5)</span>
+                      <span className="text-sm font-medium">Attachments: Images & Videos ({reportImageFiles.length}/5)</span>
                       <Button variant="outline" size="sm" type="button" onClick={handlePasteImage} title="Click to paste image from clipboard">
                         <Paperclip className="h-4 w-4 mr-2" /> Paste Image
                       </Button>
                     </div>
                     <input 
                       type="file" 
-                      accept="image/*" 
+                      accept="image/*,video/*" 
                       multiple 
                       className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 text-foreground"
                       onChange={(e) => {
                         const files = Array.from(e.target.files || []);
                         if (files.length + reportImageFiles.length > 5) {
-                          setReportError("You can only attach up to 5 images.");
+                          setReportError("You can only attach up to 5 files.");
                           return;
                         }
                         const newFiles = [...reportImageFiles, ...files].slice(0, 5);
@@ -1107,25 +1194,33 @@ export function Header({ onMenuClick }: HeaderProps) {
                     />
                     {reportImagePreviewUrls.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-2">
-                        {reportImagePreviewUrls.map((url, i) => (
-                          <div key={i} className="relative w-16 h-16 rounded-md overflow-hidden border">
-                            <img src={url} alt={`Preview ${i}`} className="w-full h-full object-cover" />
-                            <button
-                              className="absolute top-0 right-0 bg-red-500 text-white rounded-bl-md p-0.5"
-                              onClick={() => {
-                                const newFiles = [...reportImageFiles];
-                                newFiles.splice(i, 1);
-                                setReportImageFiles(newFiles);
-                                const newUrls = [...reportImagePreviewUrls];
-                                URL.revokeObjectURL(newUrls[i]);
-                                newUrls.splice(i, 1);
-                                setReportImagePreviewUrls(newUrls);
-                              }}
-                            >
-                              <XIcon className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))}
+                        {reportImagePreviewUrls.map((url, i) => {
+                          const file = reportImageFiles[i];
+                          const isVid = file?.type?.startsWith("video/") || url.startsWith("data:video/") || /\.(mp4|webm|mov|ogg|m4v|mkv)$/i.test(url);
+                          return (
+                            <div key={i} className="relative w-16 h-16 rounded-md overflow-hidden border bg-black">
+                              {isVid ? (
+                                <video src={url} className="w-full h-full object-cover" muted />
+                              ) : (
+                                <img src={url} alt={`Preview ${i}`} className="w-full h-full object-cover" />
+                              )}
+                              <button
+                                className="absolute top-0 right-0 bg-red-500 text-white rounded-bl-md p-0.5 z-10"
+                                onClick={() => {
+                                  const newFiles = [...reportImageFiles];
+                                  newFiles.splice(i, 1);
+                                  setReportImageFiles(newFiles);
+                                  const newUrls = [...reportImagePreviewUrls];
+                                  URL.revokeObjectURL(newUrls[i]);
+                                  newUrls.splice(i, 1);
+                                  setReportImagePreviewUrls(newUrls);
+                                }}
+                              >
+                                <XIcon className="h-3 w-3" />
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

@@ -2,6 +2,7 @@ import { Sidebar } from "./Sidebar";
 import { ReactNode, useState, useEffect, useRef } from "react";
 import { Bell, Bug, Camera, Loader2, LogOut, Mail, Menu, Palette, Search, Settings, User, Sparkles } from "lucide-react";
 import { ThemeShell } from "./ThemeShell";
+import { GlobalSearchButton } from "@/components/GlobalSearchButton";
 import { useTheme } from "@/contexts/ThemeContext";
 
 function HolidayEffects({ type }: { type: string }) {
@@ -497,6 +498,24 @@ export function MainLayout({ children }: MainLayoutProps) {
   const headerImageUrl = headerImageUrlRaw ? toProxiedUrl(headerImageUrlRaw) : null;
   const hasImageBackground = Boolean(headerImageUrl);
 
+  const [localPosition, setLocalPosition] = useState<string>("");
+
+  useEffect(() => {
+    if (headerSettings?.imageConfig?.position) {
+      setLocalPosition(headerSettings.imageConfig.position);
+    }
+  }, [headerSettings?.imageConfig?.position]);
+
+  const getVerticalPositionValue = (posStr: string | undefined): number => {
+    if (!posStr) return 50;
+    if (posStr === "center") return 50;
+    if (posStr === "top") return 0;
+    if (posStr === "bottom") return 100;
+    if (posStr === "left" || posStr === "right") return 50;
+    const match = posStr.match(/(\d+)%/);
+    return match ? parseInt(match[1], 10) : 50;
+  };
+
   // Handle Image Upload for Header
   const [headerModalOpen, setHeaderModalOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -556,6 +575,14 @@ export function MainLayout({ children }: MainLayoutProps) {
       applyFullTheme("metallic-elite", undefined, "metallic");
     });
   }, []);
+
+  useEffect(() => {
+    const handleUpdate = () => {
+      queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+    };
+    window.addEventListener("header-settings-updated", handleUpdate);
+    return () => window.removeEventListener("header-settings-updated", handleUpdate);
+  }, [queryClient]);
 
   // System notifications (broadcasts only)
   const notificationsQuery = useQuery({
@@ -859,10 +886,12 @@ export function MainLayout({ children }: MainLayoutProps) {
                 alt="header background"
                 className="absolute inset-0 w-full h-full"
                 style={{
-                  objectFit: 'cover',
+                  objectFit: (activeHoliday?.backgroundType === "image"
+                    ? (activeHoliday.imageConfig?.size === "100% 100%" ? "fill" : activeHoliday.imageConfig?.size === "auto" ? "none" : activeHoliday.imageConfig?.size || "cover")
+                    : (headerSettings?.imageConfig?.size === "100% 100%" ? "fill" : headerSettings?.imageConfig?.size === "auto" ? "none" : headerSettings?.imageConfig?.size || "cover")) as any,
                   objectPosition: activeHoliday?.backgroundType === "image"
                     ? activeHoliday.imageConfig?.position || 'center'
-                    : headerSettings?.imageConfig?.position || 'center',
+                    : localPosition || 'center',
                 }}
                 draggable={false}
               />
@@ -1141,7 +1170,21 @@ export function MainLayout({ children }: MainLayoutProps) {
                       <Bug className="h-4.5 w-4.5 relative z-10" />
                     </button>
 
-                    <button 
+                    <GlobalSearchButton
+                      isEmployee={false}
+                      basePath="/manager"
+                      iconClassName="h-4.5 w-4.5 relative z-10"
+                      className={cn(
+                        "relative group p-2 rounded-lg backdrop-blur-sm transition-all duration-150 active:scale-95",
+                        isMetallic
+                          ? "bg-gradient-to-br from-[#2b2c2d] to-[#111315] border border-[#ffd27a]/25 text-[#ffd27a] hover:border-[#ffd27a]/40 hover:text-white shadow-[0_2px_4px_rgba(0,0,0,0.4)]"
+                          : "bg-black/20 hover:bg-black/40 text-white/70 hover:text-white"
+                      )}
+                    >
+                      {isMetallic && <div className="absolute inset-px rounded-md border border-white/5 pointer-events-none" />}
+                    </GlobalSearchButton>
+
+                    <button
                       onClick={() => { clearAuthState(); navigate("/login"); }}
                       className={cn(
                         "relative group p-2 rounded-lg backdrop-blur-sm transition-all duration-150 active:scale-95",
@@ -1185,7 +1228,15 @@ export function MainLayout({ children }: MainLayoutProps) {
               <div className="flex flex-col items-center gap-4">
                 <div className="w-full h-32 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center bg-muted/5 overflow-hidden relative group">
                   {headerImageUrl ? (
-                    <img src={headerImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                    <img 
+                      src={headerImageUrl} 
+                      alt="Preview" 
+                      className="w-full h-full" 
+                      style={{ 
+                        objectFit: (headerSettings?.imageConfig?.size === "100% 100%" ? "fill" : headerSettings?.imageConfig?.size === "auto" ? "none" : headerSettings?.imageConfig?.size || "cover") as any,
+                        objectPosition: headerSettings?.imageConfig?.position || "center"
+                      }} 
+                    />
                   ) : (
                     <div className="text-center">
                       <Camera className="h-8 w-8 mx-auto text-muted-foreground/50" />
@@ -1217,6 +1268,59 @@ export function MainLayout({ children }: MainLayoutProps) {
                   </div>
                 )}
               </div>
+
+              {hasImageBackground && (
+                <div className="space-y-3 border-t pt-4">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-semibold text-foreground">Reposition Cover (Uplift / Downlift)</label>
+                    <span className="text-xs text-muted-foreground font-mono">{getVerticalPositionValue(localPosition)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={getVerticalPositionValue(localPosition)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setLocalPosition(`center ${val}%`);
+                    }}
+                    onMouseUp={async (e: any) => {
+                      const val = e.target.value;
+                      const newPos = `center ${val}%`;
+                      await apiFetch("/api/header-settings", {
+                        method: "PUT",
+                        body: JSON.stringify({
+                          imageConfig: {
+                            position: newPos
+                          }
+                        })
+                      });
+                      queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                      window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                    }}
+                    onTouchEnd={async (e: any) => {
+                      const val = e.target.value;
+                      const newPos = `center ${val}%`;
+                      await apiFetch("/api/header-settings", {
+                        method: "PUT",
+                        body: JSON.stringify({
+                          imageConfig: {
+                            position: newPos
+                          }
+                        })
+                      });
+                      queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                      window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                    }}
+                    className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+                  />
+                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                    <span>Downlift (Top)</span>
+                    <span>Center</span>
+                    <span>Uplift (Bottom)</span>
+                  </div>
+                </div>
+              )}
             </div>
             <DialogFooter className="flex justify-between sm:justify-between w-full">
               <Button variant="outline" size="sm" onClick={handleResetHeader} className="text-red-600 hover:text-red-700 hover:bg-red-50">
@@ -1309,10 +1413,10 @@ export function MainLayout({ children }: MainLayoutProps) {
             </div>
 
             <div className="space-y-2">
-              <label className="block text-xs sm:text-sm font-medium">Screenshot (optional)</label>
+              <label className="block text-xs sm:text-sm font-medium">Attachment (Image or Video)</label>
               <input
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*"
                 onChange={(e) => {
                   const file = e.target.files?.[0] || null;
                   setReportImageFile(file);
@@ -1321,8 +1425,12 @@ export function MainLayout({ children }: MainLayoutProps) {
                 }}
               />
               {reportImagePreviewUrl ? (
-                <div className="w-full overflow-hidden rounded-lg border bg-white">
-                  <img src={reportImagePreviewUrl} alt="preview" className="w-full h-auto max-h-64 object-contain" />
+                <div className="w-full overflow-hidden rounded-lg border bg-black flex justify-center">
+                  {reportImageFile?.type?.startsWith("video/") ? (
+                    <video src={reportImagePreviewUrl} controls className="w-full h-auto max-h-64 object-contain" />
+                  ) : (
+                    <img src={reportImagePreviewUrl} alt="preview" className="w-full h-auto max-h-64 object-contain" />
+                  )}
                 </div>
               ) : null}
             </div>

@@ -529,7 +529,7 @@ export default function EmployeeDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
         <Link to="/employee/payroll">
           <EmployeeStatCard
-            title="CURRENT PAY PERIOD"
+            title="CURRENT EARNINGS"
             value={`$${(dashboardQuery.data?.earnings || 0).toFixed(2)}`}
             icon={DollarSign}
             variant="green"
@@ -538,7 +538,7 @@ export default function EmployeeDashboard() {
         <Link to="/employee/timeLogs">
           <EmployeeStatCard
             title="HOURS WORKED"
-            value={`${dashboardQuery.data?.hoursWorked || 0} hrs`}
+            value={`${(dashboardQuery.data?.hoursWorked || 0).toFixed(1)} hrs`}
             icon={Clock}
             variant="blue"
           />
@@ -674,28 +674,6 @@ export default function EmployeeDashboard() {
           </CardContent>
         </Card>
       )}
-
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <EmployeeStatCard
-          title="Current Earnings"
-          value={`$${data?.earnings || 0}`}
-          icon={DollarSign}
-          variant="green"
-        />
-        <EmployeeStatCard
-          title="Hours Worked"
-          value={`${data?.hoursWorked || 0} hrs`}
-          icon={Clock}
-          variant="blue"
-        />
-        <EmployeeStatCard
-          title="Pending Tasks"
-          value={data?.tasks?.pending || 0}
-          icon={CheckSquare2}
-          variant="orange"
-        />
-      </div>
 
       {/* My Team Section */}
       <Card className="border-l-4 border-l-primary">

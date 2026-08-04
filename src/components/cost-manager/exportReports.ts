@@ -191,7 +191,7 @@ export function openPrintView(payload: CostSheetPayload, projectName: string) {
           <td>${esc(i.itemName)}${i.requiredForPrototype ? " *" : ""}</td>
           <td>${esc(i.vendor?.name || "")}</td>
           <td>${esc(PURCHASE_STATUS_META[i.purchaseStatus].label)}</td>
-          <td>${esc(i.qty)}${esc(i.unit ? ` ${i.unit}` : "")}</td>
+          <td>${esc(i.qty)}${esc(i.unit ? ` × ${i.unit}` : "")}</td>
           <td>${esc(locationOf(i))}</td>
           <td class="num">${fm(i.estimatedTotalCents)}</td>
           <td class="num">${fm(i.paidCents)}</td>

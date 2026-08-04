@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { CalendarPlus, PlayCircle, CheckCircle2, Loader2 } from "lucide-react";
 
 export interface TaskTimelineData {
@@ -7,6 +8,7 @@ export interface TaskTimelineData {
   startedAt?: string | null;
   completedAt?: string | null;
   completedByName?: string;
+  totalTimeSpent?: number;
   status?: string;
 }
 
@@ -30,6 +32,40 @@ function formatDate(value?: string | null): string | null {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+/**
+ * Human readable elapsed duration formatted as Days, Hours, Minutes, and Seconds.
+ * e.g., "2 Days, 4 Hours, 15 Mins" or "3 Hours, 25 Mins" or "45 Mins, 10 Secs".
+ */
+function formatDuration(from?: string | null, to?: string | null, withSeconds = false, pastSeconds = 0): string | null {
+  if (!from && pastSeconds <= 0) return null;
+
+  let diff = Math.max(0, pastSeconds);
+  if (from) {
+    const start = new Date(from).getTime();
+    const end = to ? new Date(to).getTime() : Date.now();
+    if (!isNaN(start) && !isNaN(end)) {
+      diff += Math.max(0, Math.floor((end - start) / 1000));
+    }
+  }
+
+  if (diff <= 0) return "0 Mins";
+
+  const days = Math.floor(diff / 86400);
+  diff -= days * 86400;
+  const hours = Math.floor(diff / 3600);
+  diff -= hours * 3600;
+  const minutes = Math.floor(diff / 60);
+  const seconds = diff - minutes * 60;
+
+  const parts: string[] = [];
+  if (days > 0) parts.push(`${days} ${days === 1 ? "Day" : "Days"}`);
+  if (hours > 0) parts.push(`${hours} ${hours === 1 ? "Hour" : "Hours"}`);
+  if (minutes > 0 || (days === 0 && hours === 0)) parts.push(`${minutes} ${minutes === 1 ? "Min" : "Mins"}`);
+  if (withSeconds && seconds > 0) parts.push(`${seconds} ${seconds === 1 ? "Sec" : "Secs"}`);
+
+  return parts.join(", ");
+}
+
 interface Row {
   icon: React.ReactNode;
   label: string;
@@ -39,10 +75,19 @@ interface Row {
 }
 
 /**
- * Compact vertical timeline showing when a task was created, started and closed.
- * Theme-token based so it works in the admin, manager and employee panels.
+ * Compact vertical timeline showing when a task was created, started and closed with Days, Hours, Minutes duration.
+ * Theme-token based so it works seamlessly in Admin, Manager, and Employee panels.
  */
 export function TaskTimeline({ task }: { task: TaskTimelineData }) {
+  // Tick every second while the task is running so "Running for X Days, Y Hours, Z Mins" stays live
+  const [, setTick] = useState(0);
+  const running = task.status === "in-progress" && !task.completedAt;
+  useEffect(() => {
+    if (!running) return;
+    const interval = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, [running]);
+
   const rows: Row[] = [];
 
   const created = formatDate(task.createdAt);
@@ -55,7 +100,7 @@ export function TaskTimeline({ task }: { task: TaskTimelineData }) {
     });
   }
 
-  const started = formatDateTime(task.firstStartedAt);
+  const started = task.status !== "pending" ? formatDateTime(task.firstStartedAt || task.startedAt) : null;
   if (started) {
     rows.push({
       icon: <PlayCircle className="w-4 h-4" />,
@@ -66,21 +111,30 @@ export function TaskTimeline({ task }: { task: TaskTimelineData }) {
     });
   }
 
+  const startRef = task.startedAt || task.firstStartedAt;
+
   const completed = formatDateTime(task.completedAt);
   if (completed) {
+    const took = formatDuration(startRef, task.completedAt, false, task.totalTimeSpent || 0);
+    const byPart = task.completedByName ? `by ${task.completedByName}` : "";
+    const tookPart = took ? `Took ${took}` : "";
+    const sub = [byPart, tookPart].filter(Boolean).join(" · ");
     rows.push({
       icon: <CheckCircle2 className="w-4 h-4" />,
       label: "Completed",
       value: completed,
-      sub: task.completedByName ? `by ${task.completedByName}` : undefined,
+      sub: sub || undefined,
       tone: "text-emerald-500",
     });
   } else if (task.status === "in-progress") {
-    const runningSince = formatDateTime(task.startedAt) || started;
+    const sessionStart = task.startedAt || task.firstStartedAt;
+    const runningSince = formatDateTime(sessionStart);
+    const elapsed = formatDuration(sessionStart, null, true, task.totalTimeSpent || 0);
     rows.push({
       icon: <Loader2 className="w-4 h-4 animate-spin" />,
       label: "In progress",
-      value: runningSince ? `since ${runningSince}` : "Currently running",
+      value: elapsed ? `Running for ${elapsed}` : runningSince ? `since ${runningSince}` : "Currently running",
+      sub: elapsed && runningSince ? `started ${runningSince}` : undefined,
       tone: "text-amber-500",
     });
   }

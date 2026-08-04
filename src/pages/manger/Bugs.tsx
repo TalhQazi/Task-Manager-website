@@ -21,7 +21,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/admin/ui/dialog";
-import { Bug, Upload, X, ZoomIn, ChevronLeft, ChevronRight } from "lucide-react";
+import { Bug, Upload, X, ZoomIn, ChevronLeft, ChevronRight, Video } from "lucide-react";
 
 type BugStatus = "open" | "closed";
 
@@ -36,6 +36,18 @@ type BugItem = {
   createdAt?: string;
   source?: { panel?: string; path?: string };
   attachments?: { fileName?: string; url?: string; mimeType?: string; size?: number }[];
+};
+
+const isVideoAttachment = (att?: { url?: string; mimeType?: string; fileName?: string } | string | null) => {
+  if (!att) return false;
+  const url = typeof att === "string" ? att : att.url || "";
+  const mimeType = typeof att === "string" ? "" : att.mimeType || "";
+  const fileName = typeof att === "string" ? "" : att.fileName || "";
+
+  if (mimeType.startsWith("video/")) return true;
+  if (url.startsWith("data:video/")) return true;
+  const lowerUrl = (url || fileName).toLowerCase();
+  return /\.(mp4|webm|mov|ogg|m4v|mkv)(\?.*)?$/i.test(lowerUrl);
 };
 
 type StatusFilter = "all" | "open" | "closed";
@@ -402,10 +414,30 @@ export default function ManagerBugs() {
               {selected.attachments && selected.attachments.length > 0 && (
                 <div className="space-y-3">
                   <p className="text-sm font-medium">Attachments ({selected.attachments.length})</p>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {selected.attachments.map((att, i) => {
                       const src = toProxiedUrl(String(att.url)) ?? "";
                       const allUrls = selected.attachments!.map(a => toProxiedUrl(String(a.url)) ?? "");
+                      const isVid = isVideoAttachment(att);
+
+                      if (isVid) {
+                        return (
+                          <div key={i} className="rounded-lg border bg-black overflow-hidden flex flex-col justify-center">
+                            <video src={src} controls className="w-full h-44 object-contain" />
+                            <div className="p-1.5 bg-muted/40 text-[10px] text-muted-foreground flex items-center justify-between">
+                              <span className="truncate flex items-center gap-1 font-medium"><Video className="h-3 w-3 text-primary shrink-0" /> {att.fileName || `Video ${i + 1}`}</span>
+                              <button 
+                                type="button" 
+                                className="text-xs text-primary font-bold hover:underline shrink-0"
+                                onClick={() => setLightbox({ urls: allUrls, index: i })}
+                              >
+                                Fullscreen
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      }
+
                       return (
                         <div
                           key={i}
@@ -415,7 +447,7 @@ export default function ManagerBugs() {
                           <img
                             src={src}
                             alt={String(att.fileName || `Attachment ${i + 1}`)}
-                            className="w-full h-32 object-cover"
+                            className="w-full h-36 object-cover"
                           />
                           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                             <ZoomIn className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" />
@@ -447,7 +479,7 @@ export default function ManagerBugs() {
               <Bug className="h-5 w-5 text-primary" />
               Report a Bug
             </DialogTitle>
-            <DialogDescription>Describe the issue you encountered. Screenshots are helpful.</DialogDescription>
+            <DialogDescription>Describe the issue you encountered. Screenshots and videos are helpful.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-1.5">
@@ -468,33 +500,48 @@ export default function ManagerBugs() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium">Screenshots (up to 5)</label>
+              <label className="text-sm font-medium">Attachments: Images & Videos (up to 5)</label>
               <div className="flex flex-wrap gap-2">
-                {submitPreviews.map((url, i) => (
-                  <div key={i} className="relative w-20 h-20 rounded-md overflow-hidden border">
-                    <img src={url} alt={`preview ${i}`} className="w-full h-full object-cover" />
-                    <button
-                      onClick={() => removeFile(i)}
-                      className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full bg-black/70 flex items-center justify-center hover:bg-black"
-                    >
-                      <X className="h-3 w-3 text-white" />
-                    </button>
-                  </div>
-                ))}
+                {submitPreviews.map((url, i) => {
+                  const file = submitFiles[i];
+                  const isVid = file?.type?.startsWith("video/") || isVideoAttachment(url);
+                  return (
+                    <div key={i} className="relative w-20 h-20 rounded-md overflow-hidden border bg-black">
+                      {isVid ? (
+                        <>
+                          <video src={url} className="w-full h-full object-cover" muted />
+                          <div className="absolute inset-0 bg-black/30 flex items-center justify-center pointer-events-none">
+                            <Video className="h-6 w-6 text-white drop-shadow-md" />
+                          </div>
+                        </>
+                      ) : (
+                        <img src={url} alt={`preview ${i}`} className="w-full h-full object-cover" />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => removeFile(i)}
+                        className="absolute top-0.5 right-0.5 h-5 w-5 rounded-full bg-black/70 flex items-center justify-center hover:bg-black z-10"
+                      >
+                        <X className="h-3 w-3 text-white" />
+                      </button>
+                    </div>
+                  );
+                })}
                 {submitFiles.length < 5 && (
                   <button
+                    type="button"
                     onClick={() => fileInputRef.current?.click()}
                     className="w-20 h-20 rounded-md border-2 border-dashed border-muted-foreground/30 flex flex-col items-center justify-center gap-1 hover:border-primary/50 transition-colors"
                   >
                     <Upload className="h-5 w-5 text-muted-foreground" />
-                    <span className="text-[10px] text-muted-foreground">Add</span>
+                    <span className="text-[10px] text-muted-foreground">Add Media</span>
                   </button>
                 )}
               </div>
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*"
                 multiple
                 className="hidden"
                 onChange={handleFileChange}
@@ -545,14 +592,24 @@ export default function ManagerBugs() {
             </button>
           )}
 
-          {/* Image */}
-          <img
-            src={lightbox.urls[lightbox.index]}
-            alt={`Attachment ${lightbox.index + 1}`}
-            className="max-w-full max-h-full object-contain select-none"
-            style={{ maxWidth: "100vw", maxHeight: "100dvh" }}
-            onClick={(e) => e.stopPropagation()}
-          />
+          {/* Media Content */}
+          {isVideoAttachment(lightbox.urls[lightbox.index]) ? (
+            <video
+              src={lightbox.urls[lightbox.index]}
+              controls
+              autoPlay
+              className="max-w-full max-h-[90vh] object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          ) : (
+            <img
+              src={lightbox.urls[lightbox.index]}
+              alt={`Attachment ${lightbox.index + 1}`}
+              className="max-w-full max-h-full object-contain select-none"
+              style={{ maxWidth: "100vw", maxHeight: "100dvh" }}
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
 
           {/* Next */}
           {lightbox.urls.length > 1 && lightbox.index < lightbox.urls.length - 1 && (

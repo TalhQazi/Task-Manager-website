@@ -28,6 +28,7 @@ const EmployeeBugs = lazy(() => import("../screens/Bugs"));
 const EmployeeAnnouncements = lazy(() => import("@/pages/employee/Announcements"));
 const EmployeeEmailSettings = lazy(() => import("../screens/EmailSettings"));
 const EmployeeItinerary = lazy(() => import("../screens/EmployeeItinerary"));
+const EmployeeEODReports = lazy(() => import("../screens/EmployeeEODReports"));
 
 function PageLoader() {
   return (
@@ -79,10 +80,12 @@ function EmployeeController() {
           <Route path="/leave-requests" element={<EmployeeLeaveRequests />} />
           <Route path="/shopping-lists" element={<ShoppingLists />} />
           <Route path="/travel-calendar" element={<TravelCalendar />} />
-          <Route path="/bugs" element={<EmployeeBugs />} />
+          <Route path="/bugs" element={employeeAuth.role === "coder" ? <EmployeeBugs /> : <Navigate to="/employee" replace />} />
           <Route path="/announcements" element={<EmployeeAnnouncements />} />
           <Route path="/email-settings" element={<EmployeeEmailSettings />} />
+          <Route path="/settings" element={<EmployeeEmailSettings />} />
           <Route path="/itinerary" element={<EmployeeItinerary />} />
+          <Route path="/eod-reports" element={<EmployeeEODReports />} />
         </Route>
         <Route path="*" element={<Navigate to="/employee" replace />} />
       </Routes>

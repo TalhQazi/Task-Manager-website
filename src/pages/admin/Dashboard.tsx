@@ -234,7 +234,7 @@ const Dashboard = () => {
 
         {/* Work In Progress — live operational panel. Additive: no existing card changed. */}
         <motion.div variants={itemVariants} className="transition-all duration-300">
-          <WipDashboardWidget />
+          <WipDashboardWidget /> 
         </motion.div>
 
         {/* Bottom Section with animated cards */}

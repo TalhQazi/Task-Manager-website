@@ -304,6 +304,7 @@ function normalizeTask(t: TaskApi): Task {
     startedByName: (t as any).startedByName,
     completedAt: (t as any).completedAt ?? null,
     completedByName: (t as any).completedByName,
+    totalTimeSpent: (t as any).totalTimeSpent ?? 0,
   };
 }
 
@@ -1271,6 +1272,28 @@ export default function Tasks() {
     };
   }, [socket, selectedProject?.id]);
 
+  const handleCloseProject = async (projectId: string) => {
+    try {
+      await apiFetch(`/api/projects/${encodeURIComponent(projectId)}/close`, {
+        method: "POST",
+      });
+      toast({
+        title: "Project Closed",
+        description: "The project and all its tasks have been marked as completed.",
+      });
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      setIsViewProjectOpen(false);
+      setSelectedProject(null);
+    } catch (err) {
+      toast({
+        title: "Failed to close project",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    }
+  };
+
   const updateStatus = async (next: Task["status"], event?: React.MouseEvent | React.TouchEvent | { x: number; y: number }) => {
     if (!selectedTask) return;
     const previousStatus = selectedTask.status;
@@ -1613,14 +1636,37 @@ export default function Tasks() {
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 mb-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <div className="relative flex-1 min-w-0 w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
           <Input
-            placeholder="Search tasks or assignee..."
-            className="pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={selectedProject ? "Search tasks in this project..." : "Search projects, tasks, or assignee..."}
+            className="pl-10 pr-10 h-10 w-full bg-background border border-border text-foreground text-sm font-medium focus-visible:ring-2 focus-visible:ring-primary shadow-sm rounded-lg"
+            value={selectedProject ? searchQuery : projectSearchQuery}
+            onChange={(e) => {
+              const next = e.target.value;
+              if (selectedProject) {
+                setSearchQuery(next);
+              } else {
+                setProjectSearchQuery(next);
+              }
+            }}
           />
+          {(selectedProject ? searchQuery : projectSearchQuery) && (
+            <button
+              type="button"
+              onClick={() => {
+                if (selectedProject) {
+                  setSearchQuery("");
+                } else {
+                  setProjectSearchQuery("");
+                }
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+              title="Clear search"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
         <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1 sm:mx-0 sm:px-0 sm:pb-0">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -1896,7 +1942,7 @@ export default function Tasks() {
       )}
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-[620px] max-h-[85dvh] sm:max-h-[90vh] overflow-y-auto overscroll-contain pb-6 sm:pb-4">
           <DialogHeader>
             <DialogTitle>Create Project</DialogTitle>
             <DialogDescription>Create a project and assign it.</DialogDescription>
@@ -2168,7 +2214,7 @@ export default function Tasks() {
         setIsCreateTaskOpen(open);
         if (!open) setIsDirectTask(false);
       }}>
-        <DialogContent className="w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-[620px] max-h-[85dvh] sm:max-h-[90vh] overflow-y-auto overscroll-contain pb-6 sm:pb-4">
           <DialogHeader>
             <DialogTitle>{isDirectTask ? "Create Standalone Task" : "Create Task"}</DialogTitle>
             <DialogDescription>
@@ -2734,9 +2780,23 @@ export default function Tasks() {
                       <DialogTitle className="text-xl sm:text-2xl font-black truncate leading-tight tracking-tight text-foreground">{selectedProject.name}</DialogTitle>
                     </div>
                   </div>
-                  <Button variant="ghost" size="icon" onClick={() => setIsViewProjectOpen(false)} className="rounded-full h-9 w-9 hover:bg-muted/80 transition-colors">
-                    <X className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {selectedProject.status !== "Completed" && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCloseProject(selectedProject.id)}
+                        className="h-8 border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10 font-bold text-xs flex items-center gap-1.5"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Close Project
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="icon" onClick={() => setIsViewProjectOpen(false)} className="rounded-full h-9 w-9 hover:bg-muted/80 transition-colors">
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </DialogHeader>
 
@@ -2892,7 +2952,7 @@ export default function Tasks() {
           if (!open) setSelectedTask(null);
         }}
       >
-        <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-[700px] max-h-[85dvh] sm:max-h-[90vh] overflow-y-auto overscroll-contain pb-6 sm:pb-4">
           <DialogHeader>
             <DialogTitle>Edit Task</DialogTitle>
             <DialogDescription>Update task details.</DialogDescription>

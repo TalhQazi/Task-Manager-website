@@ -18,6 +18,8 @@ import {
   dollarsToCents,
   formatMoney,
   getProjectCostSheet,
+  getTaskCostSheet,
+  getCostSheetById,
   updateCostLineItem,
   updateCostSheet,
 } from "@/lib/costManager";
@@ -95,7 +97,9 @@ interface TaskOption {
 }
 
 interface CostManagerProps {
-  projectId: string;
+  projectId?: string;
+  taskId?: string;
+  sheetId?: string;
   projectName?: string;
   tasks?: TaskOption[];
   readOnly?: boolean;
@@ -106,15 +110,27 @@ const NO_TASK = "__none__";
 
 // ---------------------------------------------------------------- main
 
-export default function CostManager({ projectId, projectName = "Project", tasks = [], readOnly = false }: CostManagerProps) {
+export default function CostManager({
+  projectId,
+  taskId,
+  sheetId,
+  projectName = "Cost Manager",
+  tasks = [],
+  readOnly = false,
+}: CostManagerProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const queryKey = ["cost-sheet", projectId];
+  const queryKey = useMemo(() => ["cost-sheet", { projectId, taskId, sheetId }], [projectId, taskId, sheetId]);
 
   const sheetQuery = useQuery({
     queryKey,
-    queryFn: () => getProjectCostSheet(projectId),
-    enabled: !!projectId,
+    queryFn: () => {
+      if (sheetId) return getCostSheetById(sheetId);
+      if (taskId) return getTaskCostSheet(taskId);
+      if (projectId) return getProjectCostSheet(projectId);
+      return Promise.resolve(null);
+    },
+    enabled: !!sheetId || !!taskId || !!projectId,
   });
 
   const vendorsQuery = useQuery({
@@ -182,7 +198,9 @@ export default function CostManager({ projectId, projectName = "Project", tasks 
     return picked;
   }, [buyMode, querySections, queryBudgetCents]);
 
-  if (!projectId) return null;
+  // The sheet can be opened by project, by task, or directly by sheet id
+  // (Expense Sheets page / task modal). Bail out only when none is provided.
+  if (!projectId && !taskId && !sheetId) return null;
 
   if (sheetQuery.isLoading) {
     return (
@@ -348,14 +366,17 @@ export default function CostManager({ projectId, projectName = "Project", tasks 
         />
       ))}
 
-      <CertificationTracker
-        projectId={projectId}
-        certifications={certifications || []}
-        currency={currency}
-        readOnly={readOnly}
-        onSaved={applyPayload}
-        onError={onError}
-      />
+      {/* Certifications are project-scoped; hide the tracker for standalone/task sheets */}
+      {projectId && (
+        <CertificationTracker
+          projectId={projectId}
+          certifications={certifications || []}
+          currency={currency}
+          readOnly={readOnly}
+          onSaved={applyPayload}
+          onError={onError}
+        />
+      )}
 
       {!readOnly && (
         <div className="flex items-center gap-2">
@@ -785,7 +806,7 @@ function ItemRow({
       </td>
       <td className="px-2 py-1.5 text-right whitespace-nowrap">
         {item.qty}
-        {item.unit ? ` ${item.unit}` : ""}
+        {item.unit ? ` × ${item.unit}` : ""}
       </td>
       <td className="px-2 py-1.5 text-right whitespace-nowrap">{formatMoney(item.unitCostCents, currency)}</td>
       <td className="px-2 py-1.5 text-right font-semibold whitespace-nowrap">

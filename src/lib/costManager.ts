@@ -226,7 +226,39 @@ export function centsToDollarInput(cents: number): string {
 const BASE = "/api/cost-manager";
 
 export function getProjectCostSheet(projectId: string) {
-  return apiFetch<CostSheetPayload>(`${BASE}/projects/${encodeURIComponent(projectId)}`);
+  return apiFetch<CostSheetPayload | null>(`${BASE}/projects/${encodeURIComponent(projectId)}`);
+}
+
+export function getTaskCostSheet(taskId: string) {
+  return apiFetch<CostSheetPayload | null>(`${BASE}/tasks/${encodeURIComponent(taskId)}`);
+}
+
+export function getCostSheets() {
+  return apiFetch<{ items: Array<{ id: string; projectId?: string; taskId?: string; name: string; currency: string; availableBudgetCents: number; createdByUsername?: string; createdAt?: string }> }>(`${BASE}/sheets`);
+}
+
+export function createCostSheet(payload: { name: string; availableBudgetCents: number }) {
+  return apiFetch<{ id: string; name: string; currency: string; availableBudgetCents: number }>(`${BASE}/sheets`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function getCostSheetById(sheetId: string) {
+  return apiFetch<CostSheetPayload>(`${BASE}/sheets/${encodeURIComponent(sheetId)}`);
+}
+
+export function attachCostSheet(sheetId: string, payload: { projectId: string | null; taskId: string | null }) {
+  return apiFetch<{ success: boolean; item: any }>(`${BASE}/sheets/${encodeURIComponent(sheetId)}/attach`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteCostSheet(sheetId: string) {
+  return apiFetch<{ success: boolean }>(`${BASE}/sheets/${encodeURIComponent(sheetId)}`, {
+    method: "DELETE",
+  });
 }
 
 export function updateCostSheet(sheetId: string, payload: { name?: string; availableBudgetCents?: number }) {

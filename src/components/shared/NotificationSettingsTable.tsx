@@ -126,10 +126,10 @@ export default function NotificationSettingsTable({
   });
 
   return (
-    <div className="w-full max-h-[450px] overflow-y-auto rounded-lg border border-border bg-card shadow-soft scrollbar-thin">
+    <div className="w-full rounded-lg border border-border bg-card shadow-soft overflow-hidden">
       {/* Desktop/Tablet View - Wide Table */}
       <div className="hidden md:block w-full overflow-x-auto">
-        <table className="w-full min-w-[600px] border-collapse text-left text-sm relative">
+        <table className="w-full min-w-[500px] border-collapse text-left text-sm relative">
           <thead className="sticky top-0 bg-muted/95 backdrop-blur-sm z-10 shadow-[0_1px_0_0_rgba(0,0,0,0.1)] dark:shadow-[0_1px_0_0_rgba(255,255,255,0.1)]">
             <tr>
               <th className="p-4 font-semibold text-foreground">Notification Category</th>
@@ -139,8 +139,12 @@ export default function NotificationSettingsTable({
           </thead>
           <tbody className="divide-y divide-border">
             {visibleCategories.map((cat) => {
-              const isEmailOn = emailPreferences[cat.key] !== false;
-              const isWebOn = webPreferences[cat.key] !== false;
+              const isEmailOn = cat.key === "websiteDownAlert"
+                ? emailPreferences[cat.key] === true
+                : emailPreferences[cat.key] !== false;
+              const isWebOn = cat.key === "websiteDownAlert"
+                ? webPreferences[cat.key] === true
+                : webPreferences[cat.key] !== false;
 
               return (
                 <tr key={cat.key} className="hover:bg-muted/20 transition-colors">
@@ -176,8 +180,12 @@ export default function NotificationSettingsTable({
       {/* Mobile View - Stacked Cards */}
       <div className="md:hidden p-3 space-y-3">
         {visibleCategories.map((cat) => {
-          const isEmailOn = emailPreferences[cat.key] !== false;
-          const isWebOn = webPreferences[cat.key] !== false;
+          const isEmailOn = cat.key === "websiteDownAlert"
+            ? emailPreferences[cat.key] === true
+            : emailPreferences[cat.key] !== false;
+          const isWebOn = cat.key === "websiteDownAlert"
+            ? webPreferences[cat.key] === true
+            : webPreferences[cat.key] !== false;
 
           return (
             <div

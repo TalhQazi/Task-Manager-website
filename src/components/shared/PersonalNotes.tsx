@@ -358,6 +358,36 @@ export default function PersonalNotes({ getNotes, createNote, updateNote, delete
     }
   };
 
+  const handleDuplicateNote = async () => {
+    if (!selectedNote) return;
+    try {
+      const { item } = await createNote({
+        title: `${selectedNote.title} (Copy)`,
+        content: selectedNote.content,
+        color: selectedNote.color,
+        folder: selectedNote.folder,
+        tags: selectedNote.tags,
+        actionItems: selectedNote.actionItems.map(i => ({ ...i })),
+        notesList: [...selectedNote.notesList],
+        attachments: selectedNote.attachments.map(a => ({ ...a }))
+      });
+
+      const normalizedItem = {
+        ...item,
+        tags: item.tags || [],
+        actionItems: item.actionItems || [],
+        notesList: item.notesList || [],
+        attachments: item.attachments || []
+      };
+
+      setNotes([normalizedItem, ...notes]);
+      selectNote(normalizedItem);
+      toast.success("Document duplicated successfully");
+    } catch (err) {
+      toast.error("Failed to duplicate document");
+    }
+  };
+
   const updateColor = async (id: string, color: string) => {
     try {
       const { item } = await updateNote(id, { color });

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Bell, Menu, Mail, User, Settings, LogOut, Camera, Palette, Loader2, Megaphone, Sparkles } from "lucide-react";
+import { Bell, Menu, Mail, User, Settings, LogOut, Camera, Palette, Loader2, Megaphone, Sparkles, Search } from "lucide-react";
+import { GlobalSearch } from "@/components/GlobalSearch";
 import { useSocket } from "@/contexts/SocketContext";
 import { Button } from "@/components/ui/button";
 import {
@@ -261,6 +262,7 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
   const [headerModalOpen, setHeaderModalOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [isHeaderPickerOpen, setIsHeaderPickerOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const auth = getEmployeeAuth();
 
@@ -340,6 +342,14 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
     };
   }, []);
 
+  useEffect(() => {
+    const handleUpdate = () => {
+      queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+    };
+    window.addEventListener("header-settings-updated", handleUpdate);
+    return () => window.removeEventListener("header-settings-updated", handleUpdate);
+  }, [queryClient]);
+
   // Header settings from admin panel
   const headerSettingsQuery = useQuery({
     queryKey: ["header-settings"],
@@ -380,6 +390,24 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
 
   const headerImageUrl = headerImageUrlRaw ? toProxiedUrl(headerImageUrlRaw) : null;
   const hasImageBackground = Boolean(headerImageUrl);
+
+  const [localPosition, setLocalPosition] = useState<string>("");
+
+  useEffect(() => {
+    if (headerSettings?.imageConfig?.position) {
+      setLocalPosition(headerSettings.imageConfig.position);
+    }
+  }, [headerSettings?.imageConfig?.position]);
+
+  const getVerticalPositionValue = (posStr: string | undefined): number => {
+    if (!posStr) return 50;
+    if (posStr === "center") return 50;
+    if (posStr === "top") return 0;
+    if (posStr === "bottom") return 100;
+    if (posStr === "left" || posStr === "right") return 50;
+    const match = posStr.match(/(\d+)%/);
+    return match ? parseInt(match[1], 10) : 50;
+  };
 
   const fullName = (profile?.name || auth?.name || auth?.username || "Employee").trim();
   const initials =
@@ -631,10 +659,12 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
               alt="header background"
               className="absolute inset-0 w-full h-full"
               style={{
-                objectFit: 'cover',
+                objectFit: (activeHoliday?.backgroundType === "image"
+                  ? (activeHoliday.imageConfig?.size === "100% 100%" ? "fill" : activeHoliday.imageConfig?.size === "auto" ? "none" : activeHoliday.imageConfig?.size || "cover")
+                  : (headerSettings?.imageConfig?.size === "100% 100%" ? "fill" : headerSettings?.imageConfig?.size === "auto" ? "none" : headerSettings?.imageConfig?.size || "cover")) as any,
                 objectPosition: activeHoliday?.backgroundType === "image"
                   ? activeHoliday.imageConfig?.position || 'center'
-                  : headerSettings?.imageConfig?.position || 'center',
+                  : localPosition || 'center',
               }}
               draggable={false}
             />
@@ -771,6 +801,15 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                   </DropdownMenu>
 
                   <button
+                    onClick={() => setSearchOpen(true)}
+                    className="p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-black/40"
+                    title="Search"
+                    style={{ backgroundColor: 'var(--tb-header-bg, rgba(0,0,0,0.2))', color: 'var(--tb-sidebar-text-color, white)', opacity: 0.7 }}
+                  >
+                    <Search className="h-4.5 w-4.5" />
+                  </button>
+
+                  <button
                     onClick={onLogout}
                     className="p-2 rounded-lg backdrop-blur-sm transition-colors hover:bg-red-500/20"
                     title="Logout"
@@ -813,7 +852,11 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                   <img
                     src={headerImageUrl || undefined}
                     alt="Header preview"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full"
+                    style={{ 
+                      objectFit: (headerSettings?.imageConfig?.size === "100% 100%" ? "fill" : headerSettings?.imageConfig?.size === "auto" ? "none" : headerSettings?.imageConfig?.size || "cover") as any,
+                      objectPosition: headerSettings?.imageConfig?.position || "center"
+                    }}
                   />
                 ) : (
                   <div className="flex items-center justify-center h-full">
@@ -842,6 +885,59 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
                 <div className="flex items-center gap-2 text-primary">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   <span className="text-sm">Uploading image...</span>
+                </div>
+              )}
+
+              {hasImageBackground && (
+                <div className="space-y-3 border-t pt-4">
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-semibold text-foreground">Reposition Cover (Uplift / Downlift)</label>
+                    <span className="text-xs text-muted-foreground font-mono">{getVerticalPositionValue(localPosition)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={getVerticalPositionValue(localPosition)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setLocalPosition(`center ${val}%`);
+                    }}
+                    onMouseUp={async (e: any) => {
+                      const val = e.target.value;
+                      const newPos = `center ${val}%`;
+                      await apiFetch("/api/header-settings", {
+                        method: "PUT",
+                        body: JSON.stringify({
+                          imageConfig: {
+                            position: newPos
+                          }
+                        })
+                      });
+                      queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                      window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                    }}
+                    onTouchEnd={async (e: any) => {
+                      const val = e.target.value;
+                      const newPos = `center ${val}%`;
+                      await apiFetch("/api/header-settings", {
+                        method: "PUT",
+                        body: JSON.stringify({
+                          imageConfig: {
+                            position: newPos
+                          }
+                        })
+                      });
+                      queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                      window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                    }}
+                    className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+                  />
+                  <div className="flex justify-between text-[10px] text-muted-foreground">
+                    <span>Downlift (Top)</span>
+                    <span>Center</span>
+                    <span>Uplift (Bottom)</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -882,6 +978,9 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
           }
         }}
       />
+
+      {/* Global Search Palette */}
+      <GlobalSearch open={searchOpen} onOpenChange={setSearchOpen} isEmployee={true} />
     </header>
   );
 }

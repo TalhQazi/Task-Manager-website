@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect, useRef, useCallback } from "react"
 import { useSearchParams } from "react-router-dom";
 import CostManager from "@/components/cost-manager/CostManager";
 import TaskExpensesPanel from "@/components/cost-manager/TaskExpensesPanel";
+import { getProjectCostSheet, getTaskCostSheet } from "@/lib/costManager";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
@@ -97,6 +98,7 @@ import {
   Flame,
   Image as ImageIcon,
   Video,
+  Wallet,
 } from "lucide-react";
 import { cn } from "@/lib/admin/utils";
 import { apiFetch, downloadTaskAttachment, toProxiedUrl, downloadViaUrl } from "@/lib/admin/apiClient";
@@ -666,6 +668,9 @@ type CreateTaskValues = z.infer<typeof createTaskSchema>;
 export default function Tasks() {
   const { socket } = useSocket();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [costManagerModalOpen, setCostManagerModalOpen] = useState(false);
+  const [costManagerModalSheetId, setCostManagerModalSheetId] = useState<string | null>(null);
+  const [costManagerModalSheetName, setCostManagerModalSheetName] = useState("");
   const activeTab = searchParams.get("tab") || "all";
   const [projectSearchQuery, setProjectSearchQuery] = useState("");
   const [projectTaskSearchQuery, setProjectTaskSearchQuery] = useState("");
@@ -878,12 +883,14 @@ export default function Tasks() {
 
   // Fetch projects with server-side pagination
   const projectsQuery = useQuery({
-    queryKey: ["projects", projectPage, projectSearchQuery],
+    queryKey: ["projects", projectPage, projectSearchQuery, statusFilter, assignmentFilter],
     queryFn: async () => {
       const params = new URLSearchParams({
         page: projectPage.toString(),
         limit: PAGE_SIZE.toString(),
         search: projectSearchQuery,
+        status: statusFilter,
+        assignment: assignmentFilter,
       });
       const res = await apiFetch<{ items: Project[], totalPages: number, total: number }>(`/api/projects?${params.toString()}`);
       return {
@@ -894,6 +901,10 @@ export default function Tasks() {
     },
     placeholderData: (previousData) => previousData,
   });
+
+  useEffect(() => {
+    setProjectPage(1);
+  }, [statusFilter, assignmentFilter]);
 
   useEffect(() => {
     if (tasksQuery.data) {
@@ -2470,7 +2481,7 @@ export default function Tasks() {
     }
 
     return filtered;
-  }, [sourceTasks, projectTaskSearchQuery, statusFilter, priorityFilter, showArchivedTasks, viewByPriority]);
+  }, [sourceTasks, projectTaskSearchQuery, projectSearchQuery, statusFilter, priorityFilter, assignmentFilter, assigneeFilter, showArchivedTasks, viewByPriority, selectedProject]);
 
   const filteredProjects = useMemo(() => {
     const qMain = projectSearchQuery.trim().toLowerCase();
@@ -2590,11 +2601,11 @@ export default function Tasks() {
 
       {/* Filters */}
       <div className="flex flex-col md:flex-row gap-3 md:gap-4 mb-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <div className="relative flex-1 min-w-0 w-full">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
           <Input
             placeholder={selectedProject ? "Search tasks in this project..." : "Search projects, tasks, or assignee..."}
-            className="pl-10 h-10 w-full"
+            className="pl-10 pr-10 h-10 w-full bg-background border border-border text-foreground text-sm font-medium focus-visible:ring-2 focus-visible:ring-primary shadow-sm rounded-lg"
             value={selectedProject ? projectTaskSearchQuery : projectSearchQuery}
             onChange={(e) => {
               const next = e.target.value;
@@ -2608,6 +2619,25 @@ export default function Tasks() {
               }
             }}
           />
+          {(selectedProject ? projectTaskSearchQuery : projectSearchQuery) && (
+            <button
+              type="button"
+              onClick={() => {
+                if (selectedProject) {
+                  setProjectTaskSearchQuery("");
+                  setProjectTaskPage(1);
+                } else {
+                  setProjectSearchQuery("");
+                  setProjectPage(1);
+                  setTaskPage(1);
+                }
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+              title="Clear search"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -2999,14 +3029,15 @@ export default function Tasks() {
             </div>
           </div>
 
-          {/* Project Cost Manager™ — prototype cost, purchasing, and storage tracking */}
-          <div className="px-4 sm:px-6 pb-6">
-            <CostManager
-              projectId={selectedProject.id}
-              projectName={selectedProject.name}
-              tasks={(selectedProject.tasks || []).map((t) => ({ id: t.id, title: t.title }))}
-            />
-          </div>
+          {/* Project Cost Manager Link */}
+          <ProjectCostSheetLink
+            projectId={selectedProject.id}
+            onOpenSheet={(id, name) => {
+              setCostManagerModalSheetId(id);
+              setCostManagerModalSheetName(name);
+              setCostManagerModalOpen(true);
+            }}
+          />
         </div>
       ) : (
         <>
@@ -3404,7 +3435,7 @@ export default function Tasks() {
 
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent 
-          className="w-[95vw] max-w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto rounded-lg"
+          className="w-[95vw] max-w-[95vw] sm:max-w-[620px] max-h-[85dvh] sm:max-h-[90vh] overflow-y-auto overscroll-contain rounded-lg pb-6 sm:pb-4"
           onPointerDownOutside={(e) => {
             const target = e.target as HTMLElement | null;
             if (target?.closest('[data-radix-popper-content-wrapper]')) {
@@ -3642,7 +3673,7 @@ export default function Tasks() {
       {/* Create Task Dialog - same as before */}
       <Dialog open={isCreateTaskOpen} onOpenChange={(open) => { setIsCreateTaskOpen(open); if (!open) setIsDirectTask(false); }}>
         <DialogContent 
-          className="w-[95vw] max-w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto rounded-lg"
+          className="w-[95vw] max-w-[95vw] sm:max-w-[620px] max-h-[85dvh] sm:max-h-[90vh] overflow-y-auto overscroll-contain rounded-lg pb-6 sm:pb-4"
           onPointerDownOutside={(e) => {
             const target = e.target as HTMLElement | null;
             if (target?.closest('[data-radix-popper-content-wrapper]')) {
@@ -3909,8 +3940,15 @@ export default function Tasks() {
                     />
                   </div>
 
-                  {/* Cost Manager expenses linked to this task */}
-                  <TaskExpensesPanel taskId={selectedTask.id} />
+                  {/* Task Cost Manager Link */}
+                  <TaskCostSheetLink
+                    taskId={selectedTask.id}
+                    onOpenSheet={(id, name) => {
+                      setCostManagerModalSheetId(id);
+                      setCostManagerModalSheetName(name);
+                      setCostManagerModalOpen(true);
+                    }}
+                  />
 
                   {/* Task Video */}
                   {selectedTask.introVideoUrl && (
@@ -4558,7 +4596,7 @@ export default function Tasks() {
 
 
       <Dialog open={isEditOpen} onOpenChange={(open) => { setIsEditOpen(open); if (!open) setSelectedTask(null); }}>
-        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[700px] max-h-[90vh] overflow-y-auto rounded-lg">
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[700px] max-h-[85dvh] sm:max-h-[90vh] overflow-y-auto overscroll-contain rounded-lg pb-6 sm:pb-4">
           <DialogHeader><DialogTitle>Edit Task</DialogTitle><DialogDescription>Update task details.</DialogDescription></DialogHeader>
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit(onEditTask)} className="space-y-4">
@@ -4810,7 +4848,7 @@ export default function Tasks() {
 
       {/* Edit Project Dialog */}
       <Dialog open={isEditProjectOpen} onOpenChange={setIsEditProjectOpen}>
-        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[620px] max-h-[90vh] overflow-y-auto rounded-lg">
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[620px] max-h-[85dvh] sm:max-h-[90vh] overflow-y-auto overscroll-contain rounded-lg pb-6 sm:pb-4">
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
             <DialogDescription>Update project details.</DialogDescription>
@@ -5057,7 +5095,7 @@ export default function Tasks() {
 
       {/* Reassign Task Dialog */}
       <Dialog open={isReassignTaskOpen} onOpenChange={setIsReassignTaskOpen}>
-        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto rounded-lg">
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[500px] max-h-[85dvh] sm:max-h-[90vh] overflow-y-auto overscroll-contain rounded-lg pb-6 sm:pb-4">
           <DialogHeader>
             <DialogTitle>Reassign Task</DialogTitle>
             <DialogDescription>
@@ -5149,7 +5187,7 @@ export default function Tasks() {
 
       {/* Reassign Project Dialog */}
       <Dialog open={isReassignProjectOpen} onOpenChange={setIsReassignProjectOpen}>
-        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[500px] max-h-[90vh] overflow-y-auto rounded-lg">
+        <DialogContent className="w-[95vw] max-w-[95vw] sm:max-w-[500px] max-h-[85dvh] sm:max-h-[90vh] overflow-y-auto overscroll-contain rounded-lg pb-6 sm:pb-4">
           <DialogHeader>
             <DialogTitle>Reassign Project</DialogTitle>
             <DialogDescription>
@@ -5580,6 +5618,116 @@ export default function Tasks() {
         onClose={() => setIsVideoRecorderOpen(false)}
         onSave={(file) => setCommentAttachments((prev) => [...prev, file])}
       />
+
+      {/* Global Cost Manager Modal */}
+      <Dialog open={costManagerModalOpen} onOpenChange={setCostManagerModalOpen}>
+        <DialogContent className="max-w-[95vw] sm:max-w-5xl max-h-[90vh] overflow-y-auto rounded-xl p-4 sm:p-6 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              <Wallet className="h-5 w-5 text-indigo-500" />
+              {costManagerModalSheetName}
+            </DialogTitle>
+            <DialogDescription>
+              Attached Cost Sheet Details
+            </DialogDescription>
+          </DialogHeader>
+          <div className="my-4">
+            {costManagerModalSheetId && (
+              <CostManager sheetId={costManagerModalSheetId} projectName={costManagerModalSheetName} />
+            )}
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setCostManagerModalOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function ProjectCostSheetLink({ projectId, onOpenSheet }: { projectId: string; onOpenSheet: (id: string, name: string) => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["project-cost-sheet-link", projectId],
+    queryFn: () => getProjectCostSheet(projectId),
+    enabled: !!projectId,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="px-4 sm:px-6 pb-6 flex items-center gap-2 text-xs text-muted-foreground">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-500" /> Checking attached cost sheet...
+      </div>
+    );
+  }
+
+  const sheet = data?.sheet;
+  if (!sheet) {
+    return (
+      <div className="px-4 sm:px-6 pb-6">
+        <div className="text-xs text-muted-foreground flex items-center gap-1.5 bg-slate-50 border border-slate-200/60 p-4 rounded-xl">
+          <AlertCircle className="h-4 w-4 text-slate-400" />
+          <span>No Expense Sheet attached to this project. Go to the Expense Sheets tab to attach one.</span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="px-4 sm:px-6 pb-6">
+      <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm hover:border-indigo-200 transition-colors">
+        <div className="space-y-0.5">
+          <h4 className="font-semibold text-indigo-900 text-sm flex items-center gap-1.5">
+            <Wallet className="h-4 w-4 text-indigo-500" />
+            Attached Expense Sheet
+          </h4>
+          <p className="text-xs text-indigo-700/80">{sheet.name}</p>
+        </div>
+        <Button
+          onClick={() => onOpenSheet(sheet.id, sheet.name)}
+          className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white text-xs h-8 px-3 flex items-center gap-1.5"
+        >
+          <Maximize2 className="h-3.5 w-3.5" /> View Expense Sheet
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function TaskCostSheetLink({ taskId, onOpenSheet }: { taskId: string; onOpenSheet: (id: string, name: string) => void }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["task-cost-sheet-link", taskId],
+    queryFn: () => getTaskCostSheet(taskId),
+    enabled: !!taskId,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-muted-foreground py-1">
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-500" /> Checking attached cost sheet...
+      </div>
+    );
+  }
+
+  const sheet = data?.sheet;
+  if (!sheet) {
+    return null;
+  }
+
+  return (
+    <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-sm hover:border-emerald-200 transition-colors my-2">
+      <div className="space-y-0.5">
+        <h4 className="font-semibold text-emerald-950 text-sm flex items-center gap-1.5">
+          <Wallet className="h-4 w-4 text-emerald-600" />
+          Attached Expense Sheet
+        </h4>
+        <p className="text-xs text-emerald-800/80">{sheet.name}</p>
+      </div>
+      <Button
+        onClick={() => onOpenSheet(sheet.id, sheet.name)}
+        className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 px-3 flex items-center gap-1.5"
+      >
+        <Maximize2 className="h-3.5 w-3.5" /> View Expense Sheet
+      </Button>
     </div>
   );
 }
