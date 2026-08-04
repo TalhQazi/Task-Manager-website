@@ -112,12 +112,12 @@ const navItemsBase: NavItem[] = [
     ),
   },
   {
-    label: "Knowledge Vault",
+    label: "Personal Notes",
     path: "/manager/personal-notes",
     customIcon: (
       <img
         src="/kn_vlt.png"
-        alt="Knowledge Vault"
+        alt="Personal Notes"
         className="h-5 w-5 flex-shrink-0 object-contain opacity-80 group-hover:opacity-100 transition-opacity"
       />
     ),
@@ -336,7 +336,7 @@ export function Sidebar({ mode = "desktop", onNavigate, isCollapsed = false, onT
   };
 
   const navItems = useMemo(() => {
-    return navItemsBase.filter(item => item.label !== "Bugs");
+    return navItemsBase;
   }, []);
 
   return (

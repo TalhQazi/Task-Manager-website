@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/manger/ui/dialog";
+import { DEPARTMENTS_AND_POSITIONS } from "@/constants/jobPositions";
 import {
   Form,
   FormControl,
@@ -651,19 +652,41 @@ export default function Employees() {
             },
           }}
         >
-          <motion.div variants={itemVariants}>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[130px] sm:w-[130px]">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-                <SelectItem value="on-leave">On Leave</SelectItem>
-              </SelectContent>
-            </Select>
-          </motion.div>
+          {/* Quick Filter Chips (Replaces Mobile-Buggy Dropdown) */}
+          <div className="overflow-x-auto no-scrollbar py-1 flex items-center gap-1.5 shrink-0">
+            <Button
+              size="sm"
+              variant={statusFilter === "all" ? "default" : "outline"}
+              onClick={() => setStatusFilter("all")}
+              className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+            >
+              All Employees
+            </Button>
+            <Button
+              size="sm"
+              variant={statusFilter === "active" ? "default" : "outline"}
+              onClick={() => setStatusFilter(statusFilter === "active" ? "all" : "active")}
+              className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+            >
+              Active
+            </Button>
+            <Button
+              size="sm"
+              variant={statusFilter === "on-leave" ? "default" : "outline"}
+              onClick={() => setStatusFilter(statusFilter === "on-leave" ? "all" : "on-leave")}
+              className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+            >
+              On Leave
+            </Button>
+            <Button
+              size="sm"
+              variant={statusFilter === "inactive" ? "default" : "outline"}
+              onClick={() => setStatusFilter(statusFilter === "inactive" ? "all" : "inactive")}
+              className="h-8 text-xs font-semibold rounded-full px-3 shrink-0 text-destructive"
+            >
+              Inactive
+            </Button>
+          </div>
         </motion.div>
       </motion.div>
 
@@ -1089,9 +1112,22 @@ export default function Employees() {
                     name="role"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Role</FormLabel>
+                        <FormLabel>Role (Position / Title)</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g. Field Technician" {...field} />
+                          <>
+                            <Input list="manager-add-job-positions-list" placeholder="Select or type position (e.g., Software Engineer)" {...field} />
+                            <datalist id="manager-add-job-positions-list">
+                              {DEPARTMENTS_AND_POSITIONS.map((group) => (
+                                <optgroup key={group.department} label={group.department}>
+                                  {group.positions.map((pos) => (
+                                    <option key={pos} value={pos}>
+                                      {pos} ({group.department})
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              ))}
+                            </datalist>
+                          </>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1456,9 +1492,22 @@ export default function Employees() {
                   name="role"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Role</FormLabel>
+                      <FormLabel>Role (Position / Title)</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. Field Technician" {...field} />
+                        <>
+                          <Input list="manager-edit-job-positions-list" placeholder="Select or type position (e.g., Software Engineer)" {...field} />
+                          <datalist id="manager-edit-job-positions-list">
+                            {DEPARTMENTS_AND_POSITIONS.map((group) => (
+                              <optgroup key={group.department} label={group.department}>
+                                {group.positions.map((pos) => (
+                                  <option key={pos} value={pos}>
+                                    {pos} ({group.department})
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ))}
+                          </datalist>
+                        </>
                       </FormControl>
                       <FormMessage />
                     </FormItem>

@@ -270,9 +270,10 @@ export async function downloadTaskAttachment(
 // Download any URL with authentication
 export async function downloadViaUrl(url: string, fileName: string): Promise<void> {
   const auth = getAuthState();
+  const targetUrl = toProxiedUrl(url) || url;
   
   // Use fetch to get the blob with headers
-  const res = await fetch(url, {
+  const res = await fetch(targetUrl, {
     headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
   });
   

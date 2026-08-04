@@ -348,8 +348,8 @@ export function MainLayout({ children }: MainLayoutProps) {
       return "/manager/tasks";
     }
     if (resourceType === "bug") {
-      if (resourceId) return `/developer/bugs?view=${encodeURIComponent(resourceId)}`;
-      return "/developer/bugs";
+      if (resourceId) return `/manager/bugs?view=${encodeURIComponent(resourceId)}`;
+      return "/manager/bugs";
     }
 
     if (direct) {

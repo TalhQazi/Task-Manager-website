@@ -34,6 +34,7 @@ const Settings = lazy(() => import("@/pages/admin/Settings"));
 const Profile = lazy(() => import("@/pages/admin/Profile"));
 const PersonalNotes = lazy(() => import("@/pages/admin/PersonalNotes"));
 const KnowledgeVault = lazy(() => import("@/pages/admin/KnowledgeVault"));
+const TaskWorkspace = lazy(() => import("@/pages/admin/TaskWorkspace"));
 const RolesPermissions = lazy(() => import("@/pages/admin/RolesPermissions"));
 const AsanaImport = lazy(() => import("@/pages/admin/AsanaImport"));
 const AsanaData = lazy(() => import("@/pages/admin/AsanaData"));
@@ -121,6 +122,7 @@ export default function AdminRoutes() {
       { path: "users", element: <Users /> },
       { path: "roles", element: <RolesPermissions /> },
       { path: "tasks", element: <Tasks /> },
+      { path: "task-workspace", element: <TaskWorkspace /> },
       { path: "employees", element: <Employees /> },
       { path: "itineraries", element: <ItineraryHistory /> },
       { path: "payroll", element: <Payroll /> },
@@ -185,7 +187,8 @@ export default function AdminRoutes() {
       { path: "crm/communication", element: <CRMCommunication /> },
       { path: "crm/files", element: <CRMFiles /> },
       { path: "crm/commandcore", element: <CRMCommandCore /> },
-      { path: "bug-reports", element: auth.role === "super-admin" ? <BugReport /> : <Navigate to="/admin" replace /> },
+      { path: "bug-reports", element: <BugReport /> },
+      { path: "bugs", element: <BugReport /> },
       { path: "compliance-center", element: <ComplianceCenter /> },
       { path: "theme-engine", element: <ThemeEngine /> },
       { path: "memes", element: <Memes /> },

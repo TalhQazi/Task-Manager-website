@@ -2,6 +2,7 @@ import { SidebarProfile } from "./SidebarProfile";
 import { NavLink } from "@/components/admin/NavLink";
 import {
   LayoutDashboard,
+  LayoutGrid,
   Users,
   CheckSquare,
   UserCircle,
@@ -118,6 +119,7 @@ const navItemsBase: NavItem[] = [
   { icon: Users, label: "User Management", path: "/admin/users", end: true },
   { icon: ClipboardList, label: "Compliance Center", path: "/admin/compliance-center" },
   { icon: CheckSquare, label: "Task Management", path: "/admin/tasks" },
+  { icon: LayoutGrid, label: "Task Workspace", path: "/admin/task-workspace" },
   { icon: UserCircle, label: "Employee Directory", path: "/admin/employees" },
   { icon: Compass, label: "Itinerary History", path: "/admin/itineraries" },
   { icon: Megaphone, label: "Announcements", path: "/admin/announcements" },
@@ -196,12 +198,12 @@ const navItemsBase: NavItem[] = [
     ],
   },
   {
-    label: "Knowledge Vault",
+    label: "Personal Notes",
     path: "/admin/personal-notes",
     customIcon: (
       <img
         src="/kn_vlt.png"
-        alt="Knowledge Vault"
+        alt="Personal Notes"
         className="h-5 w-5 flex-shrink-0 object-contain opacity-80 group-hover:opacity-100 transition-opacity"
       />
     ),
@@ -259,12 +261,12 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
 
     // Add super-admin items
     if (auth.role === "super-admin") {
-      items.push(systemEmailSettingsNavItem, activityLogNavItem, bugNavItem);
+      items.push(systemEmailSettingsNavItem, activityLogNavItem);
     }
     
-    // Add System Health, Expense Sheets and Knowledge Vault for admin/super-admin
+    // Add System Health, Bug Reports, Expense Sheets and Knowledge Vault for admin/super-admin
     if (auth.role === "admin" || auth.role === "super-admin") {
-      items.push(systemHealthNavItem, expenseSheetsNavItem, knowledgeVaultNavItem);
+      items.push(bugNavItem, systemHealthNavItem, expenseSheetsNavItem, knowledgeVaultNavItem);
     }
 
     // Add Attendance only for admin (not super-admin)

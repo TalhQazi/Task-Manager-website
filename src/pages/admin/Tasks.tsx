@@ -2,6 +2,8 @@ import React, { useMemo, useState, useEffect, useRef, useCallback } from "react"
 import { useSearchParams } from "react-router-dom";
 import CostManager from "@/components/cost-manager/CostManager";
 import TaskExpensesPanel from "@/components/cost-manager/TaskExpensesPanel";
+import { AsanaQuickAddBar } from "@/components/tasks/AsanaQuickAddBar";
+import { AsanaTaskDrawer } from "@/components/tasks/AsanaTaskDrawer";
 import { getProjectCostSheet, getTaskCostSheet } from "@/lib/costManager";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/admin/ui/button";
@@ -159,7 +161,6 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
         src={src} 
         alt={`${projectName} logo`} 
         className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-border" 
-        crossOrigin="anonymous"
         onError={() => setError(true)}
       />
     );
@@ -211,7 +212,6 @@ function ProjectLogoImgLarge({ projectId, projectName, logoUrl }: { projectId: s
         src={src} 
         alt={`${projectName} logo`} 
         className="w-full h-full object-cover rounded-xl border border-border" 
-        crossOrigin="anonymous"
         onError={() => setError(true)}
       />
     );
@@ -422,6 +422,10 @@ interface Employee {
   name: string;
   initials: string;
   email: string;
+  role?: string;
+  department?: string;
+  avatarUrl?: string;
+  avatarDataUrl?: string;
   status: "active" | "inactive" | "on-leave";
 }
 
@@ -776,6 +780,7 @@ export default function Tasks() {
   const [priorityModeEnabled, setPriorityModeEnabled] = useState(false);
   const [viewByPriority, setViewByPriority] = useState(false);
   const [assigningPriority, setAssigningPriority] = useState(false);
+  const [isAsanaDrawerOpen, setIsAsanaDrawerOpen] = useState(false);
 
   const queryClient = useQueryClient();
 
@@ -988,25 +993,30 @@ export default function Tasks() {
     }
   }, [tasks, searchParams, setSearchParams, isViewOpen, isEditOpen, isDeleteOpen, isCreateOpen]);
 
-  // Fetch employees/users for mentions and assignees
+  // Fetch employees for mentions and assignees
   useEffect(() => {
     const loadEmployees = async () => {
       try {
-        const res = await apiFetch<{ items: any[] }>("/api/users/all");
-        const list = (res.items || []).map(u => ({
-          id: u.id,
-          name: u.name,
-          email: u.email,
-          avatarUrl: toProxiedUrl(u.avatarUrl) || u.avatarUrl,
-          avatarDataUrl: toProxiedUrl(u.avatarUrl) || u.avatarUrl,
-          status: (u.status || "active") as Employee["status"],
-          initials: (u.name || u.username || "??")
-            .split(" ")
-            .map((n: string) => n[0])
-            .join("")
-            .toUpperCase()
-            .substring(0, 2)
-        }));
+        const res = await apiFetch<{ items: any[] }>("/api/employees");
+        const list = (res.items || []).map(u => {
+          const avatar = u.avatarUrl || u.avatarDataUrl || "";
+          return {
+            id: String(u.id || u._id),
+            name: u.name,
+            email: u.email || "",
+            role: u.role || u.userRole || "",
+            department: u.department || "",
+            avatarUrl: avatar ? (toProxiedUrl(avatar) || avatar) : "",
+            avatarDataUrl: avatar ? (toProxiedUrl(avatar) || avatar) : "",
+            status: (u.status || "active") as Employee["status"],
+            initials: u.initials || (u.name || "??")
+              .split(" ")
+              .map((n: string) => n[0])
+              .join("")
+              .toUpperCase()
+              .substring(0, 2)
+          };
+        });
 
         // Ensure current user is in the list of assignees for selection
         const auth = getAuthState();
@@ -1017,7 +1027,9 @@ export default function Tasks() {
             name: myUsername,
             initials: myUsername.substring(0, 2).toUpperCase(),
             status: "active",
-            email: myUsername
+            email: myUsername,
+            role: "",
+            department: ""
           } as any);
         }
 
@@ -1032,9 +1044,8 @@ export default function Tasks() {
 
   const activeEmployees = useMemo(() => {
     return employees.filter((e) => {
-      const s = String(e.status || "").toLowerCase();
-      // Only show employees who are strictly 'active'
-      return s === "active";
+      const s = String(e.status || "active").toLowerCase();
+      return s !== "inactive";
     });
   }, [employees]);
 
@@ -1507,7 +1518,7 @@ export default function Tasks() {
     setSelectedAssignees([]);
   };
 
-  // Handle task priority click in Priority Mode
+  // Handle task priority click in Priority Mode: 1-click sequencing
   const handleTaskPriorityClick = async (task: Task, e?: React.MouseEvent) => {
     if (e) {
       e.stopPropagation();
@@ -1515,34 +1526,41 @@ export default function Tasks() {
     }
     if (!priorityModeEnabled || assigningPriority) return;
 
-    const currentPriority = task.executionPriority || "";
-    const input = window.prompt(
-      `Set execution priority for "${task.title}":\n- Enter a positive integer (e.g., 1, 3, 5) to assign or move.\n- Leave empty and click OK to clear priority.`,
-      String(currentPriority)
-    );
-
-    if (input === null) return; // Cancelled
-
     setAssigningPriority(true);
     try {
-      const trimmed = input.trim();
-      if (trimmed === "") {
-        if (task.executionPriority) {
-          await removePriorityMutation.mutateAsync(task.id);
-          toast({ title: "Priority removed", description: `Task "${task.title}" removed from execution order.` });
-        }
+      if (task.executionPriority) {
+        // If task already has a priority, clicking it removes it (unassigns and re-sequences remaining)
+        await apiFetch<{ success: boolean }>(`/api/tasks/${encodeURIComponent(task.id)}/priority`, {
+          method: "DELETE",
+        });
+        toast({
+          title: "Priority removed",
+          description: `Removed "${task.title}" from execution sequence.`,
+        });
       } else {
-        const priorityVal = parseInt(trimmed, 10);
-        if (isNaN(priorityVal) || priorityVal < 1) {
-          toast({
-            title: "Invalid priority",
-            description: "Priority must be a positive integer.",
-            variant: "destructive",
-          });
-          return;
-        }
-        await assignPriorityMutation.mutateAsync({ id: task.id, priority: priorityVal });
-        toast({ title: "Priority assigned", description: `Task "${task.title}" set as #${priorityVal} in execution order.` });
+        // If task is not prioritized, assign next sequence number (max current priority + 1)
+        const allTasks = selectedProject ? (selectedProject.tasks || []) : tasks;
+        const currentPriorities = allTasks
+          .map((t) => t.executionPriority)
+          .filter((p): p is number => typeof p === "number" && p > 0);
+
+        const nextPriority = currentPriorities.length > 0 ? Math.max(...currentPriorities) + 1 : 1;
+
+        await apiFetch<{ success: boolean; item: Task }>(`/api/tasks/${encodeURIComponent(task.id)}/priority`, {
+          method: "POST",
+          body: JSON.stringify({ executionPriority: nextPriority }),
+        });
+
+        toast({
+          title: `Priority #${nextPriority} Assigned`,
+          description: `Set "${task.title}" as #${nextPriority} in execution order.`,
+        });
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      if (selectedProject) {
+        await loadProject(selectedProject.id);
       }
     } catch (err) {
       toast({
@@ -1818,6 +1836,7 @@ export default function Tasks() {
     setTaskViewDesc(task.description);
     setTaskViewEdited(false);
     setIsViewOpen(true);
+    setIsAsanaDrawerOpen(true);
     void loadComments(task.id);
     void loadDropboxAttachments(task.id);
   };
@@ -2415,6 +2434,11 @@ export default function Tasks() {
 
   const uniqueAssignees = useMemo(() => {
     const set = new Set<string>();
+    activeEmployees.forEach((e) => {
+      if (e.name && e.name.trim()) {
+        set.add(e.name.trim());
+      }
+    });
     sourceTasks.forEach((t: any) => {
       if (Array.isArray(t.assignees)) {
         t.assignees.forEach((a: string) => {
@@ -2425,98 +2449,172 @@ export default function Tasks() {
       }
     });
     return Array.from(set).sort();
-  }, [sourceTasks]);
+  }, [activeEmployees, sourceTasks]);
+
+  // Helper to match an assignee string against assigneeFilter
+  const matchesSelectedAssignee = useCallback((assigneesList: string[], filter: string, teamLead?: string) => {
+    if (!filter || filter === "all") return true;
+    const filterLower = filter.toLowerCase().trim();
+
+    const emp = activeEmployees.find(
+      (e) => (e.name && e.name.toLowerCase().trim() === filterLower) || (e.email && e.email.toLowerCase().trim() === filterLower)
+    );
+
+    const variants = new Set<string>();
+    variants.add(filterLower);
+    if (emp) {
+      if (emp.name) variants.add(emp.name.toLowerCase().trim());
+      if (emp.email) variants.add(emp.email.toLowerCase().trim());
+    }
+
+    if (teamLead && Array.from(variants).some((v) => teamLead.toLowerCase().trim().includes(v))) {
+      return true;
+    }
+
+    if (Array.isArray(assigneesList)) {
+      return assigneesList.some((a) => {
+        if (!a || typeof a !== "string") return false;
+        const aLower = a.toLowerCase().trim();
+        return Array.from(variants).some((v) => aLower === v || aLower.includes(v) || v.includes(aLower));
+      });
+    }
+
+    return false;
+  }, [activeEmployees]);
 
   const filteredTasks = useMemo(() => {
     const filtered = sourceTasks.filter((task) => {
       const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
       const taskSearch = selectedProject ? projectTaskSearchQuery : projectSearchQuery;
       const matchesSearch =
+        !taskSearch ||
         task.title.toLowerCase().includes(taskSearch.toLowerCase()) ||
-        assigneesText.toLowerCase().includes(taskSearch.toLowerCase());
+        (task.description && task.description.toLowerCase().includes(taskSearch.toLowerCase())) ||
+        assigneesText.toLowerCase().includes(taskSearch.toLowerCase()) ||
+        task.status.toLowerCase().includes(taskSearch.toLowerCase()) ||
+        task.priority.toLowerCase().includes(taskSearch.toLowerCase()) ||
+        (task.projectName && task.projectName.toLowerCase().includes(taskSearch.toLowerCase()));
       const matchesStatus =
         statusFilter === "all" || task.status === statusFilter;
       const matchesPriority =
         priorityFilter === "all" || task.priority === priorityFilter;
       const matchesAssignment =
         assignmentFilter === "all" ||
-        (assignmentFilter === "assigned" && task.assignees.length > 0) ||
-        (assignmentFilter === "unassigned" && task.assignees.length === 0) ||
-        (assignmentFilter === "me" && task.assignees.some((a) => {
+        (assignmentFilter === "assigned" && task.assignees && task.assignees.length > 0) ||
+        (assignmentFilter === "unassigned" && (!task.assignees || task.assignees.length === 0)) ||
+        (assignmentFilter === "me" && (task.assignees || []).some((a: string) => {
           const term = a.toLowerCase().trim();
           const meUsername = currentUsername.toLowerCase().trim();
           const authState = getAuthState();
           const meName = (authState.name || "").toLowerCase().trim();
           return (meUsername && term === meUsername) || (meName && term === meName);
         }));
-      const matchesAssignee =
-        assigneeFilter === "all" ||
-        (Array.isArray(task.assignees) && task.assignees.includes(assigneeFilter));
+      const matchesAssignee = matchesSelectedAssignee(task.assignees || [], assigneeFilter);
  
-      // Archive logic: only filter if specifically requested via showArchivedTasks toggle
       if (showArchivedTasks && task.status !== "completed") return false;
  
       return matchesSearch && matchesStatus && matchesPriority && matchesAssignment && matchesAssignee;
     });
 
-    // Sort by execution priority when viewByPriority is enabled
     if (viewByPriority) {
-      // IMPORTANT: don't mutate `filtered` (which is derived from React state)
       return [...filtered].sort((a, b) => {
         const aP = a.executionPriority ?? null;
         const bP = b.executionPriority ?? null;
-
-        // Tasks with execution priority come first
         if (aP !== null && bP === null) return -1;
         if (aP === null && bP !== null) return 1;
-
-        // Both have priority - sort by priority number
-        if (aP !== null && bP !== null) {
-          return aP - bP;
-        }
-
-        // Neither has priority - maintain original order
+        if (aP !== null && bP !== null) return aP - bP;
         return 0;
       });
     }
 
     return filtered;
-  }, [sourceTasks, projectTaskSearchQuery, projectSearchQuery, statusFilter, priorityFilter, assignmentFilter, assigneeFilter, showArchivedTasks, viewByPriority, selectedProject]);
+  }, [sourceTasks, projectTaskSearchQuery, projectSearchQuery, statusFilter, priorityFilter, assignmentFilter, assigneeFilter, showArchivedTasks, viewByPriority, selectedProject, matchesSelectedAssignee]);
 
   const filteredProjects = useMemo(() => {
     const qMain = projectSearchQuery.trim().toLowerCase();
     const sFilter = statusFilter.toLowerCase();
+    const pFilter = priorityFilter.toLowerCase();
 
     return projects.filter((p) => {
       const name = p.name.toLowerCase();
       const desc = (p.description || "").toLowerCase();
-      const assignees = (p.assignees || []).join(" ").toLowerCase();
+      const assigneesText = (p.assignees || []).join(" ").toLowerCase();
+      const teamLeadText = (p.teamLead || "").toLowerCase();
       const status = (p.status || "").toLowerCase();
+      const priority = (p.priority || "").toLowerCase();
 
       // Status Filter
       if (sFilter !== "all" && status !== sFilter) {
         return false;
       }
 
-      // If the main search bar has text, it must match either name, desc, or assignees
-      if (qMain && !name.includes(qMain) && !desc.includes(qMain) && !assignees.includes(qMain)) {
+      // Priority Filter
+      if (pFilter !== "all" && priority !== pFilter) {
+        return false;
+      }
+
+      // Assignee Filter
+      if (assigneeFilter !== "all") {
+        const directAssigneeMatch = matchesSelectedAssignee(p.assignees || [], assigneeFilter, p.teamLead);
+        const taskAssigneeMatch = Array.isArray(p.tasks) && p.tasks.some((t: any) => matchesSelectedAssignee(t.assignees || [], assigneeFilter));
+        if (!directAssigneeMatch && !taskAssigneeMatch) {
+          return false;
+        }
+      }
+
+      // Assignment Filter ("me", "assigned", "unassigned")
+      if (assignmentFilter === "assigned") {
+        const hasProjectAssignees = (p.assignees && p.assignees.length > 0) || !!p.teamLead;
+        const hasTaskAssignees = Array.isArray(p.tasks) && p.tasks.some((t: any) => t.assignees && t.assignees.length > 0);
+        if (!hasProjectAssignees && !hasTaskAssignees) return false;
+      } else if (assignmentFilter === "unassigned") {
+        const hasProjectAssignees = (p.assignees && p.assignees.length > 0) || !!p.teamLead;
+        const hasTaskAssignees = Array.isArray(p.tasks) && p.tasks.some((t: any) => t.assignees && t.assignees.length > 0);
+        if (hasProjectAssignees || hasTaskAssignees) return false;
+      } else if (assignmentFilter === "me") {
+        const meUsername = currentUsername.toLowerCase().trim();
+        const meName = (getAuthState().name || "").toLowerCase().trim();
+        const meVariants = [meUsername, meName].filter(Boolean);
+        const isProjectMe = (p.assignees || []).some((a: string) => meVariants.includes(a.toLowerCase().trim())) || (p.teamLead && meVariants.includes(p.teamLead.toLowerCase().trim()));
+        const isTaskMe = Array.isArray(p.tasks) && p.tasks.some((t: any) => (t.assignees || []).some((a: string) => meVariants.includes(a.toLowerCase().trim())));
+        if (!isProjectMe && !isTaskMe) return false;
+      }
+
+      // Search Query
+      if (qMain && !name.includes(qMain) && !desc.includes(qMain) && !assigneesText.includes(qMain) && !teamLeadText.includes(qMain)) {
         return false;
       }
 
       return true;
     });
-  }, [projects, projectSearchQuery, statusFilter]);
+  }, [projects, projectSearchQuery, statusFilter, priorityFilter, assignmentFilter, assigneeFilter, matchesSelectedAssignee]);
 
   const filteredStandaloneTasks = useMemo(() => {
     let standalone = tasksQuery.data?.items || [];
-    if (projectSearchQuery.trim()) {
-      const q = projectSearchQuery.toLowerCase();
-      standalone = standalone.filter((task) => {
-        const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
-        return task.title.toLowerCase().includes(q) || assigneesText.toLowerCase().includes(q);
-      });
-    }
-    // Sort by execution priority when viewByPriority is enabled
+    const qMain = projectSearchQuery.trim().toLowerCase();
+
+    standalone = standalone.filter((task) => {
+      const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
+      const matchesSearch = !qMain || task.title.toLowerCase().includes(qMain) || assigneesText.toLowerCase().includes(qMain);
+      const matchesStatus = statusFilter === "all" || task.status === statusFilter;
+      const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
+      const matchesAssignment =
+        assignmentFilter === "all" ||
+        (assignmentFilter === "assigned" && task.assignees && task.assignees.length > 0) ||
+        (assignmentFilter === "unassigned" && (!task.assignees || task.assignees.length === 0)) ||
+        (assignmentFilter === "me" && (task.assignees || []).some((a: string) => {
+          const term = a.toLowerCase().trim();
+          const meUsername = currentUsername.toLowerCase().trim();
+          const meName = (getAuthState().name || "").toLowerCase().trim();
+          return (meUsername && term === meUsername) || (meName && term === meName);
+        }));
+      const matchesAssignee = matchesSelectedAssignee(task.assignees || [], assigneeFilter);
+
+      if (showArchivedTasks && task.status !== "completed") return false;
+
+      return matchesSearch && matchesStatus && matchesPriority && matchesAssignment && matchesAssignee;
+    });
+
     if (viewByPriority) {
       return [...standalone].sort((a, b) => {
         const aP = a.executionPriority ?? null;
@@ -2528,7 +2626,7 @@ export default function Tasks() {
       });
     }
     return standalone;
-  }, [tasksQuery.data, projectSearchQuery, viewByPriority]);
+  }, [tasksQuery.data, projectSearchQuery, statusFilter, priorityFilter, assignmentFilter, assigneeFilter, showArchivedTasks, viewByPriority, matchesSelectedAssignee]);
 
   // Project & Task counts from server data
   const projectTotalPages = projectsQuery.data?.totalPages || 1;
@@ -2599,9 +2697,25 @@ export default function Tasks() {
         </div>
       </div>
 
+      {/* Asana Style Quick-Add Bar */}
+      <div className="mb-4">
+        <AsanaQuickAddBar
+          projectId={selectedProject?.id}
+          projectName={selectedProject?.name}
+          onTaskCreated={() => {
+            void tasksQuery.refetch();
+            if (selectedProject) void loadProject(selectedProject.id);
+          }}
+          onOpenFullModal={() => {
+            setIsDirectTask(true);
+            setIsCreateTaskOpen(true);
+          }}
+        />
+      </div>
+
       {/* Filters */}
-      <div className="flex flex-col md:flex-row gap-3 md:gap-4 mb-4">
-        <div className="relative flex-1 min-w-0 w-full">
+      <div className="flex flex-col md:flex-row gap-3 md:gap-4 mb-4 items-stretch md:items-center">
+        <div className="relative flex-1 min-w-[220px] w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
           <Input
             placeholder={selectedProject ? "Search tasks in this project..." : "Search projects, tasks, or assignee..."}
@@ -2639,61 +2753,71 @@ export default function Tasks() {
             </button>
           )}
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[150px] h-10">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-full sm:w-[150px] h-10">
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Priority</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={assignmentFilter} onValueChange={setAssignmentFilter}>
-            <SelectTrigger className="w-full sm:w-[150px] h-10">
-              <SelectValue placeholder="Assignment" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Assignment</SelectItem>
-              <SelectItem value="me">Assigned to Me</SelectItem>
-              <SelectItem value="assigned">Assigned</SelectItem>
-              <SelectItem value="unassigned">Unassigned</SelectItem>
-            </SelectContent>
-          </Select>
-          {uniqueAssignees.length > 0 && (
-            <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-              <SelectTrigger className="w-full sm:w-[150px] h-10">
-                <SelectValue placeholder="Assignee" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Assignees</SelectItem>
-                {uniqueAssignees.map((a) => (
-                  <SelectItem key={a} value={a}>{a}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <Button 
+        {/* Quick Filter Chips (Replaces Mobile-Buggy Dropdowns) */}
+        <div className="w-full overflow-x-auto no-scrollbar py-1 flex items-center gap-1.5 shrink-0">
+          <Button
+            size="sm"
+            variant={statusFilter === "all" && priorityFilter === "all" && assignmentFilter === "all" ? "default" : "outline"}
+            onClick={() => {
+              setStatusFilter("all");
+              setPriorityFilter("all");
+              setAssignmentFilter("all");
+              setAssigneeFilter("all");
+            }}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            All Tasks
+          </Button>
+          <Button
+            size="sm"
+            variant={assignmentFilter === "me" ? "default" : "outline"}
+            onClick={() => setAssignmentFilter(assignmentFilter === "me" ? "all" : "me")}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            Assigned to Me
+          </Button>
+          <Button
+            size="sm"
+            variant={statusFilter === "pending" ? "default" : "outline"}
+            onClick={() => setStatusFilter(statusFilter === "pending" ? "all" : "pending")}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            Pending
+          </Button>
+          <Button
+            size="sm"
+            variant={statusFilter === "active" ? "default" : "outline"}
+            onClick={() => setStatusFilter(statusFilter === "active" ? "all" : "active")}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            In Progress
+          </Button>
+          <Button
+            size="sm"
+            variant={statusFilter === "completed" ? "default" : "outline"}
+            onClick={() => setStatusFilter(statusFilter === "completed" ? "all" : "completed")}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            Completed
+          </Button>
+          <Button
+            size="sm"
+            variant={priorityFilter === "high" ? "default" : "outline"}
+            onClick={() => setPriorityFilter(priorityFilter === "high" ? "all" : "high")}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            High Priority
+          </Button>
+          <Button
+            size="sm"
             variant={showArchivedTasks ? "secondary" : "outline"}
             onClick={() => setShowArchivedTasks(!showArchivedTasks)}
-            className="h-10 px-3 flex items-center gap-2"
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0 gap-1.5"
           >
-            <Archive className="h-4 w-4" />
-            <span className="text-xs font-medium">{showArchivedTasks ? "Hide Archived" : "Show Archived"}</span>
+            <Archive className="h-3.5 w-3.5" />
+            <span>{showArchivedTasks ? "Hide Archived" : "Show Archived"}</span>
           </Button>
+        </div>
           {/* <Button variant="outline" size="icon" className="h-10 w-10 shrink-0 hidden sm:flex">
             <Filter className="w-4 h-4" />
           </Button> */}
@@ -2759,7 +2883,6 @@ export default function Tasks() {
             </>
           )}
         </div>
-      </div>
 
       {/* Premium Tab Switcher */}
       {!selectedProject && (
@@ -3062,12 +3185,12 @@ export default function Tasks() {
                 <p className="text-muted-foreground">Loading projects...</p>
               ) : projectsQuery.isError ? (
                 <p className="text-destructive">{(() => { const msg = projectsQuery.error instanceof Error ? projectsQuery.error.message : "Failed to load projects"; return msg.startsWith("<") ? "Server error: failed to load projects. The server may be temporarily unavailable (504 Gateway Timeout). Please try again later." : msg; })()}</p>
-              ) : projectsQuery.data?.items.length === 0 ? (
-                <p className="text-muted-foreground">{projectSearchQuery ? "No projects match your search." : "No projects found. Create one to begin."}</p>
+              ) : filteredProjects.length === 0 ? (
+                <p className="text-muted-foreground">{(projectSearchQuery || assigneeFilter !== "all" || statusFilter !== "all" || priorityFilter !== "all" || assignmentFilter !== "all") ? "No projects match your filter criteria." : "No projects found. Create one to begin."}</p>
               ) : (
                 <>
                   <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                    {projectsQuery.data?.items.map((project, idx) => {
+                    {filteredProjects.map((project, idx) => {
                       const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0 ? project.assignees : [];
                       const taskNum = project.taskCount ?? 0;
                       const projectLetter = String.fromCharCode(65 + (idx % 26));
@@ -3718,7 +3841,55 @@ export default function Tasks() {
                 </div>
                 {validationErrors.description && <p className="text-xs text-destructive">{validationErrors.description}</p>}
               </div>
-              <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Assignees</label><Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}><PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{selectedAssignees.length > 0 ? selectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] max-w-[380px] p-0 z-[150]" align="start" collisionPadding={20}><Command><CommandInput placeholder="Search employees..." /><CommandList><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); }}><Check className={cn("mr-2 h-4 w-4", selectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover></div>
+              <div className="sm:col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Assignees</label>
+                <Popover open={assigneesOpen} onOpenChange={setAssigneesOpen}>
+                  <PopoverTrigger asChild>
+                    <Button type="button" variant="outline" className="w-full justify-between h-10">
+                      <span className="truncate">{selectedAssignees.length > 0 ? selectedAssignees.join(", ") : "Select assignees"}</span>
+                      <ChevronsUpDown className="h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] max-w-[380px] p-0 z-[150]" align="start" collisionPadding={20}>
+                    <Command>
+                      <CommandInput placeholder="Search employees..." />
+                      <CommandList className="max-h-[260px] overflow-y-auto custom-scrollbar">
+                        <CommandEmpty>No employee found.</CommandEmpty>
+                        <CommandGroup>
+                          {activeEmployees.map((employee) => (
+                            <CommandItem
+                              key={employee.id}
+                              value={`${employee.name} ${employee.role || ""} ${employee.department || ""} ${employee.email || ""}`}
+                              onSelect={() => {
+                                setSelectedAssignees((prev) =>
+                                  prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]
+                                );
+                              }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4 shrink-0", selectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} />
+                              <Avatar className="h-6 w-6 mr-2 shrink-0">
+                                {(employee.avatarDataUrl || employee.avatarUrl) ? (
+                                  <img src={employee.avatarDataUrl || employee.avatarUrl} alt={employee.name} className="w-full h-full object-cover rounded-full" />
+                                ) : (
+                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-semibold">{employee.initials}</AvatarFallback>
+                                )}
+                              </Avatar>
+                              <div className="flex flex-col min-w-0 flex-1">
+                                <span className="truncate text-sm font-medium">{employee.name}</span>
+                                {(employee.role || employee.department || employee.email) && (
+                                  <span className="truncate text-[11px] text-muted-foreground">
+                                    {[employee.role, employee.department || employee.email].filter(Boolean).join(" • ")}
+                                  </span>
+                                )}
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-sm font-medium">Team Lead (Optional)</label>
                 <Popover open={taskTeamLeadPopoverOpen} onOpenChange={setTaskTeamLeadPopoverOpen}>
@@ -3731,7 +3902,7 @@ export default function Tasks() {
                   <PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] max-w-[380px] p-0 z-[150]" align="start" collisionPadding={20}>
                     <Command>
                       <CommandInput placeholder="Search team lead..." />
-                      <CommandList>
+                      <CommandList className="max-h-[260px] overflow-y-auto custom-scrollbar">
                         <CommandEmpty>No employee found.</CommandEmpty>
                         <CommandGroup>
                           <CommandItem value="" onSelect={() => { setTaskTeamLead(""); setTaskTeamLeadPopoverOpen(false); }}>
@@ -3739,10 +3910,27 @@ export default function Tasks() {
                             <span className="text-muted-foreground">None</span>
                           </CommandItem>
                           {activeEmployees.map((employee) => (
-                            <CommandItem key={employee.id} value={employee.name} onSelect={() => { setTaskTeamLead(employee.name); setTaskTeamLeadPopoverOpen(false); }}>
-                              <Check className={cn("mr-2 h-4 w-4", taskTeamLead === employee.name ? "opacity-100" : "opacity-0")} />
-                              <Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>
-                              {employee.name}
+                            <CommandItem
+                              key={employee.id}
+                              value={`${employee.name} ${employee.role || ""} ${employee.department || ""} ${employee.email || ""}`}
+                              onSelect={() => { setTaskTeamLead(employee.name); setTaskTeamLeadPopoverOpen(false); }}
+                            >
+                              <Check className={cn("mr-2 h-4 w-4 shrink-0", taskTeamLead === employee.name ? "opacity-100" : "opacity-0")} />
+                              <Avatar className="h-6 w-6 mr-2 shrink-0">
+                                {(employee.avatarDataUrl || employee.avatarUrl) ? (
+                                  <img src={employee.avatarDataUrl || employee.avatarUrl} alt={employee.name} className="w-full h-full object-cover rounded-full" />
+                                ) : (
+                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-semibold">{employee.initials}</AvatarFallback>
+                                )}
+                              </Avatar>
+                              <div className="flex flex-col min-w-0 flex-1">
+                                <span className="truncate text-sm font-medium">{employee.name}</span>
+                                {(employee.role || employee.department || employee.email) && (
+                                  <span className="truncate text-[11px] text-muted-foreground">
+                                    {[employee.role, employee.department || employee.email].filter(Boolean).join(" • ")}
+                                  </span>
+                                )}
+                              </div>
                             </CommandItem>
                           ))}
                         </CommandGroup>
@@ -5641,6 +5829,22 @@ export default function Tasks() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Asana Style Right-Side Task Detail Drawer */}
+      <AsanaTaskDrawer
+        task={selectedTask}
+        open={isAsanaDrawerOpen}
+        onOpenChange={setIsAsanaDrawerOpen}
+        onTaskUpdated={() => {
+          void tasksQuery.refetch();
+          if (selectedProject) void loadProject(selectedProject.id);
+        }}
+        onTaskDeleted={() => {
+          if (selectedTask) void deleteTask(selectedTask.id);
+          setIsAsanaDrawerOpen(false);
+        }}
+        employees={employees}
+      />
     </div>
   );
 }

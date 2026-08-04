@@ -912,7 +912,7 @@ const hasTaxInfo =
             {/* Avatar */}
             <div className="relative">
               <Avatar className="h-24 w-24 border-4 border-[#133767]/20">
-                <AvatarImage src={toProxiedUrl(profile.avatarUrl)} alt={profile.name} crossOrigin="anonymous" />
+                <AvatarImage src={toProxiedUrl(profile.avatarUrl)} alt={profile.name} />
                 <AvatarFallback className="bg-gradient-to-br from-[#133767] to-blue-500 text-white text-2xl font-bold">
                   {initials}
                 </AvatarFallback>

@@ -60,7 +60,16 @@ export function SocketProvider({ children }: SocketProviderProps) {
       // ignore parse errors — the socket still connects anonymously
     }
 
-    const socket = io("https://task.se7eninc.com", {
+    const getSocketUrl = () => {
+      const raw = String(import.meta.env.VITE_API_URL || "").trim();
+      if (raw) return raw;
+      if (typeof window !== "undefined" && window.location?.hostname === "localhost") {
+        return "http://localhost:5000";
+      }
+      return "https://task.se7eninc.com";
+    };
+
+    const socket = io(getSocketUrl(), {
       path: "/api/socket.io/",
       withCredentials: true,
       transports: ["websocket", "polling"],

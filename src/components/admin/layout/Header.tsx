@@ -30,6 +30,7 @@ import { AdminInfoManager } from "@/components/admin/AdminInfoManager";
 import { FounderMessageBar } from "@/components/FounderMessageBar";
 import { useQueryClient } from "@tanstack/react-query";
 import AssetLibraryPicker from "@/components/admin/AssetLibraryPicker";
+import ReportBugModal from "@/components/bugs/ReportBugModal";
 
 
 
@@ -355,8 +356,8 @@ export function Header({ onMenuClick }: HeaderProps) {
       return "/admin/tasks";
     }
     if (resourceType === "bug") {
-      if (resourceId) return `/developer/bugs?view=${encodeURIComponent(resourceId)}`;
-      return "/developer/bugs";
+      if (resourceId) return `/admin/bug-reports?view=${encodeURIComponent(resourceId)}`;
+      return "/admin/bug-reports";
     }
 
     // Fall back to direct link if the backend provided one and it looks like a real SPA route
@@ -1143,98 +1144,8 @@ export function Header({ onMenuClick }: HeaderProps) {
           </DialogContent>
         </Dialog>
 
-        {/* Bug Report Dialog */}
-        <Dialog open={reportOpen} onOpenChange={setReportOpen}>
-          <DialogContent className="max-w-lg">
-            {reportSuccess ? (
-              <div className="p-6 text-center">
-                <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                <h2 className="text-xl font-bold mb-2">Report Sent!</h2>
-                <p className="text-muted-foreground mb-6">{reportSuccess}</p>
-                <Button onClick={() => { setReportOpen(false); setReportSuccess(null); }}>Done</Button>
-              </div>
-            ) : (
-              <>
-                <DialogHeader>
-                  <DialogTitle>Report an Issue</DialogTitle>
-                  <DialogDescription>Help us improve by describing the issue.</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <Input value={reportTitle} onChange={e => setReportTitle(e.target.value)} placeholder="Issue Title" className="text-foreground" />
-                  <textarea 
-                    value={reportDescription} 
-                    onChange={e => setReportDescription(e.target.value)} 
-                    className="w-full min-h-[100px] p-3 rounded-md border bg-background text-foreground"
-                    placeholder="Describe the issue..."
-                  />
-                  {reportError && <div className="text-red-500 text-sm mt-1">{reportError}</div>}
-                  <div className="flex flex-col gap-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">Attachments: Images & Videos ({reportImageFiles.length}/5)</span>
-                      <Button variant="outline" size="sm" type="button" onClick={handlePasteImage} title="Click to paste image from clipboard">
-                        <Paperclip className="h-4 w-4 mr-2" /> Paste Image
-                      </Button>
-                    </div>
-                    <input 
-                      type="file" 
-                      accept="image/*,video/*" 
-                      multiple 
-                      className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 text-foreground"
-                      onChange={(e) => {
-                        const files = Array.from(e.target.files || []);
-                        if (files.length + reportImageFiles.length > 5) {
-                          setReportError("You can only attach up to 5 files.");
-                          return;
-                        }
-                        const newFiles = [...reportImageFiles, ...files].slice(0, 5);
-                        setReportImageFiles(newFiles);
-                        setReportImagePreviewUrls(newFiles.map(f => URL.createObjectURL(f)));
-                        setReportError(null);
-                      }}
-                    />
-                    {reportImagePreviewUrls.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {reportImagePreviewUrls.map((url, i) => {
-                          const file = reportImageFiles[i];
-                          const isVid = file?.type?.startsWith("video/") || url.startsWith("data:video/") || /\.(mp4|webm|mov|ogg|m4v|mkv)$/i.test(url);
-                          return (
-                            <div key={i} className="relative w-16 h-16 rounded-md overflow-hidden border bg-black">
-                              {isVid ? (
-                                <video src={url} className="w-full h-full object-cover" muted />
-                              ) : (
-                                <img src={url} alt={`Preview ${i}`} className="w-full h-full object-cover" />
-                              )}
-                              <button
-                                className="absolute top-0 right-0 bg-red-500 text-white rounded-bl-md p-0.5 z-10"
-                                onClick={() => {
-                                  const newFiles = [...reportImageFiles];
-                                  newFiles.splice(i, 1);
-                                  setReportImageFiles(newFiles);
-                                  const newUrls = [...reportImagePreviewUrls];
-                                  URL.revokeObjectURL(newUrls[i]);
-                                  newUrls.splice(i, 1);
-                                  setReportImagePreviewUrls(newUrls);
-                                }}
-                              >
-                                <XIcon className="h-3 w-3" />
-                              </button>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="ghost" onClick={() => setReportOpen(false)}>Cancel</Button>
-                  <Button onClick={submitReport} disabled={reportSubmitting}>
-                    {reportSubmitting ? "Sending..." : "Submit Report"}
-                  </Button>
-                </DialogFooter>
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
+        {/* Bug Report Modal */}
+        <ReportBugModal open={reportOpen} onOpenChange={setReportOpen} defaultSourcePanel="admin" />
 
       {/* Founder Message Bar */}
       <div className="absolute bottom-0 left-0 right-0 z-[60] bg-metallic-gold/90 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.1)] pointer-events-auto">

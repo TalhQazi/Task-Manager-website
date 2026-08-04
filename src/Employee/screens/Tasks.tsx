@@ -94,7 +94,8 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { useSocket } from "@/contexts/SocketContext";
 import { cn } from "@/lib/manger/utils";
-import { apiFetch, downloadTaskAttachment, toProxiedUrl, updateComment, deleteComment } from "@/lib/manger/api";
+import { apiFetch, toProxiedUrl, updateComment, deleteComment } from "@/lib/manger/api";
+import { downloadTaskAttachment, downloadViaUrl } from "@/Employee/lib/api";
 
 import { useTaskBlasterContext } from "@/contexts/TaskBlasterContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -409,7 +410,6 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
         src={src}
         alt={`${projectName} logo`}
         className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-border"
-        crossOrigin="anonymous"
         onError={() => setError(true)}
       />
     );
@@ -532,12 +532,29 @@ function CommentAttachmentImg({
     };
   }, [taskId, projectId, commentId, index, fallbackUrl]);
 
-  if (src && mimeType?.startsWith("image/")) {
+  const isImage = mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(fileName || "");
+
+  if (src && isImage) {
     return (
       <div className="w-full h-auto flex justify-center relative group/att cursor-zoom-in" onClick={() => onPreview?.(src, fileName)}>
         <img src={src} alt={fileName} className="w-full h-auto max-h-[180px] object-contain rounded-lg" />
-        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-all duration-200 rounded-lg">
-          <Maximize2 className="w-5 h-5 text-white" />
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center gap-3 transition-all duration-200 rounded-lg backdrop-blur-[1px]">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onPreview?.(src, fileName); }}
+            className="p-1.5 bg-white/20 hover:bg-white/35 rounded-full text-white transition-all shadow-md"
+            title="Preview"
+          >
+            <Maximize2 className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={async (e) => { e.stopPropagation(); await downloadViaUrl(src, fileName); }}
+            className="p-1.5 bg-white/20 hover:bg-white/35 rounded-full text-white transition-all shadow-md"
+            title="Download"
+          >
+            <Download className="w-4 h-4" />
+          </button>
         </div>
       </div>
     );
@@ -551,11 +568,29 @@ function CommentAttachmentImg({
     );
   }
 
-  if (src && !mimeType?.startsWith("image/")) {
+  if (src && !isImage) {
     return (
-      <div className="w-full h-full flex flex-col items-center justify-center p-2 text-center bg-muted/10 rounded-lg">
+      <div className="w-full h-full relative group/att flex flex-col items-center justify-center p-2 text-center bg-muted/10 rounded-lg">
         <FileText className="w-6 h-6 text-muted-foreground/60 mb-1" />
         <span className="text-[10px] text-muted-foreground/60 truncate w-full px-2 font-medium">{fileName}</span>
+        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center gap-3 transition-all duration-200 rounded-lg backdrop-blur-[1px]">
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onPreview?.(src, fileName); }}
+            className="p-1.5 bg-white/20 hover:bg-white/35 rounded-full text-white transition-all shadow-md"
+            title="Preview"
+          >
+            <Maximize2 className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={async (e) => { e.stopPropagation(); await downloadViaUrl(src, fileName); }}
+            className="p-1.5 bg-white/20 hover:bg-white/35 rounded-full text-white transition-all shadow-md"
+            title="Download"
+          >
+            <Download className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     );
   }
@@ -590,6 +625,7 @@ function TaskContributorsList({ assignees }: { assignees: string[] }) {
 
 export default function Tasks() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") || "all";
   const [searchQuery, setSearchQuery] = useState("");
   const [projectSearchQuery, setProjectSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -752,8 +788,23 @@ export default function Tasks() {
   useEffect(() => {
     const loadEmployees = async () => {
       try {
-        const res = await apiFetch<{ items: Employee[] }>("/api/employees");
-        setEmployees(res.items.filter((e) => e.status === "active"));
+        const res = await apiFetch<{ items: any[] }>("/api/employees");
+        const list = (res.items || []).map((u) => {
+          const avatar = u.avatarUrl || u.avatarDataUrl || "";
+          return {
+            ...u,
+            id: String(u.id || u._id),
+            avatarUrl: avatar ? (toProxiedUrl(avatar) || avatar) : "",
+            avatarDataUrl: avatar ? (toProxiedUrl(avatar) || avatar) : "",
+            initials: u.initials || (u.name || "??")
+              .split(" ")
+              .map((n: string) => n[0])
+              .join("")
+              .toUpperCase()
+              .substring(0, 2)
+          };
+        });
+        setEmployees(list);
       } catch {
         setEmployees([]);
       }
@@ -762,7 +813,10 @@ export default function Tasks() {
   }, []);
 
   const activeEmployees = useMemo(() => {
-    return employees.filter((e) => e.status === "active");
+    return employees.filter((e) => {
+      const s = String(e.status || "active").toLowerCase();
+      return s !== "inactive";
+    });
   }, [employees]);
 
   // Resolve an assignee string (could be email or name) to display name
@@ -1783,86 +1837,86 @@ export default function Tasks() {
         </div>
       ) : (
         <>
-          <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
-            <h2 className="font-semibold text-lg mb-3">Projects</h2>
-            {projectsQuery.isLoading ? (
-              <p className="text-muted-foreground">Loading projects...</p>
-            ) : projectsQuery.isError ? (
-              <p className="text-destructive">Failed to load projects</p>
-            ) : projects.length === 0 ? (
-              <p className="text-muted-foreground">No projects found. Create one to begin.</p>
-            ) : (
-              <>
-                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {paginatedProjects.map((project, idx) => {
-                    const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0
-                      ? project.assignees.map(resolveAssigneeName)
-                      : [];
-                    const taskNum = project.taskCount ?? 0;
-                    const projectNumber = (projectPage - 1) * PAGE_SIZE + idx + 1;
+          {(activeTab === "all" || activeTab === "projects") && (
+            <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
+              <h2 className="font-semibold text-lg mb-3">Projects</h2>
+              {projectsQuery.isLoading ? (
+                <p className="text-muted-foreground">Loading projects...</p>
+              ) : projectsQuery.isError ? (
+                <p className="text-destructive">Failed to load projects</p>
+              ) : projects.length === 0 ? (
+                <p className="text-muted-foreground">No projects found. Create one to begin.</p>
+              ) : (
+                <>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {paginatedProjects.map((project, idx) => {
+                      const assigneeList = Array.isArray(project.assignees) && project.assignees.length > 0
+                        ? project.assignees.map(resolveAssigneeName)
+                        : [];
+                      const taskNum = project.taskCount ?? 0;
+                      const projectNumber = (projectPage - 1) * PAGE_SIZE + idx + 1;
 
-                    return (
-                      <button
-                        key={project.id}
-                        onClick={() => void loadProject(project.id)}
-                        className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card"
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="flex-shrink-0 text-xs font-bold text-muted-foreground w-5 text-right">{projectNumber}.</span>
-                          <ProjectLogoImg projectId={project.id} projectName={project.name} logoUrl={project.logo?.url} />
-                          <div className="min-w-0">
-                            <p className="font-medium truncate">{project.name}</p>
-                            <p className="text-xs text-muted-foreground truncate">{project.description || "No description"}</p>
+                      return (
+                        <button
+                          key={project.id}
+                          onClick={() => void loadProject(project.id)}
+                          className="text-left p-3 sm:p-4 rounded-lg border border-border hover:border-primary transition bg-card shadow-sm hover:shadow-card"
+                        >
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="flex-shrink-0 text-xs font-bold text-muted-foreground w-5 text-right">{projectNumber}.</span>
+                            <ProjectLogoImg projectId={project.id} projectName={project.name} logoUrl={project.logo?.url} />
+                            <div className="min-w-0">
+                              <p className="font-medium truncate">{project.name}</p>
+                              <p className="text-xs text-muted-foreground truncate">{project.description || "No description"}</p>
+                            </div>
                           </div>
-                        </div>
 
-                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                          <span className="truncate">{assigneeList.length > 0 ? assigneeList.join(", ") : "No assignees"}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="ml-2 flex-shrink-0">{taskNum} task{taskNum === 1 ? "" : "s"}</span>
-                            {(() => {
-                              const { images, files } = getAttachmentCounts(project.attachments);
-                              return (images > 0 || files > 0) && (
-                                <div className="flex items-center gap-1.5 border-l pl-1.5 border-border/40">
-                                  {images > 0 && <span className="text-primary/70"><Paperclip className="w-2.5 h-2.5" /></span>}
-                                  {files > 0 && <span className="text-indigo-600/70"><FileText className="w-2.5 h-2.5" /></span>}
-                                </div>
-                              );
-                            })()}
+                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                            <span className="truncate">{assigneeList.length > 0 ? assigneeList.join(", ") : "No assignees"}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="ml-2 flex-shrink-0">{taskNum} task{taskNum === 1 ? "" : "s"}</span>
+                              {(() => {
+                                const { images, files } = getAttachmentCounts(project.attachments);
+                                return (images > 0 || files > 0) && (
+                                  <div className="flex items-center gap-1.5 border-l pl-1.5 border-border/40">
+                                    {images > 0 && <span className="text-primary/70"><Paperclip className="w-2.5 h-2.5" /></span>}
+                                    {files > 0 && <span className="text-indigo-600/70"><FileText className="w-2.5 h-2.5" /></span>}
+                                  </div>
+                                );
+                              })()}
+                            </div>
                           </div>
-                        </div>
-
-                        <div className="flex items-center justify-between text-xs mt-auto pt-2 border-t border-dashed border-border/40">
-                          <Badge className="capitalize font-black text-[9px] px-1.5 h-4" variant="outline">
-                            {project.status || "No tasks"}
-                          </Badge>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedProject({ ...project, tasks: [] });
-                              void loadProjectComments(project.id);
-                            }}
-                            className="text-primary font-black text-[9px] uppercase tracking-widest hover:underline flex items-center gap-1 bg-primary/5 px-2 py-0.5 rounded-full"
-                          >
-                            <MessageSquare className="w-2.5 h-2.5" /> Activity
-                          </button>
-                          <span className="text-[10px] text-muted-foreground/60 font-bold">
-                            {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}
-                          </span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-                <Pagination
-                  currentPage={projectPage}
-                  totalPages={projectTotalPages}
-                  onPageChange={setProjectPage}
-                  className="mt-4"
-                />
-              </>
-            )}
-          </div>
+                          <div className="flex items-center justify-between text-xs border-t border-border/40 pt-2 mt-1">
+                            <Badge className="capitalize text-[10px]" variant="outline">{project.status || "No tasks"}</Badge>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedProject({ ...project, tasks: [] });
+                                void loadProjectComments(project.id);
+                              }}
+                              className="text-primary font-black text-[9px] uppercase tracking-widest hover:underline flex items-center gap-1 bg-primary/5 px-2 py-0.5 rounded-full"
+                            >
+                              <MessageSquare className="w-2.5 h-2.5" /> Activity
+                            </button>
+                            <span className="text-[10px] text-muted-foreground/60 font-bold">
+                              {project.createdAt ? new Date(project.createdAt).toLocaleDateString() : ""}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <Pagination
+                    currentPage={projectPage}
+                    totalPages={projectTotalPages}
+                    onPageChange={setProjectPage}
+                    className="mt-4"
+                  />
+                </>
+              )}
+            </div>
+          )}
 
           {/* Tasks Section */}
           <div className="bg-card rounded-xl border border-border shadow-card p-4 mb-4">
@@ -2119,7 +2173,7 @@ export default function Tasks() {
                           {activeEmployees.map((employee) => (
                             <CommandItem
                               key={employee.id}
-                              value={employee.name}
+                              value={`${employee.name} ${employee.role || ""} ${employee.department || ""} ${employee.email || ""}`}
                               onSelect={() => {
                                 setProjectCreationAssignees((prev) =>
                                   prev.includes(employee.name)
@@ -2131,18 +2185,29 @@ export default function Tasks() {
                             >
                               <Check
                                 className={cn(
-                                  "mr-2 h-4 w-4",
+                                  "mr-2 h-4 w-4 shrink-0",
                                   projectCreationAssignees.includes(employee.name)
                                     ? "opacity-100"
                                     : "opacity-0"
                                 )}
                               />
-                              <Avatar className="h-6 w-6 mr-2">
-                                <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                  {employee.initials}
-                                </AvatarFallback>
+                              <Avatar className="h-6 w-6 mr-2 shrink-0">
+                                {(employee.avatarDataUrl || employee.avatarUrl) ? (
+                                  <img src={employee.avatarDataUrl || employee.avatarUrl} alt={employee.name} className="w-full h-full object-cover rounded-full" />
+                                ) : (
+                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-semibold">
+                                    {employee.initials}
+                                  </AvatarFallback>
+                                )}
                               </Avatar>
-                              {employee.name}
+                              <div className="flex flex-col min-w-0 flex-1">
+                                <span className="truncate text-sm font-medium">{employee.name}</span>
+                                {(employee.role || employee.department || employee.email) && (
+                                  <span className="truncate text-[11px] text-muted-foreground">
+                                    {[employee.role, employee.department || employee.email].filter(Boolean).join(" • ")}
+                                  </span>
+                                )}
+                              </div>
                             </CommandItem>
                           ))}
                         </CommandGroup>
@@ -2420,87 +2485,117 @@ export default function Tasks() {
                     <TaskTimeline task={selectedTask} />
 
                     {/* Attachments Deck */}
-                    {(selectedTask.attachments?.length || selectedTask.attachment?.url || selectedProject?.attachments?.length) ? (
-                      <div className="space-y-5">
-                        <div className="flex items-center gap-2 text-muted-foreground/80">
-                          <Paperclip className="w-4 h-4" />
-                          <h4 className="text-[12px] font-bold uppercase tracking-widest">Shared Assets</h4>
-                        </div>
+                    {(() => {
+                      const taskAttachmentsList = (Array.isArray(selectedTask.attachments) && selectedTask.attachments.length > 0)
+                        ? selectedTask.attachments
+                        : (selectedTask.attachment?.fileName || selectedTask.attachment?.url)
+                          ? [selectedTask.attachment]
+                          : [];
+                      const hasTaskAtts = taskAttachmentsList.length > 0;
+                      const hasProjAtts = Boolean(selectedProject?.attachments?.length);
+                      if (!hasTaskAtts && !hasProjAtts) return null;
 
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                          {/* Task Specific Attachments */}
-                          {selectedTask.attachments?.map((att, idx) => (
-                            <div key={`task-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-border/60 bg-background shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-zoom-in" onClick={() => {
-                              if (att.url) {
-                                setPreviewUrl(att.url);
-                                setPreviewName(att.fileName || "Attachment");
-                              }
-                            }}>
-                              <TaskAttachmentImg taskId={selectedTask.id} index={idx} mimeType={att.mimeType} fileName={att.fileName} fallbackUrl={att.url} onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }} />
-                              <div className="p-2.5 border-t text-[11px] font-bold truncate bg-card/50 backdrop-blur-sm text-muted-foreground">{att.fileName}</div>
-                              <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setPreviewUrl(att.url);
+                      return (
+                        <div className="space-y-5">
+                          <div className="flex items-center gap-2 text-muted-foreground/80">
+                            <Paperclip className="w-4 h-4" />
+                            <h4 className="text-[12px] font-bold uppercase tracking-widest">Shared Assets</h4>
+                          </div>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                            {/* Task Specific Attachments */}
+                            {taskAttachmentsList.map((att, idx) => {
+                              const proxied = toProxiedUrl(att.url) || att.url || "";
+                              const isSingle = !selectedTask.attachments?.length;
+                              const attIndex = isSingle ? -1 : idx;
+                              return (
+                                <div key={`task-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-border/60 bg-background shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-zoom-in" onClick={() => {
+                                  if (proxied) {
+                                    setPreviewUrl(proxied);
                                     setPreviewName(att.fileName || "Attachment");
-                                  }}
-                                  className="bg-primary text-primary-foreground p-2 rounded-full shadow-lg hover:scale-110 transition-transform"
-                                  title="Preview"
-                                >
-                                  <Maximize2 className="h-4 w-4" />
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    void downloadTaskAttachment(selectedTask.id, idx, att.fileName);
-                                  }}
-                                  className="bg-primary text-primary-foreground p-2 rounded-full shadow-lg hover:scale-110 transition-transform"
-                                  title="Download"
-                                >
-                                  <Download className="h-4 w-4" />
-                                </button>
-                              </div>
-                            </div>
-                          ))}
+                                  }
+                                }}>
+                                  <TaskAttachmentImg taskId={selectedTask.id} index={attIndex} mimeType={att.mimeType} fileName={att.fileName} fallbackUrl={att.url} onPreview={(url, name) => { setPreviewUrl(toProxiedUrl(url) || url); setPreviewName(name); }} />
+                                  <div className="p-2.5 border-t text-[11px] font-bold truncate bg-card/50 backdrop-blur-sm text-muted-foreground">{att.fileName}</div>
+                                  <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (proxied) setPreviewUrl(proxied);
+                                        setPreviewName(att.fileName || "Attachment");
+                                      }}
+                                      className="bg-primary text-primary-foreground p-2 rounded-full shadow-lg hover:scale-110 transition-transform"
+                                      title="Preview"
+                                    >
+                                      <Maximize2 className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                          await downloadTaskAttachment(selectedTask.id, attIndex, att.fileName || "attachment");
+                                        } catch {
+                                          if (att.url) await downloadViaUrl(att.url, att.fileName || "attachment");
+                                        }
+                                      }}
+                                      className="bg-primary text-primary-foreground p-2 rounded-full shadow-lg hover:scale-110 transition-transform"
+                                      title="Download"
+                                    >
+                                      <Download className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
 
-                          {/* Project Attachments */}
-                          {selectedProject?.attachments?.map((att, idx) => (
-                            <div key={`proj-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-primary/20 bg-primary/5 shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-zoom-in" onClick={() => {
-                              if (att.url) {
-                                setPreviewUrl(att.url);
-                                setPreviewName(att.fileName || "Attachment");
-                              }
-                            }}>
-                              <div className="absolute top-2 left-2 z-10"><Badge className="text-[8px] h-4 bg-primary text-white font-black border-none px-1.5 uppercase">Project</Badge></div>
-                              {(att.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(att.fileName || "")) && att.url ? (
-                                <img src={att.url} alt={att.fileName} className="w-full h-24 object-cover" />
-                              ) : (
-                                <div className="w-full h-24 flex items-center justify-center bg-muted/20"><FileText className="h-8 w-8 text-muted-foreground/40" /></div>
-                              )}
-                              <div className="p-2.5 border-t text-[11px] font-bold truncate bg-white/40 backdrop-blur-sm text-primary/70">{att.fileName}</div>
-                              <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 backdrop-blur-[2px]">
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setPreviewUrl(att.url); setPreviewName(att.fileName || "Attachment"); }}
-                                  className="p-2 bg-primary text-primary-foreground rounded-full shadow-lg hover:scale-110 transition-transform"
-                                  title="Preview"
-                                >
-                                  <Maximize2 className="h-4 w-4" />
-                                </button>
-                                <a
-                                  href={att.url}
-                                  download={att.fileName}
-                                  onClick={(e) => e.stopPropagation()}
-                                  className="p-2 bg-primary text-primary-foreground rounded-full shadow-lg hover:scale-110 transition-transform"
-                                  title="Download"
-                                >
-                                  <Download className="h-4 w-4" />
-                                </a>
-                              </div>
-                            </div>
-                          ))}
+                            {/* Project Attachments */}
+                            {selectedProject?.attachments?.map((att, idx) => {
+                              const proxied = toProxiedUrl(att.url) || att.url || "";
+                              return (
+                                <div key={`proj-att-${idx}`} className="relative group rounded-xl overflow-hidden border border-primary/20 bg-primary/5 shadow-xs hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-zoom-in" onClick={() => {
+                                  if (proxied) {
+                                    setPreviewUrl(proxied);
+                                    setPreviewName(att.fileName || "Attachment");
+                                  }
+                                }}>
+                                  <div className="absolute top-2 left-2 z-10"><Badge className="text-[8px] h-4 bg-primary text-white font-black border-none px-1.5 uppercase">Project</Badge></div>
+                                  {(att.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(att.fileName || "")) && proxied ? (
+                                    <img src={proxied} alt={att.fileName} className="w-full h-24 object-cover" />
+                                  ) : (
+                                    <div className="w-full h-24 flex items-center justify-center bg-muted/20"><FileText className="h-8 w-8 text-muted-foreground/40" /></div>
+                                  )}
+                                  <div className="p-2.5 border-t text-[11px] font-bold truncate bg-white/40 backdrop-blur-sm text-primary/70">{att.fileName}</div>
+                                  <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 backdrop-blur-[2px]">
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); if (proxied) setPreviewUrl(proxied); setPreviewName(att.fileName || "Attachment"); }}
+                                      className="p-2 bg-primary text-primary-foreground rounded-full shadow-lg hover:scale-110 transition-transform"
+                                      title="Preview"
+                                    >
+                                      <Maximize2 className="h-4 w-4" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={async (e) => {
+                                        e.stopPropagation();
+                                        if (att.url) await downloadViaUrl(att.url, att.fileName || "Attachment");
+                                      }}
+                                      className="p-2 bg-primary text-primary-foreground rounded-full shadow-lg hover:scale-110 transition-transform"
+                                      title="Download"
+                                    >
+                                      <Download className="h-4 w-4" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          {selectedTask.attachmentNote && <p className="text-[11px] font-medium text-muted-foreground bg-muted/20 p-3 rounded-lg border border-dashed border-border/60 flex items-start gap-2"><AlertCircle className="w-3.5 h-3.5 mt-0.5" /> {selectedTask.attachmentNote}</p>}
                         </div>
-                        {selectedTask.attachmentNote && <p className="text-[11px] font-medium text-muted-foreground bg-muted/20 p-3 rounded-lg border border-dashed border-border/60 flex items-start gap-2"><AlertCircle className="w-3.5 h-3.5 mt-0.5" /> {selectedTask.attachmentNote}</p>}
+                      );
+                    })()}
 
                         {/* Dropbox Attachments (View-only for employees) */}
                         {((selectedTask as any).dropboxAttachments?.length > 0 || (selectedProject as any)?.dropboxAttachments?.length > 0) && (
@@ -2542,8 +2637,6 @@ export default function Tasks() {
                             </div>
                           </div>
                         )}
-                      </div>
-                    ) : null}
 
                     {/* Activity Feed */}
                     <div className="pt-6 border-t border-border/60">
@@ -2611,7 +2704,6 @@ export default function Tasks() {
                                             onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); }}
                                           />
                                           <div className="p-1 px-2 text-[9px] w-full text-center font-bold text-muted-foreground/70 truncate border-t bg-muted/10">{att.fileName}</div>
-                                          <a href={att.url || "#"} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]"><Download className="h-5 w-5 text-white" /></a>
                                         </div>
                                       ))}
                                     </div>
@@ -2847,12 +2939,40 @@ export default function Tasks() {
                                   </div>
                                   {c.attachments && c.attachments.length > 0 && (
                                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
-                                      {c.attachments.map((att: { url?: string; mimeType?: string; fileName?: string }, attIdx: number) => (
-                                        <div key={attIdx} className="relative rounded-lg overflow-hidden border border-border/40 bg-background shadow-xs group/att aspect-square flex flex-col items-center justify-center cursor-pointer">
-                                          {att.mimeType?.startsWith("image/") ? <img src={att.url} alt={att.fileName} className="w-full h-full object-cover" /> : <FileText className="h-6 w-6 text-muted-foreground/30" />}
-                                          <a href={att.url || "#"} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]" title="Download attachment"><Download className="h-4 w-4 text-white" /></a>
+                                      {c.attachments.map((att: { url?: string; mimeType?: string; fileName?: string }, attIdx: number) => {
+                                        const proxied = toProxiedUrl(att.url) || att.url || "";
+                                        const isImg = att.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(att.fileName || "");
+                                        return (
+                                        <div
+                                          key={attIdx}
+                                          className="relative rounded-lg overflow-hidden border border-border/40 bg-background shadow-xs group/att aspect-square flex flex-col items-center justify-center cursor-zoom-in"
+                                          onClick={() => { if (proxied) { setPreviewUrl(proxied); setPreviewName(att.fileName || "Attachment"); } }}
+                                        >
+                                          {isImg && proxied ? <img src={proxied} alt={att.fileName} className="w-full h-full object-cover" /> : <FileText className="h-6 w-6 text-muted-foreground/30" />}
+                                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
+                                            <button
+                                              type="button"
+                                              onClick={(e) => { e.stopPropagation(); if (proxied) { setPreviewUrl(proxied); setPreviewName(att.fileName || "Attachment"); } }}
+                                              className="p-1.5 rounded-full bg-white/15 hover:bg-white/25 transition-colors"
+                                              title="Preview attachment"
+                                            >
+                                              <Maximize2 className="h-4 w-4 text-white" />
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={async (e) => {
+                                                e.stopPropagation();
+                                                if (att.url) await downloadViaUrl(att.url, att.fileName || "Attachment");
+                                              }}
+                                              className="p-1.5 rounded-full bg-white/15 hover:bg-white/25 transition-colors"
+                                              title="Download attachment"
+                                            >
+                                              <Download className="h-4 w-4 text-white" />
+                                            </button>
+                                          </div>
                                         </div>
-                                      ))}
+                                        );
+                                      })}
                                     </div>
                                   )}
                                 </div>
@@ -2928,12 +3048,41 @@ export default function Tasks() {
                       <div className="space-y-3">
                         <label className="text-[10px] font-black text-muted-foreground/60 uppercase tracking-[0.2em] block">Shared Resources</label>
                         <div className="grid grid-cols-2 gap-2">
-                          {selectedProject.attachments?.map((att, idx) => (
-                            <a href={att.url} target="_blank" rel="noopener noreferrer" key={idx} className="bg-background border border-border/40 p-2 rounded-xl flex flex-col items-center justify-center gap-2 group hover:border-primary/20 transition-all">
-                              {att.mimeType?.startsWith("image/") ? <img src={att.url} alt={att.fileName} className="w-full h-12 object-cover rounded-md" /> : <FileText className="w-6 h-6 text-muted-foreground/30" />}
-                              <span className="text-[8px] font-black text-muted-foreground/60 truncate w-full text-center">{att.fileName}</span>
-                            </a>
-                          ))}
+                          {selectedProject.attachments?.map((att, idx) => {
+                            const proxied = toProxiedUrl(att.url) || att.url || "";
+                            const isImg = att.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(att.fileName || "");
+                            return (
+                              <div
+                                key={idx}
+                                className="relative bg-background border border-border/40 p-2 rounded-xl flex flex-col items-center justify-center gap-2 group hover:border-primary/20 transition-all cursor-zoom-in overflow-hidden"
+                                onClick={() => { if (proxied) { setPreviewUrl(proxied); setPreviewName(att.fileName || "Attachment"); } }}
+                              >
+                                {isImg && proxied ? <img src={proxied} alt={att.fileName} className="w-full h-12 object-cover rounded-md" /> : <FileText className="w-6 h-6 text-muted-foreground/30" />}
+                                <span className="text-[8px] font-black text-muted-foreground/60 truncate w-full text-center">{att.fileName}</span>
+                                <div className="absolute inset-0 bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[2px]">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); if (proxied) { setPreviewUrl(proxied); setPreviewName(att.fileName || "Attachment"); } }}
+                                    className="p-1.5 bg-primary text-primary-foreground rounded-full shadow-lg hover:scale-110 transition-transform"
+                                    title="Preview"
+                                  >
+                                    <Maximize2 className="h-3.5 w-3.5" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={async (e) => {
+                                      e.stopPropagation();
+                                      if (att.url) await downloadViaUrl(att.url, att.fileName || "Attachment");
+                                    }}
+                                    className="p-1.5 bg-primary text-primary-foreground rounded-full shadow-lg hover:scale-110 transition-transform"
+                                    title="Download"
+                                  >
+                                    <Download className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>
@@ -3016,7 +3165,7 @@ export default function Tasks() {
                             {activeEmployees.map((employee) => (
                               <CommandItem
                                 key={employee.id}
-                                value={employee.name}
+                                value={`${employee.name} ${employee.role || ""} ${employee.department || ""} ${employee.email || ""}`}
                                 onSelect={() => {
                                   setEditSelectedAssignees((prev) =>
                                     prev.includes(employee.name)
@@ -3028,18 +3177,29 @@ export default function Tasks() {
                               >
                                 <Check
                                   className={cn(
-                                    "mr-2 h-4 w-4",
+                                    "mr-2 h-4 w-4 shrink-0",
                                     editSelectedAssignees.includes(employee.name)
                                       ? "opacity-100"
                                       : "opacity-0"
                                   )}
                                 />
-                                <Avatar className="h-6 w-6 mr-2">
-                                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                    {employee.initials}
-                                  </AvatarFallback>
+                                <Avatar className="h-6 w-6 mr-2 shrink-0">
+                                  {(employee.avatarDataUrl || employee.avatarUrl) ? (
+                                    <img src={employee.avatarDataUrl || employee.avatarUrl} alt={employee.name} className="w-full h-full object-cover rounded-full" />
+                                  ) : (
+                                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-semibold">
+                                      {employee.initials}
+                                    </AvatarFallback>
+                                  )}
                                 </Avatar>
-                                {employee.name}
+                                <div className="flex flex-col min-w-0 flex-1">
+                                  <span className="truncate text-sm font-medium">{employee.name}</span>
+                                  {(employee.role || employee.department || employee.email) && (
+                                    <span className="truncate text-[11px] text-muted-foreground">
+                                      {[employee.role, employee.department || employee.email].filter(Boolean).join(" • ")}
+                                    </span>
+                                  )}
+                                </div>
                               </CommandItem>
                             ))}
                           </CommandGroup>
@@ -3348,15 +3508,17 @@ export default function Tasks() {
         <DialogContent className="max-w-[95vw] w-fit p-0 border-none bg-transparent shadow-none">
           <div className="relative group/preview-modal">
             <div className="absolute top-4 right-4 z-50 flex items-center gap-3 opacity-0 group-hover/preview-modal:opacity-100 transition-opacity">
-              <a
-                href={previewUrl || ""}
-                download={previewName}
+              <button
+                type="button"
+                onClick={async (e) => {
+                  e.stopPropagation();
+                  if (previewUrl) await downloadViaUrl(previewUrl, previewName || "download");
+                }}
                 className="p-2 bg-black/50 hover:bg-black/70 backdrop-blur-md rounded-full text-white shadow-lg transition-all"
                 title="Download"
-                onClick={(e) => e.stopPropagation()}
               >
                 <Download className="w-5 h-5" />
-              </a>
+              </button>
               <button
                 onClick={() => setPreviewUrl(null)}
                 className="p-2 bg-black/50 hover:bg-black/70 backdrop-blur-md rounded-full text-white shadow-lg transition-all"

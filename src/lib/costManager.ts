@@ -207,7 +207,8 @@ export interface CostSheetPayload {
 
 // ---------- Money helpers (values stored as integer cents) ----------
 
-export function formatMoney(cents: number, currency = "USD"): string {
+export function formatMoney(cents: number, currency = "USD", allowNoCostText = true): string {
+  if (allowNoCostText && (!cents || cents === 0)) return "No cost";
   return new Intl.NumberFormat("en-US", { style: "currency", currency }).format((cents || 0) / 100);
 }
 

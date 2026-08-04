@@ -947,6 +947,11 @@ function ItemDialog({
   onError: (err: unknown) => void;
 }) {
   const [saving, setSaving] = useState(false);
+  const [isSpecOnly, setIsSpecOnly] = useState(() => {
+    if (!item) return false;
+    const hasZeroCost = (item.unitCostCents || 0) === 0 && (item.shippingCostCents || 0) === 0 && (item.taxCostCents || 0) === 0;
+    return hasZeroCost;
+  });
   const [form, setForm] = useState(() => ({
     itemName: item?.itemName || "",
     description: item?.description || "",
@@ -967,11 +972,12 @@ function ItemDialog({
 
   const set = (field: string, value: unknown) => setForm((f) => ({ ...f, [field]: value }));
 
-  const estimatedPreview =
-    Math.round(Number(form.qty || 0) * dollarsToCents(form.unitCost)) +
-    dollarsToCents(form.shipping) +
-    dollarsToCents(form.tax) +
-    dollarsToCents(form.otherFees);
+  const estimatedPreview = isSpecOnly
+    ? 0
+    : Math.round(Number(form.qty || 0) * dollarsToCents(form.unitCost)) +
+      dollarsToCents(form.shipping) +
+      dollarsToCents(form.tax) +
+      dollarsToCents(form.otherFees);
 
   const save = async () => {
     if (!form.itemName.trim()) return;
@@ -980,15 +986,15 @@ function ItemDialog({
       const payload = {
         itemName: form.itemName.trim(),
         description: form.description,
-        qty: Number(form.qty) || 0,
-        unit: form.unit,
-        unitCostCents: dollarsToCents(form.unitCost),
-        shippingCostCents: dollarsToCents(form.shipping),
-        taxCostCents: dollarsToCents(form.tax),
-        otherFeesCents: dollarsToCents(form.otherFees),
-        paidCents: dollarsToCents(form.paid),
-        vendorId: form.vendorId === NO_VENDOR ? null : form.vendorId,
-        quoteNumber: form.quoteNumber,
+        qty: isSpecOnly ? 0 : Number(form.qty) || 0,
+        unit: isSpecOnly ? "" : form.unit,
+        unitCostCents: isSpecOnly ? 0 : dollarsToCents(form.unitCost),
+        shippingCostCents: isSpecOnly ? 0 : dollarsToCents(form.shipping),
+        taxCostCents: isSpecOnly ? 0 : dollarsToCents(form.tax),
+        otherFeesCents: isSpecOnly ? 0 : dollarsToCents(form.otherFees),
+        paidCents: isSpecOnly ? 0 : dollarsToCents(form.paid),
+        vendorId: isSpecOnly || form.vendorId === NO_VENDOR ? null : form.vendorId,
+        quoteNumber: isSpecOnly ? "" : form.quoteNumber,
         taskId: form.taskId === NO_TASK ? "" : form.taskId,
         priority: form.priority as "low" | "medium" | "high" | "critical",
         requiredForPrototype: form.requiredForPrototype,
@@ -1011,51 +1017,53 @@ function ItemDialog({
         <DialogHeader>
           <DialogTitle>{item ? "Edit Line Item" : "Add Line Item"}</DialogTitle>
           <DialogDescription>
-            Estimated total updates automatically: qty × unit cost + shipping + tax + fees.
+            {isSpecOnly
+              ? "Specification-only entry mode (manufacturing specs & testing requirements). Financial fields are hidden."
+              : "Estimated total updates automatically: qty × unit cost + shipping + tax + fees."}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Specification-only toggle switch */}
+        <div className="flex items-center justify-between p-2.5 rounded-lg border bg-muted/30 text-xs">
+          <div className="space-y-0.5">
+            <span className="font-bold text-foreground">Manufacturing / Specification-Only Entry</span>
+            <p className="text-muted-foreground text-[11px]">Hide financial & cost fields for specification-only entries</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="specOnlyToggle"
+              checked={isSpecOnly}
+              onCheckedChange={(c) => setIsSpecOnly(Boolean(c))}
+            />
+            <label htmlFor="specOnlyToggle" className="font-semibold cursor-pointer">Spec Only (No cost)</label>
+          </div>
+        </div>
 
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div className="col-span-2">
             <Label className="text-xs">Item Name *</Label>
-            <Input value={form.itemName} onChange={(e) => set("itemName", e.target.value)} placeholder="e.g. Tungsten powder" />
+            <Input value={form.itemName} onChange={(e) => set("itemName", e.target.value)} placeholder="e.g. Tungsten powder specification" />
           </div>
           <div className="col-span-2">
             <Label className="text-xs">Description</Label>
             <Textarea
               value={form.description}
               onChange={(e) => set("description", e.target.value)}
-              className="min-h-[50px]"
+              className="min-h-[60px]"
+              placeholder="Detailed manufacturing specification or testing requirement details..."
             />
           </div>
-          <div>
-            <Label className="text-xs">Quantity</Label>
-            <Input type="number" min="0" value={form.qty} onChange={(e) => set("qty", e.target.value)} />
+
+          <div className="col-span-2">
+            <Label className="text-xs">Notes / Technical Specs</Label>
+            <Textarea
+              value={form.notes}
+              onChange={(e) => set("notes", e.target.value)}
+              className="min-h-[50px]"
+              placeholder="Additional specification notes, tolerance metrics, test requirements..."
+            />
           </div>
-          <div>
-            <Label className="text-xs">Unit (lbs, pcs, hrs...)</Label>
-            <Input value={form.unit} onChange={(e) => set("unit", e.target.value)} />
-          </div>
-          <div>
-            <Label className="text-xs">Unit Cost ($)</Label>
-            <Input value={form.unitCost} onChange={(e) => set("unitCost", e.target.value)} placeholder="0.00" />
-          </div>
-          <div>
-            <Label className="text-xs">Shipping ($)</Label>
-            <Input value={form.shipping} onChange={(e) => set("shipping", e.target.value)} placeholder="0.00" />
-          </div>
-          <div>
-            <Label className="text-xs">Tax ($)</Label>
-            <Input value={form.tax} onChange={(e) => set("tax", e.target.value)} placeholder="0.00" />
-          </div>
-          <div>
-            <Label className="text-xs">Other Fees ($)</Label>
-            <Input value={form.otherFees} onChange={(e) => set("otherFees", e.target.value)} placeholder="0.00" />
-          </div>
-          <div>
-            <Label className="text-xs">Paid So Far ($)</Label>
-            <Input value={form.paid} onChange={(e) => set("paid", e.target.value)} placeholder="0.00" />
-          </div>
+
           <div>
             <Label className="text-xs">Priority</Label>
             <Select value={form.priority} onValueChange={(v) => set("priority", v)}>
@@ -1070,26 +1078,59 @@ function ItemDialog({
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <Label className="text-xs">Vendor / Manufacturer</Label>
-            <Select value={form.vendorId} onValueChange={(v) => set("vendorId", v)}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="Select vendor" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NO_VENDOR}>No vendor</SelectItem>
-                {vendors.map((v) => (
-                  <SelectItem key={v._id} value={v._id}>
-                    {v.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <Label className="text-xs">Quote Number</Label>
-            <Input value={form.quoteNumber} onChange={(e) => set("quoteNumber", e.target.value)} />
-          </div>
+
+          {!isSpecOnly && (
+            <>
+              <div>
+                <Label className="text-xs">Quantity</Label>
+                <Input type="number" min="0" value={form.qty} onChange={(e) => set("qty", e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">Unit (lbs, pcs, hrs...)</Label>
+                <Input value={form.unit} onChange={(e) => set("unit", e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">Unit Cost ($)</Label>
+                <Input value={form.unitCost} onChange={(e) => set("unitCost", e.target.value)} placeholder="0.00" />
+              </div>
+              <div>
+                <Label className="text-xs">Shipping ($)</Label>
+                <Input value={form.shipping} onChange={(e) => set("shipping", e.target.value)} placeholder="0.00" />
+              </div>
+              <div>
+                <Label className="text-xs">Tax ($)</Label>
+                <Input value={form.tax} onChange={(e) => set("tax", e.target.value)} placeholder="0.00" />
+              </div>
+              <div>
+                <Label className="text-xs">Other Fees ($)</Label>
+                <Input value={form.otherFees} onChange={(e) => set("otherFees", e.target.value)} placeholder="0.00" />
+              </div>
+              <div>
+                <Label className="text-xs">Paid So Far ($)</Label>
+                <Input value={form.paid} onChange={(e) => set("paid", e.target.value)} placeholder="0.00" />
+              </div>
+              <div>
+                <Label className="text-xs">Vendor / Manufacturer</Label>
+                <Select value={form.vendorId} onValueChange={(v) => set("vendorId", v)}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Select vendor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_VENDOR}>No vendor</SelectItem>
+                    {vendors.map((v) => (
+                      <SelectItem key={v._id} value={v._id}>
+                        {v.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs">Quote Number</Label>
+                <Input value={form.quoteNumber} onChange={(e) => set("quoteNumber", e.target.value)} />
+              </div>
+            </>
+          )}
           {tasks.length > 0 && (
             <div className="col-span-2">
               <Label className="text-xs">Link to Task (rolls up into project totals either way)</Label>

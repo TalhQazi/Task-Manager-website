@@ -42,8 +42,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Wallet, Plus, Trash2, Link as LinkIcon, ArrowLeft, Loader2, Edit, AlertCircle, Sparkles } from "lucide-react";
+import { Wallet, Plus, Trash2, Link as LinkIcon, ArrowLeft, Loader2, Edit, AlertCircle, Sparkles, Check, ChevronsUpDown, X } from "lucide-react";
 import { toast } from "sonner";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/admin/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/admin/ui/command";
+import { cn } from "@/lib/utils";
 
 interface ExpenseSheetItem {
   id: string;
@@ -92,6 +102,24 @@ export default function ExpenseSheets() {
   const [selectedTaskId, setSelectedTaskId] = useState<string>("");
   const [savingAttach, setSavingAttach] = useState(false);
 
+  // Direct inline search input state & dropdown open states
+  const [projectSearchInput, setProjectSearchInput] = useState("");
+  const [taskSearchInput, setTaskSearchInput] = useState("");
+  const [projectDropdownOpen, setProjectDropdownOpen] = useState(false);
+  const [taskDropdownOpen, setTaskDropdownOpen] = useState(false);
+
+  const filteredProjects = useMemo(() => {
+    if (!projectSearchInput.trim()) return projects;
+    const q = projectSearchInput.toLowerCase().trim();
+    return projects.filter((p) => p.name.toLowerCase().includes(q));
+  }, [projects, projectSearchInput]);
+
+  const filteredTasks = useMemo(() => {
+    if (!taskSearchInput.trim()) return tasks;
+    const q = taskSearchInput.toLowerCase().trim();
+    return tasks.filter((t) => t.title.toLowerCase().includes(q));
+  }, [tasks, taskSearchInput]);
+
   // Load expense sheets
   const loadSheets = async () => {
     try {
@@ -109,11 +137,29 @@ export default function ExpenseSheets() {
   const loadAttachOptions = async () => {
     try {
       const [projRes, taskRes] = await Promise.all([
-        apiFetch<{ items?: ProjectOption[] }>("/api/projects?limit=1000"),
-        apiFetch<{ items?: TaskOption[] }>("/api/tasks?limit=1000"),
+        apiFetch<{ items?: any[] }>("/api/projects?limit=5000&all=true"),
+        apiFetch<{ items?: any[] }>("/api/tasks?limit=5000&all=true"),
       ]);
-      setProjects(projRes.items || []);
-      setTasks(taskRes.items || []);
+      const rawProjects = Array.isArray(projRes) ? projRes : (projRes?.items || []);
+      const rawTasks = Array.isArray(taskRes) ? taskRes : (taskRes?.items || []);
+
+      setProjects(
+        rawProjects
+          .map((p: any) => ({
+            id: String(p.id || p._id || ""),
+            name: String(p.name || p.title || "Untitled Project"),
+          }))
+          .filter((p: any) => Boolean(p.id))
+      );
+
+      setTasks(
+        rawTasks
+          .map((t: any) => ({
+            id: String(t.id || t._id || ""),
+            title: String(t.title || t.name || "Untitled Task"),
+          }))
+          .filter((t: any) => Boolean(t.id))
+      );
     } catch (err) {
       console.error("Failed to load attachment options", err);
     }
@@ -188,19 +234,30 @@ export default function ExpenseSheets() {
   };
 
   const handleOpenAttachModal = (sheet: ExpenseSheetItem) => {
+    loadAttachOptions();
     setAttachingSheet(sheet);
+    setProjectDropdownOpen(false);
+    setTaskDropdownOpen(false);
     if (sheet.projectId) {
       setAttachType("project");
       setSelectedProjectId(sheet.projectId);
+      const proj = projects.find((p) => p.id === sheet.projectId);
+      setProjectSearchInput(proj ? proj.name : "");
       setSelectedTaskId("");
+      setTaskSearchInput("");
     } else if (sheet.taskId) {
       setAttachType("task");
       setSelectedTaskId(sheet.taskId);
+      const t = tasks.find((tk) => tk.id === sheet.taskId);
+      setTaskSearchInput(t ? t.title : "");
       setSelectedProjectId("");
+      setProjectSearchInput("");
     } else {
       setAttachType("none");
       setSelectedProjectId("");
+      setProjectSearchInput("");
       setSelectedTaskId("");
+      setTaskSearchInput("");
     }
     setAttachModalOpen(true);
   };
@@ -238,8 +295,18 @@ export default function ExpenseSheets() {
   const filteredSheets = useMemo(() => {
     const query = search.trim().toLowerCase();
     if (!query) return sheets;
-    return sheets.filter((s) => s.name.toLowerCase().includes(query));
-  }, [sheets, search]);
+    return sheets.filter((s) => {
+      const projName = s.projectId ? getProjectName(s.projectId).toLowerCase() : "";
+      const taskName = s.taskId ? getTaskName(s.taskId).toLowerCase() : "";
+      const creator = (s.createdByUsername || "").toLowerCase();
+      return (
+        s.name.toLowerCase().includes(query) ||
+        projName.includes(query) ||
+        taskName.includes(query) ||
+        creator.includes(query)
+      );
+    });
+  }, [sheets, search, projects, tasks]);
 
   // If a sheet is selected, display the CostManager
   if (activeSheetId) {
@@ -286,7 +353,7 @@ export default function ExpenseSheets() {
         <CardContent className="p-3 sm:p-6">
           <div className="relative w-full sm:max-w-md">
             <Input
-              placeholder="Search expense sheets..."
+              placeholder="Search expense sheets by name, project, task, creator..."
               className="h-9 sm:h-10 text-sm sm:text-base"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -482,38 +549,160 @@ export default function ExpenseSheets() {
             </div>
 
             {attachType === "project" && (
-              <div className="space-y-1.5 animate-fadeIn">
+              <div className="space-y-1.5 animate-fadeIn relative">
                 <Label className="text-sm font-semibold">Select Project</Label>
-                <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {projects.map((p) => (
-                      <SelectItem key={p.id} value={p.id}>
-                        {p.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="relative">
+                  <Input
+                    type="text"
+                    placeholder="Choose project..."
+                    value={projectSearchInput}
+                    onFocus={() => setProjectDropdownOpen(true)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setProjectSearchInput(val);
+                      setProjectDropdownOpen(true);
+                      if (!val.trim()) {
+                        setSelectedProjectId("");
+                      } else {
+                        const exact = projects.find(p => p.name.toLowerCase() === val.trim().toLowerCase());
+                        if (exact) setSelectedProjectId(exact.id);
+                      }
+                    }}
+                    className="w-full h-10 pr-10 bg-background border-input text-foreground text-sm rounded-lg focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
+                  />
+                  {projectSearchInput ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProjectSearchInput("");
+                        setSelectedProjectId("");
+                        setProjectDropdownOpen(true);
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+                      title="Clear"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <ChevronsUpDown
+                      className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none opacity-60"
+                    />
+                  )}
+                </div>
+
+                {projectDropdownOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-[90]"
+                      onClick={() => setProjectDropdownOpen(false)}
+                    />
+                    <div className="absolute left-0 right-0 top-full mt-1 z-[100] max-h-[220px] overflow-y-auto custom-scrollbar bg-popover text-popover-foreground border border-border rounded-lg shadow-xl p-1 animate-in fade-in-50 zoom-in-95">
+                      {filteredProjects.length > 0 ? (
+                        filteredProjects.map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            className={cn(
+                              "w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center justify-between hover:bg-accent hover:text-accent-foreground",
+                              selectedProjectId === p.id && "bg-primary/10 text-primary font-semibold"
+                            )}
+                            onClick={() => {
+                              setSelectedProjectId(p.id);
+                              setProjectSearchInput(p.name);
+                              setProjectDropdownOpen(false);
+                            }}
+                          >
+                            <span className="truncate">{p.name}</span>
+                            {selectedProjectId === p.id && <Check className="w-4 h-4 text-primary shrink-0 ml-2" />}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="p-3 text-center text-xs text-muted-foreground">
+                          No projects found{projectSearchInput ? ` for "${projectSearchInput}"` : ""}.
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             )}
 
             {attachType === "task" && (
-              <div className="space-y-1.5 animate-fadeIn">
+              <div className="space-y-1.5 animate-fadeIn relative">
                 <Label className="text-sm font-semibold">Select Task</Label>
-                <Select value={selectedTaskId} onValueChange={setSelectedTaskId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose task" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {tasks.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="relative">
+                  <Input
+                    type="text"
+                    placeholder="Choose task..."
+                    value={taskSearchInput}
+                    onFocus={() => setTaskDropdownOpen(true)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setTaskSearchInput(val);
+                      setTaskDropdownOpen(true);
+                      if (!val.trim()) {
+                        setSelectedTaskId("");
+                      } else {
+                        const exact = tasks.find(t => t.title.toLowerCase() === val.trim().toLowerCase());
+                        if (exact) setSelectedTaskId(exact.id);
+                      }
+                    }}
+                    className="w-full h-10 pr-10 bg-background border-input text-foreground text-sm rounded-lg focus-visible:ring-2 focus-visible:ring-primary shadow-sm"
+                  />
+                  {taskSearchInput ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTaskSearchInput("");
+                        setSelectedTaskId("");
+                        setTaskDropdownOpen(true);
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-1"
+                      title="Clear"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  ) : (
+                    <ChevronsUpDown
+                      className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none opacity-60"
+                    />
+                  )}
+                </div>
+
+                {taskDropdownOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-[90]"
+                      onClick={() => setTaskDropdownOpen(false)}
+                    />
+                    <div className="absolute left-0 right-0 top-full mt-1 z-[100] max-h-[220px] overflow-y-auto custom-scrollbar bg-popover text-popover-foreground border border-border rounded-lg shadow-xl p-1 animate-in fade-in-50 zoom-in-95">
+                      {filteredTasks.length > 0 ? (
+                        filteredTasks.map((t) => (
+                          <button
+                            key={t.id}
+                            type="button"
+                            className={cn(
+                              "w-full text-left px-3 py-2 text-sm rounded-md transition-colors flex items-center justify-between hover:bg-accent hover:text-accent-foreground",
+                              selectedTaskId === t.id && "bg-primary/10 text-primary font-semibold"
+                            )}
+                            onClick={() => {
+                              setSelectedTaskId(t.id);
+                              setTaskSearchInput(t.title);
+                              setTaskDropdownOpen(false);
+                            }}
+                          >
+                            <span className="truncate">{t.title}</span>
+                            {selectedTaskId === t.id && <Check className="w-4 h-4 text-primary shrink-0 ml-2" />}
+                          </button>
+                        ))
+                      ) : (
+                        <div className="p-3 text-center text-xs text-muted-foreground">
+                          No tasks found{taskSearchInput ? ` for "${taskSearchInput}"` : ""}.
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             )}
 

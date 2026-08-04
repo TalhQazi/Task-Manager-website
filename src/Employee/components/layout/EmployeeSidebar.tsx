@@ -49,7 +49,7 @@ const navItemsBase = [
   { icon: FileText, label: "Company Information", path: "/employee/company-information" },
   // { icon: UserCircle, label: "Profile", path: "/employee/profile" },
   { icon: Bell, label: "Notifications", path: "/employee/notifications" },
-  { icon: FileText, label: "Knowledge Vault", path: "/employee/personal-notes" },
+  { icon: FileText, label: "Personal Notes", path: "/employee/personal-notes" },
   { icon: Palette, label: "Theme Engine", path: "/employee/ui-customization" },
   { icon: ShoppingCart, label: "Shopping Lists", path: "/employee/shopping-lists" },
   { icon: Bug, label: "Bugs", path: "/employee/bugs" },
@@ -75,16 +75,13 @@ export function EmployeeSidebar({ mode = "desktop", onNavigate }: EmployeeSideba
 
   const navItems = useMemo(() => {
     let items = [...navItemsBase];
-    if (auth.role !== "coder") {
-      items = items.filter(item => item.label !== "Bugs");
-    }
     const settingsItem = items.find(item => item.label === "Settings");
     const otherItems = items.filter(item => item.label !== "Settings");
     return [
       ...otherItems.sort((a, b) => a.label.localeCompare(b.label)),
       ...(settingsItem ? [settingsItem] : [])
     ];
-  }, [auth.role]);
+  }, []);
 
   const isMobile = mode === "mobile";
 

@@ -112,7 +112,7 @@ export default function ManagerController() {
       { path: "crm/tasks", element: <ManagerCRMTasks /> },
 
       { path: "travel-calendar", element: <TravelCalendar /> },
-      { path: "bugs", element: <Navigate to="/manager" replace /> },
+      { path: "bugs", element: <ManagerBugs /> },
       { path: "announcements", element: <ManagerAnnouncements /> },
 
 

@@ -1,4 +1,13 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || "https://task.se7eninc.com";
+const getApiBaseUrl = () => {
+  const raw = String(import.meta.env.VITE_API_URL || "").trim();
+  if (raw) return raw;
+  if (typeof window !== "undefined" && window.location?.hostname === "localhost") {
+    return "http://localhost:5000";
+  }
+  return "https://task.se7eninc.com";
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export async function employeeApiFetch<T>(
   endpoint: string,
@@ -90,7 +99,7 @@ export async function deleteLeaveRequest(id: string) {
  * Transforms a direct S3 URL into a backend-proxied URL to avoid CORS/OpaqueResponseBlocking issues.
  * If the URL is already a data URL or doesn't match the S3 pattern, it's returned as-is.
  */
-export function toProxiedUrl(url: string | undefined): string {
+export function toProxiedUrl(url: string | undefined | null): string {
   if (!url) return "";
   if (url.startsWith("data:")) return url;
 
@@ -104,24 +113,31 @@ export function toProxiedUrl(url: string | undefined): string {
       void e;
     }
   }
+  if (!token) {
+    token = localStorage.getItem("token") || "";
+  }
 
-  // Local server uploads ("/uploads/<key>") — served by the backend, so route them
-  // through the backend origin (via the s3-proxy, which reads local disk first).
-  if (url.startsWith("/uploads/")) {
-    const key = url.replace(/^\/uploads\//, "");
+  if (url.includes("/api/s3-proxy/")) {
+    if (token && !url.includes("token=")) {
+      return `${url}${url.includes("?") ? "&" : "?"}token=${token}`;
+    }
+    return url;
+  }
+
+  // Local server uploads ("/uploads/<key>", "uploads/<key>", "http://.../uploads/<key>")
+  const uploadsMatch = url.match(/(?:\/|^)uploads\/(.+)$/);
+  if (uploadsMatch) {
+    const key = uploadsMatch[1];
     return `${API_BASE_URL}/api/s3-proxy/${key}${token ? `?token=${token}` : ""}`;
   }
 
   // Pattern for S3 URLs: https://<bucket>.s3.<region>.amazonaws.com/<key>
-  const s3Pattern = /^https:\/\/([\w.-]+)\.s3\.([\w.-]+)\.amazonaws\.com\/(.+)$/;
-  const match = url.match(s3Pattern);
-
-  if (match) {
-    const key = match[3];
+  const s3Match = url.match(/https:\/\/[^/]+\.s3\.[^/]+\.amazonaws\.com\/(.+)/);
+  if (s3Match) {
+    const key = s3Match[1];
     return `${API_BASE_URL}/api/s3-proxy/${key}${token ? `?token=${token}` : ""}`;
   }
 
-  // Fallback for cases where it's already a relative path or other non-S3 URL
   return url;
 }
 
@@ -524,8 +540,14 @@ export async function deletePersonalNote(id: string) {
 }
 
 
-// Download any URL with authentication for Employee
-export async function downloadViaUrl(url: string, fileName: string): Promise<void> {
+// Download task attachment with authentication for Employee
+export async function downloadTaskAttachment(
+  taskId: string,
+  attachmentIndex: number,
+  fileName: string
+): Promise<void> {
+  const url = `${API_BASE_URL}/api/tasks/${encodeURIComponent(taskId)}/attachments/${attachmentIndex}/download`;
+  
   const authRaw = localStorage.getItem("employee_auth");
   let token = "";
   if (authRaw) {
@@ -533,6 +555,9 @@ export async function downloadViaUrl(url: string, fileName: string): Promise<voi
       const auth = JSON.parse(authRaw);
       token = auth.token || "";
     } catch {}
+  }
+  if (!token) {
+    token = localStorage.getItem("token") || "";
   }
   
   const res = await fetch(url, {
@@ -554,6 +579,54 @@ export async function downloadViaUrl(url: string, fileName: string): Promise<voi
   document.body.removeChild(a);
   
   URL.revokeObjectURL(objectUrl);
+}
+
+export async function downloadViaUrl(url: string, fileName: string): Promise<void> {
+  const authRaw = localStorage.getItem("employee_auth");
+  let token = "";
+  if (authRaw) {
+    try {
+      const auth = JSON.parse(authRaw);
+      token = auth.token || "";
+    } catch {}
+  }
+  if (!token) {
+    token = localStorage.getItem("token") || "";
+  }
+  
+  const targetUrl = toProxiedUrl(url) || url;
+  
+  try {
+    const res = await fetch(targetUrl, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    
+    if (!res.ok) {
+      throw new Error(`Download failed (${res.status})`);
+    }
+    
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    URL.revokeObjectURL(objectUrl);
+  } catch (err) {
+    console.warn("downloadViaUrl fetch failed, using direct link fallback:", err);
+    const windowUrl = toProxiedUrl(url) || url;
+    const a = document.createElement("a");
+    a.href = windowUrl;
+    a.download = fileName;
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 }
 
 

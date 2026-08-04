@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/admin/ui/select";
 import {
   Table,
   TableBody,
@@ -13,227 +14,257 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/admin/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/admin/ui/dialog";
+import { Bug, Plus, Search } from "lucide-react";
 
-import { Video } from "lucide-react";
-
-type BugStatus = "open" | "closed";
+import BugDashboardAnalytics from "@/components/bugs/BugDashboardAnalytics";
+import ReportBugModal from "@/components/bugs/ReportBugModal";
+import BugCollaborationModal from "@/components/bugs/BugCollaborationModal";
 
 type BugItem = {
   id: string;
   title: string;
   description: string;
-  status?: BugStatus;
+  status?: string;
+  severity?: string;
+  priority?: string;
+  module?: string;
   taskTitle?: string;
   createdByUsername?: string;
   createdByRole?: string;
+  assignedDeveloperName?: string;
   createdAt?: string;
   source?: { panel?: string; path?: string };
   attachments?: { fileName?: string; url?: string; mimeType?: string; size?: number }[];
-};
-
-const isVideoAttachment = (att?: { url?: string; mimeType?: string; fileName?: string } | string | null) => {
-  if (!att) return false;
-  const url = typeof att === "string" ? att : att.url || "";
-  const mimeType = typeof att === "string" ? "" : att.mimeType || "";
-  const fileName = typeof att === "string" ? "" : att.fileName || "";
-
-  if (mimeType.startsWith("video/")) return true;
-  if (url.startsWith("data:video/")) return true;
-  const lowerUrl = (url || fileName).toLowerCase();
-  return /\.(mp4|webm|mov|ogg|m4v|mkv)(\?.*)?$/i.test(lowerUrl);
 };
 
 function toText(v: unknown) {
   return typeof v === "string" ? v : "";
 }
 
-export default function Bugs() {
+export default function DeveloperBugs() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
-  const [items, setItems] = useState<BugItem[]>(() => []);
+  const [items, setItems] = useState<BugItem[]>([]);
 
   const [q, setQ] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
-  const [viewOpen, setViewOpen] = useState(false);
-  const [selected, setSelected] = useState<BugItem | null>(null);
-  const [updating, setUpdating] = useState(false);
+  const [collabOpen, setCollabOpen] = useState(false);
+  const [selectedBugId, setSelectedBugId] = useState<string | null>(null);
+
+  const [reportOpen, setReportOpen] = useState(false);
 
   const load = async () => {
-    const res = await apiFetch<{ items?: any[] }>("/api/bugs");
-    const list = Array.isArray(res?.items) ? res.items : [];
-    const mapped: BugItem[] = list
-      .map((x: any) => ({
-        id: String(x.id || x._id || ""),
-        title: toText(x.title),
-        description: toText(x.description),
-        status: (x.status === "closed" ? "closed" : "open") as BugStatus,
-        taskTitle: toText(x.taskTitle),
-        createdByUsername: toText(x.createdByUsername),
-        createdByRole: toText(x.createdByRole),
-        createdAt: toText(x.createdAt),
-        source: x.source && typeof x.source === "object" ? x.source : undefined,
-        attachments: Array.isArray(x.attachments) ? x.attachments : [],
-      }))
-      .filter((x) => Boolean(x.id));
+    try {
+      setLoading(true);
+      setApiError(null);
+      const res = await apiFetch<{ items?: any[] }>("/api/bugs");
+      const list = Array.isArray(res?.items) ? res.items : [];
+      const mapped: BugItem[] = list
+        .map((x: any) => ({
+          id: String(x.id || x._id || ""),
+          title: toText(x.title),
+          description: toText(x.description),
+          status: toText(x.status || "OPEN"),
+          severity: toText(x.severity || "medium"),
+          priority: toText(x.priority || "medium"),
+          module: toText(x.module),
+          taskTitle: toText(x.taskTitle),
+          createdByUsername: toText(x.createdByUsername),
+          createdByRole: toText(x.createdByRole),
+          assignedDeveloperName: toText(x.assignedDeveloperName),
+          createdAt: toText(x.createdAt),
+          source: x.source && typeof x.source === "object" ? x.source : undefined,
+          attachments: Array.isArray(x.attachments) ? x.attachments : [],
+        }))
+        .filter((x) => Boolean(x.id));
 
-    setItems(mapped);
+      setItems(mapped);
+    } catch (e) {
+      setApiError(e instanceof Error ? e.message : "Failed to load bugs");
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        setLoading(true);
-        setApiError(null);
-        await load();
-      } catch (e) {
-        if (!mounted) return;
-        setApiError(e instanceof Error ? e.message : "Failed to load bugs");
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    })();
-
-    return () => {
-      mounted = false;
-    };
+    void load();
   }, []);
 
   useEffect(() => {
     const viewId = String(searchParams.get("view") || "").trim();
     if (!viewId) return;
 
-    const found = items.find((x) => x.id === viewId);
-    if (!found) return;
-
-    setSelected(found);
-    setViewOpen(true);
+    setSelectedBugId(viewId);
+    setCollabOpen(true);
 
     const next = new URLSearchParams(searchParams);
     next.delete("view");
     setSearchParams(next, { replace: true });
-  }, [items, searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams]);
 
   const filtered = useMemo(() => {
+    let list = items;
+    if (statusFilter !== "all") {
+      if (statusFilter === "open") list = list.filter((b) => ["OPEN", "TRIAGED", "IN_PROGRESS", "NEEDS_INFO", "REOPENED", "open"].includes(b.status || ""));
+      else if (statusFilter === "closed") list = list.filter((b) => ["CLOSED_VERIFIED", "CLOSED_ADMIN_OVERRIDE", "closed"].includes(b.status || ""));
+      else list = list.filter((b) => (b.status || "").toUpperCase() === statusFilter.toUpperCase());
+    }
+
     const query = q.trim().toLowerCase();
-    if (!query) return items;
-    return items.filter((b) => {
-      const where = `${b.title} ${b.description} ${b.taskTitle || ""} ${b.createdByUsername || ""} ${b.source?.path || ""}`.toLowerCase();
+    if (!query) return list;
+    return list.filter((b) => {
+      const where = `${b.title} ${b.description} ${b.taskTitle || ""} ${b.createdByUsername || ""} ${b.assignedDeveloperName || ""} ${b.module || ""} ${b.source?.path || ""}`.toLowerCase();
       return where.includes(query);
     });
-  }, [items, q]);
+  }, [items, q, statusFilter]);
 
   const openBug = (b: BugItem) => {
-    setSelected(b);
-    setViewOpen(true);
-  };
-
-  const updateStatus = async (next: BugStatus) => {
-    if (!selected) return;
-    try {
-      setUpdating(true);
-      setApiError(null);
-      const res = await apiFetch<{ item?: any }>(`/api/bugs/${encodeURIComponent(selected.id)}`, {
-        method: "PUT",
-        body: JSON.stringify({ status: next }),
-      });
-      const updated = res?.item;
-      const merged: BugItem = {
-        ...selected,
-        status: (updated?.status === "closed" ? "closed" : "open") as BugStatus,
-      };
-      setSelected(merged);
-      setItems((prev) => prev.map((x) => (x.id === merged.id ? { ...x, status: merged.status } : x)));
-    } catch (e) {
-      setApiError(e instanceof Error ? e.message : "Failed to update bug");
-    } finally {
-      setUpdating(false);
-    }
+    setSelectedBugId(b.id);
+    setCollabOpen(true);
   };
 
   return (
     <div className="space-y-4 sm:space-y-5 md:space-y-6 px-2 sm:px-0">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-6">
-        <div className="space-y-1.5 sm:space-y-2">
-          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight">Developer Bugs</h1>
-          <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl">Bugs reported from the system.</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="space-y-1">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
+            <Bug className="h-6 w-6 text-primary" />
+            Developer Bug Resolution Platform
+          </h1>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            Investigate reported bugs, collaborate in threads, and submit resolutions for reporter verification.
+          </p>
         </div>
-        <Button variant="outline" onClick={() => void load()} disabled={loading} className="w-full sm:w-auto">
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => void load()} disabled={loading} size="sm">
+            Refresh
+          </Button>
+          <Button onClick={() => setReportOpen(true)} size="sm" className="gap-1.5">
+            <Plus className="h-4 w-4" /> Report Bug
+          </Button>
+        </div>
       </div>
 
+      <BugDashboardAnalytics />
+
       {apiError && (
-        <div className="rounded-md bg-destructive/10 p-3 sm:p-4">
-          <p className="text-xs sm:text-sm text-destructive break-words">{apiError}</p>
+        <div className="rounded-md bg-destructive/10 p-3 sm:p-4 text-xs sm:text-sm text-destructive">
+          {apiError}
         </div>
       )}
 
-      <Card className="shadow-soft border-0 sm:border">
-        <CardContent className="p-3 sm:p-6">
-          <div className="relative w-full sm:max-w-md">
+      <Card className="shadow-sm border">
+        <CardContent className="p-3 sm:p-4 flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
+          <div className="relative flex-1 max-w-md">
             <Input
-              placeholder="Search bugs..."
-              className="h-9 sm:h-10 text-sm sm:text-base"
+              placeholder="Search assigned bugs..."
+              className="h-9 text-xs sm:text-sm"
               value={q}
               onChange={(e) => setQ(e.target.value)}
             />
           </div>
+
+          {/* Quick Filter Chips (Replaces Mobile-Buggy Dropdown) */}
+          <div className="overflow-x-auto no-scrollbar py-1 flex items-center gap-1.5 shrink-0">
+            <Button
+              size="sm"
+              variant={statusFilter === "all" ? "default" : "outline"}
+              onClick={() => setStatusFilter("all")}
+              className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+            >
+              All Bugs
+            </Button>
+            <Button
+              size="sm"
+              variant={statusFilter === "open" ? "default" : "outline"}
+              onClick={() => setStatusFilter(statusFilter === "open" ? "all" : "open")}
+              className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+            >
+              Active Bugs
+            </Button>
+            <Button
+              size="sm"
+              variant={statusFilter === "IN_PROGRESS" ? "default" : "outline"}
+              onClick={() => setStatusFilter(statusFilter === "IN_PROGRESS" ? "all" : "IN_PROGRESS")}
+              className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+            >
+              In Progress
+            </Button>
+            <Button
+              size="sm"
+              variant={statusFilter === "AWAITING_REPORTER_CONFIRMATION" ? "default" : "outline"}
+              onClick={() => setStatusFilter(statusFilter === "AWAITING_REPORTER_CONFIRMATION" ? "all" : "AWAITING_REPORTER_CONFIRMATION")}
+              className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+            >
+              Awaiting Verify
+            </Button>
+            <Button
+              size="sm"
+              variant={statusFilter === "closed" ? "default" : "outline"}
+              onClick={() => setStatusFilter(statusFilter === "closed" ? "all" : "closed")}
+              className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+            >
+              Closed Bugs
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
-      <Card className="shadow-soft border-0 sm:border">
-        <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
-          <CardTitle className="text-base sm:text-lg md:text-xl font-semibold">Bugs ({filtered.length})</CardTitle>
+      <Card className="shadow-sm border">
+        <CardHeader className="px-4 sm:px-6 py-4">
+          <CardTitle className="text-base sm:text-lg font-semibold">
+            Assigned Bugs ({filtered.length})
+          </CardTitle>
         </CardHeader>
         <CardContent className="p-0 sm:p-6">
           {loading ? (
-            <div className="flex justify-center items-center py-8 sm:py-12">
-              <div className="text-xs sm:text-sm text-muted-foreground">Loading...</div>
+            <div className="flex justify-center items-center py-12">
+              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
           ) : (
             <div className="w-full overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="text-xs md:text-sm">Title</TableHead>
-                    <TableHead className="text-xs md:text-sm">Status</TableHead>
-                    <TableHead className="text-xs md:text-sm">Posted By</TableHead>
-                    <TableHead className="text-xs md:text-sm">Where</TableHead>
+                    <TableHead className="text-xs">Title</TableHead>
+                    <TableHead className="text-xs">Status</TableHead>
+                    <TableHead className="text-xs">Severity</TableHead>
+                    <TableHead className="text-xs">Reporter</TableHead>
+                    <TableHead className="text-xs">Date</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filtered.map((b) => (
                     <TableRow key={b.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => openBug(b)}>
                       <TableCell>
-                        <div className="space-y-1">
-                          <p className="font-medium text-sm md:text-base line-clamp-1">{b.title}</p>
-                          <p className="text-xs md:text-sm text-muted-foreground line-clamp-1">{b.taskTitle ? `Task: ${b.taskTitle}` : ""}</p>
-                        </div>
+                        <p className="font-semibold text-sm line-clamp-1">{b.title}</p>
+                        {b.taskTitle && <p className="text-xs text-muted-foreground">Task: {b.taskTitle}</p>}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={b.status === "closed" ? "secondary" : "default"} className="text-xs md:text-sm">
-                          {b.status === "closed" ? "Closed" : "Open"}
+                        <Badge variant="outline" className="text-xs uppercase font-medium">
+                          {b.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-xs md:text-sm text-muted-foreground">
-                        {b.createdByUsername || "-"}
-                        {b.createdByRole ? ` (${b.createdByRole})` : ""}
+                      <TableCell className="text-xs capitalize font-medium">
+                        {b.severity || "medium"}
                       </TableCell>
-                      <TableCell className="text-xs md:text-sm text-muted-foreground">{b.source?.path || b.source?.panel || "-"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {b.createdByUsername || "-"}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {b.createdAt ? new Date(b.createdAt).toLocaleDateString() : "-"}
+                      </TableCell>
                     </TableRow>
                   ))}
+                  {filtered.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-12 text-muted-foreground text-xs italic">
+                        No bugs found.
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </div>
@@ -241,81 +272,19 @@ export default function Bugs() {
         </CardContent>
       </Card>
 
-      <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-        <DialogContent className="w-[95vw] max-w-3xl mx-auto p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
-          <DialogHeader className="space-y-1.5 sm:space-y-2">
-            <DialogTitle className="text-lg sm:text-xl">{selected?.title || "Bug"}</DialogTitle>
-            <DialogDescription className="text-xs sm:text-sm">{selected?.source?.path || selected?.source?.panel || ""}</DialogDescription>
-          </DialogHeader>
+      <BugCollaborationModal
+        bugId={selectedBugId}
+        open={collabOpen}
+        onOpenChange={setCollabOpen}
+        onBugUpdated={() => void load()}
+      />
 
-          {selected ? (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={selected.status === "closed" ? "secondary" : "default"}>
-                    {selected.status === "closed" ? "Closed" : "Open"}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {selected.createdByUsername ? `Posted by ${selected.createdByUsername}` : ""}
-                    {selected.createdByRole ? ` (${selected.createdByRole})` : ""}
-                  </span>
-                </div>
-              </div>
-
-              <div className="rounded-md border p-3 bg-muted/30">
-                <p className="text-sm whitespace-pre-wrap">{selected.description}</p>
-              </div>
-
-              {selected.attachments && selected.attachments.length > 0 ? (
-                <div className="space-y-4">
-                  <p className="text-xs sm:text-sm font-medium">Attachments ({selected.attachments.length})</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {selected.attachments.map((att, i) => {
-                      const src = String(att.url);
-                      const isVid = isVideoAttachment(att);
-                      if (isVid) {
-                        return (
-                          <div key={i} className="w-full overflow-hidden rounded-lg border bg-black flex flex-col">
-                            <video src={src} controls className="w-full h-auto max-h-[60vh] object-contain" />
-                            <div className="p-2 bg-muted/40 text-xs text-muted-foreground flex items-center gap-1.5 font-medium">
-                              <Video className="h-4 w-4 text-primary shrink-0" />
-                              <span className="truncate">{att.fileName || `Video ${i + 1}`}</span>
-                            </div>
-                          </div>
-                        );
-                      }
-                      return (
-                        <div key={i} className="w-full overflow-hidden rounded-lg border bg-muted/20">
-                          <img
-                            src={src}
-                            alt={String(att.fileName || `Attachment ${i + 1}`)}
-                            className="w-full h-auto max-h-[65vh] object-contain"
-                          />
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
-            <Button variant="outline" onClick={() => setViewOpen(false)} className="w-full sm:w-auto" disabled={updating}>
-              Close
-            </Button>
-            {selected?.status === "closed" ? (
-              <Button onClick={() => void updateStatus("open")} className="w-full sm:w-auto" disabled={updating}>
-                Reopen
-              </Button>
-            ) : (
-              <Button onClick={() => void updateStatus("closed")} className="w-full sm:w-auto" disabled={updating}>
-                Mark Closed
-              </Button>
-            )}
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ReportBugModal
+        open={reportOpen}
+        onOpenChange={setReportOpen}
+        onSuccess={() => void load()}
+        defaultSourcePanel="developer"
+      />
     </div>
   );
 }

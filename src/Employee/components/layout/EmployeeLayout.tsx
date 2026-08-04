@@ -65,7 +65,6 @@ export function EmployeeLayout() {
       // Get from body since theme CSS variables are scoped to body[class*="tb-theme-"]
       const bg = getComputedStyle(document.body).getPropertyValue("--tb-dashboard-bg").trim() || "#e6f0ff";
       setDashboardBg(bg);
-      console.log("Dashboard background from CSS variable:", bg);
     };
     
     updateDashboardBg();

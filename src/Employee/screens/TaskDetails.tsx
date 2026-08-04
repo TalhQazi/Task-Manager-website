@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,7 @@ import {
   updateTaskStatus,
   employeeApiFetch,
   toProxiedUrl,
+  downloadTaskAttachment,
   downloadViaUrl,
   getEmployeeProfile,
 } from "../lib/api";
@@ -124,11 +125,28 @@ function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fa
     return () => { cancelled = true; };
   }, [taskId, commentId, index, fallbackUrl]);
 
-  if (src && mimeType?.startsWith("image/")) return (
+  const isImage = mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(fileName || "");
+
+  if (src && isImage) return (
     <div className="w-full h-auto flex justify-center relative group/att cursor-zoom-in" onClick={() => onPreview?.(src, fileName)}>
       <img src={src} alt={fileName} className="w-full h-auto max-h-[180px] object-contain rounded-lg" />
-      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center transition-all duration-200 rounded-lg">
-        <Maximize2 className="w-5 h-5 text-white" />
+      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/att:opacity-100 flex items-center justify-center gap-3 transition-all duration-200 rounded-lg backdrop-blur-[1px]">
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onPreview?.(src, fileName); }}
+          className="p-1.5 bg-white/20 hover:bg-white/35 rounded-full text-white transition-all shadow-md"
+          title="Preview"
+        >
+          <Maximize2 className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
+          onClick={async (e) => { e.stopPropagation(); await downloadViaUrl(src, fileName); }}
+          className="p-1.5 bg-white/20 hover:bg-white/35 rounded-full text-white transition-all shadow-md"
+          title="Download"
+        >
+          <Download className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );
@@ -161,31 +179,58 @@ function CommentAttachmentImg({ taskId, commentId, index, mimeType, fileName, fa
   return <div className="w-full h-20 flex flex-col items-center justify-center p-2 text-center bg-muted/10"><AlertCircle className="w-4 h-4 text-muted-foreground/40" /></div>;
 }
 
-function AttachmentItem({ att, idx, onDownload }: { att: { fileName: string; url: string; mimeType?: string }; idx: number; onDownload: (url: string, fileName: string) => void }) {
+function AttachmentItem({
+  att,
+  onPreview,
+  onDownload,
+}: {
+  att: { fileName: string; url: string; mimeType?: string };
+  onPreview: (url: string, fileName: string) => void;
+  onDownload: (url: string, fileName: string) => void;
+}) {
   const [imgError, setImgError] = useState(false);
-  const isImage = att.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(att.fileName || "");
-  const imageUrl = toProxiedUrl(att.url) || att.url;
-
-  if (isImage && !imgError) {
-    return (
-      <button onClick={() => onDownload(imageUrl, att.fileName)} className="block w-full text-left">
-        <img
-          src={imageUrl}
-          alt={att.fileName}
-          className="w-full h-auto object-contain rounded-md max-h-32"
-          onError={() => setImgError(true)}
-        />
-        <span className="text-xs text-muted-foreground truncate block mt-1">{att.fileName}</span>
-      </button>
-    );
-  }
+  const isImage =
+    !imgError &&
+    (att.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(att.fileName || ""));
+  const viewUrl = toProxiedUrl(att.url) || att.url;
 
   return (
-    <button onClick={() => onDownload(imageUrl, att.fileName)}
-      className="w-full flex flex-col items-center justify-center h-20 border rounded-md bg-muted/30 hover:bg-muted text-xs text-center p-2 gap-1">
-      <Download className="h-5 w-5 text-muted-foreground" />
-      <span className="truncate w-full">{att.fileName}</span>
-    </button>
+    <div
+      className="relative group rounded-md overflow-hidden border bg-background hover:shadow-md transition-shadow cursor-zoom-in"
+      onClick={() => onPreview(viewUrl, att.fileName)}
+    >
+      {isImage && viewUrl ? (
+        <img
+          src={viewUrl}
+          alt={att.fileName}
+          className="w-full h-24 object-cover"
+          onError={() => setImgError(true)}
+        />
+      ) : (
+        <div className="w-full h-24 flex items-center justify-center bg-muted/30">
+          <FileText className="h-8 w-8 text-muted-foreground/60" />
+        </div>
+      )}
+      <div className="p-2 border-t text-xs text-muted-foreground truncate">{att.fileName}</div>
+      <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 backdrop-blur-[1px]">
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onPreview(viewUrl, att.fileName); }}
+          className="p-2 rounded-full bg-white/15 hover:bg-white/25 text-white transition-colors"
+          title="Preview"
+        >
+          <Maximize2 className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onDownload(viewUrl, att.fileName); }}
+          className="p-2 rounded-full bg-white/15 hover:bg-white/25 text-white transition-colors"
+          title="Download"
+        >
+          <Download className="h-4 w-4" />
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -283,20 +328,57 @@ export default function EmployeeTaskDetails() {
     }
   };
 
-  const canDownloadAttachment = Boolean(task?.attachment?.url) || Boolean(task?.attachments && task.attachments.length > 0);
-
-  const downloadAttachment = () => {
-    // Handle single attachment
-    if (task?.attachment?.url) {
-      const url = toProxiedUrl(task.attachment.url) || task.attachment.url;
-      void downloadViaUrl(url, task.attachment.fileName || task.attachmentFileName || "attachment");
-      return;
+  // Every attachment on the task: the `attachments` array plus the legacy single
+  // `attachment`, each tagged with the index the download endpoint expects (-1 = legacy).
+  const taskAttachments = useMemo(() => {
+    const list: Array<{ fileName: string; url: string; mimeType?: string; index: number }> = [];
+    (task?.attachments || []).forEach((a, idx) => {
+      list.push({ fileName: a.fileName, url: a.url, mimeType: a.mimeType, index: idx });
+    });
+    const legacy = task?.attachment;
+    if ((legacy?.url || legacy?.fileName) && !list.some((a) => a.url && a.url === legacy?.url)) {
+      list.push({
+        fileName: legacy?.fileName || task?.attachmentFileName || "attachment",
+        url: legacy?.url || "",
+        mimeType: legacy?.mimeType,
+        index: -1,
+      });
     }
-    // Handle attachments array - download first attachment
-    if (task?.attachments && task.attachments.length > 0) {
-      const firstAttachment = task.attachments[0];
-      const url = toProxiedUrl(firstAttachment.url) || firstAttachment.url;
-      void downloadViaUrl(url, firstAttachment.fileName || "attachment");
+    return list;
+  }, [task]);
+
+  const attachmentGallery = useMemo(
+    () =>
+      taskAttachments
+        .filter(
+          (a) =>
+            a.url &&
+            (a.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(a.fileName || "")),
+        )
+        .map((a) => ({ url: toProxiedUrl(a.url) || a.url, name: a.fileName || "image" })),
+    [taskAttachments],
+  );
+
+  const canDownloadAttachment = taskAttachments.length > 0 || Boolean(task?.attachmentFileName);
+
+  const downloadOne = async (index: number, url: string, fileName: string) => {
+    try {
+      await downloadTaskAttachment(task!.id, index, fileName || "attachment");
+    } catch {
+      if (url) await downloadViaUrl(url, fileName || "attachment");
+    }
+  };
+
+  // Header button: grabs every attachment on the task, one download at a time.
+  const downloadAttachment = async () => {
+    if (!task || taskAttachments.length === 0) return;
+    for (const att of taskAttachments) {
+      try {
+        await downloadOne(att.index, att.url, att.fileName);
+      } catch (err) {
+        console.error("Failed to download attachment:", err);
+        toast.error(`Could not download ${att.fileName}`);
+      }
     }
   };
 
@@ -584,17 +666,30 @@ export default function EmployeeTaskDetails() {
                     disabled={!canDownloadAttachment}
                   >
                     <Download className="h-4 w-4 mr-2" />
-                    Download Attachment
+                    {taskAttachments.length > 1 ? `Download All (${taskAttachments.length})` : "Download Attachment"}
                   </Button>
                 </div>
               </div>
 
-              {task.attachments && task.attachments.length > 0 ? (
+              {taskAttachments.length > 0 ? (
                 <div className="space-y-2">
-                  <div className="text-xs font-medium text-muted-foreground">Attachments ({task.attachments.length})</div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {task.attachments.map((att, idx) => (
-                      <AttachmentItem key={idx} att={att} idx={idx} onDownload={(url, fileName) => void downloadViaUrl(url, fileName)} />
+                  <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    Attachments ({taskAttachments.length})
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {taskAttachments.map((att, idx) => (
+                      <AttachmentItem
+                        key={`${att.index}-${idx}`}
+                        att={att}
+                        onPreview={(url, fileName) =>
+                          openImagePreview(
+                            url,
+                            fileName,
+                            attachmentGallery.some((g) => g.url === url) ? attachmentGallery : undefined,
+                          )
+                        }
+                        onDownload={(url, fileName) => void downloadOne(att.index, url, fileName)}
+                      />
                     ))}
                   </div>
                 </div>
@@ -655,7 +750,7 @@ export default function EmployeeTaskDetails() {
                                 <div className="w-8 flex-shrink-0">
                                   {!isSameAuthor ? (
                                     <Avatar className="w-8 h-8 border shadow-sm flex-shrink-0 mb-1">
-                                      <AvatarImage src={toProxiedUrl(c.authorAvatar)} alt={c.authorUsername} crossOrigin="anonymous" />
+                                      <AvatarImage src={toProxiedUrl(c.authorAvatar)} alt={c.authorUsername} />
                                       <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
                                         {(c.authorUsername || "??").substring(0, 2).toUpperCase()}
                                       </AvatarFallback>
@@ -718,7 +813,7 @@ export default function EmployeeTaskDetails() {
                                 <div className="w-8 flex-shrink-0">
                                   {!isSameAuthor ? (
                                     <Avatar className="w-8 h-8 border shadow-sm flex-shrink-0 mb-1">
-                                      <AvatarImage src={toProxiedUrl(profile?.avatarUrl)} alt={currentUsername} crossOrigin="anonymous" />
+                                      <AvatarImage src={toProxiedUrl(profile?.avatarUrl)} alt={currentUsername} />
                                       <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
                                         {(currentUsername || "??").substring(0, 2).toUpperCase()}
                                       </AvatarFallback>
@@ -790,14 +885,25 @@ export default function EmployeeTaskDetails() {
                     </span>
                   )}
                 </span>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => { setPreviewUrl(null); setPreviewGallery([]); }}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                <span className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    title="Download"
+                    onClick={() => { if (previewUrl) void downloadViaUrl(previewUrl, previewName || "download"); }}
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => { setPreviewUrl(null); setPreviewGallery([]); }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </span>
               </DialogTitle>
             </DialogHeader>
             <div className="w-full relative">
@@ -819,11 +925,29 @@ export default function EmployeeTaskDetails() {
                   </button>
                 </>
               )}
-              <img
-                src={previewUrl}
-                alt={previewName || "Preview"}
-                className="w-full max-h-[70vh] object-contain rounded-md"
-              />
+              {/(\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$)/i.test(previewName || "") || previewUrl.startsWith("data:image/") ? (
+                <img
+                  src={previewUrl}
+                  alt={previewName || "Preview"}
+                  className="w-full max-h-[70vh] object-contain rounded-md"
+                />
+              ) : /(\.(webm|mp4|mov|ogg|3gp)$)/i.test(previewName || "") || previewUrl.startsWith("data:video/") ? (
+                <video src={previewUrl} controls className="w-full max-h-[70vh] rounded-md bg-black" />
+              ) : /(\.pdf$)/i.test(previewName || "") ? (
+                <iframe src={previewUrl} title={previewName || "Preview"} className="w-full h-[70vh] rounded-md border" />
+              ) : (
+                <div className="w-full h-[40vh] flex flex-col items-center justify-center gap-3 bg-muted/20 rounded-md border border-dashed">
+                  <FileText className="h-10 w-10 text-muted-foreground/50" />
+                  <p className="text-sm font-medium text-muted-foreground">{previewName}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => { if (previewUrl) void downloadViaUrl(previewUrl, previewName || "download"); }}
+                  >
+                    <Download className="h-4 w-4 mr-2" /> Download file
+                  </Button>
+                </div>
+              )}
             </div>
           </DialogContent>
         </Dialog>

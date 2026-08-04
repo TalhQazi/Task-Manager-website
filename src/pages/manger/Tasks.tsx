@@ -356,7 +356,6 @@ function ProjectLogoImg({ projectId, projectName, logoUrl }: { projectId: string
         src={src} 
         alt={`${projectName} logo`} 
         className="w-10 h-10 rounded-md object-cover flex-shrink-0 border border-border" 
-        crossOrigin="anonymous"
         onError={() => setError(true)}
       />
     );
@@ -1080,8 +1079,23 @@ export default function Tasks() {
   useEffect(() => {
     const loadEmployees = async () => {
       try {
-        const res = await apiFetch<{ items: Employee[] }>("/api/employees");
-        setEmployees(res.items.filter((e) => e.status === "active"));
+        const res = await apiFetch<{ items: any[] }>("/api/employees");
+        const list = (res.items || []).map((u) => {
+          const avatar = u.avatarUrl || u.avatarDataUrl || "";
+          return {
+            ...u,
+            id: String(u.id || u._id),
+            avatarUrl: avatar ? (toProxiedUrl(avatar) || avatar) : "",
+            avatarDataUrl: avatar ? (toProxiedUrl(avatar) || avatar) : "",
+            initials: u.initials || (u.name || "??")
+              .split(" ")
+              .map((n: string) => n[0])
+              .join("")
+              .toUpperCase()
+              .substring(0, 2)
+          };
+        });
+        setEmployees(list);
       } catch {
         setEmployees([]);
       }
@@ -1090,7 +1104,10 @@ export default function Tasks() {
   }, []);
 
   const activeEmployees = useMemo(() => {
-    return employees.filter((e) => e.status === "active");
+    return employees.filter((e) => {
+      const s = String(e.status || "active").toLowerCase();
+      return s !== "inactive";
+    });
   }, [employees]);
 
   // Resolve an assignee string (could be email or name) to display name
@@ -2104,8 +2121,12 @@ export default function Tasks() {
   const sourceTasks = selectedProject ? selectedProject.tasks : (tasksQuery.data?.items || []);
 
   const uniqueAssignees = useMemo(() => {
-    if (!selectedProject) return [];
     const set = new Set<string>();
+    activeEmployees.forEach((e) => {
+      if (e.name && e.name.trim()) {
+        set.add(e.name.trim());
+      }
+    });
     sourceTasks.forEach((t: any) => {
       if (Array.isArray(t.assignees)) {
         t.assignees.forEach((a: string) => {
@@ -2116,38 +2137,144 @@ export default function Tasks() {
       }
     });
     return Array.from(set).sort();
-  }, [sourceTasks, selectedProject]);
+  }, [activeEmployees, sourceTasks]);
+
+  // Helper to match an assignee string against assigneeFilter
+  const matchesSelectedAssignee = useCallback((assigneesList: string[], filter: string, teamLead?: string) => {
+    if (!filter || filter === "all") return true;
+    const filterLower = filter.toLowerCase().trim();
+
+    const emp = activeEmployees.find(
+      (e) => (e.name && e.name.toLowerCase().trim() === filterLower) || (e.email && e.email.toLowerCase().trim() === filterLower)
+    );
+
+    const variants = new Set<string>();
+    variants.add(filterLower);
+    if (emp) {
+      if (emp.name) variants.add(emp.name.toLowerCase().trim());
+      if (emp.email) variants.add(emp.email.toLowerCase().trim());
+    }
+
+    if (teamLead && Array.from(variants).some((v) => teamLead.toLowerCase().trim().includes(v))) {
+      return true;
+    }
+
+    if (Array.isArray(assigneesList)) {
+      return assigneesList.some((a) => {
+        if (!a || typeof a !== "string") return false;
+        const aLower = a.toLowerCase().trim();
+        return Array.from(variants).some((v) => aLower === v || aLower.includes(v) || v.includes(aLower));
+      });
+    }
+
+    return false;
+  }, [activeEmployees]);
 
   const filteredTasks = useMemo(() => {
-    if (!selectedProject) return sourceTasks; // already filtered server-side
-    // Client-side filter only for selected-project task view
+    if (!selectedProject) {
+      // Filter standalone tasks on server-paginated items
+      return sourceTasks.filter((task) => {
+        const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
+        const matchesSearch = !searchQuery || task.title.toLowerCase().includes(searchQuery.toLowerCase()) || assigneesText.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesStatus = statusFilter === "all" || task.status === statusFilter;
+        const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
+        const matchesAssignment =
+          assignmentFilter === "all" ||
+          (assignmentFilter === "assigned" && task.assignees && task.assignees.length > 0) ||
+          (assignmentFilter === "unassigned" && (!task.assignees || task.assignees.length === 0)) ||
+          (assignmentFilter === "me" && (task.assignees || []).some((a: string) => {
+            const term = a.toLowerCase().trim();
+            const meUsername = currentUsername.toLowerCase().trim();
+            const meName = (getAuthState().name || "").toLowerCase().trim();
+            return (meUsername && term === meUsername) || (meName && term === meName);
+          }));
+        const matchesAssignee = matchesSelectedAssignee(task.assignees || [], assigneeFilter);
+        return matchesSearch && matchesStatus && matchesPriority && matchesAssignment && matchesAssignee;
+      });
+    }
+    // Client-side filter for selected-project task view
     return sourceTasks.filter((task) => {
       const assigneesText = Array.isArray(task.assignees) ? task.assignees.join(" ") : "";
       const matchesSearch =
+        !searchQuery ||
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         assigneesText.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = statusFilter === "all" || task.status === statusFilter;
       const matchesPriority = priorityFilter === "all" || task.priority === priorityFilter;
       const matchesAssignment =
         assignmentFilter === "all" ||
-        (assignmentFilter === "assigned" && task.assignees.length > 0) ||
-        (assignmentFilter === "unassigned" && task.assignees.length === 0) ||
-        (assignmentFilter === "me" && task.assignees.some((a) => {
+        (assignmentFilter === "assigned" && task.assignees && task.assignees.length > 0) ||
+        (assignmentFilter === "unassigned" && (!task.assignees || task.assignees.length === 0)) ||
+        (assignmentFilter === "me" && (task.assignees || []).some((a: string) => {
           const term = a.toLowerCase().trim();
           const meUsername = currentUsername.toLowerCase().trim();
-          const authState = getAuthState();
-          const meName = (authState.name || "").toLowerCase().trim();
+          const meName = (getAuthState().name || "").toLowerCase().trim();
           return (meUsername && term === meUsername) || (meName && term === meName);
         }));
-      const matchesAssignee =
-        assigneeFilter === "all" ||
-        (Array.isArray(task.assignees) && task.assignees.includes(assigneeFilter));
+      const matchesAssignee = matchesSelectedAssignee(task.assignees || [], assigneeFilter);
       return matchesSearch && matchesStatus && matchesPriority && matchesAssignment && matchesAssignee;
     });
-  }, [sourceTasks, searchQuery, statusFilter, priorityFilter, assignmentFilter, assigneeFilter, selectedProject]);
+  }, [sourceTasks, searchQuery, statusFilter, priorityFilter, assignmentFilter, assigneeFilter, selectedProject, matchesSelectedAssignee]);
 
-  // Projects come from server-paginated query (filtering handled server-side)
-  const filteredProjects = projects;
+  // Filter projects by status, priority, assignment, assignee, and search
+  const filteredProjects = useMemo(() => {
+    const qMain = searchQuery.trim().toLowerCase();
+    const sFilter = statusFilter.toLowerCase();
+    const pFilter = priorityFilter.toLowerCase();
+
+    return projects.filter((p) => {
+      const name = p.name.toLowerCase();
+      const desc = (p.description || "").toLowerCase();
+      const assigneesText = (p.assignees || []).join(" ").toLowerCase();
+      const teamLeadText = (p.teamLead || "").toLowerCase();
+      const status = (p.status || "").toLowerCase();
+      const priority = (p.priority || "").toLowerCase();
+
+      // Status Filter
+      if (sFilter !== "all" && status !== sFilter) {
+        return false;
+      }
+
+      // Priority Filter
+      if (pFilter !== "all" && priority !== pFilter) {
+        return false;
+      }
+
+      // Assignee Filter
+      if (assigneeFilter !== "all") {
+        const directAssigneeMatch = matchesSelectedAssignee(p.assignees || [], assigneeFilter, p.teamLead);
+        const taskAssigneeMatch = Array.isArray(p.tasks) && p.tasks.some((t: any) => matchesSelectedAssignee(t.assignees || [], assigneeFilter));
+        if (!directAssigneeMatch && !taskAssigneeMatch) {
+          return false;
+        }
+      }
+
+      // Assignment Filter ("me", "assigned", "unassigned")
+      if (assignmentFilter === "assigned") {
+        const hasProjectAssignees = (p.assignees && p.assignees.length > 0) || !!p.teamLead;
+        const hasTaskAssignees = Array.isArray(p.tasks) && p.tasks.some((t: any) => t.assignees && t.assignees.length > 0);
+        if (!hasProjectAssignees && !hasTaskAssignees) return false;
+      } else if (assignmentFilter === "unassigned") {
+        const hasProjectAssignees = (p.assignees && p.assignees.length > 0) || !!p.teamLead;
+        const hasTaskAssignees = Array.isArray(p.tasks) && p.tasks.some((t: any) => t.assignees && t.assignees.length > 0);
+        if (hasProjectAssignees || hasTaskAssignees) return false;
+      } else if (assignmentFilter === "me") {
+        const meUsername = currentUsername.toLowerCase().trim();
+        const meName = (getAuthState().name || "").toLowerCase().trim();
+        const meVariants = [meUsername, meName].filter(Boolean);
+        const isProjectMe = (p.assignees || []).some((a: string) => meVariants.includes(a.toLowerCase().trim())) || (p.teamLead && meVariants.includes(p.teamLead.toLowerCase().trim()));
+        const isTaskMe = Array.isArray(p.tasks) && p.tasks.some((t: any) => (t.assignees || []).some((a: string) => meVariants.includes(a.toLowerCase().trim())));
+        if (!isProjectMe && !isTaskMe) return false;
+      }
+
+      // Search Query
+      if (qMain && !name.includes(qMain) && !desc.includes(qMain) && !assigneesText.includes(qMain) && !teamLeadText.includes(qMain)) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [projects, searchQuery, statusFilter, priorityFilter, assignmentFilter, assigneeFilter, matchesSelectedAssignee]);
 
   // Pagination is server-driven when no project is selected; client-driven when project is selected
   const paginatedProjects = filteredProjects;
@@ -2223,8 +2350,8 @@ export default function Tasks() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-4">
-        <div className="relative flex-1 min-w-0 w-full">
+      <div className="flex flex-col md:flex-row gap-3 md:gap-4 mb-4 items-stretch md:items-center">
+        <div className="relative flex-1 min-w-[220px] w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none z-10" />
           <Input
             placeholder={selectedProject ? "Search tasks in this project..." : "Search projects or tasks..."}
@@ -2256,53 +2383,62 @@ export default function Tasks() {
             </button>
           )}
         </div>
-        <div className="flex flex-wrap gap-2 sm:gap-3 sm:flex-nowrap sm:overflow-x-auto sm:pb-0">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[130px] sm:w-[140px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-[130px] sm:w-[140px]">
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Priority</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={assignmentFilter} onValueChange={setAssignmentFilter}>
-            <SelectTrigger className="w-[130px] sm:w-[140px]">
-              <SelectValue placeholder="Assignment" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Assignment</SelectItem>
-              <SelectItem value="me">Assigned to Me</SelectItem>
-              <SelectItem value="assigned">Assigned</SelectItem>
-              <SelectItem value="unassigned">Unassigned</SelectItem>
-            </SelectContent>
-          </Select>
-          {uniqueAssignees.length > 0 && (
-            <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
-              <SelectTrigger className="w-[130px] sm:w-[140px]">
-                <SelectValue placeholder="Assignee" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Assignees</SelectItem>
-                {uniqueAssignees.map((a) => (
-                  <SelectItem key={a} value={a}>{a}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+        {/* Quick Filter Chips (Replaces Mobile-Buggy Dropdowns) */}
+        <div className="w-full overflow-x-auto no-scrollbar py-1 flex items-center gap-1.5 shrink-0">
+          <Button
+            size="sm"
+            variant={statusFilter === "all" && priorityFilter === "all" && assignmentFilter === "all" ? "default" : "outline"}
+            onClick={() => {
+              setStatusFilter("all");
+              setPriorityFilter("all");
+              setAssignmentFilter("all");
+              setAssigneeFilter("all");
+            }}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            All Tasks
+          </Button>
+          <Button
+            size="sm"
+            variant={assignmentFilter === "me" ? "default" : "outline"}
+            onClick={() => setAssignmentFilter(assignmentFilter === "me" ? "all" : "me")}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            Assigned to Me
+          </Button>
+          <Button
+            size="sm"
+            variant={statusFilter === "pending" ? "default" : "outline"}
+            onClick={() => setStatusFilter(statusFilter === "pending" ? "all" : "pending")}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            Pending
+          </Button>
+          <Button
+            size="sm"
+            variant={statusFilter === "active" ? "default" : "outline"}
+            onClick={() => setStatusFilter(statusFilter === "active" ? "all" : "active")}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            In Progress
+          </Button>
+          <Button
+            size="sm"
+            variant={statusFilter === "completed" ? "default" : "outline"}
+            onClick={() => setStatusFilter(statusFilter === "completed" ? "all" : "completed")}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            Completed
+          </Button>
+          <Button
+            size="sm"
+            variant={priorityFilter === "high" ? "default" : "outline"}
+            onClick={() => setPriorityFilter(priorityFilter === "high" ? "all" : "high")}
+            className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+          >
+            High Priority
+          </Button>
+        </div>
           <Button variant="outline" size="icon" className="shrink-0">
             <Filter className="w-4 h-4" />
           </Button>
@@ -2317,7 +2453,6 @@ export default function Tasks() {
             <span className="hidden sm:inline">View by Priority</span>
           </Button>
       </div>
-    </div>
 
       {/* Premium Tab Switcher */}
       {!selectedProject && (
@@ -2543,8 +2678,8 @@ export default function Tasks() {
                 <p className="text-muted-foreground">Loading projects...</p>
               ) : projectsQuery.isError ? (
                 <p className="text-destructive">Failed to load projects</p>
-              ) : projects.length === 0 ? (
-                <p className="text-muted-foreground">No projects found. Create one to begin.</p>
+              ) : filteredProjects.length === 0 ? (
+                <p className="text-muted-foreground">{(searchQuery || assigneeFilter !== "all" || statusFilter !== "all" || priorityFilter !== "all" || assignmentFilter !== "all") ? "No projects match your filter criteria." : "No projects found. Create one to begin."}</p>
               ) : (
                 <>
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -3008,7 +3143,7 @@ export default function Tasks() {
                           {activeEmployees.map((employee) => (
                             <CommandItem
                               key={employee.id}
-                              value={employee.name}
+                              value={`${employee.name} ${employee.role || ""} ${employee.department || ""} ${employee.email || ""}`}
                               onSelect={() => {
                                 setProjectCreationAssignees((prev) =>
                                   prev.includes(employee.name)
@@ -3019,18 +3154,29 @@ export default function Tasks() {
                             >
                               <Check
                                 className={cn(
-                                  "mr-2 h-4 w-4",
+                                  "mr-2 h-4 w-4 shrink-0",
                                   projectCreationAssignees.includes(employee.name)
                                     ? "opacity-100"
                                     : "opacity-0"
                                 )}
                               />
-                              <Avatar className="h-6 w-6 mr-2">
-                                <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                  {employee.initials}
-                                </AvatarFallback>
+                              <Avatar className="h-6 w-6 mr-2 shrink-0">
+                                {(employee.avatarDataUrl || employee.avatarUrl) ? (
+                                  <img src={employee.avatarDataUrl || employee.avatarUrl} alt={employee.name} className="w-full h-full object-cover rounded-full" />
+                                ) : (
+                                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-semibold">
+                                    {employee.initials}
+                                  </AvatarFallback>
+                                )}
                               </Avatar>
-                              {employee.name}
+                              <div className="flex flex-col min-w-0 flex-1">
+                                <span className="truncate text-sm font-medium">{employee.name}</span>
+                                {(employee.role || employee.department || employee.email) && (
+                                  <span className="truncate text-[11px] text-muted-foreground">
+                                    {[employee.role, employee.department || employee.email].filter(Boolean).join(" • ")}
+                                  </span>
+                                )}
+                              </div>
                             </CommandItem>
                           ))}
                         </CommandGroup>
@@ -3174,7 +3320,7 @@ export default function Tasks() {
                             {activeEmployees.map((employee) => (
                               <CommandItem
                                 key={employee.id}
-                                value={employee.name}
+                                value={`${employee.name} ${employee.role || ""} ${employee.department || ""} ${employee.email || ""}`}
                                 onSelect={() => {
                                   setSelectedAssignees((prev) =>
                                     prev.includes(employee.name)
@@ -3185,16 +3331,27 @@ export default function Tasks() {
                               >
                                 <Check
                                   className={cn(
-                                    "mr-2 h-4 w-4",
+                                    "mr-2 h-4 w-4 shrink-0",
                                     selectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0"
                                   )}
                                 />
-                                <Avatar className="h-6 w-6 mr-2">
-                                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                    {employee.initials}
-                                  </AvatarFallback>
+                                <Avatar className="h-6 w-6 mr-2 shrink-0">
+                                  {(employee.avatarDataUrl || employee.avatarUrl) ? (
+                                    <img src={employee.avatarDataUrl || employee.avatarUrl} alt={employee.name} className="w-full h-full object-cover rounded-full" />
+                                  ) : (
+                                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-semibold">
+                                      {employee.initials}
+                                    </AvatarFallback>
+                                  )}
                                 </Avatar>
-                                {employee.name}
+                                <div className="flex flex-col min-w-0 flex-1">
+                                  <span className="truncate text-sm font-medium">{employee.name}</span>
+                                  {(employee.role || employee.department || employee.email) && (
+                                    <span className="truncate text-[11px] text-muted-foreground">
+                                      {[employee.role, employee.department || employee.email].filter(Boolean).join(" • ")}
+                                    </span>
+                                  )}
+                                </div>
                               </CommandItem>
                             ))}
                           </CommandGroup>
@@ -4107,7 +4264,7 @@ export default function Tasks() {
                             {activeEmployees.map((employee) => (
                               <CommandItem
                                 key={employee.id}
-                                value={employee.name}
+                                value={`${employee.name} ${employee.role || ""} ${employee.department || ""} ${employee.email || ""}`}
                                 onSelect={() => {
                                   setEditSelectedAssignees((prev) =>
                                     prev.includes(employee.name)
@@ -4118,18 +4275,29 @@ export default function Tasks() {
                               >
                                 <Check
                                   className={cn(
-                                    "mr-2 h-4 w-4",
+                                    "mr-2 h-4 w-4 shrink-0",
                                     editSelectedAssignees.includes(employee.name)
                                       ? "opacity-100"
                                       : "opacity-0"
                                   )}
                                 />
-                                <Avatar className="h-6 w-6 mr-2">
-                                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                                    {employee.initials}
-                                  </AvatarFallback>
+                                <Avatar className="h-6 w-6 mr-2 shrink-0">
+                                  {(employee.avatarDataUrl || employee.avatarUrl) ? (
+                                    <img src={employee.avatarDataUrl || employee.avatarUrl} alt={employee.name} className="w-full h-full object-cover rounded-full" />
+                                  ) : (
+                                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-semibold">
+                                      {employee.initials}
+                                    </AvatarFallback>
+                                  )}
                                 </Avatar>
-                                {employee.name}
+                                <div className="flex flex-col min-w-0 flex-1">
+                                  <span className="truncate text-sm font-medium">{employee.name}</span>
+                                  {(employee.role || employee.department || employee.email) && (
+                                    <span className="truncate text-[11px] text-muted-foreground">
+                                      {[employee.role, employee.department || employee.email].filter(Boolean).join(" • ")}
+                                    </span>
+                                  )}
+                                </div>
                               </CommandItem>
                             ))}
                           </CommandGroup>

@@ -141,10 +141,15 @@ export default function Vendors() {
 
   const filteredVendors = useMemo(() => {
     return vendors.filter((vendor) => {
+      const qLower = searchQuery.toLowerCase().trim();
       const matchesSearch =
-        vendor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        vendor.phone.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        vendor.serviceType.toLowerCase().includes(searchQuery.toLowerCase());
+        !qLower ||
+        vendor.name.toLowerCase().includes(qLower) ||
+        vendor.phone.toLowerCase().includes(qLower) ||
+        (vendor.email && vendor.email.toLowerCase().includes(qLower)) ||
+        (vendor.location && vendor.location.toLowerCase().includes(qLower)) ||
+        (vendor.status && vendor.status.toLowerCase().includes(qLower)) ||
+        vendor.serviceType.toLowerCase().includes(qLower);
       const matchesLocation =
         locationFilter === "all" || vendor.location === locationFilter;
       const matchesStatus =
@@ -403,48 +408,44 @@ export default function Vendors() {
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search vendors..."
-                  className="pl-10"
+                  placeholder="Search vendors by name, phone, service type, location, status..."
+                  className="pl-10 text-xs sm:text-sm"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
               </div>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="All Categories" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat._id} value={cat.name}>
-                      {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={locationFilter} onValueChange={setLocationFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="All Locations" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Locations</SelectItem>
-                  {locations.map((loc) => (
-                    <SelectItem key={loc._id} value={loc.name}>
-                      {loc.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="All Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="not-approved">Not Approved</SelectItem>
-                </SelectContent>
-              </Select>
+
+              {/* Quick Filter Chips (Replaces Mobile-Buggy Dropdowns) */}
+              <div className="overflow-x-auto no-scrollbar py-1 flex items-center gap-1.5 shrink-0">
+                <Button
+                  size="sm"
+                  variant={statusFilter === "all" && categoryFilter === "all" && locationFilter === "all" ? "default" : "outline"}
+                  onClick={() => {
+                    setStatusFilter("all");
+                    setCategoryFilter("all");
+                    setLocationFilter("all");
+                  }}
+                  className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+                >
+                  All Vendors
+                </Button>
+                <Button
+                  size="sm"
+                  variant={statusFilter === "approved" ? "default" : "outline"}
+                  onClick={() => setStatusFilter(statusFilter === "approved" ? "all" : "approved")}
+                  className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+                >
+                  Approved
+                </Button>
+                <Button
+                  size="sm"
+                  variant={statusFilter === "not-approved" ? "default" : "outline"}
+                  onClick={() => setStatusFilter(statusFilter === "not-approved" ? "all" : "not-approved")}
+                  className="h-8 text-xs font-semibold rounded-full px-3 shrink-0 text-destructive"
+                >
+                  Not Approved
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -475,28 +476,25 @@ export default function Vendors() {
                 </TableHeader>
                 <TableBody>
                   {filteredVendors.map((vendor) => (
-                    <TableRow key={vendor._id}>
+                    <TableRow 
+                      key={vendor._id} 
+                      className="cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => openView(vendor)}
+                    >
                       <TableCell>
                         <div className="space-y-1">
-                          <p className="font-medium">{vendor.name}</p>
-                          <div className="flex flex-col text-sm text-muted-foreground">
-                            {vendor.email && (
-                              <span className="flex items-center gap-1">
-                                <Mail className="w-3 h-3" /> {vendor.email}
-                              </span>
-                            )}
-                            {vendor.website && (
-                              <a 
-                                href={formatWebsite(vendor.website)} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-1 text-primary hover:underline"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <Globe className="w-3 h-3" /> {vendor.website}
-                              </a>
-                            )}
-                          </div>
+                          <p className="font-medium hover:text-primary transition-colors">{vendor.name}</p>
+                          {vendor.website && (
+                            <a 
+                              href={formatWebsite(vendor.website)} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Globe className="w-3 h-3" /> {vendor.website}
+                            </a>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -505,19 +503,46 @@ export default function Vendors() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-muted-foreground" />
-                          {vendor.location}
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1 text-sm font-medium">
+                            <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                            <span>{vendor.location || "—"}</span>
+                          </div>
+                          {[vendor.street, vendor.city, vendor.state, vendor.zip].filter(Boolean).length > 0 && (
+                            <p className="text-xs text-muted-foreground font-mono truncate max-w-[220px]" title={[vendor.street, vendor.city, vendor.state, vendor.zip].filter(Boolean).join(", ")}>
+                              {[vendor.street, vendor.city, vendor.state, vendor.zip].filter(Boolean).join(", ")}
+                            </p>
+                          )}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1">
-                          <Phone className="w-3 h-3 text-muted-foreground" />
-                          {vendor.phone}
+                      <TableCell onClick={(e) => e.stopPropagation()}>
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1.5">
+                          {vendor.phone ? (
+                            <a 
+                              href={`tel:${vendor.phone}`} 
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-medium text-xs border border-emerald-500/20 transition-all"
+                              title="Click to Call"
+                            >
+                              <Phone className="w-3.5 h-3.5" />
+                              <span>{vendor.phone}</span>
+                            </a>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">—</span>
+                          )}
+                          {vendor.email && (
+                            <a 
+                              href={`mailto:${vendor.email}`} 
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-medium text-xs border border-blue-500/20 transition-all"
+                              title="Click to Send Email"
+                            >
+                              <Mail className="w-3.5 h-3.5" />
+                              <span className="truncate max-w-[140px]">{vendor.email}</span>
+                            </a>
+                          )}
                         </div>
                       </TableCell>
                       <TableCell>{getStatusBadge(vendor.status)}</TableCell>
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon">
@@ -527,8 +552,24 @@ export default function Vendors() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => openView(vendor)}>
                               <Eye className="w-4 h-4 mr-2" />
-                              View
+                              View Info
                             </DropdownMenuItem>
+                            {vendor.phone && (
+                              <DropdownMenuItem asChild>
+                                <a href={`tel:${vendor.phone}`} className="text-emerald-600 cursor-pointer">
+                                  <Phone className="w-4 h-4 mr-2" />
+                                  Call Vendor
+                                </a>
+                              </DropdownMenuItem>
+                            )}
+                            {vendor.email && (
+                              <DropdownMenuItem asChild>
+                                <a href={`mailto:${vendor.email}`} className="text-blue-600 cursor-pointer">
+                                  <Mail className="w-4 h-4 mr-2" />
+                                  Send Email
+                                </a>
+                              </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem onClick={() => openEdit(vendor)}>
                               <Edit className="w-4 h-4 mr-2" />
                               Edit
@@ -612,25 +653,20 @@ export default function Vendors() {
               </div>
 
               <div className="space-y-2">
-                <Label>Location</Label>
-                <Select
-                  value={formData.location || "none-selected"}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, location: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select location (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none-selected">None</SelectItem>
+                <Label>Location / City / Site</Label>
+                <div className="relative">
+                  <Input
+                    value={formData.location === "none-selected" ? "" : formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    placeholder="Type custom location or select below..."
+                    list="vendor-locations-list"
+                  />
+                  <datalist id="vendor-locations-list">
                     {locations.map((loc) => (
-                      <SelectItem key={loc._id} value={loc.name}>
-                        {loc.name}
-                      </SelectItem>
+                      <option key={loc._id} value={loc.name} />
                     ))}
-                  </SelectContent>
-                </Select>
+                  </datalist>
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -749,35 +785,66 @@ export default function Vendors() {
             </DialogHeader>
             {selectedVendor && (
               <div className="space-y-4 py-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">{selectedVendor.name}</h3>
+                <div className="flex items-center justify-between border-b pb-3">
+                  <div>
+                    <h3 className="text-xl font-bold">{selectedVendor.name}</h3>
+                    <p className="text-xs text-muted-foreground">{selectedVendor.serviceType}</p>
+                  </div>
                   {getStatusBadge(selectedVendor.status)}
                 </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+
+                <div className="flex flex-wrap gap-2 py-1">
+                  {selectedVendor.phone && (
+                    <Button asChild size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-1.5 shadow-sm">
+                      <a href={`tel:${selectedVendor.phone}`}>
+                        <Phone className="w-4 h-4" />
+                        Call ({selectedVendor.phone})
+                      </a>
+                    </Button>
+                  )}
+                  {selectedVendor.email && (
+                    <Button asChild size="sm" variant="outline" className="border-blue-500/30 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 font-semibold gap-1.5">
+                      <a href={`mailto:${selectedVendor.email}`}>
+                        <Mail className="w-4 h-4" />
+                        Send Email
+                      </a>
+                    </Button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-sm pt-2">
                   <div>
-                    <p className="text-muted-foreground">Service Category</p>
-                    <Badge variant="secondary">{selectedVendor.serviceType}</Badge>
+                    <p className="text-muted-foreground text-xs font-medium">Service Category</p>
+                    <Badge variant="secondary" className="mt-0.5">{selectedVendor.serviceType}</Badge>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Location</p>
-                    <p className="font-medium flex items-center gap-1">
-                      <MapPin className="w-3 h-3" />
-                      {selectedVendor.location}
+                    <p className="text-muted-foreground text-xs font-medium">Location</p>
+                    <p className="font-medium flex items-center gap-1 mt-0.5">
+                      <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+                      {selectedVendor.location || "—"}
                     </p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Phone</p>
-                    <p className="font-medium flex items-center gap-1">
-                      <Phone className="w-3 h-3" />
-                      {selectedVendor.phone}
-                    </p>
+                    <p className="text-muted-foreground text-xs font-medium">Phone</p>
+                    {selectedVendor.phone ? (
+                      <a href={`tel:${selectedVendor.phone}`} className="font-medium text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 mt-0.5">
+                        <Phone className="w-3.5 h-3.5" />
+                        {selectedVendor.phone}
+                      </a>
+                    ) : (
+                      <p className="font-medium mt-0.5">—</p>
+                    )}
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Email</p>
-                    <p className="font-medium flex items-center gap-1">
-                      <Mail className="w-3 h-3" />
-                      {selectedVendor.email || "—"}
-                    </p>
+                    <p className="text-muted-foreground text-xs font-medium">Email</p>
+                    {selectedVendor.email ? (
+                      <a href={`mailto:${selectedVendor.email}`} className="font-medium text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 mt-0.5 truncate">
+                        <Mail className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span className="truncate">{selectedVendor.email}</span>
+                      </a>
+                    ) : (
+                      <p className="font-medium mt-0.5">—</p>
+                    )}
                   </div>
                   <div className="col-span-2">
                     <p className="text-muted-foreground">Website</p>
@@ -876,25 +943,20 @@ export default function Vendors() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>Location</Label>
-                <Select
-                  value={formData.location || "none-selected"}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, location: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select location (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none-selected">None</SelectItem>
+                <Label>Location / City / Site</Label>
+                <div className="relative">
+                  <Input
+                    value={formData.location === "none-selected" ? "" : formData.location}
+                    onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                    placeholder="Type custom location or select below..."
+                    list="vendor-locations-edit-list"
+                  />
+                  <datalist id="vendor-locations-edit-list">
                     {locations.map((loc) => (
-                      <SelectItem key={loc._id} value={loc.name}>
-                        {loc.name}
-                      </SelectItem>
+                      <option key={loc._id} value={loc.name} />
                     ))}
-                  </SelectContent>
-                </Select>
+                  </datalist>
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Status *</Label>

@@ -77,8 +77,12 @@ export async function deleteResource(resource: CrudResource, id: string) {
 function getApiBaseUrl(): string {
   const raw = String(import.meta.env.VITE_API_URL || "").trim();
   if (raw) return raw;
- return "https://task.se7eninc.com";
-  //return "http://localhost:5000";
+
+  if (typeof window !== "undefined" && window.location?.hostname === "localhost") {
+    return "http://localhost:5000";
+  }
+
+  return "https://task.se7eninc.com";
 }
 
 /**
@@ -87,16 +91,22 @@ function getApiBaseUrl(): string {
  */
 export function toProxiedUrl(url: string | undefined | null): string | undefined {
   if (!url) return undefined;
-  // Don't proxy data: URLs, already-proxied URLs, or non-S3 URLs
-  if (url.startsWith("data:") || url.includes("/api/s3-proxy/")) return url;
+  if (url.startsWith("data:")) return url;
 
   const baseUrl = getApiBaseUrl().replace(/\/$/, "");
   const token = getStoredToken();
 
-  // Local server uploads ("/uploads/<key>") — served by the backend, so route them
-  // through the backend origin (via the s3-proxy, which reads local disk first).
-  if (url.startsWith("/uploads/")) {
-    const key = url.replace(/^\/uploads\//, "");
+  if (url.includes("/api/s3-proxy/")) {
+    if (token && !url.includes("token=")) {
+      return `${url}${url.includes("?") ? "&" : "?"}token=${token}`;
+    }
+    return url;
+  }
+
+  // Local server uploads ("/uploads/<key>", "uploads/<key>", "http://.../uploads/<key>")
+  const uploadsMatch = url.match(/(?:\/|^)uploads\/(.+)$/);
+  if (uploadsMatch) {
+    const key = uploadsMatch[1];
     return `${baseUrl}/api/s3-proxy/${key}${token ? `?token=${token}` : ""}`;
   }
 
@@ -112,8 +122,11 @@ function readTokenFrom(key: string): string | null {
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return null;
-    const parsed = JSON.parse(raw) as StoredAuth;
-    return typeof parsed.token === "string" && parsed.token ? parsed.token : null;
+    if (raw.startsWith("{")) {
+      const parsed = JSON.parse(raw) as StoredAuth;
+      return typeof parsed.token === "string" && parsed.token ? parsed.token : null;
+    }
+    return raw;
   } catch {
     return null;
   }
@@ -130,8 +143,8 @@ function getStoredToken(): string | null {
 
   // Admin/manager token is stored under "taskflow_auth"; employee under "employee_auth".
   const order = onEmployeePanel
-    ? ["employee_auth", "taskflow_auth"]
-    : ["taskflow_auth", "employee_auth"];
+    ? ["employee_auth", "taskflow_auth", "token"]
+    : ["taskflow_auth", "employee_auth", "token"];
 
   for (const key of order) {
     const token = readTokenFrom(key);
@@ -276,9 +289,10 @@ export async function downloadTaskAttachment(
 // Download any URL with authentication for Manager/Admin
 export async function downloadViaUrl(url: string, fileName: string): Promise<void> {
   const token = getStoredToken();
+  const targetUrl = toProxiedUrl(url) || url;
   
   // Use fetch to get the blob with headers
-  const res = await fetch(url, {
+  const res = await fetch(targetUrl, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   });
   
