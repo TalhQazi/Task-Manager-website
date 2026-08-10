@@ -86,6 +86,7 @@ interface Website {
   yelpCompliance?: string;
   truthSocialCompliance?: string;
   threadsCompliance?: string;
+  locations?: any[];
 }
 
 interface ChecklistItem {
@@ -153,6 +154,92 @@ interface ComplianceReport {
     avgScore: number;
     count: number;
   }[];
+}
+
+function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const toRadian = (angle: number) => (Math.PI / 180) * angle;
+  const distance = (a: number, b: number) => (Math.PI / 180) * (a - b);
+  const RADIUS_OF_EARTH_IN_MILES = 3958.8;
+
+  const dLat = distance(lat2, lat1);
+  const dLon = distance(lon2, lon1);
+
+  lat1 = toRadian(lat1);
+  lat2 = toRadian(lat2);
+
+  const a =
+    Math.pow(Math.sin(dLat / 2), 2) +
+    Math.pow(Math.sin(dLon / 2), 2) * Math.cos(lat1) * Math.cos(lat2);
+  const c = 2 * Math.asin(Math.sqrt(a));
+  return RADIUS_OF_EARTH_IN_MILES * c;
+}
+
+function WebsiteLocationsMap({ locations, isMetallic }: { locations: any[]; isMetallic: boolean }) {
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationDistances, setLocationDistances] = useState<Record<string, string>>({});
+  
+  useEffect(() => {
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+        },
+        (error) => console.warn("Geolocation error:", error),
+        { enableHighAccuracy: true }
+      );
+    }
+  }, []);
+
+  if (!locations || locations.length === 0) return null;
+
+  return (
+    <Card className={`p-4 border mb-4 ${isMetallic ? "bg-black/30 border-[#ffd27a]/15 text-white" : "bg-card border-border"}`}>
+      <h3 className="font-bold text-sm text-foreground mb-3 uppercase tracking-wider flex items-center gap-1.5">
+        <MapPin className="h-4 w-4 text-blue-500" />
+        Business Locations Map
+      </h3>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {locations.map((loc) => {
+          const query = encodeURIComponent(`${loc.address || ""} ${loc.city || ""}`);
+          return (
+            <div key={loc._id} className={`overflow-hidden rounded-lg border flex flex-col ${isMetallic ? "border-zinc-800" : "border-muted"}`}>
+              <div className="p-3 bg-muted/20 flex flex-col gap-1">
+                <span className="font-bold text-sm text-foreground flex items-center justify-between">
+                  {loc.name}
+                  <a 
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${query}`} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="text-xs text-[#00C6FF] hover:underline flex items-center gap-1"
+                  >
+                    Drive Here <ExternalLink className="h-3 w-3" />
+                  </a>
+                </span>
+                <span className="text-xs text-muted-foreground">{loc.address}, {loc.city} {loc.country}</span>
+                {userLocation && (
+                  <span className="text-[10px] text-green-500 flex items-center gap-1 mt-1 font-semibold">
+                    <MapPin className="h-3 w-3" /> Location services active
+                  </span>
+                )}
+              </div>
+              <iframe
+                title={`Map for ${loc.name}`}
+                width="100%"
+                height="200"
+                style={{ border: 0 }}
+                loading="lazy"
+                allowFullScreen
+                src={`https://maps.google.com/maps?q=${query}&t=&z=13&ie=UTF8&iwloc=&output=embed`}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
 }
 
 export default function ComplianceCenter() {
@@ -1225,6 +1312,11 @@ export default function ComplianceCenter() {
                 )}
               </div>
 
+              {/* Website Locations Map */}
+              {selectedWebsite.locations && selectedWebsite.locations.length > 0 && (
+                <WebsiteLocationsMap locations={selectedWebsite.locations} isMetallic={isMetallic} />
+              )}
+
               {/* Core Requirements Section */}
               <Card className={`p-4 border ${isMetallic ? "bg-black/30 border-[#ffd27a]/15 text-white" : "bg-card border-border"}`}>
                 <h3 className="font-bold text-sm text-foreground mb-3 uppercase tracking-wider flex items-center gap-1.5">
@@ -1251,53 +1343,63 @@ export default function ComplianceCenter() {
                     { key: "nathanEmailSetup", label: "nathan@ Email Setup" }
                   ].map((reqItem) => {
                     const val = (selectedWebsite as any)[reqItem.key] || "none";
+                    const matchItem = checklistItems.find(i => i.title === reqItem.label);
+                    
                     return (
-                      <div key={reqItem.key} className={`flex items-center justify-between p-2 rounded-lg border ${
+                      <div key={reqItem.key} className={`flex flex-col p-2 rounded-lg border ${
                         isMetallic ? "bg-[#1b1c1d]/50 border-zinc-800" : "bg-muted/30 border-muted"
                       }`}>
-                        <span className="text-xs font-semibold text-foreground truncate mr-2">{reqItem.label}</span>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {/* Current Status Indicator */}
-                          <div className="mr-1">
-                            {val === "green" ? (
-                              <CheckCircle2 className="h-4 w-4 text-green-500" title="Compliant (Green)" />
-                            ) : val === "red" ? (
-                              <XCircle className="h-4 w-4 text-red-500" title="Non-Compliant / Missing (Red)" />
-                            ) : (
-                              <AlertCircle className="h-4 w-4 text-muted-foreground" title="Not Checked" />
-                            )}
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-foreground truncate mr-2">{reqItem.label}</span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {/* Current Status Indicator */}
+                            <div className="mr-1">
+                              {val === "green" ? (
+                                <CheckCircle2 className="h-4 w-4 text-green-500" title="Compliant (Green)" />
+                              ) : val === "red" ? (
+                                <XCircle className="h-4 w-4 text-red-500" title="Non-Compliant / Missing (Red)" />
+                              ) : (
+                                <AlertCircle className="h-4 w-4 text-muted-foreground" title="Not Checked" />
+                              )}
+                            </div>
+                            
+                            {/* Toggle buttons */}
+                            <button
+                              onClick={() => handleToggleCoreReq(reqItem.key, "green")}
+                              disabled={actionLoading}
+                              className={`p-1 rounded transition-colors ${
+                                val === "green" ? "bg-green-500/20 text-green-500" : "hover:bg-green-500/10 text-muted-foreground"
+                              }`}
+                              title="Set Compliant"
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleToggleCoreReq(reqItem.key, "red")}
+                              disabled={actionLoading}
+                              className={`p-1 rounded transition-colors ${
+                                val === "red" ? "bg-red-500/20 text-red-500" : "hover:bg-red-500/10 text-muted-foreground"
+                              }`}
+                              title="Set Non-Compliant"
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleToggleCoreReq(reqItem.key, "none")}
+                              disabled={actionLoading}
+                              className={`p-1.5 rounded hover:bg-muted text-muted-foreground flex items-center justify-center`}
+                              title="Reset / Close Status"
+                            >
+                              <span className="text-[10px] font-black leading-none">X</span>
+                            </button>
                           </div>
-                          
-                          {/* Toggle buttons */}
-                          <button
-                            onClick={() => handleToggleCoreReq(reqItem.key, "green")}
-                            disabled={actionLoading}
-                            className={`p-1 rounded transition-colors ${
-                              val === "green" ? "bg-green-500/20 text-green-500" : "hover:bg-green-500/10 text-muted-foreground"
-                            }`}
-                            title="Set Compliant"
-                          >
-                            <Check className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleToggleCoreReq(reqItem.key, "red")}
-                            disabled={actionLoading}
-                            className={`p-1 rounded transition-colors ${
-                              val === "red" ? "bg-red-500/20 text-red-500" : "hover:bg-red-500/10 text-muted-foreground"
-                            }`}
-                            title="Set Non-Compliant"
-                          >
-                            <XCircle className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleToggleCoreReq(reqItem.key, "none")}
-                            disabled={actionLoading}
-                            className={`p-1.5 rounded hover:bg-muted text-muted-foreground flex items-center justify-center`}
-                            title="Reset / Close Status"
-                          >
-                            <span className="text-[10px] font-black leading-none">X</span>
-                          </button>
                         </div>
+                        {matchItem?.completedBy && (
+                          <div className="text-[9px] text-muted-foreground mt-1 text-right">
+                            Verified by: <strong className="text-foreground">{matchItem.completedBy}</strong>
+                            {matchItem.completedAt && ` on ${new Date(matchItem.completedAt).toLocaleDateString()}`}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -1324,51 +1426,61 @@ export default function ComplianceCenter() {
                     { key: "threadsCompliance", label: "Threads" }
                   ].map((socialItem) => {
                     const val = (selectedWebsite as any)[socialItem.key] || "none";
+                    const matchItem = checklistItems.find(i => i.title === socialItem.label);
+
                     return (
-                      <div key={socialItem.key} className={`flex items-center justify-between p-2 rounded-lg border ${
+                      <div key={socialItem.key} className={`flex flex-col p-2 rounded-lg border ${
                         isMetallic ? "bg-[#1b1c1d]/50 border-zinc-800" : "bg-muted/30 border-muted"
                       }`}>
-                        <span className="text-xs font-semibold text-foreground truncate mr-2">{socialItem.label}</span>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          <div className="mr-1">
-                            {val === "green" ? (
-                              <CheckCircle2 className="h-4 w-4 text-green-500" title="Compliant (Green)" />
-                            ) : val === "red" ? (
-                              <XCircle className="h-4 w-4 text-red-500" title="Non-Compliant / Missing (Red)" />
-                            ) : (
-                              <AlertCircle className="h-4 w-4 text-muted-foreground" title="Not Checked" />
-                            )}
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-foreground truncate mr-2">{socialItem.label}</span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <div className="mr-1">
+                              {val === "green" ? (
+                                <CheckCircle2 className="h-4 w-4 text-green-500" title="Compliant (Green)" />
+                              ) : val === "red" ? (
+                                <XCircle className="h-4 w-4 text-red-500" title="Non-Compliant / Missing (Red)" />
+                              ) : (
+                                <AlertCircle className="h-4 w-4 text-muted-foreground" title="Not Checked" />
+                              )}
+                            </div>
+                            
+                            <button
+                              onClick={() => handleToggleCoreReq(socialItem.key, "green")}
+                              disabled={actionLoading}
+                              className={`p-1 rounded transition-colors ${
+                                val === "green" ? "bg-green-500/20 text-green-500" : "hover:bg-green-500/10 text-muted-foreground"
+                              }`}
+                              title="Set Compliant"
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleToggleCoreReq(socialItem.key, "red")}
+                              disabled={actionLoading}
+                              className={`p-1 rounded transition-colors ${
+                                val === "red" ? "bg-red-500/20 text-red-500" : "hover:bg-red-500/10 text-muted-foreground"
+                              }`}
+                              title="Set Non-Compliant"
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleToggleCoreReq(socialItem.key, "none")}
+                              disabled={actionLoading}
+                              className={`p-1.5 rounded hover:bg-muted text-muted-foreground flex items-center justify-center`}
+                              title="Reset / Close Status"
+                            >
+                              <span className="text-[10px] font-black leading-none">X</span>
+                            </button>
                           </div>
-                          
-                          <button
-                            onClick={() => handleToggleCoreReq(socialItem.key, "green")}
-                            disabled={actionLoading}
-                            className={`p-1 rounded transition-colors ${
-                              val === "green" ? "bg-green-500/20 text-green-500" : "hover:bg-green-500/10 text-muted-foreground"
-                            }`}
-                            title="Set Compliant"
-                          >
-                            <Check className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleToggleCoreReq(socialItem.key, "red")}
-                            disabled={actionLoading}
-                            className={`p-1 rounded transition-colors ${
-                              val === "red" ? "bg-red-500/20 text-red-500" : "hover:bg-red-500/10 text-muted-foreground"
-                            }`}
-                            title="Set Non-Compliant"
-                          >
-                            <XCircle className="h-3.5 w-3.5" />
-                          </button>
-                          <button
-                            onClick={() => handleToggleCoreReq(socialItem.key, "none")}
-                            disabled={actionLoading}
-                            className={`p-1.5 rounded hover:bg-muted text-muted-foreground flex items-center justify-center`}
-                            title="Reset / Close Status"
-                          >
-                            <span className="text-[10px] font-black leading-none">X</span>
-                          </button>
                         </div>
+                        {matchItem?.completedBy && (
+                          <div className="text-[9px] text-muted-foreground mt-1 text-right">
+                            Verified by: <strong className="text-foreground">{matchItem.completedBy}</strong>
+                            {matchItem.completedAt && ` on ${new Date(matchItem.completedAt).toLocaleDateString()}`}
+                          </div>
+                        )}
                       </div>
                     );
                   })}
