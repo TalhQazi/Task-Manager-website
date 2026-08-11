@@ -399,14 +399,30 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
     }
   }, [headerSettings?.imageConfig?.position]);
 
-  const getVerticalPositionValue = (posStr: string | undefined): number => {
-    if (!posStr) return 50;
-    if (posStr === "center") return 50;
-    if (posStr === "top") return 0;
-    if (posStr === "bottom") return 100;
-    if (posStr === "left" || posStr === "right") return 50;
-    const match = posStr.match(/(\d+)%/);
-    return match ? parseInt(match[1], 10) : 50;
+  const getPositionValues = (posStr: string | undefined): { x: number, y: number } => {
+    if (!posStr) return { x: 50, y: 50 };
+    if (posStr === "center") return { x: 50, y: 50 };
+    let x = 50, y = 50;
+    const parts = posStr.split(" ");
+    const parsePart = (p: string, def: number) => {
+      if (p === "center") return 50;
+      if (p === "top" || p === "left") return 0;
+      if (p === "bottom" || p === "right") return 100;
+      const m = p.match(/(\d+)%/);
+      return m ? parseInt(m[1], 10) : def;
+    };
+    if (parts.length === 1) {
+      if (parts[0] === "top") return { x: 50, y: 0 };
+      if (parts[0] === "bottom") return { x: 50, y: 100 };
+      if (parts[0] === "left") return { x: 0, y: 50 };
+      if (parts[0] === "right") return { x: 100, y: 50 };
+      x = parsePart(parts[0], 50);
+      y = 50;
+    } else if (parts.length >= 2) {
+      x = parsePart(parts[0], 50);
+      y = parsePart(parts[1], 50);
+    }
+    return { x, y };
   };
 
   const fullName = (profile?.name || auth?.name || auth?.username || "Employee").trim();
@@ -889,54 +905,119 @@ export function EmployeeHeader({ onMenuClick }: EmployeeHeaderProps) {
               )}
 
               {hasImageBackground && (
-                <div className="space-y-3 border-t pt-4">
-                  <div className="flex justify-between items-center">
-                    <label className="text-xs font-semibold text-foreground">Reposition Cover (Uplift / Downlift)</label>
-                    <span className="text-xs text-muted-foreground font-mono">{getVerticalPositionValue(localPosition)}%</span>
+                <div className="space-y-4 border-t pt-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">Image Fit (Sizing Mode)</label>
+                    <select
+                      className="w-full text-sm rounded-md border border-input bg-background px-3 py-1"
+                      value={headerSettings?.imageConfig?.size || "cover"}
+                      onChange={async (e) => {
+                        const newSize = e.target.value;
+                        await apiFetch("/api/header-settings", {
+                          method: "PUT",
+                          body: JSON.stringify({ imageConfig: { size: newSize } })
+                        });
+                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                      }}
+                    >
+                      <option value="cover">Cover (Maintain aspect ratio, fill space)</option>
+                      <option value="contain">Contain (Maintain aspect ratio, fit inside)</option>
+                      <option value="100% 100%">Stretch (Fill completely, ignoring aspect ratio)</option>
+                      <option value="auto">Auto (Original size)</option>
+                    </select>
                   </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={getVerticalPositionValue(localPosition)}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setLocalPosition(`center ${val}%`);
-                    }}
-                    onMouseUp={async (e: any) => {
-                      const val = e.target.value;
-                      const newPos = `center ${val}%`;
-                      await apiFetch("/api/header-settings", {
-                        method: "PUT",
-                        body: JSON.stringify({
-                          imageConfig: {
-                            position: newPos
-                          }
-                        })
-                      });
-                      queryClient.invalidateQueries({ queryKey: ["header-settings"] });
-                      window.dispatchEvent(new CustomEvent("header-settings-updated"));
-                    }}
-                    onTouchEnd={async (e: any) => {
-                      const val = e.target.value;
-                      const newPos = `center ${val}%`;
-                      await apiFetch("/api/header-settings", {
-                        method: "PUT",
-                        body: JSON.stringify({
-                          imageConfig: {
-                            position: newPos
-                          }
-                        })
-                      });
-                      queryClient.invalidateQueries({ queryKey: ["header-settings"] });
-                      window.dispatchEvent(new CustomEvent("header-settings-updated"));
-                    }}
-                    className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
-                  />
-                  <div className="flex justify-between text-[10px] text-muted-foreground">
-                    <span>Downlift (Top)</span>
-                    <span>Center</span>
-                    <span>Uplift (Bottom)</span>
+
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-semibold text-foreground">Horizontal Position (Left / Right)</label>
+                      <span className="text-xs text-muted-foreground font-mono">{getPositionValues(localPosition).x}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={getPositionValues(localPosition).x}
+                      onChange={(e) => {
+                        const valX = e.target.value;
+                        const valY = getPositionValues(localPosition).y;
+                        setLocalPosition(`${valX}% ${valY}%`);
+                      }}
+                      onMouseUp={async (e: any) => {
+                        const valX = e.target.value;
+                        const valY = getPositionValues(localPosition).y;
+                        const newPos = `${valX}% ${valY}%`;
+                        await apiFetch("/api/header-settings", {
+                          method: "PUT",
+                          body: JSON.stringify({ imageConfig: { position: newPos } })
+                        });
+                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                      }}
+                      onTouchEnd={async (e: any) => {
+                        const valX = e.target.value;
+                        const valY = getPositionValues(localPosition).y;
+                        const newPos = `${valX}% ${valY}%`;
+                        await apiFetch("/api/header-settings", {
+                          method: "PUT",
+                          body: JSON.stringify({ imageConfig: { position: newPos } })
+                        });
+                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                      }}
+                      className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>Left</span>
+                      <span>Center</span>
+                      <span>Right</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-semibold text-foreground">Vertical Position (Top / Bottom)</label>
+                      <span className="text-xs text-muted-foreground font-mono">{getPositionValues(localPosition).y}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={getPositionValues(localPosition).y}
+                      onChange={(e) => {
+                        const valX = getPositionValues(localPosition).x;
+                        const valY = e.target.value;
+                        setLocalPosition(`${valX}% ${valY}%`);
+                      }}
+                      onMouseUp={async (e: any) => {
+                        const valX = getPositionValues(localPosition).x;
+                        const valY = e.target.value;
+                        const newPos = `${valX}% ${valY}%`;
+                        await apiFetch("/api/header-settings", {
+                          method: "PUT",
+                          body: JSON.stringify({ imageConfig: { position: newPos } })
+                        });
+                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                      }}
+                      onTouchEnd={async (e: any) => {
+                        const valX = getPositionValues(localPosition).x;
+                        const valY = e.target.value;
+                        const newPos = `${valX}% ${valY}%`;
+                        await apiFetch("/api/header-settings", {
+                          method: "PUT",
+                          body: JSON.stringify({ imageConfig: { position: newPos } })
+                        });
+                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                      }}
+                      className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>Top</span>
+                      <span>Center</span>
+                      <span>Bottom</span>
+                    </div>
                   </div>
                 </div>
               )}

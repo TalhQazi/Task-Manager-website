@@ -29,7 +29,7 @@ const OnboardingMonitoring = lazy(() => import("@/pages/manger/OnboardingMonitor
 const Reports = lazy(() => import("@/pages/manger/Reports"));
 const FounderMessages = lazy(() => import("@/pages/manger/FounderMessages"));
 const NotFound = lazy(() => import("@/pages/manger/NotFound"));
-const PersonalNotes = lazy(() => import("@/pages/manger/PersonalNotes"));
+const KnowledgeVault = lazy(() => import("@/pages/admin/KnowledgeVault"));
 const UICustomization = lazy(() => import("@/pages/manger/UICustomization"));
 const SignaCore = lazy(() => import("@/pages/admin/SignaCore"));
 const UphMaintenance = lazy(() => import("@/pages/admin/UphMaintenance"));
@@ -38,6 +38,7 @@ const ActivityLogs = lazy(() => import("@/pages/admin/ActivityLogs"));
 const TeamAttendance = lazy(() => import("@/pages/manger/TeamAttendance"));
 const ItineraryBuilder = lazy(() => import("@/pages/manger/ItineraryBuilder"));
 const ComplianceCenter = lazy(() => import("@/pages/manger/ComplianceCenter"));
+const CompanyInformation = lazy(() => import("@/pages/admin/CompanyInformation"));
 
 const CRMCommunication = lazy(() => import("@/pages/manger/crm/Communication"));
 const ManagerCRMCompanies = lazy(() => import("@/pages/manger/crm/Companies"));
@@ -97,7 +98,8 @@ export default function ManagerController() {
       { path: "messages", element: <Messages /> },
       { path: "notifications", element: <Notifications /> },
       { path: "settings", element: <Settings /> },
-      { path: "personal-notes", element: <PersonalNotes /> },
+      { path: "knowledge-vault", element: <KnowledgeVault /> },
+      { path: "company-information", element: <CompanyInformation /> },
       { path: "ui-customization", element: <UICustomization /> },
       { path: "shopping-lists", element: <ShoppingLists /> },
       { path: "activity-logs", element: <ActivityLogs /> },

@@ -21,7 +21,8 @@ import {
   Megaphone,
   Settings,
   Mail,
-  MapPin
+  MapPin,
+  BookText
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
@@ -50,7 +51,7 @@ const navItemsBase = [
   { icon: FileText, label: "Company Information", path: "/employee/company-information" },
   // { icon: UserCircle, label: "Profile", path: "/employee/profile" },
   { icon: Bell, label: "Notifications", path: "/employee/notifications" },
-  { icon: FileText, label: "Personal Notes", path: "/employee/personal-notes" },
+  { icon: BookText, label: "Knowledge Vault", path: "/employee/knowledge-vault" },
   { icon: Palette, label: "Theme Engine", path: "/employee/ui-customization" },
   { icon: ShoppingCart, label: "Shopping Lists", path: "/employee/shopping-lists" },
   { icon: Bug, label: "Bugs", path: "/employee/bugs" },

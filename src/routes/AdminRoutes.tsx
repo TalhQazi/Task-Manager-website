@@ -32,7 +32,7 @@ const Reports = lazy(() => import("@/pages/admin/Reports"));
 const ActivityLogs = lazy(() => import("@/pages/admin/ActivityLogs"));
 const Settings = lazy(() => import("@/pages/admin/Settings"));
 const Profile = lazy(() => import("@/pages/admin/Profile"));
-const PersonalNotes = lazy(() => import("@/pages/admin/PersonalNotes"));
+
 const KnowledgeVault = lazy(() => import("@/pages/admin/KnowledgeVault"));
 const TaskWorkspace = lazy(() => import("@/pages/admin/TaskWorkspace"));
 const RolesPermissions = lazy(() => import("@/pages/admin/RolesPermissions"));
@@ -155,7 +155,7 @@ export default function AdminRoutes() {
       { path: "asana-import", element: <AsanaImport /> },
       { path: "asana-data", element: <AsanaData /> },
       { path: "profile", element: <Profile /> },
-      { path: "personal-notes", element: <PersonalNotes /> },
+
       { path: "knowledge-vault", element: <KnowledgeVault /> },
       { path: "archive-data", element: <ArchiveData /> },
       { path: "founder-messages", element: <FounderMessages /> },

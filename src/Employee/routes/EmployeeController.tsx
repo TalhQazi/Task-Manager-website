@@ -16,7 +16,7 @@ const EmployeeClocked = lazy(() => import("../screens/Clocked"));
 const EmployeeMessages = lazy(() => import("../screens/Messages"));
 const EmployeeProfile = lazy(() => import("../screens/Profile"));
 const EmployeeNotifications = lazy(() => import("../screens/Notifications"));
-const EmployeePersonalNotes = lazy(() => import("../screens/PersonalNotes"));
+const KnowledgeVault = lazy(() => import("@/pages/admin/KnowledgeVault"));
 const EmployeeScrumRecords = lazy(() => import("../screens/ScrumRecords"));
 const EmployeeAssetLibrary = lazy(() => import("../screens/AssetLibrary"));
 const EmployeeCompanyInformation = lazy(() => import("../screens/CompanyInformation"));
@@ -70,7 +70,7 @@ function EmployeeController() {
           <Route path="/company-information" element={<EmployeeCompanyInformation />} />
           <Route path="/profile" element={<EmployeeProfile />} />
           <Route path="/notifications" element={<EmployeeNotifications />} />
-          <Route path="/personal-notes" element={<EmployeePersonalNotes />} />
+          <Route path="/knowledge-vault" element={<KnowledgeVault />} />
 
           <Route path="/scrum-records" element={<EmployeeScrumRecords />} />
           <Route path="/ui-customization" element={<EmployeeUICustomization />} />
