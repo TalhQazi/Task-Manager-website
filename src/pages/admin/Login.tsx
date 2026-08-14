@@ -5,13 +5,13 @@ import { Button } from "@/components/admin/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Input } from "@/components/admin/ui/input";
 import { getAuthState, setAuthState, type UserRole } from "@/lib/auth";
-import { login, setupPassword } from "@/lib/apiClient";
+import { login, setupPassword, requestForgotPassword, resetPasswordWithCode } from "@/lib/apiClient";
 import { setEmployeeAuth } from "@/Employee/lib/auth";
-import { Eye, EyeOff, Lock, User, LogIn, KeyRound, AlertCircle, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Eye, EyeOff, Lock, User, LogIn, KeyRound, AlertCircle, ArrowLeft, CheckCircle2, Mail, Clock, ShieldCheck } from "lucide-react";
 import logoImage from "../../../public/new_logo.jpeg";
 import { useTheme } from "@/contexts/ThemeContext";
 
-type Step = "login" | "setup-password" | "password-done" | "no-role";
+type Step = "login" | "setup-password" | "password-done" | "no-role" | "forgot-password" | "reset-password";
 
 const EMPLOYEE_ROLES = ["employee", "team-lead", "coder"];
 const ADMIN_ROLES = ["admin", "super-admin", "manager", "developer"];
@@ -37,6 +37,15 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Forgot / Reset Password state
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [resetCode, setResetCode] = useState("");
+  const [resetNewPassword, setResetNewPassword] = useState("");
+  const [resetConfirmPassword, setResetConfirmPassword] = useState("");
+  const [showResetNewPass, setShowResetNewPass] = useState(false);
+  const [showResetConfirmPass, setShowResetConfirmPass] = useState(false);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -144,10 +153,61 @@ export default function Login() {
     }
   };
 
+  const onRequestForgotPassword = async () => {
+    if (!forgotEmail || !forgotEmail.includes("@")) {
+      setError("Please enter a valid email address");
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    setInfoMessage(null);
+    try {
+      const res = await requestForgotPassword(forgotEmail);
+      setInfoMessage(res.message || "Reset code sent! Check your inbox.");
+      setStep("reset-password");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to request password reset code");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const onResetPassword = async () => {
+    if (!forgotEmail || !resetCode || !resetNewPassword) {
+      setError("Please fill in all fields");
+      return;
+    }
+    if (resetNewPassword.length < 6) {
+      setError("New password must be at least 6 characters");
+      return;
+    }
+    if (resetNewPassword !== resetConfirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    try {
+      await resetPasswordWithCode(forgotEmail, resetCode, resetNewPassword);
+      setStep("password-done");
+      setFormData({ username: forgotEmail, password: "" });
+      setForgotEmail("");
+      setResetCode("");
+      setResetNewPassword("");
+      setResetConfirmPassword("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to reset password. Code may be invalid or expired.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       if (step === "login") onLogin();
       else if (step === "setup-password") onSetupPassword();
+      else if (step === "forgot-password") onRequestForgotPassword();
+      else if (step === "reset-password") onResetPassword();
     }
   };
 
@@ -241,7 +301,20 @@ export default function Login() {
                   </motion.div>
 
                   <motion.div variants={itemVariants} className="space-y-2">
-                    <label className="block text-sm font-medium text-slate-700">Password</label>
+                    <div className="flex items-center justify-between">
+                      <label className="block text-sm font-medium text-slate-700">Password</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setForgotEmail(formData.username.includes("@") ? formData.username : "");
+                          setError(null);
+                          setStep("forgot-password");
+                        }}
+                        className="text-xs sm:text-sm text-[#133767] hover:underline font-medium transition-colors"
+                      >
+                        Forgot Password?
+                      </button>
+                    </div>
                     <div className="relative group">
                       <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 group-hover:text-[#133767] transition-colors duration-200" size={18} />
                       <Input
@@ -297,6 +370,216 @@ export default function Login() {
                       </Button>
                     </motion.div>
                   </motion.div>
+                </CardContent>
+              </>
+            )}
+
+            {/* ── STEP: FORGOT PASSWORD ── */}
+            {step === "forgot-password" && (
+              <>
+                <CardHeader className="space-y-1.5 sm:space-y-2 p-6 sm:p-8 pt-2 sm:pt-4 text-center">
+                  <motion.div variants={itemVariants}>
+                    <div className="flex justify-center mb-3">
+                      <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+                        <Mail className="h-6 w-6 text-[#133767]" />
+                      </div>
+                    </div>
+                    <CardTitle className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent">
+                      Forgot Password?
+                    </CardTitle>
+                  </motion.div>
+                  <motion.div variants={itemVariants}>
+                    <CardDescription className="text-sm sm:text-base text-slate-500">
+                      Enter your account email. We will send you a 6-digit reset code.
+                    </CardDescription>
+                  </motion.div>
+                  <div className="inline-flex items-center justify-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200 rounded-full text-xs text-amber-800 font-medium mx-auto">
+                    <Clock size={14} className="text-amber-600" />
+                    <span>The reset code will expire in 60 minutes</span>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="space-y-5 p-6 sm:p-8 pt-0">
+                  <motion.div variants={itemVariants} className="space-y-2">
+                    <label className="block text-sm font-medium text-slate-700">Account Email</label>
+                    <div className="relative group">
+                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 group-hover:text-[#133767] transition-colors duration-200" size={18} />
+                      <Input
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        type="email"
+                        placeholder="name@example.com"
+                        autoFocus
+                        className="h-11 sm:h-12 text-sm pl-10 pr-4 bg-white border-slate-200 focus:border-[#133767] focus:ring-2 focus:ring-[#133767]/20 transition-all duration-300"
+                      />
+                    </div>
+                  </motion.div>
+
+                  <AnimatePresence mode="wait">
+                    {error && (
+                      <motion.div variants={errorVariants} initial="hidden" animate="visible" exit="exit" transition={{ duration: 0.3 }} className="rounded-lg bg-destructive/10 p-3 border border-destructive/20">
+                        <p className="text-sm text-destructive break-words">{error}</p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <motion.div variants={itemVariants}>
+                    <motion.div variants={buttonVariants} whileHover="hover" whileTap="tap">
+                      <Button
+                        className="w-full bg-[#133767] hover:bg-[#1a4585] text-white h-12 text-base font-semibold shadow-lg shadow-blue-900/20 disabled:opacity-70"
+                        onClick={onRequestForgotPassword}
+                        disabled={isLoading}
+                      >
+                        {isLoading ? (
+                          <div className="flex items-center justify-center space-x-2">
+                            <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
+                            <span>Sending code...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center space-x-2">
+                            <Mail size={18} />
+                            <span>Send Reset Code (60 min expiry)</span>
+                          </div>
+                        )}
+                      </Button>
+                    </motion.div>
+                  </motion.div>
+
+                  <div className="text-center pt-2">
+                    <button
+                      type="button"
+                      onClick={() => { setStep("login"); setError(null); }}
+                      className="text-sm text-slate-500 hover:text-[#133767] transition-colors flex items-center gap-1 mx-auto"
+                    >
+                      <ArrowLeft size={14} />
+                      Back to login
+                    </button>
+                  </div>
+                </CardContent>
+              </>
+            )}
+
+            {/* ── STEP: RESET PASSWORD WITH CODE ── */}
+            {step === "reset-password" && (
+              <>
+                <CardHeader className="space-y-1.5 sm:space-y-2 p-6 sm:p-8 pt-2 sm:pt-4 text-center">
+                  <motion.div variants={itemVariants}>
+                    <div className="flex justify-center mb-3">
+                      <div className="h-12 w-12 rounded-full bg-[#133767]/10 flex items-center justify-center">
+                        <KeyRound className="h-6 w-6 text-[#133767]" />
+                      </div>
+                    </div>
+                    <CardTitle className="text-2xl sm:text-3xl font-bold tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent">
+                      Enter Reset Code
+                    </CardTitle>
+                  </motion.div>
+                  <motion.div variants={itemVariants}>
+                    <CardDescription className="text-sm sm:text-base text-slate-500">
+                      Check your email ({forgotEmail}) for the 6-digit reset code.
+                    </CardDescription>
+                  </motion.div>
+                  <div className="inline-flex items-center justify-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200 rounded-full text-xs text-amber-800 font-medium mx-auto">
+                    <Clock size={14} className="text-amber-600" />
+                    <span>Valid for 60 minutes</span>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="space-y-4 p-6 sm:p-8 pt-0">
+                  {infoMessage && (
+                    <div className="rounded-lg bg-green-50 p-3 border border-green-200 text-xs text-green-800 font-medium">
+                      {infoMessage}
+                    </div>
+                  )}
+
+                  <motion.div variants={itemVariants} className="space-y-1.5">
+                    <label className="block text-sm font-medium text-slate-700">6-Digit Code</label>
+                    <Input
+                      value={resetCode}
+                      onChange={(e) => setResetCode(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      placeholder="e.g. 123456"
+                      maxLength={6}
+                      className="h-11 text-center tracking-widest text-lg font-mono bg-white border-slate-200 focus:border-[#133767]"
+                    />
+                  </motion.div>
+
+                  <motion.div variants={itemVariants} className="space-y-1.5">
+                    <label className="block text-sm font-medium text-slate-700">New Password</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+                      <Input
+                        value={resetNewPassword}
+                        onChange={(e) => setResetNewPassword(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        type={showResetNewPass ? "text" : "password"}
+                        placeholder="Minimum 6 characters"
+                        className="h-11 text-sm pl-10 pr-12 bg-white border-slate-200 focus:border-[#133767]"
+                      />
+                      <button type="button" onClick={() => setShowResetNewPass(!showResetNewPass)} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-[#133767] p-1">
+                        {showResetNewPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </motion.div>
+
+                  <motion.div variants={itemVariants} className="space-y-1.5">
+                    <label className="block text-sm font-medium text-slate-700">Confirm New Password</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+                      <Input
+                        value={resetConfirmPassword}
+                        onChange={(e) => setResetConfirmPassword(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        type={showResetConfirmPass ? "text" : "password"}
+                        placeholder="Re-enter new password"
+                        className="h-11 text-sm pl-10 pr-12 bg-white border-slate-200 focus:border-[#133767]"
+                      />
+                      <button type="button" onClick={() => setShowResetConfirmPass(!showResetConfirmPass)} className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-[#133767] p-1">
+                        {showResetConfirmPass ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                  </motion.div>
+
+                  <AnimatePresence mode="wait">
+                    {error && (
+                      <motion.div variants={errorVariants} initial="hidden" animate="visible" exit="exit" transition={{ duration: 0.3 }} className="rounded-lg bg-destructive/10 p-3 border border-destructive/20">
+                        <p className="text-sm text-destructive break-words">{error}</p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <motion.div variants={itemVariants}>
+                    <motion.div variants={buttonVariants} whileHover="hover" whileTap="tap">
+                      <Button
+                        className="w-full bg-[#133767] hover:bg-[#1a4585] text-white h-12 text-base font-semibold shadow-lg shadow-blue-900/20 disabled:opacity-70"
+                        onClick={onResetPassword}
+                        disabled={isLoading}
+                      >
+                        {isLoading ? (
+                          <div className="flex items-center justify-center space-x-2">
+                            <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }} className="w-5 h-5 border-2 border-white border-t-transparent rounded-full" />
+                            <span>Resetting...</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center space-x-2">
+                            <ShieldCheck size={18} />
+                            <span>Reset Password</span>
+                          </div>
+                        )}
+                      </Button>
+                    </motion.div>
+                  </motion.div>
+
+                  <div className="text-center pt-2">
+                    <button
+                      type="button"
+                      onClick={() => { setStep("forgot-password"); setError(null); }}
+                      className="text-sm text-slate-500 hover:text-[#133767] transition-colors flex items-center gap-1 mx-auto"
+                    >
+                      <ArrowLeft size={14} />
+                      Resend code or change email
+                    </button>
+                  </div>
                 </CardContent>
               </>
             )}
@@ -400,7 +683,7 @@ export default function Login() {
               </>
             )}
 
-            {/* ── STEP: PASSWORD SET SUCCESSFULLY ── */}
+            {/* ── STEP: PASSWORD SET / RESET SUCCESSFULLY ── */}
             {step === "password-done" && (
               <>
                 <CardHeader className="space-y-1.5 p-6 sm:p-8 pt-2 sm:pt-4 text-center">
@@ -410,11 +693,11 @@ export default function Login() {
                         <CheckCircle2 className="h-8 w-8 text-green-600" />
                       </motion.div>
                     </div>
-                    <CardTitle className="text-2xl font-bold text-slate-900">Password Set!</CardTitle>
+                    <CardTitle className="text-2xl font-bold text-slate-900">Password Updated!</CardTitle>
                   </motion.div>
                   <motion.div variants={itemVariants} initial="hidden" animate="visible">
                     <CardDescription className="text-sm sm:text-base text-slate-500">
-                      Your password has been saved. You can now log in with your credentials.
+                      Your password has been saved successfully. You can now log in with your new password.
                     </CardDescription>
                   </motion.div>
                 </CardHeader>

@@ -124,10 +124,14 @@ export function FiledPatents() {
     setSelectedPatent(null);
   };
 
-  const calculateExpiration = (filingDate: string, filingType: string) => {
-    if (filingType !== "Provisional" || !filingDate) return "";
+  const autoCalculateExpiration = (filingDate: string, filingType: string) => {
+    if (!filingDate) return "";
     const date = new Date(filingDate);
-    date.setFullYear(date.getFullYear() + 1);
+    if (filingType === "Provisional") {
+      date.setFullYear(date.getFullYear() + 1);
+    } else {
+      date.setFullYear(date.getFullYear() + 20);
+    }
     return date.toISOString().split("T")[0];
   };
 
@@ -141,9 +145,10 @@ export function FiledPatents() {
       setIsSubmitting(true);
       setApiError(null);
 
-      const expirationDate =
-        formData.filingType === "Provisional" && formData.filingDate
-          ? calculateExpiration(formData.filingDate, formData.filingType!)
+      const expirationDate = formData.provisionalExpiration
+        ? formData.provisionalExpiration.split("T")[0]
+        : formData.filingDate
+          ? autoCalculateExpiration(formData.filingDate, formData.filingType || "Provisional")
           : "";
 
       const payload = {
@@ -287,8 +292,35 @@ export function FiledPatents() {
                 <input
                   type="date"
                   value={formData.filingDate || ""}
+                  onChange={(e) => {
+                    const newFilingDate = e.target.value;
+                    const calculated = autoCalculateExpiration(newFilingDate, formData.filingType || "Provisional");
+                    setFormData({
+                      ...formData,
+                      filingDate: newFilingDate,
+                      provisionalExpiration: calculated,
+                    });
+                  }}
+                  className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium flex items-center justify-between">
+                  <span>Expiration Date</span>
+                  <span className="text-xs text-muted-foreground font-normal">(Editable)</span>
+                </label>
+                <input
+                  type="date"
+                  value={
+                    formData.provisionalExpiration
+                      ? formData.provisionalExpiration.split("T")[0]
+                      : formData.filingDate
+                        ? autoCalculateExpiration(formData.filingDate, formData.filingType || "Provisional")
+                        : ""
+                  }
                   onChange={(e) =>
-                    setFormData({ ...formData, filingDate: e.target.value })
+                    setFormData({ ...formData, provisionalExpiration: e.target.value })
                   }
                   className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
                 />
