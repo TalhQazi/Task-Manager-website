@@ -24,9 +24,12 @@ export default function ListView({ dense = false }: { dense?: boolean }) {
         className="h-full flex items-center gap-3 px-3 border-b border-border/60 hover:bg-muted/50 cursor-pointer text-sm"
       >
         <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: statusColor }} />
-        <span className="flex-1 min-w-0 truncate font-medium">{t.taskNumber ? <span className="text-muted-foreground mr-1.5">#{t.taskNumber}</span> : null}{t.title || "Untitled"}</span>
+        <span className="flex-1 min-w-0 truncate font-medium">
+          {t.taskNumber ? <span className="text-muted-foreground mr-1.5 font-mono">#{t.taskNumber}</span> : null}
+          {t.title || "Untitled"}
+        </span>
         {!dense && (
-          <span className="w-40 truncate text-muted-foreground hidden md:block">
+          <span className="w-40 shrink-0 truncate text-muted-foreground hidden md:block">
             {t.assignees.length > 0 ? (
               t.assignees.map((a, i) => (
                 <span
@@ -46,9 +49,24 @@ export default function ListView({ dense = false }: { dense?: boolean }) {
             )}
           </span>
         )}
-        <span className={`w-24 text-xs shrink-0 ${due.className} hidden sm:block`}>{due.text}</span>
-        <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded border ${pri.className}`}>{pri.label}</span>
-        <span className="w-24 shrink-0 text-xs text-muted-foreground hidden lg:block">{t.status}</span>
+        <span className={`w-28 text-xs shrink-0 ${due.className} hidden sm:block`}>{due.text}</span>
+        <span className="w-20 shrink-0 flex items-center justify-center">
+          <span className={`w-16 text-center inline-block text-[11px] px-2 py-0.5 rounded-md border ${pri.className}`}>
+            {pri.label}
+          </span>
+        </span>
+        <span className="w-28 shrink-0 hidden lg:flex items-center">
+          <span
+            className="text-xs px-2 py-0.5 rounded-md capitalize font-medium truncate"
+            style={{
+              color: statusColor,
+              backgroundColor: `${statusColor}18`,
+              border: `1px solid ${statusColor}33`,
+            }}
+          >
+            {t.status}
+          </span>
+        </span>
       </div>
     );
   };
@@ -56,12 +74,12 @@ export default function ListView({ dense = false }: { dense?: boolean }) {
   return (
     <div className="h-full flex flex-col border border-border rounded-xl overflow-hidden bg-card">
       <div className="flex items-center gap-3 px-3 h-9 border-b border-border bg-muted/40 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-        <span className="w-1.5" />
-        <span className="flex-1">Task</span>
-        {!dense && <span className="w-40 hidden md:block">Assignees</span>}
-        <span className="w-24 hidden sm:block">Due</span>
-        <span className="w-14">Priority</span>
-        <span className="w-24 hidden lg:block">Status</span>
+        <span className="w-1.5 shrink-0" />
+        <span className="flex-1 min-w-0">Task</span>
+        {!dense && <span className="w-40 shrink-0 hidden md:block">Assignees</span>}
+        <span className="w-28 shrink-0 hidden sm:block">Due</span>
+        <span className="w-20 shrink-0 text-center">Priority</span>
+        <span className="w-28 shrink-0 hidden lg:block text-left">Status</span>
       </div>
       <VirtualList
         items={tasks}

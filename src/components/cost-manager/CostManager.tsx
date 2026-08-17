@@ -250,8 +250,53 @@ export default function CostManager({
     });
   };
 
+  const [vendorFilter, setVendorFilter] = useState<string>("all");
+
+  const itemVendorNames = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of allItems) {
+      if (item.vendor?.name) set.add(item.vendor.name);
+      else if (item.quoteNumber) set.add(`Quote #${item.quoteNumber}`);
+    }
+    return Array.from(set);
+  }, [allItems]);
+
+  const displayedSections = useMemo(() => {
+    if (vendorFilter === "all") return sections;
+    return sections.map((sec) => ({
+      ...sec,
+      items: sec.items.filter(
+        (i) => (i.vendor?.name === vendorFilter) || (!i.vendor?.name && `Quote #${i.quoteNumber}` === vendorFilter)
+      ),
+    }));
+  }, [sections, vendorFilter]);
+
   return (
     <div className="space-y-4">
+      {/* Quote & Vendor Header Details if set on sheet */}
+      {(sheet.vendorName || sheet.quoteNumber) && (
+        <div className="flex items-center gap-3 p-3 bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-xl text-xs">
+          <Building2 className="w-4 h-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
+          <div className="flex flex-wrap items-center gap-2 font-medium">
+            {sheet.vendorName && (
+              <span>
+                Vendor / Contractor: <strong className="text-foreground">{sheet.vendorName}</strong>
+              </span>
+            )}
+            {sheet.quoteNumber && (
+              <span className="text-muted-foreground">
+                • Quote Reference: <strong className="text-foreground font-mono">#{sheet.quoteNumber}</strong>
+              </span>
+            )}
+            {sheet.isQuote && (
+              <Badge variant="outline" className="border-indigo-400/40 text-indigo-600 text-[10px] py-0">
+                Active Quote
+              </Badge>
+            )}
+          </div>
+        </div>
+      )}
+
       <SummaryCard
         summary={summary}
         currency={currency}
@@ -267,6 +312,23 @@ export default function CostManager({
         }}
         actions={
           <>
+            {itemVendorNames.length > 1 && (
+              <div className="flex items-center gap-1">
+                <span className="text-[11px] text-muted-foreground font-semibold">Vendor:</span>
+                <select
+                  value={vendorFilter}
+                  onChange={(e) => setVendorFilter(e.target.value)}
+                  className="h-7 text-xs rounded-md border border-input bg-background px-2 py-0.5"
+                >
+                  <option value="all">All Vendors ({itemVendorNames.length})</option>
+                  {itemVendorNames.map((v) => (
+                    <option key={v} value={v}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <Button
               size="sm"
               variant="outline"
@@ -331,7 +393,7 @@ export default function CostManager({
         </div>
       )}
 
-      {sections.map((section) => (
+      {displayedSections.map((section) => (
         <SectionBlock
           key={section.id}
           section={section}

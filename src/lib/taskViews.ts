@@ -142,7 +142,7 @@ export const STATUS_COLUMNS: Array<{ key: TaskView["status"]; label: string; col
 ];
 
 export const PRIORITY_META: Record<string, { label: string; className: string }> = {
-  high: { label: "High", className: "bg-red-500/10 text-red-600 border-red-500/20" },
-  medium: { label: "Medium", className: "bg-amber-500/10 text-amber-600 border-amber-500/20" },
-  low: { label: "Low", className: "bg-slate-500/10 text-slate-600 border-slate-500/20" },
+  high: { label: "High", className: "bg-rose-500/15 text-rose-400 dark:text-rose-300 border-rose-500/30 font-medium" },
+  medium: { label: "Medium", className: "bg-amber-500/15 text-amber-400 dark:text-amber-300 border-amber-500/30 font-medium" },
+  low: { label: "Low", className: "bg-slate-500/15 text-slate-400 dark:text-slate-300 border-slate-500/30 font-medium" },
 };

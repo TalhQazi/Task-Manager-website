@@ -53,6 +53,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/admin/ui/command";
+import QuoteComparisonModal from "@/components/cost-manager/QuoteComparisonModal";
 import { cn } from "@/lib/utils";
 
 interface ExpenseSheetItem {
@@ -60,6 +61,10 @@ interface ExpenseSheetItem {
   projectId?: string;
   taskId?: string;
   name: string;
+  vendorName?: string;
+  quoteNumber?: string;
+  isQuote?: boolean;
+  quoteStatus?: string;
   currency: string;
   availableBudgetCents: number;
   createdByUsername?: string;
@@ -83,6 +88,10 @@ export default function ExpenseSheets() {
   const [tasks, setTasks] = useState<TaskOption[]>([]);
   const [search, setSearch] = useState("");
 
+  // Multi-quote comparison state
+  const [selectedSheetIds, setSelectedSheetIds] = useState<string[]>([]);
+  const [compareModalOpen, setCompareModalOpen] = useState(false);
+
   // Detailed view sheet
   const [activeSheetId, setActiveSheetId] = useState<string | null>(null);
   const [activeSheetName, setActiveSheetName] = useState<string>("");
@@ -91,6 +100,8 @@ export default function ExpenseSheets() {
   const [sheetModalOpen, setSheetModalOpen] = useState(false);
   const [editingSheet, setEditingSheet] = useState<ExpenseSheetItem | null>(null);
   const [sheetName, setSheetName] = useState("");
+  const [sheetVendorName, setSheetVendorName] = useState("");
+  const [sheetQuoteNumber, setSheetQuoteNumber] = useState("");
   const [sheetBudget, setSheetBudget] = useState("");
   const [savingSheet, setSavingSheet] = useState(false);
 
@@ -173,6 +184,8 @@ export default function ExpenseSheets() {
   const handleOpenCreateModal = () => {
     setEditingSheet(null);
     setSheetName("");
+    setSheetVendorName("");
+    setSheetQuoteNumber("");
     setSheetBudget("0.00");
     setSheetModalOpen(true);
   };
@@ -180,6 +193,8 @@ export default function ExpenseSheets() {
   const handleOpenEditModal = (sheet: ExpenseSheetItem) => {
     setEditingSheet(sheet);
     setSheetName(sheet.name);
+    setSheetVendorName(sheet.vendorName || "");
+    setSheetQuoteNumber(sheet.quoteNumber || "");
     setSheetBudget(centsToDollarInput(sheet.availableBudgetCents));
     setSheetModalOpen(true);
   };
@@ -193,18 +208,19 @@ export default function ExpenseSheets() {
     try {
       setSavingSheet(true);
       const budgetCents = dollarsToCents(sheetBudget);
+      const payload = {
+        name: sheetName.trim(),
+        vendorName: sheetVendorName.trim(),
+        quoteNumber: sheetQuoteNumber.trim(),
+        isQuote: Boolean(sheetVendorName.trim() || sheetQuoteNumber.trim()),
+        availableBudgetCents: budgetCents,
+      };
 
       if (editingSheet) {
-        await updateCostSheet(editingSheet.id, {
-          name: sheetName.trim(),
-          availableBudgetCents: budgetCents,
-        });
+        await updateCostSheet(editingSheet.id, payload);
         toast.success("Expense sheet updated successfully");
       } else {
-        await createCostSheet({
-          name: sheetName.trim(),
-          availableBudgetCents: budgetCents,
-        });
+        await createCostSheet(payload);
         toast.success("Expense sheet created successfully");
       }
       setSheetModalOpen(false);
@@ -299,14 +315,32 @@ export default function ExpenseSheets() {
       const projName = s.projectId ? getProjectName(s.projectId).toLowerCase() : "";
       const taskName = s.taskId ? getTaskName(s.taskId).toLowerCase() : "";
       const creator = (s.createdByUsername || "").toLowerCase();
+      const vendor = (s.vendorName || "").toLowerCase();
+      const quoteNum = (s.quoteNumber || "").toLowerCase();
       return (
         s.name.toLowerCase().includes(query) ||
+        vendor.includes(query) ||
+        quoteNum.includes(query) ||
         projName.includes(query) ||
         taskName.includes(query) ||
         creator.includes(query)
       );
     });
   }, [sheets, search, projects, tasks]);
+
+  const toggleSelectSheet = (id: string) => {
+    setSelectedSheetIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedSheetIds.length === filteredSheets.length) {
+      setSelectedSheetIds([]);
+    } else {
+      setSelectedSheetIds(filteredSheets.map((s) => s.id));
+    }
+  };
 
   // If a sheet is selected, display the CostManager
   if (activeSheetId) {
@@ -338,26 +372,56 @@ export default function ExpenseSheets() {
         <div className="space-y-1.5 sm:space-y-2">
           <h1 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
             <Wallet className="h-7 w-7 text-indigo-500" />
-            Standalone Expense Sheets
+            Standalone Expense & Quote Sheets
           </h1>
           <p className="text-xs sm:text-sm md:text-base text-muted-foreground max-w-3xl">
-            Create, manage, and attach premium expense sheets to your projects or tasks.
+            Create, manage, and compare vendor quotes (e.g. Gaftek vs. Simard) side-by-side or attach expense sheets to projects.
           </p>
         </div>
-        <Button onClick={handleOpenCreateModal} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2">
-          <Plus className="h-4 w-4" /> Create Expense Sheet
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {selectedSheetIds.length >= 2 && (
+            <Button
+              onClick={() => setCompareModalOpen(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 shadow-md animate-pulse"
+            >
+              <Sparkles className="h-4 w-4" /> Compare Quotes ({selectedSheetIds.length})
+            </Button>
+          )}
+          <Button onClick={handleOpenCreateModal} className="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2">
+            <Plus className="h-4 w-4" /> Create Expense Sheet
+          </Button>
+        </div>
       </div>
 
       <Card className="shadow-soft border-0 sm:border">
         <CardContent className="p-3 sm:p-6">
-          <div className="relative w-full sm:max-w-md">
-            <Input
-              placeholder="Search expense sheets by name, project, task, creator..."
-              className="h-9 sm:h-10 text-sm sm:text-base"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="relative w-full sm:max-w-md">
+              <Input
+                placeholder="Search by name, vendor (e.g. Gaftek), quote #, project..."
+                className="h-9 sm:h-10 text-sm sm:text-base"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            {selectedSheetIds.length > 0 && (
+              <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                <span>{selectedSheetIds.length} sheet(s) selected</span>
+                {selectedSheetIds.length >= 2 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCompareModalOpen(true)}
+                    className="h-8 border-emerald-500/50 text-emerald-600 dark:text-emerald-400"
+                  >
+                    Compare Selected
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" onClick={() => setSelectedSheetIds([])} className="h-8">
+                  Clear
+                </Button>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -366,7 +430,7 @@ export default function ExpenseSheets() {
         <CardHeader className="px-4 sm:px-6 py-4 sm:py-5 flex flex-row items-center justify-between">
           <CardTitle className="text-base sm:text-lg font-semibold flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-indigo-500 animate-pulse" />
-            All Expense Sheets ({filteredSheets.length})
+            All Expense & Quote Sheets ({filteredSheets.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0 sm:p-6">
@@ -384,7 +448,17 @@ export default function ExpenseSheets() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10">
+                      <input
+                        type="checkbox"
+                        aria-label="Select all sheets"
+                        checked={filteredSheets.length > 0 && selectedSheetIds.length === filteredSheets.length}
+                        onChange={toggleSelectAll}
+                        className="rounded border-slate-300 h-4 w-4 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                      />
+                    </TableHead>
                     <TableHead className="text-sm">Sheet Name</TableHead>
+                    <TableHead className="text-sm">Vendor / Quote</TableHead>
                     <TableHead className="text-sm">Available Budget</TableHead>
                     <TableHead className="text-sm">Attached To</TableHead>
                     <TableHead className="text-sm">Created By</TableHead>
@@ -392,74 +466,103 @@ export default function ExpenseSheets() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredSheets.map((s) => (
-                    <TableRow key={s.id} className="hover:bg-muted/30">
-                      <TableCell className="font-semibold text-slate-900">
-                        <button
-                          onClick={() => {
-                            setActiveSheetId(s.id);
-                            setActiveSheetName(s.name);
-                          }}
-                          className="hover:underline text-left"
-                        >
-                          {s.name}
-                        </button>
-                      </TableCell>
-                      <TableCell className="font-medium text-slate-700">
-                        {formatMoney(s.availableBudgetCents, s.currency)}
-                      </TableCell>
-                      <TableCell>
-                        {s.projectId ? (
-                          <Badge variant="outline" className="border-indigo-200 bg-indigo-50 text-indigo-700 text-xs">
-                            Project: {getProjectName(s.projectId)}
-                          </Badge>
-                        ) : s.taskId ? (
-                          <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700 text-xs">
-                            Task: {getTaskName(s.taskId)}
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground text-xs italic">Unattached</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-slate-500 text-sm">
-                        {s.createdByUsername || "System"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenAttachModal(s)}
-                            className="h-8 px-2 flex items-center gap-1 text-slate-600 border-slate-200"
-                            title="Attach to Project/Task"
+                  {filteredSheets.map((s) => {
+                    const isSelected = selectedSheetIds.includes(s.id);
+                    return (
+                      <TableRow key={s.id} className={`hover:bg-muted/30 ${isSelected ? "bg-indigo-50/40 dark:bg-indigo-950/20" : ""}`}>
+                        <TableCell>
+                          <input
+                            type="checkbox"
+                            aria-label={`Select ${s.name}`}
+                            checked={isSelected}
+                            onChange={() => toggleSelectSheet(s.id)}
+                            className="rounded border-slate-300 h-4 w-4 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                          />
+                        </TableCell>
+                        <TableCell className="font-semibold text-slate-900 dark:text-white">
+                          <button
+                            onClick={() => {
+                              setActiveSheetId(s.id);
+                              setActiveSheetName(s.name);
+                            }}
+                            className="hover:underline text-left"
                           >
-                            <LinkIcon className="h-3.5 w-3.5" />
-                            <span className="hidden sm:inline">Attach</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenEditModal(s)}
-                            className="h-8 px-2 flex items-center gap-1 text-indigo-600 border-indigo-200"
-                            title="Edit Sheet"
-                          >
-                            <Edit className="h-3.5 w-3.5" />
-                            <span className="hidden sm:inline">Edit</span>
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleDeleteSheet(s.id)}
-                            className="h-8 px-2 flex items-center gap-1 text-red-600 border-red-200 hover:bg-red-50"
-                            title="Delete Sheet"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            <span className="hidden sm:inline">Delete</span>
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                            {s.name}
+                          </button>
+                        </TableCell>
+                        <TableCell>
+                          {s.vendorName ? (
+                            <div className="flex flex-col">
+                              <span className="font-medium text-xs text-indigo-700 dark:text-indigo-400 flex items-center gap-1">
+                                <Building2 className="h-3 w-3" />
+                                {s.vendorName}
+                              </span>
+                              {s.quoteNumber && (
+                                <span className="text-[11px] text-muted-foreground font-mono">
+                                  Quote #{s.quoteNumber}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground text-xs italic">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-medium text-slate-700 dark:text-slate-300">
+                          {formatMoney(s.availableBudgetCents, s.currency)}
+                        </TableCell>
+                        <TableCell>
+                          {s.projectId ? (
+                            <Badge variant="outline" className="border-indigo-200 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 text-xs">
+                              Project: {getProjectName(s.projectId)}
+                            </Badge>
+                          ) : s.taskId ? (
+                            <Badge variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 text-xs">
+                              Task: {getTaskName(s.taskId)}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-xs italic">Unattached</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-slate-500 text-sm">
+                          {s.createdByUsername || "System"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenAttachModal(s)}
+                              className="h-8 px-2 flex items-center gap-1 text-slate-600 border-slate-200"
+                              title="Attach to Project/Task"
+                            >
+                              <LinkIcon className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">Attach</span>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenEditModal(s)}
+                              className="h-8 px-2 flex items-center gap-1 text-indigo-600 border-indigo-200"
+                              title="Edit Sheet"
+                            >
+                              <Edit className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">Edit</span>
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteSheet(s.id)}
+                              className="h-8 px-2 flex items-center gap-1 text-red-600 border-red-200 hover:bg-red-50"
+                              title="Delete Sheet"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              <span className="hidden sm:inline">Delete</span>
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
@@ -471,21 +574,41 @@ export default function ExpenseSheets() {
       <Dialog open={sheetModalOpen} onOpenChange={setSheetModalOpen}>
         <DialogContent className="max-w-md rounded-xl p-6 shadow-2xl">
           <DialogHeader>
-            <DialogTitle>{editingSheet ? "Edit Expense Sheet" : "Create Expense Sheet"}</DialogTitle>
+            <DialogTitle>{editingSheet ? "Edit Expense / Quote Sheet" : "Create Expense / Quote Sheet"}</DialogTitle>
             <DialogDescription>
-              Provide a name and budget limit for this independent expense sheet.
+              Provide sheet details, vendor name (e.g. Gaftek, Simard), and budget limit.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 my-4">
             <div className="space-y-1.5">
-              <Label htmlFor="name" className="text-sm font-semibold">Sheet Name</Label>
+              <Label htmlFor="name" className="text-sm font-semibold">Sheet Name *</Label>
               <Input
                 id="name"
-                placeholder="e.g. Q3 Hardware Purchases"
+                placeholder="e.g. 978 - Gaftek Quote"
                 value={sheetName}
                 onChange={(e) => setSheetName(e.target.value)}
               />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="vendor" className="text-sm font-semibold">Vendor / Contractor</Label>
+                <Input
+                  id="vendor"
+                  placeholder="e.g. Gaftek / Simard"
+                  value={sheetVendorName}
+                  onChange={(e) => setSheetVendorName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="quoteNum" className="text-sm font-semibold">Quote / Ref #</Label>
+                <Input
+                  id="quoteNum"
+                  placeholder="e.g. Q-978"
+                  value={sheetQuoteNumber}
+                  onChange={(e) => setSheetQuoteNumber(e.target.value)}
+                />
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="budget" className="text-sm font-semibold">Available Budget ($)</Label>
@@ -522,6 +645,13 @@ export default function ExpenseSheets() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Quote Comparison Modal */}
+      <QuoteComparisonModal
+        sheetIds={selectedSheetIds}
+        open={compareModalOpen}
+        onOpenChange={setCompareModalOpen}
+      />
 
       {/* Attach Sheet Dialog */}
       <Dialog open={attachModalOpen} onOpenChange={setAttachModalOpen}>

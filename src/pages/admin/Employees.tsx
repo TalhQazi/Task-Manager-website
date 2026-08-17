@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
@@ -279,7 +280,9 @@ const Employees = () => {
   const [showCustomCategoryEdit, setShowCustomCategoryEdit] = useState(false);
   const [customCategoryEditVal, setCustomCategoryEditVal] = useState("");
   const [deactivateConfirmOpen, setDeactivateConfirmOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [shiftOpen, setShiftOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   // Reset Password state - Super Admin only
   const [resetPasswordOpen, setResetPasswordOpen] = useState(false);
@@ -615,10 +618,34 @@ const Employees = () => {
         status: selectedEmployee.status === "inactive" ? "active" : "inactive",
       });
       await refreshEmployees();
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
       setDeactivateConfirmOpen(false);
       setSelectedEmployee(null);
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "Failed to update employee");
+    }
+  };
+
+  const handleDeleteConfirm = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteEmployee = async () => {
+    if (!selectedEmployee) return;
+    try {
+      setApiError(null);
+      await deleteResource("employees", selectedEmployee.id);
+      await refreshEmployees();
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      setDeleteConfirmOpen(false);
+      setSelectedEmployee(null);
+    } catch (e) {
+      setApiError(e instanceof Error ? e.message : "Failed to delete employee");
     }
   };
 
@@ -2358,6 +2385,50 @@ const Employees = () => {
                 {selectedEmployee?.status === "inactive" ? "Restore" : "Archive"}
               </Button>
             </motion.div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Permanent Delete Confirm Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="w-[95vw] max-w-md mx-auto p-4 sm:p-6">
+          <DialogHeader className="space-y-1.5 sm:space-y-2">
+            <DialogTitle className="text-base sm:text-lg text-destructive flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5" />
+              Delete Employee Permanently
+            </DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
+              This will permanently delete this employee and automatically unassign them from all tasks, projects, and workspaces.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedEmployee && (
+            <motion.div
+              className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 sm:p-4 text-xs sm:text-sm mt-2"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+            >
+              <p className="font-bold text-destructive">{selectedEmployee.name}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{selectedEmployee.email}</p>
+            </motion.div>
+          )}
+
+          <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-3 mt-4 sm:mt-6">
+            <Button
+              variant="outline"
+              onClick={() => setDeleteConfirmOpen(false)}
+              className="w-full sm:w-auto order-2 sm:order-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteEmployee}
+              className="w-full sm:w-auto order-1 sm:order-2 bg-red-600 hover:bg-red-700 text-white shadow-md"
+            >
+              Delete & Reset Tasks
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

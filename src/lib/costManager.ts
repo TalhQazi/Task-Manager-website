@@ -195,8 +195,13 @@ export interface CostSummary {
 export interface CostSheetPayload {
   sheet: {
     id: string;
-    projectId: string;
+    projectId?: string;
+    taskId?: string;
     name: string;
+    vendorName?: string;
+    quoteNumber?: string;
+    isQuote?: boolean;
+    quoteStatus?: "draft" | "submitted" | "accepted" | "rejected" | "archived";
     currency: string;
     availableBudgetCents: number;
   };
@@ -235,11 +240,13 @@ export function getTaskCostSheet(taskId: string) {
 }
 
 export function getCostSheets() {
-  return apiFetch<{ items: Array<{ id: string; projectId?: string; taskId?: string; name: string; currency: string; availableBudgetCents: number; createdByUsername?: string; createdAt?: string }> }>(`${BASE}/sheets`);
+  return apiFetch<{ items: Array<{ id: string; _id?: string; name: string; vendorName?: string; quoteNumber?: string; isQuote?: boolean; quoteStatus?: string; currency: string; availableBudgetCents: number; projectId?: string; taskId?: string; createdByUsername?: string; createdAt?: string }> }>(
+    `${BASE}/sheets`
+  );
 }
 
-export function createCostSheet(payload: { name: string; availableBudgetCents: number }) {
-  return apiFetch<{ id: string; name: string; currency: string; availableBudgetCents: number }>(`${BASE}/sheets`, {
+export function createCostSheet(payload: { name: string; availableBudgetCents: number; vendorName?: string; quoteNumber?: string; isQuote?: boolean; quoteStatus?: string }) {
+  return apiFetch<{ id: string; name: string; vendorName?: string; quoteNumber?: string; isQuote?: boolean; quoteStatus?: string; currency: string; availableBudgetCents: number }>(`${BASE}/sheets`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -262,7 +269,7 @@ export function deleteCostSheet(sheetId: string) {
   });
 }
 
-export function updateCostSheet(sheetId: string, payload: { name?: string; availableBudgetCents?: number }) {
+export function updateCostSheet(sheetId: string, payload: { name?: string; availableBudgetCents?: number; vendorName?: string; quoteNumber?: string; isQuote?: boolean; quoteStatus?: string }) {
   return apiFetch<CostSheetPayload>(`${BASE}/sheets/${encodeURIComponent(sheetId)}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
