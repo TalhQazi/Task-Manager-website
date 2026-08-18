@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import {
   Dialog,
@@ -11,9 +11,10 @@ import {
 import { Button } from "@/components/admin/ui/button";
 import { Card, CardContent } from "@/components/admin/ui/card";
 import { Badge } from "@/components/admin/ui/badge";
-import { Plus, Edit2, Trash2, FileText, AlertCircle } from "lucide-react";
+import { Plus, Edit2, Trash2, FileText, AlertCircle, X, Bell } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useQuery } from "@tanstack/react-query";
+import { Input } from "@/components/admin/ui/input";
 import {
   Table,
   TableBody,
@@ -34,6 +35,7 @@ interface FiledPatent {
   status: "Filed" | "Issued" | "Expired" | "Abandoned";
   notes: string;
   attachments: string[];
+  customReminderDays: number[];
   createdAt: string;
 }
 
@@ -79,10 +81,12 @@ export function FiledPatents() {
     applicationNumber: "",
     status: "Filed",
     notes: "",
+    customReminderDays: [],
   });
   const [selectedPatent, setSelectedPatent] = useState<FiledPatent | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newReminderDay, setNewReminderDay] = useState("");
 
   const patentsQuery = useQuery<FiledPatent[]>({
     queryKey: ["filed-patents"],
@@ -120,9 +124,27 @@ export function FiledPatents() {
       applicationNumber: "",
       status: "Filed",
       notes: "",
+      customReminderDays: [],
     });
     setSelectedPatent(null);
+    setNewReminderDay("");
   };
+
+  const handleAddReminderDay = useCallback(() => {
+    const val = Math.round(Number(newReminderDay));
+    if (!Number.isFinite(val) || val <= 0) return;
+    const current = formData.customReminderDays || [];
+    if (current.includes(val)) return;
+    setFormData({ ...formData, customReminderDays: [...current, val].sort((a, b) => a - b) });
+    setNewReminderDay("");
+  }, [newReminderDay, formData]);
+
+  const handleRemoveReminderDay = useCallback((day: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      customReminderDays: (prev.customReminderDays || []).filter((d) => d !== day),
+    }));
+  }, []);
 
   const autoCalculateExpiration = (filingDate: string, filingType: string) => {
     if (!filingDate) return "";
@@ -370,6 +392,64 @@ export function FiledPatents() {
                   placeholder="Additional notes..."
                 />
               </div>
+
+              {/* Custom Email Reminder Days */}
+              <div className="space-y-2 p-3 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/20">
+                <label className="text-sm font-medium flex items-center gap-1.5 text-indigo-900 dark:text-indigo-200">
+                  <Bell className="h-3.5 w-3.5" />
+                  Custom Email Reminder Days
+                  <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+                </label>
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Set custom days before expiration to receive email reminders for this patent. Leave empty to use the global notification settings.
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(formData.customReminderDays || []).map((day) => (
+                    <Badge
+                      key={day}
+                      variant="outline"
+                      className="px-2 py-0.5 text-xs font-medium bg-white dark:bg-gray-800 border-indigo-300 dark:border-indigo-700 text-indigo-800 dark:text-indigo-200 flex items-center gap-1 group hover:border-red-400 transition-colors"
+                    >
+                      {day} {day === 1 ? "day" : "days"}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveReminderDay(day)}
+                        className="opacity-50 group-hover:opacity-100 hover:text-red-500 transition-opacity"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                  {(formData.customReminderDays || []).length === 0 && (
+                    <span className="text-[11px] text-muted-foreground italic">Using global settings</span>
+                  )}
+                </div>
+                <div className="flex gap-2 items-center">
+                  <Input
+                    type="number"
+                    min={1}
+                    placeholder="e.g. 45"
+                    value={newReminderDay}
+                    onChange={(e) => setNewReminderDay(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddReminderDay();
+                      }
+                    }}
+                    className="w-28 h-7 text-xs"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={handleAddReminderDay}
+                    className="h-7 text-xs gap-1 border-indigo-300 dark:border-indigo-700"
+                  >
+                    <Plus className="h-3 w-3" /> Add
+                  </Button>
+                </div>
+              </div>
             </div>
 
             <DialogFooter>
@@ -468,63 +548,63 @@ export function FiledPatents() {
                 <TableRow>
                   <TableHead className="w-12 font-bold">#</TableHead>
                   <TableHead className="font-bold">Patent Name</TableHead>
-                <TableHead className="font-bold">App Number</TableHead>
-                <TableHead className="font-bold">Category</TableHead>
-                <TableHead className="font-bold">Type</TableHead>
-                <TableHead className="font-bold">Filed Date</TableHead>
-                <TableHead className="font-bold">Expires</TableHead>
-                <TableHead className="font-bold">Status</TableHead>
-                <TableHead className="text-right font-bold">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredPatents.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="h-24 text-center">
-                    No patents match your filters.
-                  </TableCell>
+                  <TableHead className="font-bold">Filed Date</TableHead>
+                  <TableHead className="font-bold">Expires</TableHead>
+                  <TableHead className="font-bold">App Number</TableHead>
+                  <TableHead className="font-bold">Category</TableHead>
+                  <TableHead className="font-bold">Type</TableHead>
+                  <TableHead className="font-bold">Status</TableHead>
+                  <TableHead className="text-right font-bold">Actions</TableHead>
                 </TableRow>
-              ) : (
-                filteredPatents.map((patent, index) => (
-                  <TableRow key={patent._id} className="hover:bg-muted/30 transition-colors text-sm">
-                    <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
-                    <TableCell className="font-medium">{patent.patentName}</TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{patent.applicationNumber}</TableCell>
-                  <TableCell className="text-xs">{patent.category}</TableCell>
-                  <TableCell className="text-xs">{patent.filingType}</TableCell>
-                  <TableCell className="text-xs">{new Date(patent.filingDate).toLocaleDateString()}</TableCell>
-                  <TableCell className="text-xs text-amber-600 font-medium">
-                    {patent.provisionalExpiration ? new Date(patent.provisionalExpiration).toLocaleDateString() : "—"}
-                    {patent.provisionalExpiration && isExpiringExpiringSoon(patent.provisionalExpiration) && (
-                      <Badge variant="destructive" className="ml-2 text-[8px] px-1 py-0 h-4">EXPIRING</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge className={`${statusColors[patent.status]} border-0 shadow-none font-bold text-[10px] uppercase`}>
-                      {patent.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-blue-600"
-                        onClick={() => handleEdit(patent)}
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 text-destructive"
-                        onClick={() => handleDelete(patent)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredPatents.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="h-24 text-center">
+                      No patents match your filters.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filteredPatents.map((patent, index) => (
+                    <TableRow key={patent._id} className="hover:bg-muted/30 transition-colors text-sm">
+                      <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
+                      <TableCell className="font-medium">{patent.patentName}</TableCell>
+                      <TableCell className="text-xs">{patent.filingDate ? new Date(patent.filingDate).toLocaleDateString() : "—"}</TableCell>
+                      <TableCell className="text-xs text-amber-600 font-medium">
+                        {patent.provisionalExpiration ? new Date(patent.provisionalExpiration).toLocaleDateString() : "—"}
+                        {patent.provisionalExpiration && isExpiringExpiringSoon(patent.provisionalExpiration) && (
+                          <Badge variant="destructive" className="ml-2 text-[8px] px-1 py-0 h-4">EXPIRING</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-muted-foreground">{patent.applicationNumber}</TableCell>
+                      <TableCell className="text-xs">{patent.category}</TableCell>
+                      <TableCell className="text-xs">{patent.filingType}</TableCell>
+                      <TableCell>
+                        <Badge className={`${statusColors[patent.status]} border-0 shadow-none font-bold text-[10px] uppercase`}>
+                          {patent.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-blue-600"
+                            onClick={() => handleEdit(patent)}
+                          >
+                            <Edit2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-destructive"
+                            onClick={() => handleDelete(patent)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
               )))}
             </TableBody>
           </Table>
