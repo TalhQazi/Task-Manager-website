@@ -27,6 +27,8 @@ import {
   Trash2,
   Edit2,
   Clock,
+  Bell,
+  X,
 } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 
@@ -97,7 +99,9 @@ export function PendingPatents() {
     applicationNumber: "",
     filingType: "Provisional" as "Provisional" | "Non-Provisional" | "International",
     provisionalExpiration: "",
+    customReminderDays: [] as number[],
   });
+  const [newFilingReminderDay, setNewFilingReminderDay] = useState("");
 
   const autoCalcExpiration = (filingDate: string, filingType: string) => {
     if (!filingDate) return "";
@@ -184,6 +188,7 @@ export function PendingPatents() {
           applicationNumber: filingData.applicationNumber,
           filingType: filingData.filingType,
           provisionalExpiration: expDate,
+          customReminderDays: filingData.customReminderDays || [],
         }),
       });
       await patentsQuery.refetch();
@@ -428,6 +433,87 @@ export function PendingPatents() {
                   placeholder="e.g., US 10,123,456"
                 />
               </div>
+
+              {/* Custom Reminder Days in Filing modal */}
+              <div className="space-y-2 p-3 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/20">
+                <label className="text-xs font-semibold flex items-center justify-between text-indigo-900 dark:text-indigo-200">
+                  <span className="flex items-center gap-1">
+                    <Bell className="h-3.5 w-3.5 text-indigo-600" />
+                    Custom Reminder Days (Optional)
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-normal">
+                    before expiration
+                  </span>
+                </label>
+                <div className="flex flex-wrap gap-1">
+                  {(filingData.customReminderDays || []).map((day) => (
+                    <Badge
+                      key={day}
+                      variant="outline"
+                      className="px-2 py-0.5 text-[11px] font-medium bg-white dark:bg-gray-800 border-indigo-300 dark:border-indigo-700 text-indigo-800 dark:text-indigo-200 flex items-center gap-1"
+                    >
+                      {day}d
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFilingData((prev) => ({
+                            ...prev,
+                            customReminderDays: prev.customReminderDays.filter((d) => d !== day),
+                          }))
+                        }
+                        className="opacity-60 hover:opacity-100 hover:text-red-500"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                  {(filingData.customReminderDays || []).length === 0 && (
+                    <span className="text-[11px] text-muted-foreground italic">Global defaults</span>
+                  )}
+                </div>
+                <div className="flex gap-2 items-center pt-1">
+                  <input
+                    type="number"
+                    min={1}
+                    placeholder="e.g. 30"
+                    value={newFilingReminderDay}
+                    onChange={(e) => setNewFilingReminderDay(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const val = Math.round(Number(newFilingReminderDay));
+                        if (val > 0 && !filingData.customReminderDays.includes(val)) {
+                          setFilingData((prev) => ({
+                            ...prev,
+                            customReminderDays: [...prev.customReminderDays, val].sort((a, b) => a - b),
+                          }));
+                          setNewFilingReminderDay("");
+                        }
+                      }
+                    }}
+                    className="w-24 px-2 py-1 border rounded text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const val = Math.round(Number(newFilingReminderDay));
+                      if (val > 0 && !filingData.customReminderDays.includes(val)) {
+                        setFilingData((prev) => ({
+                          ...prev,
+                          customReminderDays: [...prev.customReminderDays, val].sort((a, b) => a - b),
+                        }));
+                        setNewFilingReminderDay("");
+                      }
+                    }}
+                    className="h-7 text-xs border-indigo-300 dark:border-indigo-700"
+                  >
+                    <Plus className="h-3 w-3 mr-1" /> Add
+                  </Button>
+                </div>
+              </div>
+
               <div className="flex gap-2 pt-4">
                 <Button onClick={handleFilePatent} className="flex-1 bg-green-600 hover:bg-green-700">
                   File Patent

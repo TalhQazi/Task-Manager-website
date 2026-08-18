@@ -215,7 +215,11 @@ export function FiledPatents() {
 
   const handleEdit = (patent: FiledPatent) => {
     setSelectedPatent(patent);
-    setFormData(patent);
+    setFormData({
+      ...patent,
+      customReminderDays: Array.isArray(patent.customReminderDays) ? [...patent.customReminderDays] : [],
+    });
+    setNewReminderDay("");
     setIsEditDialogOpen(true);
   };
 
@@ -226,6 +230,16 @@ export function FiledPatents() {
       (expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
     );
     return daysUntilExpiration <= 60 && daysUntilExpiration > 0;
+  };
+
+  const getDaysRemainingText = (expirationDate: string) => {
+    if (!expirationDate) return null;
+    const expDate = new Date(expirationDate);
+    const today = new Date();
+    const diff = Math.ceil((expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    if (diff < 0) return `${Math.abs(diff)}d overdue`;
+    if (diff === 0) return "Expires today";
+    return `${diff}d left`;
   };
 
   return (
@@ -251,7 +265,7 @@ export function FiledPatents() {
             </Button>
           </DialogTrigger>
 
-          <DialogContent className="w-[95vw] max-w-md flex flex-col max-h-[90vh]">
+          <DialogContent className="w-[95vw] max-w-lg flex flex-col max-h-[90vh]">
             <DialogHeader>
               <DialogTitle>
                 {selectedPatent ? "Edit Patent" : "Add New Patent"}
@@ -266,118 +280,228 @@ export function FiledPatents() {
 
             <div className="space-y-4 overflow-y-auto flex-1 pr-1">
               <div>
-                <label className="text-sm font-medium">Patent Name</label>
+                <label className="text-sm font-medium">Patent Name *</label>
                 <input
                   type="text"
                   value={formData.patentName || ""}
                   onChange={(e) =>
                     setFormData({ ...formData, patentName: e.target.value })
                   }
-                  className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
+                  className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20 text-sm"
                   placeholder="Patent name"
                 />
               </div>
 
-              <div>
-                <label className="text-sm font-medium">Category</label>
-                <input
-                  type="text"
-                  value={formData.category || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, category: e.target.value })
-                  }
-                  className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
-                  placeholder="e.g., Software, Mechanical"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium">Category</label>
+                  <input
+                    type="text"
+                    value={formData.category || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, category: e.target.value })
+                    }
+                    className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20 text-sm"
+                    placeholder="e.g., Software, Mechanical"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium">Filing Type</label>
+                  <select
+                    value={formData.filingType || "Provisional"}
+                    onChange={(e) => {
+                      const newType = e.target.value as FiledPatent["filingType"];
+                      const calculated = formData.filingDate ? autoCalculateExpiration(formData.filingDate, newType) : formData.provisionalExpiration;
+                      setFormData({
+                        ...formData,
+                        filingType: newType,
+                        provisionalExpiration: calculated,
+                      });
+                    }}
+                    className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20 text-sm"
+                  >
+                    <option value="Provisional">Provisional (1 Year)</option>
+                    <option value="Non-Provisional">Non-Provisional (20 Years)</option>
+                    <option value="International">International</option>
+                  </select>
+                </div>
               </div>
 
-              <div>
-                <label className="text-sm font-medium">Filing Type</label>
-                <select
-                  value={formData.filingType || "Provisional"}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      filingType: e.target.value as FiledPatent["filingType"],
-                    })
-                  }
-                  className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value="Provisional">Provisional</option>
-                  <option value="Non-Provisional">Non-Provisional</option>
-                  <option value="International">International</option>
-                </select>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium">Filing Date</label>
+                  <input
+                    type="date"
+                    value={formData.filingDate || ""}
+                    onChange={(e) => {
+                      const newFilingDate = e.target.value;
+                      const calculated = autoCalculateExpiration(newFilingDate, formData.filingType || "Provisional");
+                      setFormData({
+                        ...formData,
+                        filingDate: newFilingDate,
+                        provisionalExpiration: calculated,
+                      });
+                    }}
+                    className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20 text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium flex items-center justify-between">
+                    <span>Expiration Date</span>
+                    <span className="text-xs text-muted-foreground font-normal">(Custom / Editable)</span>
+                  </label>
+                  <input
+                    type="date"
+                    value={
+                      formData.provisionalExpiration
+                        ? formData.provisionalExpiration.split("T")[0]
+                        : formData.filingDate
+                          ? autoCalculateExpiration(formData.filingDate, formData.filingType || "Provisional")
+                          : ""
+                    }
+                    onChange={(e) =>
+                      setFormData({ ...formData, provisionalExpiration: e.target.value })
+                    }
+                    className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20 text-sm"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="text-sm font-medium">Filing Date</label>
-                <input
-                  type="date"
-                  value={formData.filingDate || ""}
-                  onChange={(e) => {
-                    const newFilingDate = e.target.value;
-                    const calculated = autoCalculateExpiration(newFilingDate, formData.filingType || "Provisional");
-                    setFormData({
-                      ...formData,
-                      filingDate: newFilingDate,
-                      provisionalExpiration: calculated,
-                    });
-                  }}
-                  className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium flex items-center justify-between">
-                  <span>Expiration Date</span>
-                  <span className="text-xs text-muted-foreground font-normal">(Editable)</span>
+              {/* Custom Email Reminder Days for this specific patent */}
+              <div className="space-y-2 p-3.5 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/20">
+                <label className="text-sm font-semibold flex items-center justify-between text-indigo-900 dark:text-indigo-200">
+                  <span className="flex items-center gap-1.5">
+                    <Bell className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                    Custom Email Reminder Days
+                  </span>
+                  <span className="text-[11px] font-normal text-indigo-700 dark:text-indigo-300">
+                    Per-patent schedule
+                  </span>
                 </label>
-                <input
-                  type="date"
-                  value={
-                    formData.provisionalExpiration
-                      ? formData.provisionalExpiration.split("T")[0]
-                      : formData.filingDate
-                        ? autoCalculateExpiration(formData.filingDate, formData.filingType || "Provisional")
-                        : ""
-                  }
-                  onChange={(e) =>
-                    setFormData({ ...formData, provisionalExpiration: e.target.value })
-                  }
-                  className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
-                />
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Specify how many days before expiration this patent should trigger email reminders to Admins (e.g., 15, 30, 60 days). Leave empty to use global default settings.
+                </p>
+
+                {/* Quick Add Presets */}
+                <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                  <span className="text-[11px] font-medium text-muted-foreground">Quick Add:</span>
+                  {[7, 15, 30, 45, 60, 90, 180].map((preset) => {
+                    const exists = (formData.customReminderDays || []).includes(preset);
+                    return (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => {
+                          if (exists) {
+                            handleRemoveReminderDay(preset);
+                          } else {
+                            const current = formData.customReminderDays || [];
+                            setFormData({
+                              ...formData,
+                              customReminderDays: [...current, preset].sort((a, b) => a - b),
+                            });
+                          }
+                        }}
+                        className={`text-[11px] px-2 py-0.5 rounded transition-colors font-medium border ${
+                          exists
+                            ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                            : "bg-white dark:bg-gray-800 text-indigo-700 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700 hover:bg-indigo-100 dark:hover:bg-indigo-900/40"
+                        }`}
+                      >
+                        {exists ? `✓ ${preset}d` : `+${preset}d`}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Active Custom Days Tags */}
+                <div className="flex flex-wrap gap-1.5 pt-1.5">
+                  {(formData.customReminderDays || []).map((day) => (
+                    <Badge
+                      key={day}
+                      variant="outline"
+                      className="px-2.5 py-0.5 text-xs font-semibold bg-white dark:bg-gray-800 border-indigo-300 dark:border-indigo-700 text-indigo-800 dark:text-indigo-200 flex items-center gap-1.5 shadow-sm"
+                    >
+                      {day} {day === 1 ? "day" : "days"} before
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveReminderDay(day)}
+                        className="opacity-60 hover:opacity-100 hover:text-red-500 transition-opacity"
+                        title="Remove alert day"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                  {(formData.customReminderDays || []).length === 0 && (
+                    <span className="text-[11px] text-muted-foreground italic">
+                      No custom days set — using system global thresholds (1, 7, 15, 30, 60, 90, 120, 180 days).
+                    </span>
+                  )}
+                </div>
+
+                {/* Custom input */}
+                <div className="flex gap-2 items-center pt-1">
+                  <Input
+                    type="number"
+                    min={1}
+                    placeholder="Enter days (e.g. 21)"
+                    value={newReminderDay}
+                    onChange={(e) => setNewReminderDay(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddReminderDay();
+                      }
+                    }}
+                    className="w-36 h-7 text-xs"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={handleAddReminderDay}
+                    className="h-7 text-xs gap-1 border-indigo-300 dark:border-indigo-700"
+                  >
+                    <Plus className="h-3 w-3" /> Add Day
+                  </Button>
+                </div>
               </div>
 
-              <div>
-                <label className="text-sm font-medium">Application Number</label>
-                <input
-                  type="text"
-                  value={formData.applicationNumber || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, applicationNumber: e.target.value })
-                  }
-                  className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
-                  placeholder="e.g., US 10,123,456"
-                />
-              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium">Application Number</label>
+                  <input
+                    type="text"
+                    value={formData.applicationNumber || ""}
+                    onChange={(e) =>
+                      setFormData({ ...formData, applicationNumber: e.target.value })
+                    }
+                    className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20 text-sm"
+                    placeholder="e.g., US 10,123,456"
+                  />
+                </div>
 
-              <div>
-                <label className="text-sm font-medium">Status</label>
-                <select
-                  value={formData.status || "Filed"}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      status: e.target.value as FiledPatent["status"],
-                    })
-                  }
-                  className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value="Filed">Filed</option>
-                  <option value="Issued">Issued</option>
-                  <option value="Expired">Expired</option>
-                  <option value="Abandoned">Abandoned</option>
-                </select>
+                <div>
+                  <label className="text-sm font-medium">Status</label>
+                  <select
+                    value={formData.status || "Filed"}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        status: e.target.value as FiledPatent["status"],
+                      })
+                    }
+                    className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20 text-sm"
+                  >
+                    <option value="Filed">Filed</option>
+                    <option value="Issued">Issued</option>
+                    <option value="Expired">Expired</option>
+                    <option value="Abandoned">Abandoned</option>
+                  </select>
+                </div>
               </div>
 
               <div>
@@ -387,68 +511,10 @@ export function FiledPatents() {
                   onChange={(e) =>
                     setFormData({ ...formData, notes: e.target.value })
                   }
-                  className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20"
-                  rows={3}
+                  className="w-full mt-1 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary/20 text-sm"
+                  rows={2}
                   placeholder="Additional notes..."
                 />
-              </div>
-
-              {/* Custom Email Reminder Days */}
-              <div className="space-y-2 p-3 rounded-lg border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/20">
-                <label className="text-sm font-medium flex items-center gap-1.5 text-indigo-900 dark:text-indigo-200">
-                  <Bell className="h-3.5 w-3.5" />
-                  Custom Email Reminder Days
-                  <span className="text-xs text-muted-foreground font-normal">(optional)</span>
-                </label>
-                <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  Set custom days before expiration to receive email reminders for this patent. Leave empty to use the global notification settings.
-                </p>
-                <div className="flex flex-wrap gap-1.5">
-                  {(formData.customReminderDays || []).map((day) => (
-                    <Badge
-                      key={day}
-                      variant="outline"
-                      className="px-2 py-0.5 text-xs font-medium bg-white dark:bg-gray-800 border-indigo-300 dark:border-indigo-700 text-indigo-800 dark:text-indigo-200 flex items-center gap-1 group hover:border-red-400 transition-colors"
-                    >
-                      {day} {day === 1 ? "day" : "days"}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveReminderDay(day)}
-                        className="opacity-50 group-hover:opacity-100 hover:text-red-500 transition-opacity"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </Badge>
-                  ))}
-                  {(formData.customReminderDays || []).length === 0 && (
-                    <span className="text-[11px] text-muted-foreground italic">Using global settings</span>
-                  )}
-                </div>
-                <div className="flex gap-2 items-center">
-                  <Input
-                    type="number"
-                    min={1}
-                    placeholder="e.g. 45"
-                    value={newReminderDay}
-                    onChange={(e) => setNewReminderDay(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleAddReminderDay();
-                      }
-                    }}
-                    className="w-28 h-7 text-xs"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={handleAddReminderDay}
-                    className="h-7 text-xs gap-1 border-indigo-300 dark:border-indigo-700"
-                  >
-                    <Plus className="h-3 w-3" /> Add
-                  </Button>
-                </div>
               </div>
             </div>
 
@@ -550,6 +616,7 @@ export function FiledPatents() {
                   <TableHead className="font-bold">Patent Name</TableHead>
                   <TableHead className="font-bold">Filed Date</TableHead>
                   <TableHead className="font-bold">Expires</TableHead>
+                  <TableHead className="font-bold">Reminder Schedule</TableHead>
                   <TableHead className="font-bold">App Number</TableHead>
                   <TableHead className="font-bold">Category</TableHead>
                   <TableHead className="font-bold">Type</TableHead>
@@ -560,55 +627,89 @@ export function FiledPatents() {
               <TableBody>
                 {filteredPatents.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="h-24 text-center">
+                    <TableCell colSpan={10} className="h-24 text-center">
                       No patents match your filters.
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredPatents.map((patent, index) => (
-                    <TableRow key={patent._id} className="hover:bg-muted/30 transition-colors text-sm">
-                      <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
-                      <TableCell className="font-medium">{patent.patentName}</TableCell>
-                      <TableCell className="text-xs">{patent.filingDate ? new Date(patent.filingDate).toLocaleDateString() : "—"}</TableCell>
-                      <TableCell className="text-xs text-amber-600 font-medium">
-                        {patent.provisionalExpiration ? new Date(patent.provisionalExpiration).toLocaleDateString() : "—"}
-                        {patent.provisionalExpiration && isExpiringExpiringSoon(patent.provisionalExpiration) && (
-                          <Badge variant="destructive" className="ml-2 text-[8px] px-1 py-0 h-4">EXPIRING</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">{patent.applicationNumber}</TableCell>
-                      <TableCell className="text-xs">{patent.category}</TableCell>
-                      <TableCell className="text-xs">{patent.filingType}</TableCell>
-                      <TableCell>
-                        <Badge className={`${statusColors[patent.status]} border-0 shadow-none font-bold text-[10px] uppercase`}>
-                          {patent.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-blue-600"
-                            onClick={() => handleEdit(patent)}
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => handleDelete(patent)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-              )))}
-            </TableBody>
-          </Table>
-        </div>
+                  filteredPatents.map((patent, index) => {
+                    const daysLeft = getDaysRemainingText(patent.provisionalExpiration);
+                    const hasCustomDays = Array.isArray(patent.customReminderDays) && patent.customReminderDays.length > 0;
+                    return (
+                      <TableRow key={patent._id} className="hover:bg-muted/30 transition-colors text-sm">
+                        <TableCell className="font-medium text-muted-foreground">{index + 1}</TableCell>
+                        <TableCell className="font-medium">{patent.patentName}</TableCell>
+                        <TableCell className="text-xs">{patent.filingDate ? new Date(patent.filingDate).toLocaleDateString() : "—"}</TableCell>
+                        <TableCell className="text-xs font-medium">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="text-amber-700 dark:text-amber-400 font-semibold">
+                              {patent.provisionalExpiration ? new Date(patent.provisionalExpiration).toLocaleDateString() : "—"}
+                            </span>
+                            {daysLeft && (
+                              <span className={`text-[10px] ${
+                                isExpiringExpiringSoon(patent.provisionalExpiration)
+                                  ? "text-red-600 font-bold"
+                                  : "text-muted-foreground"
+                              }`}>
+                                {daysLeft}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {hasCustomDays ? (
+                            <div className="flex flex-wrap gap-1 max-w-[180px]">
+                              {patent.customReminderDays.map((d) => (
+                                <Badge
+                                  key={d}
+                                  variant="outline"
+                                  className="text-[10px] px-1.5 py-0 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800"
+                                >
+                                  {d}d
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-muted-foreground italic">Global</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="font-mono text-xs text-muted-foreground">{patent.applicationNumber || "—"}</TableCell>
+                        <TableCell className="text-xs">{patent.category || "—"}</TableCell>
+                        <TableCell className="text-xs">{patent.filingType || "Provisional"}</TableCell>
+                        <TableCell>
+                          <Badge className={`${statusColors[patent.status] || "bg-gray-100 text-gray-800"} border-0 shadow-none font-bold text-[10px] uppercase`}>
+                            {patent.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 text-blue-600"
+                              title="Edit Patent"
+                              onClick={() => handleEdit(patent)}
+                            >
+                              <Edit2 className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 text-destructive"
+                              title="Delete Patent"
+                              onClick={() => handleDelete(patent)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </div>
       )}
     </div>
