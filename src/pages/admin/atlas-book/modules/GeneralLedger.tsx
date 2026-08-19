@@ -80,10 +80,10 @@ export default function GeneralLedger() {
       const payload = { ...form };
       if (!payload.company) delete (payload as any).company;
       if (!payload.companyLocation) delete (payload as any).companyLocation;
-    try {
+
       const res = await apiFetch("/api/atlasbook/journal", {
         method: "POST",
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       if (res?.success) {
         setOpen(false);
