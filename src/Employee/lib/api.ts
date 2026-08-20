@@ -709,6 +709,17 @@ export const uploadDocument = (formData: FormData) =>
     body: formData,
   });
 
+export async function getEmployeeSelfFile() {
+  return employeeApiFetch<{ item: any }>("/api/employees/me/file");
+}
+
+export async function submitChangeRequest(payload: { requestType: string; proposedData: any; reason?: string }) {
+  return employeeApiFetch<{ success: boolean; item: any }>("/api/employees/me/change-requests", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export const getDocuments = () =>
   employeeApiFetch("/api/employees/me/documents");
 

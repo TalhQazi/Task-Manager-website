@@ -4,6 +4,7 @@ import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
 import { Badge } from "@/components/manger/ui/badge";
+import { EmployeeFileWorkspace } from "@/components/admin/employees/EmployeeFileWorkspace";
 import {
   Select,
   SelectContent,
@@ -309,6 +310,9 @@ export default function Employees() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [workspaceEmployeeId, setWorkspaceEmployeeId] = useState<string | null>(
+    () => searchParams.get("id") || null
+  );
   const queryClient = useQueryClient();
   const { socket } = useSocket();
 
@@ -499,7 +503,10 @@ export default function Employees() {
 
   const openView = (employee: Employee) => {
     setSelectedEmployee(employee);
-    setIsViewOpen(true);
+    setWorkspaceEmployeeId(employee.id);
+    const next = new URLSearchParams(searchParams);
+    next.set("id", employee.id);
+    setSearchParams(next, { replace: true });
   };
 
   const openEdit = (employee: Employee) => {
@@ -584,6 +591,22 @@ export default function Employees() {
       return matchesSearch && matchesStatus;
     });
   }, [employees, searchQuery, statusFilter]);
+
+  if (workspaceEmployeeId) {
+    return (
+      <div className="px-2 sm:px-4 lg:px-6 py-4 max-w-7xl mx-auto">
+        <EmployeeFileWorkspace
+          employeeId={workspaceEmployeeId}
+          onBack={() => {
+            setWorkspaceEmployeeId(null);
+            const next = new URLSearchParams(searchParams);
+            next.delete("id");
+            setSearchParams(next, { replace: true });
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <motion.div

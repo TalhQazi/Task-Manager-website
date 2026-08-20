@@ -8,6 +8,7 @@ import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/admin/ui/avatar";
 import { useForm } from "react-hook-form";
+import { EmployeeFileWorkspace } from "@/components/admin/employees/EmployeeFileWorkspace";
 import {
   Select,
   SelectContent,
@@ -275,6 +276,9 @@ const Employees = () => {
   const watchedCategory = addForm.watch("category");
 
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [workspaceEmployeeId, setWorkspaceEmployeeId] = useState<string | null>(
+    () => searchParams.get("id") || null
+  );
   const [viewProfileOpen, setViewProfileOpen] = useState(false);
   const [editEmployeeOpen, setEditEmployeeOpen] = useState(false);
   const [showCustomCategoryEdit, setShowCustomCategoryEdit] = useState(false);
@@ -458,7 +462,10 @@ const Employees = () => {
 
   const handleViewProfile = (employee: Employee) => {
     setSelectedEmployee(employee);
-    setViewProfileOpen(true);
+    setWorkspaceEmployeeId(employee.id);
+    const next = new URLSearchParams(searchParams);
+    next.set("id", employee.id);
+    setSearchParams(next, { replace: true });
   };
 
   useEffect(() => {
@@ -752,6 +759,23 @@ const Employees = () => {
         return null;
     }
   };
+
+  if (workspaceEmployeeId) {
+    return (
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto">
+        <EmployeeFileWorkspace
+          employeeId={workspaceEmployeeId}
+          onBack={() => {
+            setWorkspaceEmployeeId(null);
+            const next = new URLSearchParams(searchParams);
+            next.delete("id");
+            setSearchParams(next, { replace: true });
+            refreshEmployees();
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <>
