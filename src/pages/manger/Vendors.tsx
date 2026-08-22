@@ -141,7 +141,11 @@ export default function Vendors() {
       if (!matchesLocation || !matchesStatusFilter) return false;
 
       const isApproved = vendor.status === "approved";
-      const isNameMatch = q !== "" && vendor.name.toLowerCase().includes(q);
+      const isNameMatch = q !== "" && (
+        vendor.name.toLowerCase() === q ||
+        vendor.name.toLowerCase().startsWith(q) ||
+        (vendor.name.toLowerCase().includes(q) && !vendor.serviceType.toLowerCase().includes(q))
+      );
       const isGeneralSearchMatch =
         q !== "" &&
         (vendor.name.toLowerCase().includes(q) ||

@@ -1158,7 +1158,7 @@ export default function Tasks() {
     status: "pending" as Task["status"],
     dueDate: "",
     dueTime: "",
-    location: "",
+    location: "Center",
     attachmentFileName: "",
     attachmentNote: "",
     introVideoUrl: "",
@@ -1248,7 +1248,7 @@ export default function Tasks() {
       status: "pending",
       dueDate: "",
       dueTime: "",
-      location: "",
+      location: "Center",
       introVideoUrl: "",
     },
   });
@@ -1349,7 +1349,7 @@ export default function Tasks() {
       status: "pending",
       dueDate: "",
       dueTime: "",
-      location: "",
+      location: "Center",
       attachmentFileName: "",
     attachmentNote: "",
     introVideoUrl: "",
@@ -1409,7 +1409,7 @@ export default function Tasks() {
       status: "pending",
       dueDate: "",
       dueTime: "",
-      location: "",
+      location: "Center",
       attachmentFileName: "",
     attachmentNote: "",
     introVideoUrl: "",
@@ -1571,7 +1571,7 @@ export default function Tasks() {
         status: "pending",
         dueDate: "",
         dueTime: "",
-        location: "",
+        location: "Center",
         attachmentFileName: "",
     attachmentNote: "",
     introVideoUrl: "",
@@ -3386,6 +3386,14 @@ export default function Tasks() {
                       <SelectItem value="overdue">Overdue</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="sm:col-span-2 space-y-1.5">
+                  <label className="text-sm font-medium">Location</label>
+                  <Input
+                    value={formData.location}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, location: e.target.value }))}
+                    placeholder="e.g. Center"
+                  />
                 </div>
               </div>
 
