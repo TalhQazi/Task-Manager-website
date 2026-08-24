@@ -16,8 +16,11 @@ export default function AccountsPayable() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
-  
   const [form, setForm] = useState({ vendor: "", company: "", companyLocation: "", billNumber: "", date: new Date().toISOString().split("T")[0], dueDate: "", amount: "", description: "", status: "Unpaid" });
+
+  const [filterCompany, setFilterCompany] = useState("");
+  const [filterLocation, setFilterLocation] = useState("");
+  const [filterLocations, setFilterLocations] = useState<any[]>([]);
 
   const load = async () => {
     try {
@@ -48,6 +51,14 @@ export default function AccountsPayable() {
     } catch { setCompanyLocations([]); }
   };
 
+  const loadFilterLocations = async (companyId: string) => {
+    if (!companyId) { setFilterLocations([]); return; }
+    try {
+      const res = await apiFetch(`/api/company-locations?company=${companyId}`);
+      setFilterLocations(res?.items || []);
+    } catch { setFilterLocations([]); }
+  };
+
   const handleCompanyChange = (companyId: string) => {
     setForm({ ...form, company: companyId, companyLocation: "" });
     loadLocations(companyId);
@@ -73,11 +84,15 @@ export default function AccountsPayable() {
     }
   };
 
-  const filtered = items.filter(i => 
-    i.billNumber?.toLowerCase().includes(q.toLowerCase()) || 
-    i.vendor?.name?.toLowerCase().includes(q.toLowerCase()) ||
-    i.company?.name?.toLowerCase().includes(q.toLowerCase())
-  );
+  const filtered = items.filter(i => {
+    const matchesQ = i.billNumber?.toLowerCase().includes(q.toLowerCase()) || 
+      i.vendor?.name?.toLowerCase().includes(q.toLowerCase()) ||
+      i.company?.name?.toLowerCase().includes(q.toLowerCase());
+    const matchesCompany = filterCompany ? (i.company?._id === filterCompany || i.company?.id === filterCompany) : true;
+    const matchesLocation = filterLocation ? (i.companyLocation?._id === filterLocation || i.companyLocation?.id === filterLocation) : true;
+    
+    return matchesQ && matchesCompany && matchesLocation;
+  });
 
   const totalUnpaid = items.filter(i => i.status === "Unpaid").reduce((sum, i) => sum + i.amount, 0);
 
@@ -115,9 +130,39 @@ export default function AccountsPayable() {
       </div>
 
       <Card className="shadow-soft p-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input placeholder="Search bills, vendors, or companies..." className="pl-10" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input placeholder="Search bills, vendors, or companies..." className="pl-10" value={q} onChange={(e) => setQ(e.target.value)} />
+          </div>
+          <div className="flex gap-4 md:w-1/2">
+            <select 
+              className="flex-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              value={filterCompany}
+              onChange={(e) => {
+                setFilterCompany(e.target.value);
+                setFilterLocation("");
+                loadFilterLocations(e.target.value);
+              }}
+            >
+              <option value="">All Companies</option>
+              {companies.map(c => <option key={c.id || c._id} value={c.id || c._id}>{c.name}</option>)}
+            </select>
+            
+            <select 
+              className="flex-1 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50"
+              value={filterLocation}
+              onChange={(e) => setFilterLocation(e.target.value)}
+              disabled={!filterCompany}
+            >
+              <option value="">All Locations</option>
+              {filterLocations.map(loc => (
+                <option key={loc._id} value={loc._id}>
+                  {loc.label}{loc.address?.city ? ` — ${loc.address.city}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </Card>
 

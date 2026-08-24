@@ -7,6 +7,7 @@ import { Badge } from "@/components/admin/ui/badge";
 import { FiledPatents } from "@/components/admin/FiledPatents";
 import { PendingPatents } from "@/components/admin/PendingPatents";
 import { ExpirationWatch } from "@/components/admin/ExpirationWatch";
+import { CustomTimerWatch } from "@/components/admin/CustomTimerWatch";
 import { FiledTrademarks } from "@/components/admin/FiledTrademarks";
 import { GrantedTrademarks } from "@/components/admin/GrantedTrademarks";
 import { ExpiredPatents } from "@/components/admin/ExpiredPatents";
@@ -391,6 +392,7 @@ export function IntellectualProperty() {
               <span className="px-1.5 py-0.2 bg-amber-500 text-white rounded-full text-[10px] font-bold">{expiringCount}</span>
             )}
           </TabsTrigger>
+          <TabsTrigger value="custom-timer-view" className="px-4 py-2">Custom Timer View</TabsTrigger>
         </TabsList>
 
         <TabsContent value="filed-patents">
@@ -455,6 +457,10 @@ export function IntellectualProperty() {
 
         <TabsContent value="expiration-watch">
           <ExpirationWatch />
+        </TabsContent>
+
+        <TabsContent value="custom-timer-view">
+          <CustomTimerWatch globalReminderDays={localDays} />
         </TabsContent>
       </Tabs>
     </div>

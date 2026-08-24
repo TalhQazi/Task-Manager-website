@@ -1781,13 +1781,20 @@ export default function ComplianceCenter() {
                 </div>
               </div>
 
-              <div className="pt-4 flex justify-end">
-                <Button
-                  onClick={closeDrawer}
-                  className={isMetallic ? "bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700" : ""}
-                >
-                  Close Panel
-                </Button>
+              <div className="pt-4 flex flex-col items-center gap-4 border-t border-muted/50 mt-6">
+                <div className="w-full flex justify-end">
+                  <Button
+                    onClick={closeDrawer}
+                    className={isMetallic ? "bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700" : ""}
+                  >
+                    Close Panel
+                  </Button>
+                </div>
+                <div className="text-center pb-4">
+                  <p className="text-sm text-muted-foreground">
+                    Part of the <a href="https://se7en.com" target="_blank" rel="noreferrer" className="text-blue-500 hover:underline font-semibold">Se7en</a> family of companies.
+                  </p>
+                </div>
               </div>
 
             </div>
