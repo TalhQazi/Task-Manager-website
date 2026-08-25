@@ -266,7 +266,7 @@ export default function Messaging() {
       if (!normalized.id) return;
       // Always refresh the conversation list sidebar
       loadConversations();
-      // Append to current conversation if applicable
+      // Append to current conversation if direct message
       if (
         view === "conversation" &&
         selectedEmployee &&
@@ -277,10 +277,22 @@ export default function Messaging() {
           return [...prev, normalized].sort((a, b) => a.id.localeCompare(b.id));
         });
       }
+      // Append to current group if group message
+      if (
+        view === "group" &&
+        selectedGroup &&
+        normalized.groupId &&
+        String(normalized.groupId) === String(selectedGroup.id || (selectedGroup as any)._id)
+      ) {
+        setConversationMessages((prev) => {
+          if (isDuplicateMessage(prev, normalized)) return prev;
+          return [...prev, normalized].sort((a, b) => a.id.localeCompare(b.id));
+        });
+      }
     };
     socket.on("new-message", handleNewMessage);
     return () => { socket.off("new-message", handleNewMessage); };
-  }, [socket, view, selectedEmployee?.name]);
+  }, [socket, view, selectedEmployee?.name, selectedGroup?.id]);
 
   // Real-time reaction updates via socket
   useEffect(() => {
@@ -373,14 +385,26 @@ export default function Messaging() {
     };
   }, [socket]);
 
-  // Polling fallback: refresh messages every 3s when conversation is open
+  // Polling fallback: refresh messages every 3s when conversation/group is open
   useEffect(() => {
-    if (view !== "conversation" || !selectedEmployee) return;
-    const interval = setInterval(() => {
-      loadConversationMessages(selectedEmployee.name);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [view, selectedEmployee?.name]);
+    if (view === "conversation" && selectedEmployee) {
+      const interval = setInterval(() => {
+        loadConversationMessages(selectedEmployee.name);
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+    if (view === "group" && selectedGroup) {
+      const targetId = String(selectedGroup.id || (selectedGroup as any)._id || "");
+      if (!targetId) return;
+      const interval = setInterval(async () => {
+        try {
+          const res = await apiFetch<{ items: MessageApi[] }>(`/api/messages/groups/${targetId}/messages`);
+          setConversationMessages((res.items || []).map(normalizeMessage));
+        } catch {}
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [view, selectedEmployee?.name, selectedGroup?.id]);
 
   // Save to localStorage when changed
   useEffect(() => {
@@ -442,10 +466,10 @@ export default function Messaging() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (selectedEmployee) {
+    if (selectedEmployee || selectedGroup) {
       isInitialLoad.current = true;
     }
-  }, [selectedEmployee]);
+  }, [selectedEmployee, selectedGroup]);
 
   const { name: authName, username: authUsername } = getAuthState();
   const currentUser = (authName || authUsername || "Admin").trim();
@@ -497,7 +521,11 @@ export default function Messaging() {
   const loadGroups = async () => {
     try {
       const res = await apiFetch<{ items: ChatGroup[] }>("/api/messages/groups");
-      setGroups(res.items || []);
+      const items = (res.items || []).map((g: any) => ({
+        ...g,
+        id: String(g._id || g.id || ""),
+      }));
+      setGroups(items);
     } catch (e) {
       console.error("Failed to load groups:", e);
     }
@@ -508,14 +536,17 @@ export default function Messaging() {
   }, []);
 
   const startGroupChat = async (group: ChatGroup) => {
-    setSelectedGroup(group);
+    const groupId = String(group._id || group.id || "");
+    const safeGroup: ChatGroup = { ...group, id: groupId };
+    setSelectedGroup(safeGroup);
     setSelectedEmployee(null);
     setView("group");
-    if (socket) {
-      socket.emit("join-group", group.id);
+    setConversationMessages([]);
+    if (socket && groupId) {
+      socket.emit("join-group", groupId);
     }
     try {
-      const res = await apiFetch<{ items: MessageApi[] }>(`/api/messages/groups/${group.id}/messages`);
+      const res = await apiFetch<{ items: MessageApi[] }>(`/api/messages/groups/${groupId}/messages`);
       setConversationMessages((res.items || []).map(normalizeMessage));
     } catch (e) {
       toast.error("Failed to load group messages");
@@ -526,12 +557,13 @@ export default function Messaging() {
     try {
       const file = new File([audioBlob], `voice-note-${Date.now()}.webm`, { type: "audio/webm" });
       const att = await uploadAttachment(file);
+      const targetGroupId = selectedGroup ? String(selectedGroup.id || (selectedGroup as any)._id || "") : undefined;
 
       const payload: Partial<Message> = {
         sender: currentUser,
         senderAvatar: getInitials(currentUser),
         recipient: selectedEmployee ? selectedEmployee.name : "",
-        groupId: selectedGroup ? selectedGroup.id : undefined,
+        groupId: targetGroupId,
         content: "Voice Note",
         timestamp: new Date().toISOString(),
         type: "voice_note",
@@ -615,20 +647,22 @@ export default function Messaging() {
   };
 
   const handleFileSelected = async (file: File | null) => {
-    if (!file || !selectedEmployee) return;
+    if (!file || (!selectedEmployee && !selectedGroup)) return;
 
     isSendingMessage.current = true;
     setUploading(true);
     try {
       const attachment = await uploadAttachment(file);
+      const targetGroupId = selectedGroup ? String(selectedGroup.id || (selectedGroup as any)._id || "") : undefined;
 
       const payload: Omit<Message, "id"> = {
         sender: currentUser,
         senderAvatar: getInitials(currentUser),
-        recipient: selectedEmployee.name,
+        recipient: selectedEmployee ? selectedEmployee.name : "",
+        groupId: targetGroupId,
         content: newMessageContent.trim(),
         timestamp: new Date().toISOString(),
-        type: "direct",
+        type: selectedGroup ? "group" : "direct",
         status: "sent",
         attachment,
       };
@@ -645,7 +679,9 @@ export default function Messaging() {
           return [...prev, newMsg];
         });
         setNewMessageContent("");
-        await loadConversations();
+        if (selectedEmployee) {
+          await loadConversations();
+        }
       }
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "Failed to send attachment");
@@ -702,7 +738,7 @@ export default function Messaging() {
 
   // Smart Scroll to bottom of messages
   useEffect(() => {
-    if (view !== "conversation") return;
+    if (view !== "conversation" && view !== "group") return;
     const container = scrollContainerRef.current;
     if (!container) return;
 
@@ -749,6 +785,7 @@ export default function Messaging() {
 
   const startConversation = async (employee: Employee) => {
     setSelectedEmployee(employee);
+    setSelectedGroup(null);
     setView("conversation");
     setEmployeeSearchQuery("");
     // Load conversation messages from API
@@ -760,18 +797,20 @@ export default function Messaging() {
   };
 
   const sendMessage = async () => {
-    if (!newMessageContent.trim() || !selectedEmployee) return;
+    if (!newMessageContent.trim() || (!selectedEmployee && !selectedGroup)) return;
 
     isSendingMessage.current = true;
     setSending(true);
     try {
+      const targetGroupId = selectedGroup ? String(selectedGroup.id || (selectedGroup as any)._id || "") : undefined;
       const payload: Omit<Message, "id"> = {
         sender: currentUser,
         senderAvatar: getInitials(currentUser),
-        recipient: selectedEmployee.name,
+        recipient: selectedEmployee ? selectedEmployee.name : "",
+        groupId: targetGroupId,
         content: newMessageContent.trim(),
         timestamp: new Date().toISOString(),
-        type: "direct",
+        type: selectedGroup ? "group" : "direct",
         status: "sent",
       };
 
@@ -788,7 +827,9 @@ export default function Messaging() {
         });
         setNewMessageContent("");
         setShowEmojiPicker(false);
-        await loadConversations();
+        if (selectedEmployee) {
+          await loadConversations();
+        }
       }
     } catch (e) {
       setApiError(e instanceof Error ? e.message : "Failed to send message");
@@ -896,6 +937,40 @@ export default function Messaging() {
                     {selectedEmployee.current_status && selectedEmployee.current_status !== "AVAILABLE"
                       ? getSubtitle(selectedEmployee)
                       : selectedEmployee.email}
+                  </p>
+                </div>
+              </div>
+            ) : view === "group" && selectedGroup ? (
+              <div className="flex items-center gap-3">
+                <Button 
+                  variant="ghost" 
+                  size="icon"
+                  onClick={() => {
+                    setView("list");
+                    setSelectedGroup(null);
+                  }}
+                >
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <div className="h-10 w-10 rounded-xl bg-purple-100 border border-purple-200 text-purple-700 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                  {selectedGroup.name.slice(0, 2).toUpperCase()}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-xl sm:text-2xl font-bold text-slate-800">{selectedGroup.name}</h1>
+                    {selectedGroup.isPrivate && (
+                      <Badge className="bg-purple-100 text-purple-800 text-xs flex items-center gap-1 border-purple-200">
+                        <Lock className="h-3 w-3" /> Private
+                      </Badge>
+                    )}
+                    {selectedGroup.announcementOnly && (
+                      <Badge className="bg-amber-100 text-amber-800 text-xs flex items-center gap-1 border-amber-200">
+                        <Megaphone className="h-3 w-3" /> Announcement
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {selectedGroup.members?.length || 0} member{selectedGroup.members?.length !== 1 ? "s" : ""} {selectedGroup.description ? `• ${selectedGroup.description}` : ""}
                   </p>
                 </div>
               </div>
@@ -1242,7 +1317,6 @@ export default function Messaging() {
             <DialogHeader>
               <DialogTitle>Select Employee to Message</DialogTitle>
             </DialogHeader>
-            
             <div className="relative mb-4">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -1281,324 +1355,348 @@ export default function Messaging() {
                         <Badge className="bg-purple-600 text-white text-[10px] h-4 py-0 px-1 font-semibold">Break</Badge>
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground truncate">
-                      {employee.current_status && employee.current_status !== "AVAILABLE"
-                        ? getSubtitle(employee)
-                        : employee.email}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="secondary" className="text-xs">
-                        {employee.department || "No Department"}
-                      </Badge>
-                      <Badge 
-                        variant="outline" 
-                        className={cn(
-                          "text-xs",
-                          employee.status === "active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
-                        )}
-                      >
-                        {employee.status}
-                      </Badge>
-                    </div>
-                  </div>
-                </button>
-              ))}
-              
-              {filteredEmployees.length === 0 && (
-                <div className="text-center py-8">
-                  <User className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                  <p className="text-muted-foreground">No employees found</p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Try a different search term
-                  </p>
-                </div>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* Conversation View */}
-        {view === "conversation" && selectedEmployee && (
-          <>
-            {preview ? (
-              <Dialog open={Boolean(preview)} onOpenChange={(o) => (!o ? setPreview(null) : null)}>
-                <DialogContent className="max-w-3xl">
-                  <DialogHeader>
-                    <DialogTitle className="flex items-center justify-between gap-2">
-                      <span className="truncate">{preview.fileName}</span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="gap-2"
-                        onClick={() => downloadAttachment(preview.url, preview.fileName)}
-                      >
-                        <Download className="h-4 w-4" />
-                        Download
-                      </Button>
-                    </DialogTitle>
-                  </DialogHeader>
-                  <div className="w-full">
-                    <img
-                      src={toProxiedUrl(preview.url) || preview.url}
-                      alt={preview.fileName}
-                      className="w-full max-h-[70vh] object-contain rounded-md"
-                    />
-                  </div>
-                </DialogContent>
-              </Dialog>
-            ) : null}
-
-            <Card className="flex flex-col h-[calc(100vh-280px)] min-h-[400px]">
-              {/* Messages Area */}
-              <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
-              {conversationMessages.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-center">
-                  <MessageCircle className="h-16 w-16 text-muted-foreground/50 mb-4" />
-                  <p className="text-lg font-medium">Start the conversation</p>
-                  <p className="text-muted-foreground">
-                    Send a message to {selectedEmployee.name}
-                  </p>
-                </div>
-              ) : (
-                <>
-                  {conversationMessages.map((msg, index) => {
-                    const isMe = msg.sender === currentUser || msg.sender === "You";
-                    const showAvatar = index === 0 || conversationMessages[index - 1].sender !== msg.sender;
-                    const attachmentUrl = msg.attachment?.url || "";
-                    const attachmentName = msg.attachment?.fileName || "attachment";
-                    const attachmentMime = msg.attachment?.mimeType || "";
-                    const isImage = attachmentMime.startsWith("image/");
-                    
-                    return (
-                      <div
-                        key={msg.id}
-                        className={cn(
-                          "flex gap-3",
-                          isMe ? "flex-row-reverse" : "flex-row"
-                        )}
-                      >
-                        {showAvatar ? (
-                          <Avatar className="h-8 w-8 flex-shrink-0">
-                            {isMe ? null : selectedEmployee?.avatarUrl ? (
-                              <AvatarImage src={toProxiedUrl(selectedEmployee.avatarUrl) || selectedEmployee.avatarUrl} alt={selectedEmployee.name} className="object-cover" />
-                            ) : null}
-                            <AvatarFallback className={isMe ? "bg-primary text-primary-foreground" : "bg-muted"}>
-                              {getInitials(isMe ? currentUser : msg.sender)}
-                            </AvatarFallback>
-                          </Avatar>
-                        ) : (
-                          <div className="w-8 flex-shrink-0" />
-                        )}
-                        <div className={cn("max-w-[70%] flex flex-col", isMe ? "items-end" : "items-start")}>
-                        <div
-                          className={cn(
-                            "rounded-2xl px-4 py-2",
-                            isMe
-                              ? "bg-primary text-primary-foreground rounded-br-none"
-                              : "bg-muted rounded-bl-none"
-                          )}
-                        >
-                          {/* Voice Note Rendering */}
-                          {msg.type === "voice_note" && msg.voiceNote?.url && (
-                            <div className="flex items-center gap-2 bg-slate-900 text-white p-2.5 rounded-xl border border-slate-700 my-1">
-                              <Mic className="h-4 w-4 text-blue-400 flex-shrink-0 animate-pulse" />
-                              <span className="text-[11px] font-mono font-bold text-blue-300">Voice Note ({msg.voiceNote.duration || 0}s)</span>
-                              <audio controls src={toProxiedUrl(msg.voiceNote.url) || msg.voiceNote.url} className="h-6 w-36" />
-                            </div>
-                          )}
-
-                          {attachmentUrl ? (
-                            isImage ? (
-                              <button
-                                type="button"
-                                className="block"
-                                onClick={() => setPreview({ url: attachmentUrl, fileName: attachmentName })}
-                              >
-                                <img
-                                  src={toProxiedUrl(attachmentUrl) || attachmentUrl}
-                                  alt={attachmentName}
-                                  className="max-w-[160px] max-h-[160px] rounded-md object-cover"
-                                />
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                className={cn(
-                                  "text-sm underline",
-                                  isMe ? "text-primary-foreground" : "text-foreground",
-                                )}
-                                onClick={() => downloadAttachment(attachmentUrl, attachmentName)}
-                              >
-                                {attachmentName}
-                              </button>
-                            )
-                          ) : null}
-
-                          {msg.content?.trim() ? <p className="text-sm">{renderMessageContent(msg.content, isMe)}</p> : null}
-
-                          {/* Message Context Actions (Thread, Convert to Task, Pin, Star) */}
-                          <div className="flex items-center gap-2 mt-1.5 pt-1 border-t border-slate-200/30 text-[10px]">
-                            <button
-                              type="button"
-                              onClick={() => setActiveThreadParent(msg)}
-                              className="hover:underline flex items-center gap-1 opacity-80 hover:opacity-100"
-                            >
-                              <MessageSquare className="h-3 w-3" /> Reply in Thread {msg.replyCount ? `(${msg.replyCount})` : ""}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleConvertToTask(msg)}
-                              className="hover:underline flex items-center gap-1 text-amber-300 hover:text-amber-200"
-                            >
-                              <Sparkles className="h-3 w-3" /> Task
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handlePinMessage(msg)}
-                              className="hover:underline flex items-center gap-1 opacity-80 hover:opacity-100"
-                            >
-                              <Pin className={`h-3 w-3 ${msg.isPinned ? "fill-current" : ""}`} />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleStarMessage(msg)}
-                              className="hover:underline flex items-center gap-1 opacity-80 hover:opacity-100"
-                            >
-                              <Star className={`h-3 w-3 ${msg.starredBy?.includes(currentUser) ? "fill-amber-400 text-amber-400" : ""}`} />
-                            </button>
-                          </div>
-
-                          <p className={cn(
-                            "text-[10px] mt-0.5",
-                            isMe ? "text-primary-foreground/70" : "text-muted-foreground"
-                          )}>
-                            {formatMessageTime(msg.timestamp)}
-                            {isMe && (
-                              <span className="ml-2">
-                                {msg.status === "sent" && "✓"}
-                                {msg.status === "delivered" && "✓✓"}
-                                {msg.status === "read" && "✓✓"}
-                              </span>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {employee.current_status && employee.current_status !== "AVAILABLE"
+                            ? getSubtitle(employee)
+                            : employee.email}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <Badge variant="secondary" className="text-xs">
+                            {employee.department || "No Department"}
+                          </Badge>
+                          <Badge 
+                            variant="outline" 
+                            className={cn(
+                              "text-xs",
+                              employee.status === "active" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"
                             )}
-                          </p>
+                          >
+                            {employee.status}
+                          </Badge>
                         </div>
-                        <MessageReactionBar
-                          reactions={msg.reactions || []}
-                          currentUser={currentUser}
-                          isMe={isMe}
-                          onToggle={(emoji) => void toggleReaction(msg.id, emoji)}
+                      </div>
+                    </button>
+                  ))}
+
+                  {filteredEmployees.length === 0 && (
+                    <div className="text-center py-8">
+                      <User className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                      <p className="text-muted-foreground">No employees found</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Try a different search term
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Conversation / Group View */}
+            {((view === "conversation" && selectedEmployee) || (view === "group" && selectedGroup)) && (
+              <>
+                {preview ? (
+                  <Dialog open={Boolean(preview)} onOpenChange={(o) => (!o ? setPreview(null) : null)}>
+                    <DialogContent className="max-w-3xl">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center justify-between gap-2">
+                          <span className="truncate">{preview.fileName}</span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="gap-2"
+                            onClick={() => downloadAttachment(preview.url, preview.fileName)}
+                          >
+                            <Download className="h-4 w-4" />
+                            Download
+                          </Button>
+                        </DialogTitle>
+                      </DialogHeader>
+                      <div className="w-full">
+                        <img
+                          src={toProxiedUrl(preview.url) || preview.url}
+                          alt={preview.fileName}
+                          className="w-full max-h-[70vh] object-contain rounded-md"
                         />
-                        </div>
-                       </div>
-                     );
-                   })}
-                   <div ref={messagesEndRef} />
-                 </>
-               )}
-               </div>
- 
-               {/* Message Input */}
-               <div className="p-4 border-t relative">
-                 {voiceRecordingOpen ? (
-                   <VoiceRecorder
-                     onSendVoiceNote={handleSendVoiceNote}
-                     onCancel={() => setVoiceRecordingOpen(false)}
-                   />
-                 ) : (
-                   <>
-                     {showEmojiPicker && (
-                       <div ref={emojiPickerRef} className="absolute bottom-full right-4 mb-2 z-50">
-                         <EmojiPicker onEmojiClick={onEmojiClick} width={320} height={400} emojiStyle={EmojiStyle.NATIVE} />
-                       </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                ) : null}
+
+                <Card className="flex flex-col h-[calc(100vh-280px)] min-h-[400px]">
+                  {/* Messages Area */}
+                  <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {conversationMessages.length === 0 ? (
+                    <div className="h-full flex flex-col items-center justify-center text-center">
+                      <MessageCircle className="h-16 w-16 text-muted-foreground/50 mb-4" />
+                      <p className="text-lg font-medium">Start the conversation</p>
+                      <p className="text-muted-foreground">
+                        {selectedGroup ? `Send the first message in #${selectedGroup.name}` : `Send a message to ${selectedEmployee?.name}`}
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      {conversationMessages.map((msg, index) => {
+                        const isMe = msg.sender === currentUser || msg.sender === "You";
+                        const showAvatar = index === 0 || conversationMessages[index - 1].sender !== msg.sender;
+                        const senderEmployee = employees.find((e) => e.name?.toLowerCase() === msg.sender?.toLowerCase());
+                        const senderAvatarUrl = msg.senderAvatar || (selectedEmployee?.name === msg.sender ? selectedEmployee.avatarUrl : senderEmployee?.avatarUrl);
+                        
+                        const allAttachments = [
+                          ...(msg.attachment?.url ? [msg.attachment] : []),
+                          ...(Array.isArray(msg.attachments) ? msg.attachments.filter((a) => a?.url && a.url !== msg.attachment?.url) : []),
+                        ];
+
+                        return (
+                          <div
+                            key={msg.id}
+                            className={cn(
+                              "flex gap-3",
+                              isMe ? "flex-row-reverse" : "flex-row"
+                            )}
+                          >
+                            {showAvatar ? (
+                              <Avatar className="h-8 w-8 flex-shrink-0">
+                                {isMe ? null : senderAvatarUrl ? (
+                                  <AvatarImage src={toProxiedUrl(senderAvatarUrl) || senderAvatarUrl} alt={msg.sender} className="object-cover" />
+                                ) : null}
+                                <AvatarFallback className={isMe ? "bg-primary text-primary-foreground" : "bg-muted text-[10px]"}>
+                                  {getInitials(isMe ? currentUser : msg.sender)}
+                                </AvatarFallback>
+                              </Avatar>
+                            ) : (
+                              <div className="w-8 flex-shrink-0" />
+                            )}
+                            <div className={cn("max-w-[70%] flex flex-col", isMe ? "items-end" : "items-start")}>
+                            <div
+                              className={cn(
+                                "rounded-2xl px-4 py-2",
+                                isMe
+                                  ? "bg-primary text-primary-foreground rounded-br-none"
+                                  : "bg-muted rounded-bl-none"
+                              )}
+                            >
+                              {/* Group sender tag */}
+                              {!isMe && selectedGroup && (
+                                <span className="text-[11px] font-bold text-purple-600 block mb-1">
+                                  {msg.sender}
+                                </span>
+                              )}
+
+                              {/* Voice Note Rendering */}
+                              {msg.type === "voice_note" && msg.voiceNote?.url && (
+                                <div className="flex items-center gap-2 bg-slate-900 text-white p-2.5 rounded-xl border border-slate-700 my-1">
+                                  <Mic className="h-4 w-4 text-blue-400 flex-shrink-0 animate-pulse" />
+                                  <span className="text-[11px] font-mono font-bold text-blue-300">Voice Note ({msg.voiceNote.duration || 0}s)</span>
+                                  <audio controls src={toProxiedUrl(msg.voiceNote.url) || msg.voiceNote.url} className="h-6 w-36" />
+                                </div>
+                              )}
+
+                              {/* Attachments (Single & Multiple) */}
+                              {allAttachments.map((att, attIdx) => {
+                                const attUrl = att.url || "";
+                                const attName = att.fileName || "attachment";
+                                const attMime = att.mimeType || "";
+                                const isImg = attMime.startsWith("image/") || /\.(png|jpe?g|gif|webp|svg)$/i.test(attUrl);
+
+                                return isImg ? (
+                                  <button
+                                    key={attIdx}
+                                    type="button"
+                                    className="block my-1 rounded-md overflow-hidden"
+                                    onClick={() => setPreview({ url: attUrl, fileName: attName })}
+                                  >
+                                    <img
+                                      src={toProxiedUrl(attUrl) || attUrl}
+                                      alt={attName}
+                                      className="max-w-[200px] max-h-[200px] rounded-md object-cover border border-slate-200/50 hover:opacity-90 transition-opacity"
+                                    />
+                                  </button>
+                                ) : (
+                                  <button
+                                    key={attIdx}
+                                    type="button"
+                                    className={cn(
+                                      "text-xs underline flex items-center gap-1.5 my-1 p-2 rounded-lg bg-black/10 hover:bg-black/20 transition-colors text-left",
+                                      isMe ? "text-primary-foreground" : "text-foreground"
+                                    )}
+                                    onClick={() => downloadAttachment(attUrl, attName)}
+                                  >
+                                    <Paperclip className="h-3.5 w-3.5 flex-shrink-0" />
+                                    <span className="truncate max-w-[160px] font-medium">{attName}</span>
+                                    <Download className="h-3 w-3 ml-1 opacity-70 flex-shrink-0" />
+                                  </button>
+                                );
+                              })}
+
+                              {msg.content?.trim() ? <p className="text-sm">{renderMessageContent(msg.content, isMe)}</p> : null}
+
+                              {/* Message Context Actions (Thread, Convert to Task, Pin, Star) */}
+                              <div className="flex items-center gap-2 mt-1.5 pt-1 border-t border-slate-200/30 text-[10px]">
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveThreadParent(msg)}
+                                  className="hover:underline flex items-center gap-1 opacity-80 hover:opacity-100"
+                                >
+                                  <MessageSquare className="h-3 w-3" /> Reply in Thread {msg.replyCount ? `(${msg.replyCount})` : ""}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleConvertToTask(msg)}
+                                  className="hover:underline flex items-center gap-1 text-amber-300 hover:text-amber-200"
+                                >
+                                  <Sparkles className="h-3 w-3" /> Task
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handlePinMessage(msg)}
+                                  className="hover:underline flex items-center gap-1 opacity-80 hover:opacity-100"
+                                >
+                                  <Pin className={`h-3 w-3 ${msg.isPinned ? "fill-current" : ""}`} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStarMessage(msg)}
+                                  className="hover:underline flex items-center gap-1 opacity-80 hover:opacity-100"
+                                >
+                                  <Star className={`h-3 w-3 ${msg.starredBy?.includes(currentUser) ? "fill-amber-400 text-amber-400" : ""}`} />
+                                </button>
+                              </div>
+
+                              <p className={cn(
+                                "text-[10px] mt-0.5",
+                                isMe ? "text-primary-foreground/70" : "text-muted-foreground"
+                              )}>
+                                {formatMessageTime(msg.timestamp)}
+                                {isMe && (
+                                  <span className="ml-2">
+                                    {msg.status === "sent" && "✓"}
+                                    {msg.status === "delivered" && "✓✓"}
+                                    {msg.status === "read" && "✓✓"}
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                            <MessageReactionBar
+                              reactions={msg.reactions || []}
+                              currentUser={currentUser}
+                              isMe={isMe}
+                              onToggle={(emoji) => void toggleReaction(msg.id, emoji)}
+                            />
+                            </div>
+                           </div>
+                         );
+                       })}
+                       <div ref={messagesEndRef} />
+                     </>
+                   )}
+                   </div>
+
+                   {/* Message Input */}
+                   <div className="p-4 border-t relative">
+                     {voiceRecordingOpen ? (
+                       <VoiceRecorder
+                         onSendVoiceNote={handleSendVoiceNote}
+                         onCancel={() => setVoiceRecordingOpen(false)}
+                       />
+                     ) : (
+                       <>
+                         {showEmojiPicker && (
+                           <div ref={emojiPickerRef} className="absolute bottom-full right-4 mb-2 z-50">
+                             <EmojiPicker onEmojiClick={onEmojiClick} width={320} height={400} emojiStyle={EmojiStyle.NATIVE} />
+                           </div>
+                         )}
+                         <div className="flex items-center gap-3">
+                           <input
+                             ref={fileInputRef}
+                             type="file"
+                             className="hidden"
+                             aria-label="Attach file"
+                             onChange={(e) => handleFileSelected(e.target.files?.[0] || null)}
+                           />
+                           <Button
+                             type="button"
+                             variant="outline"
+                             size="icon"
+                             disabled={uploading}
+                             onClick={() => fileInputRef.current?.click()}
+                             title="Attach File"
+                           >
+                             <Paperclip className="h-4 w-4" />
+                           </Button>
+                           <Button
+                             type="button"
+                             variant="outline"
+                             size="icon"
+                             onClick={() => setVoiceRecordingOpen(true)}
+                             title="Record Voice Note"
+                           >
+                             <Mic className="h-4 w-4 text-red-500" />
+                           </Button>
+                           <Button
+                             type="button"
+                             variant="outline"
+                             size="icon"
+                             onClick={() => setShowEmojiPicker((prev) => !prev)}
+                           >
+                             <Smile className="h-4 w-4" />
+                           </Button>
+                           <MentionsTextarea
+                             placeholder={`Message ${selectedGroup ? '#' + selectedGroup.name : (selectedEmployee?.name || 'chat')}... (type @ to mention)`}
+                             className="min-h-[60px] resize-none"
+                             value={newMessageContent}
+                             onChange={setNewMessageContent}
+                             onSubmit={sendMessage}
+                             users={employees
+                               .filter((e) => e.name && e.name !== currentUser)
+                               .map((e) => ({ name: e.name, avatarUrl: toProxiedUrl(e.avatarUrl) || e.avatarUrl, role: e.role }))}
+                           />
+                           <Button
+                             onClick={sendMessage}
+                             disabled={!newMessageContent.trim() || sending || uploading}
+                             className="h-auto px-4"
+                           >
+                             <Send className="h-5 w-5" />
+                           </Button>
+                         </div>
+                       </>
                      )}
-                     <div className="flex items-center gap-3">
-                       <input
-                         ref={fileInputRef}
-                         type="file"
-                         className="hidden"
-                         aria-label="Attach file"
-                         onChange={(e) => handleFileSelected(e.target.files?.[0] || null)}
-                       />
-                       <Button
-                         type="button"
-                         variant="outline"
-                         size="icon"
-                         disabled={uploading}
-                         onClick={() => fileInputRef.current?.click()}
-                         title="Attach File"
-                       >
-                         <Paperclip className="h-4 w-4" />
-                       </Button>
-                       <Button
-                         type="button"
-                         variant="outline"
-                         size="icon"
-                         onClick={() => setVoiceRecordingOpen(true)}
-                         title="Record Voice Note"
-                       >
-                         <Mic className="h-4 w-4 text-red-500" />
-                       </Button>
-                       <Button
-                         type="button"
-                         variant="outline"
-                         size="icon"
-                         onClick={() => setShowEmojiPicker((prev) => !prev)}
-                       >
-                         <Smile className="h-4 w-4" />
-                       </Button>
-                       <MentionsTextarea
-                         placeholder={`Message ${selectedEmployee?.name || selectedGroup?.name || 'chat'}... (type @ to mention)`}
-                         className="min-h-[60px] resize-none"
-                         value={newMessageContent}
-                         onChange={setNewMessageContent}
-                         onSubmit={sendMessage}
-                         users={employees
-                           .filter((e) => e.name && e.name !== currentUser)
-                           .map((e) => ({ name: e.name, avatarUrl: toProxiedUrl(e.avatarUrl) || e.avatarUrl, role: e.role }))}
-                       />
-                       <Button
-                         onClick={sendMessage}
-                         disabled={!newMessageContent.trim() || sending || uploading}
-                         className="h-auto px-4"
-                       >
-                         <Send className="h-5 w-5" />
-                       </Button>
-                     </div>
-                   </>
-                 )}
-              </div>
-            </Card>
-          </>
-        )}
-      </div>
+                  </div>
+                </Card>
+              </>
+            )}
+          </div>
 
-      {/* Enterprise Group Creation Modal */}
-      <CreateGroupModal
-        open={createGroupOpen}
-        onOpenChange={setCreateGroupOpen}
-        employees={employees}
-        onGroupCreated={(newGroup) => {
-          setGroups((prev) => [newGroup, ...prev]);
-          startGroupChat(newGroup);
-        }}
-      />
+          {/* Enterprise Group Creation Modal */}
+          <CreateGroupModal
+            open={createGroupOpen}
+            onOpenChange={setCreateGroupOpen}
+            employees={employees}
+            onGroupCreated={(newGroup) => {
+              const safeGroup = {
+                ...newGroup,
+                id: String(newGroup._id || newGroup.id || ""),
+              };
+              setGroups((prev) => [safeGroup, ...prev.filter((g) => (g.id || (g as any)._id) !== safeGroup.id)]);
+              startGroupChat(safeGroup);
+            }}
+          />
 
-      {/* Thread Drawer */}
-      <ThreadDrawer
-        open={Boolean(activeThreadParent)}
-        onClose={() => setActiveThreadParent(null)}
-        parentMessage={activeThreadParent}
-        currentUser={currentUser}
-      />
+          {/* Thread Drawer */}
+          <ThreadDrawer
+            open={Boolean(activeThreadParent)}
+            onClose={() => setActiveThreadParent(null)}
+            parentMessage={activeThreadParent}
+            currentUser={currentUser}
+          />
 
-      {/* Media Vault Drawer */}
-      <MediaVaultDrawer
-        open={mediaVaultOpen}
-        onClose={() => setMediaVaultOpen(false)}
-        groupId={selectedGroup?.id}
-        recipient={selectedEmployee?.name}
-      />
+          {/* Media Vault Drawer */}
+          <MediaVaultDrawer
+            open={mediaVaultOpen}
+            onClose={() => setMediaVaultOpen(false)}
+            groupId={selectedGroup ? String(selectedGroup.id || (selectedGroup as any)._id || "") : undefined}
+            recipient={selectedEmployee?.name}
+          />
     </>
   );
 }
