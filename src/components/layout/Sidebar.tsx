@@ -78,6 +78,7 @@ const navItemsBase: NavItem[] = [
   { icon: Landmark, label: "Companies", path: "/admin/companies" },
   { icon: Building2, label: "Vendors", path: "/admin/vendors" },
   { icon: MessageSquare, label: "Messaging", path: "/admin/messaging" },
+  { icon: Bell, label: "Notifications", path: "/admin/notifications" },
   { icon: ClipboardList, label: "Onboarding", path: "/admin/onboarding" },
   { icon: ClipboardList, label: "New Hire Reporting", path: "/admin/new-hire-reporting" },
   { icon: BarChart3, label: "Reports", path: "/admin/reports" },

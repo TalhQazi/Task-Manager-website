@@ -156,6 +156,7 @@ const navItemsBase: NavItem[] = [
   { icon: Building2, label: "Vendors", path: "/admin/vendors" },
   { icon: Users, label: "Contributors", path: "/admin/contributors" },
   { icon: MessageSquare, label: "Messaging", path: "/admin/messaging" },
+  { icon: Bell, label: "Notifications", path: "/admin/notifications" },
   { icon: ClipboardList, label: "Onboarding", path: "/admin/onboarding" },
   { icon: ClipboardList, label: "New Hire Reporting", path: "/admin/new-hire-reporting" },
   {

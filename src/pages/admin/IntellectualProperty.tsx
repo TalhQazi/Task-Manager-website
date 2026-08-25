@@ -86,6 +86,9 @@ export function IntellectualProperty() {
   const filedCount = filedQuery.data?.length || 0;
   const pendingCount = pendingQuery.data?.length || 0;
   const expiringCount = watchQuery.data?.length || 0;
+  const customReminderCount = (filedQuery.data || []).filter(
+    (p: any) => Array.isArray(p.customReminderDays) && p.customReminderDays.length > 0
+  ).length;
 
   const handleAddDay = useCallback(() => {
     const val = Math.round(Number(newDay));
@@ -392,7 +395,12 @@ export function IntellectualProperty() {
               <span className="px-1.5 py-0.2 bg-amber-500 text-white rounded-full text-[10px] font-bold">{expiringCount}</span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="custom-timer-view" className="px-4 py-2">Custom Timer View</TabsTrigger>
+          <TabsTrigger value="custom-timer-view" className="px-4 py-2 flex items-center gap-1.5">
+            <span>Custom Timer View</span>
+            {customReminderCount > 0 && (
+              <span className="px-1.5 py-0.2 bg-indigo-600 text-white rounded-full text-[10px] font-bold">{customReminderCount}</span>
+            )}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="filed-patents">
@@ -460,7 +468,7 @@ export function IntellectualProperty() {
         </TabsContent>
 
         <TabsContent value="custom-timer-view">
-          <CustomTimerWatch globalReminderDays={localDays} />
+          <CustomTimerWatch />
         </TabsContent>
       </Tabs>
     </div>

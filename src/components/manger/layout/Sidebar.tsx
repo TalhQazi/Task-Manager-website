@@ -26,16 +26,13 @@ import {
   ShoppingCart,
  
   Megaphone,
-
-   CheckSquare,
-   Mail,
-FolderOpen,
-Building,
-CalendarCheck,
-Bug,
-
-
-
+  CheckSquare,
+  Mail,
+  FolderOpen,
+  Building,
+  CalendarCheck,
+  Bug,
+  Bell,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -89,6 +86,7 @@ const navItemsBase: NavItem[] = [
   { icon: ClipboardCheck, label: "Onboarding", path: "/manager/onboarding" },
   { icon: BarChart3, label: "Reports", path: "/manager/reports" },
   { icon: MessageSquare, label: "Messages", path: "/manager/messages" },
+  { icon: Bell, label: "Notifications", path: "/manager/notifications" },
   {
     label: "SignaCore",
     path: "/manager/contracts",
