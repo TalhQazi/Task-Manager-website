@@ -62,11 +62,8 @@ export function CustomTimerWatch({ globalReminderDays }: { globalReminderDays?: 
 
   const patents = filedPatentsQuery.data || [];
 
-  // Helper to compute days left reliably
+  // Helper to compute days left reliably (same formula as Filed Patents)
   const computeDaysLeft = (patent: PatentItem): number => {
-    if (typeof patent.daysUntilExpiration === "number" && !isNaN(patent.daysUntilExpiration)) {
-      return patent.daysUntilExpiration;
-    }
     if (!patent.provisionalExpiration) return 0;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -75,8 +72,8 @@ export function CustomTimerWatch({ globalReminderDays }: { globalReminderDays?: 
     return Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
   };
 
-  // STRICT FILTER: Only show items where user explicitly configured custom Reminder Schedule by days
-  // Exclude Expired patents and items with empty/invalid days (Do NOT fall back to global reminder days)
+  // STRICT FILTER: Only show items from Filed Patents where Reminder Schedule is NOT Global (customReminderDays is explicitly set)
+  // Exclude Expired patents and items with empty/invalid days
   const customScheduledItems = useMemo(() => {
     return patents
       .filter((p) => {
@@ -316,7 +313,7 @@ export function CustomTimerWatch({ globalReminderDays }: { globalReminderDays?: 
                             : "text-indigo-600 dark:text-indigo-400"
                         }`}>
                           <Clock className="h-3.5 w-3.5" />
-                          <span>{daysLeft} days remaining</span>
+                          <span>{daysLeft >= 0 ? `${daysLeft} days remaining` : `${Math.abs(daysLeft)}d overdue`}</span>
                         </div>
                       </div>
                     </CardContent>

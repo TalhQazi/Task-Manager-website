@@ -23,17 +23,41 @@ import {
   Paperclip,
   Download,
   Smile,
+  Users,
+  Lock,
+  Megaphone,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { renderMessageContent } from "@/lib/linkify";
 import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
 import MessageReactionBar, { type MessageReaction } from "@/components/shared/MessageReactionBar";
 import MentionsTextarea from "@/components/shared/MentionsTextarea";
+import CreateGroupModal from "@/components/shared/CreateGroupModal";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSocket } from "@/contexts/SocketContext";
 import { getAuthState } from "@/lib/auth";
 import EmojiPicker, { EmojiStyle, type EmojiClickData } from "emoji-picker-react";
 import MilestoneBadge from "@/components/shared/MilestoneBadge";
+
+export interface ChatGroup {
+  id: string;
+  _id?: string;
+  name: string;
+  description?: string;
+  avatarUrl?: string;
+  groupType: "custom" | "department" | "project" | "task";
+  isPrivate?: boolean;
+  announcementOnly?: boolean;
+  members: string[];
+  admins: string[];
+  createdBy: string;
+  creatorRole?: string;
+  department?: string;
+  projectId?: string | null;
+  taskId?: string | null;
+  updatedAt?: string;
+  isArchived?: boolean;
+}
 
 interface Employee {
   id: string;
@@ -58,9 +82,10 @@ interface Message {
   sender: string;
   senderAvatar: string;
   recipient: string;
+  groupId?: string;
   content: string;
   timestamp: string;
-  type: "direct" | "broadcast";
+  type: "direct" | "broadcast" | "group";
   status: "sent" | "delivered" | "read";
   createdAt?: string;
   attachment?: { fileName?: string; url?: string; mimeType?: string; size?: number };
@@ -89,6 +114,7 @@ function normalizeMessage(m: any): Message {
     sender: m.sender || "",
     senderAvatar: m.senderAvatar || "",
     recipient: m.recipient || "",
+    groupId: m.groupId ? String(m.groupId) : undefined,
     content: m.content || "",
     timestamp: m.timestamp || m.createdAt || new Date().toISOString(),
     type: m.type || "direct",
@@ -126,8 +152,12 @@ function getInitials(name: string): string {
 
 export default function Messages() {
   const queryClient = useQueryClient();
-  const [view, setView] = useState<"list" | "conversation" | "employees">("list");
+  const [view, setView] = useState<"list" | "conversation" | "employees" | "group">("list");
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<ChatGroup | null>(null);
+  const [groups, setGroups] = useState<ChatGroup[]>([]);
+  const [activeTab, setActiveTab] = useState<"direct" | "groups">("direct");
+  const [createGroupOpen, setCreateGroupOpen] = useState(false);
 
   const [nowTime, setNowTime] = useState(Date.now());
   useEffect(() => {
@@ -222,10 +252,10 @@ export default function Messages() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (selectedEmployee) {
+    if (selectedEmployee || selectedGroup) {
       isInitialLoad.current = true;
     }
-  }, [selectedEmployee]);
+  }, [selectedEmployee, selectedGroup]);
 
   // Archive and Bookmark state (persisted to localStorage)
   const [archivedConversations, setArchivedConversations] = useState<Set<string>>(() => {
@@ -277,6 +307,23 @@ export default function Messages() {
   const { socket } = useSocket();
   const auth = getAuthState();
   const currentUser = auth.name?.trim() || auth.username?.trim() || "";
+
+  const loadGroups = async () => {
+    try {
+      const res = await apiFetch<{ items: ChatGroup[] }>("/api/messages/groups");
+      const items = (res.items || []).map((g: any) => ({
+        ...g,
+        id: String(g._id || g.id || ""),
+      }));
+      setGroups(items);
+    } catch (e) {
+      console.error("Failed to load groups:", e);
+    }
+  };
+
+  useEffect(() => {
+    loadGroups();
+  }, []);
 
   // Handle navigation state - auto-open conversation from header dropdown
   useEffect(() => {
@@ -337,6 +384,24 @@ export default function Messages() {
     }
   };
 
+  const startGroupChat = async (group: ChatGroup) => {
+    const groupId = String(group._id || group.id || "");
+    const safeGroup: ChatGroup = { ...group, id: groupId };
+    setSelectedGroup(safeGroup);
+    setSelectedEmployee(null);
+    setView("group");
+    setConversationMessages([]);
+    if (socket && groupId) {
+      socket.emit("join-group", groupId);
+    }
+    try {
+      const res = await apiFetch<{ items: MessageApi[] }>(`/api/messages/groups/${groupId}/messages`);
+      setConversationMessages((res.items || []).map(normalizeMessage));
+    } catch (e) {
+      console.error("Failed to load group messages:", e);
+    }
+  };
+
   const uploadAttachment = async (file: File) => {
     const fd = new FormData();
     fd.append("file", file);
@@ -365,20 +430,22 @@ export default function Messages() {
   };
 
   const handleFileSelected = async (file: File | null) => {
-    if (!file || !selectedEmployee) return;
+    if (!file || (!selectedEmployee && !selectedGroup)) return;
 
     isSendingMessage.current = true;
     setUploading(true);
     try {
       const attachment = await uploadAttachment(file);
+      const targetGroupId = selectedGroup ? String(selectedGroup.id || (selectedGroup as any)._id || "") : undefined;
 
       const payload: Omit<Message, "id"> = {
         sender: currentUser,
         senderAvatar: getInitials(currentUser),
-        recipient: selectedEmployee.name,
+        recipient: selectedEmployee ? selectedEmployee.name : "",
+        groupId: targetGroupId,
         content: newMessageContent.trim(),
         timestamp: new Date().toISOString(),
-        type: "direct",
+        type: selectedGroup ? "group" : "direct",
         status: "sent",
         attachment,
       };
@@ -395,7 +462,9 @@ export default function Messages() {
           return [...prev, newMsg];
         });
         setNewMessageContent("");
-        await queryClient.invalidateQueries({ queryKey: ["conversations", currentUser] });
+        if (selectedEmployee) {
+          await queryClient.invalidateQueries({ queryKey: ["conversations", currentUser] });
+        }
       }
     } catch (e) {
       console.error("Failed to send attachment:", e);
@@ -437,10 +506,30 @@ export default function Messages() {
           return [...prev, normalized].sort((a, b) => a.id.localeCompare(b.id));
         });
       }
+      // If we're currently in this group, append group message
+      if (
+        view === "group" &&
+        selectedGroup &&
+        normalized.groupId &&
+        String(normalized.groupId) === String(selectedGroup.id || (selectedGroup as any)._id)
+      ) {
+        setConversationMessages((prev) => {
+          if (isDuplicateMessage(prev, normalized)) return prev;
+          return [...prev, normalized].sort((a, b) => a.id.localeCompare(b.id));
+        });
+      }
     };
     socket.on("new-message", handleNewMessage);
-    return () => { socket.off("new-message", handleNewMessage); };
-  }, [socket, view, selectedEmployee?.name]);
+    const handleNewGroup = () => {
+      loadGroups();
+    };
+    socket.on("new-group-created", handleNewGroup);
+
+    return () => {
+      socket.off("new-message", handleNewMessage);
+      socket.off("new-group-created", handleNewGroup);
+    };
+  }, [socket, view, selectedEmployee?.name, selectedGroup?.id]);
 
   // Real-time reaction updates via socket
   useEffect(() => {
@@ -482,13 +571,12 @@ export default function Messages() {
       break_start_time: string | null;
       name: string;
     }) => {
-      console.log("⚡ Status update received in Manager Messages:", payload);
-
       // Update conversations list query cache
       queryClient.setQueryData<Conversation[]>(["conversations", currentUser], (old) => {
         if (!old) return old;
         return old.map((conv) => {
-          if (conv.employee.id === payload.userId || conv.employee.name === payload.name) {
+          const empId = conv.employee.id || conv.employee._id;
+          if (empId === payload.userId || conv.employee.name === payload.name) {
             return {
               ...conv,
               employee: {
@@ -508,7 +596,8 @@ export default function Messages() {
       queryClient.setQueryData<Employee[]>(["employees"], (old) => {
         if (!old) return old;
         return old.map((emp) => {
-          if (emp.id === payload.userId || emp.name === payload.name) {
+          const empId = emp.id || emp._id;
+          if (empId === payload.userId || emp.name === payload.name) {
             return {
               ...emp,
               current_status: payload.current_status,
@@ -523,14 +612,17 @@ export default function Messages() {
 
       // Update selected employee status in state
       setSelectedEmployee((prev) => {
-        if (prev && (prev.id === payload.userId || prev.name === payload.name)) {
-          return {
-            ...prev,
-            current_status: payload.current_status,
-            lunch_start_time: payload.lunch_start_time,
-            lunch_expected_end: payload.lunch_expected_end,
-            break_start_time: payload.break_start_time,
-          };
+        if (prev) {
+          const empId = prev.id || prev._id;
+          if (empId === payload.userId || prev.name === payload.name) {
+            return {
+              ...prev,
+              current_status: payload.current_status,
+              lunch_start_time: payload.lunch_start_time,
+              lunch_expected_end: payload.lunch_expected_end,
+              break_start_time: payload.break_start_time,
+            };
+          }
         }
         return prev;
       });
@@ -545,16 +637,28 @@ export default function Messages() {
 
   // Polling fallback: refresh messages every 3s when conversation is open
   useEffect(() => {
-    if (view !== "conversation" || !selectedEmployee) return;
-    const interval = setInterval(() => {
-      loadConversationMessages(selectedEmployee.name);
-    }, 3000);
-    return () => clearInterval(interval);
-  }, [view, selectedEmployee?.name]);
+    if (view === "conversation" && selectedEmployee) {
+      const interval = setInterval(() => {
+        loadConversationMessages(selectedEmployee.name);
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+    if (view === "group" && selectedGroup) {
+      const targetId = String(selectedGroup.id || (selectedGroup as any)._id || "");
+      if (!targetId) return;
+      const interval = setInterval(async () => {
+        try {
+          const res = await apiFetch<{ items: MessageApi[] }>(`/api/messages/groups/${targetId}/messages`);
+          setConversationMessages((res.items || []).map(normalizeMessage));
+        } catch {}
+      }, 3000);
+      return () => clearInterval(interval);
+    }
+  }, [view, selectedEmployee?.name, selectedGroup?.id]);
 
   // Smart Scroll to bottom of messages
   useEffect(() => {
-    if (view !== "conversation") return;
+    if (view !== "conversation" && view !== "group") return;
     const container = scrollContainerRef.current;
     if (!container) return;
 
@@ -606,6 +710,7 @@ export default function Messages() {
 
   const startConversation = async (employee: Employee) => {
     setSelectedEmployee(employee);
+    setSelectedGroup(null);
     setView("conversation");
     setEmployeeSearchQuery("");
     await loadConversationMessages(employee.name);
@@ -615,18 +720,20 @@ export default function Messages() {
   };
 
   const sendMessage = async () => {
-    if ((!newMessageContent.trim()) || !selectedEmployee) return;
+    if (!newMessageContent.trim() || (!selectedEmployee && !selectedGroup)) return;
 
     isSendingMessage.current = true;
     setSending(true);
     try {
+      const targetGroupId = selectedGroup ? String(selectedGroup.id || (selectedGroup as any)._id || "") : undefined;
       const payload: Omit<Message, "id"> = {
         sender: currentUser,
         senderAvatar: getInitials(currentUser),
-        recipient: selectedEmployee.name,
+        recipient: selectedEmployee ? selectedEmployee.name : "",
+        groupId: targetGroupId,
         content: newMessageContent.trim(),
         timestamp: new Date().toISOString(),
-        type: "direct",
+        type: selectedGroup ? "group" : "direct",
         status: "sent",
       };
 
@@ -642,7 +749,9 @@ export default function Messages() {
           return [...prev, newMsg];
         });
         setNewMessageContent("");
-        await queryClient.invalidateQueries({ queryKey: ["conversations", currentUser] });
+        if (selectedEmployee) {
+          await queryClient.invalidateQueries({ queryKey: ["conversations", currentUser] });
+        }
       }
     } catch (e) {
       console.error("Failed to send message:", e);
@@ -836,26 +945,155 @@ export default function Messages() {
                 </p>
               </div>
             </div>
+          ) : view === "group" && selectedGroup ? (
+            <div className="flex items-center gap-2 sm:gap-3">
+              <Button variant="ghost" size="icon" onClick={() => { setView("list"); setSelectedGroup(null); }} className="h-8 w-8 sm:h-9 sm:w-9">
+                <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
+              </Button>
+              <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-purple-100 border border-purple-200 text-purple-700 flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0">
+                {selectedGroup.name.slice(0, 2).toUpperCase()}
+              </div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2 mb-0.5 sm:mb-1">
+                  <h1 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold leading-tight text-slate-800">{selectedGroup.name}</h1>
+                  {selectedGroup.isPrivate && (
+                    <Badge className="bg-purple-100 text-purple-800 text-[10px] flex items-center gap-1 border-purple-200">
+                      <Lock className="h-3 w-3" /> Private
+                    </Badge>
+                  )}
+                  {selectedGroup.announcementOnly && (
+                    <Badge className="bg-amber-100 text-amber-800 text-[10px] flex items-center gap-1 border-amber-200">
+                      <Megaphone className="h-3 w-3" /> Announcement
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs sm:text-sm text-muted-foreground truncate max-w-[200px] sm:max-w-none">
+                  {selectedGroup.members?.length || 0} member{selectedGroup.members?.length !== 1 ? "s" : ""} {selectedGroup.description ? `• ${selectedGroup.description}` : ""}
+                </p>
+              </div>
+            </div>
           ) : (
             <div className="page-header mb-0">
               <h1 className="page-title text-xl sm:text-2xl md:text-3xl lg:text-4xl">Messages</h1>
               <p className="page-subtitle text-xs sm:text-sm md:text-base mt-1">
-                {conversations.length} conversation{conversations.length !== 1 ? "s" : ""}
+                Enterprise messaging & group channels
               </p>
             </div>
           )}
         </div>
 
-        {view !== "conversation" && (
-          <Button onClick={() => setView("employees")} className="gap-2 w-full sm:w-auto text-xs sm:text-sm h-9 sm:h-10">
-            <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-            New Conversation
-          </Button>
+        {view !== "conversation" && view !== "group" && (
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button
+              onClick={() => setCreateGroupOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold gap-1.5 text-xs sm:text-sm h-9 sm:h-10"
+            >
+              <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              + Create Group
+            </Button>
+            <Button onClick={() => setView("employees")} variant="outline" className="gap-2 text-xs sm:text-sm h-9 sm:h-10">
+              <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              New Conversation
+            </Button>
+          </div>
         )}
       </div>
 
-      {/* Conversation List View */}
+      {/* Tab Selector for Conversations & Group Channels */}
       {view === "list" && (
+        <div className="flex items-center gap-2 border-b border-slate-200 pb-3 overflow-x-auto">
+          <button
+            onClick={() => setActiveTab("direct")}
+            className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 ${
+              activeTab === "direct" ? "bg-slate-900 text-white shadow-md" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            <MessageCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-400" />
+            Direct Messages ({conversations.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("groups")}
+            className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 sm:gap-2 ${
+              activeTab === "groups" ? "bg-slate-900 text-white shadow-md" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+            }`}
+          >
+            <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-purple-400" />
+            Group Channels ({groups.length})
+          </button>
+        </div>
+      )}
+
+      {/* Group Channels List View */}
+      {view === "list" && activeTab === "groups" && (
+        <Card className="border-0 sm:border shadow-none sm:shadow">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm sm:text-base font-bold text-slate-800 flex items-center gap-2">
+                <Users className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600" />
+                Your Enterprise Groups & Channels
+              </h3>
+              <Button
+                size="sm"
+                onClick={() => setCreateGroupOpen(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white text-xs h-8"
+              >
+                <Plus className="h-3.5 w-3.5 mr-1" />
+                Create Group
+              </Button>
+            </div>
+
+            {groups.length === 0 ? (
+              <div className="text-center py-8 sm:py-10 space-y-3">
+                <Users className="h-10 w-10 text-slate-300 mx-auto" />
+                <p className="text-sm font-semibold text-slate-600">No group channels found</p>
+                <p className="text-xs text-slate-400">Create a group channel for your team, department, or project.</p>
+                <Button
+                  size="sm"
+                  onClick={() => setCreateGroupOpen(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white mt-2"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" />
+                  Create First Group
+                </Button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {groups.map((group) => (
+                  <div
+                    key={group.id}
+                    onClick={() => startGroupChat(group)}
+                    className="p-3 sm:p-4 rounded-2xl border border-slate-200 bg-white hover:border-purple-300 hover:shadow-md cursor-pointer transition-all flex items-start gap-3"
+                  >
+                    <div className="h-10 w-10 rounded-xl bg-purple-100 border border-purple-200 text-purple-700 flex items-center justify-center font-bold flex-shrink-0">
+                      {group.name.slice(0, 2).toUpperCase()}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-bold text-sm text-slate-800 truncate">{group.name}</h4>
+                        {group.isPrivate && <Lock className="h-3.5 w-3.5 text-purple-600" />}
+                      </div>
+                      {group.description && <p className="text-xs text-slate-500 truncate mt-0.5">{group.description}</p>}
+                      <div className="flex items-center gap-2 mt-2">
+                        <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200">
+                          {group.members.length} member{group.members.length !== 1 ? "s" : ""}
+                        </Badge>
+                        {group.announcementOnly && (
+                          <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 flex items-center gap-1">
+                            <Megaphone className="h-3 w-3" /> Announcement
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Conversation List View */}
+      {view === "list" && activeTab === "direct" && (
         <>
           {/* Filter Tabs */}
           <div className="flex items-center gap-1 sm:gap-2 overflow-x-auto pb-2 -mx-1 sm:mx-0 px-1 sm:px-0 scrollbar-thin">
@@ -994,14 +1232,14 @@ export default function Messages() {
                             </Avatar>
                             {getAvatarDotClassAndStyle(conv.employee.current_status, conv.employee.status === "active")}
                             {conv.unreadCount > 0 && !isArchived && (
-                              <span className="absolute -top-1 -right-1 h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-red-500 text-white text-[9px] sm:text-[10px] flex items-center justify-center z-10">
+                              <span className="absolute -top-1 -right-1 h-4 w-4 sm:h-5 sm:w-5 rounded-full bg-red-500 text-white text-[10px] sm:text-xs flex items-center justify-center">
                                 {conv.unreadCount}
                               </span>
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-1 sm:gap-2">
-                              <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+                              <div className="flex items-center gap-1.5 min-w-0">
                                 <p className="font-medium truncate text-xs sm:text-sm md:text-base">{conv.employee.name}</p>
                                 {conv.employee.current_status && conv.employee.current_status !== "AVAILABLE" && (
                                   <Badge
@@ -1016,30 +1254,25 @@ export default function Messages() {
                                     {conv.employee.current_status === "LUNCH" ? "Lunch" : "Break"}
                                   </Badge>
                                 )}
-                                {isBookmarked && (
-                                  <Bookmark className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-500 flex-shrink-0" fill="currentColor" />
-                                )}
                               </div>
                               {conv.lastMessage && (
-                                <p className="text-[9px] sm:text-xs text-muted-foreground flex-shrink-0">
+                                <span className="text-[10px] sm:text-xs text-muted-foreground flex-shrink-0">
                                   {formatMessageTime(conv.lastMessage.timestamp)}
-                                </p>
+                                </span>
                               )}
                             </div>
-                            <p className={cn(
-                              "text-[11px] sm:text-xs md:text-sm truncate",
-                              conv.unreadCount > 0 && !isArchived ? "font-medium text-foreground" : "text-muted-foreground"
-                            )}>
-                              {conv.lastMessage 
-                                ? `${conv.lastMessage.sender === currentUser ? "You: " : ""}${conv.lastMessage.content}`
-                                : "Start a conversation..."
-                              }
+                            <p className="text-xs sm:text-sm text-muted-foreground truncate">
+                              {conv.lastMessage
+                                ? conv.lastMessage.attachment
+                                  ? `📎 ${conv.lastMessage.attachment.fileName || "Attachment"}`
+                                  : conv.lastMessage.content
+                                : "No messages yet"}
                             </p>
                           </div>
                         </button>
-                        
-                        {/* Action buttons - visible on hover */}
-                        <div className="flex items-center gap-0.5 sm:gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+
+                        {/* Action buttons */}
+                        <div className="flex items-center gap-0.5 sm:gap-1 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                           <Button
                             variant="ghost"
                             size="icon"
@@ -1156,8 +1389,8 @@ export default function Messages() {
         </DialogContent>
       </Dialog>
 
-      {/* Conversation View */}
-      {view === "conversation" && selectedEmployee && (
+      {/* Conversation / Group View */}
+      {((view === "conversation" && selectedEmployee) || (view === "group" && selectedGroup)) && (
         <>
           {preview ? (
             <Dialog open={Boolean(preview)} onOpenChange={(o) => (!o ? setPreview(null) : null)}>
@@ -1195,7 +1428,9 @@ export default function Messages() {
               <div className="h-full flex flex-col items-center justify-center text-center px-3 sm:px-4">
                 <MessageCircle className="h-10 w-10 sm:h-12 sm:w-12 md:h-16 md:w-16 text-muted-foreground/50 mb-2 sm:mb-3 md:mb-4" />
                 <p className="text-sm sm:text-base md:text-lg font-medium">Start the conversation</p>
-                <p className="text-xs sm:text-sm md:text-base text-muted-foreground">Send a message to {selectedEmployee.name}</p>
+                <p className="text-xs sm:text-sm md:text-base text-muted-foreground">
+                  {selectedGroup ? `Send the first message in #${selectedGroup.name}` : `Send a message to ${selectedEmployee?.name}`}
+                </p>
               </div>
             ) : (
               <>
@@ -1222,6 +1457,9 @@ export default function Messages() {
                         <div className="w-5 sm:w-6 md:w-8 flex-shrink-0" />
                       )}
                       <div className={cn("max-w-[80%] sm:max-w-[75%] md:max-w-[70%] flex flex-col", isMe ? "items-end" : "items-start")}>
+                      {selectedGroup && !isMe && showAvatar && (
+                        <span className="text-[10px] font-bold text-purple-700 mb-0.5 px-1">{msg.sender}</span>
+                      )}
                       <div
                         className={cn(
                           "rounded-2xl px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 md:py-2 text-xs sm:text-sm md:text-base",
@@ -1320,7 +1558,7 @@ export default function Messages() {
                   <Smile className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4" />
                 </Button>
                 <MentionsTextarea
-                  placeholder={`Message ${selectedEmployee.name}... (type @ to mention)`}
+                  placeholder={selectedGroup ? `Message #${selectedGroup.name}... (type @ to mention)` : `Message ${selectedEmployee?.name}... (type @ to mention)`}
                   className="min-h-[40px] sm:min-h-[48px] md:min-h-[60px] resize-none text-xs sm:text-sm md:text-base"
                   value={newMessageContent}
                   onChange={setNewMessageContent}
@@ -1342,6 +1580,17 @@ export default function Messages() {
           </Card>
         </>
       )}
+
+      {/* Create Group Modal */}
+      <CreateGroupModal
+        isOpen={createGroupOpen}
+        onClose={() => setCreateGroupOpen(false)}
+        onGroupCreated={() => {
+          loadGroups();
+          setCreateGroupOpen(false);
+        }}
+        currentUser={currentUser}
+      />
     </div>
   );
 }

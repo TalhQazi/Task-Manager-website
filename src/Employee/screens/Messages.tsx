@@ -27,6 +27,9 @@ import {
   Paperclip,
   Download,
   Smile,
+  Users,
+  Lock,
+  Megaphone,
 } from "lucide-react";
 import {
   getEmployeeConversations,
@@ -36,6 +39,7 @@ import {
   getEmployeeProfile,
   uploadMessageAttachment,
   toProxiedUrl,
+  employeeApiFetch,
 } from "../lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -43,6 +47,21 @@ import { renderMessageContent } from "@/lib/linkify";
 import MessageReactionBar, { type MessageReaction } from "@/components/shared/MessageReactionBar";
 import MentionsTextarea from "@/components/shared/MentionsTextarea";
 import { toggleMessageReaction } from "../lib/api";
+
+export interface ChatGroup {
+  id: string;
+  _id?: string;
+  name: string;
+  description?: string;
+  avatarUrl?: string;
+  groupType: "custom" | "department" | "project" | "task";
+  isPrivate?: boolean;
+  announcementOnly?: boolean;
+  members: string[];
+  admins: string[];
+  createdBy: string;
+  updatedAt?: string;
+}
 
 interface Conversation {
   employee: {
@@ -72,6 +91,7 @@ interface Message {
   id: string;
   sender: string;
   recipient: string;
+  groupId?: string;
   content: string;
   timestamp: string;
   type: string;
@@ -85,6 +105,7 @@ const normalizeMessage = (m: any): Message => {
     id: String(m.id || m._id || ""),
     sender: String(m.sender || ""),
     recipient: String(m.recipient || ""),
+    groupId: m.groupId ? String(m.groupId) : undefined,
     content: String(m.content || ""),
     timestamp: String(m.timestamp || m.createdAt || new Date().toISOString()),
     type: String(m.type || "direct"),
@@ -116,6 +137,9 @@ export default function EmployeeMessages() {
   const queryClient = useQueryClient();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<ChatGroup | null>(null);
+  const [groups, setGroups] = useState<ChatGroup[]>([]);
+  const [activeTab, setActiveTab] = useState<"direct" | "groups">("direct");
   const [messages, setMessages] = useState<Message[]>([]);
   const [employeeName, setEmployeeName] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -136,10 +160,10 @@ export default function EmployeeMessages() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (selectedConversation) {
+    if (selectedConversation || selectedGroup) {
       isInitialLoad.current = true;
     }
-  }, [selectedConversation]);
+  }, [selectedConversation, selectedGroup]);
 
   const [nowTime, setNowTime] = useState(Date.now());
   useEffect(() => {
@@ -218,61 +242,108 @@ export default function EmployeeMessages() {
   
   const { socket } = useSocket();
 
-  // Load conversations on mount
-  useEffect(() => {
-    const loadConversations = async () => {
-      try {
-        const profileRes = await getEmployeeProfile();
-        const name = profileRes.item.name;
-        setEmployeeName(name);
+  const loadGroups = async () => {
+    try {
+      const res = await employeeApiFetch<{ items: ChatGroup[] }>("/api/messages/groups");
+      const items = (res.items || []).map((g: any) => ({
+        ...g,
+        id: String(g._id || g.id || ""),
+      }));
+      setGroups(items);
+    } catch (e) {
+      console.error("Failed to load groups:", e);
+    }
+  };
 
-        const convRes = await getEmployeeConversations(name);
-        setConversations(convRes.items || []);
-      } catch (err) {
-        console.error("Failed to load conversations:", err);
-        toast.error("Failed to load conversations");
-      } finally {
-        setLoading(false);
-      }
-    };
+  const loadConversations = async () => {
+    try {
+      const profileRes = await getEmployeeProfile();
+      const name = profileRes.item.name;
+      setEmployeeName(name);
+
+      const convRes = await getEmployeeConversations(name);
+      setConversations(convRes.items || []);
+    } catch (err) {
+      console.error("Failed to load conversations:", err);
+      toast.error("Failed to load conversations");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load conversations & groups on mount
+  useEffect(() => {
     loadConversations();
+    loadGroups();
   }, []);
+
+  const startGroupChat = async (group: ChatGroup) => {
+    const groupId = String(group._id || group.id || "");
+    const safeGroup: ChatGroup = { ...group, id: groupId };
+    setSelectedGroup(safeGroup);
+    setSelectedConversation(null);
+    setMessages([]);
+    if (socket && groupId) {
+      socket.emit("join-group", groupId);
+    }
+    try {
+      const res = await employeeApiFetch<{ items: any[] }>(`/api/messages/groups/${groupId}/messages`);
+      setMessages(
+        (res.items || [])
+          .map(normalizeMessage)
+          .sort((a, b) => a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id))
+      );
+    } catch (e) {
+      console.error("Failed to load group messages:", e);
+    }
+  };
 
   // Real-time new message via socket
   useEffect(() => {
     if (!socket || !employeeName) return;
 
     const handleNewMessage = (data: any) => {
-      console.log("📩 Incoming:", data);
+      const normalized = normalizeMessage(data);
+      if (!normalized.id) return;
 
+      // Always refresh conversations list so unread counts and lastMessage stay current
+      getEmployeeConversations(employeeName)
+        .then((res) => setConversations(res.items || []))
+        .catch(() => {});
+
+      // Add to direct conversation if selected
+      const partnerName = selectedConversation?.employee?.name;
+      if (partnerName && (normalized.sender === partnerName || normalized.recipient === partnerName)) {
+        setMessages((prev) => {
+          if (isDuplicateMessage(prev, normalized)) return prev;
+          return [...prev, normalized].sort((a, b) => a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id));
+        });
+      }
+
+      // Add to group conversation if selected
       if (
-        data.sender === employeeName ||
-        data.recipient === employeeName
+        selectedGroup &&
+        normalized.groupId &&
+        String(normalized.groupId) === String(selectedGroup.id || (selectedGroup as any)._id)
       ) {
-        const normalized = normalizeMessage(data);
-
-        if (!normalized.id) return;
-
-        // Only add to current message view if it belongs to the selected conversation
-        const partnerName = selectedConversation?.employee?.name;
-        if (partnerName && (normalized.sender === partnerName || normalized.recipient === partnerName)) {
-          setMessages((prev) => {
-            if (isDuplicateMessage(prev, normalized)) return prev;
-            return [...prev, normalized].sort((a, b) => a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id));
-          });
-        }
-
-        // Always refresh conversations list so unread counts and lastMessage stay current
-        getEmployeeConversations(employeeName)
-          .then((res) => setConversations(res.items || []))
-          .catch(() => {});
+        setMessages((prev) => {
+          if (isDuplicateMessage(prev, normalized)) return prev;
+          return [...prev, normalized].sort((a, b) => a.timestamp.localeCompare(b.timestamp) || a.id.localeCompare(b.id));
+        });
       }
     };
 
     socket.on("new-message", handleNewMessage);
+    const handleNewGroup = () => {
+      loadGroups();
+    };
+    socket.on("new-group-created", handleNewGroup);
 
-    return () => { socket.off("new-message", handleNewMessage); };
-  }, [socket, employeeName, selectedConversation?.employee?.name]);
+    return () => {
+      socket.off("new-message", handleNewMessage);
+      socket.off("new-group-created", handleNewGroup);
+    };
+  }, [socket, employeeName, selectedConversation?.employee?.name, selectedGroup?.id]);
 
   // Real-time reaction updates via socket
   useEffect(() => {
@@ -421,19 +492,20 @@ export default function EmployeeMessages() {
       prevMessagesLength.current = messages.length;
     }
   }, [messages]);
-
   const handleSendMessage = async () => {
-    if (!messageInput.trim() || !selectedConversation || !employeeName) return;
+    if (!messageInput.trim() || (!selectedConversation && !selectedGroup) || !employeeName) return;
 
     isSendingMessage.current = true;
     setSending(true);
     try {
+      const targetGroupId = selectedGroup ? String(selectedGroup.id || (selectedGroup as any)._id || "") : undefined;
       const newMessage = {
         sender: employeeName,
-        recipient: selectedConversation.employee.name,
+        recipient: selectedConversation ? selectedConversation.employee.name : "",
+        groupId: targetGroupId,
         content: messageInput.trim(),
         timestamp: new Date().toISOString(),
-        type: "direct" as const,
+        type: (selectedGroup ? "group" : "direct") as any,
         status: "sent",
       };
 
@@ -446,14 +518,15 @@ export default function EmployeeMessages() {
       });
       setMessageInput("");
 
-      // Update last message in conversations list
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.employee.id === selectedConversation.employee.id
-            ? { ...c, lastMessage: res.item }
-            : c
-        )
-      );
+      if (selectedConversation) {
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.employee.id === selectedConversation.employee.id
+              ? { ...c, lastMessage: res.item }
+              : c
+          )
+        );
+      }
     } catch (err) {
       console.error("Failed to send message:", err);
       toast.error("Failed to send message");
@@ -478,20 +551,22 @@ export default function EmployeeMessages() {
   };
 
   const handleFileSelected = async (file: File | null) => {
-    if (!file || !selectedConversation || !employeeName) return;
+    if (!file || (!selectedConversation && !selectedGroup) || !employeeName) return;
 
     isSendingMessage.current = true;
     setUploading(true);
     try {
       const up = await uploadMessageAttachment(file);
       const attachment = up.attachment;
+      const targetGroupId = selectedGroup ? String(selectedGroup.id || (selectedGroup as any)._id || "") : undefined;
 
       const payload = {
         sender: employeeName,
-        recipient: selectedConversation.employee.name,
+        recipient: selectedConversation ? selectedConversation.employee.name : "",
+        groupId: targetGroupId,
         content: messageInput.trim(),
         timestamp: new Date().toISOString(),
-        type: "direct" as const,
+        type: (selectedGroup ? "group" : "direct") as any,
         status: "sent",
         attachment,
       };
@@ -505,13 +580,15 @@ export default function EmployeeMessages() {
       });
       setMessageInput("");
 
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.employee.id === selectedConversation.employee.id
-            ? { ...c, lastMessage: res.item }
-            : c
-        )
-      );
+      if (selectedConversation) {
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.employee.id === selectedConversation.employee.id
+              ? { ...c, lastMessage: res.item }
+              : c
+          )
+        );
+      }
     } catch (err) {
       console.error("Failed to send attachment:", err);
       toast.error(err instanceof Error ? err.message : "Failed to send attachment");
@@ -582,8 +659,8 @@ export default function EmployeeMessages() {
     );
   }
 
-  // Mobile view: Show either conversation list or chat
-  if (selectedConversation) {
+  // Mobile / Chat view: Show conversation or group chat
+  if (selectedConversation || selectedGroup) {
     return (
       <>
         {preview ? (
@@ -619,58 +696,92 @@ export default function EmployeeMessages() {
         {/* Chat Header */}
         <Card className="mb-4 border-b-2 border-[#133767]/10">
           <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSelectedConversation(null)}
-                className="hover:bg-gray-100"
-              >
-                <ChevronLeft className="h-5 w-5" />
-              </Button>
-              <div className="relative">
-                <Avatar className="h-11 w-11" style={getAvatarRingStyles(selectedConversation.employee.current_status)}>
-                  {selectedConversation.employee.avatarUrl ? (
-                    <AvatarImage src={toProxiedUrl(selectedConversation.employee.avatarUrl) || selectedConversation.employee.avatarUrl} alt={selectedConversation.employee.name} className="object-cover" />
-                  ) : null}
-                  <AvatarFallback className="bg-[#133767] text-white font-semibold text-sm">
-                    {selectedConversation.employee.initials}
-                  </AvatarFallback>
-                </Avatar>
-                {getAvatarDotClassAndStyle(selectedConversation.employee.current_status, selectedConversation.employee.status === "active")}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold truncate text-gray-900">{selectedConversation.employee.name}</p>
-                  {selectedConversation.employee.current_status && selectedConversation.employee.current_status !== "AVAILABLE" && (
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "text-[10px] py-0 px-1.5 animate-pulse shrink-0 font-medium",
-                        selectedConversation.employee.current_status === "LUNCH"
-                          ? "border-amber-500 text-amber-700 bg-amber-50"
-                          : "border-purple-500 text-purple-700 bg-purple-50"
-                      )}
-                    >
-                      {selectedConversation.employee.current_status === "LUNCH" ? "On Lunch" : "On Break"}
-                    </Badge>
-                  )}
+            {selectedConversation ? (
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSelectedConversation(null)}
+                  className="hover:bg-gray-100"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+                <div className="relative">
+                  <Avatar className="h-11 w-11" style={getAvatarRingStyles(selectedConversation.employee.current_status)}>
+                    {selectedConversation.employee.avatarUrl ? (
+                      <AvatarImage src={toProxiedUrl(selectedConversation.employee.avatarUrl) || selectedConversation.employee.avatarUrl} alt={selectedConversation.employee.name} className="object-cover" />
+                    ) : null}
+                    <AvatarFallback className="bg-[#133767] text-white font-semibold text-sm">
+                      {selectedConversation.employee.initials}
+                    </AvatarFallback>
+                  </Avatar>
+                  {getAvatarDotClassAndStyle(selectedConversation.employee.current_status, selectedConversation.employee.status === "active")}
                 </div>
-                <p className="text-xs text-gray-500">
-                  {getSubtitle(selectedConversation.employee)}
-                </p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold truncate text-gray-900">{selectedConversation.employee.name}</p>
+                    {selectedConversation.employee.current_status && selectedConversation.employee.current_status !== "AVAILABLE" && (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "text-[10px] py-0 px-1.5 animate-pulse shrink-0 font-medium",
+                          selectedConversation.employee.current_status === "LUNCH"
+                            ? "border-amber-500 text-amber-700 bg-amber-50"
+                            : "border-purple-500 text-purple-700 bg-purple-50"
+                        )}
+                      >
+                        {selectedConversation.employee.current_status === "LUNCH" ? "On Lunch" : "On Break"}
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {getSubtitle(selectedConversation.employee)}
+                  </p>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={
+                    selectedConversation.employee.status === "active"
+                      ? "border-green-500 text-green-700 bg-green-50"
+                      : "border-gray-300 text-gray-600 bg-gray-50"
+                  }
+                >
+                  {selectedConversation.employee.status}
+                </Badge>
               </div>
-              <Badge
-                variant="outline"
-                className={
-                  selectedConversation.employee.status === "active"
-                    ? "border-green-500 text-green-700 bg-green-50"
-                    : "border-gray-300 text-gray-600 bg-gray-50"
-                }
-              >
-                {selectedConversation.employee.status}
-              </Badge>
-            </div>
+            ) : selectedGroup ? (
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setSelectedGroup(null)}
+                  className="hover:bg-gray-100"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+                <div className="h-11 w-11 rounded-xl bg-purple-100 border border-purple-200 text-purple-700 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                  {selectedGroup.name.slice(0, 2).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold truncate text-gray-900">{selectedGroup.name}</p>
+                    {selectedGroup.isPrivate && (
+                      <Badge className="bg-purple-100 text-purple-800 text-[10px] flex items-center gap-1 border-purple-200">
+                        <Lock className="h-3 w-3" /> Private
+                      </Badge>
+                    )}
+                    {selectedGroup.announcementOnly && (
+                      <Badge className="bg-amber-100 text-amber-800 text-[10px] flex items-center gap-1 border-amber-200">
+                        <Megaphone className="h-3 w-3" /> Announcement
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-500 truncate">
+                    {selectedGroup.members?.length || 0} members {selectedGroup.description ? `• ${selectedGroup.description}` : ""}
+                  </p>
+                </div>
+              </div>
+            ) : null}
           </CardContent>
         </Card>
 
@@ -682,7 +793,9 @@ export default function EmployeeMessages() {
                 <div className="text-center py-8">
                   <MessageCircle className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                   <p className="text-muted-foreground">No messages yet</p>
-                  <p className="text-sm text-muted-foreground">Start the conversation!</p>
+                  <p className="text-sm text-muted-foreground">
+                    {selectedGroup ? `Send the first message in #${selectedGroup.name}!` : "Start the conversation!"}
+                  </p>
                 </div>
               ) : (
                 messages.map((msg, index) => {
@@ -703,11 +816,11 @@ export default function EmployeeMessages() {
                       {!isSentByMe && (
                         showAvatar ? (
                           <Avatar className="h-7 w-7 flex-shrink-0 mb-1">
-                            {selectedConversation.employee.avatarUrl ? (
+                            {selectedConversation?.employee?.avatarUrl ? (
                               <AvatarImage src={toProxiedUrl(selectedConversation.employee.avatarUrl) || selectedConversation.employee.avatarUrl} alt={selectedConversation.employee.name} className="object-cover" />
                             ) : null}
                             <AvatarFallback className="bg-[#133767] text-white text-[10px] font-semibold">
-                              {selectedConversation.employee.initials}
+                              {msg.sender.slice(0, 2).toUpperCase()}
                             </AvatarFallback>
                           </Avatar>
                         ) : (
@@ -715,6 +828,9 @@ export default function EmployeeMessages() {
                         )
                       )}
                       <div className={cn("max-w-[80%] sm:max-w-[65%] min-w-0 flex flex-col", isSentByMe ? "items-end" : "items-start")}>
+                      {selectedGroup && !isSentByMe && showAvatar && (
+                        <span className="text-[10px] font-bold text-purple-700 mb-0.5 px-1">{msg.sender}</span>
+                      )}
                       <div
                         className={cn(
                           "rounded-2xl p-2 sm:p-3 shadow-sm",
@@ -822,7 +938,7 @@ export default function EmployeeMessages() {
               </Button>
               <MentionsTextarea
                 ref={messageInputRef}
-                placeholder="Type a message... (type @ to mention)"
+                placeholder={selectedGroup ? `Message #${selectedGroup.name}... (type @ to mention)` : "Type a message... (type @ to mention)"}
                 value={messageInput}
                 onChange={setMessageInput}
                 onSubmit={handleSendMessage}
@@ -882,104 +998,186 @@ export default function EmployeeMessages() {
         </Dialog>
       ) : null}
 
-      {/* Conversation List View */}
+      {/* Conversation / Channel List View */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Messages</h1>
         </div>
 
-        {/* Search */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Search conversations..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </CardContent>
-        </Card>
+        {/* Tab Selector */}
+        <div className="flex items-center gap-2 border-b border-gray-200 pb-3 overflow-x-auto">
+          <button
+            onClick={() => setActiveTab("direct")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              activeTab === "direct" ? "bg-[#133767] text-white shadow-md" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            <MessageCircle className="h-4 w-4" />
+            Direct Messages ({conversations.length})
+          </button>
+          <button
+            onClick={() => setActiveTab("groups")}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              activeTab === "groups" ? "bg-[#133767] text-white shadow-md" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            <Users className="h-4 w-4" />
+            Group Channels ({groups.length})
+          </button>
+        </div>
 
-        {/* Conversations List */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Conversations</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {filteredConversations.length === 0 ? (
-              <div className="p-8 text-center">
-                <MessageCircle className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                <p className="text-muted-foreground">
-                  {searchTerm ? "No conversations found" : "No conversations yet"}
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-gray-100">
-                {filteredConversations.map((conversation) => (
-                  <button
-                    key={conversation.employee.id}
-                    onClick={() => setSelectedConversation(conversation)}
-                    className="w-full p-4 hover:bg-gray-50 transition-colors text-left group"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="relative">
-                        <Avatar className="h-12 w-12" style={getAvatarRingStyles(conversation.employee.current_status)}>
-                          {conversation.employee.avatarUrl ? (
-                            <AvatarImage src={toProxiedUrl(conversation.employee.avatarUrl) || conversation.employee.avatarUrl} alt={conversation.employee.name} className="object-cover" />
-                          ) : null}
-                          <AvatarFallback className="bg-[#133767] text-white font-semibold">
-                            {conversation.employee.initials}
-                          </AvatarFallback>
-                        </Avatar>
-                        {getAvatarDotClassAndStyle(conversation.employee.current_status, conversation.employee.status === "active")}
+        {/* Group Channels Tab */}
+        {activeTab === "groups" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base font-bold flex items-center gap-2">
+                <Users className="h-5 w-5 text-purple-600" />
+                Your Enterprise Groups & Channels
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-4">
+              {groups.length === 0 ? (
+                <div className="p-8 text-center">
+                  <Users className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <p className="text-muted-foreground font-semibold">No group channels found</p>
+                  <p className="text-xs text-muted-foreground mt-1">Your manager or admin can add you to group channels.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {groups.map((group) => (
+                    <div
+                      key={group.id}
+                      onClick={() => startGroupChat(group)}
+                      className="p-4 rounded-2xl border border-gray-200 bg-white hover:border-purple-300 hover:shadow-md cursor-pointer transition-all flex items-start gap-3"
+                    >
+                      <div className="h-10 w-10 rounded-xl bg-purple-100 border border-purple-200 text-purple-700 flex items-center justify-center font-bold flex-shrink-0">
+                        {group.name.slice(0, 2).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <p className="font-semibold truncate text-gray-900">
-                              {conversation.employee.name}
-                            </p>
-                            {conversation.employee.current_status && conversation.employee.current_status !== "AVAILABLE" && (
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  "text-[9px] py-0 px-1 animate-pulse shrink-0 font-medium",
-                                  conversation.employee.current_status === "LUNCH"
-                                    ? "border-amber-500 text-amber-700 bg-amber-50"
-                                    : "border-purple-500 text-purple-700 bg-purple-50"
-                                )}
-                              >
-                                {conversation.employee.current_status === "LUNCH" ? "Lunch" : "Break"}
-                              </Badge>
-                            )}
-                          </div>
-                          {conversation.lastMessage && (
-                            <span className="text-xs text-gray-500 font-medium">
-                              {formatTime(conversation.lastMessage.timestamp)}
-                            </span>
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-bold text-sm text-gray-900 truncate">{group.name}</h4>
+                          {group.isPrivate && <Lock className="h-3.5 w-3.5 text-purple-600" />}
+                        </div>
+                        {group.description && <p className="text-xs text-gray-500 truncate mt-0.5">{group.description}</p>}
+                        <div className="flex items-center gap-2 mt-2">
+                          <Badge variant="outline" className="text-[10px] bg-purple-50 text-purple-700 border-purple-200">
+                            {group.members.length} member{group.members.length !== 1 ? "s" : ""}
+                          </Badge>
+                          {group.announcementOnly && (
+                            <Badge variant="outline" className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 flex items-center gap-1">
+                              <Megaphone className="h-3 w-3" /> Announcement
+                            </Badge>
                           )}
                         </div>
-                        <p className="text-sm text-gray-600 truncate">
-                          {conversation.lastMessage
-                            ? conversation.lastMessage.content
-                            : "No messages yet"}
-                        </p>
                       </div>
-                      {conversation.unreadCount > 0 && (
-                        <Badge className="bg-[#133767] text-white shrink-0">
-                          {conversation.unreadCount}
-                        </Badge>
-                      )}
                     </div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Direct Messages Tab */}
+        {activeTab === "direct" && (
+          <>
+            {/* Search */}
+            <Card>
+              <CardContent className="p-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Search conversations..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Conversations List */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Conversations</CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                {filteredConversations.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <MessageCircle className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                    <p className="text-muted-foreground">
+                      {searchTerm ? "No conversations found" : "No conversations yet"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {filteredConversations.map((conversation) => (
+                      <button
+                        key={conversation.employee.id}
+                        onClick={() => {
+                          setSelectedConversation(conversation);
+                          setSelectedGroup(null);
+                        }}
+                        className="w-full p-4 hover:bg-gray-50 transition-colors text-left group"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="relative">
+                            <Avatar className="h-12 w-12" style={getAvatarRingStyles(conversation.employee.current_status)}>
+                              {conversation.employee.avatarUrl ? (
+                                <AvatarImage src={toProxiedUrl(conversation.employee.avatarUrl) || conversation.employee.avatarUrl} alt={conversation.employee.name} className="object-cover" />
+                              ) : null}
+                              <AvatarFallback className="bg-[#133767] text-white font-semibold">
+                                {conversation.employee.initials}
+                              </AvatarFallback>
+                            </Avatar>
+                            {getAvatarDotClassAndStyle(conversation.employee.current_status, conversation.employee.status === "active")}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <p className="font-semibold truncate text-gray-900">
+                                  {conversation.employee.name}
+                                </p>
+                                {conversation.employee.current_status && conversation.employee.current_status !== "AVAILABLE" && (
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      "text-[9px] py-0 px-1 animate-pulse shrink-0 font-medium",
+                                      conversation.employee.current_status === "LUNCH"
+                                        ? "border-amber-500 text-amber-700 bg-amber-50"
+                                        : "border-purple-500 text-purple-700 bg-purple-50"
+                                    )}
+                                  >
+                                    {conversation.employee.current_status === "LUNCH" ? "Lunch" : "Break"}
+                                  </Badge>
+                                )}
+                              </div>
+                              {conversation.lastMessage && (
+                                <span className="text-xs text-gray-500 font-medium">
+                                  {formatTime(conversation.lastMessage.timestamp)}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-600 truncate">
+                              {conversation.lastMessage
+                                ? conversation.lastMessage.content
+                                : "No messages yet"}
+                            </p>
+                          </div>
+                          {conversation.unreadCount > 0 && (
+                            <Badge className="bg-[#133767] text-white shrink-0">
+                              {conversation.unreadCount}
+                            </Badge>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
     </>
   );
