@@ -87,7 +87,10 @@ export function IntellectualProperty() {
   const pendingCount = pendingQuery.data?.length || 0;
   const expiringCount = watchQuery.data?.length || 0;
   const customReminderCount = (filedQuery.data || []).filter(
-    (p: any) => Array.isArray(p.customReminderDays) && p.customReminderDays.length > 0
+    (p: any) =>
+      p.status !== "Expired" &&
+      Array.isArray(p.customReminderDays) &&
+      p.customReminderDays.filter((d: any) => typeof d === "number" && Number.isFinite(d) && d > 0).length > 0
   ).length;
 
   const handleAddDay = useCallback(() => {

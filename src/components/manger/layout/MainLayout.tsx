@@ -1058,7 +1058,7 @@ export function MainLayout({ children }: MainLayoutProps) {
                           )}
                         </button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" side="bottom" className="w-64 mt-2">
+                      <DropdownMenuContent align="end" side="bottom" className="w-64 mt-2">
                         <DropdownMenuLabel className="text-xs">Direct Messages</DropdownMenuLabel>
                         <DropdownMenuSeparator />
                         {messagesQuery.data?.length === 0 ? (
@@ -1102,13 +1102,17 @@ export function MainLayout({ children }: MainLayoutProps) {
                           )}
                         </button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" side="bottom" className={cn("w-80 mt-2 p-0 shadow-2xl", isMetallic ? "border-[#ffd27a]/35 bg-[#111315]" : "border-slate-700 bg-[#0f172a]")}>
-                        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+                      <DropdownMenuContent align="end" side="bottom" className={cn("w-80 mt-2 p-0 shadow-2xl", isMetallic ? "border-[#ffd27a]/35 bg-[#111315]" : "border-slate-700 bg-[#0f172a]")}>
+                        <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 gap-2">
                           <DropdownMenuLabel className="text-sm font-bold text-white p-0">Notifications</DropdownMenuLabel>
-                          {unreadCount > 0 && (
+                          {(unreadCount > 0 || notifications.length > 0) && (
                             <button
-                              onClick={(e) => { e.stopPropagation(); void markAllRead(); }}
-                              className={cn("text-[10px] font-bold uppercase tracking-wider transition-colors", isMetallic ? "text-[#ffd27a] hover:text-white" : "text-[#00C6FF] hover:text-white")}
+                              type="button"
+                              onClick={(e) => { e.preventDefault(); e.stopPropagation(); void markAllRead(); }}
+                              className={cn(
+                                "text-[10px] font-bold uppercase tracking-wider transition-colors shrink-0 px-2 py-0.5 rounded hover:bg-white/10 cursor-pointer",
+                                isMetallic ? "text-[#ffd27a] hover:text-white" : "text-[#00C6FF] hover:text-white"
+                              )}
                             >
                               Mark all read
                             </button>

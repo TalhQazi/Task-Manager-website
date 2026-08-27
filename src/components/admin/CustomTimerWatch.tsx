@@ -76,15 +76,22 @@ export function CustomTimerWatch({ globalReminderDays }: { globalReminderDays?: 
   };
 
   // STRICT FILTER: Only show items where user explicitly configured custom Reminder Schedule by days
-  // (Do NOT fall back to global reminder days)
+  // Exclude Expired patents and items with empty/invalid days (Do NOT fall back to global reminder days)
   const customScheduledItems = useMemo(() => {
     return patents
       .filter((p) => {
-        return Array.isArray(p.customReminderDays) && p.customReminderDays.length > 0;
+        if (p.status === "Expired") return false;
+        const validDays = (p.customReminderDays || []).filter(
+          (d) => typeof d === "number" && Number.isFinite(d) && d > 0
+        );
+        return validDays.length > 0;
       })
       .map((p) => {
+        const validDays = (p.customReminderDays || []).filter(
+          (d) => typeof d === "number" && Number.isFinite(d) && d > 0
+        );
         const daysLeft = computeDaysLeft(p);
-        const sortedDays = [...(p.customReminderDays || [])].sort((a, b) => a - b);
+        const sortedDays = [...validDays].sort((a, b) => a - b);
         const maxReminderDay = Math.max(...sortedDays);
         const isWithinSchedule = daysLeft <= maxReminderDay && daysLeft >= 0;
         
@@ -93,6 +100,7 @@ export function CustomTimerWatch({ globalReminderDays }: { globalReminderDays?: 
 
         return {
           ...p,
+          customReminderDays: validDays,
           computedDaysLeft: daysLeft,
           sortedCustomDays: sortedDays,
           maxReminderDay,
