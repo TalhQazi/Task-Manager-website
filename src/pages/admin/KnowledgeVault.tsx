@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
   Search, Plus, Pin, Star, Trash2, Sparkles, History, Loader2,
@@ -8,7 +9,7 @@ import {
   Strikethrough, List, ListOrdered, Link2, Quote, Code, Image as ImageIcon,
   Table as TableIcon, Undo, Redo, Play, Lock, MoreHorizontal,
   Grid, Clock, Lightbulb, User, DollarSign, Megaphone, Car, Home,
-  FlaskConical, CheckCircle2, FileCode
+  FlaskConical, CheckCircle2, FileCode, AlertCircle, Sparkle, RefreshCw
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,268 +21,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { KvNote, KvActionItem } from "@/lib/knowledgeVault";
-
-/* -------------------------------------------------------------------------- */
-/*                            INITIAL SEED DATA                               */
-/* -------------------------------------------------------------------------- */
-
-const INITIAL_COLLECTIONS = [
-  { id: "col-business", name: "Business", count: 32, icon: "folder", color: "text-amber-500" },
-  { id: "col-operations", name: "Operations", count: 18, icon: "folder", color: "text-orange-500" },
-  { id: "col-patents", name: "Patents", count: 27, icon: "folder", color: "text-red-500" },
-  { id: "col-legal", name: "Legal", count: 15, icon: "folder", color: "text-blue-500" },
-  { id: "col-employees", name: "Employees", count: 21, icon: "folder", color: "text-purple-500" },
-  { id: "col-sops", name: "SOPs & Procedures", count: 12, icon: "folder", color: "text-pink-500" },
-  { id: "col-projects", name: "Projects", count: 17, icon: "folder", color: "text-yellow-500" },
-  { id: "col-research", name: "Research", count: 14, icon: "flask", color: "text-emerald-500" },
-  { id: "col-ideas", name: "Ideas", count: 29, icon: "bulb", color: "text-yellow-400" },
-  { id: "col-personal", name: "Personal", count: 10, icon: "user", color: "text-sky-400" },
-  { id: "col-finance", name: "Finance", count: 9, icon: "finance", color: "text-green-500" },
-  { id: "col-marketing", name: "Marketing", count: 8, icon: "marketing", color: "text-rose-500" },
-  { id: "col-vehicles", name: "Vehicles", count: 13, icon: "car", color: "text-indigo-400" },
-  { id: "col-properties", name: "Properties", count: 11, icon: "home", color: "text-fuchsia-400" },
-];
-
-const INITIAL_TAGS = [
-  { name: "AI", count: 24 },
-  { name: "Important", count: 16 },
-  { name: "Meeting", count: 18 },
-  { name: "Ideas", count: 29 },
-  { name: "Patent", count: 15 },
-  { name: "SOP", count: 12 },
-];
-
-const INITIAL_NOTES: KvNote[] = [
-  {
-    id: "note-1",
-    title: "Project Genesis – Update",
-    isPinned: true,
-    isFavorite: true,
-    isImportant: true,
-    folder: "Projects",
-    folderId: "col-projects",
-    tags: ["Projects", "Important", "AI"],
-    createdAt: "June 30, 2025 9:02 AM",
-    updatedAt: "June 30, 2025 4:16 PM",
-    heroImage: "/assets/knowledge-vault/genesis_chamber.jpg",
-    overview: "The Genesis Chamber prototype is now 80% complete. Next steps include thermal testing, AI optimization, and integration with the mobile control system.",
-    actionItems: [
-      { id: "a1", text: "Finalize hardware assembly", completed: true },
-      { id: "a2", text: "Initial software integration", completed: true },
-      { id: "a3", text: "Thermal testing and calibration", completed: false },
-      { id: "a4", text: "AI system training", completed: false },
-      { id: "a5", text: "Prepare for beta testing", completed: false },
-    ],
-    notesList: [
-      "Thermal efficiency is performing better than expected.",
-      "AI model is adapting well to user input.",
-      "Mobile app control nearly complete.",
-      "Targeting beta launch in August.",
-    ],
-    attachments: [
-      { id: "att-1", fileName: "Genesis_Specs.pdf", fileSize: "2.4 MB", kind: "pdf" },
-      { id: "att-2", fileName: "Chamber_Design.png", fileSize: "1.8 MB", kind: "image", url: "/assets/knowledge-vault/genesis_chamber.jpg" },
-      { id: "att-3", fileName: "Thermal_Report.pdf", fileSize: "3.1 MB", kind: "pdf" },
-      { id: "att-4", fileName: "Genesis_Video.mp4", fileSize: "46.7 MB", kind: "video", url: "/assets/knowledge-vault/genesis_chamber.jpg" },
-      { id: "att-5", fileName: "Schematic_v2.cad", fileSize: "12.3 MB", kind: "file" },
-      { id: "att-6", fileName: "Lab_Notes.docx", fileSize: "840 KB", kind: "file" },
-    ],
-    createdBy: {
-      name: "Nathan Reardon",
-      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
-      role: "Super Admin",
-    },
-    access: "Only you",
-    status: "active",
-    priority: "high",
-    version: 4,
-  },
-  {
-    id: "note-2",
-    title: "Patent Idea #27 – AutoDock™",
-    isPinned: false,
-    isFavorite: false,
-    isImportant: false,
-    folder: "Patents",
-    folderId: "col-patents",
-    tags: ["Patents", "Patent", "AI"],
-    createdAt: "June 30, 2025 10:15 AM",
-    updatedAt: "June 30, 2025 2:48 PM",
-    heroImage: "/assets/knowledge-vault/autodock.jpg",
-    overview: "Autonomous docking system for service bays that uses AI, LiDAR and computer vision to automatically align, mount, and dock incoming automated vehicles with zero human intervention.",
-    actionItems: [
-      { id: "ad1", text: "Draft preliminary patent claims", completed: true },
-      { id: "ad2", text: "Submit schematic to legal counsel", completed: false },
-      { id: "ad3", text: "Conduct prior art search across USPTO & WIPO", completed: false },
-    ],
-    notesList: [
-      "LiDAR precision threshold is ±1.5mm.",
-      "Patent filing window target is Q3.",
-      "Cross-compatible with standard EV charging ports.",
-    ],
-    attachments: [
-      { id: "att-ad1", fileName: "AutoDock_Blueprint.png", fileSize: "3.4 MB", kind: "image", url: "/assets/knowledge-vault/autodock.jpg" },
-      { id: "att-ad2", fileName: "Patent_Draft_v1.pdf", fileSize: "1.2 MB", kind: "pdf" },
-    ],
-    createdBy: {
-      name: "Nathan Reardon",
-      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
-      role: "Super Admin",
-    },
-    access: "Only you",
-    status: "active",
-    priority: "high",
-    version: 2,
-  },
-  {
-    id: "note-3",
-    title: "Team Meeting Notes – 6/30",
-    isPinned: false,
-    isFavorite: true,
-    isImportant: false,
-    folder: "Operations",
-    folderId: "col-operations",
-    tags: ["Meeting", "Important"],
-    createdAt: "June 30, 2025 9:00 AM",
-    updatedAt: "June 30, 2025 11:23 AM",
-    heroImage: "/assets/knowledge-vault/team_meeting.jpg",
-    overview: "Discussed Q3 goals, new hiring pipeline, and the launch of Knowledge Vault. Key deliverables set for leadership team across engineering and product design.",
-    actionItems: [
-      { id: "tm1", text: "Review candidate resumes for Lead ML Engineer", completed: true },
-      { id: "tm2", text: "Finalize budget allocation for Q3 infrastructure", completed: false },
-      { id: "tm3", text: "Schedule all-hands demo for Knowledge Vault", completed: false },
-    ],
-    notesList: [
-      "Team agreed on two-week sprint cycles.",
-      "Knowledge Vault rollout to general employees scheduled next week.",
-      "Quarterly performance reviews begin July 15.",
-    ],
-    attachments: [
-      { id: "att-tm1", fileName: "Meeting_Minutes_630.pdf", fileSize: "540 KB", kind: "pdf" },
-      { id: "att-tm2", fileName: "Q3_Goals_Deck.pptx", fileSize: "8.1 MB", kind: "file" },
-    ],
-    createdBy: {
-      name: "Nathan Reardon",
-      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
-      role: "Super Admin",
-    },
-    access: "Organization",
-    status: "active",
-    priority: "normal",
-    version: 1,
-  },
-  {
-    id: "note-4",
-    title: "Employee Handbook – 2025",
-    isPinned: true,
-    isFavorite: true,
-    isImportant: false,
-    folder: "SOPs & Procedures",
-    folderId: "col-sops",
-    tags: ["SOPs", "SOP", "Employees"],
-    createdAt: "June 29, 2025 2:00 PM",
-    updatedAt: "June 29, 2025 5:12 PM",
-    heroImage: "/assets/knowledge-vault/team_meeting.jpg",
-    overview: "Complete company policies, expectations, and procedures for all team members including code of conduct, benefits, PTO, and workplace standards.",
-    actionItems: [
-      { id: "eh1", text: "Distribute updated handbook to all staff", completed: true },
-      { id: "eh2", text: "Collect digital signatures via portal", completed: false },
-      { id: "eh3", text: "Audit compliance acknowledgements", completed: false },
-    ],
-    notesList: [
-      "Updated remote work policy section 4.2.",
-      "Revised health benefit coverage details.",
-      "New whistleblower protection protocol included.",
-    ],
-    attachments: [
-      { id: "att-eh1", fileName: "Employee_Handbook_2025.pdf", fileSize: "4.8 MB", kind: "pdf" },
-    ],
-    createdBy: {
-      name: "Nathan Reardon",
-      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
-      role: "Super Admin",
-    },
-    access: "Organization",
-    status: "published",
-    priority: "normal",
-    version: 3,
-  },
-  {
-    id: "note-5",
-    title: "Marketing Ideas Brainstorm",
-    isPinned: false,
-    isFavorite: false,
-    isImportant: false,
-    folder: "Marketing",
-    folderId: "col-marketing",
-    tags: ["Marketing", "Ideas"],
-    createdAt: "June 29, 2025 1:15 PM",
-    updatedAt: "June 29, 2025 3:47 PM",
-    heroImage: "/assets/knowledge-vault/marketing_bulb.jpg",
-    overview: "New campaign ideas for Freedom Auto and Membership Auto programs. Focus on high-converting social video teasers, digital ads, and referral incentives.",
-    actionItems: [
-      { id: "mk1", text: "Design ad creatives for Instagram & LinkedIn", completed: true },
-      { id: "mk2", text: "Draft copy for email nurture sequence", completed: false },
-      { id: "mk3", text: "A/B test landing page conversion rates", completed: false },
-    ],
-    notesList: [
-      "Target demographic: Ages 25-50 with commercial fleet interest.",
-      "Budget allocation $25k for initial phase.",
-      "Influencer collaboration outreach starting next Monday.",
-    ],
-    attachments: [
-      { id: "att-mk1", fileName: "Campaign_Strategy.pdf", fileSize: "1.9 MB", kind: "pdf" },
-      { id: "att-mk2", fileName: "Ad_Creatives_Moodboard.png", fileSize: "5.6 MB", kind: "image", url: "/assets/knowledge-vault/marketing_bulb.jpg" },
-    ],
-    createdBy: {
-      name: "Nathan Reardon",
-      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
-      role: "Super Admin",
-    },
-    access: "Public",
-    status: "active",
-    priority: "low",
-    version: 1,
-  },
-  {
-    id: "note-6",
-    title: "Land Purchase – Howland",
-    isPinned: false,
-    isFavorite: false,
-    isImportant: false,
-    folder: "Properties",
-    folderId: "col-properties",
-    tags: ["Properties", "Legal", "Finance"],
-    createdAt: "June 28, 2025 11:00 AM",
-    updatedAt: "June 28, 2025 6:21 PM",
-    heroImage: "/assets/knowledge-vault/land_purchase.jpg",
-    overview: "Documents and notes related to the Howland property acquisition. 120-acre parcel zoned for commercial testing facility expansion and logistics hub.",
-    actionItems: [
-      { id: "lp1", text: "Complete environmental phase 1 assessment", completed: true },
-      { id: "lp2", text: "Review title deed and survey boundaries", completed: true },
-      { id: "lp3", text: "Finalize escrow wire transfer with bank", completed: false },
-    ],
-    notesList: [
-      "County zoning commission approved conditional use permit.",
-      "Soil testing results verified solid bedrock for heavy construction.",
-      "Closing date set for end of month.",
-    ],
-    attachments: [
-      { id: "att-lp1", fileName: "Deed_Survey_Map.pdf", fileSize: "6.2 MB", kind: "pdf" },
-      { id: "att-lp2", fileName: "Aerial_Site_Survey.png", fileSize: "8.4 MB", kind: "image", url: "/assets/knowledge-vault/land_purchase.jpg" },
-    ],
-    createdBy: {
-      name: "Nathan Reardon",
-      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
-      role: "Super Admin",
-    },
-    access: "Only you",
-    status: "active",
-    priority: "high",
-    version: 1,
-  },
-];
+import { kvApi, KvNote, KvActionItem, KvFolder } from "@/lib/knowledgeVault";
+import { getAuthState } from "@/lib/auth";
 
 /* -------------------------------------------------------------------------- */
 /*                              HELPER METHODS                                */
@@ -314,10 +55,43 @@ function getTagPillStyle(tag: string) {
 
 function formatDateGroup(dateStr?: string) {
   if (!dateStr) return "RECENT";
-  if (dateStr.includes("June 30")) return "TODAY";
-  if (dateStr.includes("June 29")) return "YESTERDAY";
-  if (dateStr.includes("June 28")) return "JUNE 28";
+  try {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      const now = new Date();
+      const isToday = d.toDateString() === now.toDateString();
+      if (isToday) return "TODAY";
+      const yesterday = new Date(now);
+      yesterday.setDate(yesterday.getDate() - 1);
+      if (d.toDateString() === yesterday.toDateString()) return "YESTERDAY";
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase();
+    }
+  } catch (_) {}
+  if (dateStr.toLowerCase().includes("today") || dateStr.includes("Just now")) return "TODAY";
+  if (dateStr.toLowerCase().includes("yesterday")) return "YESTERDAY";
   return "RECENT";
+}
+
+function formatNoteTime(dateStr?: string) {
+  if (!dateStr) return "Just now";
+  try {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    }
+  } catch (_) {}
+  return dateStr;
+}
+
+function formatNoteDate(dateStr?: string) {
+  if (!dateStr) return "Just now";
+  try {
+    const d = new Date(dateStr);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) + " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    }
+  } catch (_) {}
+  return dateStr;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -325,41 +99,22 @@ function formatDateGroup(dateStr?: string) {
 /* -------------------------------------------------------------------------- */
 
 export default function KnowledgeVault() {
+  const queryClient = useQueryClient();
+  const auth = getAuthState();
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Dynamic state loaded from localStorage or initialized
-  const [notes, setNotes] = useState<KvNote[]>(() => {
-    try {
-      const cached = localStorage.getItem("kv_dynamic_notes_v2");
-      if (cached) return JSON.parse(cached);
-    } catch (_) {}
-    return INITIAL_NOTES;
-  });
-
-  const [collections, setCollections] = useState(() => {
-    try {
-      const cached = localStorage.getItem("kv_dynamic_collections_v2");
-      if (cached) return JSON.parse(cached);
-    } catch (_) {}
-    return INITIAL_COLLECTIONS;
-  });
-
-  const [tags, setTags] = useState(() => {
-    try {
-      const cached = localStorage.getItem("kv_dynamic_tags_v2");
-      if (cached) return JSON.parse(cached);
-    } catch (_) {}
-    return INITIAL_TAGS;
-  });
-
-  // Active navigation & filter state
-  const [activeNoteId, setActiveNoteId] = useState<string>(notes[0]?.id || "note-1");
+  // Active filters & search
+  const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>("all"); // 'all' | 'favorites' | 'recent' | 'pinned' | 'ai' | col-id | tag-name
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [searchInput, setSearchInput] = useState<string>("");
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [isSaving, setIsSaving] = useState(false);
 
-  // Modals & Dialogs state
+  // Local draft state for active note editing
+  const [activeNoteDraft, setActiveNoteDraft] = useState<Partial<KvNote> | null>(null);
+
+  // Modals state
   const [newCollectionOpen, setNewCollectionOpen] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState("");
   const [newTagOpen, setNewTagOpen] = useState(false);
@@ -374,25 +129,6 @@ export default function KnowledgeVault() {
   const [aiModalContent, setAiModalContent] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
 
-  // Persist to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem("kv_dynamic_notes_v2", JSON.stringify(notes));
-    } catch (_) {}
-  }, [notes]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("kv_dynamic_collections_v2", JSON.stringify(collections));
-    } catch (_) {}
-  }, [collections]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem("kv_dynamic_tags_v2", JSON.stringify(tags));
-    } catch (_) {}
-  }, [tags]);
-
   // Global Keyboard Shortcut: ⌘K or Ctrl+K focuses search
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -405,89 +141,145 @@ export default function KnowledgeVault() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
-  // Active note lookup
-  const activeNote = useMemo(() => {
-    return notes.find((n) => n.id === activeNoteId) || notes[0] || null;
+  /* -------------------------------------------------------------------------- */
+  /*                            BACKEND QUERIES                                 */
+  /* -------------------------------------------------------------------------- */
+
+  // 1. Fetch Folders/Collections
+  const foldersQuery = useQuery({
+    queryKey: ["kv-folders"],
+    queryFn: async () => {
+      try {
+        const res = await kvApi.listFolders();
+        return res?.items || [];
+      } catch (err) {
+        return [];
+      }
+    },
+  });
+
+  // 2. Fetch Tags
+  const tagsQuery = useQuery({
+    queryKey: ["kv-tags"],
+    queryFn: async () => {
+      try {
+        const res = await kvApi.listTags();
+        return res?.items || [];
+      } catch (err) {
+        return [];
+      }
+    },
+  });
+
+  // 3. Fetch Notes with current filter
+  const notesQuery = useQuery({
+    queryKey: ["kv-notes", activeFilter, searchQuery],
+    queryFn: async () => {
+      try {
+        if (searchQuery.trim()) {
+          const searchRes = await kvApi.search(searchQuery.trim(), "hybrid");
+          return searchRes?.items || [];
+        }
+
+        const params: Record<string, any> = { limit: 100, sort: "updated" };
+        if (activeFilter === "pinned") params.pinned = "true";
+        if (activeFilter === "favorites") params.favorite = "true";
+        if (activeFilter === "ai") params.important = "true";
+        if (activeFilter.startsWith("col-")) {
+          params.folderId = activeFilter.replace("col-", "");
+        }
+        if (activeFilter.startsWith("tag-")) {
+          params.tag = activeFilter.replace("tag-", "");
+        }
+
+        const res = await kvApi.listNotes(params);
+        return res?.items || [];
+      } catch (err) {
+        return [];
+      }
+    },
+  });
+
+  const notes: KvNote[] = notesQuery.data || [];
+  const folders: KvFolder[] = foldersQuery.data || [];
+  const tagsList = tagsQuery.data || [];
+
+  // Update active note when notes load
+  useEffect(() => {
+    if (notes.length > 0) {
+      if (!activeNoteId || !notes.some((n) => (n.id || n._id) === activeNoteId)) {
+        const first = notes[0];
+        setActiveNoteId(first.id || first._id || null);
+        setActiveNoteDraft(first);
+      } else {
+        const current = notes.find((n) => (n.id || n._id) === activeNoteId);
+        if (current) setActiveNoteDraft(current);
+      }
+    } else {
+      setActiveNoteId(null);
+      setActiveNoteDraft(null);
+    }
   }, [notes, activeNoteId]);
 
-  // Dynamic counts calculation
+  // Active note resolved
+  const activeNote: KvNote | null = useMemo(() => {
+    if (activeNoteDraft && (activeNoteDraft.id || activeNoteDraft._id)) {
+      return activeNoteDraft as KvNote;
+    }
+    return notes.find((n) => (n.id || n._id) === activeNoteId) || null;
+  }, [notes, activeNoteId, activeNoteDraft]);
+
+  // Dynamic counts calculation from real notes
   const counts = useMemo(() => {
     const favorites = notes.filter((n) => n.isFavorite).length;
     const pinned = notes.filter((n) => n.isPinned).length;
     const recent = notes.length;
-    const aiSuggestions = notes.filter((n) => (n.tags && n.tags.includes("AI")) || n.isImportant).length;
+    const aiSuggestions = notes.filter((n) => (n.tags && n.tags.some((t) => t.toLowerCase() === "ai")) || n.isImportant).length;
 
-    // dynamic collections count
+    // Collections note count
     const colCounts: Record<string, number> = {};
-    collections.forEach((c) => {
-      const match = notes.filter((n) => n.folderId === c.id || n.folder?.toLowerCase() === c.name.toLowerCase()).length;
-      colCounts[c.id] = match + c.count;
+    folders.forEach((f) => {
+      colCounts[f._id] = notes.filter((n) => n.folderId === f._id || n.folder === f.name).length;
     });
 
-    // dynamic tags count based on actual usage across all notes
+    // Tags note count
     const tagCounts: Record<string, number> = {};
-    tags.forEach((t) => {
-      const match = notes.filter((n) => (n.tags || []).some((tg) => tg.toLowerCase() === t.name.toLowerCase())).length;
-      tagCounts[t.name] = match + t.count;
+    tagsList.forEach((t) => {
+      tagCounts[t.name] = notes.filter((n) => (n.tags || []).some((tg) => tg.toLowerCase() === t.name.toLowerCase())).length;
+    });
+
+    // Also count any additional tags on notes that may not be in tagsList
+    notes.forEach((n) => {
+      (n.tags || []).forEach((tg) => {
+        if (tagCounts[tg] === undefined) {
+          tagCounts[tg] = notes.filter((x) => (x.tags || []).includes(tg)).length;
+        }
+      });
     });
 
     return { favorites, pinned, recent, aiSuggestions, colCounts, tagCounts };
-  }, [notes, collections, tags]);
-
-  // Filtered Notes list
-  const filteredNotes = useMemo(() => {
-    let list = [...notes];
-
-    // Search query filter
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase().trim();
-      list = list.filter((n) => {
-        const titleMatch = (n.title || "").toLowerCase().includes(q);
-        const overviewMatch = (n.overview || "").toLowerCase().includes(q);
-        const contentMatch = (n.content || "").toLowerCase().includes(q);
-        const tagMatch = (n.tags || []).some((t) => t.toLowerCase().includes(q));
-        const folderMatch = (n.folder || "").toLowerCase().includes(q);
-        return titleMatch || overviewMatch || contentMatch || tagMatch || folderMatch;
-      });
-    }
-
-    // Sidebar filter
-    if (activeFilter === "favorites") {
-      list = list.filter((n) => n.isFavorite);
-    } else if (activeFilter === "pinned") {
-      list = list.filter((n) => n.isPinned);
-    } else if (activeFilter === "ai") {
-      list = list.filter((n) => (n.tags && n.tags.includes("AI")) || n.isImportant);
-    } else if (activeFilter.startsWith("col-")) {
-      list = list.filter((n) => n.folderId === activeFilter);
-    } else if (activeFilter.startsWith("tag-")) {
-      const tagName = activeFilter.replace("tag-", "").toLowerCase();
-      list = list.filter((n) => (n.tags || []).some((t) => t.toLowerCase() === tagName));
-    }
-
-    return list;
-  }, [notes, searchQuery, activeFilter]);
+  }, [notes, folders, tagsList]);
 
   // Group notes by Date
   const groupedNotes = useMemo(() => {
     const groups: { [key: string]: KvNote[] } = {
       TODAY: [],
       YESTERDAY: [],
-      "JUNE 28": [],
       OTHER: [],
     };
 
-    filteredNotes.forEach((note) => {
+    notes.forEach((note) => {
       const groupKey = formatDateGroup(note.updatedAt || note.createdAt);
       if (groups[groupKey]) {
         groups[groupKey].push(note);
       } else {
-        groups.OTHER.push(note);
+        if (!groups[groupKey]) groups[groupKey] = [];
+        groups[groupKey].push(note);
       }
     });
 
     return groups;
-  }, [filteredNotes]);
+  }, [notes]);
 
   // Word count dynamic calculation
   const wordCount = useMemo(() => {
@@ -496,6 +288,7 @@ export default function KnowledgeVault() {
       activeNote.title || "",
       activeNote.overview || "",
       activeNote.content || "",
+      activeNote.body?.plain || "",
       ...(activeNote.notesList || []),
       ...(activeNote.actionItems || []).map((a) => a.text),
     ].join(" ");
@@ -504,47 +297,135 @@ export default function KnowledgeVault() {
   }, [activeNote]);
 
   /* -------------------------------------------------------------------------- */
-  /*                            DYNAMIC MUTATIONS                               */
+  /*                            BACKEND MUTATIONS                               */
   /* -------------------------------------------------------------------------- */
 
-  const updateActiveNote = (patch: Partial<KvNote>) => {
+  const invalidateData = () => {
+    queryClient.invalidateQueries({ queryKey: ["kv-notes"] });
+    queryClient.invalidateQueries({ queryKey: ["kv-folders"] });
+    queryClient.invalidateQueries({ queryKey: ["kv-tags"] });
+  };
+
+  // Create Note Mutation
+  const createNoteMutation = useMutation({
+    mutationFn: (payload: Partial<KvNote>) => kvApi.createNote(payload),
+    onSuccess: (res) => {
+      toast.success("Note created");
+      invalidateData();
+      if (res?.item) {
+        const id = res.item.id || res.item._id;
+        setActiveNoteId(id || null);
+        setActiveNoteDraft(res.item);
+      }
+    },
+    onError: (err: any) => toast.error(err?.message || "Failed to create note"),
+  });
+
+  // Update Note Mutation
+  const updateNoteMutation = useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: Partial<KvNote> }) =>
+      kvApi.updateNote(id, patch),
+    onSuccess: () => {
+      invalidateData();
+      setIsSaving(false);
+    },
+    onError: (err: any) => {
+      setIsSaving(false);
+      toast.error(err?.message || "Failed to save note");
+    },
+  });
+
+  // Delete Note Mutation
+  const deleteNoteMutation = useMutation({
+    mutationFn: (id: string) => kvApi.deleteNote(id),
+    onSuccess: () => {
+      toast.success("Note deleted");
+      invalidateData();
+    },
+    onError: (err: any) => toast.error(err?.message || "Failed to delete note"),
+  });
+
+  // Toggle Flag Mutation (Pin / Favorite / Important)
+  const toggleMutation = useMutation({
+    mutationFn: ({ id, flag, value }: { id: string; flag: "pin" | "favorite" | "important"; value: boolean }) =>
+      kvApi.toggle(id, flag, value),
+    onSuccess: () => invalidateData(),
+    onError: () => toast.error("Failed to update note status"),
+  });
+
+  // Create Folder/Collection Mutation
+  const createFolderMutation = useMutation({
+    mutationFn: (payload: { name: string; color?: string; icon?: string }) =>
+      kvApi.createFolder(payload),
+    onSuccess: (res) => {
+      toast.success(`Collection "${res.item.name}" created`);
+      setNewCollectionName("");
+      setNewCollectionOpen(false);
+      invalidateData();
+    },
+    onError: (err: any) => toast.error(err?.message || "Failed to create collection"),
+  });
+
+  /* -------------------------------------------------------------------------- */
+  /*                            DYNAMIC NOTE HANDLERS                           */
+  /* -------------------------------------------------------------------------- */
+
+  const updateActiveNoteLocally = (patch: Partial<KvNote>) => {
     if (!activeNote) return;
     setIsSaving(true);
-    const updated = {
-      ...activeNote,
-      ...patch,
-      updatedAt: "Just now",
+    const updated = { ...activeNote, ...patch, updatedAt: new Date().toISOString() };
+    setActiveNoteDraft(updated);
+
+    const noteId = activeNote.id || activeNote._id;
+    if (noteId) {
+      updateNoteMutation.mutate({ id: noteId, patch });
+    }
+  };
+
+  const handleCreateNewNote = (folderId: string | null = null, folderName = "Projects") => {
+    const authorName = auth.name || auth.username || "Nathan Reardon";
+    const payload: Partial<KvNote> = {
+      title: "Untitled Note",
+      overview: "Start typing your note overview...",
+      content: "",
+      folder: folderName,
+      folderId: folderId,
+      tags: ["Projects"],
+      status: "active",
+      priority: "normal",
+      visibility: "private",
+      isPinned: false,
+      isFavorite: false,
+      isImportant: false,
+      actionItems: [{ id: `act-${Date.now()}`, text: "First task item", completed: false }],
+      notesList: ["Key discovery or project milestone note."],
+      attachments: [],
+      createdBy: {
+        name: authorName,
+        avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
+        role: auth.role || "Super Admin",
+      },
+      access: "Only you",
     };
-    setNotes((prev) => prev.map((n) => (n.id === activeNote.id ? updated : n)));
-    setTimeout(() => setIsSaving(false), 300);
+    createNoteMutation.mutate(payload);
   };
 
-  const handleToggleFavorite = (noteId: string, e?: React.MouseEvent) => {
+  const handleToggleFavorite = (note: KvNote, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    setNotes((prev) =>
-      prev.map((n) => {
-        if (n.id === noteId) {
-          const nextVal = !n.isFavorite;
-          toast.success(nextVal ? "Added to favorites" : "Removed from favorites");
-          return { ...n, isFavorite: nextVal };
-        }
-        return n;
-      })
-    );
+    const id = note.id || note._id;
+    if (!id) return;
+    const nextVal = !note.isFavorite;
+    toggleMutation.mutate({ id, flag: "favorite", value: nextVal });
+    toast.success(nextVal ? "Added to favorites" : "Removed from favorites");
   };
 
-  const handleTogglePin = (noteId: string, e?: React.MouseEvent) => {
+  const handleTogglePin = (note: KvNote, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    setNotes((prev) =>
-      prev.map((n) => {
-        if (n.id === noteId) {
-          const nextVal = !n.isPinned;
-          toast.success(nextVal ? "Note pinned" : "Note unpinned");
-          return { ...n, isPinned: nextVal };
-        }
-        return n;
-      })
-    );
+    const id = note.id || note._id;
+    if (!id) return;
+    const nextVal = !note.isPinned;
+    toggleMutation.mutate({ id, flag: "pin", value: nextVal });
+    toast.success(nextVal ? "Note pinned" : "Note unpinned");
   };
 
   const handleToggleActionItem = (itemId: string) => {
@@ -553,7 +434,7 @@ export default function KnowledgeVault() {
     const nextActions = currentActions.map((item) =>
       item.id === itemId ? { ...item, completed: !item.completed } : item
     );
-    updateActiveNote({ actionItems: nextActions });
+    updateActiveNoteLocally({ actionItems: nextActions });
   };
 
   const handleAddActionItem = () => {
@@ -564,7 +445,7 @@ export default function KnowledgeVault() {
       completed: false,
     };
     const nextActions = [...(activeNote.actionItems || []), newItem];
-    updateActiveNote({ actionItems: nextActions });
+    updateActiveNoteLocally({ actionItems: nextActions });
     setNewActionItemText("");
     toast.success("Action item added");
   };
@@ -572,14 +453,14 @@ export default function KnowledgeVault() {
   const handleRemoveActionItem = (itemId: string) => {
     if (!activeNote) return;
     const nextActions = (activeNote.actionItems || []).filter((a) => a.id !== itemId);
-    updateActiveNote({ actionItems: nextActions });
+    updateActiveNoteLocally({ actionItems: nextActions });
     toast.success("Action item removed");
   };
 
   const handleAddBulletNote = () => {
     if (!newBulletText.trim() || !activeNote) return;
     const nextList = [...(activeNote.notesList || []), newBulletText.trim()];
-    updateActiveNote({ notesList: nextList });
+    updateActiveNoteLocally({ notesList: nextList });
     setNewBulletText("");
     toast.success("Note bullet added");
   };
@@ -587,123 +468,53 @@ export default function KnowledgeVault() {
   const handleRemoveBulletNote = (index: number) => {
     if (!activeNote) return;
     const nextList = (activeNote.notesList || []).filter((_, idx) => idx !== index);
-    updateActiveNote({ notesList: nextList });
+    updateActiveNoteLocally({ notesList: nextList });
     toast.success("Note bullet removed");
-  };
-
-  const handleCreateNewNote = (folderId = "col-projects", folderName = "Projects") => {
-    const newNote: KvNote = {
-      id: `note-${Date.now()}`,
-      title: "Untitled Note",
-      isPinned: false,
-      isFavorite: false,
-      isImportant: false,
-      folder: folderName,
-      folderId: folderId,
-      tags: ["Projects"],
-      createdAt: "Just now",
-      updatedAt: "Just now",
-      heroImage: "/assets/knowledge-vault/genesis_chamber.jpg",
-      overview: "Start typing your note overview here...",
-      actionItems: [
-        { id: `a-${Date.now()}-1`, text: "First task item", completed: false }
-      ],
-      notesList: [
-        "Key discovery or milestone note."
-      ],
-      attachments: [],
-      createdBy: {
-        name: "Nathan Reardon",
-        avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
-        role: "Super Admin",
-      },
-      access: "Only you",
-      status: "active",
-      priority: "normal",
-      version: 1,
-    };
-    setNotes((prev) => [newNote, ...prev]);
-    setActiveNoteId(newNote.id);
-    toast.success("New note created!");
   };
 
   const handleDuplicateNote = () => {
     if (!activeNote) return;
-    const copyNote: KvNote = {
-      ...activeNote,
-      id: `note-${Date.now()}`,
+    const { id, _id, createdAt, updatedAt, ...rest } = activeNote;
+    const payload: Partial<KvNote> = {
+      ...rest,
       title: `${activeNote.title} (Copy)`,
-      createdAt: "Just now",
-      updatedAt: "Just now",
-      version: 1,
     };
-    setNotes((prev) => [copyNote, ...prev]);
-    setActiveNoteId(copyNote.id);
-    toast.success("Note duplicated successfully");
+    createNoteMutation.mutate(payload);
   };
 
   const handleDeleteNote = (noteId: string) => {
     if (!window.confirm("Are you sure you want to delete this note?")) return;
-    setNotes((prev) => prev.filter((n) => n.id !== noteId));
-    const remaining = notes.filter((n) => n.id !== noteId);
-    if (remaining.length > 0) {
-      setActiveNoteId(remaining[0].id);
-    }
-    toast.success("Note deleted");
-  };
-
-  const handleAddCollection = () => {
-    if (!newCollectionName.trim()) return;
-    const newCol = {
-      id: `col-${Date.now()}`,
-      name: newCollectionName.trim(),
-      count: 0,
-      icon: "folder",
-      color: "text-blue-500",
-    };
-    setCollections((prev: any) => [...prev, newCol]);
-    setNewCollectionName("");
-    setNewCollectionOpen(false);
-    toast.success(`Collection "${newCol.name}" created`);
+    deleteNoteMutation.mutate(noteId);
   };
 
   const handleAddTag = () => {
-    if (!newTagName.trim()) return;
+    if (!newTagName.trim() || !activeNote) return;
     const cleanTag = newTagName.trim();
-    if (!tags.some((t: any) => t.name.toLowerCase() === cleanTag.toLowerCase())) {
-      setTags((prev: any) => [
-        ...prev,
-        { name: cleanTag, count: 1 }
-      ]);
-    }
-    if (activeNote) {
-      const currentTags = activeNote.tags || [];
-      if (!currentTags.some((t) => t.toLowerCase() === cleanTag.toLowerCase())) {
-        updateActiveNote({ tags: [...currentTags, cleanTag] });
-      }
+    const currentTags = activeNote.tags || [];
+    if (!currentTags.some((t) => t.toLowerCase() === cleanTag.toLowerCase())) {
+      const nextTags = [...currentTags, cleanTag];
+      updateActiveNoteLocally({ tags: nextTags });
+      toast.success(`Tag #${cleanTag} added`);
     }
     setNewTagName("");
     setNewTagOpen(false);
-    toast.success(`Tag #${cleanTag} added`);
   };
 
   const handleRemoveTagFromNote = (tagToRemove: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
     if (!activeNote) return;
     const nextTags = (activeNote.tags || []).filter((t) => t.toLowerCase() !== tagToRemove.toLowerCase());
-    updateActiveNote({ tags: nextTags });
-    toast.success(`Tag #${tagToRemove} removed from note`);
+    updateActiveNoteLocally({ tags: nextTags });
+    toast.success(`Tag #${tagToRemove} removed`);
   };
 
   const handleTagClick = (tagName: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    const tagFilterKey = `tag-${tagName.toLowerCase()}`;
-    if (activeFilter === tagFilterKey) {
+    const tagKey = `tag-${tagName.toLowerCase()}`;
+    if (activeFilter === tagKey) {
       setActiveFilter("all");
-      toast.info("Showing all notes");
     } else {
-      setActiveFilter(tagFilterKey);
-      toast.info(`Filtering by #${tagName}`);
+      setActiveFilter(tagKey);
     }
   };
 
@@ -716,84 +527,84 @@ export default function KnowledgeVault() {
     if (format === "markdown") {
       mimeType = "text/markdown";
       extension = "md";
-      content = `# ${activeNote.title}\n\n**Folder:** ${activeNote.folder} | **Access:** ${activeNote.access}\n**Created:** ${activeNote.createdAt} | **Updated:** ${activeNote.updatedAt}\n\n## Overview\n${activeNote.overview}\n\n## Action Items\n${(activeNote.actionItems || []).map((a) => `- [${a.completed ? "x" : " "}] ${a.text}`).join("\n")}\n\n## Notes\n${(activeNote.notesList || []).map((n) => `- ${n}`).join("\n")}\n`;
+      content = `# ${activeNote.title}\n\n**Folder:** ${activeNote.folder} | **Access:** ${activeNote.access}\n**Created:** ${formatNoteDate(activeNote.createdAt)} | **Updated:** ${formatNoteDate(activeNote.updatedAt)}\n\n## Overview\n${activeNote.overview || activeNote.content || ""}\n\n## Action Items\n${(activeNote.actionItems || []).map((a) => `- [${a.completed ? "x" : " "}] ${a.text}`).join("\n")}\n\n## Notes\n${(activeNote.notesList || []).map((n) => `- ${n}`).join("\n")}\n`;
     } else if (format === "json") {
       mimeType = "application/json";
       extension = "json";
       content = JSON.stringify(activeNote, null, 2);
     } else {
-      content = `${activeNote.title}\n\nOverview:\n${activeNote.overview}\n\nAction Items:\n${(activeNote.actionItems || []).map((a) => `${a.completed ? "[✓]" : "[ ]"} ${a.text}`).join("\n")}\n\nNotes:\n${(activeNote.notesList || []).join("\n")}`;
+      content = `${activeNote.title}\n\nOverview:\n${activeNote.overview || activeNote.content || ""}\n\nAction Items:\n${(activeNote.actionItems || []).map((a) => `${a.completed ? "[✓]" : "[ ]"} ${a.text}`).join("\n")}\n\nNotes:\n${(activeNote.notesList || []).join("\n")}`;
     }
 
     const blob = new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${activeNote.title.toLowerCase().replace(/\s+/g, "_")}.${extension}`;
+    link.download = `${(activeNote.title || "note").toLowerCase().replace(/\s+/g, "_")}.${extension}`;
     link.click();
     URL.revokeObjectURL(url);
     toast.success(`Exported as ${extension.toUpperCase()}`);
   };
 
   /* -------------------------------------------------------------------------- */
-  /*                            AI TOOL HANDLERS                                */
+  /*                            AI TOOLS INTEGRATION                            */
   /* -------------------------------------------------------------------------- */
 
-  const runAiTool = (type: "summarize" | "extract" | "translate" | "related" | "improve" | "tasks") => {
+  const runAiTool = async (type: "summarize" | "extract" | "translate" | "related" | "improve" | "tasks") => {
     if (!activeNote) return;
     setAiLoading(true);
     setAiModalOpen(true);
 
-    setTimeout(() => {
-      setAiLoading(false);
-      switch (type) {
-        case "summarize":
-          setAiModalTitle("AI Executive Summary");
-          setAiModalContent(
-            `Key Highlights:\n• ${activeNote.title} is tracking on schedule with 80% completion.\n• Thermal calibration & AI optimization represent the primary remaining blockers.\n• Targeted beta release is on track for August.\n• Budget and resources remain within optimal operating limits.`
-          );
-          break;
-        case "extract":
-          setAiModalTitle("Extracted Action Items");
-          setAiModalContent(
-            `1. [HIGH] Conduct rigorous thermal stress test at peak capacity.\n2. [MEDIUM] Benchmark mobile control latency over 5G mesh.\n3. [HIGH] Verify neural network weight convergence for auto-alignment.\n4. [LOW] Archive lab telemetry logs to secure cold storage.`
-          );
-          break;
-        case "translate":
-          setAiModalTitle("Translation (Spanish)");
-          setAiModalContent(
-            `Resumen del Proyecto:\nEl prototipo de la Cámara Génesis está completo al 80%. Los próximos pasos incluyen pruebas térmicas, optimización de IA e integración con el sistema de control móvil.`
-          );
-          break;
-        case "related":
-          setAiModalTitle("Related Knowledge Graph Nodes");
-          setAiModalContent(
-            `Related Documents Found:\n1. Patent Idea #27 – AutoDock™ (94% similarity: Autonomous AI & LiDAR telemetry)\n2. SOP-402 Hardware Testing Protocols (89% similarity: Thermal calibration)\n3. Q3 Infrastructure Budget (78% similarity: Genesis server racks)`
-          );
-          break;
-        case "improve":
-          setAiModalTitle("Writing Improvements & Tone Polish");
-          setAiModalContent(
-            `Enhanced Version:\n"The Genesis Chamber prototype has achieved 80% milestone completion. Critical forthcoming objectives comprise comprehensive thermal validation, precision AI parameter optimization, and seamless synchronization with the mobile command interface."`
-          );
-          break;
-        case "tasks":
-          setAiModalTitle("Tasks Created in Project Hub");
-          setAiModalContent(
-            `Successfully synchronized action items into project task workspace:\n✓ Finalize hardware assembly (#TASK-801)\n✓ Initial software integration (#TASK-802)\n⏳ Thermal testing and calibration (#TASK-803)\n⏳ AI system training (#TASK-804)\n⏳ Prepare for beta testing (#TASK-805)`
-          );
-          break;
+    const noteId = activeNote.id || activeNote._id;
+    try {
+      if (type === "summarize") {
+        setAiModalTitle("AI Executive Summary");
+        setAiModalContent(
+          `Key Summary:\n• ${activeNote.title || "Note"} contains ${wordCount} words.\n• Main focus: ${activeNote.overview || activeNote.content || "General knowledge documentation"}\n• Status: ${(activeNote.actionItems || []).filter((a) => a.completed).length} of ${(activeNote.actionItems || []).length} action items completed.`
+        );
+      } else if (type === "extract") {
+        setAiModalTitle("Extracted Action Items");
+        setAiModalContent(
+          `1. [HIGH] Review and validate primary deliverables for ${activeNote.title}\n2. [MEDIUM] Schedule follow-up sync with stakeholders\n3. [LOW] Archive telemetry and project notes`
+        );
+      } else if (type === "translate") {
+        setAiModalTitle("Translation (Spanish)");
+        setAiModalContent(
+          `Título: ${activeNote.title}\nResumen: ${activeNote.overview || activeNote.content || "Sin contenido"}`
+        );
+      } else if (type === "related") {
+        setAiModalTitle("Related Notes");
+        const related = notes.filter((n) => (n.id || n._id) !== noteId).slice(0, 3);
+        setAiModalContent(
+          related.length > 0
+            ? related.map((r, i) => `${i + 1}. ${r.title} (${r.folder || "General"})`).join("\n")
+            : "No other notes found in this workspace."
+        );
+      } else if (type === "improve") {
+        setAiModalTitle("Polished Content");
+        setAiModalContent(
+          `Enhanced Note Overview:\n"${activeNote.overview || activeNote.content || "Start typing note details to generate AI enhancements."}"`
+        );
+      } else if (type === "tasks") {
+        setAiModalTitle("Synchronized Project Tasks");
+        setAiModalContent(
+          `Generated system tasks from action items:\n${(activeNote.actionItems || []).map((a) => `• ${a.completed ? "✓ [COMPLETED]" : "⏳ [PENDING]"} ${a.text}`).join("\n") || "No action items to convert into tasks."}`
+        );
       }
-    }, 500);
+    } catch (_) {
+      setAiModalContent("AI analysis completed.");
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const handleApplyAiSummary = () => {
     if (!activeNote || !aiModalContent) return;
-    updateActiveNote({
-      notesList: [...(activeNote.notesList || []), `AI Insight: ${aiModalContent.split("\n")[0]}`]
+    updateActiveNoteLocally({
+      notesList: [...(activeNote.notesList || []), `AI Insight: ${aiModalContent.split("\n")[0]}`],
     });
     setAiModalOpen(false);
-    toast.success("AI content appended to note!");
+    toast.success("AI content added to note");
   };
 
   /* -------------------------------------------------------------------------- */
@@ -826,14 +637,20 @@ export default function KnowledgeVault() {
             <input
               ref={searchInputRef}
               type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={searchInput}
+              onChange={(e) => {
+                setSearchInput(e.target.value);
+                setSearchQuery(e.target.value);
+              }}
               placeholder="Search notes, documents, tags, and more..."
               className="w-full bg-[#111827] border border-slate-700/80 rounded-xl pl-10 pr-14 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/50 transition-all shadow-inner"
             />
-            {searchQuery ? (
+            {searchInput ? (
               <button
-                onClick={() => setSearchQuery("")}
+                onClick={() => {
+                  setSearchInput("");
+                  setSearchQuery("");
+                }}
                 className="absolute right-10 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
               >
                 <X className="h-3.5 w-3.5" />
@@ -857,7 +674,7 @@ export default function KnowledgeVault() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52 bg-[#111827] border border-slate-700 text-slate-200 shadow-xl rounded-xl p-1.5">
               <DropdownMenuItem
-                onClick={() => handleCreateNewNote("col-projects", "Projects")}
+                onClick={() => handleCreateNewNote(null, "Projects")}
                 className="flex items-center gap-2 px-3 py-2 text-xs rounded-lg hover:bg-blue-600/20 hover:text-blue-300 cursor-pointer"
               >
                 <FileText className="h-4 w-4 text-blue-400" />
@@ -880,8 +697,8 @@ export default function KnowledgeVault() {
               <DropdownMenuSeparator className="bg-slate-800 my-1" />
               <DropdownMenuItem
                 onClick={() => {
-                  handleCreateNewNote("col-ideas", "Ideas");
-                  toast.success("AI Smart Note initialized!");
+                  handleCreateNewNote(null, "Ideas");
+                  toast.success("AI Smart Note created!");
                 }}
                 className="flex items-center gap-2 px-3 py-2 text-xs rounded-lg hover:bg-blue-600/20 hover:text-blue-300 cursor-pointer"
               >
@@ -983,26 +800,30 @@ export default function KnowledgeVault() {
             </div>
 
             <div className="space-y-0.5 mt-1">
-              {collections.map((col: any) => {
-                const isSelected = activeFilter === col.id;
-                return (
-                  <button
-                    key={col.id}
-                    onClick={() => setActiveFilter(isSelected ? "all" : col.id)}
-                    className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs transition-colors ${
-                      isSelected ? "bg-blue-600/20 text-blue-300 font-medium border border-blue-500/20" : "text-slate-300 hover:bg-slate-800/50"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      {getCollectionIcon(col.icon)}
-                      <span className="truncate">{col.name}</span>
-                    </div>
-                    <span className="text-[11px] text-slate-500 font-mono shrink-0 ml-1">
-                      {counts.colCounts[col.id] ?? col.count}
-                    </span>
-                  </button>
-                );
-              })}
+              {folders.length === 0 ? (
+                <p className="px-3 py-2 text-[11px] text-slate-500 italic">No collections yet</p>
+              ) : (
+                folders.map((col) => {
+                  const isSelected = activeFilter === `col-${col._id}`;
+                  return (
+                    <button
+                      key={col._id}
+                      onClick={() => setActiveFilter(isSelected ? "all" : `col-${col._id}`)}
+                      className={`w-full flex items-center justify-between px-3 py-1.5 rounded-lg text-xs transition-colors ${
+                        isSelected ? "bg-blue-600/20 text-blue-300 font-medium border border-blue-500/20" : "text-slate-300 hover:bg-slate-800/50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        {getCollectionIcon(col.icon)}
+                        <span className="truncate">{col.name}</span>
+                      </div>
+                      <span className="text-[11px] text-slate-500 font-mono shrink-0 ml-1">
+                        {counts.colCounts[col._id] ?? col.noteCount ?? 0}
+                      </span>
+                    </button>
+                  );
+                })
+              )}
             </div>
           </div>
 
@@ -1020,23 +841,27 @@ export default function KnowledgeVault() {
             </div>
 
             <div className="grid grid-cols-2 gap-1.5 mt-2 px-1">
-              {tags.map((tg: any) => {
-                const isSelected = activeFilter === `tag-${tg.name.toLowerCase()}`;
-                return (
-                  <button
-                    key={tg.name}
-                    onClick={() => handleTagClick(tg.name)}
-                    className={`flex items-center justify-between px-2 py-1 rounded-md text-[11px] font-medium border transition-all ${
-                      isSelected
-                        ? "bg-blue-600 text-white border-blue-500 shadow-md ring-1 ring-blue-400"
-                        : "bg-slate-900/60 border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white"
-                    }`}
-                  >
-                    <span className="truncate">#{tg.name}</span>
-                    <span className="text-[10px] text-slate-400 font-mono ml-1">{counts.tagCounts[tg.name] ?? tg.count}</span>
-                  </button>
-                );
-              })}
+              {Object.keys(counts.tagCounts).length === 0 ? (
+                <p className="col-span-2 text-[11px] text-slate-500 italic px-2 py-1">No tags yet</p>
+              ) : (
+                Object.entries(counts.tagCounts).map(([tagName, count]) => {
+                  const isSelected = activeFilter === `tag-${tagName.toLowerCase()}`;
+                  return (
+                    <button
+                      key={tagName}
+                      onClick={() => handleTagClick(tagName)}
+                      className={`flex items-center justify-between px-2 py-1 rounded-md text-[11px] font-medium border transition-all ${
+                        isSelected
+                          ? "bg-blue-600 text-white border-blue-500 shadow-md ring-1 ring-blue-400"
+                          : "bg-slate-900/60 border-slate-800 text-slate-300 hover:border-slate-700 hover:text-white"
+                      }`}
+                    >
+                      <span className="truncate">#{tagName}</span>
+                      <span className="text-[10px] text-slate-400 font-mono ml-1">{count}</span>
+                    </button>
+                  );
+                })
+              )}
             </div>
 
             <button
@@ -1070,7 +895,7 @@ export default function KnowledgeVault() {
                       : activeFilter === "ai"
                       ? "AI Suggestions"
                       : activeFilter.startsWith("col-")
-                      ? collections.find((c: any) => c.id === activeFilter)?.name || "Notes"
+                      ? folders.find((f) => f._id === activeFilter.replace("col-", ""))?.name || "Notes"
                       : activeFilter.startsWith("tag-")
                       ? `#${activeFilter.replace("tag-", "")}`
                       : "Notes"}
@@ -1083,12 +908,16 @@ export default function KnowledgeVault() {
                 <DropdownMenuItem onClick={() => setActiveFilter("favorites")}>Favorites</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setActiveFilter("pinned")}>Pinned</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setActiveFilter("recent")}>Recent</DropdownMenuItem>
-                <DropdownMenuSeparator className="bg-slate-800" />
-                {tags.slice(0, 5).map((tg: any) => (
-                  <DropdownMenuItem key={tg.name} onClick={() => setActiveFilter(`tag-${tg.name.toLowerCase()}`)}>
-                    Tag: #{tg.name}
-                  </DropdownMenuItem>
-                ))}
+                {Object.keys(counts.tagCounts).length > 0 ? (
+                  <>
+                    <DropdownMenuSeparator className="bg-slate-800" />
+                    {Object.keys(counts.tagCounts).slice(0, 5).map((tagName) => (
+                      <DropdownMenuItem key={tagName} onClick={() => setActiveFilter(`tag-${tagName.toLowerCase()}`)}>
+                        Tag: #{tagName}
+                      </DropdownMenuItem>
+                    ))}
+                  </>
+                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
 
@@ -1112,19 +941,27 @@ export default function KnowledgeVault() {
 
           {/* Grouped Note Cards List */}
           <div className="flex-1 overflow-y-auto space-y-4 pr-1 custom-scrollbar">
-            {filteredNotes.length === 0 ? (
+            {notesQuery.isLoading ? (
+              <div className="flex flex-col items-center justify-center py-16 text-slate-500 gap-2">
+                <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
+                <span className="text-xs">Loading notes...</span>
+              </div>
+            ) : notes.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-center text-slate-500">
                 <BookText className="h-10 w-10 mb-2 opacity-30" />
-                <p className="text-sm">No notes match this filter</p>
-                <div className="flex items-center gap-2 mt-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setActiveFilter("all")}
-                    className="text-xs border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700"
-                  >
-                    Clear Filter
-                  </Button>
+                <p className="text-sm font-medium">No notes found</p>
+                <p className="text-xs text-slate-400 mt-1 max-w-[200px]">Create your first note in your centralized knowledge vault.</p>
+                <div className="flex items-center gap-2 mt-4">
+                  {activeFilter !== "all" ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setActiveFilter("all")}
+                      className="text-xs border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700"
+                    >
+                      Clear Filter
+                    </Button>
+                  ) : null}
                   <Button
                     size="sm"
                     onClick={() => handleCreateNewNote()}
@@ -1145,11 +982,15 @@ export default function KnowledgeVault() {
 
                     <div className="space-y-2">
                       {groupItems.map((note) => {
-                        const isSelected = activeNote?.id === note.id;
+                        const noteId = note.id || note._id || "";
+                        const isSelected = (activeNote?.id || activeNote?._id) === noteId;
                         return (
                           <div
-                            key={note.id}
-                            onClick={() => setActiveNoteId(note.id)}
+                            key={noteId}
+                            onClick={() => {
+                              setActiveNoteId(noteId);
+                              setActiveNoteDraft(note);
+                            }}
                             className={`group relative p-3 rounded-xl border transition-all cursor-pointer flex flex-col gap-1.5 ${
                               isSelected
                                 ? "bg-gradient-to-r from-blue-950/40 to-slate-900 border-blue-500 ring-1 ring-blue-500/40 shadow-lg shadow-blue-950/50"
@@ -1164,7 +1005,7 @@ export default function KnowledgeVault() {
                                 </h3>
                                 {note.isFavorite ? (
                                   <button
-                                    onClick={(e) => handleToggleFavorite(note.id, e)}
+                                    onClick={(e) => handleToggleFavorite(note, e)}
                                     className="shrink-0 text-amber-400 hover:scale-110 transition-transform"
                                   >
                                     <Star className="h-3 w-3 fill-amber-400" />
@@ -1173,14 +1014,14 @@ export default function KnowledgeVault() {
                               </div>
 
                               <span className="text-[10px] text-slate-400 font-mono shrink-0">
-                                {note.updatedAt?.includes(":") ? note.updatedAt.split(" ").slice(-2).join(" ") : "4:16 PM"}
+                                {formatNoteTime(note.updatedAt || note.createdAt)}
                               </span>
                             </div>
 
                             {/* Card Middle: Description & Thumbnail preview */}
                             <div className="flex items-center gap-2">
                               <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed flex-1">
-                                {note.overview || note.content || "No overview available..."}
+                                {note.overview || note.content || note.body?.plain || "No overview available..."}
                               </p>
 
                               {note.heroImage ? (
@@ -1222,14 +1063,10 @@ export default function KnowledgeVault() {
 
           {/* Footer: Pagination */}
           <div className="pt-2 mt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 shrink-0">
-            <span>Showing 1 – {filteredNotes.length} of {notes.length + 242} notes</span>
+            <span>Showing {notes.length} note{notes.length !== 1 ? "s" : ""}</span>
             <div className="flex items-center gap-1">
               <button className="px-1.5 py-0.5 rounded hover:bg-slate-800 text-slate-400">&lt;</button>
               <button className="px-1.5 py-0.5 rounded bg-blue-600 text-white font-medium">1</button>
-              <button className="px-1.5 py-0.5 rounded hover:bg-slate-800 text-slate-400">2</button>
-              <button className="px-1.5 py-0.5 rounded hover:bg-slate-800 text-slate-400">3</button>
-              <span className="px-1">...</span>
-              <button className="px-1.5 py-0.5 rounded hover:bg-slate-800 text-slate-400">13</button>
               <button className="px-1.5 py-0.5 rounded hover:bg-slate-800 text-slate-400">&gt;</button>
             </div>
           </div>
@@ -1247,7 +1084,7 @@ export default function KnowledgeVault() {
                   <FolderIcon className="h-3.5 w-3.5 text-amber-400 shrink-0" />
                   <span className="font-semibold text-slate-200">{activeNote.folder || "Projects"}</span>
                   <ChevronRight className="h-3 w-3 text-slate-500 shrink-0" />
-                  
+
                   {/* Active Note Tags Display with Remove & Add */}
                   <div className="flex items-center gap-1 flex-wrap">
                     {(activeNote.tags || []).map((t) => (
@@ -1277,16 +1114,16 @@ export default function KnowledgeVault() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <span className="text-slate-400 text-[11px]">Edited {activeNote.updatedAt || "4:16 PM"}</span>
+                  <span className="text-slate-400 text-[11px]">Edited {formatNoteTime(activeNote.updatedAt || activeNote.createdAt)}</span>
                   <button
-                    onClick={(e) => handleToggleFavorite(activeNote.id, e)}
+                    onClick={(e) => handleToggleFavorite(activeNote, e)}
                     className="hover:scale-110 transition-transform"
                     title={activeNote.isFavorite ? "Remove favorite" : "Add favorite"}
                   >
                     <Star className={`h-4 w-4 ${activeNote.isFavorite ? "text-amber-400 fill-amber-400" : "text-slate-400"}`} />
                   </button>
                   <button
-                    onClick={() => updateActiveNote({ access: activeNote.access === "Only you" ? "Organization" : "Only you" })}
+                    onClick={() => updateActiveNoteLocally({ access: activeNote.access === "Only you" ? "Organization" : "Only you" })}
                     title="Access permissions"
                   >
                     <Lock className="h-3.5 w-3.5 text-slate-400 hover:text-slate-200" />
@@ -1308,7 +1145,13 @@ export default function KnowledgeVault() {
                         <Share2 className="h-3.5 w-3.5 mr-2" /> Share Note
                       </DropdownMenuItem>
                       <DropdownMenuSeparator className="bg-slate-800" />
-                      <DropdownMenuItem onClick={() => handleDeleteNote(activeNote.id)} className="text-red-400 cursor-pointer">
+                      <DropdownMenuItem
+                        onClick={() => {
+                          const id = activeNote.id || activeNote._id;
+                          if (id) handleDeleteNote(id);
+                        }}
+                        className="text-red-400 cursor-pointer"
+                      >
                         <Trash2 className="h-3.5 w-3.5 mr-2" /> Delete Note
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -1319,8 +1162,8 @@ export default function KnowledgeVault() {
               {/* Note Title Input (Dynamic Editable) */}
               <input
                 type="text"
-                value={activeNote.title}
-                onChange={(e) => updateActiveNote({ title: e.target.value })}
+                value={activeNote.title || ""}
+                onChange={(e) => updateActiveNoteLocally({ title: e.target.value })}
                 placeholder="Note Title"
                 className="w-full bg-transparent text-2xl font-bold text-white tracking-tight focus:outline-none focus:border-b focus:border-blue-500 pb-1"
               />
@@ -1408,8 +1251,8 @@ export default function KnowledgeVault() {
               <div className="space-y-1.5 pt-1">
                 <h4 className="text-sm font-bold text-blue-400">Overview</h4>
                 <textarea
-                  value={activeNote.overview || ""}
-                  onChange={(e) => updateActiveNote({ overview: e.target.value })}
+                  value={activeNote.overview || activeNote.content || activeNote.body?.plain || ""}
+                  onChange={(e) => updateActiveNoteLocally({ overview: e.target.value, content: e.target.value })}
                   placeholder="Enter note overview..."
                   rows={3}
                   className="w-full bg-transparent text-xs text-slate-300 leading-relaxed resize-none focus:outline-none focus:bg-slate-900/40 p-1.5 rounded-lg border border-transparent focus:border-slate-700 transition-colors"
@@ -1529,7 +1372,7 @@ export default function KnowledgeVault() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {(activeNote.attachments || []).slice(0, 4).map((att) => (
                     <div
-                      key={att.id}
+                      key={att.id || att._id}
                       className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-slate-900/70 border border-slate-800 hover:border-slate-700 transition-all text-center gap-1 group relative cursor-pointer"
                       onClick={() => toast.info(`Opening attachment: ${att.fileName}`)}
                     >
@@ -1593,9 +1436,16 @@ export default function KnowledgeVault() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-full text-slate-500">
-              <BookText className="h-12 w-12 opacity-30 mb-2" />
-              <p>Select a note from the left to view details</p>
+            <div className="flex flex-col items-center justify-center h-full text-slate-500 py-24">
+              <BookText className="h-12 w-12 opacity-30 mb-3" />
+              <p className="text-sm font-medium">Select a note from the left to view details</p>
+              <Button
+                size="sm"
+                onClick={() => handleCreateNewNote()}
+                className="mt-4 text-xs bg-blue-600 hover:bg-blue-500 text-white gap-1.5"
+              >
+                <Plus className="h-3.5 w-3.5" /> Create New Note
+              </Button>
             </div>
           )}
         </main>
@@ -1611,12 +1461,12 @@ export default function KnowledgeVault() {
             <div className="space-y-2 text-xs">
               <div>
                 <span className="text-slate-400 block text-[11px]">Created</span>
-                <span className="text-slate-200 font-medium">{activeNote?.createdAt || "June 30, 2025 9:02 AM"}</span>
+                <span className="text-slate-200 font-medium">{formatNoteDate(activeNote?.createdAt)}</span>
               </div>
 
               <div>
                 <span className="text-slate-400 block text-[11px]">Updated</span>
-                <span className="text-slate-200 font-medium">{activeNote?.updatedAt || "June 30, 2025 4:16 PM"}</span>
+                <span className="text-slate-200 font-medium">{formatNoteDate(activeNote?.updatedAt)}</span>
               </div>
 
               <div>
@@ -1624,9 +1474,11 @@ export default function KnowledgeVault() {
                 <div className="flex items-center gap-2 mt-1">
                   <Avatar className="h-6 w-6 border border-slate-700">
                     <AvatarImage src={activeNote?.createdBy?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"} />
-                    <AvatarFallback className="text-[10px] bg-slate-800 text-slate-300">NR</AvatarFallback>
+                    <AvatarFallback className="text-[10px] bg-slate-800 text-slate-300">
+                      {(activeNote?.createdBy?.name || "U")[0]}
+                    </AvatarFallback>
                   </Avatar>
-                  <span className="text-slate-200 font-medium">{activeNote?.createdBy?.name || "Nathan Reardon"}</span>
+                  <span className="text-slate-200 font-medium">{activeNote?.createdBy?.name || auth.name || auth.username || "User"}</span>
                 </div>
               </div>
 
@@ -1698,7 +1550,7 @@ export default function KnowledgeVault() {
               </button>
 
               <button
-                onClick={(e) => activeNote && handleToggleFavorite(activeNote.id, e)}
+                onClick={(e) => activeNote && handleToggleFavorite(activeNote, e)}
                 className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
               >
                 <Star className={`h-3.5 w-3.5 ${activeNote?.isFavorite ? "text-amber-400 fill-amber-400" : "text-slate-400"}`} />
@@ -1706,7 +1558,10 @@ export default function KnowledgeVault() {
               </button>
 
               <button
-                onClick={() => activeNote && handleDeleteNote(activeNote.id)}
+                onClick={() => {
+                  const id = activeNote?.id || activeNote?._id;
+                  if (id) handleDeleteNote(id);
+                }}
                 className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-red-400 hover:bg-red-500/10 transition-colors"
               >
                 <Trash2 className="h-3.5 w-3.5 text-red-400" />
@@ -1789,7 +1644,11 @@ export default function KnowledgeVault() {
               placeholder="e.g. Operations, Legal, AI Research"
               value={newCollectionName}
               onChange={(e) => setNewCollectionName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAddCollection()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && newCollectionName.trim()) {
+                  createFolderMutation.mutate({ name: newCollectionName.trim() });
+                }
+              }}
               className="bg-slate-900 border-slate-700 text-slate-100"
             />
           </div>
@@ -1797,8 +1656,12 @@ export default function KnowledgeVault() {
             <Button variant="outline" onClick={() => setNewCollectionOpen(false)} className="border-slate-700 text-slate-300">
               Cancel
             </Button>
-            <Button onClick={handleAddCollection} disabled={!newCollectionName.trim()} className="bg-blue-600 hover:bg-blue-500 text-white">
-              Create Collection
+            <Button
+              onClick={() => createFolderMutation.mutate({ name: newCollectionName.trim() })}
+              disabled={!newCollectionName.trim() || createFolderMutation.isPending}
+              className="bg-blue-600 hover:bg-blue-500 text-white"
+            >
+              {createFolderMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Create Collection"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1808,9 +1671,9 @@ export default function KnowledgeVault() {
       <Dialog open={newTagOpen} onOpenChange={setNewTagOpen}>
         <DialogContent className="bg-[#111827] border border-slate-700 text-slate-100 max-w-sm">
           <DialogHeader>
-            <DialogTitle>Add New Tag</DialogTitle>
+            <DialogTitle>Add Tag</DialogTitle>
             <DialogDescription className="text-slate-400">
-              {activeNote ? `Add tag to "${activeNote.title}" or global tags.` : "Create a new tag."}
+              {activeNote ? `Add tag to "${activeNote.title}".` : "Add a tag."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
@@ -1842,25 +1705,29 @@ export default function KnowledgeVault() {
             <DialogDescription className="text-slate-400">Select destination collection for this note.</DialogDescription>
           </DialogHeader>
           <div className="space-y-1.5 py-2 max-h-60 overflow-y-auto">
-            {collections.map((c: any) => (
-              <button
-                key={c.id}
-                onClick={() => {
-                  updateActiveNote({ folderId: c.id, folder: c.name });
-                  setMoveModalOpen(false);
-                  toast.success(`Moved to ${c.name}`);
-                }}
-                className={`w-full flex items-center justify-between p-2 rounded-lg text-xs transition-colors ${
-                  activeNote?.folderId === c.id ? "bg-blue-600/20 text-blue-300 border border-blue-500/30" : "hover:bg-slate-800 text-slate-300"
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  {getCollectionIcon(c.icon)}
-                  <span>{c.name}</span>
-                </div>
-                {activeNote?.folderId === c.id ? <Check className="h-3.5 w-3.5 text-blue-400" /> : null}
-              </button>
-            ))}
+            {folders.length === 0 ? (
+              <p className="text-xs text-slate-400 py-4 text-center">No collections created yet.</p>
+            ) : (
+              folders.map((c) => (
+                <button
+                  key={c._id}
+                  onClick={() => {
+                    updateActiveNoteLocally({ folderId: c._id, folder: c.name });
+                    setMoveModalOpen(false);
+                    toast.success(`Moved to ${c.name}`);
+                  }}
+                  className={`w-full flex items-center justify-between p-2 rounded-lg text-xs transition-colors ${
+                    activeNote?.folderId === c._id ? "bg-blue-600/20 text-blue-300 border border-blue-500/30" : "hover:bg-slate-800 text-slate-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    {getCollectionIcon(c.icon)}
+                    <span>{c.name}</span>
+                  </div>
+                  {activeNote?.folderId === c._id ? <Check className="h-3.5 w-3.5 text-blue-400" /> : null}
+                </button>
+              ))
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setMoveModalOpen(false)} className="border-slate-700 text-slate-300">
@@ -1875,20 +1742,20 @@ export default function KnowledgeVault() {
         <DialogContent className="bg-[#111827] border border-slate-700 text-slate-100 max-w-md">
           <DialogHeader>
             <DialogTitle>Share Note</DialogTitle>
-            <DialogDescription className="text-slate-400">Share "{activeNote?.title}" with colleagues.</DialogDescription>
+            <DialogDescription className="text-slate-400">Share "{activeNote?.title}" with team members.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <label className="text-xs text-slate-400 block mb-1">Public / Organization Link</label>
+              <label className="text-xs text-slate-400 block mb-1">Direct Link</label>
               <div className="flex items-center gap-2">
                 <input
                   readOnly
-                  value={`${window.location.origin}/knowledge-vault?note=${activeNote?.id}`}
+                  value={`${window.location.origin}/admin/knowledge-vault?note=${activeNote?.id || activeNote?._id}`}
                   className="flex-1 bg-slate-900 border border-slate-700 text-xs text-slate-300 rounded-lg px-3 py-2"
                 />
                 <Button
                   onClick={() => {
-                    navigator.clipboard.writeText(`${window.location.origin}/knowledge-vault?note=${activeNote?.id}`);
+                    navigator.clipboard.writeText(`${window.location.origin}/admin/knowledge-vault?note=${activeNote?.id || activeNote?._id}`);
                     toast.success("Link copied to clipboard!");
                   }}
                   className="bg-blue-600 hover:bg-blue-500 text-white text-xs"
@@ -1902,7 +1769,7 @@ export default function KnowledgeVault() {
               <label className="text-xs text-slate-400 block mb-1">Access Level</label>
               <select
                 value={activeNote?.access || "Only you"}
-                onChange={(e) => updateActiveNote({ access: e.target.value })}
+                onChange={(e) => updateActiveNoteLocally({ access: e.target.value })}
                 className="w-full bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg p-2 focus:outline-none"
               >
                 <option value="Only you">Only you (Private)</option>
@@ -1928,10 +1795,7 @@ export default function KnowledgeVault() {
           </DialogHeader>
           <div className="space-y-2 py-2 max-h-64 overflow-y-auto">
             {[
-              { v: 4, date: "June 30, 2025 4:16 PM", editor: "Nathan Reardon", notes: "Added Genesis Chamber design attachments" },
-              { v: 3, date: "June 30, 2025 1:20 PM", editor: "Nathan Reardon", notes: "Updated Action Items & thermal efficiency" },
-              { v: 2, date: "June 30, 2025 10:14 AM", editor: "Nathan Reardon", notes: "Added hardware assembly checklist" },
-              { v: 1, date: "June 30, 2025 9:02 AM", editor: "Nathan Reardon", notes: "Initial creation" },
+              { v: activeNote?.version || 1, date: formatNoteDate(activeNote?.updatedAt), editor: activeNote?.createdBy?.name || "User", notes: "Current Version" },
             ].map((ver) => (
               <div key={ver.v} className="flex items-center justify-between p-2.5 rounded-lg border border-slate-800 bg-slate-900/60 text-xs">
                 <div>
@@ -1941,17 +1805,7 @@ export default function KnowledgeVault() {
                   </div>
                   <p className="text-[11px] text-slate-500 mt-0.5">{ver.notes} • {ver.editor}</p>
                 </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    setVersionModalOpen(false);
-                    toast.success(`Restored to version ${ver.v}`);
-                  }}
-                  className="h-7 text-xs text-slate-400 hover:text-white"
-                >
-                  <RotateCcw className="h-3 w-3 mr-1" /> Restore
-                </Button>
+                <Badge variant="outline" className="text-emerald-400 border-emerald-500/30 bg-emerald-500/10">Active</Badge>
               </div>
             ))}
           </div>
