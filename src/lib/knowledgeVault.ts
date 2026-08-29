@@ -5,12 +5,32 @@ import { apiFetch } from "@/lib/api";
 
 const BASE = "/api/knowledge/v2";
 
+export interface KvActionItem {
+  id?: string;
+  text: string;
+  completed: boolean;
+}
+
+export interface KvAttachment {
+  id?: string;
+  _id?: string;
+  fileName: string;
+  fileSize?: string;
+  size?: number;
+  mimeType?: string;
+  url?: string;
+  kind?: "image" | "file" | "video" | "voice" | "pdf";
+  thumbnailUrl?: string;
+}
+
 export interface KvNote {
   id: string;
   _id?: string;
   title: string;
   content?: string;
+  overview?: string;
   body?: { plain?: string; markdown?: string; html?: string; format?: string };
+  heroImage?: string;
   tags?: string[];
   color?: string;
   folder?: string;
@@ -22,10 +42,19 @@ export interface KvNote {
   isPinned?: boolean;
   isFavorite?: boolean;
   isImportant?: boolean;
+  actionItems?: KvActionItem[];
+  notesList?: string[];
+  attachments?: KvAttachment[];
   version?: number;
   updatedAt?: string;
   createdAt?: string;
-  ai?: { summary?: string; keywords?: string[]; classification?: string };
+  createdBy?: {
+    name?: string;
+    avatar?: string;
+    role?: string;
+  };
+  access?: string;
+  ai?: { summary?: string; keywords?: string[]; classification?: string; actionItems?: string[] };
 }
 
 export interface KvFolder {
@@ -34,6 +63,7 @@ export interface KvFolder {
   parentId?: string | null;
   path?: string;
   color?: string;
+  icon?: string;
   noteCount?: number;
 }
 
