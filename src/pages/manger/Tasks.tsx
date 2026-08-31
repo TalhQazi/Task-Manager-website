@@ -76,6 +76,7 @@ import {
   Clock,
   AlertCircle,
   CheckCircle2,
+  RotateCcw,
   AlertTriangle,
   Users,
   Eye,
@@ -726,6 +727,10 @@ export default function Tasks() {
   const [editAssigneesOpen, setEditAssigneesOpen] = useState(false);
   const [projectCreationAssignees, setProjectCreationAssignees] = useState<string[]>([]);
   const [projectCreationAssigneesOpen, setProjectCreationAssigneesOpen] = useState(false);
+  const [confirmDeleteTaskAttachmentIndex, setConfirmDeleteTaskAttachmentIndex] = useState<number | null>(null);
+  const [deletingTaskAttachment, setDeletingTaskAttachment] = useState<number | null>(null);
+  const [confirmDeleteProjectAttachmentIndex, setConfirmDeleteProjectAttachmentIndex] = useState<number | null>(null);
+  const [deletingProjectAttachment, setDeletingProjectAttachment] = useState<number | null>(null);
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProject, setSelectedProject] = useState<ProjectWithTasks | null>(null);
@@ -1861,6 +1866,150 @@ export default function Tasks() {
       setCommentError(e instanceof Error ? e.message : "Failed to update status");
     } finally {
       setStatusSaving(false);
+    }
+  };
+
+  const deleteTaskAttachment = async (attachmentIndex: number) => {
+    if (!selectedTask) return;
+    try {
+      setDeletingTaskAttachment(attachmentIndex);
+      await apiFetch(`/api/tasks/${encodeURIComponent(selectedTask.id)}/attachments/${attachmentIndex}`, {
+        method: "DELETE",
+      });
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      if (selectedTask.projectId) {
+        await queryClient.invalidateQueries({ queryKey: ["project", selectedTask.projectId] });
+      }
+
+      if (attachmentIndex === -1) {
+        setSelectedTask({ ...selectedTask, attachment: undefined, attachmentFileName: undefined });
+      } else if (selectedTask.attachments) {
+        const newAttachments = [...selectedTask.attachments];
+        newAttachments.splice(attachmentIndex, 1);
+        setSelectedTask({ ...selectedTask, attachments: newAttachments });
+      }
+      toast({ title: "Attachment deleted", description: "The attachment has been removed from the task." });
+    } catch (e) {
+      toast({
+        title: "Delete failed",
+        description: e instanceof Error ? e.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingTaskAttachment(null);
+      setConfirmDeleteTaskAttachmentIndex(null);
+    }
+  };
+
+  const deleteProjectAttachment = async (attachmentIndex: number) => {
+    if (!selectedProject) return;
+    try {
+      setDeletingProjectAttachment(attachmentIndex);
+      await apiFetch(`/api/projects/${encodeURIComponent(selectedProject.id)}/attachments/${attachmentIndex}`, {
+        method: "DELETE",
+      });
+
+      const updatedAtts = [...(selectedProject.attachments || [])];
+      updatedAtts.splice(attachmentIndex, 1);
+      setSelectedProject({
+        ...selectedProject,
+        attachments: updatedAtts,
+      });
+
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      await queryClient.invalidateQueries({ queryKey: ["project", selectedProject.id] });
+      toast({
+        title: "Project file deleted",
+        description: "The attachment has been removed from the project.",
+      });
+    } catch (err) {
+      console.error("Failed to delete project attachment:", err);
+      toast({
+        title: "Failed to delete file",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingProjectAttachment(null);
+      setConfirmDeleteProjectAttachmentIndex(null);
+    }
+  };
+
+  const handleToggleTaskComplete = async (task: Task, event?: React.MouseEvent) => {
+    const isCompleted = task.status === "completed";
+    const nextStatus: Task["status"] = isCompleted ? "pending" : "completed";
+    try {
+      // Optimistically update local states
+      setTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? { ...t, status: nextStatus } : t))
+      );
+      if (selectedProject) {
+        setSelectedProject((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            tasks: (prev.tasks || []).map((t) =>
+              t.id === task.id ? { ...t, status: nextStatus } : t
+            ),
+          };
+        });
+      }
+      if (selectedTask && selectedTask.id === task.id) {
+        setSelectedTask({ ...selectedTask, status: nextStatus });
+      }
+
+      const res = await apiFetch<{ item: TaskApi }>(
+        `/api/tasks/${encodeURIComponent(task.id)}/status`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ status: nextStatus }),
+        }
+      );
+
+      const normalized = normalizeTask(res.item);
+      setTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? normalized : t))
+      );
+
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      if (task.projectId) {
+        await queryClient.invalidateQueries({ queryKey: ["project", task.projectId] });
+        await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      }
+
+      if (nextStatus === "completed") {
+        const taskForBlaster = {
+          id: normalized.id,
+          title: normalized.title,
+          priority: normalized.priority as any,
+          status: "completed",
+        };
+        const triggered = triggerBlaster(taskForBlaster);
+        if (triggered) incrementCompletedCount();
+
+        if (event) {
+          triggerReward(event.clientX || window.innerWidth / 2, event.clientY || window.innerHeight / 2);
+        } else {
+          triggerReward(window.innerWidth / 2, window.innerHeight / 2);
+        }
+        toast({
+          title: "Task completed! 🎉",
+          description: `"${task.title}" has been marked as complete.`,
+        });
+      } else {
+        toast({
+          title: "Task reopened",
+          description: `"${task.title}" status changed to pending.`,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to toggle task status:", err);
+      toast({
+        title: "Failed to update task status",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
     }
   };
 
@@ -3137,7 +3286,7 @@ export default function Tasks() {
                   <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                     <Command>
                       <CommandInput placeholder="Search employees..." />
-                      <CommandList>
+                      <CommandList className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain">
                         <CommandEmpty>No employee found.</CommandEmpty>
                         <CommandGroup>
                           {activeEmployees.map((employee) => (
@@ -3314,7 +3463,7 @@ export default function Tasks() {
                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                       <Command>
                         <CommandInput placeholder="Search employees..." />
-                        <CommandList>
+                        <CommandList className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain">
                           <CommandEmpty>No employee found.</CommandEmpty>
                           <CommandGroup>
                             {activeEmployees.map((employee) => (
@@ -3564,33 +3713,42 @@ export default function Tasks() {
                                   .filter((a) => a.url && (a.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(a.fileName || "")))
                                   .map((a) => ({ url: toProxiedUrl(a.url) || a.url, name: a.fileName || "Attachment" }));
                                 return (
-                                <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => { if (attachment.url) { openImagePreview(toProxiedUrl(attachment.url) || attachment.url, attachment.fileName || "Attachment", taskImageGallery); } }}>
-                                  {(attachment.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(attachment.fileName || "")) && attachment.url ? (
-                                    <img src={toProxiedUrl(attachment.url) || attachment.url} alt={attachment.fileName || `Attachment`} className="w-full h-24 object-cover" />
-                                  ) : (
-                                    <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
-                                  )}
-                                  <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
+                                  <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-sm hover:shadow-md transition-shadow cursor-zoom-in" onClick={() => { if (attachment.url) { openImagePreview(toProxiedUrl(attachment.url) || attachment.url, attachment.fileName || "Attachment", taskImageGallery); } }}>
+                                    {(attachment.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp)$/i.test(attachment.fileName || "")) && attachment.url ? (
+                                      <img src={toProxiedUrl(attachment.url) || attachment.url} alt={attachment.fileName || `Attachment`} className="w-full h-24 object-cover" />
+                                    ) : (
+                                      <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
+                                    )}
+                                    <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
 
-                                  <div className="absolute inset-0 bg-black/40 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[1px]">
-                                    <button
-                                      type="button"
-                                      onClick={(e) => { e.stopPropagation(); openImagePreview(toProxiedUrl(attachment.url) || attachment.url, attachment.fileName || "Attachment", taskImageGallery); }}
-                                      className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white"
-                                      title="Preview"
+                                    <div className="absolute inset-0 bg-black/40 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[1px]">
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); openImagePreview(toProxiedUrl(attachment.url) || attachment.url, attachment.fileName || "Attachment", taskImageGallery); }}
+                                        className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white"
+                                        title="Preview"
+                                      >
+                                        <Maximize2 className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); void downloadTaskAttachment(selectedTask.id, idx, attachment.fileName || "download"); }}
+                                        className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white"
+                                        title="Download"
+                                      >
+                                        <Download className="w-4 h-4" />
+                                      </button>
+                                    </div>
+                                    <button 
+                                      type="button" 
+                                      onClick={(e) => { e.stopPropagation(); setConfirmDeleteTaskAttachmentIndex(idx); }} 
+                                      disabled={deletingTaskAttachment === idx} 
+                                      className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-rose-600/90 hover:bg-rose-700 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-lg z-10 hover:scale-105" 
+                                      title="Delete attachment from task"
                                     >
-                                      <Maximize2 className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => { e.stopPropagation(); void downloadTaskAttachment(selectedTask.id, idx, attachment.fileName || "download"); }}
-                                      className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white"
-                                      title="Download"
-                                    >
-                                      <Download className="w-4 h-4" />
+                                      {deletingTaskAttachment === idx ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                                     </button>
                                   </div>
-                                </div>
                                 );
                               })
                               : selectedTask.attachment?.fileName ? (
@@ -3619,6 +3777,15 @@ export default function Tasks() {
                                       <Download className="w-4 h-4" />
                                     </button>
                                   </div>
+                                  <button 
+                                    type="button" 
+                                    onClick={(e) => { e.stopPropagation(); setConfirmDeleteTaskAttachmentIndex(-1); }} 
+                                    disabled={deletingTaskAttachment === -1} 
+                                    className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-rose-600/90 hover:bg-rose-700 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-lg z-10 hover:scale-105" 
+                                    title="Delete attachment from task"
+                                  >
+                                    {deletingTaskAttachment === -1 ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                                  </button>
                                 </div>
                               ) : null}
                           </div>
@@ -4035,7 +4202,7 @@ export default function Tasks() {
                             <PopoverContent className="w-64 p-0 z-[150]" align="end">
                               <Command>
                                 <CommandInput placeholder="Search employees..." />
-                                <CommandList>
+                                <CommandList className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain">
                                   <CommandEmpty>No employee found.</CommandEmpty>
                                   <CommandGroup>
                                     {activeEmployees.map((employee) => {
@@ -4266,7 +4433,7 @@ export default function Tasks() {
                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                       <Command>
                         <CommandInput placeholder="Search employees..." />
-                        <CommandList>
+                        <CommandList className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain">
                           <CommandEmpty>No employee found.</CommandEmpty>
                           <CommandGroup>
                             {activeEmployees.map((employee) => (
@@ -4541,6 +4708,60 @@ export default function Tasks() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Delete Task Attachment Confirmation Dialog */}
+      <AlertDialog open={confirmDeleteTaskAttachmentIndex !== null} onOpenChange={(open) => !open && setConfirmDeleteTaskAttachmentIndex(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Task Attachment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove this file from the task?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel disabled={deletingTaskAttachment !== null}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (confirmDeleteTaskAttachmentIndex !== null) {
+                  void deleteTaskAttachment(confirmDeleteTaskAttachmentIndex);
+                }
+              }}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+              disabled={deletingTaskAttachment !== null}
+            >
+              {deletingTaskAttachment !== null && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              Delete File
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Project Attachment Confirmation Dialog */}
+      <AlertDialog open={confirmDeleteProjectAttachmentIndex !== null} onOpenChange={(open) => !open && setConfirmDeleteProjectAttachmentIndex(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project File?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove this file from the project?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel disabled={deletingProjectAttachment !== null}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (confirmDeleteProjectAttachmentIndex !== null) {
+                  void deleteProjectAttachment(confirmDeleteProjectAttachmentIndex);
+                }
+              }}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+              disabled={deletingProjectAttachment !== null}
+            >
+              {deletingProjectAttachment !== null && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              Delete File
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Task Cards Grid (only visible after project selected) */}
       {selectedProject && (
         <div className="space-y-6">
@@ -4589,18 +4810,42 @@ export default function Tasks() {
                             <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
                           </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openView(task); }}>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleToggleTaskComplete(task, e);
+                            }}
+                            className="cursor-pointer font-medium"
+                          >
+                            {task.status === "completed" ? (
+                              <>
+                                <RotateCcw className="h-4 w-4 mr-2 text-amber-500" />
+                                Mark as Incomplete
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-500" />
+                                Mark as Complete
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openView(task); }} className="cursor-pointer">
+                            <Eye className="h-4 w-4 mr-2" />
                             View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handlePrintTask(task); }}>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handlePrintTask(task); }} className="cursor-pointer">
+                            <Printer className="h-4 w-4 mr-2" />
                             Print
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(task); }}>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(task); }} className="cursor-pointer">
+                            <Edit className="h-4 w-4 mr-2" />
                             Edit
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }}>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }} className="cursor-pointer text-destructive focus:text-destructive">
+                            <Trash2 className="h-4 w-4 mr-2" />
                             Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -4791,21 +5036,50 @@ export default function Tasks() {
                       <div className="space-y-4">
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <Paperclip className="w-4 h-4" />
-                          <h4 className="text-[13px] font-bold uppercase tracking-wider">Project Files</h4>
+                          <h4 className="text-[13px] font-bold uppercase tracking-wider">Project Files ({selectedProject.attachments.length})</h4>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 bg-muted/20 p-3 rounded-xl border border-border/50">
                           {selectedProject.attachments.map((attachment, idx) => {
                             const proxied = toProxiedUrl(attachment.url) || attachment.url;
                             const isImg = attachment.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(attachment.fileName || "");
                             return (
                               <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-xs hover:shadow-md transition-shadow">
                                 {isImg && proxied ? (
-                                  <img src={proxied} alt={attachment.fileName} className="w-full h-24 object-cover" />
+                                  <img src={proxied} alt={attachment.fileName} className="w-full h-24 object-cover cursor-zoom-in" onClick={() => { setPreviewUrl(proxied); setPreviewName(attachment.fileName); }} />
                                 ) : (
                                   <div className="w-full h-24 flex items-center justify-center bg-muted/40"><FileText className="h-8 w-8 text-muted-foreground/60" /></div>
                                 )}
                                 <div className="p-2 border-t text-[11px] font-medium truncate text-muted-foreground">{attachment.fileName}</div>
-                                <a href={proxied} target="_blank" rel="noopener noreferrer" className="absolute inset-0 bg-black/50 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[1px]"><span className="text-white text-xs font-semibold px-3 py-1.5 rounded-full border border-white/50 bg-black/40">Open File</span></a>
+                                
+                                {/* Action Overlay */}
+                                <div className="absolute inset-0 bg-black/50 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 backdrop-blur-[1px]">
+                                  {proxied && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); setPreviewUrl(proxied); setPreviewName(attachment.fileName); }}
+                                      className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-transform hover:scale-110"
+                                      title="Preview"
+                                    >
+                                      <Maximize2 className="w-4 h-4" />
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); void downloadViaUrl(proxied, attachment.fileName || "download"); }}
+                                    className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-transform hover:scale-110"
+                                    title="Download"
+                                  >
+                                    <Download className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setConfirmDeleteProjectAttachmentIndex(idx); }}
+                                    className="p-1.5 bg-rose-600/80 hover:bg-rose-600 rounded-full text-white transition-transform hover:scale-110"
+                                    title="Delete file from project"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                </div>
                               </div>
                             );
                           })}
@@ -5371,7 +5645,7 @@ export default function Tasks() {
                 <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0 shadow-2xl border-border/40 overflow-hidden" align="start" sideOffset={4}>
                   <Command className="rounded-lg">
                     <CommandInput placeholder="Search team members..." className="h-11" />
-                    <CommandList className="max-h-[300px]">
+                    <CommandList className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain">
                       <CommandEmpty className="py-6 text-sm text-muted-foreground">No team members found.</CommandEmpty>
                       <CommandGroup className="p-1.5">
                         {teamLeadMappings.map((mapping) => (

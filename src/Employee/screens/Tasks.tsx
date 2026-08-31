@@ -74,6 +74,7 @@ import {
   Clock,
   AlertCircle,
   CheckCircle2,
+  RotateCcw,
   AlertTriangle,
   Users,
   Eye,
@@ -1420,6 +1421,84 @@ export default function Tasks() {
     }
   };
 
+  const handleToggleTaskComplete = async (task: Task, event?: React.MouseEvent) => {
+    const isCompleted = task.status === "completed";
+    const nextStatus: Task["status"] = isCompleted ? "pending" : "completed";
+    try {
+      // Optimistically update local states
+      setTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? { ...t, status: nextStatus } : t))
+      );
+      if (selectedProject) {
+        setSelectedProject((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            tasks: (prev.tasks || []).map((t) =>
+              t.id === task.id ? { ...t, status: nextStatus } : t
+            ),
+          };
+        });
+      }
+      if (selectedTask && selectedTask.id === task.id) {
+        setSelectedTask({ ...selectedTask, status: nextStatus });
+      }
+
+      const res = await apiFetch<{ item: TaskApi }>(
+        `/api/tasks/${encodeURIComponent(task.id)}/status`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ status: nextStatus }),
+        }
+      );
+
+      const normalized = normalizeTask(res.item);
+      setTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? normalized : t))
+      );
+
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      if (task.projectId) {
+        await queryClient.invalidateQueries({ queryKey: ["project", task.projectId] });
+        await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      }
+
+      if (nextStatus === "completed") {
+        const taskForBlaster = {
+          id: normalized.id,
+          title: normalized.title,
+          priority: normalized.priority as any,
+          status: "completed",
+        };
+        const triggered = triggerBlaster(taskForBlaster);
+        if (triggered) incrementCompletedCount();
+
+        if (event) {
+          triggerReward(event.clientX || window.innerWidth / 2, event.clientY || window.innerHeight / 2);
+        } else {
+          triggerReward(window.innerWidth / 2, window.innerHeight / 2);
+        }
+        toast({
+          title: "Task completed! 🎉",
+          description: `"${task.title}" has been marked as complete.`,
+        });
+      } else {
+        toast({
+          title: "Task reopened",
+          description: `"${task.title}" status changed to pending.`,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to toggle task status:", err);
+      toast({
+        title: "Failed to update task status",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    }
+  };
+
   const openEdit = (task: Task) => {
     setSelectedTask(task);
     setEditSelectedAssignees(task.assignees || []);
@@ -2165,9 +2244,9 @@ export default function Tasks() {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <Command>
+                    <Command className="custom-scrollbar">
                       <CommandInput placeholder="Search employees..." />
-                      <CommandList>
+                      <CommandList className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain">
                         <CommandEmpty>No employee found.</CommandEmpty>
                         <CommandGroup>
                           {activeEmployees.map((employee) => (
@@ -3159,7 +3238,7 @@ export default function Tasks() {
                     <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
                       <Command>
                         <CommandInput placeholder="Search employees..." />
-                        <CommandList>
+                        <CommandList className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain">
                           <CommandEmpty>No employee found.</CommandEmpty>
                           <CommandGroup>
                             {activeEmployees.map((employee) => (
@@ -3382,18 +3461,42 @@ export default function Tasks() {
                             <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
                           </button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openView(task); }}>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void handleToggleTaskComplete(task, e);
+                            }}
+                            className="cursor-pointer font-medium"
+                          >
+                            {task.status === "completed" ? (
+                              <>
+                                <RotateCcw className="h-4 w-4 mr-2 text-amber-500" />
+                                Mark as Incomplete
+                              </>
+                            ) : (
+                              <>
+                                <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-500" />
+                                Mark as Complete
+                              </>
+                            )}
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openView(task); }} className="cursor-pointer">
+                            <Eye className="h-4 w-4 mr-2" />
                             View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handlePrintTask(task); }}>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handlePrintTask(task); }} className="cursor-pointer">
+                            <Printer className="h-4 w-4 mr-2" />
                             Print
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(task); }}>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(task); }} className="cursor-pointer">
+                            <Edit className="h-4 w-4 mr-2" />
                             Edit
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }}>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }} className="cursor-pointer text-destructive focus:text-destructive">
+                            <Trash2 className="h-4 w-4 mr-2" />
                             Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>

@@ -6,6 +6,7 @@ import { ActiveEmployees } from "@/components/admin/dashboard/ActiveEmployees";
 import { TaskCharts } from "@/components/manger/dashboard/TaskCharts";
 import { DayAheadCard } from "@/components/admin/dashboard/DayAheadCard";
 import { WeekAheadCard } from "@/components/admin/dashboard/WeekAheadCard";
+import { CompleteServerHealth } from "@/components/dashboard/CompleteServerHealth";
 
 import { Users, CheckSquare, FolderRoot, Car, MapPin, AlertTriangle, Clock, Sparkles, TrendingUp, ClipboardList, UserCog, ChevronDown, ChevronUp, Bug, Utensils, Coffee, Timer, CheckCircle } from "lucide-react";
 import { apiFetch, getEODStatus } from "@/lib/manger/api";
@@ -753,6 +754,11 @@ const Dashboard = () => {
           <motion.div variants={itemVariants} whileHover={{ scale: 1.01 }} className="transition-all duration-300">
             <WeekAheadCard />
           </motion.div>
+        </motion.div>
+
+        {/* Complete Server Health & Infrastructure Telemetry at End of Main Dashboard */}
+        <motion.div variants={itemVariants} className="transition-all duration-300 pt-2">
+          <CompleteServerHealth />
         </motion.div>
 
         <AnimatePresence>

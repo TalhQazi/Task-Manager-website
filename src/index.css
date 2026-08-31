@@ -168,3 +168,38 @@
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.2);
 }
+
+/* Custom Scrollbars for dropdowns, cmdk lists, popovers, and dialogs */
+.custom-scrollbar,
+[cmdk-list] {
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(148, 163, 184, 0.5) transparent !important;
+  overflow-y: auto !important;
+  -webkit-overflow-scrolling: touch !important;
+  touch-action: pan-y !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar,
+[cmdk-list]::-webkit-scrollbar {
+  width: 6px !important;
+  height: 6px !important;
+  display: block !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track,
+[cmdk-list]::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05) !important;
+  border-radius: 9999px !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb,
+[cmdk-list]::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.5) !important;
+  border-radius: 9999px !important;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover,
+[cmdk-list]::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.8) !important;
+}
+

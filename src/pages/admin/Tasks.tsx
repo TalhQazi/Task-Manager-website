@@ -80,6 +80,7 @@ import {
   Clock,
   AlertCircle,
   CheckCircle2,
+  RotateCcw,
   AlertTriangle,
   Users,
   User,
@@ -862,6 +863,8 @@ export default function Tasks() {
   const [confirmCompleteTask, setConfirmCompleteTask] = useState<Task | null>(null);
   const [confirmArchiveCommentId, setConfirmArchiveCommentId] = useState<string | null>(null);
   const [confirmArchiveAttachmentIndex, setConfirmArchiveAttachmentIndex] = useState<number | null>(null);
+  const [confirmDeleteProjectAttachmentIndex, setConfirmDeleteProjectAttachmentIndex] = useState<number | null>(null);
+  const [deletingProjectAttachment, setDeletingProjectAttachment] = useState<number | null>(null);
 
   // Fetch tasks with server-side pagination
   const tasksQuery = useQuery({
@@ -2074,8 +2077,121 @@ export default function Tasks() {
     }
   };
 
+  const deleteProjectAttachment = async (attachmentIndex: number) => {
+    if (!selectedProject) return;
+    try {
+      setDeletingProjectAttachment(attachmentIndex);
+      await apiFetch(`/api/projects/${encodeURIComponent(selectedProject.id)}/attachments/${attachmentIndex}`, {
+        method: "DELETE",
+      });
+
+      const updatedAtts = [...(selectedProject.attachments || [])];
+      updatedAtts.splice(attachmentIndex, 1);
+      setSelectedProject({
+        ...selectedProject,
+        attachments: updatedAtts,
+      });
+
+      await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      await queryClient.invalidateQueries({ queryKey: ["project", selectedProject.id] });
+      toast({
+        title: "Project file deleted",
+        description: "The attachment has been removed from the project.",
+      });
+    } catch (err) {
+      console.error("Failed to delete project attachment:", err);
+      toast({
+        title: "Failed to delete file",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingProjectAttachment(null);
+      setConfirmDeleteProjectAttachmentIndex(null);
+    }
+  };
+
   const { triggerBlaster, incrementCompletedCount } = useTaskBlasterContext();
   const { triggerReward } = useRewards();
+
+  const handleToggleTaskComplete = async (task: Task, event?: React.MouseEvent) => {
+    const isCompleted = task.status === "completed";
+    const nextStatus: Task["status"] = isCompleted ? "pending" : "completed";
+    try {
+      // Optimistically update local states
+      setTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? { ...t, status: nextStatus } : t))
+      );
+      if (selectedProject) {
+        setSelectedProject((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            tasks: (prev.tasks || []).map((t) =>
+              t.id === task.id ? { ...t, status: nextStatus } : t
+            ),
+          };
+        });
+      }
+      if (selectedTask && selectedTask.id === task.id) {
+        setSelectedTask({ ...selectedTask, status: nextStatus });
+      }
+
+      const res = await apiFetch<{ item: TaskApi }>(
+        `/api/tasks/${encodeURIComponent(task.id)}/status`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ status: nextStatus }),
+        }
+      );
+
+      const normalized = normalizeTask(res.item);
+      setTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? normalized : t))
+      );
+
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      if (task.projectId) {
+        await queryClient.invalidateQueries({ queryKey: ["project", task.projectId] });
+        await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      }
+
+      if (nextStatus === "completed") {
+        // Trigger Blaster & Reward
+        const taskForBlaster = {
+          id: normalized.id,
+          title: normalized.title,
+          priority: normalized.priority as any,
+          status: "completed",
+        };
+        const triggered = triggerBlaster(taskForBlaster);
+        if (triggered) incrementCompletedCount();
+
+        if (event) {
+          triggerReward(event.clientX || window.innerWidth / 2, event.clientY || window.innerHeight / 2);
+        } else {
+          triggerReward(window.innerWidth / 2, window.innerHeight / 2);
+        }
+        toast({
+          title: "Task completed! 🎉",
+          description: `"${task.title}" has been marked as complete.`,
+        });
+      } else {
+        toast({
+          title: "Task reopened",
+          description: `"${task.title}" status changed to pending.`,
+        });
+      }
+    } catch (err) {
+      console.error("Failed to toggle task status:", err);
+      toast({
+        title: "Failed to update task status",
+        description: err instanceof Error ? err.message : "Something went wrong",
+        variant: "destructive",
+      });
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    }
+  };
 
   const updateStatus = async (next: Task["status"], event?: React.MouseEvent | React.TouchEvent | { x: number; y: number }) => {
     if (!selectedTask) return;
@@ -3079,21 +3195,60 @@ export default function Tasks() {
               )
             )}
             {selectedProject.attachments && selectedProject.attachments.length > 0 && (
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-2">Attachments ({selectedProject.attachments.length})</p>
-                <div className="flex flex-wrap gap-2">
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <Paperclip className="w-3.5 h-3.5" /> Project Attachments ({selectedProject.attachments.length})
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 bg-muted/20 p-2.5 rounded-xl border border-border/50">
                   {selectedProject.attachments.map((att, idx) => {
                     const proxied = toProxiedUrl(att.url) || att.url;
                     const isImg = att.mimeType?.startsWith("image/") || /\.(jpg|jpeg|png|gif|webp|svg|bmp|ico)$/i.test(att.fileName || "");
-                    return isImg ? (
-                      <button key={idx} onClick={() => { setPreviewUrl(proxied); setPreviewName(att.fileName); }}>
-                        <img src={proxied} alt={att.fileName} className="h-16 w-16 object-cover rounded-md border border-border" />
-                      </button>
-                    ) : (
-                      <button key={idx} onClick={() => void downloadViaUrl(proxied, att.fileName)}
-                        className="flex items-center gap-1 px-2 py-1 rounded-md border border-border text-xs hover:bg-muted truncate max-w-[160px]">
-                        📄 {att.fileName}
-                      </button>
+                    return (
+                      <div key={idx} className="relative group rounded-lg overflow-hidden border border-border/60 bg-background shadow-xs hover:shadow-md transition-shadow">
+                        {isImg && proxied ? (
+                          <img src={proxied} alt={att.fileName || "Attachment"} className="w-full h-20 object-cover cursor-zoom-in" onClick={() => { setPreviewUrl(proxied); setPreviewName(att.fileName || "Attachment"); }} />
+                        ) : (
+                          <div className="w-full h-20 flex flex-col items-center justify-center bg-muted/40 p-2 text-center">
+                            <FileText className="h-6 w-6 text-muted-foreground/70 mb-1" />
+                            <span className="text-[10px] text-muted-foreground truncate max-w-full">{att.fileName || "Document"}</span>
+                          </div>
+                        )}
+                        <div className="p-1.5 border-t text-[11px] font-medium truncate text-muted-foreground bg-card/80">
+                          {att.fileName || "Attachment"}
+                        </div>
+
+                        {/* Hover Overlay with Preview, Download & Delete */}
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 backdrop-blur-[1px]">
+                          {proxied && (
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setPreviewUrl(proxied); setPreviewName(att.fileName || "Attachment"); }}
+                              className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-transform hover:scale-110"
+                              title="Preview"
+                            >
+                              <Maximize2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); void downloadViaUrl(proxied, att.fileName || "download"); }}
+                            className="p-1.5 bg-white/10 hover:bg-white/20 rounded-full text-white transition-transform hover:scale-110"
+                            title="Download"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setConfirmDeleteProjectAttachmentIndex(idx); }}
+                            className="p-1.5 bg-rose-600/80 hover:bg-rose-600 rounded-full text-white transition-transform hover:scale-110"
+                            title="Delete file from project"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
                     );
                   })}
                 </div>
@@ -3491,7 +3646,27 @@ export default function Tasks() {
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handleToggleTaskComplete(task, e);
+                                }}
+                                className="cursor-pointer font-medium"
+                              >
+                                {task.status === "completed" ? (
+                                  <>
+                                    <RotateCcw className="h-4 w-4 mr-2 text-amber-500" />
+                                    Mark as Incomplete
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-500" />
+                                    Mark as Complete
+                                  </>
+                                )}
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -3500,7 +3675,17 @@ export default function Tasks() {
                                 className="cursor-pointer"
                               >
                                 <Eye className="h-4 w-4 mr-2" />
-                                View
+                                View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  void handlePrintTask(task);
+                                }}
+                                className="cursor-pointer"
+                              >
+                                <Printer className="h-4 w-4 mr-2" />
+                                Print
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
@@ -3699,7 +3884,7 @@ export default function Tasks() {
                   <PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] p-0 z-[100]" align="start" collisionPadding={20}>
                     <Command className="h-full">
                       <CommandInput placeholder="Search team lead..." />
-                      <CommandList className="max-h-[250px] overflow-y-auto custom-scrollbar">
+                      <CommandList className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain">
                         <CommandEmpty>No employee found.</CommandEmpty>
                         <CommandGroup>
                           <CommandItem 
@@ -3750,7 +3935,7 @@ export default function Tasks() {
                   <PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] p-0 z-[100]" align="start" collisionPadding={20}>
                     <Command className="h-full">
                       <CommandInput placeholder="Search employees..." />
-                      <CommandList className="max-h-[250px] overflow-y-auto custom-scrollbar">
+                      <CommandList className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain">
                         <CommandEmpty>No employee found.</CommandEmpty>
                         <CommandGroup>
                           {activeEmployees.map((employee) => (
@@ -3853,7 +4038,7 @@ export default function Tasks() {
                   <PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] max-w-[380px] p-0 z-[150]" align="start" collisionPadding={20}>
                     <Command>
                       <CommandInput placeholder="Search employees..." />
-                      <CommandList className="max-h-[260px] overflow-y-auto custom-scrollbar">
+                      <CommandList className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain">
                         <CommandEmpty>No employee found.</CommandEmpty>
                         <CommandGroup>
                           {activeEmployees.map((employee) => (
@@ -3902,7 +4087,7 @@ export default function Tasks() {
                   <PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] max-w-[380px] p-0 z-[150]" align="start" collisionPadding={20}>
                     <Command>
                       <CommandInput placeholder="Search team lead..." />
-                      <CommandList className="max-h-[260px] overflow-y-auto custom-scrollbar">
+                      <CommandList className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain">
                         <CommandEmpty>No employee found.</CommandEmpty>
                         <CommandGroup>
                           <CommandItem value="" onSelect={() => { setTaskTeamLead(""); setTaskTeamLeadPopoverOpen(false); }}>
@@ -4197,7 +4382,15 @@ export default function Tasks() {
                                   <Download className="w-4 h-4" />
                                 </button>
                               </div>
-                              {isAdminRole && (<button type="button" onClick={(e) => { e.stopPropagation(); setConfirmArchiveAttachmentIndex(idx); }} disabled={archivingAttachment === idx} className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100/90 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-lg z-10" title="Archive attachment">{archivingAttachment === idx ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}</button>)}
+                              <button 
+                                type="button" 
+                                onClick={(e) => { e.stopPropagation(); setConfirmArchiveAttachmentIndex(idx); }} 
+                                disabled={archivingAttachment === idx} 
+                                className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-rose-600/90 hover:bg-rose-700 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-lg z-10 hover:scale-105" 
+                                title="Delete attachment from task"
+                              >
+                                {archivingAttachment === idx ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                              </button>
                             </div>
                           );
                           })
@@ -4227,7 +4420,15 @@ export default function Tasks() {
                                   <Download className="w-4 h-4" />
                                 </button>
                               </div>
-                              {isAdminRole && (<button type="button" onClick={(e) => { e.stopPropagation(); setConfirmArchiveAttachmentIndex(-1); }} disabled={archivingAttachment === -1} className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-amber-100/90 hover:bg-amber-200 border border-amber-300 text-amber-700 rounded-full w-7 h-7 flex items-center justify-center shadow-lg z-10" title="Archive attachment">{archivingAttachment === -1 ? <Loader2 className="h-3 w-3 animate-spin" /> : <Archive className="h-3 w-3" />}</button>)}
+                              <button 
+                                type="button" 
+                                onClick={(e) => { e.stopPropagation(); setConfirmArchiveAttachmentIndex(-1); }} 
+                                disabled={archivingAttachment === -1} 
+                                className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-rose-600/90 hover:bg-rose-700 text-white rounded-full w-7 h-7 flex items-center justify-center shadow-lg z-10 hover:scale-105" 
+                                title="Delete attachment from task"
+                              >
+                                {archivingAttachment === -1 ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                              </button>
                             </div>
                           ) : null}
                       </div>
@@ -4617,7 +4818,7 @@ export default function Tasks() {
                           <PopoverContent className="w-64 p-0 z-[150]" align="end">
                             <Command>
                               <CommandInput placeholder="Search employees..." />
-                              <CommandList>
+                              <CommandList className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain">
                                 <CommandEmpty>No employee found.</CommandEmpty>
                                 <CommandGroup>
                                   {activeEmployees.map((employee) => {
@@ -4791,7 +4992,7 @@ export default function Tasks() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField control={editForm.control} name="title" render={({ field }) => (<FormItem className="sm:col-span-2"><FormLabel>Title</FormLabel><FormControl><Input placeholder="Task title" autoComplete="on" autoCorrect="on" spellCheck="true" {...field} /></FormControl><FormMessage /></FormItem>)} />
                 <FormField control={editForm.control} name="description" render={({ field }) => (<FormItem className="sm:col-span-2"><FormLabel>Description</FormLabel><FormControl><Textarea placeholder="Short description" className="min-h-[90px]" autoComplete="on" autoCorrect="on" spellCheck="true" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Assignees</label><Popover open={editAssigneesOpen} onOpenChange={setEditAssigneesOpen}><PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{editSelectedAssignees.length > 0 ? editSelectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] p-0 z-[100]" align="start" collisionPadding={20}><Command className="h-full"><CommandInput placeholder="Search employees..." /><CommandList className="max-h-[250px] overflow-y-auto custom-scrollbar"><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setEditSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); }}><Check className={cn("mr-2 h-4 w-4", editSelectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover></div>
+                <div className="sm:col-span-2 space-y-1.5"><label className="text-sm font-medium">Assignees</label><Popover open={editAssigneesOpen} onOpenChange={setEditAssigneesOpen}><PopoverTrigger asChild><Button type="button" variant="outline" className="w-full justify-between h-10"><span className="truncate">{editSelectedAssignees.length > 0 ? editSelectedAssignees.join(", ") : "Select assignees"}</span><ChevronsUpDown className="h-4 w-4 opacity-50" /></Button></PopoverTrigger><PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] p-0 z-[100]" align="start" collisionPadding={20}><Command className="h-full"><CommandInput placeholder="Search employees..." /><CommandList className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain"><CommandEmpty>No employee found.</CommandEmpty><CommandGroup>{activeEmployees.map((employee) => (<CommandItem key={employee.id} value={employee.name} onSelect={() => { setEditSelectedAssignees((prev) => prev.includes(employee.name) ? prev.filter((name) => name !== employee.name) : [...prev, employee.name]); }}><Check className={cn("mr-2 h-4 w-4", editSelectedAssignees.includes(employee.name) ? "opacity-100" : "opacity-0")} /><Avatar className="h-6 w-6 mr-2"><AvatarFallback className="text-xs bg-primary/10 text-primary">{employee.initials}</AvatarFallback></Avatar>{employee.name}</CommandItem>))}</CommandGroup></CommandList></Command></PopoverContent></Popover></div>
                 <div className="sm:col-span-2 space-y-1.5">
                   <label className="text-sm font-medium">Team Lead (Optional)</label>
                   <Popover open={editTaskTeamLeadPopoverOpen} onOpenChange={setEditTaskTeamLeadPopoverOpen}>
@@ -4804,7 +5005,7 @@ export default function Tasks() {
                     <PopoverContent className="w-[90vw] sm:w-[--radix-popover-trigger-width] p-0 z-[100]" align="start" collisionPadding={20}>
                       <Command>
                         <CommandInput placeholder="Search team lead..." />
-                        <CommandList>
+                        <CommandList className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain">
                           <CommandEmpty>No employee found.</CommandEmpty>
                           <CommandGroup>
                             <CommandItem value="" onSelect={() => { setEditTaskTeamLead(""); setEditTaskTeamLeadPopoverOpen(false); }}>
@@ -5010,9 +5211,9 @@ export default function Tasks() {
       <AlertDialog open={confirmArchiveAttachmentIndex !== null} onOpenChange={(open) => !open && setConfirmArchiveAttachmentIndex(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Archive Attachment?</AlertDialogTitle>
+            <AlertDialogTitle>Delete / Archive Attachment?</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to archive this attachment?
+              Are you sure you want to remove this file from the task?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
@@ -5024,10 +5225,37 @@ export default function Tasks() {
                 }
                 setConfirmArchiveAttachmentIndex(null);
               }}
-              className="bg-amber-600 hover:bg-amber-700 text-white"
+              className="bg-rose-600 hover:bg-rose-700 text-white"
               disabled={archivingAttachment !== null}
             >
-              Archive
+              Delete File
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Project Attachment Confirmation Dialog */}
+      <AlertDialog open={confirmDeleteProjectAttachmentIndex !== null} onOpenChange={(open) => !open && setConfirmDeleteProjectAttachmentIndex(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project File?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove this attachment from the project? This action will remove the file reference.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row gap-2">
+            <AlertDialogCancel disabled={deletingProjectAttachment !== null}>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (confirmDeleteProjectAttachmentIndex !== null) {
+                  void deleteProjectAttachment(confirmDeleteProjectAttachmentIndex);
+                }
+              }}
+              className="bg-rose-600 hover:bg-rose-700 text-white"
+              disabled={deletingProjectAttachment !== null}
+            >
+              {deletingProjectAttachment !== null && <Loader2 className="h-4 w-4 animate-spin mr-1" />}
+              Delete File
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -5310,7 +5538,7 @@ export default function Tasks() {
                   <Command className="w-full">
                     <CommandInput placeholder="Search employees..." />
                     <div 
-                      className="max-h-[280px] overflow-y-auto custom-scrollbar overscroll-contain" 
+                      className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain" 
                       onWheel={(e) => e.stopPropagation()}
                       onTouchStart={(e) => e.stopPropagation()}
                       onTouchMove={(e) => e.stopPropagation()}
@@ -5402,7 +5630,7 @@ export default function Tasks() {
                   <Command className="w-full">
                     <CommandInput placeholder="Search employees..." />
                     <div 
-                      className="max-h-[280px] overflow-y-auto custom-scrollbar overscroll-contain" 
+                      className="max-h-[280px] sm:max-h-[320px] overflow-y-auto custom-scrollbar touch-pan-y overscroll-contain" 
                       onWheel={(e) => e.stopPropagation()}
                       onTouchStart={(e) => e.stopPropagation()}
                       onTouchMove={(e) => e.stopPropagation()}
@@ -5525,7 +5753,52 @@ export default function Tasks() {
                           </p>
                           <p className="text-xs text-muted-foreground mt-1 capitalize">{task.priority} priority</p>
                         </div>
-                        <DropdownMenu><DropdownMenuTrigger asChild><button className="p-1 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0" aria-label="Task actions" onClick={(e) => e.stopPropagation()}><MoreHorizontal className="w-4 h-4 text-muted-foreground" /></button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openView(task); }}>View Details</DropdownMenuItem><DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handlePrintTask(task); }}>Print</DropdownMenuItem><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(task); }}>Edit</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }} className="text-amber-600"><Archive className="w-4 h-4 mr-2" />Archive</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button className="p-1 rounded-lg hover:bg-muted transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0" aria-label="Task actions" onClick={(e) => e.stopPropagation()}>
+                              <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48">
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                void handleToggleTaskComplete(task, e);
+                              }}
+                              className="cursor-pointer font-medium"
+                            >
+                              {task.status === "completed" ? (
+                                <>
+                                  <RotateCcw className="h-4 w-4 mr-2 text-amber-500" />
+                                  Mark as Incomplete
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-500" />
+                                  Mark as Complete
+                                </>
+                              )}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openView(task); }} className="cursor-pointer">
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); void handlePrintTask(task); }} className="cursor-pointer">
+                              <Printer className="h-4 w-4 mr-2" />
+                              Print
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEdit(task); }} className="cursor-pointer">
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDelete(task); }} className="text-destructive focus:text-destructive cursor-pointer">
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Archive / Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                       <div className="p-4 flex-1 space-y-3">
                         <p className="text-sm text-muted-foreground line-clamp-2 break-words">{task.description}</p>

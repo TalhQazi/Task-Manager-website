@@ -7,6 +7,7 @@ import { TaskCharts } from "@/components/admin/dashboard/TaskCharts";
 import { DayAheadCard } from "@/components/admin/dashboard/DayAheadCard";
 import { WeekAheadCard } from "@/components/admin/dashboard/WeekAheadCard";
 import { WipDashboardWidget } from "@/components/wip/WipDashboardWidget";
+import { CompleteServerHealth } from "@/components/dashboard/CompleteServerHealth";
 import { Users, CheckSquare, AlertTriangle, Clock, Car, FileSearch, Globe, FolderRoot, Bug, CalendarCheck, Building2, Activity } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
@@ -272,6 +273,11 @@ const Dashboard = () => {
           <motion.div variants={itemVariants} whileHover={{ scale: 1.01 }} className="transition-all duration-300">
             <WeekAheadCard />
           </motion.div>
+        </motion.div>
+
+        {/* Complete Server Health & Infrastructure Telemetry at End of Main Dashboard */}
+        <motion.div variants={itemVariants} className="transition-all duration-300 pt-2">
+          <CompleteServerHealth />
         </motion.div>
 
         {/* API Error Message with animation.
