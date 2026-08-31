@@ -158,6 +158,17 @@ export default function EmployeeMessages() {
   const isSendingMessage = useRef(false);
   const prevMessagesLength = useRef(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [chatBackground, setChatBackground] = useState<string>(() => {
+    return localStorage.getItem("chat_background_image") || "";
+  });
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setChatBackground(localStorage.getItem("chat_background_image") || "");
+    };
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   useEffect(() => {
     if (selectedConversation || selectedGroup) {
@@ -786,8 +797,23 @@ export default function EmployeeMessages() {
         </Card>
 
         {/* Messages */}
-        <Card className="flex-1 flex flex-col overflow-hidden">
-          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4">
+        <Card
+          className="flex-1 flex flex-col overflow-hidden relative"
+          style={
+            chatBackground
+              ? {
+                  backgroundImage: `url(${toProxiedUrl(chatBackground) || chatBackground})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  backgroundRepeat: "no-repeat",
+                }
+              : {}
+          }
+        >
+          {chatBackground ? (
+            <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-[1px] pointer-events-none z-0" />
+          ) : null}
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 relative z-10">
             <div className="space-y-4">
               {messages.length === 0 ? (
                 <div className="text-center py-8">

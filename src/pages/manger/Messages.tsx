@@ -12,6 +12,12 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/manger/ui/avatar";
 import { Card, CardContent } from "@/components/manger/ui/card";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/manger/ui/dropdown-menu";
+import {
   Plus,
   Search,
   Send,
@@ -27,6 +33,9 @@ import {
   Lock,
   Megaphone,
   Info,
+  Image as ImageIcon,
+  Trash2,
+  Palette,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { renderMessageContent } from "@/lib/linkify";
@@ -264,6 +273,37 @@ export default function Messages() {
   const isSendingMessage = useRef(false);
   const prevMessagesLength = useRef(0);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const bgFileInputRef = useRef<HTMLInputElement>(null);
+  const [chatBackground, setChatBackground] = useState<string>(() => {
+    return localStorage.getItem("chat_background_image") || "";
+  });
+
+  useEffect(() => {
+    if (chatBackground) {
+      localStorage.setItem("chat_background_image", chatBackground);
+    } else {
+      localStorage.removeItem("chat_background_image");
+    }
+  }, [chatBackground]);
+
+  const handleChatBackgroundUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      return;
+    }
+    try {
+      const att = await uploadAttachment(file);
+      if (att?.url) {
+        setChatBackground(att.url);
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      if (bgFileInputRef.current) bgFileInputRef.current.value = "";
+    }
+  };
 
   useEffect(() => {
     if (selectedEmployee || selectedGroup) {
@@ -1028,6 +1068,43 @@ export default function Messages() {
 
         {view !== "conversation" && view !== "group" && (
           <div className="flex items-center gap-2 w-full sm:w-auto">
+            <input
+              ref={bgFileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleChatBackgroundUpload}
+            />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="font-semibold gap-1.5 border-purple-300 hover:bg-purple-50 text-purple-700 text-xs sm:text-sm h-9 sm:h-10"
+                >
+                  <Palette className="h-4 w-4 text-purple-600" />
+                  Chat Background
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48 bg-white border border-slate-200 text-slate-800 shadow-xl rounded-xl">
+                <DropdownMenuItem
+                  onClick={() => bgFileInputRef.current?.click()}
+                  className="cursor-pointer gap-2 text-xs font-medium"
+                >
+                  <ImageIcon className="h-4 w-4 text-blue-500" />
+                  Upload Background
+                </DropdownMenuItem>
+                {chatBackground ? (
+                  <DropdownMenuItem
+                    onClick={() => setChatBackground("")}
+                    className="cursor-pointer gap-2 text-xs font-medium text-rose-600 focus:text-rose-600"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    Remove Background
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
             <Button
               onClick={() => setCreateGroupOpen(true)}
               className="bg-blue-600 hover:bg-blue-700 text-white font-semibold gap-1.5 text-xs sm:text-sm h-9 sm:h-10"
@@ -1465,9 +1542,25 @@ export default function Messages() {
             </Dialog>
           ) : null}
 
-          <Card className="flex flex-col h-[calc(100vh-200px)] sm:h-[calc(100vh-240px)] md:h-[calc(100vh-280px)] min-h-[350px] sm:min-h-[400px] border-0 sm:border shadow-none sm:shadow">
-          {/* Messages Area */}
-          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-2 sm:p-3 md:p-4 space-y-2 sm:space-y-3 md:space-y-4">
+          <Card
+            className="flex flex-col h-[calc(100vh-200px)] sm:h-[calc(100vh-240px)] md:h-[calc(100vh-280px)] min-h-[350px] sm:min-h-[400px] border-0 sm:border shadow-none sm:shadow overflow-hidden relative"
+            style={
+              chatBackground
+                ? {
+                    backgroundImage: `url(${toProxiedUrl(chatBackground) || chatBackground})`,
+                    backgroundSize: "cover",
+                    backgroundPosition: "center",
+                    backgroundRepeat: "no-repeat",
+                  }
+                : {}
+            }
+          >
+            {chatBackground ? (
+              <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-[1px] pointer-events-none z-0" />
+            ) : null}
+
+            {/* Messages Area */}
+            <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-2 sm:p-3 md:p-4 space-y-2 sm:space-y-3 md:space-y-4 relative z-10">
             {conversationMessages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center px-3 sm:px-4">
                 <MessageCircle className="h-10 w-10 sm:h-12 sm:w-12 md:h-16 md:w-16 text-muted-foreground/50 mb-2 sm:mb-3 md:mb-4" />

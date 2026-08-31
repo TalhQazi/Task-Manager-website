@@ -14,7 +14,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/admin/ui/dialog";
-import { Plus, Search, Send, ArrowLeft, MessageCircle, User, Archive, Bookmark, Paperclip, Download, Smile, Mic, Pin, Star, Users, Folder, MessageSquare, CheckCheck, Check, CornerDownRight, Sparkles, FileText, Lock, Megaphone, Info } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/admin/ui/dropdown-menu";
+import { Plus, Search, Send, ArrowLeft, MessageCircle, User, Archive, Bookmark, Paperclip, Download, Smile, Mic, Pin, Star, Users, Folder, MessageSquare, CheckCheck, Check, CornerDownRight, Sparkles, FileText, Lock, Megaphone, Info, Image as ImageIcon, Trash2, Palette } from "lucide-react";
 import { apiFetch, listResource, toProxiedUrl } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -253,13 +259,50 @@ export default function Messaging() {
   const [activeTab, setActiveTab] = useState<"direct" | "groups" | "departments" | "starred">("direct");
   const [listFilter, setListFilter] = useState<"all" | "archived" | "bookmarked">("all");
 
-  // Enterprise Drawers & Modals State
+  // Drawers & Modals State
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
   const [groupInfoOpen, setGroupInfoOpen] = useState(false);
   const [voiceRecordingOpen, setVoiceRecordingOpen] = useState(false);
   const [activeThreadParent, setActiveThreadParent] = useState<Message | null>(null);
   const [mediaVaultOpen, setMediaVaultOpen] = useState(false);
   const [multiAttachments, setMultiAttachments] = useState<{ fileName: string; url: string; mimeType: string; size: number }[]>([]);
+
+  // Chat Background picture state
+  const bgFileInputRef = useRef<HTMLInputElement>(null);
+  const [chatBackground, setChatBackground] = useState<string>(() => {
+    return localStorage.getItem("chat_background_image") || "";
+  });
+
+  useEffect(() => {
+    if (chatBackground) {
+      localStorage.setItem("chat_background_image", chatBackground);
+    } else {
+      localStorage.removeItem("chat_background_image");
+    }
+  }, [chatBackground]);
+
+  const handleChatBackgroundUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file (PNG, JPG, WebP)");
+      return;
+    }
+    const toastId = toast.loading("Uploading chat background...");
+    try {
+      const att = await uploadAttachment(file);
+      if (att?.url) {
+        setChatBackground(att.url);
+        toast.success("Chat background picture updated!", { id: toastId });
+      } else {
+        toast.error("Failed to upload chat background", { id: toastId });
+      }
+    } catch (err) {
+      toast.error("Failed to upload chat background", { id: toastId });
+    } finally {
+      if (bgFileInputRef.current) bgFileInputRef.current.value = "";
+    }
+  };
 
   // Archive and Bookmark state (persisted to localStorage)
   const [archivedConversations, setArchivedConversations] = useState<Set<string>>(() => {
@@ -1037,13 +1080,55 @@ export default function Messaging() {
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
             {["super-admin", "admin"].includes((getAuthState().role || "").toLowerCase()) && (
-              <Button
-                onClick={() => setCreateGroupOpen(true)}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-500/20"
-              >
-                <Users className="h-4 w-4 mr-2" />
-                + Create Group
-              </Button>
+              <>
+                <input
+                  ref={bgFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleChatBackgroundUpload}
+                />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="font-semibold gap-1.5 border-purple-300 hover:bg-purple-50 text-purple-700"
+                    >
+                      <Palette className="h-4 w-4 text-purple-600" />
+                      Chat Background
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-48 bg-white border border-slate-200 text-slate-800 shadow-xl rounded-xl">
+                    <DropdownMenuItem
+                      onClick={() => bgFileInputRef.current?.click()}
+                      className="cursor-pointer gap-2 text-xs font-medium"
+                    >
+                      <ImageIcon className="h-4 w-4 text-blue-500" />
+                      Upload Background
+                    </DropdownMenuItem>
+                    {chatBackground ? (
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setChatBackground("");
+                          toast.success("Chat background removed");
+                        }}
+                        className="cursor-pointer gap-2 text-xs font-medium text-rose-600 focus:text-rose-600"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Remove Background
+                      </DropdownMenuItem>
+                    ) : null}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <Button
+                  onClick={() => setCreateGroupOpen(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md shadow-blue-500/20"
+                >
+                  <Users className="h-4 w-4 mr-2" />
+                  + Create Group
+                </Button>
+              </>
             )}
             {view !== "conversation" && view !== "group" && (
               <Button 
@@ -1474,9 +1559,25 @@ export default function Messaging() {
                   </Dialog>
                 ) : null}
 
-                <Card className="flex flex-col h-[calc(100vh-280px)] min-h-[400px]">
+                <Card
+                  className="flex flex-col h-[calc(100vh-280px)] min-h-[400px] overflow-hidden relative"
+                  style={
+                    chatBackground
+                      ? {
+                          backgroundImage: `url(${toProxiedUrl(chatBackground) || chatBackground})`,
+                          backgroundSize: "cover",
+                          backgroundPosition: "center",
+                          backgroundRepeat: "no-repeat",
+                        }
+                      : {}
+                  }
+                >
+                  {chatBackground ? (
+                    <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-[1px] pointer-events-none z-0" />
+                  ) : null}
+
                   {/* Messages Area */}
-                  <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4">
+                  <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-4 space-y-4 relative z-10">
                   {conversationMessages.length === 0 ? (
                     <div className="h-full flex flex-col items-center justify-center text-center">
                       <MessageCircle className="h-16 w-16 text-muted-foreground/50 mb-4" />

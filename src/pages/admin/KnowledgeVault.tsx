@@ -173,6 +173,25 @@ function resolveAuthorAvatar(note?: KvNote | null, auth?: any): string {
   return avatar;
 }
 
+function resolveHeroImageUrl(url?: string, token?: string | null): string {
+  if (!url) return "";
+  if (url.startsWith("data:") || url.startsWith("blob:")) {
+    return url;
+  }
+  let resolved = url;
+  if (url.startsWith("/uploads/") || url.startsWith("/api/")) {
+    const baseUrl = (import.meta.env.VITE_API_URL || (typeof window !== "undefined" && window.location.hostname === "localhost" ? "http://localhost:5000" : "https://task.se7eninc.com")).replace(/\/$/, "");
+    resolved = `${baseUrl}${url}`;
+  } else {
+    const proxied = toProxiedUrl(url);
+    if (proxied) resolved = proxied;
+  }
+  if (token && !resolved.includes("token=")) {
+    resolved = `${resolved}${resolved.includes("?") ? "&" : "?"}token=${token}`;
+  }
+  return resolved;
+}
+
 /* -------------------------------------------------------------------------- */
 /*                           MAIN COMPONENT                                   */
 /* -------------------------------------------------------------------------- */
@@ -1087,7 +1106,7 @@ export default function KnowledgeVault() {
   /* -------------------------------------------------------------------------- */
 
   return (
-    <div className="flex flex-col h-full w-full min-h-screen bg-[#0b0f19] text-slate-100 antialiased font-sans select-none -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6">
+    <div className="flex flex-col h-[calc(100vh-2rem)] min-h-[600px] w-full bg-[#0b0f19] text-slate-100 antialiased font-sans select-none -m-4 sm:-m-6 lg:-m-8 p-4 sm:p-6 overflow-hidden">
       {/* -------------------------------------------------------------------- */}
       {/*                          TOP HEADER BAR                              */}
       {/* -------------------------------------------------------------------- */}
@@ -1494,7 +1513,7 @@ export default function KnowledgeVault() {
                               {note.heroImage ? (
                                 <div className="w-12 h-10 rounded-lg overflow-hidden shrink-0 border border-slate-700/60 bg-slate-900 shadow-sm">
                                   <img
-                                    src={note.heroImage}
+                                    src={resolveHeroImageUrl(note.heroImage, auth.token)}
                                     alt="Preview"
                                     className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                                     onError={(e: any) => {
@@ -1529,11 +1548,11 @@ export default function KnowledgeVault() {
           </div>
 
           {/* Footer: Dynamic Pagination (10 notes/page) */}
-          <div className="pt-2.5 mt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 shrink-0">
-            <span className="truncate">
-              Page {page} of {totalPagesCount} ({totalNotesCount} note{totalNotesCount !== 1 ? "s" : ""})
+          <div className="pt-2.5 mt-2 border-t border-slate-800/80 flex items-center justify-between gap-1 text-[11px] text-slate-400 shrink-0 flex-wrap">
+            <span className="shrink-0 font-medium text-slate-300">
+              Page <span className="text-blue-400 font-bold">{page}</span> of {totalPagesCount} ({totalNotesCount} note{totalNotesCount !== 1 ? "s" : ""})
             </span>
-            <div className="flex items-center gap-1 shrink-0">
+            <div className="flex items-center gap-1 shrink-0 ml-auto">
               <button
                 type="button"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -1837,7 +1856,7 @@ export default function KnowledgeVault() {
               {activeNote.heroImage ? (
                 <div className="relative w-full h-56 rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 group shadow-lg">
                   <img
-                    src={activeNote.heroImage}
+                    src={resolveHeroImageUrl(activeNote.heroImage, auth.token)}
                     alt={activeNote.title}
                     className="w-full h-full object-cover"
                   />
