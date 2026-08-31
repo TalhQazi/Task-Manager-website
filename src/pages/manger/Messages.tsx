@@ -26,6 +26,7 @@ import {
   Users,
   Lock,
   Megaphone,
+  Info,
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
 import { renderMessageContent } from "@/lib/linkify";
@@ -33,6 +34,7 @@ import { apiFetch, toProxiedUrl } from "@/lib/manger/api";
 import MessageReactionBar, { type MessageReaction } from "@/components/shared/MessageReactionBar";
 import MentionsTextarea from "@/components/shared/MentionsTextarea";
 import CreateGroupModal from "@/components/shared/CreateGroupModal";
+import GroupInfoModal from "@/components/shared/GroupInfoModal";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSocket } from "@/contexts/SocketContext";
 import { getAuthState } from "@/lib/auth";
@@ -141,6 +143,17 @@ function isDuplicateMessage(prev: Message[], newMsg: Message): boolean {
   });
 }
 
+function sortMessagesChronologically(list: Message[]): Message[] {
+  return [...list].sort((a, b) => {
+    const tA = new Date(a.timestamp || a.createdAt || 0).getTime();
+    const tB = new Date(b.timestamp || b.createdAt || 0).getTime();
+    if (!isNaN(tA) && !isNaN(tB) && tA !== tB) {
+      return tA - tB;
+    }
+    return String(a.id || "").localeCompare(String(b.id || ""));
+  });
+}
+
 function getInitials(name: string): string {
   return String(name || "")
     .split(" ")
@@ -158,6 +171,7 @@ export default function Messages() {
   const [groups, setGroups] = useState<ChatGroup[]>([]);
   const [activeTab, setActiveTab] = useState<"direct" | "groups">("direct");
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
+  const [groupInfoOpen, setGroupInfoOpen] = useState(false);
 
   const [nowTime, setNowTime] = useState(Date.now());
   useEffect(() => {
@@ -459,7 +473,7 @@ export default function Messages() {
         const newMsg = normalizeMessage(res.item);
         setConversationMessages((prev) => {
           if (isDuplicateMessage(prev, newMsg)) return prev;
-          return [...prev, newMsg];
+          return sortMessagesChronologically([...prev, newMsg]);
         });
         setNewMessageContent("");
         if (selectedEmployee) {
@@ -503,7 +517,7 @@ export default function Messages() {
       ) {
         setConversationMessages((prev) => {
           if (isDuplicateMessage(prev, normalized)) return prev;
-          return [...prev, normalized].sort((a, b) => a.id.localeCompare(b.id));
+          return sortMessagesChronologically([...prev, normalized]);
         });
       }
       // If we're currently in this group, append group message
@@ -515,11 +529,26 @@ export default function Messages() {
       ) {
         setConversationMessages((prev) => {
           if (isDuplicateMessage(prev, normalized)) return prev;
-          return [...prev, normalized].sort((a, b) => a.id.localeCompare(b.id));
+          return sortMessagesChronologically([...prev, normalized]);
         });
       }
     };
     socket.on("new-message", handleNewMessage);
+
+    const handleGroupUpdated = (updatedGroup: any) => {
+      const safe: ChatGroup = {
+        ...updatedGroup,
+        id: String(updatedGroup._id || updatedGroup.id),
+      };
+      setGroups((prev) =>
+        prev.map((g) => ((g.id || (g as any)._id) === safe.id ? safe : g))
+      );
+      if (selectedGroup && String(selectedGroup.id || (selectedGroup as any)._id) === safe.id) {
+        setSelectedGroup(safe);
+      }
+    };
+    socket.on("group-updated", handleGroupUpdated);
+
     const handleNewGroup = () => {
       loadGroups();
     };
@@ -527,6 +556,7 @@ export default function Messages() {
 
     return () => {
       socket.off("new-message", handleNewMessage);
+      socket.off("group-updated", handleGroupUpdated);
       socket.off("new-group-created", handleNewGroup);
     };
   }, [socket, view, selectedEmployee?.name, selectedGroup?.id]);
@@ -746,7 +776,7 @@ export default function Messages() {
         const newMsg = normalizeMessage(res.item);
         setConversationMessages((prev) => {
           if (isDuplicateMessage(prev, newMsg)) return prev;
-          return [...prev, newMsg];
+          return sortMessagesChronologically([...prev, newMsg]);
         });
         setNewMessageContent("");
         if (selectedEmployee) {
@@ -950,26 +980,40 @@ export default function Messages() {
               <Button variant="ghost" size="icon" onClick={() => { setView("list"); setSelectedGroup(null); }} className="h-8 w-8 sm:h-9 sm:w-9">
                 <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
-              <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl bg-purple-100 border border-purple-200 text-purple-700 flex items-center justify-center font-bold text-xs sm:text-sm flex-shrink-0">
-                {selectedGroup.name.slice(0, 2).toUpperCase()}
-              </div>
-              <div>
-                <div className="flex flex-wrap items-center gap-2 mb-0.5 sm:mb-1">
-                  <h1 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold leading-tight text-slate-800">{selectedGroup.name}</h1>
-                  {selectedGroup.isPrivate && (
-                    <Badge className="bg-purple-100 text-purple-800 text-[10px] flex items-center gap-1 border-purple-200">
-                      <Lock className="h-3 w-3" /> Private
-                    </Badge>
-                  )}
-                  {selectedGroup.announcementOnly && (
-                    <Badge className="bg-amber-100 text-amber-800 text-[10px] flex items-center gap-1 border-amber-200">
-                      <Megaphone className="h-3 w-3" /> Announcement
-                    </Badge>
-                  )}
+              <div
+                onClick={() => setGroupInfoOpen(true)}
+                className="flex items-center gap-2 sm:gap-3 cursor-pointer group/hdr hover:opacity-90 transition-opacity"
+                title="Click to view & edit group info"
+              >
+                <Avatar className="h-8 w-8 sm:h-10 sm:w-10 rounded-xl border border-purple-200 shadow-sm flex-shrink-0">
+                  {selectedGroup.avatarUrl ? (
+                    <AvatarImage src={toProxiedUrl(selectedGroup.avatarUrl) || selectedGroup.avatarUrl} alt={selectedGroup.name} className="object-cover" />
+                  ) : null}
+                  <AvatarFallback className="rounded-xl bg-gradient-to-br from-purple-600 to-indigo-700 text-white font-bold text-xs sm:text-sm">
+                    {selectedGroup.name ? selectedGroup.name.slice(0, 2).toUpperCase() : "GP"}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2 mb-0.5 sm:mb-1">
+                    <h1 className="text-base sm:text-lg md:text-xl lg:text-2xl font-bold leading-tight text-slate-800 group-hover/hdr:text-blue-600 transition-colors flex items-center gap-1.5">
+                      <span>{selectedGroup.name}</span>
+                      <Info className="h-3.5 w-3.5 text-slate-400 group-hover/hdr:text-blue-500" />
+                    </h1>
+                    {selectedGroup.isPrivate && (
+                      <Badge className="bg-purple-100 text-purple-800 text-[10px] flex items-center gap-1 border-purple-200">
+                        <Lock className="h-3 w-3" /> Private
+                      </Badge>
+                    )}
+                    {selectedGroup.announcementOnly && (
+                      <Badge className="bg-amber-100 text-amber-800 text-[10px] flex items-center gap-1 border-amber-200">
+                        <Megaphone className="h-3 w-3" /> Announcement
+                      </Badge>
+                    )}
+                  </div>
+                  <p className="text-xs sm:text-sm text-muted-foreground truncate max-w-[200px] sm:max-w-none">
+                    {selectedGroup.members?.length || 0} member{selectedGroup.members?.length !== 1 ? "s" : ""} {selectedGroup.description ? `• ${selectedGroup.description}` : ""}
+                  </p>
                 </div>
-                <p className="text-xs sm:text-sm text-muted-foreground truncate max-w-[200px] sm:max-w-none">
-                  {selectedGroup.members?.length || 0} member{selectedGroup.members?.length !== 1 ? "s" : ""} {selectedGroup.description ? `• ${selectedGroup.description}` : ""}
-                </p>
               </div>
             </div>
           ) : (
@@ -1591,6 +1635,26 @@ export default function Messages() {
           setCreateGroupOpen(false);
         }}
         currentUser={currentUser}
+      />
+
+      {/* Group Info & Management Modal (WhatsApp Style) */}
+      <GroupInfoModal
+        open={groupInfoOpen}
+        onOpenChange={setGroupInfoOpen}
+        group={selectedGroup}
+        currentUser={currentUser}
+        currentUserRole={getAuthState().role || "manager"}
+        employees={employees}
+        onGroupUpdated={(updated) => {
+          const safe = { ...updated, id: String(updated._id || updated.id) };
+          setGroups((prev) => prev.map((g) => ((g.id || (g as any)._id) === safe.id ? safe : g)));
+          setSelectedGroup(safe);
+        }}
+        onDirectMessage={(empName) => {
+          setGroupInfoOpen(false);
+          const target = employees.find((e) => e.name === empName);
+          if (target) startConversation(target);
+        }}
       />
     </div>
   );

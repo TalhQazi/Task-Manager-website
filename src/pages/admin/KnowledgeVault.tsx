@@ -219,6 +219,21 @@ export default function KnowledgeVault() {
   const [aiModalContent, setAiModalContent] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
 
+  // Pagination & Editor Formatting State
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
+  const overviewTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const coverImageInputRef = useRef<HTMLInputElement>(null);
+  const editorFileInputRef = useRef<HTMLInputElement>(null);
+  const editorImageInputRef = useRef<HTMLInputElement>(null);
+  const [history, setHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+
+  // Reset page to 1 when filter or search changes
+  useEffect(() => {
+    setPage(1);
+  }, [activeFilter, searchQuery]);
+
   // Global Keyboard Shortcut: ⌘K or Ctrl+K focuses search
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -270,17 +285,25 @@ export default function KnowledgeVault() {
     },
   });
 
-  // 3. Fetch Notes with current filter
+  // 3. Fetch Notes with current filter (10 items per page)
   const notesQuery = useQuery({
-    queryKey: ["kv-notes", activeFilter, searchQuery],
+    queryKey: ["kv-notes", activeFilter, searchQuery, page],
     queryFn: async () => {
       try {
         if (searchQuery.trim()) {
           const searchRes = await kvApi.search(searchQuery.trim(), "hybrid");
-          return searchRes?.items || [];
+          const allItems: KvNote[] = searchRes?.items || [];
+          const start = (page - 1) * PAGE_SIZE;
+          const paginatedItems = allItems.slice(start, start + PAGE_SIZE);
+          return {
+            items: paginatedItems,
+            total: allItems.length,
+            totalPages: Math.max(1, Math.ceil(allItems.length / PAGE_SIZE)),
+            page,
+          };
         }
 
-        const params: Record<string, any> = { limit: 100, sort: "updated" };
+        const params: Record<string, any> = { page, limit: PAGE_SIZE, sort: "updated" };
         if (activeFilter === "pinned") params.pinned = "true";
         if (activeFilter === "favorites") params.favorite = "true";
         if (activeFilter === "ai") params.important = "true";
@@ -292,14 +315,24 @@ export default function KnowledgeVault() {
         }
 
         const res = await kvApi.listNotes(params);
-        return res?.items || [];
+        const items = res?.items || [];
+        const total = res?.total !== undefined ? res.total : items.length;
+        const totalPages = res?.totalPages !== undefined ? res.totalPages : Math.max(1, Math.ceil(total / PAGE_SIZE));
+        return {
+          items,
+          total,
+          totalPages,
+          page: res?.page || page,
+        };
       } catch (err) {
-        return [];
+        return { items: [], total: 0, totalPages: 1, page: 1 };
       }
     },
   });
 
-  const notes: KvNote[] = notesQuery.data || [];
+  const notes: KvNote[] = notesQuery.data?.items || [];
+  const totalNotesCount = notesQuery.data?.total || 0;
+  const totalPagesCount = notesQuery.data?.totalPages || 1;
   const folders: KvFolder[] = foldersQuery.data || [];
   const tagsList = tagsQuery.data || [];
 
@@ -535,6 +568,172 @@ export default function KnowledgeVault() {
           },
         });
       }
+    }
+  };
+
+  /* -------------------------------------------------------------------------- */
+  /*                      RICH TEXT FORMATTING & COVER IMAGE                     */
+  /* -------------------------------------------------------------------------- */
+
+  const applyInlineFormat = (prefix: string, suffix: string = prefix, defaultPlaceholder: string = "text") => {
+    const el = overviewTextareaRef.current;
+    if (!el || !activeNote) return;
+
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const currentVal = el.value || "";
+    const selected = currentVal.substring(start, end) || defaultPlaceholder;
+
+    const formatted = `${prefix}${selected}${suffix}`;
+    const nextVal = currentVal.substring(0, start) + formatted + currentVal.substring(end);
+
+    // Save to history
+    setHistory((prev) => [...prev.slice(0, historyIndex + 1), currentVal, nextVal]);
+    setHistoryIndex((prev) => prev + 2);
+
+    updateActiveNoteLocally({
+      overview: nextVal,
+      content: nextVal,
+      body: { plain: nextVal },
+    }, false);
+
+    setTimeout(() => {
+      el.focus();
+      el.setSelectionRange(start + prefix.length, start + prefix.length + selected.length);
+    }, 0);
+  };
+
+  const applyLinePrefix = (linePrefix: string) => {
+    const el = overviewTextareaRef.current;
+    if (!el || !activeNote) return;
+
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const currentVal = el.value || "";
+
+    const lineStart = currentVal.lastIndexOf("\n", start - 1) + 1;
+    const nextVal = currentVal.substring(0, lineStart) + linePrefix + currentVal.substring(lineStart);
+
+    // Save to history
+    setHistory((prev) => [...prev.slice(0, historyIndex + 1), currentVal, nextVal]);
+    setHistoryIndex((prev) => prev + 2);
+
+    updateActiveNoteLocally({
+      overview: nextVal,
+      content: nextVal,
+      body: { plain: nextVal },
+    }, false);
+
+    setTimeout(() => {
+      el.focus();
+      el.setSelectionRange(start + linePrefix.length, end + linePrefix.length);
+    }, 0);
+  };
+
+  const handleHeadingChange = (value: string) => {
+    if (value === "h1") applyLinePrefix("# ");
+    else if (value === "h2") applyLinePrefix("## ");
+    else if (value === "h3") applyLinePrefix("### ");
+    else if (value === "normal") {
+      const el = overviewTextareaRef.current;
+      if (!el || !activeNote) return;
+      const start = el.selectionStart;
+      const currentVal = el.value || "";
+      const lineStart = currentVal.lastIndexOf("\n", start - 1) + 1;
+      const lineEnd = currentVal.indexOf("\n", start);
+      const line = currentVal.substring(lineStart, lineEnd === -1 ? currentVal.length : lineEnd);
+      const cleaned = line.replace(/^#{1,6}\s*/, "");
+      const nextVal = currentVal.substring(0, lineStart) + cleaned + (lineEnd === -1 ? "" : currentVal.substring(lineEnd));
+      updateActiveNoteLocally({ overview: nextVal, content: nextVal, body: { plain: nextVal } }, false);
+    }
+  };
+
+  const handleInsertLink = () => {
+    if (!linkUrl.trim()) return;
+    const title = linkTitle.trim() || linkUrl.trim();
+    applyInlineFormat(`[${title}](`, `)`, linkUrl.trim());
+    setLinkUrl("");
+    setLinkTitle("");
+    setLinkModalOpen(false);
+  };
+
+  const handleUndo = () => {
+    if (historyIndex <= 0 || history.length === 0) return;
+    const prevVal = history[historyIndex - 1];
+    setHistoryIndex((prev) => prev - 1);
+    updateActiveNoteLocally({ overview: prevVal, content: prevVal, body: { plain: prevVal } }, false);
+  };
+
+  const handleRedo = () => {
+    if (historyIndex >= history.length - 1) return;
+    const nextVal = history[historyIndex + 1];
+    setHistoryIndex((prev) => prev + 1);
+    updateActiveNoteLocally({ overview: nextVal, content: nextVal, body: { plain: nextVal } }, false);
+  };
+
+  const handleCoverImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeNote) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file (PNG, JPG, WebP)");
+      return;
+    }
+    const toastId = toast.loading("Uploading cover image...");
+    try {
+      const uploadRes = await kvApi.uploadFile(file);
+      const url = uploadRes?.item?.url;
+      if (url) {
+        updateActiveNoteLocally({ heroImage: url }, true);
+        toast.success("Cover image added", { id: toastId });
+      } else {
+        toast.error("Failed to upload cover image", { id: toastId });
+      }
+    } catch (err) {
+      toast.error("Failed to upload cover image", { id: toastId });
+    } finally {
+      if (coverImageInputRef.current) coverImageInputRef.current.value = "";
+    }
+  };
+
+  const handleRemoveCoverImage = () => {
+    if (!activeNote) return;
+    updateActiveNoteLocally({ heroImage: "" }, true);
+    toast.success("Cover image removed");
+  };
+
+  const handleEditorFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeNote) return;
+    const toastId = toast.loading(`Uploading ${file.name}...`);
+    try {
+      const uploadRes = await kvApi.uploadFile(file);
+      const url = uploadRes?.item?.url;
+      if (url) {
+        applyInlineFormat(`[📎 ${file.name}](`, `)`, url);
+        toast.success("File attached to note", { id: toastId });
+      }
+    } catch (err) {
+      toast.error("Failed to upload attachment", { id: toastId });
+    } finally {
+      if (editorFileInputRef.current) editorFileInputRef.current.value = "";
+    }
+  };
+
+  const handleEditorImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !activeNote) return;
+    const toastId = toast.loading(`Uploading image...`);
+    try {
+      const uploadRes = await kvApi.uploadFile(file);
+      const url = uploadRes?.item?.url;
+      if (url) {
+        applyInlineFormat(`![${file.name}](`, `)`, url);
+        toast.success("Image inserted into note", { id: toastId });
+      }
+    } catch (err) {
+      toast.error("Failed to upload image", { id: toastId });
+    } finally {
+      if (editorImageInputRef.current) editorImageInputRef.current.value = "";
     }
   };
 
@@ -1258,14 +1457,17 @@ export default function KnowledgeVault() {
                             }}
                             className={`group relative p-3 rounded-xl border transition-all cursor-pointer flex flex-col gap-1.5 ${
                               isSelected
-                                ? "bg-gradient-to-r from-blue-950/40 to-slate-900 border-blue-500 ring-1 ring-blue-500/40 shadow-lg shadow-blue-950/50"
-                                : "bg-[#161f30]/60 border-slate-800/80 hover:border-slate-700 hover:bg-[#1a2438]"
+                                ? "bg-gradient-to-r from-blue-950/80 to-slate-900 border-blue-500 border-l-4 border-l-blue-500 ring-2 ring-blue-500/40 shadow-xl shadow-blue-950/60"
+                                : "bg-[#161f30]/60 border-slate-800/80 hover:border-blue-400/50 hover:bg-[#1c273d] hover:shadow-md"
                             }`}
                           >
                             {/* Card Top Row: Title, Star, Time */}
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                <h3 className={`text-xs font-bold truncate ${isSelected ? "text-white" : "text-slate-200"}`}>
+                                {isSelected && (
+                                  <span className="h-1.5 w-1.5 rounded-full bg-blue-400 shadow-sm shadow-blue-400 shrink-0 animate-pulse" />
+                                )}
+                                <h3 className={`text-xs font-bold truncate ${isSelected ? "text-white font-extrabold" : "text-slate-200 group-hover:text-white"}`}>
                                   {note.title || "Untitled"}
                                 </h3>
                                 {note.isFavorite ? (
@@ -1285,12 +1487,12 @@ export default function KnowledgeVault() {
 
                             {/* Card Middle: Description & Thumbnail preview */}
                             <div className="flex items-center gap-2">
-                              <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed flex-1">
+                              <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed flex-1 group-hover:text-slate-300">
                                 {note.overview || note.content || note.body?.plain || "No overview available..."}
                               </p>
 
                               {note.heroImage ? (
-                                <div className="w-12 h-10 rounded-lg overflow-hidden shrink-0 border border-slate-700/60 bg-slate-900">
+                                <div className="w-12 h-10 rounded-lg overflow-hidden shrink-0 border border-slate-700/60 bg-slate-900 shadow-sm">
                                   <img
                                     src={note.heroImage}
                                     alt="Preview"
@@ -1326,13 +1528,50 @@ export default function KnowledgeVault() {
             )}
           </div>
 
-          {/* Footer: Pagination */}
-          <div className="pt-2 mt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 shrink-0">
-            <span>Showing {notes.length} note{notes.length !== 1 ? "s" : ""}</span>
-            <div className="flex items-center gap-1">
-              <button className="px-1.5 py-0.5 rounded hover:bg-slate-800 text-slate-400">&lt;</button>
-              <button className="px-1.5 py-0.5 rounded bg-blue-600 text-white font-medium">1</button>
-              <button className="px-1.5 py-0.5 rounded hover:bg-slate-800 text-slate-400">&gt;</button>
+          {/* Footer: Dynamic Pagination (10 notes/page) */}
+          <div className="pt-2.5 mt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 shrink-0">
+            <span className="truncate">
+              Page {page} of {totalPagesCount} ({totalNotesCount} note{totalNotesCount !== 1 ? "s" : ""})
+            </span>
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="px-2 py-0.5 rounded bg-slate-800/80 hover:bg-slate-700 disabled:opacity-30 disabled:pointer-events-none text-slate-300 font-semibold transition-colors"
+                title="Previous page"
+              >
+                &lt;
+              </button>
+              {Array.from({ length: totalPagesCount }, (_, i) => i + 1)
+                .filter((p) => p === 1 || p === totalPagesCount || Math.abs(p - page) <= 1)
+                .map((p, idx, arr) => (
+                  <React.Fragment key={p}>
+                    {idx > 0 && arr[idx - 1] !== p - 1 && (
+                      <span className="text-slate-600 px-0.5">…</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setPage(p)}
+                      className={`min-w-[22px] px-1.5 py-0.5 rounded text-xs font-bold transition-colors ${
+                        page === p
+                          ? "bg-blue-600 text-white shadow-sm shadow-blue-600/50"
+                          : "hover:bg-slate-800 text-slate-400 hover:text-slate-200"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  </React.Fragment>
+                ))}
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPagesCount, p + 1))}
+                disabled={page >= totalPagesCount}
+                className="px-2 py-0.5 rounded bg-slate-800/80 hover:bg-slate-700 disabled:opacity-30 disabled:pointer-events-none text-slate-300 font-semibold transition-colors"
+                title="Next page"
+              >
+                &gt;
+              </button>
             </div>
           </div>
         </section>
@@ -1436,8 +1675,12 @@ export default function KnowledgeVault() {
 
               {/* Rich Text Toolbar */}
               <div className="flex items-center gap-1 py-1.5 px-2 bg-slate-900/90 border border-slate-800 rounded-xl overflow-x-auto text-slate-300">
-                <select className="bg-transparent text-xs text-slate-200 font-medium px-2 py-1 rounded focus:outline-none cursor-pointer">
-                  <option value="normal">Normal</option>
+                <select
+                  onChange={(e) => handleHeadingChange(e.target.value)}
+                  defaultValue="normal"
+                  className="bg-slate-800 text-xs text-slate-200 font-medium px-2 py-1 rounded focus:outline-none cursor-pointer border border-slate-700 hover:border-slate-600"
+                >
+                  <option value="normal">Normal Text</option>
                   <option value="h1">Heading 1</option>
                   <option value="h2">Heading 2</option>
                   <option value="h3">Heading 3</option>
@@ -1445,90 +1688,198 @@ export default function KnowledgeVault() {
 
                 <div className="h-4 w-px bg-slate-700 mx-1" />
 
-                <button className="p-1.5 rounded hover:bg-slate-800 hover:text-white font-bold" title="Bold">
+                <button
+                  type="button"
+                  onClick={() => applyInlineFormat("**", "**", "bold text")}
+                  className="p-1.5 rounded hover:bg-slate-800 hover:text-white font-bold transition-colors"
+                  title="Bold (**text**)"
+                >
                   <Bold className="h-3.5 w-3.5" />
                 </button>
-                <button className="p-1.5 rounded hover:bg-slate-800 hover:text-white italic" title="Italic">
+                <button
+                  type="button"
+                  onClick={() => applyInlineFormat("*", "*", "italic text")}
+                  className="p-1.5 rounded hover:bg-slate-800 hover:text-white italic transition-colors"
+                  title="Italic (*text*)"
+                >
                   <Italic className="h-3.5 w-3.5" />
                 </button>
-                <button className="p-1.5 rounded hover:bg-slate-800 hover:text-white underline" title="Underline">
+                <button
+                  type="button"
+                  onClick={() => applyInlineFormat("<u>", "</u>", "underlined text")}
+                  className="p-1.5 rounded hover:bg-slate-800 hover:text-white underline transition-colors"
+                  title="Underline (<u>text</u>)"
+                >
                   <Underline className="h-3.5 w-3.5" />
                 </button>
-                <button className="p-1.5 rounded hover:bg-slate-800 hover:text-white" title="Strikethrough">
+                <button
+                  type="button"
+                  onClick={() => applyInlineFormat("~~", "~~", "strikethrough text")}
+                  className="p-1.5 rounded hover:bg-slate-800 hover:text-white line-through transition-colors"
+                  title="Strikethrough (~~text~~)"
+                >
                   <Strikethrough className="h-3.5 w-3.5" />
                 </button>
 
                 <div className="h-4 w-px bg-slate-700 mx-1" />
 
-                <button className="p-1.5 rounded hover:bg-slate-800 hover:text-white" title="Bullet List">
+                <button
+                  type="button"
+                  onClick={() => applyLinePrefix("- ")}
+                  className="p-1.5 rounded hover:bg-slate-800 hover:text-white transition-colors"
+                  title="Bullet List (- item)"
+                >
                   <List className="h-3.5 w-3.5" />
                 </button>
-                <button className="p-1.5 rounded hover:bg-slate-800 hover:text-white" title="Numbered List">
+                <button
+                  type="button"
+                  onClick={() => applyLinePrefix("1. ")}
+                  className="p-1.5 rounded hover:bg-slate-800 hover:text-white transition-colors"
+                  title="Numbered List (1. item)"
+                >
                   <ListOrdered className="h-3.5 w-3.5" />
                 </button>
-                <button className="p-1.5 rounded hover:bg-slate-800 hover:text-white" title="Checklist">
+                <button
+                  type="button"
+                  onClick={() => applyLinePrefix("- [ ] ")}
+                  className="p-1.5 rounded hover:bg-slate-800 hover:text-white transition-colors"
+                  title="Checklist (- [ ] task)"
+                >
                   <CheckSquare className="h-3.5 w-3.5" />
                 </button>
 
                 <div className="h-4 w-px bg-slate-700 mx-1" />
 
                 <button
+                  type="button"
                   onClick={() => setLinkModalOpen(true)}
-                  className="p-1.5 rounded hover:bg-slate-800 hover:text-white text-sky-400"
+                  className="p-1.5 rounded hover:bg-slate-800 hover:text-white text-sky-400 transition-colors"
                   title="Attach Web Link"
                 >
                   <Link2 className="h-3.5 w-3.5" />
                 </button>
                 <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="p-1.5 rounded hover:bg-slate-800 hover:text-white text-blue-400"
+                  type="button"
+                  onClick={() => editorFileInputRef.current?.click()}
+                  className="p-1.5 rounded hover:bg-slate-800 hover:text-white text-blue-400 transition-colors"
                   title="Attach File"
                 >
                   <Paperclip className="h-3.5 w-3.5" />
                 </button>
                 <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="p-1.5 rounded hover:bg-slate-800 hover:text-white text-emerald-400"
+                  type="button"
+                  onClick={() => editorImageInputRef.current?.click()}
+                  className="p-1.5 rounded hover:bg-slate-800 hover:text-white text-emerald-400 transition-colors"
                   title="Insert Image"
                 >
                   <ImageIcon className="h-3.5 w-3.5" />
                 </button>
-                <button className="p-1.5 rounded hover:bg-slate-800 hover:text-white" title="Quote">
+                <button
+                  type="button"
+                  onClick={() => applyLinePrefix("> ")}
+                  className="p-1.5 rounded hover:bg-slate-800 hover:text-white transition-colors"
+                  title="Blockquote (> quote)"
+                >
                   <Quote className="h-3.5 w-3.5" />
                 </button>
-                <button className="p-1.5 rounded hover:bg-slate-800 hover:text-white" title="Code block">
+                <button
+                  type="button"
+                  onClick={() => applyInlineFormat("```\n", "\n```", "code here")}
+                  className="p-1.5 rounded hover:bg-slate-800 hover:text-white font-mono text-xs transition-colors"
+                  title="Code block (```code```)"
+                >
                   <FileCode className="h-3.5 w-3.5" />
                 </button>
 
                 <div className="h-4 w-px bg-slate-700 mx-1 ml-auto" />
 
-                <button className="p-1.5 rounded hover:bg-slate-800 hover:text-white" title="Undo">
+                <button
+                  type="button"
+                  onClick={handleUndo}
+                  className="p-1.5 rounded hover:bg-slate-800 hover:text-white transition-colors"
+                  title="Undo"
+                >
                   <Undo className="h-3.5 w-3.5" />
                 </button>
-                <button className="p-1.5 rounded hover:bg-slate-800 hover:text-white" title="Redo">
+                <button
+                  type="button"
+                  onClick={handleRedo}
+                  className="p-1.5 rounded hover:bg-slate-800 hover:text-white transition-colors"
+                  title="Redo"
+                >
                   <Redo className="h-3.5 w-3.5" />
                 </button>
               </div>
 
-              {/* Hero Banner Image */}
+              {/* Hidden file inputs for toolbar and cover image */}
+              <input
+                ref={coverImageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleCoverImageUpload}
+              />
+              <input
+                ref={editorFileInputRef}
+                type="file"
+                className="hidden"
+                onChange={handleEditorFileUpload}
+              />
+              <input
+                ref={editorImageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleEditorImageUpload}
+              />
+
+              {/* Note Header Cover Image (Hero Banner / Add Button) */}
               {activeNote.heroImage ? (
-                <div className="relative w-full h-56 rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 group">
+                <div className="relative w-full h-56 rounded-2xl overflow-hidden border border-slate-800 bg-slate-900 group shadow-lg">
                   <img
                     src={activeNote.heroImage}
                     alt={activeNote.title}
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent opacity-60 pointer-events-none" />
+                  <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 bg-slate-900/80 backdrop-blur-md p-1.5 rounded-xl border border-slate-700 shadow-xl">
+                    <button
+                      type="button"
+                      onClick={() => coverImageInputRef.current?.click()}
+                      className="text-xs px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-medium flex items-center gap-1 shadow-sm transition-colors"
+                    >
+                      <ImageIcon className="h-3.5 w-3.5" /> Change Cover
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRemoveCoverImage}
+                      className="text-xs px-2.5 py-1 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white font-medium flex items-center gap-1 shadow-sm transition-colors"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Remove
+                    </button>
+                  </div>
                 </div>
-              ) : null}
+              ) : (
+                <div className="flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => coverImageInputRef.current?.click()}
+                    className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-blue-400 hover:bg-slate-800/60 px-3 py-1.5 rounded-xl border border-dashed border-slate-700 hover:border-blue-500/50 transition-all font-medium"
+                  >
+                    <ImageIcon className="h-3.5 w-3.5 text-slate-400" />
+                    <span>+ Add Cover Image</span>
+                  </button>
+                </div>
+              )}
 
-              {/* Section 1: Overview */}
+              {/* Section 1: Overview / Main Content Editor */}
               <div className="space-y-1.5 pt-1">
                 <div className="flex items-center justify-between">
                   <h4 className="text-sm font-bold text-blue-400">Overview</h4>
                   <span className="text-[10px] text-slate-500 font-mono">Auto-saves on edit</span>
                 </div>
                 <textarea
+                  ref={overviewTextareaRef}
                   value={activeNote.overview ?? activeNote.content ?? activeNote.body?.plain ?? ""}
                   onChange={(e) => {
                     const val = e.target.value;
@@ -1540,8 +1891,8 @@ export default function KnowledgeVault() {
                   }}
                   onBlur={flushSave}
                   placeholder="Enter note overview, summaries, or key insights..."
-                  rows={4}
-                  className="w-full bg-slate-900/40 text-xs text-slate-200 leading-relaxed resize-y focus:outline-none focus:bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 focus:border-blue-500/60 focus:ring-1 focus:ring-blue-500/20 transition-all font-sans"
+                  rows={6}
+                  className="w-full bg-slate-900/40 text-xs text-slate-200 leading-relaxed resize-y focus:outline-none focus:bg-slate-900/80 p-3 rounded-xl border border-slate-800 focus:border-blue-500/60 focus:ring-1 focus:ring-blue-500/20 transition-all font-sans"
                 />
               </div>
 

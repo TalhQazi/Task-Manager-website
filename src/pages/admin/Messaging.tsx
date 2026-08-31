@@ -14,7 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/admin/ui/dialog";
-import { Plus, Search, Send, ArrowLeft, MessageCircle, User, Archive, Bookmark, Paperclip, Download, Smile, Mic, Pin, Star, Users, Folder, MessageSquare, CheckCheck, Check, CornerDownRight, Sparkles, FileText, Lock, Megaphone } from "lucide-react";
+import { Plus, Search, Send, ArrowLeft, MessageCircle, User, Archive, Bookmark, Paperclip, Download, Smile, Mic, Pin, Star, Users, Folder, MessageSquare, CheckCheck, Check, CornerDownRight, Sparkles, FileText, Lock, Megaphone, Info } from "lucide-react";
 import { apiFetch, listResource, toProxiedUrl } from "@/lib/admin/apiClient";
 import { getAuthState } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -23,6 +23,7 @@ import MessageReactionBar, { type MessageReaction } from "@/components/shared/Me
 import MentionsTextarea from "@/components/shared/MentionsTextarea";
 import VoiceRecorder from "@/components/shared/VoiceRecorder";
 import CreateGroupModal from "@/components/shared/CreateGroupModal";
+import GroupInfoModal from "@/components/shared/GroupInfoModal";
 import ThreadDrawer from "@/components/shared/ThreadDrawer";
 import MediaVaultDrawer from "@/components/shared/MediaVaultDrawer";
 import { toast } from "sonner";
@@ -140,6 +141,17 @@ function isDuplicateMessage(prev: Message[], newMsg: Message): boolean {
   });
 }
 
+function sortMessagesChronologically(list: Message[]): Message[] {
+  return [...list].sort((a, b) => {
+    const tA = new Date(a.timestamp || a.createdAt || 0).getTime();
+    const tB = new Date(b.timestamp || b.createdAt || 0).getTime();
+    if (!isNaN(tA) && !isNaN(tB) && tA !== tB) {
+      return tA - tB;
+    }
+    return String(a.id || "").localeCompare(String(b.id || ""));
+  });
+}
+
 function getInitials(name: string): string {
   return name
     .split(" ")
@@ -243,6 +255,7 @@ export default function Messaging() {
 
   // Enterprise Drawers & Modals State
   const [createGroupOpen, setCreateGroupOpen] = useState(false);
+  const [groupInfoOpen, setGroupInfoOpen] = useState(false);
   const [voiceRecordingOpen, setVoiceRecordingOpen] = useState(false);
   const [activeThreadParent, setActiveThreadParent] = useState<Message | null>(null);
   const [mediaVaultOpen, setMediaVaultOpen] = useState(false);
@@ -274,7 +287,7 @@ export default function Messaging() {
       ) {
         setConversationMessages((prev) => {
           if (isDuplicateMessage(prev, normalized)) return prev;
-          return [...prev, normalized].sort((a, b) => a.id.localeCompare(b.id));
+          return sortMessagesChronologically([...prev, normalized]);
         });
       }
       // Append to current group if group message
@@ -286,12 +299,36 @@ export default function Messaging() {
       ) {
         setConversationMessages((prev) => {
           if (isDuplicateMessage(prev, normalized)) return prev;
-          return [...prev, normalized].sort((a, b) => a.id.localeCompare(b.id));
+          return sortMessagesChronologically([...prev, normalized]);
         });
       }
     };
     socket.on("new-message", handleNewMessage);
-    return () => { socket.off("new-message", handleNewMessage); };
+
+    const handleGroupUpdated = (updatedGroup: any) => {
+      const safe: ChatGroup = {
+        ...updatedGroup,
+        id: String(updatedGroup._id || updatedGroup.id),
+      };
+      setGroups((prev) =>
+        prev.map((g) => ((g.id || (g as any)._id) === safe.id ? safe : g))
+      );
+      if (selectedGroup && String(selectedGroup.id || (selectedGroup as any)._id) === safe.id) {
+        setSelectedGroup(safe);
+      }
+    };
+    socket.on("group-updated", handleGroupUpdated);
+
+    const handleNewGroup = () => {
+      loadGroups();
+    };
+    socket.on("new-group-created", handleNewGroup);
+
+    return () => {
+      socket.off("new-message", handleNewMessage);
+      socket.off("group-updated", handleGroupUpdated);
+      socket.off("new-group-created", handleNewGroup);
+    };
   }, [socket, view, selectedEmployee?.name, selectedGroup?.id]);
 
   // Real-time reaction updates via socket
@@ -576,7 +613,7 @@ export default function Messaging() {
       });
 
       if (res.item) {
-        setConversationMessages((prev) => [...prev, normalizeMessage(res.item)]);
+        setConversationMessages((prev) => sortMessagesChronologically([...prev, normalizeMessage(res.item)]));
       }
       setVoiceRecordingOpen(false);
       toast.success("Voice note sent");
@@ -676,7 +713,7 @@ export default function Messaging() {
         const newMsg = normalizeMessage(res.item);
         setConversationMessages((prev) => {
           if (isDuplicateMessage(prev, newMsg)) return prev;
-          return [...prev, newMsg];
+          return sortMessagesChronologically([...prev, newMsg]);
         });
         setNewMessageContent("");
         if (selectedEmployee) {
@@ -823,7 +860,7 @@ export default function Messaging() {
         const newMsg = normalizeMessage(res.item);
         setConversationMessages((prev) => {
           if (isDuplicateMessage(prev, newMsg)) return prev;
-          return [...prev, newMsg];
+          return sortMessagesChronologically([...prev, newMsg]);
         });
         setNewMessageContent("");
         setShowEmojiPicker(false);
@@ -952,26 +989,40 @@ export default function Messaging() {
                 >
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
-                <div className="h-10 w-10 rounded-xl bg-purple-100 border border-purple-200 text-purple-700 flex items-center justify-center font-bold text-sm flex-shrink-0">
-                  {selectedGroup.name.slice(0, 2).toUpperCase()}
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h1 className="text-xl sm:text-2xl font-bold text-slate-800">{selectedGroup.name}</h1>
-                    {selectedGroup.isPrivate && (
-                      <Badge className="bg-purple-100 text-purple-800 text-xs flex items-center gap-1 border-purple-200">
-                        <Lock className="h-3 w-3" /> Private
-                      </Badge>
-                    )}
-                    {selectedGroup.announcementOnly && (
-                      <Badge className="bg-amber-100 text-amber-800 text-xs flex items-center gap-1 border-amber-200">
-                        <Megaphone className="h-3 w-3" /> Announcement
-                      </Badge>
-                    )}
+                <div
+                  onClick={() => setGroupInfoOpen(true)}
+                  className="flex items-center gap-3 cursor-pointer group/hdr hover:opacity-90 transition-opacity"
+                  title="Click to view & edit group info"
+                >
+                  <Avatar className="h-10 w-10 rounded-xl border border-purple-200 shadow-sm flex-shrink-0">
+                    {selectedGroup.avatarUrl ? (
+                      <AvatarImage src={toProxiedUrl(selectedGroup.avatarUrl) || selectedGroup.avatarUrl} alt={selectedGroup.name} className="object-cover" />
+                    ) : null}
+                    <AvatarFallback className="rounded-xl bg-gradient-to-br from-purple-600 to-indigo-700 text-white font-bold text-sm">
+                      {selectedGroup.name ? selectedGroup.name.slice(0, 2).toUpperCase() : "GP"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h1 className="text-xl sm:text-2xl font-bold text-slate-800 group-hover/hdr:text-blue-600 transition-colors flex items-center gap-1.5">
+                        <span>{selectedGroup.name}</span>
+                        <Info className="h-4 w-4 text-slate-400 group-hover/hdr:text-blue-500" />
+                      </h1>
+                      {selectedGroup.isPrivate && (
+                        <Badge className="bg-purple-100 text-purple-800 text-xs flex items-center gap-1 border-purple-200">
+                          <Lock className="h-3 w-3" /> Private
+                        </Badge>
+                      )}
+                      {selectedGroup.announcementOnly && (
+                        <Badge className="bg-amber-100 text-amber-800 text-xs flex items-center gap-1 border-amber-200">
+                          <Megaphone className="h-3 w-3" /> Announcement
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedGroup.members?.length || 0} member{selectedGroup.members?.length !== 1 ? "s" : ""} {selectedGroup.description ? `• ${selectedGroup.description}` : ""}
+                    </p>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {selectedGroup.members?.length || 0} member{selectedGroup.members?.length !== 1 ? "s" : ""} {selectedGroup.description ? `• ${selectedGroup.description}` : ""}
-                  </p>
                 </div>
               </div>
             ) : (
@@ -1696,6 +1747,26 @@ export default function Messaging() {
             onClose={() => setMediaVaultOpen(false)}
             groupId={selectedGroup ? String(selectedGroup.id || (selectedGroup as any)._id || "") : undefined}
             recipient={selectedEmployee?.name}
+          />
+
+          {/* Group Info & Management Modal (WhatsApp Style) */}
+          <GroupInfoModal
+            open={groupInfoOpen}
+            onOpenChange={setGroupInfoOpen}
+            group={selectedGroup}
+            currentUser={currentUser}
+            currentUserRole={getAuthState().role || "admin"}
+            employees={employees}
+            onGroupUpdated={(updated) => {
+              const safe = { ...updated, id: String(updated._id || updated.id) };
+              setGroups((prev) => prev.map((g) => ((g.id || (g as any)._id) === safe.id ? safe : g)));
+              setSelectedGroup(safe);
+            }}
+            onDirectMessage={(empName) => {
+              setGroupInfoOpen(false);
+              const target = employees.find((e) => e.name === empName);
+              if (target) startConversation(target);
+            }}
           />
     </>
   );
