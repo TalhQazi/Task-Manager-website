@@ -14,12 +14,14 @@ export interface KvActionItem {
 export interface KvAttachment {
   id?: string;
   _id?: string;
+  fileId?: string;
+  storage?: "gridfs" | "disk" | "external";
   fileName: string;
   fileSize?: string;
   size?: number;
   mimeType?: string;
   url?: string;
-  kind?: "image" | "file" | "video" | "voice" | "pdf";
+  kind?: "image" | "file" | "video" | "voice" | "pdf" | "link";
   thumbnailUrl?: string;
 }
 
@@ -132,6 +134,17 @@ export const kvApi = {
   // Search
   search: (q: string, mode: "text" | "semantic" | "hybrid" = "text") =>
     apiFetch<{ items: KvNote[]; mode: string }>(`${BASE}/search${qs({ q, mode })}`),
+
+  // Files & Attachments
+  uploadFile: async (file: File, kind?: string) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (kind) formData.append("kind", kind);
+    return apiFetch<{ item: KvAttachment }>(`${BASE}/files`, {
+      method: "POST",
+      body: formData,
+    });
+  },
 
   // AI suggestions
   suggestions: (status = "pending") => apiFetch<{ items: KvSuggestion[] }>(`${BASE}/ai/suggestions${qs({ status })}`),

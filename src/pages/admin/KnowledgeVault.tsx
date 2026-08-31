@@ -9,7 +9,8 @@ import {
   Strikethrough, List, ListOrdered, Link2, Quote, Code, Image as ImageIcon,
   Table as TableIcon, Undo, Redo, Play, Lock, MoreHorizontal,
   Grid, Clock, Lightbulb, User, DollarSign, Megaphone, Car, Home,
-  FlaskConical, CheckCircle2, FileCode, Paperclip
+  FlaskConical, CheckCircle2, FileCode, Paperclip, Upload, ExternalLink,
+  Eye, File, Link as LinkIcon
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,8 +23,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { kvApi, KvNote, KvActionItem, KvFolder, KvVersion } from "@/lib/knowledgeVault";
+import { kvApi, KvNote, KvActionItem, KvFolder, KvVersion, KvAttachment } from "@/lib/knowledgeVault";
 import { getAuthState } from "@/lib/auth";
+import { toProxiedUrl } from "@/lib/admin/apiClient";
 
 /* -------------------------------------------------------------------------- */
 /*                              HELPER METHODS                                */
@@ -95,6 +97,82 @@ function formatNoteDate(dateStr?: string) {
   return dateStr;
 }
 
+function formatFileSize(bytes?: number | string) {
+  if (typeof bytes === "string" && isNaN(Number(bytes))) return bytes;
+  const num = Number(bytes);
+  if (!num || isNaN(num) || num <= 0) return "";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(num) / Math.log(k));
+  return parseFloat((num / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+}
+
+function getAttachmentUrl(att?: KvAttachment | null, token?: string | null) {
+  if (!att) return "";
+  if (att.url && (att.url.startsWith("http://") || att.url.startsWith("https://") || att.url.startsWith("data:"))) {
+    return att.url;
+  }
+  const fileId = att.fileId || att.id || att._id;
+  const baseUrl = (import.meta.env.VITE_API_URL || (typeof window !== "undefined" && window.location.hostname === "localhost" ? "http://localhost:5000" : "https://task.se7eninc.com")).replace(/\/$/, "");
+  if (att.url && att.url.startsWith("/api/")) {
+    return `${baseUrl}${att.url}${token ? (att.url.includes("?") ? `&token=${token}` : `?token=${token}`) : ""}`;
+  }
+  if (fileId) {
+    return `${baseUrl}/api/knowledge/v2/files/${fileId}${token ? `?token=${token}` : ""}`;
+  }
+  return att.url || "";
+}
+
+function resolveAuthorAvatar(note?: KvNote | null, auth?: any): string {
+  if (!note) return "";
+  let avatar = note.createdBy?.avatar;
+
+  // If note has no avatar or empty avatar, check cached profiles for current user fallback
+  if (!avatar) {
+    try {
+      const cachedAdmin = localStorage.getItem("taskflow_cached_profile");
+      if (cachedAdmin) {
+        const parsed = JSON.parse(cachedAdmin);
+        avatar = parsed?.avatarUrl || parsed?.avatarDataUrl;
+      }
+      if (!avatar) {
+        const cachedManager = localStorage.getItem("manager_cached_profile");
+        if (cachedManager) {
+          const parsed = JSON.parse(cachedManager);
+          avatar = parsed?.avatarUrl || parsed?.avatarDataUrl;
+        }
+      }
+      if (!avatar) {
+        const cachedEmp = localStorage.getItem("employee_cached_profile");
+        if (cachedEmp) {
+          const parsed = JSON.parse(cachedEmp);
+          avatar = parsed?.avatarUrl || parsed?.avatarDataUrl;
+        }
+      }
+    } catch (_) {}
+  }
+
+  if (!avatar && auth?.avatar) {
+    avatar = auth.avatar;
+  }
+
+  if (!avatar) return "";
+
+  if (avatar.startsWith("data:") || avatar.startsWith("blob:")) {
+    return avatar;
+  }
+
+  const proxied = toProxiedUrl(avatar);
+  if (proxied) return proxied;
+
+  if (avatar.startsWith("/uploads/") || avatar.startsWith("/api/")) {
+    const baseUrl = (import.meta.env.VITE_API_URL || (typeof window !== "undefined" && window.location.hostname === "localhost" ? "http://localhost:5000" : "https://task.se7eninc.com")).replace(/\/$/, "");
+    return `${baseUrl}${avatar}`;
+  }
+
+  return avatar;
+}
+
 /* -------------------------------------------------------------------------- */
 /*                           MAIN COMPONENT                                   */
 /* -------------------------------------------------------------------------- */
@@ -103,6 +181,8 @@ export default function KnowledgeVault() {
   const queryClient = useQueryClient();
   const auth = getAuthState();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Active filters & search
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
@@ -114,6 +194,15 @@ export default function KnowledgeVault() {
 
   // Local draft state for active note editing
   const [activeNoteDraft, setActiveNoteDraft] = useState<Partial<KvNote> | null>(null);
+
+  // Attachments State
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const [isDraggingAttachment, setIsDraggingAttachment] = useState(false);
+  const [linkModalOpen, setLinkModalOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkTitle, setLinkTitle] = useState("");
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [previewAttachment, setPreviewAttachment] = useState<KvAttachment | null>(null);
 
   // Modals state
   const [newCollectionOpen, setNewCollectionOpen] = useState(false);
@@ -140,6 +229,15 @@ export default function KnowledgeVault() {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  // Cleanup pending auto-save timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
   }, []);
 
   /* -------------------------------------------------------------------------- */
@@ -214,7 +312,16 @@ export default function KnowledgeVault() {
         setActiveNoteDraft(first);
       } else {
         const current = notes.find((n) => (n.id || n._id) === activeNoteId);
-        if (current) setActiveNoteDraft(current);
+        if (current) {
+          setActiveNoteDraft((prev) => {
+            // If activeNoteDraft is empty or represents a different note, switch to current
+            if (!prev || (prev.id || prev._id) !== activeNoteId) {
+              return current;
+            }
+            // Keep local uncommitted edits while updating metadata in background
+            return { ...current, ...prev };
+          });
+        }
       }
     } else {
       setActiveNoteId(null);
@@ -342,9 +449,10 @@ export default function KnowledgeVault() {
   const updateNoteMutation = useMutation({
     mutationFn: ({ id, patch }: { id: string; patch: Partial<KvNote> }) =>
       kvApi.updateNote(id, patch),
-    onSuccess: () => {
-      invalidateData();
+    onSuccess: (res) => {
       setIsSaving(false);
+      // Invalidate background queries without disrupting active draft
+      queryClient.invalidateQueries({ queryKey: ["kv-notes"] });
     },
     onError: (err: any) => {
       setIsSaving(false);
@@ -387,19 +495,159 @@ export default function KnowledgeVault() {
   /*                            DYNAMIC NOTE HANDLERS                           */
   /* -------------------------------------------------------------------------- */
 
-  const updateActiveNoteLocally = (patch: Partial<KvNote>) => {
+  const updateActiveNoteLocally = (patch: Partial<KvNote>, immediate = false) => {
     if (!activeNote) return;
     setIsSaving(true);
     const updated = { ...activeNote, ...patch, updatedAt: new Date().toISOString() };
     setActiveNoteDraft(updated);
 
     const noteId = activeNote.id || activeNote._id;
-    if (noteId) {
+    if (!noteId) return;
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+
+    if (immediate) {
       updateNoteMutation.mutate({ id: noteId, patch });
+    } else {
+      saveTimeoutRef.current = setTimeout(() => {
+        updateNoteMutation.mutate({ id: noteId, patch });
+      }, 500);
+    }
+  };
+
+  const flushSave = () => {
+    if (saveTimeoutRef.current && activeNote) {
+      clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+      const noteId = activeNote.id || activeNote._id;
+      if (noteId) {
+        const textVal = activeNote.overview || activeNote.content || activeNote.body?.plain || "";
+        updateNoteMutation.mutate({
+          id: noteId,
+          patch: {
+            title: activeNote.title,
+            overview: activeNote.overview,
+            content: textVal,
+            body: { plain: textVal },
+          },
+        });
+      }
+    }
+  };
+
+  /* -------------------------------------------------------------------------- */
+  /*                            ATTACHMENT HANDLERS                             */
+  /* -------------------------------------------------------------------------- */
+
+  const uploadAndAttachFiles = async (fileList: FileList | File[]) => {
+    if (!activeNote) return;
+    const filesArray = Array.from(fileList);
+    if (filesArray.length === 0) return;
+
+    setIsUploadingAttachment(true);
+    const toastId = toast.loading(`Uploading ${filesArray.length} file(s)...`);
+
+    try {
+      const newAttachments: KvAttachment[] = [];
+      for (const file of filesArray) {
+        const res = await kvApi.uploadFile(file);
+        if (res?.item) {
+          newAttachments.push(res.item);
+        }
+      }
+
+      if (newAttachments.length > 0) {
+        const currentAttachments = activeNote.attachments || [];
+        const updatedAttachments = [...currentAttachments, ...newAttachments];
+        updateActiveNoteLocally({ attachments: updatedAttachments }, true);
+        toast.success(`Attached ${newAttachments.length} file(s)`, { id: toastId });
+      } else {
+        toast.error("Failed to upload file(s)", { id: toastId });
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to upload file(s)", { id: toastId });
+    } finally {
+      setIsUploadingAttachment(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleAddLinkAttachment = () => {
+    if (!activeNote || !linkUrl.trim()) return;
+    let url = linkUrl.trim();
+    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      url = "https://" + url;
+    }
+    const newAtt: KvAttachment = {
+      id: `link-${Date.now()}`,
+      fileName: linkTitle.trim() || linkUrl.trim(),
+      url: url,
+      kind: "link",
+      storage: "external",
+    };
+    const nextAtts = [...(activeNote.attachments || []), newAtt];
+    updateActiveNoteLocally({ attachments: nextAtts }, true);
+    setLinkUrl("");
+    setLinkTitle("");
+    setLinkModalOpen(false);
+    toast.success("Web link attached");
+  };
+
+  const handleRemoveAttachment = (indexToRemove: number) => {
+    if (!activeNote) return;
+    const current = activeNote.attachments || [];
+    const nextAtts = current.filter((_, i) => i !== indexToRemove);
+    updateActiveNoteLocally({ attachments: nextAtts }, true);
+    toast.success("Attachment removed");
+  };
+
+  const handleOpenAttachment = (att: KvAttachment) => {
+    if (!att) return;
+    const isImage = att.kind === "image" || att.mimeType?.startsWith("image/") || att.fileName?.match(/\.(png|jpg|jpeg|gif|webp|svg)$/i);
+    const isPdf = att.kind === "pdf" || att.mimeType === "application/pdf" || att.fileName?.endsWith(".pdf");
+    const isVideo = att.kind === "video" || att.mimeType?.startsWith("video/");
+
+    if (isImage || isPdf || isVideo) {
+      setPreviewAttachment(att);
+      setPreviewModalOpen(true);
+      return;
+    }
+
+    const resolvedUrl = getAttachmentUrl(att, auth.token);
+    if (resolvedUrl) {
+      window.open(resolvedUrl, "_blank", "noopener,noreferrer");
+    } else {
+      toast.info(`Attachment: ${att.fileName}`);
     }
   };
 
   const handleCreateNewNote = (folderId: string | null = null, folderName = "General") => {
+    let userAvatar = "";
+    try {
+      const cachedAdmin = localStorage.getItem("taskflow_cached_profile");
+      if (cachedAdmin) {
+        const parsed = JSON.parse(cachedAdmin);
+        userAvatar = parsed?.avatarUrl || parsed?.avatarDataUrl || "";
+      }
+      if (!userAvatar) {
+        const cachedManager = localStorage.getItem("manager_cached_profile");
+        if (cachedManager) {
+          const parsed = JSON.parse(cachedManager);
+          userAvatar = parsed?.avatarUrl || parsed?.avatarDataUrl || "";
+        }
+      }
+      if (!userAvatar) {
+        const cachedEmp = localStorage.getItem("employee_cached_profile");
+        if (cachedEmp) {
+          const parsed = JSON.parse(cachedEmp);
+          userAvatar = parsed?.avatarUrl || parsed?.avatarDataUrl || "";
+        }
+      }
+    } catch (_) {}
+
     const authorName = auth.name || auth.username || "User";
     const payload: Partial<KvNote> = {
       title: "Untitled Note",
@@ -418,7 +666,9 @@ export default function KnowledgeVault() {
       notesList: [],
       attachments: [],
       createdBy: {
+        id: (auth as any).userId || (auth as any).id || (auth as any).sub || "",
         name: authorName,
+        avatar: userAvatar,
         role: auth.role || "Admin",
       },
       access: "Only you",
@@ -1178,7 +1428,8 @@ export default function KnowledgeVault() {
               <input
                 type="text"
                 value={activeNote.title || ""}
-                onChange={(e) => updateActiveNoteLocally({ title: e.target.value })}
+                onChange={(e) => updateActiveNoteLocally({ title: e.target.value }, false)}
+                onBlur={flushSave}
                 placeholder="Note Title"
                 className="w-full bg-transparent text-2xl font-bold text-white tracking-tight focus:outline-none focus:border-b focus:border-blue-500 pb-1"
               />
@@ -1221,20 +1472,29 @@ export default function KnowledgeVault() {
 
                 <div className="h-4 w-px bg-slate-700 mx-1" />
 
-                <button className="p-1.5 rounded hover:bg-slate-800 hover:text-white" title="Link">
+                <button
+                  onClick={() => setLinkModalOpen(true)}
+                  className="p-1.5 rounded hover:bg-slate-800 hover:text-white text-sky-400"
+                  title="Attach Web Link"
+                >
                   <Link2 className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-1.5 rounded hover:bg-slate-800 hover:text-white text-blue-400"
+                  title="Attach File"
+                >
+                  <Paperclip className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="p-1.5 rounded hover:bg-slate-800 hover:text-white text-emerald-400"
+                  title="Insert Image"
+                >
+                  <ImageIcon className="h-3.5 w-3.5" />
                 </button>
                 <button className="p-1.5 rounded hover:bg-slate-800 hover:text-white" title="Quote">
                   <Quote className="h-3.5 w-3.5" />
-                </button>
-                <button className="p-1.5 rounded hover:bg-slate-800 hover:text-white" title="Code">
-                  <Code className="h-3.5 w-3.5" />
-                </button>
-                <button className="p-1.5 rounded hover:bg-slate-800 hover:text-white" title="Insert Image">
-                  <ImageIcon className="h-3.5 w-3.5" />
-                </button>
-                <button className="p-1.5 rounded hover:bg-slate-800 hover:text-white" title="Table">
-                  <TableIcon className="h-3.5 w-3.5" />
                 </button>
                 <button className="p-1.5 rounded hover:bg-slate-800 hover:text-white" title="Code block">
                   <FileCode className="h-3.5 w-3.5" />
@@ -1264,13 +1524,24 @@ export default function KnowledgeVault() {
 
               {/* Section 1: Overview */}
               <div className="space-y-1.5 pt-1">
-                <h4 className="text-sm font-bold text-blue-400">Overview</h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-bold text-blue-400">Overview</h4>
+                  <span className="text-[10px] text-slate-500 font-mono">Auto-saves on edit</span>
+                </div>
                 <textarea
-                  value={activeNote.overview || activeNote.content || activeNote.body?.plain || ""}
-                  onChange={(e) => updateActiveNoteLocally({ overview: e.target.value, content: e.target.value })}
-                  placeholder="Enter note overview..."
-                  rows={3}
-                  className="w-full bg-transparent text-xs text-slate-300 leading-relaxed resize-none focus:outline-none focus:bg-slate-900/40 p-1.5 rounded-lg border border-transparent focus:border-slate-700 transition-colors"
+                  value={activeNote.overview ?? activeNote.content ?? activeNote.body?.plain ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    updateActiveNoteLocally({
+                      overview: val,
+                      content: val,
+                      body: { plain: val },
+                    }, false);
+                  }}
+                  onBlur={flushSave}
+                  placeholder="Enter note overview, summaries, or key insights..."
+                  rows={4}
+                  className="w-full bg-slate-900/40 text-xs text-slate-200 leading-relaxed resize-y focus:outline-none focus:bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 focus:border-blue-500/60 focus:ring-1 focus:ring-blue-500/20 transition-all font-sans"
                 />
               </div>
 
@@ -1379,54 +1650,210 @@ export default function KnowledgeVault() {
               </div>
 
               {/* Section 4: Attachments */}
-              <div className="space-y-2 pt-1">
-                <h4 className="text-sm font-bold text-blue-400">
-                  Attachments ({(activeNote.attachments || []).length})
-                </h4>
+              <div
+                className={`space-y-2 pt-1 p-2.5 rounded-2xl border transition-all ${
+                  isDraggingAttachment
+                    ? "border-blue-500 bg-blue-500/10 ring-2 ring-blue-500/30"
+                    : "border-transparent bg-transparent"
+                }`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingAttachment(true);
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingAttachment(false);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setIsDraggingAttachment(false);
+                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    uploadAndAttachFiles(e.dataTransfer.files);
+                  }
+                }}
+              >
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <Paperclip className="h-4 w-4 text-blue-400" />
+                    <h4 className="text-sm font-bold text-blue-400">
+                      Attachments ({(activeNote.attachments || []).length})
+                    </h4>
+                  </div>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {(activeNote.attachments || []).slice(0, 4).map((att) => (
-                    <div
-                      key={att.id || att._id}
-                      className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-slate-900/70 border border-slate-800 hover:border-slate-700 transition-all text-center gap-1 group relative cursor-pointer"
-                      onClick={() => toast.info(`Opening attachment: ${att.fileName}`)}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setLinkModalOpen(true)}
+                      className="h-7 text-xs border-slate-700 bg-slate-900/80 text-slate-300 hover:bg-slate-800 hover:text-white flex items-center gap-1.5 rounded-lg"
                     >
-                      {att.kind === "pdf" ? (
-                        <div className="w-9 h-9 rounded-lg bg-red-500/20 border border-red-500/30 flex items-center justify-center text-red-400 font-bold text-[10px]">
-                          PDF
-                        </div>
-                      ) : att.kind === "video" ? (
-                        <div className="relative w-9 h-9 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
-                          <Play className="h-4 w-4 fill-blue-400" />
-                        </div>
-                      ) : att.kind === "image" ? (
-                        <div className="w-9 h-9 rounded-lg overflow-hidden border border-slate-700 bg-slate-800">
-                          <img src={att.url} alt={att.fileName} className="w-full h-full object-cover" />
-                        </div>
+                      <Link2 className="h-3.5 w-3.5 text-sky-400" />
+                      <span>Add Link</span>
+                    </Button>
+
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUploadingAttachment}
+                      className="h-7 text-xs bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-1.5 rounded-lg shadow-sm"
+                    >
+                      {isUploadingAttachment ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       ) : (
-                        <div className="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400">
-                          <FileText className="h-4 w-4" />
-                        </div>
+                        <Upload className="h-3.5 w-3.5" />
                       )}
+                      <span>Attach File</span>
+                    </Button>
+                  </div>
+                </div>
 
-                      <span className="text-[11px] font-medium text-slate-200 truncate w-full">
-                        {att.fileName}
-                      </span>
-                      <span className="text-[10px] text-slate-500 font-mono">
-                        {att.fileSize || ""}
-                      </span>
-                    </div>
-                  ))}
+                {/* Hidden File Input for Attachments */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      uploadAndAttachFiles(e.target.files);
+                    }
+                  }}
+                  className="hidden"
+                />
 
-                  {(activeNote.attachments || []).length > 4 ? (
-                    <div
-                      onClick={() => toast.info("Viewing all attachments")}
-                      className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-slate-900/40 border border-slate-800/80 hover:border-slate-700 text-center gap-1 cursor-pointer"
-                    >
-                      <FolderIcon className="h-6 w-6 text-blue-400" />
-                      <span className="text-[11px] text-slate-400 font-medium">
-                        +{(activeNote.attachments || []).length - 4} more
-                      </span>
+                {/* Dropzone prompt when empty */}
+                {(activeNote.attachments || []).length === 0 && !isUploadingAttachment ? (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-slate-800 hover:border-slate-700 rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 text-center cursor-pointer transition-colors bg-slate-900/30"
+                  >
+                    <Upload className="h-5 w-5 text-slate-500" />
+                    <p className="text-xs font-medium text-slate-400">
+                      Click to upload or drag & drop files here
+                    </p>
+                    <p className="text-[10px] text-slate-500">
+                      Supports images, PDFs, videos, documents, audio (up to 100MB)
+                    </p>
+                  </div>
+                ) : null}
+
+                {/* Attachments Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-2">
+                  {(activeNote.attachments || []).map((att, idx) => {
+                    const resolvedUrl = getAttachmentUrl(att, auth.token);
+                    const isImg = att.kind === "image" || att.mimeType?.startsWith("image/") || att.fileName?.match(/\.(png|jpg|jpeg|gif|webp|svg)$/i);
+                    const isPdf = att.kind === "pdf" || att.mimeType === "application/pdf" || att.fileName?.endsWith(".pdf");
+                    const isVid = att.kind === "video" || att.mimeType?.startsWith("video/");
+                    const isLink = att.kind === "link";
+
+                    return (
+                      <div
+                        key={att.fileId || att.id || att._id || idx}
+                        className="flex flex-col p-2.5 rounded-xl bg-slate-900/80 border border-slate-800/80 hover:border-slate-700 hover:bg-slate-900 transition-all gap-1.5 group relative"
+                      >
+                        {/* Remove Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveAttachment(idx);
+                          }}
+                          className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 bg-slate-950/80 text-slate-400 hover:text-red-400 rounded-full p-1 transition-opacity z-10"
+                          title="Remove attachment"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+
+                        {/* Thumbnail / Icon area */}
+                        <div
+                          className="w-full h-20 rounded-lg overflow-hidden flex items-center justify-center bg-slate-950/60 border border-slate-800/60 cursor-pointer relative"
+                          onClick={() => handleOpenAttachment(att)}
+                        >
+                          {isImg && resolvedUrl ? (
+                            <img
+                              src={resolvedUrl}
+                              alt={att.fileName}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                              onError={(e: any) => {
+                                e.target.style.display = "none";
+                              }}
+                            />
+                          ) : isPdf ? (
+                            <div className="flex flex-col items-center justify-center text-red-400 gap-1">
+                              <FileText className="h-6 w-6" />
+                              <span className="text-[9px] font-bold uppercase tracking-wider">PDF</span>
+                            </div>
+                          ) : isVid ? (
+                            <div className="relative w-8 h-8 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                              <Play className="h-4 w-4 fill-blue-400 ml-0.5" />
+                            </div>
+                          ) : isLink ? (
+                            <div className="flex flex-col items-center justify-center text-sky-400 gap-1">
+                              <Link2 className="h-6 w-6" />
+                              <span className="text-[9px] font-bold uppercase tracking-wider">Link</span>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col items-center justify-center text-slate-400 gap-1">
+                              <File className="h-6 w-6" />
+                              <span className="text-[9px] font-bold uppercase tracking-wider">File</span>
+                            </div>
+                          )}
+
+                          {/* Hover preview overlay */}
+                          <div className="absolute inset-0 bg-slate-950/60 opacity-0 group-hover:opacity-100 flex items-center justify-center gap-2 transition-opacity">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenAttachment(att);
+                              }}
+                              className="p-1 rounded-md bg-blue-600 text-white hover:bg-blue-500"
+                              title="Open / Preview"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                            </button>
+                            {resolvedUrl && !isLink ? (
+                              <a
+                                href={resolvedUrl}
+                                download={att.fileName}
+                                target="_blank"
+                                rel="noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="p-1 rounded-md bg-slate-800 text-slate-200 hover:bg-slate-700"
+                                title="Download"
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                              </a>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        {/* Title and metadata */}
+                        <div className="min-w-0">
+                          <span
+                            onClick={() => handleOpenAttachment(att)}
+                            className="text-[11px] font-medium text-slate-200 truncate block hover:text-blue-400 cursor-pointer"
+                            title={att.fileName}
+                          >
+                            {att.fileName}
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-mono block mt-0.5">
+                            {att.fileSize || formatFileSize(att.size) || (isLink ? "External Link" : "")}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Uploading Skeleton Card */}
+                  {isUploadingAttachment ? (
+                    <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-slate-900/40 border border-blue-500/40 border-dashed text-center gap-2 animate-pulse min-h-[110px]">
+                      <Loader2 className="h-5 w-5 animate-spin text-blue-400" />
+                      <span className="text-[11px] text-blue-300 font-medium">Uploading...</span>
                     </div>
                   ) : null}
                 </div>
@@ -1486,14 +1913,25 @@ export default function KnowledgeVault() {
 
               <div>
                 <span className="text-slate-400 block text-[11px]">Created by</span>
-                <div className="flex items-center gap-2 mt-1">
-                  <Avatar className="h-6 w-6 border border-slate-700">
-                    <AvatarImage src={activeNote?.createdBy?.avatar || ""} />
-                    <AvatarFallback className="text-[10px] bg-slate-800 text-slate-300">
-                      {(activeNote?.createdBy?.name || auth.name || auth.username || "U")[0]}
+                <div className="flex items-center gap-2.5 mt-1.5 p-1.5 rounded-xl bg-slate-900/60 border border-slate-800/80">
+                  <Avatar className="h-7 w-7 border border-slate-700/80 shrink-0">
+                    <AvatarImage
+                      src={resolveAuthorAvatar(activeNote, auth)}
+                      alt={activeNote?.createdBy?.name || "Author"}
+                      className="object-cover"
+                    />
+                    <AvatarFallback className="text-[10px] font-bold bg-blue-600/20 text-blue-300">
+                      {(activeNote?.createdBy?.name || auth.name || auth.username || "U").slice(0, 2).toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
-                  <span className="text-slate-200 font-medium">{activeNote?.createdBy?.name || auth.name || auth.username || "User"}</span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-slate-200 text-xs font-semibold truncate block">
+                      {activeNote?.createdBy?.name || auth.name || auth.username || "User"}
+                    </span>
+                    <span className="text-[10px] text-slate-500 capitalize leading-tight">
+                      {activeNote?.createdBy?.role || auth.role || "Admin"}
+                    </span>
+                  </div>
                 </div>
               </div>
 
@@ -1882,6 +2320,121 @@ export default function KnowledgeVault() {
                 <Check className="h-3.5 w-3.5 mr-1" /> Append to Note
               </Button>
             ) : null}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Web Link Modal */}
+      <Dialog open={linkModalOpen} onOpenChange={setLinkModalOpen}>
+        <DialogContent className="bg-[#111827] border border-slate-700 text-slate-100 max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Link2 className="h-4 w-4 text-sky-400" />
+              <span>Attach Web Link</span>
+            </DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Attach a Google Doc, Dropbox, Figma, or any web URL.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div>
+              <label className="text-xs text-slate-400 block mb-1">Web URL *</label>
+              <Input
+                autoFocus
+                placeholder="https://..."
+                value={linkUrl}
+                onChange={(e) => setLinkUrl(e.target.value)}
+                className="bg-slate-900 border-slate-700 text-slate-100 text-xs"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 block mb-1">Display Title (optional)</label>
+              <Input
+                placeholder="e.g. Design Specs, Meeting Sheet"
+                value={linkTitle}
+                onChange={(e) => setLinkTitle(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddLinkAttachment()}
+                className="bg-slate-900 border-slate-700 text-slate-100 text-xs"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLinkModalOpen(false)} className="border-slate-700 text-slate-300 text-xs">
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddLinkAttachment}
+              disabled={!linkUrl.trim()}
+              className="bg-blue-600 hover:bg-blue-500 text-white text-xs"
+            >
+              Attach Link
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Attachment Preview Modal */}
+      <Dialog open={previewModalOpen} onOpenChange={setPreviewModalOpen}>
+        <DialogContent className="bg-[#111827] border border-slate-700 text-slate-100 max-w-3xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between gap-2 text-sm">
+              <span className="truncate max-w-md">{previewAttachment?.fileName}</span>
+              {previewAttachment && getAttachmentUrl(previewAttachment, auth.token) ? (
+                <a
+                  href={getAttachmentUrl(previewAttachment, auth.token)}
+                  target="_blank"
+                  rel="noreferrer"
+                  download={previewAttachment.fileName}
+                  className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 font-normal"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  <span>Open original</span>
+                </a>
+              ) : null}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-auto flex items-center justify-center p-2 min-h-[300px] bg-slate-950/60 rounded-xl border border-slate-800">
+            {previewAttachment && (previewAttachment.kind === "image" || previewAttachment.mimeType?.startsWith("image/") || previewAttachment.fileName?.match(/\.(png|jpg|jpeg|gif|webp|svg)$/i)) ? (
+              <img
+                src={getAttachmentUrl(previewAttachment, auth.token)}
+                alt={previewAttachment.fileName}
+                className="max-h-[60vh] max-w-full object-contain rounded-lg shadow-lg"
+              />
+            ) : previewAttachment && (previewAttachment.kind === "video" || previewAttachment.mimeType?.startsWith("video/")) ? (
+              <video
+                controls
+                src={getAttachmentUrl(previewAttachment, auth.token)}
+                className="max-h-[60vh] max-w-full rounded-lg shadow-lg"
+              />
+            ) : previewAttachment && (previewAttachment.kind === "pdf" || previewAttachment.mimeType === "application/pdf" || previewAttachment.fileName?.endsWith(".pdf")) ? (
+              <iframe
+                src={getAttachmentUrl(previewAttachment, auth.token)}
+                title={previewAttachment.fileName}
+                className="w-full h-[60vh] rounded-lg border-0"
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-3 p-8 text-center">
+                <FileText className="h-12 w-12 text-slate-500" />
+                <p className="text-xs text-slate-300">{previewAttachment?.fileName}</p>
+                {previewAttachment && getAttachmentUrl(previewAttachment, auth.token) ? (
+                  <a
+                    href={getAttachmentUrl(previewAttachment, auth.token)}
+                    download={previewAttachment.fileName}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    <span>Download File</span>
+                  </a>
+                ) : null}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPreviewModalOpen(false)} className="border-slate-700 text-slate-300 text-xs">
+              Close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
