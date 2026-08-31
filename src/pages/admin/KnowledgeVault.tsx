@@ -9,10 +9,11 @@ import {
   Strikethrough, List, ListOrdered, Link2, Quote, Code, Image as ImageIcon,
   Table as TableIcon, Undo, Redo, Play, Lock, MoreHorizontal,
   Grid, Clock, Lightbulb, User, DollarSign, Megaphone, Car, Home,
-  FlaskConical, CheckCircle2, FileCode, AlertCircle, Sparkle, RefreshCw
+  FlaskConical, CheckCircle2, FileCode, Paperclip
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
@@ -21,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { kvApi, KvNote, KvActionItem, KvFolder } from "@/lib/knowledgeVault";
+import { kvApi, KvNote, KvActionItem, KvFolder, KvVersion } from "@/lib/knowledgeVault";
 import { getAuthState } from "@/lib/auth";
 
 /* -------------------------------------------------------------------------- */
@@ -229,6 +230,22 @@ export default function KnowledgeVault() {
     return notes.find((n) => (n.id || n._id) === activeNoteId) || null;
   }, [notes, activeNoteId, activeNoteDraft]);
 
+  // Dynamic versions query for active note
+  const versionsQuery = useQuery({
+    queryKey: ["kv-versions", activeNote?.id || activeNote?._id],
+    queryFn: async () => {
+      const id = activeNote?.id || activeNote?._id;
+      if (!id) return [];
+      try {
+        const res = await kvApi.versions(id);
+        return res?.items || [];
+      } catch (_) {
+        return [];
+      }
+    },
+    enabled: versionModalOpen && !!(activeNote?.id || activeNote?._id),
+  });
+
   // Dynamic counts calculation from real notes
   const counts = useMemo(() => {
     const favorites = notes.filter((n) => n.isFavorite).length;
@@ -382,28 +399,27 @@ export default function KnowledgeVault() {
     }
   };
 
-  const handleCreateNewNote = (folderId: string | null = null, folderName = "Projects") => {
-    const authorName = auth.name || auth.username || "Nathan Reardon";
+  const handleCreateNewNote = (folderId: string | null = null, folderName = "General") => {
+    const authorName = auth.name || auth.username || "User";
     const payload: Partial<KvNote> = {
       title: "Untitled Note",
-      overview: "Start typing your note overview...",
+      overview: "",
       content: "",
       folder: folderName,
       folderId: folderId,
-      tags: ["Projects"],
+      tags: [],
       status: "active",
       priority: "normal",
       visibility: "private",
       isPinned: false,
       isFavorite: false,
       isImportant: false,
-      actionItems: [{ id: `act-${Date.now()}`, text: "First task item", completed: false }],
-      notesList: ["Key discovery or project milestone note."],
+      actionItems: [],
+      notesList: [],
       attachments: [],
       createdBy: {
         name: authorName,
-        avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80",
-        role: auth.role || "Super Admin",
+        role: auth.role || "Admin",
       },
       access: "Only you",
     };
@@ -462,14 +478,14 @@ export default function KnowledgeVault() {
     const nextList = [...(activeNote.notesList || []), newBulletText.trim()];
     updateActiveNoteLocally({ notesList: nextList });
     setNewBulletText("");
-    toast.success("Note bullet added");
+    toast.success("Note point added");
   };
 
   const handleRemoveBulletNote = (index: number) => {
     if (!activeNote) return;
     const nextList = (activeNote.notesList || []).filter((_, idx) => idx !== index);
     updateActiveNoteLocally({ notesList: nextList });
-    toast.success("Note bullet removed");
+    toast.success("Note point removed");
   };
 
   const handleDuplicateNote = () => {
@@ -559,18 +575,24 @@ export default function KnowledgeVault() {
     try {
       if (type === "summarize") {
         setAiModalTitle("AI Executive Summary");
+        const overviewText = activeNote.overview || activeNote.content || "";
         setAiModalContent(
-          `Key Summary:\n• ${activeNote.title || "Note"} contains ${wordCount} words.\n• Main focus: ${activeNote.overview || activeNote.content || "General knowledge documentation"}\n• Status: ${(activeNote.actionItems || []).filter((a) => a.completed).length} of ${(activeNote.actionItems || []).length} action items completed.`
+          overviewText
+            ? `Summary for "${activeNote.title}":\n\n${overviewText.slice(0, 300)}...\n\n• Word count: ${wordCount} words\n• Completed action items: ${(activeNote.actionItems || []).filter((a) => a.completed).length}/${(activeNote.actionItems || []).length}`
+            : `"${activeNote.title}" is currently empty. Add content to generate a detailed summary.`
         );
       } else if (type === "extract") {
         setAiModalTitle("Extracted Action Items");
+        const existingActions = activeNote.actionItems || [];
         setAiModalContent(
-          `1. [HIGH] Review and validate primary deliverables for ${activeNote.title}\n2. [MEDIUM] Schedule follow-up sync with stakeholders\n3. [LOW] Archive telemetry and project notes`
+          existingActions.length > 0
+            ? existingActions.map((a, i) => `${i + 1}. [${a.completed ? "COMPLETED" : "PENDING"}] ${a.text}`).join("\n")
+            : `1. Review and refine key priorities for "${activeNote.title}"\n2. Share updates with relevant collaborators`
         );
       } else if (type === "translate") {
         setAiModalTitle("Translation (Spanish)");
         setAiModalContent(
-          `Título: ${activeNote.title}\nResumen: ${activeNote.overview || activeNote.content || "Sin contenido"}`
+          `Título: ${activeNote.title}\nResumen: ${activeNote.overview || activeNote.content || "Sin contenido disponible."}`
         );
       } else if (type === "related") {
         setAiModalTitle("Related Notes");
@@ -578,17 +600,21 @@ export default function KnowledgeVault() {
         setAiModalContent(
           related.length > 0
             ? related.map((r, i) => `${i + 1}. ${r.title} (${r.folder || "General"})`).join("\n")
-            : "No other notes found in this workspace."
+            : "No related notes found in this workspace."
         );
       } else if (type === "improve") {
-        setAiModalTitle("Polished Content");
+        setAiModalTitle("Polished Writing");
         setAiModalContent(
-          `Enhanced Note Overview:\n"${activeNote.overview || activeNote.content || "Start typing note details to generate AI enhancements."}"`
+          activeNote.overview
+            ? `Enhanced draft:\n\n"${activeNote.overview.trim()}"\n\nClarity score: High • Tone: Professional.`
+            : `Add notes or overview to generate AI writing suggestions.`
         );
       } else if (type === "tasks") {
-        setAiModalTitle("Synchronized Project Tasks");
+        setAiModalTitle("Create System Tasks");
         setAiModalContent(
-          `Generated system tasks from action items:\n${(activeNote.actionItems || []).map((a) => `• ${a.completed ? "✓ [COMPLETED]" : "⏳ [PENDING]"} ${a.text}`).join("\n") || "No action items to convert into tasks."}`
+          (activeNote.actionItems || []).length > 0
+            ? `Generated tasks from action items:\n\n${(activeNote.actionItems || []).map((a) => `• [Task] ${a.text}`).join("\n")}`
+            : `No action items to convert into tasks. Add action items first.`
         );
       }
     } catch (_) {
@@ -601,7 +627,7 @@ export default function KnowledgeVault() {
   const handleApplyAiSummary = () => {
     if (!activeNote || !aiModalContent) return;
     updateActiveNoteLocally({
-      notesList: [...(activeNote.notesList || []), `AI Insight: ${aiModalContent.split("\n")[0]}`],
+      notesList: [...(activeNote.notesList || []), `AI: ${aiModalContent.split("\n")[0]}`],
     });
     setAiModalOpen(false);
     toast.success("AI content added to note");
@@ -674,7 +700,7 @@ export default function KnowledgeVault() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-52 bg-[#111827] border border-slate-700 text-slate-200 shadow-xl rounded-xl p-1.5">
               <DropdownMenuItem
-                onClick={() => handleCreateNewNote(null, "Projects")}
+                onClick={() => handleCreateNewNote(null, "General")}
                 className="flex items-center gap-2 px-3 py-2 text-xs rounded-lg hover:bg-blue-600/20 hover:text-blue-300 cursor-pointer"
               >
                 <FileText className="h-4 w-4 text-blue-400" />
@@ -693,17 +719,6 @@ export default function KnowledgeVault() {
               >
                 <TagIcon className="h-4 w-4 text-purple-400" />
                 <span>New Tag</span>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-slate-800 my-1" />
-              <DropdownMenuItem
-                onClick={() => {
-                  handleCreateNewNote(null, "Ideas");
-                  toast.success("AI Smart Note created!");
-                }}
-                className="flex items-center gap-2 px-3 py-2 text-xs rounded-lg hover:bg-blue-600/20 hover:text-blue-300 cursor-pointer"
-              >
-                <Sparkles className="h-4 w-4 text-yellow-400" />
-                <span>AI Smart Template</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -1082,7 +1097,7 @@ export default function KnowledgeVault() {
               <div className="flex items-center justify-between text-xs text-slate-400 pb-2 border-b border-slate-800/80 flex-wrap gap-2">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <FolderIcon className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                  <span className="font-semibold text-slate-200">{activeNote.folder || "Projects"}</span>
+                  <span className="font-semibold text-slate-200">{activeNote.folder || "General"}</span>
                   <ChevronRight className="h-3 w-3 text-slate-500 shrink-0" />
 
                   {/* Active Note Tags Display with Remove & Add */}
@@ -1386,7 +1401,7 @@ export default function KnowledgeVault() {
                         </div>
                       ) : att.kind === "image" ? (
                         <div className="w-9 h-9 rounded-lg overflow-hidden border border-slate-700 bg-slate-800">
-                          <img src={att.url || "/assets/knowledge-vault/genesis_chamber.jpg"} alt={att.fileName} className="w-full h-full object-cover" />
+                          <img src={att.url} alt={att.fileName} className="w-full h-full object-cover" />
                         </div>
                       ) : (
                         <div className="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400">
@@ -1398,7 +1413,7 @@ export default function KnowledgeVault() {
                         {att.fileName}
                       </span>
                       <span className="text-[10px] text-slate-500 font-mono">
-                        {att.fileSize || "2.4 MB"}
+                        {att.fileSize || ""}
                       </span>
                     </div>
                   ))}
@@ -1473,9 +1488,9 @@ export default function KnowledgeVault() {
                 <span className="text-slate-400 block text-[11px]">Created by</span>
                 <div className="flex items-center gap-2 mt-1">
                   <Avatar className="h-6 w-6 border border-slate-700">
-                    <AvatarImage src={activeNote?.createdBy?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"} />
+                    <AvatarImage src={activeNote?.createdBy?.avatar || ""} />
                     <AvatarFallback className="text-[10px] bg-slate-800 text-slate-300">
-                      {(activeNote?.createdBy?.name || "U")[0]}
+                      {(activeNote?.createdBy?.name || auth.name || auth.username || "U")[0]}
                     </AvatarFallback>
                   </Avatar>
                   <span className="text-slate-200 font-medium">{activeNote?.createdBy?.name || auth.name || auth.username || "User"}</span>
@@ -1794,20 +1809,37 @@ export default function KnowledgeVault() {
             <DialogDescription className="text-slate-400">{activeNote?.title}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-2 max-h-64 overflow-y-auto">
-            {[
-              { v: activeNote?.version || 1, date: formatNoteDate(activeNote?.updatedAt), editor: activeNote?.createdBy?.name || "User", notes: "Current Version" },
-            ].map((ver) => (
-              <div key={ver.v} className="flex items-center justify-between p-2.5 rounded-lg border border-slate-800 bg-slate-900/60 text-xs">
+            {versionsQuery.isLoading ? (
+              <div className="flex justify-center py-6 text-slate-500">
+                <Loader2 className="h-5 w-5 animate-spin" />
+              </div>
+            ) : (versionsQuery.data || []).length > 0 ? (
+              (versionsQuery.data || []).map((ver: KvVersion) => (
+                <div key={ver._id || ver.version} className="flex items-center justify-between p-2.5 rounded-lg border border-slate-800 bg-slate-900/60 text-xs">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-blue-400">v{ver.version}</span>
+                      <span className="text-slate-300 font-medium">{formatNoteDate(ver.createdAt)}</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">{ver.reason || "Updated"}</p>
+                  </div>
+                  {ver.version === activeNote?.version ? (
+                    <Badge variant="outline" className="text-emerald-400 border-emerald-500/30 bg-emerald-500/10">Active</Badge>
+                  ) : null}
+                </div>
+              ))
+            ) : (
+              <div className="flex items-center justify-between p-2.5 rounded-lg border border-slate-800 bg-slate-900/60 text-xs">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-blue-400">v{ver.v}</span>
-                    <span className="text-slate-300 font-medium">{ver.date}</span>
+                    <span className="font-bold text-blue-400">v{activeNote?.version || 1}</span>
+                    <span className="text-slate-300 font-medium">{formatNoteDate(activeNote?.updatedAt)}</span>
                   </div>
-                  <p className="text-[11px] text-slate-500 mt-0.5">{ver.notes} • {ver.editor}</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Current Version</p>
                 </div>
                 <Badge variant="outline" className="text-emerald-400 border-emerald-500/30 bg-emerald-500/10">Active</Badge>
               </div>
-            ))}
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setVersionModalOpen(false)} className="border-slate-700 text-slate-300 text-xs">
