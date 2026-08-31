@@ -1583,8 +1583,9 @@ export default function Messages() {
 
       {/* Create Group Modal */}
       <CreateGroupModal
-        isOpen={createGroupOpen}
-        onClose={() => setCreateGroupOpen(false)}
+        open={createGroupOpen}
+        onOpenChange={setCreateGroupOpen}
+        employees={employees}
         onGroupCreated={() => {
           loadGroups();
           setCreateGroupOpen(false);

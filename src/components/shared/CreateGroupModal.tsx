@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Users, Lock, Megaphone, Check, Plus, ShieldAlert } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/admin/ui/dialog";
 import { Button } from "@/components/admin/ui/button";
@@ -10,26 +10,39 @@ import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
 import { toast } from "sonner";
 
 interface Employee {
-  id: string;
+  id?: string;
   name: string;
-  email: string;
-  department: string;
+  email?: string;
+  department?: string;
   avatarUrl?: string;
 }
 
 interface CreateGroupModalProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  employees: Employee[];
-  onGroupCreated: (newGroup: any) => void;
+  open?: boolean;
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  onClose?: () => void;
+  employees?: Employee[];
+  onGroupCreated?: (newGroup: any) => void;
+  currentUser?: any;
 }
 
 export default function CreateGroupModal({
   open,
+  isOpen,
   onOpenChange,
-  employees,
+  onClose,
+  employees = [],
   onGroupCreated,
+  currentUser,
 }: CreateGroupModalProps) {
+  const isModalOpen = Boolean(open !== undefined ? open : isOpen);
+  const handleModalChange = (state: boolean) => {
+    if (onOpenChange) onOpenChange(state);
+    if (!state && onClose) onClose();
+  };
+
+  const [localEmployees, setLocalEmployees] = useState<Employee[]>(Array.isArray(employees) ? employees : []);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [groupType, setGroupType] = useState<"custom" | "department">("custom");
@@ -39,10 +52,38 @@ export default function CreateGroupModal({
   const [submitting, setSubmitting] = useState(false);
   const [searchMember, setSearchMember] = useState("");
 
-  const filteredEmployees = employees.filter(
+  useEffect(() => {
+    if (Array.isArray(employees) && employees.length > 0) {
+      setLocalEmployees(employees);
+    } else if (isModalOpen && localEmployees.length === 0) {
+      apiFetch<{ items?: any[]; data?: any[] }>("/api/employees")
+        .then((res) => {
+          const list = res.items || res.data || (Array.isArray(res) ? res : []);
+          setLocalEmployees(
+            list.map((e: any) => ({
+              id: e.id || e._id,
+              name: e.name || e.username || "Unknown",
+              email: e.email || "",
+              department: e.department || "",
+              avatarUrl: e.avatarUrl || e.avatarDataUrl || "",
+            }))
+          );
+        })
+        .catch((err) => {
+          console.warn("[CreateGroupModal] Failed to load employees fallback:", err);
+        });
+    }
+  }, [employees, isModalOpen]);
+
+  const effectiveEmployees = Array.isArray(localEmployees) && localEmployees.length > 0
+    ? localEmployees
+    : (Array.isArray(employees) ? employees : []);
+
+  const filteredEmployees = effectiveEmployees.filter(
     (emp) =>
-      emp.name.toLowerCase().includes(searchMember.toLowerCase()) ||
-      emp.department?.toLowerCase().includes(searchMember.toLowerCase())
+      emp &&
+      ((emp.name || "").toLowerCase().includes(searchMember.toLowerCase()) ||
+       (emp.department || "").toLowerCase().includes(searchMember.toLowerCase()))
   );
 
   const toggleMember = (empName: string) => {
@@ -78,8 +119,8 @@ export default function CreateGroupModal({
       });
 
       toast.success(`Group '${name}' created successfully`);
-      onGroupCreated(res.item);
-      onOpenChange(false);
+      if (onGroupCreated) onGroupCreated(res.item);
+      handleModalChange(false);
       setName("");
       setDescription("");
       setSelectedMembers([]);
@@ -91,7 +132,7 @@ export default function CreateGroupModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={isModalOpen} onOpenChange={handleModalChange}>
       <DialogContent className="max-w-md p-0 overflow-hidden rounded-2xl border-0 shadow-2xl bg-white">
         <div className="bg-slate-900 p-6 text-white relative">
           <div className="flex items-center gap-3">
@@ -206,7 +247,7 @@ export default function CreateGroupModal({
         </div>
 
         <div className="p-4 bg-slate-50 border-t flex justify-end gap-2">
-          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
+          <Button variant="ghost" size="sm" onClick={() => handleModalChange(false)}>
             Cancel
           </Button>
           <Button
