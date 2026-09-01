@@ -1135,9 +1135,11 @@ export default function Tasks() {
       if (selectedTask?.id === updatedTask.id) {
         setSelectedTask(updatedTask);
       }
+
+      setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
       
-      // Only update local project state if we actually have a project selected and IDs match
-      if (selectedProject && updatedTask.projectId && selectedProject.id === updatedTask.projectId) {
+      // Only update local project state if we actually have a project selected
+      if (selectedProject && (selectedProject.tasks || []).some((t) => t.id === updatedTask.id)) {
         setSelectedProject({
           ...selectedProject,
           tasks: (selectedProject.tasks || []).map(t => t.id === updatedTask.id ? updatedTask : t)
@@ -2054,16 +2056,43 @@ export default function Tasks() {
     if (!selectedTask) return;
     try {
       setArchivingAttachment(attachmentIndex);
-      await apiFetch(`/api/tasks/${encodeURIComponent(selectedTask.id)}/attachments/${attachmentIndex}/archive`, {
+      const res = await apiFetch<{ ok: boolean; item?: any }>(`/api/tasks/${encodeURIComponent(selectedTask.id)}/attachments/${attachmentIndex}/archive`, {
         method: "POST",
       });
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      if (attachmentIndex === -1) {
-        setSelectedTask({ ...selectedTask, attachment: undefined, attachmentFileName: undefined });
-      } else if (selectedTask.attachments) {
-        const newAttachments = [...selectedTask.attachments];
-        newAttachments.splice(attachmentIndex, 1);
-        setSelectedTask({ ...selectedTask, attachments: newAttachments });
+      if (selectedTask.projectId) {
+        await queryClient.invalidateQueries({ queryKey: ["project", selectedTask.projectId] });
+      }
+
+      let updatedTask: Task;
+      if (res.item) {
+        updatedTask = normalizeTask(res.item);
+      } else {
+        if (attachmentIndex === -1) {
+          updatedTask = { ...selectedTask, attachment: undefined, attachmentFileName: undefined };
+        } else {
+          const newAttachments = [...(selectedTask.attachments || [])];
+          newAttachments.splice(attachmentIndex, 1);
+          const first = newAttachments[0];
+          updatedTask = {
+            ...selectedTask,
+            attachments: newAttachments,
+            attachment: first ? { fileName: first.fileName, url: first.url, mimeType: first.mimeType, size: first.size } : undefined,
+            attachmentFileName: first?.fileName || undefined,
+          };
+        }
+      }
+
+      setSelectedTask(updatedTask);
+      setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
+      if (selectedProject) {
+        setSelectedProject((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            tasks: (prev.tasks || []).map((t) => (t.id === updatedTask.id ? updatedTask : t)),
+          };
+        });
       }
       toast({ title: "Attachment archived", description: "The attachment has been moved to archive." });
     } catch (e) {

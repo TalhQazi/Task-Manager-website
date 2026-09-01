@@ -1873,7 +1873,7 @@ export default function Tasks() {
     if (!selectedTask) return;
     try {
       setDeletingTaskAttachment(attachmentIndex);
-      await apiFetch(`/api/tasks/${encodeURIComponent(selectedTask.id)}/attachments/${attachmentIndex}`, {
+      const res = await apiFetch<{ ok: boolean; item?: any }>(`/api/tasks/${encodeURIComponent(selectedTask.id)}/attachments/${attachmentIndex}`, {
         method: "DELETE",
       });
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -1881,12 +1881,35 @@ export default function Tasks() {
         await queryClient.invalidateQueries({ queryKey: ["project", selectedTask.projectId] });
       }
 
-      if (attachmentIndex === -1) {
-        setSelectedTask({ ...selectedTask, attachment: undefined, attachmentFileName: undefined });
-      } else if (selectedTask.attachments) {
-        const newAttachments = [...selectedTask.attachments];
-        newAttachments.splice(attachmentIndex, 1);
-        setSelectedTask({ ...selectedTask, attachments: newAttachments });
+      let updatedTask: Task;
+      if (res.item) {
+        updatedTask = normalizeTask(res.item);
+      } else {
+        if (attachmentIndex === -1) {
+          updatedTask = { ...selectedTask, attachment: undefined, attachmentFileName: undefined };
+        } else {
+          const newAttachments = [...(selectedTask.attachments || [])];
+          newAttachments.splice(attachmentIndex, 1);
+          const first = newAttachments[0];
+          updatedTask = {
+            ...selectedTask,
+            attachments: newAttachments,
+            attachment: first ? { fileName: first.fileName, url: first.url, mimeType: first.mimeType, size: first.size } : undefined,
+            attachmentFileName: first?.fileName || undefined,
+          };
+        }
+      }
+
+      setSelectedTask(updatedTask);
+      setTasks((prev) => prev.map((t) => (t.id === updatedTask.id ? updatedTask : t)));
+      if (selectedProject) {
+        setSelectedProject((prev) => {
+          if (!prev) return null;
+          return {
+            ...prev,
+            tasks: (prev.tasks || []).map((t) => (t.id === updatedTask.id ? updatedTask : t)),
+          };
+        });
       }
       toast({ title: "Attachment deleted", description: "The attachment has been removed from the task." });
     } catch (e) {
