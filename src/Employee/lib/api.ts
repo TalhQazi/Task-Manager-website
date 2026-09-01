@@ -560,28 +560,52 @@ export async function downloadTaskAttachment(
     token = localStorage.getItem("token") || "";
   }
   
-  const res = await fetch(url, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  
-  if (!res.ok) {
-    throw new Error(`Download failed (${res.status})`);
+  try {
+    const res = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    
+    if (!res.ok) {
+      throw new Error(`Download failed (${res.status})`);
+    }
+    
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = fileName || "download";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+  } catch (err) {
+    console.warn("downloadTaskAttachment fetch failed, using fallback direct download:", err);
+    const directUrl = `${url}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+    const a = document.createElement("a");
+    a.href = directUrl;
+    a.download = fileName || "download";
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }
-  
-  const blob = await res.blob();
-  const objectUrl = URL.createObjectURL(blob);
-  
-  const a = document.createElement("a");
-  a.href = objectUrl;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  
-  URL.revokeObjectURL(objectUrl);
 }
 
 export async function downloadViaUrl(url: string, fileName: string): Promise<void> {
+  if (!url) return;
+
+  if (url.startsWith("data:")) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName || "download";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    return;
+  }
+
   const authRaw = localStorage.getItem("employee_auth");
   let token = "";
   if (authRaw) {
@@ -610,18 +634,19 @@ export async function downloadViaUrl(url: string, fileName: string): Promise<voi
     
     const a = document.createElement("a");
     a.href = objectUrl;
-    a.download = fileName;
+    a.download = fileName || "download";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     
-    URL.revokeObjectURL(objectUrl);
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
   } catch (err) {
     console.warn("downloadViaUrl fetch failed, using direct link fallback:", err);
-    const windowUrl = toProxiedUrl(url) || url;
+    const separator = targetUrl.includes("?") ? "&" : "?";
+    const windowUrl = `${targetUrl}${separator}download=true&fileName=${encodeURIComponent(fileName || "download")}`;
     const a = document.createElement("a");
     a.href = windowUrl;
-    a.download = fileName;
+    a.download = fileName || "download";
     a.target = "_blank";
     document.body.appendChild(a);
     a.click();

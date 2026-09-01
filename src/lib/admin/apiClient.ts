@@ -243,55 +243,91 @@ export async function downloadTaskAttachment(
 ): Promise<void> {
   const baseUrl = getApiBaseUrl();
   const url = `${String(baseUrl).replace(/\/$/, "")}/api/tasks/${encodeURIComponent(taskId)}/attachments/${attachmentIndex}/download`;
-  
   const auth = getAuthState();
   
-  const res = await fetch(url, {
-    headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
-  });
-  
-  if (!res.ok) {
-    throw new Error(`Download failed (${res.status})`);
+  try {
+    const res = await fetch(url, {
+      headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
+    });
+    
+    if (!res.ok) {
+      throw new Error(`Download failed (${res.status})`);
+    }
+    
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = fileName || "download";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+  } catch (err) {
+    console.warn("downloadTaskAttachment fetch failed, trying direct link fallback:", err);
+    const token = auth.token;
+    const directUrl = `${url}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+    const a = document.createElement("a");
+    a.href = directUrl;
+    a.download = fileName || "download";
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }
-  
-  const blob = await res.blob();
-  const objectUrl = URL.createObjectURL(blob);
-  
-  const a = document.createElement("a");
-  a.href = objectUrl;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  
-  URL.revokeObjectURL(objectUrl);
 }
 
 // Download any URL with authentication
 export async function downloadViaUrl(url: string, fileName: string): Promise<void> {
-  const auth = getAuthState();
-  const targetUrl = toProxiedUrl(url) || url;
-  
-  // Use fetch to get the blob with headers
-  const res = await fetch(targetUrl, {
-    headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
-  });
-  
-  if (!res.ok) {
-    throw new Error(`Download failed (${res.status})`);
+  if (!url) return;
+
+  if (url.startsWith("data:")) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName || "download";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    return;
   }
+
+  const auth = getAuthState();
+  let targetUrl = toProxiedUrl(url) || url;
   
-  const blob = await res.blob();
-  const objectUrl = URL.createObjectURL(blob);
-  
-  const a = document.createElement("a");
-  a.href = objectUrl;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  
-  URL.revokeObjectURL(objectUrl);
+  try {
+    const res = await fetch(targetUrl, {
+      headers: auth.token ? { Authorization: `Bearer ${auth.token}` } : {},
+    });
+    
+    if (!res.ok) {
+      throw new Error(`Download failed (${res.status})`);
+    }
+    
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = fileName || "download";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+  } catch (err) {
+    console.warn("downloadViaUrl fetch failed, using fallback direct download:", err);
+    const separator = targetUrl.includes("?") ? "&" : "?";
+    const directUrl = `${targetUrl}${separator}download=true&fileName=${encodeURIComponent(fileName || "download")}`;
+    const a = document.createElement("a");
+    a.href = directUrl;
+    a.download = fileName || "download";
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 }
 
 // Admin Scrum Records API
