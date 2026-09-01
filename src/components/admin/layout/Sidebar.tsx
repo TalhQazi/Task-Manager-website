@@ -215,9 +215,9 @@ const navItemsBase: NavItem[] = [
     path: "/admin/uph-maintenance",
     customIcon: (
       <img
-        src="/uph.jpeg"
+        src="/atlas-properties.png"
         alt="Atlas Properties"
-        className="h-6 w-6 flex-shrink-0 rounded-md object-cover opacity-85 group-hover:opacity-100 transition-opacity"
+        className="h-6 w-6 flex-shrink-0 rounded-md object-contain opacity-90 group-hover:opacity-100 transition-opacity"
       />
     ),
   },
