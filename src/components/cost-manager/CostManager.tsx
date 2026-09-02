@@ -198,6 +198,31 @@ export default function CostManager({
     return picked;
   }, [buyMode, querySections, queryBudgetCents]);
 
+  const [vendorFilter, setVendorFilter] = useState<string>("all");
+
+  const sections = sheetQuery.data?.sections;
+  const allItems = useMemo(() => (sections || []).flatMap((s) => s.items), [sections]);
+
+  const itemVendorNames = useMemo(() => {
+    const set = new Set<string>();
+    for (const item of allItems) {
+      if (item.vendor?.name) set.add(item.vendor.name);
+      else if (item.quoteNumber) set.add(`Quote #${item.quoteNumber}`);
+    }
+    return Array.from(set);
+  }, [allItems]);
+
+  const displayedSections = useMemo(() => {
+    if (!sections) return [];
+    if (vendorFilter === "all") return sections;
+    return sections.map((sec) => ({
+      ...sec,
+      items: sec.items.filter(
+        (i) => (i.vendor?.name === vendorFilter) || (!i.vendor?.name && `Quote #${i.quoteNumber}` === vendorFilter)
+      ),
+    }));
+  }, [sections, vendorFilter]);
+
   // The sheet can be opened by project, by task, or directly by sheet id
   // (Expense Sheets page / task modal). Bail out only when none is provided.
   if (!projectId && !taskId && !sheetId) return null;
@@ -221,9 +246,8 @@ export default function CostManager({
     );
   }
 
-  const { sheet, sections, certifications, summary } = sheetQuery.data;
+  const { sheet, certifications, summary } = sheetQuery.data;
   const currency = sheet.currency || "USD";
-  const allItems = sections.flatMap((s) => s.items);
   const filesDialogItem = filesDialogItemId ? allItems.find((i) => i.id === filesDialogItemId) || null : null;
 
   const warningCounts = allItems.reduce(
@@ -249,27 +273,6 @@ export default function CostManager({
       payload: { purchaseStatus: checked ? "purchased" : "not_purchased", ...(checked ? {} : { paidCents: 0 }) },
     });
   };
-
-  const [vendorFilter, setVendorFilter] = useState<string>("all");
-
-  const itemVendorNames = useMemo(() => {
-    const set = new Set<string>();
-    for (const item of allItems) {
-      if (item.vendor?.name) set.add(item.vendor.name);
-      else if (item.quoteNumber) set.add(`Quote #${item.quoteNumber}`);
-    }
-    return Array.from(set);
-  }, [allItems]);
-
-  const displayedSections = useMemo(() => {
-    if (vendorFilter === "all") return sections;
-    return sections.map((sec) => ({
-      ...sec,
-      items: sec.items.filter(
-        (i) => (i.vendor?.name === vendorFilter) || (!i.vendor?.name && `Quote #${i.quoteNumber}` === vendorFilter)
-      ),
-    }));
-  }, [sections, vendorFilter]);
 
   return (
     <div className="space-y-4">
