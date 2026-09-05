@@ -13,6 +13,7 @@ export default function ExpenseSheetList({ projectId }: any) {
   const [items, setItems] = useState<any[]>([]);
   const [originalItems, setOriginalItems] = useState<any[]>([]);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [expandedQuotesItemId, setExpandedQuotesItemId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const { role } = getAuthState();
@@ -29,7 +30,7 @@ const isEmployee = role === "employee" || role === "developer";
 
   // 🔍 Filter
   const filteredSheets = sheets.filter((s: any) => {
-    const matchesSearch = s.name?.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = s.title?.toLowerCase().includes(search.toLowerCase());
     const matchesStatus =
       statusFilter === "all" || s.status === statusFilter;
     return matchesSearch && matchesStatus;
@@ -58,7 +59,7 @@ const isEmployee = role === "employee" || role === "developer";
     setSelectedSheet(sheet);
 
     try {
-      const res = await apiFetch(`/api/expense-items/${sheet._id}`);
+      const res = await apiFetch(`/api/expense-sheets/items/${sheet._id}`);
       const fetchedItems = res.data || res;
 
       setItems(fetchedItems);
@@ -73,10 +74,39 @@ const isEmployee = role === "employee" || role === "developer";
     const updated = [...items];
     updated[i][field] = value;
 
-    updated[i].totalPrice =
-      Number(updated[i].quantity || 0) *
-      Number(updated[i].unitPrice || 0);
+    updated[i].estimatedTotalCents =
+      Number(updated[i].estimatedTotalCents || 0);
 
+    setItems(updated);
+  };
+
+  const addQuote = (itemIndex: number) => {
+    const updated = [...items];
+    if (!updated[itemIndex].quotes) updated[itemIndex].quotes = [];
+    updated[itemIndex].quotes.push({ vendorName: "", amountCents: 0, isSelected: false });
+    setItems(updated);
+  };
+
+  const updateQuote = (itemIndex: number, quoteIndex: number, field: string, value: any) => {
+    const updated = [...items];
+    updated[itemIndex].quotes[quoteIndex][field] = value;
+    setItems(updated);
+  };
+
+  const removeQuote = (itemIndex: number, quoteIndex: number) => {
+    const updated = [...items];
+    updated[itemIndex].quotes.splice(quoteIndex, 1);
+    setItems(updated);
+  };
+
+  const selectQuote = (itemIndex: number, quoteIndex: number) => {
+    const updated = [...items];
+    updated[itemIndex].quotes.forEach((q: any, i: number) => {
+      q.isSelected = i === quoteIndex;
+    });
+    // Set paidCents to winning quote amount
+    updated[itemIndex].paidCents = updated[itemIndex].quotes[quoteIndex].amountCents;
+    updated[itemIndex].vendorName = updated[itemIndex].quotes[quoteIndex].vendorName;
     setItems(updated);
   };
 
@@ -91,7 +121,7 @@ const isEmployee = role === "employee" || role === "developer";
     try {
       setSaving(true);
 
-      await apiFetch(`/api/expense-items/${item._id}`, {
+      await apiFetch(`/api/expense-sheets/${projectId}/items/${item._id}`, {
         method: "PUT",
         body: JSON.stringify(item),
       });
@@ -183,14 +213,13 @@ const isEmployee = role === "employee" || role === "developer";
                 onClick={() => openSheet(sheet)}
               >
                 <div>
-                  <p>{sheet.name}</p>
+                  <p>{sheet.title}</p>
                   <p className="text-xs text-muted-foreground">
                     {new Date(sheet.createdAt).toLocaleDateString()}
                   </p>
                 </div>
 
                 <div className="text-right">
-                  <p className="font-bold">{sheet.totalAmount}</p>
 
                   <span
                     className={`text-xs px-2 py-1 rounded
@@ -284,7 +313,8 @@ const isEmployee = role === "employee" || role === "developer";
         const index = items.findIndex(x => x._id === item._id);
 
         return (
-          <div key={item._id} className="grid grid-cols-7 gap-2 mb-2">
+          <React.Fragment key={item._id}>
+          <div className="grid grid-cols-7 gap-2 mb-2">
 
             <Input
               disabled={!isEditable || editingIndex !== index}
@@ -309,23 +339,95 @@ const isEmployee = role === "employee" || role === "developer";
 
             <Input
               type="number"
-              value={item.estimatedCost}
-              disabled
+              placeholder="Estimated (Cents)"
+              value={item.estimatedTotalCents || 0}
+              disabled={!isEditable || editingIndex !== index}
+              onChange={(e) => updateItem(index, "estimatedTotalCents", e.target.value)}
             />
 
             <Input
               type="number"
-              value={item.actualCost}
+              placeholder="Paid (Cents)"
+              value={item.paidCents || 0}
               disabled
             />
 
-            <div>{item.totalCost}</div>
-
-            <Button onClick={() => setEditingIndex(index)}>
-              Edit
+            <Button variant="outline" size="sm" onClick={() => setExpandedQuotesItemId(expandedQuotesItemId === item._id ? null : item._id)}>
+              Quotes ({item.quotes?.length || 0})
             </Button>
 
+            <div className="flex gap-1">
+              {editingIndex === index ? (
+                <>
+                  <Button size="sm" onClick={() => saveItem(item)}>Save</Button>
+                  <Button size="sm" variant="ghost" onClick={cancelEdit}>Cancel</Button>
+                </>
+              ) : (
+                <Button size="sm" onClick={() => setEditingIndex(index)} disabled={!isEditable}>Edit</Button>
+              )}
+            </div>
+
           </div>
+          
+          {expandedQuotesItemId === item._id && (
+            <div className="bg-muted/30 p-3 rounded-md mb-3 border ml-4 mr-4">
+              <div className="flex justify-between items-center mb-2">
+                <h4 className="text-sm font-semibold">Vendor Quotes</h4>
+                {editingIndex === index && (
+                  <Button size="sm" onClick={() => addQuote(index)}>Add Quote</Button>
+                )}
+              </div>
+              
+              {item.quotes?.length === 0 && <p className="text-xs text-muted-foreground">No quotes added yet.</p>}
+              
+              <div className="space-y-2">
+                {item.quotes?.map((quote: any, qIndex: number) => (
+                  <div key={qIndex} className={`flex items-center gap-2 p-2 rounded border ${quote.isSelected ? "bg-green-500/10 border-green-500/30" : "bg-background"}`}>
+                    <Input
+                      placeholder="Vendor Name"
+                      value={quote.vendorName}
+                      disabled={!isEditable || editingIndex !== index}
+                      onChange={(e) => updateQuote(index, qIndex, "vendorName", e.target.value)}
+                      className="flex-1"
+                    />
+                    <Input
+                      type="number"
+                      placeholder="Amount (Cents)"
+                      value={quote.amountCents}
+                      disabled={!isEditable || editingIndex !== index}
+                      onChange={(e) => updateQuote(index, qIndex, "amountCents", Number(e.target.value))}
+                      className="w-32"
+                    />
+                    <Input
+                      placeholder="Notes"
+                      value={quote.notes || ""}
+                      disabled={!isEditable || editingIndex !== index}
+                      onChange={(e) => updateQuote(index, qIndex, "notes", e.target.value)}
+                      className="flex-1"
+                    />
+                    
+                    {editingIndex === index && (
+                      <div className="flex gap-1">
+                        <Button 
+                          size="sm" 
+                          variant={quote.isSelected ? "default" : "outline"}
+                          className={quote.isSelected ? "bg-green-600 hover:bg-green-700" : ""}
+                          onClick={() => selectQuote(index, qIndex)}
+                        >
+                          {quote.isSelected ? "Selected" : "Select"}
+                        </Button>
+                        <Button size="sm" variant="destructive" onClick={() => removeQuote(index, qIndex)}>X</Button>
+                      </div>
+                    )}
+                    {editingIndex !== index && quote.isSelected && (
+                      <span className="text-xs font-bold text-green-600 px-2">Winner</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          </React.Fragment>
         );
       })}
     </div>

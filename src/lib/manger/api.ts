@@ -77,8 +77,12 @@ export async function deleteResource(resource: CrudResource, id: string) {
 function getApiBaseUrl(): string {
   const raw = String(import.meta.env.VITE_API_URL || "").trim();
   if (raw) return raw;
- return "https://task.se7eninc.com";
-  //return "http://localhost:5000";
+
+  if (typeof window !== "undefined" && window.location?.hostname === "localhost") {
+    return "http://localhost:5000";
+  }
+
+  return "https://task.se7eninc.com";
 }
 
 /**
@@ -87,35 +91,66 @@ function getApiBaseUrl(): string {
  */
 export function toProxiedUrl(url: string | undefined | null): string | undefined {
   if (!url) return undefined;
-  // Don't proxy data: URLs, already-proxied URLs, or non-S3 URLs
-  if (url.startsWith("data:") || url.includes("/api/s3-proxy/")) return url;
-  
+  if (url.startsWith("data:")) return url;
+
+  const baseUrl = getApiBaseUrl().replace(/\/$/, "");
+  const token = getStoredToken();
+
+  if (url.includes("/api/s3-proxy/")) {
+    if (token && !url.includes("token=")) {
+      return `${url}${url.includes("?") ? "&" : "?"}token=${token}`;
+    }
+    return url;
+  }
+
+  // Local server uploads ("/uploads/<key>", "uploads/<key>", "http://.../uploads/<key>")
+  const uploadsMatch = url.match(/(?:\/|^)uploads\/(.+)$/);
+  if (uploadsMatch) {
+    const key = uploadsMatch[1];
+    return `${baseUrl}/api/s3-proxy/${key}${token ? `?token=${token}` : ""}`;
+  }
+
   // Match S3 URLs pattern: https://<bucket>.s3.<region>.amazonaws.com/<key>
   const s3Match = url.match(/https:\/\/[^/]+\.s3\.[^/]+\.amazonaws\.com\/(.+)/);
   if (!s3Match) return url;
-  
+
   const s3Key = s3Match[1];
-  const baseUrl = getApiBaseUrl().replace(/\/$/, "");
-  const token = getStoredToken();
   return `${baseUrl}/api/s3-proxy/${s3Key}${token ? `?token=${token}` : ""}`;
 }
 
-function getStoredToken(): string | null {
+function readTokenFrom(key: string): string | null {
   try {
-    // Admin/manager token is stored under "taskflow_auth"
-    const adminRaw = localStorage.getItem("taskflow_auth");
-    if (adminRaw) {
-      const parsed = JSON.parse(adminRaw) as StoredAuth;
-      if (typeof parsed.token === "string" && parsed.token) return parsed.token;
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    if (raw.startsWith("{")) {
+      const parsed = JSON.parse(raw) as StoredAuth;
+      return typeof parsed.token === "string" && parsed.token ? parsed.token : null;
     }
-    // Employee token fallback
-    const empRaw = localStorage.getItem("employee_auth");
-    if (!empRaw) return null;
-    const parsed = JSON.parse(empRaw) as StoredAuth;
-    return typeof parsed.token === "string" && parsed.token ? parsed.token : null;
+    return raw;
   } catch {
     return null;
   }
+}
+
+function getStoredToken(): string | null {
+  // Token precedence must follow the active panel. On the employee panel we must
+  // send the employee token even when a stale admin/manager token (taskflow_auth)
+  // is still in localStorage — otherwise the backend treats the request as an
+  // admin and returns every task/project instead of the employee's own.
+  const onEmployeePanel =
+    typeof window !== "undefined" &&
+    window.location.pathname.startsWith("/employee");
+
+  // Admin/manager token is stored under "taskflow_auth"; employee under "employee_auth".
+  const order = onEmployeePanel
+    ? ["employee_auth", "taskflow_auth", "token"]
+    : ["taskflow_auth", "employee_auth", "token"];
+
+  for (const key of order) {
+    const token = readTokenFrom(key);
+    if (token) return token;
+  }
+  return null;
 }
 
 
@@ -227,54 +262,90 @@ export async function downloadTaskAttachment(
 ): Promise<void> {
   const baseUrl = getApiBaseUrl();
   const url = `${String(baseUrl).replace(/\/$/, "")}/api/tasks/${encodeURIComponent(taskId)}/attachments/${attachmentIndex}/download`;
-  
   const token = getStoredToken();
   
-  const res = await fetch(url, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  
-  if (!res.ok) {
-    throw new Error(`Download failed (${res.status})`);
+  try {
+    const res = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    
+    if (!res.ok) {
+      throw new Error(`Download failed (${res.status})`);
+    }
+    
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = fileName || "download";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+  } catch (err) {
+    console.warn("downloadTaskAttachment fetch failed, using fallback direct download:", err);
+    const directUrl = `${url}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+    const a = document.createElement("a");
+    a.href = directUrl;
+    a.download = fileName || "download";
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   }
-  
-  const blob = await res.blob();
-  const objectUrl = URL.createObjectURL(blob);
-  
-  const a = document.createElement("a");
-  a.href = objectUrl;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  
-  URL.revokeObjectURL(objectUrl);
 }
 
 // Download any URL with authentication for Manager/Admin
 export async function downloadViaUrl(url: string, fileName: string): Promise<void> {
-  const token = getStoredToken();
-  
-  // Use fetch to get the blob with headers
-  const res = await fetch(url, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  
-  if (!res.ok) {
-    throw new Error(`Download failed (${res.status})`);
+  if (!url) return;
+
+  if (url.startsWith("data:")) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName || "download";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    return;
   }
+
+  const token = getStoredToken();
+  const targetUrl = toProxiedUrl(url) || url;
   
-  const blob = await res.blob();
-  const objectUrl = URL.createObjectURL(blob);
-  
-  const a = document.createElement("a");
-  a.href = objectUrl;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  
-  URL.revokeObjectURL(objectUrl);
+  try {
+    const res = await fetch(targetUrl, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    
+    if (!res.ok) {
+      throw new Error(`Download failed (${res.status})`);
+    }
+    
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = fileName || "download";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+  } catch (err) {
+    console.warn("downloadViaUrl fetch failed, using fallback direct download:", err);
+    const separator = targetUrl.includes("?") ? "&" : "?";
+    const directUrl = `${targetUrl}${separator}download=true&fileName=${encodeURIComponent(fileName || "download")}`;
+    const a = document.createElement("a");
+    a.href = directUrl;
+    a.download = fileName || "download";
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 }
 
 // Comment edit and delete APIs

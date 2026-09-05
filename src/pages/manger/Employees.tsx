@@ -4,6 +4,7 @@ import { motion, AnimatePresence, type Variants } from "framer-motion";
 import { Button } from "@/components/manger/ui/button";
 import { Input } from "@/components/manger/ui/input";
 import { Badge } from "@/components/manger/ui/badge";
+import { EmployeeFileWorkspace } from "@/components/admin/employees/EmployeeFileWorkspace";
 import {
   Select,
   SelectContent,
@@ -19,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/manger/ui/dialog";
+import { DEPARTMENTS_AND_POSITIONS } from "@/constants/jobPositions";
 import {
   Form,
   FormControl,
@@ -61,7 +63,7 @@ import {
   Calendar
 } from "lucide-react";
 import { cn } from "@/lib/manger/utils";
-import { apiFetch, listResource } from "@/lib/manger/api";
+import { apiFetch, listResource, toProxiedUrl } from "@/lib/manger/api";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import MilestoneBadge from "@/components/shared/MilestoneBadge";
 import { useSocket } from "@/contexts/SocketContext";
@@ -308,6 +310,9 @@ export default function Employees() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [workspaceEmployeeId, setWorkspaceEmployeeId] = useState<string | null>(
+    () => searchParams.get("id") || null
+  );
   const queryClient = useQueryClient();
   const { socket } = useSocket();
 
@@ -498,7 +503,10 @@ export default function Employees() {
 
   const openView = (employee: Employee) => {
     setSelectedEmployee(employee);
-    setIsViewOpen(true);
+    setWorkspaceEmployeeId(employee.id);
+    const next = new URLSearchParams(searchParams);
+    next.set("id", employee.id);
+    setSearchParams(next, { replace: true });
   };
 
   const openEdit = (employee: Employee) => {
@@ -584,6 +592,22 @@ export default function Employees() {
     });
   }, [employees, searchQuery, statusFilter]);
 
+  if (workspaceEmployeeId) {
+    return (
+      <div className="px-2 sm:px-4 lg:px-6 py-4 max-w-7xl mx-auto">
+        <EmployeeFileWorkspace
+          employeeId={workspaceEmployeeId}
+          onBack={() => {
+            setWorkspaceEmployeeId(null);
+            const next = new URLSearchParams(searchParams);
+            next.delete("id");
+            setSearchParams(next, { replace: true });
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <motion.div
       initial="hidden"
@@ -651,19 +675,41 @@ export default function Employees() {
             },
           }}
         >
-          <motion.div variants={itemVariants}>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-[130px] sm:w-[130px]">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="inactive">Inactive</SelectItem>
-                <SelectItem value="on-leave">On Leave</SelectItem>
-              </SelectContent>
-            </Select>
-          </motion.div>
+          {/* Quick Filter Chips (Replaces Mobile-Buggy Dropdown) */}
+          <div className="overflow-x-auto no-scrollbar py-1 flex items-center gap-1.5 shrink-0">
+            <Button
+              size="sm"
+              variant={statusFilter === "all" ? "default" : "outline"}
+              onClick={() => setStatusFilter("all")}
+              className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+            >
+              All Employees
+            </Button>
+            <Button
+              size="sm"
+              variant={statusFilter === "active" ? "default" : "outline"}
+              onClick={() => setStatusFilter(statusFilter === "active" ? "all" : "active")}
+              className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+            >
+              Active
+            </Button>
+            <Button
+              size="sm"
+              variant={statusFilter === "on-leave" ? "default" : "outline"}
+              onClick={() => setStatusFilter(statusFilter === "on-leave" ? "all" : "on-leave")}
+              className="h-8 text-xs font-semibold rounded-full px-3 shrink-0"
+            >
+              On Leave
+            </Button>
+            <Button
+              size="sm"
+              variant={statusFilter === "inactive" ? "default" : "outline"}
+              onClick={() => setStatusFilter(statusFilter === "inactive" ? "all" : "inactive")}
+              className="h-8 text-xs font-semibold rounded-full px-3 shrink-0 text-destructive"
+            >
+              Inactive
+            </Button>
+          </div>
         </motion.div>
       </motion.div>
 
@@ -797,7 +843,7 @@ export default function Employees() {
                       >
                         {employee.imageUrl ? (
                           <img
-                            src={employee.imageUrl}
+                            src={toProxiedUrl(employee.imageUrl) || employee.imageUrl}
                             alt={employee.name}
                             className="w-full h-full object-cover"
                           />
@@ -1089,9 +1135,22 @@ export default function Employees() {
                     name="role"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Role</FormLabel>
+                        <FormLabel>Role (Position / Title)</FormLabel>
                         <FormControl>
-                          <Input placeholder="e.g. Field Technician" {...field} />
+                          <>
+                            <Input list="manager-add-job-positions-list" placeholder="Select or type position (e.g., Software Engineer)" {...field} />
+                            <datalist id="manager-add-job-positions-list">
+                              {DEPARTMENTS_AND_POSITIONS.map((group) => (
+                                <optgroup key={group.department} label={group.department}>
+                                  {group.positions.map((pos) => (
+                                    <option key={pos} value={pos}>
+                                      {pos} ({group.department})
+                                    </option>
+                                  ))}
+                                </optgroup>
+                              ))}
+                            </datalist>
+                          </>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1271,7 +1330,7 @@ export default function Employees() {
                 >
                   {selectedEmployee.imageUrl ? (
                     <img
-                      src={selectedEmployee.imageUrl}
+                      src={toProxiedUrl(selectedEmployee.imageUrl) || selectedEmployee.imageUrl}
                       alt={selectedEmployee.name}
                       className="w-full h-full object-cover rounded-full"
                     />
@@ -1456,9 +1515,22 @@ export default function Employees() {
                   name="role"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Role</FormLabel>
+                      <FormLabel>Role (Position / Title)</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. Field Technician" {...field} />
+                        <>
+                          <Input list="manager-edit-job-positions-list" placeholder="Select or type position (e.g., Software Engineer)" {...field} />
+                          <datalist id="manager-edit-job-positions-list">
+                            {DEPARTMENTS_AND_POSITIONS.map((group) => (
+                              <optgroup key={group.department} label={group.department}>
+                                {group.positions.map((pos) => (
+                                  <option key={pos} value={pos}>
+                                    {pos} ({group.department})
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ))}
+                          </datalist>
+                        </>
                       </FormControl>
                       <FormMessage />
                     </FormItem>

@@ -7,7 +7,7 @@ import { Switch } from "@/components/admin/ui/switch";
 import { Label } from "@/components/admin/ui/label";
 import { apiFetch } from "@/lib/admin/apiClient";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Mail, Shield, Save, CheckCircle, AlertCircle, Eye, EyeOff, Send, FlaskConical } from "lucide-react";
+import { Loader2, Mail, Shield, Save, CheckCircle, AlertCircle, Eye, EyeOff, Send, FlaskConical, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 type EmailConfig = {
@@ -38,6 +38,16 @@ type SystemSettings = {
     replyAdded: Template;
     projectAssignment: Template;
     projectReassignment: Template;
+    preAdverseAction: Template;
+    finalAdverseAction: Template;
+    patentExpiration: Template;
+    lunchBreakAlert: Template;
+  };
+  taskRewardSystemEnabled?: boolean;
+  scheConfig?: {
+    enableReligiousHolidays: boolean;
+    switchNeutralSeasonal: boolean;
+    forceCompanyUnifiedTheme: string;
   };
 };
 
@@ -357,6 +367,42 @@ export default function SystemEmailSettings() {
               onChange={(field, val) => handleTemplateChange("projectReassignment", field, val)}
               placeholders={["{name}", "{projectName}"]}
             />
+
+            {/* Pre-Adverse Action */}
+            <TemplateCard
+              title="Pre-Adverse Action"
+              description="Sent when background check triggers potential adverse action"
+              template={formData.templates.preAdverseAction}
+              onChange={(field, val) => handleTemplateChange("preAdverseAction", field, val)}
+              placeholders={["{name}"]}
+            />
+
+            {/* Final Adverse Action */}
+            <TemplateCard
+              title="Final Adverse Action"
+              description="Sent when adverse action is finalized"
+              template={formData.templates.finalAdverseAction}
+              onChange={(field, val) => handleTemplateChange("finalAdverseAction", field, val)}
+              placeholders={["{name}"]}
+            />
+
+            {/* Patent Expiration */}
+            <TemplateCard
+              title="Patent Expiration"
+              description="Sent daily for patents close to expiration"
+              template={formData.templates.patentExpiration}
+              onChange={(field, val) => handleTemplateChange("patentExpiration", field, val)}
+              placeholders={["{name}", "{patentName}", "{daysUntilExpiration}", "{expirationDate}", "{applicationNumber}", "{category}"]}
+            />
+
+            {/* Lunch/Break Status Alert */}
+            <TemplateCard
+              title="Lunch/Break Status Alert"
+              description="Sent when employee went on lunch/break or exceeded time limit"
+              template={formData.templates.lunchBreakAlert}
+              onChange={(field, val) => handleTemplateChange("lunchBreakAlert", field, val)}
+              placeholders={["{name}", "{employeeName}", "{statusUpdate}", "{time}"]}
+            />
           </div>
         </div>
 
@@ -386,6 +432,102 @@ export default function SystemEmailSettings() {
                 checked={formData.taskRewardSystemEnabled}
                 onCheckedChange={(val) => setFormData(prev => prev ? { ...prev, taskRewardSystemEnabled: val } : null)}
               />
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Seasonal Cinematic Header Engine (SCHE) */}
+        <Card className="shadow-md border-primary/10 overflow-hidden">
+          <CardHeader className="bg-primary/5 border-b border-primary/10">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Sparkles className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle>Seasonal Cinematic Header Engine (SCHE)</CardTitle>
+                <CardDescription>Configure global cultural sensitivity and display overrides</CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="pt-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="religious-themes">Enable Religious Holiday Themes</Label>
+                <p className="text-sm text-muted-foreground">
+                  Allow displays of religious festivals (Diwali, Eid, Hanukkah, Ramadan) based on user locale.
+                </p>
+              </div>
+              <Switch
+                id="religious-themes"
+                checked={formData.scheConfig?.enableReligiousHolidays ?? true}
+                onCheckedChange={(val) => setFormData(prev => prev ? {
+                  ...prev,
+                  scheConfig: {
+                    ...prev.scheConfig || { enableReligiousHolidays: true, switchNeutralSeasonal: false, forceCompanyUnifiedTheme: "" },
+                    enableReligiousHolidays: val
+                  }
+                } : null)}
+              />
+            </div>
+
+            <div className="h-[1px] bg-border" />
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="neutral-seasonal">Switch to Neutral Seasonal Themes</Label>
+                <p className="text-sm text-muted-foreground">
+                  Force standard seasonal animations (Spring, Summer, Autumn, Winter) instead of religious overlays.
+                </p>
+              </div>
+              <Switch
+                id="neutral-seasonal"
+                checked={formData.scheConfig?.switchNeutralSeasonal ?? false}
+                onCheckedChange={(val) => setFormData(prev => prev ? {
+                  ...prev,
+                  scheConfig: {
+                    ...prev.scheConfig || { enableReligiousHolidays: true, switchNeutralSeasonal: false, forceCompanyUnifiedTheme: "" },
+                    switchNeutralSeasonal: val
+                  }
+                } : null)}
+              />
+            </div>
+
+            <div className="h-[1px] bg-border" />
+
+            <div className="space-y-2">
+              <Label htmlFor="unified-override">Force Company-Wide Unified Theme</Label>
+              <select
+                id="unified-override"
+                className="w-full px-3 py-2 text-sm border rounded-md bg-white dark:bg-zinc-950 border-input"
+                value={formData.scheConfig?.forceCompanyUnifiedTheme ?? ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFormData(prev => prev ? {
+                    ...prev,
+                    scheConfig: {
+                      ...prev.scheConfig || { enableReligiousHolidays: true, switchNeutralSeasonal: false, forceCompanyUnifiedTheme: "" },
+                      forceCompanyUnifiedTheme: val
+                    }
+                  } : null);
+                }}
+              >
+                <option value="">-- No Global Override (Use Location Hierarchy) --</option>
+                <option value="lunar-new-year">Lunar New Year (Asia)</option>
+                <option value="diwali">Diwali (India)</option>
+                <option value="eid-al-fitr">Eid al-Fitr</option>
+                <option value="eid-al-adha">Eid al-Adha</option>
+                <option value="hanukkah">Hanukkah</option>
+                <option value="ramadan">Ramadan</option>
+                <option value="mid-autumn-festival">Chinese Mid-Autumn Festival</option>
+                <option value="golden-week">Golden Week (Japan)</option>
+                <option value="bastille-day">Bastille Day (France)</option>
+                <option value="oktoberfest">Oktoberfest (Germany)</option>
+                <option value="canada-day">Canada Day</option>
+                <option value="australia-day">Australia Day</option>
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Forces the selected thematic layout and micro-animations for all users globally, overriding localization settings.
+              </p>
             </div>
           </CardContent>
         </Card>

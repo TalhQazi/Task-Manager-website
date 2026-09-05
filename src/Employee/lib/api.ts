@@ -1,4 +1,13 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || "https://task.se7eninc.com";
+const getApiBaseUrl = () => {
+  const raw = String(import.meta.env.VITE_API_URL || "").trim();
+  if (raw) return raw;
+  if (typeof window !== "undefined" && window.location?.hostname === "localhost") {
+    return "http://localhost:5000";
+  }
+  return "https://task.se7eninc.com";
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 export async function employeeApiFetch<T>(
   endpoint: string,
@@ -90,30 +99,45 @@ export async function deleteLeaveRequest(id: string) {
  * Transforms a direct S3 URL into a backend-proxied URL to avoid CORS/OpaqueResponseBlocking issues.
  * If the URL is already a data URL or doesn't match the S3 pattern, it's returned as-is.
  */
-export function toProxiedUrl(url: string | undefined): string {
+export function toProxiedUrl(url: string | undefined | null): string {
   if (!url) return "";
   if (url.startsWith("data:")) return url;
 
-  // Pattern for S3 URLs: https://<bucket>.s3.<region>.amazonaws.com/<key>
-  const s3Pattern = /^https:\/\/([\w.-]+)\.s3\.([\w.-]+)\.amazonaws\.com\/(.+)$/;
-  const match = url.match(s3Pattern);
-
-  if (match) {
-    const key = match[3];
-    let token = "";
-    const authRaw = localStorage.getItem("employee_auth");
-    if (authRaw) {
-      try {
-        const parsed = JSON.parse(authRaw);
-        token = parsed.token || "";
-      } catch (e) {
-        void e;
-      }
+  let token = "";
+  const authRaw = localStorage.getItem("employee_auth");
+  if (authRaw) {
+    try {
+      const parsed = JSON.parse(authRaw);
+      token = parsed.token || "";
+    } catch (e) {
+      void e;
     }
+  }
+  if (!token) {
+    token = localStorage.getItem("token") || "";
+  }
+
+  if (url.includes("/api/s3-proxy/")) {
+    if (token && !url.includes("token=")) {
+      return `${url}${url.includes("?") ? "&" : "?"}token=${token}`;
+    }
+    return url;
+  }
+
+  // Local server uploads ("/uploads/<key>", "uploads/<key>", "http://.../uploads/<key>")
+  const uploadsMatch = url.match(/(?:\/|^)uploads\/(.+)$/);
+  if (uploadsMatch) {
+    const key = uploadsMatch[1];
     return `${API_BASE_URL}/api/s3-proxy/${key}${token ? `?token=${token}` : ""}`;
   }
 
-  // Fallback for cases where it's already a relative path or other non-S3 URL
+  // Pattern for S3 URLs: https://<bucket>.s3.<region>.amazonaws.com/<key>
+  const s3Match = url.match(/https:\/\/[^/]+\.s3\.[^/]+\.amazonaws\.com\/(.+)/);
+  if (s3Match) {
+    const key = s3Match[1];
+    return `${API_BASE_URL}/api/s3-proxy/${key}${token ? `?token=${token}` : ""}`;
+  }
+
   return url;
 }
 
@@ -146,6 +170,47 @@ export async function getEmployeeProfile() {
       break_start_time?: string | null;
     };
   }>("/api/employees/me");
+}
+
+export async function deliverVideoMessage() {
+  return employeeApiFetch<{
+    item: {
+      deliveryId: string;
+      messageType: string;
+      title: string;
+      subtitle?: string;
+      videoUrl: string;
+      deliveredAt?: string;
+      acknowledgedAt?: string | null;
+    } | null;
+  }>("/api/video/deliver", {
+    method: "POST",
+  });
+}
+
+export async function acknowledgeVideoMessage(deliveryId: string, response?: string, watchDuration?: number, replayCount?: number) {
+  return employeeApiFetch<{ item: any }>("/api/video/acknowledge", {
+    method: "POST",
+    body: JSON.stringify({
+      deliveryId,
+      response: response || "",
+      ...(typeof watchDuration === "number" ? { watchDuration } : {}),
+      ...(typeof replayCount === "number" ? { replayCount } : {}),
+    }),
+  });
+}
+
+export async function replayVideoMessage(deliveryId: string) {
+  return employeeApiFetch<{ item: { replayCount: number } }>("/api/video/replay", {
+    method: "POST",
+    body: JSON.stringify({ deliveryId }),
+  });
+}
+
+export async function getVideoHistory(employeeId: string) {
+  return employeeApiFetch<{ items: Array<{ id: string; employeeId: string; videoMessageId: string; messageType: string; deliveredAt: string; acknowledgedAt?: string | null; watchDuration?: number; response?: string; replayCount?: number; videoTitle: string; videoSubtitle: string; videoUrl: string }> }>(
+    `/api/user/${encodeURIComponent(employeeId)}/video-history`
+  );
 }
 
 export async function getEmployeeTasks() {
@@ -382,7 +447,7 @@ export async function clockOut() {
 export async function getEmployeeConversations(employeeName: string) {
   return employeeApiFetch<{
     items: Array<{
-      employee: { id: string; name: string; email: string; department: string; status: string; initials: string };
+      employee: { id: string; name: string; email: string; department: string; status: string; initials: string; avatarUrl?: string; current_status?: string; lunch_start_time?: string | null; lunch_expected_end?: string | null; break_start_time?: string | null };
       lastMessage: { id: string; content: string; timestamp: string; sender: string; status: string } | null;
       unreadCount: number;
     }>;
@@ -439,6 +504,16 @@ export async function markMessagesAsRead(sender: string, recipient: string) {
   });
 }
 
+export async function toggleMessageReaction(messageId: string, emoji: string, username: string) {
+  return employeeApiFetch<{ messageId: string; reactions: Array<{ emoji: string; username: string }> }>(
+    `/api/messages/${encodeURIComponent(messageId)}/react`,
+    {
+      method: "POST",
+      body: JSON.stringify({ emoji, username }),
+    }
+  );
+}
+
 // Personal Notes API
 export async function getPersonalNotes() {
   return employeeApiFetch<{ items: Array<{ id: string; title: string; content: string; color: string; isPinned: boolean; updatedAt: string }> }>("/api/notes");
@@ -465,8 +540,14 @@ export async function deletePersonalNote(id: string) {
 }
 
 
-// Download any URL with authentication for Employee
-export async function downloadViaUrl(url: string, fileName: string): Promise<void> {
+// Download task attachment with authentication for Employee
+export async function downloadTaskAttachment(
+  taskId: string,
+  attachmentIndex: number,
+  fileName: string
+): Promise<void> {
+  const url = `${API_BASE_URL}/api/tasks/${encodeURIComponent(taskId)}/attachments/${attachmentIndex}/download`;
+  
   const authRaw = localStorage.getItem("employee_auth");
   let token = "";
   if (authRaw) {
@@ -475,26 +556,102 @@ export async function downloadViaUrl(url: string, fileName: string): Promise<voi
       token = auth.token || "";
     } catch {}
   }
-  
-  const res = await fetch(url, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  
-  if (!res.ok) {
-    throw new Error(`Download failed (${res.status})`);
+  if (!token) {
+    token = localStorage.getItem("token") || "";
   }
   
-  const blob = await res.blob();
-  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const res = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    
+    if (!res.ok) {
+      throw new Error(`Download failed (${res.status})`);
+    }
+    
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = fileName || "download";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+  } catch (err) {
+    console.warn("downloadTaskAttachment fetch failed, using fallback direct download:", err);
+    const directUrl = `${url}${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+    const a = document.createElement("a");
+    a.href = directUrl;
+    a.download = fileName || "download";
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+}
+
+export async function downloadViaUrl(url: string, fileName: string): Promise<void> {
+  if (!url) return;
+
+  if (url.startsWith("data:")) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName || "download";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    return;
+  }
+
+  const authRaw = localStorage.getItem("employee_auth");
+  let token = "";
+  if (authRaw) {
+    try {
+      const auth = JSON.parse(authRaw);
+      token = auth.token || "";
+    } catch {}
+  }
+  if (!token) {
+    token = localStorage.getItem("token") || "";
+  }
   
-  const a = document.createElement("a");
-  a.href = objectUrl;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
+  const targetUrl = toProxiedUrl(url) || url;
   
-  URL.revokeObjectURL(objectUrl);
+  try {
+    const res = await fetch(targetUrl, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    
+    if (!res.ok) {
+      throw new Error(`Download failed (${res.status})`);
+    }
+    
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = fileName || "download";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 1500);
+  } catch (err) {
+    console.warn("downloadViaUrl fetch failed, using direct link fallback:", err);
+    const separator = targetUrl.includes("?") ? "&" : "?";
+    const windowUrl = `${targetUrl}${separator}download=true&fileName=${encodeURIComponent(fileName || "download")}`;
+    const a = document.createElement("a");
+    a.href = windowUrl;
+    a.download = fileName || "download";
+    a.target = "_blank";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
 }
 
 
@@ -576,6 +733,17 @@ export const uploadDocument = (formData: FormData) =>
     method: "POST",
     body: formData,
   });
+
+export async function getEmployeeSelfFile() {
+  return employeeApiFetch<{ item: any }>("/api/employees/me/file");
+}
+
+export async function submitChangeRequest(payload: { requestType: string; proposedData: any; reason?: string }) {
+  return employeeApiFetch<{ success: boolean; item: any }>("/api/employees/me/change-requests", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
 
 export const getDocuments = () =>
   employeeApiFetch("/api/employees/me/documents");

@@ -16,7 +16,7 @@ const EmployeeClocked = lazy(() => import("../screens/Clocked"));
 const EmployeeMessages = lazy(() => import("../screens/Messages"));
 const EmployeeProfile = lazy(() => import("../screens/Profile"));
 const EmployeeNotifications = lazy(() => import("../screens/Notifications"));
-const EmployeePersonalNotes = lazy(() => import("../screens/PersonalNotes"));
+const KnowledgeVault = lazy(() => import("@/pages/admin/KnowledgeVault"));
 const EmployeeScrumRecords = lazy(() => import("../screens/ScrumRecords"));
 const EmployeeAssetLibrary = lazy(() => import("../screens/AssetLibrary"));
 const EmployeeCompanyInformation = lazy(() => import("../screens/CompanyInformation"));
@@ -28,10 +28,12 @@ const EmployeeBugs = lazy(() => import("../screens/Bugs"));
 const EmployeeAnnouncements = lazy(() => import("@/pages/employee/Announcements"));
 const EmployeeEmailSettings = lazy(() => import("../screens/EmailSettings"));
 const EmployeeItinerary = lazy(() => import("../screens/EmployeeItinerary"));
+const EmployeeEODReports = lazy(() => import("../screens/EmployeeEODReports"));
+const ComplianceCenter = lazy(() => import("@/pages/manger/ComplianceCenter"));
 
 function PageLoader() {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh" }}>
+    <div style={{ display: "flex", flex: 1, alignItems: "center", justifyContent: "center", height: "60vh" }}>
       <div style={{
         width: 36, height: 36,
         border: "3px solid rgba(255,255,255,0.1)",
@@ -58,6 +60,7 @@ function EmployeeController() {
         <Route element={<EmployeeLayout />}>
           <Route path="/" element={<EmployeeDashboard />} />
           <Route path="/dashboard" element={<EmployeeDashboard />} />
+          <Route path="/compliance-center" element={<ComplianceCenter />} />
           <Route path="/tasks" element={<EmployeeTasks />} />
           <Route path="/tasks/:taskId" element={<EmployeeTaskDetails />} />
           <Route path="/schedule" element={<EmployeeSchedule />} />
@@ -67,7 +70,7 @@ function EmployeeController() {
           <Route path="/company-information" element={<EmployeeCompanyInformation />} />
           <Route path="/profile" element={<EmployeeProfile />} />
           <Route path="/notifications" element={<EmployeeNotifications />} />
-          <Route path="/personal-notes" element={<EmployeePersonalNotes />} />
+          <Route path="/knowledge-vault" element={<KnowledgeVault />} />
 
           <Route path="/scrum-records" element={<EmployeeScrumRecords />} />
           <Route path="/ui-customization" element={<EmployeeUICustomization />} />
@@ -82,7 +85,9 @@ function EmployeeController() {
           <Route path="/bugs" element={<EmployeeBugs />} />
           <Route path="/announcements" element={<EmployeeAnnouncements />} />
           <Route path="/email-settings" element={<EmployeeEmailSettings />} />
+          <Route path="/settings" element={<EmployeeEmailSettings />} />
           <Route path="/itinerary" element={<EmployeeItinerary />} />
+          <Route path="/eod-reports" element={<EmployeeEODReports />} />
         </Route>
         <Route path="*" element={<Navigate to="/employee" replace />} />
       </Routes>

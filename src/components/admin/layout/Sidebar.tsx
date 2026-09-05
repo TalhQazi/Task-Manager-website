@@ -2,6 +2,7 @@ import { SidebarProfile } from "./SidebarProfile";
 import { NavLink } from "@/components/admin/NavLink";
 import {
   LayoutDashboard,
+  LayoutGrid,
   Users,
   CheckSquare,
   UserCircle,
@@ -25,6 +26,7 @@ import {
   Activity,
   History,
   Wallet,
+  BookText,
   Database,
   Globe,
   Lightbulb,
@@ -42,10 +44,17 @@ import {
   Megaphone,
   Shield,
   UserPlus,
+  Video,
 
   ShoppingCart,
   Mail,
   Book,
+  Gavel,
+  Briefcase,
+  Scale,
+  FileCheck,
+  ListTodo,
+  Contact,
 } from "lucide-react";
 
 
@@ -66,17 +75,18 @@ type NavItem = {
 
 const navItemsBase: NavItem[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin", end: true },
+  { icon: Activity, label: "Work In Progress", path: "/admin/wip" },
   {
-    label: "AtlasBook",
+    label: "Atlas Books",
     customIcon: (
       <img
         src="/atlas.png"
-        alt="AtlasBook"
+        alt="Atlas Books"
         className="h-5 w-5 flex-shrink-0 object-contain rounded opacity-80 group-hover:opacity-100 transition-opacity"
       />
     ),
     children: [
-      { label: "AtlasBook Dashboard", path: "/admin/atlas-book" },
+      { label: "Atlas Books Dashboard", path: "/admin/atlas-book" },
       { label: "Company Management", path: "/admin/atlas-book/company" },
       { label: "Property Management", path: "/admin/atlas-book/property" },
       { label: "Unit Management", path: "/admin/atlas-book/unit" },
@@ -107,10 +117,13 @@ const navItemsBase: NavItem[] = [
     ],
   },
   { icon: Users, label: "User Management", path: "/admin/users", end: true },
+  { icon: ClipboardList, label: "Compliance Center", path: "/admin/compliance-center" },
   { icon: CheckSquare, label: "Task Management", path: "/admin/tasks" },
+  { icon: LayoutGrid, label: "Task Workspace", path: "/admin/task-workspace" },
   { icon: UserCircle, label: "Employee Directory", path: "/admin/employees" },
   { icon: Compass, label: "Itinerary History", path: "/admin/itineraries" },
   { icon: Megaphone, label: "Announcements", path: "/admin/announcements" },
+  { icon: Video, label: "Video Messages", path: "/admin/video-messages" },
   { icon: Wallet, label: "Payroll", path: "/admin/payroll" },
   { icon: ClipboardList, label: "EOD Reports", path: "/admin/eod-reports" },
   { icon: Building, label: "EIN list", path: "/admin/company-registry" },
@@ -143,12 +156,15 @@ const navItemsBase: NavItem[] = [
   { icon: Building2, label: "Vendors", path: "/admin/vendors" },
   { icon: Users, label: "Contributors", path: "/admin/contributors" },
   { icon: MessageSquare, label: "Messaging", path: "/admin/messaging" },
+  { icon: Bell, label: "Notifications", path: "/admin/notifications" },
   { icon: ClipboardList, label: "Onboarding", path: "/admin/onboarding" },
+  { icon: ClipboardList, label: "New Hire Reporting", path: "/admin/new-hire-reporting" },
   {
     icon: FileText,
     label: "CRM",
     children: [
       { icon: CalendarCheck, label: "CRM Dashboard", path: "/admin/crm/dashboard" },
+      { icon: Activity, label: "CommandCore®", path: "/admin/crm/commandcore" },
       { icon: Users, label: "Contacts", path: "/admin/crm/contacts" },
       { icon: Building, label: "Companies", path: "/admin/crm/companies" },
       { icon: CheckSquare, label: "CRM Deals", path: "/admin/crm/deals" },
@@ -166,16 +182,23 @@ const navItemsBase: NavItem[] = [
   { icon: Quote, label: "Founder Messages", path: "/admin/founder-messages" },
   { icon: ImageIcon, label: "Memes", path: "/admin/memes" },
   {
-    label: "Personal Notes",
-    path: "/admin/personal-notes",
-    customIcon: (
-      <img
-        src="/kn_vlt.png"
-        alt="Personal Notes"
-        className="h-5 w-5 flex-shrink-0 object-contain opacity-80 group-hover:opacity-100 transition-opacity"
-      />
-    ),
+    icon: Gavel,
+    label: "Legal Tracker",
+    children: [
+      { icon: Briefcase, label: "Cases", path: "/admin/legal/cases" },
+      { icon: Calendar, label: "Deadlines", path: "/admin/legal/deadlines" },
+      { icon: Calendar, label: "Calendar", path: "/admin/legal/calendar" },
+      { icon: FileText, label: "Documents", path: "/admin/legal/documents" },
+      { icon: Scale, label: "Evidence", path: "/admin/legal/evidence" },
+      { icon: FileCheck, label: "Filings", path: "/admin/legal/filings" },
+      { icon: ListTodo, label: "Tasks", path: "/admin/legal/tasks" },
+      { icon: Contact, label: "Contacts", path: "/admin/legal/contacts" },
+      { icon: FileText, label: "Notes", path: "/admin/legal/notes" },
+      { icon: Bell, label: "Notifications", path: "/admin/legal/notifications" },
+      { icon: BarChart3, label: "Reports", path: "/admin/legal/reports" },
+    ],
   },
+
   {
     label: "SignaCore",
     path: "/admin/contracts",
@@ -188,26 +211,29 @@ const navItemsBase: NavItem[] = [
     ),
   },
   {
-    label: "Ultimate Property Holdings",
+    label: "Atlas Properties",
     path: "/admin/uph-maintenance",
     customIcon: (
       <img
-        src="/uph.jpeg"
-        alt="UPH"
-        className="h-6 w-6 flex-shrink-0 rounded-md object-cover opacity-85 group-hover:opacity-100 transition-opacity"
+        src="/atlas-properties.png"
+        alt="Atlas Properties"
+        className="h-6 w-6 flex-shrink-0 rounded-md object-contain opacity-90 group-hover:opacity-100 transition-opacity"
       />
     ),
   },
   { icon: ShoppingCart, label: "Shopping Lists", path: "/admin/shopping-lists" },
   { icon: Settings, label: "Settings", path: "/admin/settings" },
   { icon: Palette, label: "Theme Engine", path: "/admin/theme-engine" },
-  { icon: Bug, label: "Bug", path: "/admin/bug-reports" },
 ];
+
+const bugNavItem = { icon: Bug, label: "Bug", path: "/admin/bug-reports" };
+const expenseSheetsNavItem = { icon: Wallet, label: "Expense Sheets", path: "/admin/expense-sheets" };
+const knowledgeVaultNavItem = { icon: BookText, label: "Knowledge Vault", path: "/admin/knowledge-vault" };
 
 // Activity Logs only for super-admin
 const activityLogNavItem = { icon: Activity, label: "Activity Logs", path: "/admin/activity-logs" };
 const systemEmailSettingsNavItem = { icon: Mail, label: "System Email Settings", path: "/admin/system-email-settings" };
-
+const systemHealthNavItem = { icon: Activity, label: "System Health", path: "/admin/health" };
 
 type SidebarMode = "desktop" | "mobile";
 
@@ -228,6 +254,16 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
     if (auth.role === "super-admin") {
       items.push(systemEmailSettingsNavItem, activityLogNavItem);
     }
+    
+    // Add System Health, Bug Reports, Expense Sheets and Knowledge Vault for admin/super-admin
+    if (auth.role === "admin" || auth.role === "super-admin") {
+      items.push(bugNavItem, systemHealthNavItem, expenseSheetsNavItem, knowledgeVaultNavItem);
+    }
+
+    // Add Attendance only for admin (not super-admin)
+    if (auth.role === "admin") {
+      items.push({ icon: CalendarCheck, label: "Attendance", path: "/admin/attendance" });
+    }
 
     // Sort children within items first
     items.forEach(item => {
@@ -236,19 +272,25 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
       }
     });
 
-    // Separate Settings from the list to ensure it's always last
+    // Separate Dashboard and Settings from the list to ensure Dashboard is first and Settings is last
+    const dashboardItem = items.find((i) => i.label === "Dashboard");
     const settingsItem = items.find((i) => i.label === "Settings");
-    const otherItems = items.filter((i) => i.label !== "Settings");
+    const otherItems = items.filter((i) => i.label !== "Settings" && i.label !== "Dashboard");
 
     // Sort all other items alphabetically
     const sortedItems = [...otherItems].sort((a, b) => a.label.localeCompare(b.label));
 
-    // Combine sorted items with Settings at the end
+    // Combine: Dashboard first, then sorted items, then Settings at the end
+    const finalItems = [];
+    if (dashboardItem) {
+      finalItems.push(dashboardItem);
+    }
+    finalItems.push(...sortedItems);
     if (settingsItem) {
-      sortedItems.push(settingsItem);
+      finalItems.push(settingsItem);
     }
 
-    return sortedItems;
+    return finalItems;
   }, [auth.role]);
 
   const onLogout = async () => {
@@ -301,27 +343,28 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
           <button
             onClick={() => toggleGroup(item.label)}
             className={cn(
-              "group relative flex h-10 w-full items-center justify-between rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white transition-all duration-100 linear",
-              hasActiveChild && "text-white bg-white/[0.02]"
+              "group relative flex w-full items-center justify-between rounded-lg text-white/60 hover:bg-white/[0.04] hover:text-white transition-all duration-100 linear",
+              hasActiveChild && "text-white bg-white/[0.02]",
+              isMobile ? "h-16 px-4" : "h-10 px-3"
             )}
           >
-            <div className="flex items-center gap-3">
+            <div className={cn("flex items-center gap-3", isMobile && "[&_img]:h-7 [&_img]:w-7")}>
               {item.customIcon ? (
                 item.customIcon
               ) : item.icon ? (
-                <item.icon className={cn("h-5 w-5 flex-shrink-0 transition-all", hasActiveChild && "text-[#00C6FF]")} />
+                <item.icon className={cn("flex-shrink-0 transition-all", hasActiveChild && "text-[#00C6FF]", isMobile ? "h-7 w-7" : "h-5 w-5")} />
               ) : null}
-              <span className="text-sm font-medium truncate">{item.label}</span>
+              <span className={cn("font-semibold truncate", isMobile ? "text-lg" : "text-sm font-medium")}>{item.label}</span>
             </div>
             {isExpanded ? (
-              <ChevronDown className="h-4 w-4 opacity-50 transition-transform" />
+              <ChevronDown className={cn("opacity-50 transition-transform", isMobile ? "h-5 w-5" : "h-4 w-4")} />
             ) : (
-              <ChevronRight className="h-4 w-4 opacity-50 transition-transform" />
+              <ChevronRight className={cn("opacity-50 transition-transform", isMobile ? "h-5 w-5" : "h-4 w-4")} />
             )}
           </button>
 
           {isExpanded && (
-            <div className="mt-1 flex flex-col gap-1 pl-4 ml-2 border-l border-white/10">
+            <div className={cn("mt-1 flex flex-col gap-1 pl-4 border-l border-white/10", isMobile ? "ml-4" : "ml-2")}>
               {item.children.map(child => renderNavItem(child, true))}
             </div>
           )}
@@ -337,8 +380,10 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
         to={item.path}
         end={item.end}
         className={cn(
-          "group relative flex h-10 w-full items-center gap-3 rounded-lg px-3 text-white/60 hover:bg-white/[0.04] hover:text-white hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear",
-          isChild && "h-9 text-[13px]"
+          "group relative flex w-full items-center gap-3 rounded-lg text-white/60 hover:bg-white/[0.04] hover:text-white hover:shadow-[0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-100 linear",
+          isChild 
+            ? (isMobile ? "h-14 text-base pl-6 [&_img]:h-6 [&_img]:w-6" : "h-9 text-[13px] px-3") 
+            : (isMobile ? "h-16 text-lg px-4 [&_img]:h-7 [&_img]:w-7" : "h-10 text-sm px-3")
         )}
         activeClassName="bg-white/[0.06] text-white"
         onClick={handleNavigate}
@@ -349,23 +394,27 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
             {!isChild && (
               <span
                 className={cn(
-                  "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full",
+                  "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] rounded-r-full",
                   "bg-gradient-to-b from-[#00C6FF] to-[#0072FF]",
-                  "transition-all duration-[120ms] ease-in-out",
-                  isActive ? "opacity-100" : "opacity-0"
+                  "transition-all duration-150 ease-in-out",
+                  isActive ? "opacity-100" : "opacity-0",
+                  isMobile ? "h-10" : "h-6"
                 )}
               />
             )}
             {isChild && isActive && (
               <span
-                className="absolute left-[-17px] top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-[#00C6FF]"
+                className={cn("absolute rounded-full bg-[#00C6FF]", isMobile ? "left-[-19px] w-2 h-2" : "left-[-17px] w-1.5 h-1.5")}
               />
             )}
 
             {/* Dashboard Pulse */}
             {item.label === "Dashboard" && (
               <span
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gradient-to-b from-[#00C6FF] to-[#0072FF] animate-dashboard-pulse pointer-events-none"
+                className={cn(
+                  "absolute rounded-full bg-gradient-to-b from-[#00C6FF] to-[#0072FF] animate-dashboard-pulse pointer-events-none",
+                  isMobile ? "left-4 w-7 h-7" : "left-3 w-5 h-5"
+                )}
                 aria-hidden="true"
               />
             )}
@@ -376,25 +425,25 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
               <item.icon
                 className={cn(
                   "flex-shrink-0 transition-all duration-100 linear relative z-10",
-                  isChild ? "h-4 w-4" : "h-5 w-5",
+                  isChild ? (isMobile ? "h-5 w-5" : "h-4 w-4") : (isMobile ? "h-7 w-7" : "h-5 w-5"),
                   isActive && ["brightness-[112%]", "scale-[1.03]"],
                   "group-hover:brightness-[108%]"
                 )}
               />
             ) : null}
             {item.label === "SignaCore" ? (
-              <span className="text-sm font-bold truncate">
+              <span className={cn("font-bold truncate", isMobile ? "text-lg" : "text-sm")}>
                 <span className="text-[#38bdf8]">Signa</span>
                 <span className="text-[#f97316]">Core</span>
               </span>
-            ) : item.label === "UPH" ? (
-              <span className="text-sm font-black truncate tracking-tight">
-                <span className="text-[#5898B8]">U</span>
+            ) : item.label === "Atlas Property Holding" ? (
+              <span className={cn("font-black truncate tracking-tight", isMobile ? "text-lg" : "text-sm")}>
+                <span className="text-[#5898B8]">A</span>
                 <span className="text-[#68B0D0]">P</span>
                 <span className="text-[#80B8D8]">H</span>
               </span>
             ) : (
-              <span className="font-medium truncate">{item.label}</span>
+              <span className={cn("truncate", isMobile ? "text-lg font-semibold" : "font-medium text-sm")}>{item.label}</span>
             )}
           </>
         )}

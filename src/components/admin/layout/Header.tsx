@@ -1,4 +1,6 @@
-import { Bell, Bug, Camera, CheckCircle2, ChevronDown, ChevronUp, Loader2, LogOut, Mail, Menu, Move, Save, Search, User, Settings, X as XIcon, Paperclip, Palette } from "lucide-react";
+import { Bell, Bug, Camera, CheckCircle2, ChevronDown, ChevronUp, Loader2, LogOut, Mail, Menu, Move, Save, Search, User, Settings, X as XIcon, Paperclip, Palette, Sparkles } from "lucide-react";
+import { useSocket } from "@/contexts/SocketContext";
+import { GlobalSearchButton } from "@/components/GlobalSearchButton";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -28,8 +30,200 @@ import { AdminInfoManager } from "@/components/admin/AdminInfoManager";
 import { FounderMessageBar } from "@/components/FounderMessageBar";
 import { useQueryClient } from "@tanstack/react-query";
 import AssetLibraryPicker from "@/components/admin/AssetLibraryPicker";
+import ReportBugModal from "@/components/bugs/ReportBugModal";
 
 
+
+function HolidayEffects({ type }: { type: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    let particles: any[] = [];
+    const maxParticles = 35;
+
+    const resizeCanvas = () => {
+      if (canvas && canvas.parentElement) {
+        canvas.width = canvas.parentElement.clientWidth || window.innerWidth;
+        canvas.height = canvas.parentElement.clientHeight || 300;
+      }
+    };
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+
+    class Particle {
+      x = 0;
+      y = 0;
+      size = 0;
+      speedX = 0;
+      speedY = 0;
+      opacity = 0;
+      color = "";
+      angle = 0;
+      spin = 0;
+
+      constructor() {
+        this.reset(true);
+      }
+
+      reset(init = false) {
+        if (!canvas) return;
+        this.x = Math.random() * canvas.width;
+        
+        if (type === "lanterns") {
+          this.y = init ? Math.random() * canvas.height : canvas.height + Math.random() * 20;
+          this.size = Math.random() * 10 + 5;
+          this.speedX = (Math.random() - 0.5) * 0.3;
+          this.speedY = -(Math.random() * 0.4 + 0.2);
+        } else if (type === "snow") {
+          this.y = init ? Math.random() * canvas.height : -10;
+          this.size = Math.random() * 2.5 + 0.8;
+          this.speedX = Math.random() * 0.4 + 0.1;
+          this.speedY = Math.random() * 0.8 + 0.3;
+        } else if (type === "leaves") {
+          this.y = init ? Math.random() * canvas.height : -20;
+          this.size = Math.random() * 7 + 3;
+          this.speedX = (Math.random() - 0.5) * 0.4;
+          this.speedY = Math.random() * 0.6 + 0.3;
+          this.angle = Math.random() * 360;
+          this.spin = (Math.random() - 0.5) * 1.5;
+        } else if (type === "confetti") {
+          this.y = init ? Math.random() * canvas.height : -10;
+          this.size = Math.random() * 5 + 3;
+          this.speedX = (Math.random() - 0.5) * 1.2;
+          this.speedY = Math.random() * 1.5 + 1.2;
+          this.angle = Math.random() * 360;
+          this.spin = (Math.random() - 0.5) * 4;
+        } else {
+          this.y = Math.random() * canvas.height;
+          this.size = Math.random() * 3 + 1.2;
+          this.speedX = (Math.random() - 0.5) * 0.08;
+          this.speedY = (Math.random() - 0.5) * 0.08;
+        }
+
+        this.opacity = Math.random() * 0.4 + 0.2;
+
+        if (type === "lanterns") {
+          this.color = `rgba(${Math.floor(Math.random() * 45 + 210)}, ${Math.floor(Math.random() * 80 + 50)}, 0, `;
+        } else if (type === "snow") {
+          this.color = `rgba(255, 255, 255, `;
+        } else if (type === "leaves") {
+          const leafColors = ["#D66060", "#F3904F", "#EBB02D", "#C0392B", "#D35400"];
+          this.color = leafColors[Math.floor(Math.random() * leafColors.length)];
+        } else if (type === "confetti") {
+          const confColors = ["#FF2E93", "#FF8A00", "#FF007A", "#00F0FF", "#9E00FF", "#00FF66"];
+          this.color = confColors[Math.floor(Math.random() * confColors.length)];
+        } else {
+          this.color = `rgba(255, ${Math.floor(Math.random() * 45 + 210)}, 80, `;
+        }
+      }
+
+      update() {
+        if (!canvas) return;
+        this.x += this.speedX;
+        this.y += this.speedY;
+        
+        if (type === "leaves" || type === "confetti") {
+          this.angle += this.spin;
+        }
+
+        if (type === "lanterns") {
+          if (this.y < -20 || this.x < -20 || this.x > canvas.width + 20) {
+            this.reset();
+          }
+        } else {
+          if (this.y > canvas.height + 20 || this.x < -20 || this.x > canvas.width + 20) {
+            this.reset();
+          }
+        }
+      }
+
+      draw() {
+        if (!ctx) return;
+        ctx.save();
+
+        if (type === "lanterns") {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          const grad = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 1.6);
+          grad.addColorStop(0, "rgba(255, 220, 150, 1)");
+          grad.addColorStop(0.3, this.color + this.opacity + ")");
+          grad.addColorStop(1, "rgba(255, 50, 0, 0)");
+          ctx.fillStyle = grad;
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.moveTo(this.x, this.y + this.size);
+          ctx.lineTo(this.x, this.y + this.size * 1.8);
+          ctx.strokeStyle = `rgba(220, 30, 0, ${this.opacity * 0.7})`;
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+        } else if (type === "snow") {
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          ctx.fillStyle = this.color + this.opacity + ")";
+          ctx.fill();
+        } else if (type === "leaves") {
+          ctx.translate(this.x, this.y);
+          ctx.rotate((this.angle * Math.PI) / 180);
+          ctx.beginPath();
+          ctx.ellipse(0, 0, this.size, this.size * 0.5, 0, 0, Math.PI * 2);
+          ctx.fillStyle = this.color;
+          ctx.globalAlpha = this.opacity;
+          ctx.fill();
+        } else if (type === "confetti") {
+          ctx.translate(this.x, this.y);
+          ctx.rotate((this.angle * Math.PI) / 180);
+          ctx.fillStyle = this.color;
+          ctx.globalAlpha = this.opacity;
+          ctx.fillRect(-this.size / 2, -this.size / 4, this.size, this.size / 2);
+        } else {
+          ctx.translate(this.x, this.y);
+          ctx.beginPath();
+          for (let i = 0; i < 4; i++) {
+            ctx.rotate(Math.PI / 2);
+            ctx.lineTo(0, this.size);
+            ctx.lineTo(this.size * 0.18, 0);
+          }
+          ctx.closePath();
+          ctx.fillStyle = this.color + this.opacity + ")";
+          ctx.fill();
+        }
+
+        ctx.restore();
+      }
+    }
+
+    for (let i = 0; i < maxParticles; i++) {
+      particles.push(new Particle());
+    }
+
+    const animate = () => {
+      if (!ctx || !canvas) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      particles.forEach((p) => {
+        p.update();
+        p.draw();
+      });
+
+      animationFrameId = requestAnimationFrame(animate);
+    };
+    animate();
+
+    return () => {
+      window.removeEventListener("resize", resizeCanvas);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [type]);
+
+  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-none z-10 opacity-70" />;
+}
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -162,8 +356,8 @@ export function Header({ onMenuClick }: HeaderProps) {
       return "/admin/tasks";
     }
     if (resourceType === "bug") {
-      if (resourceId) return `/developer/bugs?view=${encodeURIComponent(resourceId)}`;
-      return "/developer/bugs";
+      if (resourceId) return `/admin/bug-reports?view=${encodeURIComponent(resourceId)}`;
+      return "/admin/bug-reports";
     }
 
     // Fall back to direct link if the backend provided one and it looks like a real SPA route
@@ -199,6 +393,7 @@ export function Header({ onMenuClick }: HeaderProps) {
 
   // Listen for custom event from Settings page
   const queryClient = useQueryClient();
+  const { socket } = useSocket();
   useEffect(() => {
     const handleUpdate = () => {
       queryClient.invalidateQueries({ queryKey: ["header-settings"] });
@@ -208,10 +403,72 @@ export function Header({ onMenuClick }: HeaderProps) {
     return () => window.removeEventListener("header-settings-updated", handleUpdate);
   }, [queryClient]);
 
+  // Real-time socket listeners for instant badge updates
+  useEffect(() => {
+    if (!socket) return;
+    const handleNewNotification = () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-notifications"] });
+    };
+    const handleNewMessage = () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-messages-preview"] });
+    };
+    socket.on("new-notification", handleNewNotification);
+    socket.on("new-message", handleNewMessage);
+    return () => {
+      socket.off("new-notification", handleNewNotification);
+      socket.off("new-message", handleNewMessage);
+    };
+  }, [socket, queryClient]);
+
   const headerSettings = headerSettingsQuery.data?.item;
-  const showImage = headerSettings?.backgroundType === "image";
-  const headerImageUrlRaw = showImage ? (headerSettings?.imageConfig?.url || headerSettings?.imageConfig?.dataUrl) : null;
+  const activeHoliday = headerSettings?.holidayTheme?.active ? headerSettings.holidayTheme : null;
+  const showImage = activeHoliday
+    ? activeHoliday.backgroundType === "image"
+    : headerSettings?.backgroundType === "image";
+
+  const headerImageUrlRaw = activeHoliday
+    ? activeHoliday.backgroundType === "image"
+      ? activeHoliday.imageConfig?.url || activeHoliday.imageConfig?.dataUrl
+      : null
+    : headerSettings?.backgroundType === "image"
+      ? headerSettings?.imageConfig?.url || headerSettings?.imageConfig?.dataUrl
+      : null;
   const headerImageUrl = headerImageUrlRaw ? toProxiedUrl(headerImageUrlRaw) : null;
+  const hasImageBackground = Boolean(headerImageUrl);
+
+  const [localPosition, setLocalPosition] = useState<string>("");
+
+  useEffect(() => {
+    if (headerSettings?.imageConfig?.position) {
+      setLocalPosition(headerSettings.imageConfig.position);
+    }
+  }, [headerSettings?.imageConfig?.position]);
+
+  const getPositionValues = (posStr: string | undefined): { x: number, y: number } => {
+    if (!posStr) return { x: 50, y: 50 };
+    if (posStr === "center") return { x: 50, y: 50 };
+    let x = 50, y = 50;
+    const parts = posStr.split(" ");
+    const parsePart = (p: string, def: number) => {
+      if (p === "center") return 50;
+      if (p === "top" || p === "left") return 0;
+      if (p === "bottom" || p === "right") return 100;
+      const m = p.match(/(\d+)%/);
+      return m ? parseInt(m[1], 10) : def;
+    };
+    if (parts.length === 1) {
+      if (parts[0] === "top") return { x: 50, y: 0 };
+      if (parts[0] === "bottom") return { x: 50, y: 100 };
+      if (parts[0] === "left") return { x: 0, y: 50 };
+      if (parts[0] === "right") return { x: 100, y: 50 };
+      x = parsePart(parts[0], 50);
+      y = 50;
+    } else if (parts.length >= 2) {
+      x = parsePart(parts[0], 50);
+      y = parsePart(parts[1], 50);
+    }
+    return { x, y };
+  };
 
   // Banner header height (static 300px)
   const headerHeight = 300;
@@ -223,10 +480,20 @@ export function Header({ onMenuClick }: HeaderProps) {
       backgroundColor: '#133767'
     };
 
-    if (headerImageUrl && showImage) {
+    if (activeHoliday) {
+      if (activeHoliday.backgroundType === "image") {
+        baseStyle.backgroundImage = `url("${headerImageUrl}")`;
+        baseStyle.backgroundSize = activeHoliday.imageConfig?.size || 'cover';
+        baseStyle.backgroundPosition = activeHoliday.imageConfig?.position || 'center';
+        baseStyle.backgroundRepeat = activeHoliday.imageConfig?.repeat || 'no-repeat';
+      } else {
+        const { from = '#133767', via = '#133767', to = '#133767' } = activeHoliday.colorConfig || {};
+        baseStyle.background = `linear-gradient(to right, ${from}, ${via}, ${to})`;
+      }
+    } else if (headerImageUrl && showImage) {
       baseStyle.backgroundImage = `url("${headerImageUrl}")`;
       baseStyle.backgroundSize = headerSettings?.imageConfig?.size || 'cover';
-      baseStyle.backgroundPosition = headerSettings?.imageConfig?.position || 'center';
+      baseStyle.backgroundPosition = localPosition || 'center';
       baseStyle.backgroundRepeat = headerSettings?.imageConfig?.repeat || 'no-repeat';
     } else {
       const { from = '#133767', via = '#133767', to = '#133767' } = headerSettings?.colorConfig || {};
@@ -234,7 +501,7 @@ export function Header({ onMenuClick }: HeaderProps) {
     }
 
     return baseStyle;
-  }, [headerImageUrl, headerSettings]);
+  }, [headerImageUrl, headerSettings, activeHoliday, showImage, localPosition]);
 
   // Handle Image Upload for Header
   const [headerModalOpen, setHeaderModalOpen] = useState(false);
@@ -504,6 +771,24 @@ export function Header({ onMenuClick }: HeaderProps) {
         className="w-full h-full relative overflow-hidden group"
         style={bgStyle}
       >
+        {/* Holiday Effects Canvas Overlay */}
+        {activeHoliday?.effects && (
+          <HolidayEffects type={activeHoliday.effects} />
+        )}
+
+        {/* Overlay for image backgrounds */}
+        {showImage && ((activeHoliday && activeHoliday.overlay?.enabled) || (!activeHoliday && headerSettings?.overlay?.enabled)) && (
+          <div
+            className="absolute inset-0 transition-all duration-500"
+            style={{
+              backgroundColor: activeHoliday
+                ? activeHoliday.overlay.color || "rgba(0,0,0,0.3)"
+                : headerSettings.overlay.color || 'var(--tb-header-overlay-color)',
+              opacity: 1
+            }}
+          />
+        )}
+
         <div className="absolute inset-0 flex flex-col pointer-events-none">
           {/* Header Content Area */}
           <div 
@@ -529,212 +814,235 @@ export function Header({ onMenuClick }: HeaderProps) {
             </div>
 
 
-            <div className="flex flex-col gap-4">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <div className="flex items-center gap-3 p-2 rounded-xl bg-black/20 backdrop-blur-md border border-white/10 hover:bg-black/30 transition-all cursor-pointer group w-fit">
-                    <div className="relative">
-                      <Avatar className="h-10 w-10 border border-white/20 shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20 transition-all">
-                        {avatarUrl ? (
-                          <AvatarImage src={avatarUrl} alt={fullName} className="object-cover" />
-                        ) : (
-                          <AvatarFallback className="bg-gradient-to-br from-[#00C6FF] to-[#0072FF] text-white text-xs font-bold">{initials}</AvatarFallback>
-                        )}
-                      </Avatar>
-                      <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-black rounded-full" />
-                    </div>
-                    <div className="flex flex-col min-w-0 pr-4">
-                      <span className="text-base font-bold text-white truncate leading-tight drop-shadow-md">{fullName}</span>
-                      <span className="text-[11px] text-white/60 truncate tracking-wide uppercase font-semibold">{auth.role || "Admin"}</span>
-                    </div>
-                  </div>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" side="bottom" className="w-56 mt-2">
-                  <DropdownMenuLabel className="text-xs text-foreground">Account Settings</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => navigate("/admin/settings")}>
-                    <User className="mr-2 h-4 w-4" /> Profile Details
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate("/admin/settings")}>
-                    <Settings className="mr-2 h-4 w-4" /> System Preferences
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => { clearAuthState(); navigate("/login"); }} className="text-red-600">
-                    <LogOut className="mr-2 h-4 w-4" /> Logout
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <div className="flex items-center justify-start gap-4">
-                <div className="md:hidden">
-                  <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/[0.14] transition-all" aria-label="Open navigation" onClick={() => onMenuClick?.()}><Menu className="h-5 w-5 text-white" /></button>
-                </div>
-
+            {/* Branding, Profile and Holiday Banner in a responsive Flex row */}
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 w-full">
+              <div className="flex flex-col gap-4">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
-                      <Mail className="h-5 w-5" />
-                      {unreadMessageCount > 0 && (
-                        <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-[#00C6FF] text-[9px] border-black">
-                          {Math.min(unreadMessageCount, 9)}
-                        </Badge>
-                      )}
-                    </button>
+                    <div className="flex items-center gap-3 p-2 rounded-xl bg-black/20 backdrop-blur-md border border-white/10 hover:bg-black/30 transition-all cursor-pointer group w-fit">
+                      <div className="relative">
+                        <Avatar className="h-10 w-10 border border-white/20 shadow-lg group-hover:ring-2 group-hover:ring-[#00C6FF]/20 transition-all">
+                          {avatarUrl ? (
+                            <AvatarImage src={avatarUrl} alt={fullName} className="object-cover" />
+                          ) : (
+                            <AvatarFallback className="bg-gradient-to-br from-[#00C6FF] to-[#0072FF] text-white text-xs font-bold">{initials}</AvatarFallback>
+                          )}
+                        </Avatar>
+                        <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 bg-green-500 border-2 border-black rounded-full" />
+                      </div>
+                      <div className="flex flex-col min-w-0 pr-4">
+                        <span className="text-base font-bold text-white truncate leading-tight drop-shadow-md">{fullName}</span>
+                        <span className="text-[11px] text-white/60 truncate tracking-wide uppercase font-semibold">{auth.role || "Admin"}</span>
+                      </div>
+                    </div>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" side="bottom" className="w-80 mt-2 p-0 shadow-2xl border-slate-700 bg-[#0f172a]">
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-                      <DropdownMenuLabel className="text-sm font-bold text-white p-0">Direct Messages</DropdownMenuLabel>
-                    </div>
-                    <div className="max-h-[400px] overflow-y-auto">
-                      {messagesQuery.data?.length === 0 ? (
-                        <div className="p-8 text-center">
-                          <Mail className="h-8 w-8 text-slate-500 mx-auto mb-2" />
-                          <p className="text-xs text-slate-400">No messages found</p>
-                        </div>
-                      ) : (
-                        messagesQuery.data?.map(c => (
-                          <DropdownMenuItem 
-                            key={c.employee?.id} 
-                            onClick={() => navigate("/admin/messaging")}
-                            className="flex items-center gap-3 px-4 py-3 cursor-pointer border-b border-slate-800 last:border-0 hover:bg-slate-800/50 transition-colors"
-                          >
-                            <div className="relative">
-                              <Avatar className="h-9 w-9 border border-white/10">
-                                <AvatarFallback className="bg-slate-800 text-slate-300 text-[10px]">
-                                  {c.employee?.name?.[0]?.toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
-                              {(c.unreadCount || 0) > 0 && (
-                                <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 bg-[#00C6FF] border-2 border-slate-900 rounded-full" />
-                              )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-2 mb-0.5">
-                                <span className="text-[13px] font-semibold text-white truncate">{c.employee?.name}</span>
-                                {c.lastMessage?.createdAt && (
-                                  <span className="text-[10px] text-slate-400 whitespace-nowrap">
-                                    {new Date(c.lastMessage.createdAt).toLocaleDateString()}
-                                  </span>
-                                )}
-                              </div>
-                              <p className={`text-xs truncate ${ (c.unreadCount || 0) > 0 ? 'text-slate-200 font-medium' : 'text-slate-400' }`}>
-                                {c.lastMessage?.content || "No message content"}
-                              </p>
-                            </div>
-                          </DropdownMenuItem>
-                        ))
-                      )}
-                    </div>
-                    <DropdownMenuSeparator className="m-0 bg-slate-800" />
-                    <DropdownMenuItem 
-                      onClick={() => navigate("/admin/messaging")}
-                      className="justify-center py-2.5 text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"
-                    >
-                      Open Messenger
+                  <DropdownMenuContent align="start" side="bottom" className="w-56 mt-2">
+                    <DropdownMenuLabel className="text-xs text-foreground">Account Settings</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => navigate("/admin/profile")}>
+                      <User className="mr-2 h-4 w-4" /> Profile Details
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/admin/settings")}>
+                      <Settings className="mr-2 h-4 w-4" /> System Preferences
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => { clearAuthState(); navigate("/login"); }} className="text-red-600">
+                      <LogOut className="mr-2 h-4 w-4" /> Logout
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                <DropdownMenu onOpenChange={(open) => { if (open) markAllRead(); }}>
-                  <DropdownMenuTrigger asChild>
-                    <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
-                      <Bell className="h-5 w-5" />
-                      {unreadCount > 0 && (
-                        <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[9px] border-black">
-                          {unreadCount > 9 ? "9+" : unreadCount}
-                        </Badge>
-                      )}
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" side="bottom" className="w-80 mt-2 p-0 shadow-2xl border-slate-700 bg-[#0f172a]">
-                    <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-                      <DropdownMenuLabel className="text-sm font-bold text-white p-0">Notifications</DropdownMenuLabel>
-                      {unreadCount > 0 && (
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); markAllRead(); }}
-                          className="text-[10px] font-bold uppercase tracking-wider text-[#00C6FF] hover:text-white transition-colors"
-                        >
-                          Mark all as read
-                        </button>
-                      )}
-                    </div>
-                    <div className="max-h-[400px] overflow-y-auto">
-                      {notifications.length === 0 ? (
-                        <div className="p-8 text-center">
-                          <Bell className="h-8 w-8 text-slate-500 mx-auto mb-2" />
-                          <p className="text-sm text-slate-300">You're all caught up!</p>
-                        </div>
-                      ) : (
-                        notifications.map(n => {
-                          const category = n.meta?.category;
-                          const label = getCategoryLabel(category);
-                          const relTime = formatRelativeTime(n.createdAt || n.timestamp);
-                          return (
-                            <DropdownMenuItem
-                              key={n.id}
-                              onSelect={() => {
-                                navigate(resolveNotificationLink(n));
-                                markRead(n.id);
-                              }}
-                              className="flex items-start gap-3 px-3 py-2.5 cursor-pointer border-b border-slate-800 last:border-0 rounded-none text-white focus:bg-white/10 focus:text-white data-[highlighted]:bg-white/10 data-[highlighted]:text-white transition-colors"
+                <div className="flex items-center justify-start gap-4">
+                  <div className="md:hidden">
+                    <button type="button" className="group inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/10 hover:bg-white/[0.14] transition-all" aria-label="Open navigation" onClick={() => onMenuClick?.()}><Menu className="h-5 w-5 text-white" /></button>
+                  </div>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
+                        <Mail className="h-5 w-5" />
+                        {unreadMessageCount > 0 && (
+                          <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-[#00C6FF] text-[9px] border-black">
+                            {Math.min(unreadMessageCount, 9)}
+                          </Badge>
+                        )}
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" side="bottom" className="w-80 mt-2 p-0 shadow-2xl border-slate-700 bg-[#0f172a]">
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+                        <DropdownMenuLabel className="text-sm font-bold text-white p-0">Direct Messages</DropdownMenuLabel>
+                      </div>
+                      <div className="max-h-[400px] overflow-y-auto">
+                        {messagesQuery.data?.length === 0 ? (
+                          <div className="p-8 text-center">
+                            <Mail className="h-8 w-8 text-slate-500 mx-auto mb-2" />
+                            <p className="text-xs text-slate-400">No messages found</p>
+                          </div>
+                        ) : (
+                          messagesQuery.data?.map(c => (
+                            <DropdownMenuItem 
+                              key={c.employee?.id} 
+                              onClick={() => navigate("/admin/messaging")}
+                              className="flex items-center gap-3 px-4 py-3 cursor-pointer border-b border-slate-800 last:border-0 hover:bg-slate-800/50 transition-colors"
                             >
-                              <span className="text-base leading-none mt-0.5 flex-shrink-0">
-                                {getCategoryIcon(category)}
-                              </span>
+                              <div className="relative">
+                                <Avatar className="h-9 w-9 border border-white/10">
+                                  <AvatarFallback className="bg-slate-800 text-slate-300 text-[10px]">
+                                    {c.employee?.name?.[0]?.toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                                {(c.unreadCount || 0) > 0 && (
+                                  <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 bg-[#00C6FF] border-2 border-slate-900 rounded-full" />
+                                )}
+                              </div>
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1.5 mb-0.5">
-                                  <span className="text-[12px] font-semibold leading-tight truncate">
-                                    {n.title || "Notification"}
-                                  </span>
-                                  {label && (
-                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${getCategoryColor(category)}`}>
-                                      {label}
+                                <div className="flex items-center justify-between gap-2 mb-0.5">
+                                  <span className="text-[13px] font-semibold text-white truncate">{c.employee?.name}</span>
+                                  {c.lastMessage?.createdAt && (
+                                    <span className="text-[10px] text-slate-400 whitespace-nowrap">
+                                      {new Date(c.lastMessage.createdAt).toLocaleDateString()}
                                     </span>
                                   )}
                                 </div>
-                                <p className="text-[11px] text-slate-300 line-clamp-2 leading-relaxed">
-                                  {n.content}
+                                <p className={`text-xs truncate ${ (c.unreadCount || 0) > 0 ? 'text-slate-200 font-medium' : 'text-slate-400' }`}>
+                                  {c.lastMessage?.content || "No message content"}
                                 </p>
-                                {relTime && (
-                                  <span className="text-[10px] text-slate-500 mt-0.5 block">{relTime}</span>
-                                )}
                               </div>
                             </DropdownMenuItem>
-                          );
-                        })
-                      )}
-                    </div>
-                    <DropdownMenuSeparator className="m-0 bg-slate-800" />
-                    <DropdownMenuItem 
-                      onClick={() => navigate("/admin/notifications")}
-                      className="justify-center py-2.5 text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"
-                    >
-                      View all notifications
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                          ))
+                        )}
+                      </div>
+                      <DropdownMenuSeparator className="m-0 bg-slate-800" />
+                      <DropdownMenuItem 
+                        onClick={() => navigate("/admin/messaging")}
+                        className="justify-center py-2.5 text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"
+                      >
+                        Open Messenger
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
 
-                <AdminInfoManager />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white">
+                        <Bell className="h-5 w-5" />
+                        {unreadCount > 0 && (
+                          <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-red-500 text-[9px] border-black">
+                            {unreadCount > 9 ? "9+" : unreadCount}
+                          </Badge>
+                        )}
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" side="bottom" className="w-80 mt-2 p-0 shadow-2xl border-slate-700 bg-[#0f172a]">
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+                        <DropdownMenuLabel className="text-sm font-bold text-white p-0">Notifications</DropdownMenuLabel>
+                        {unreadCount > 0 && (
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); markAllRead(); }}
+                            className="text-[10px] font-bold uppercase tracking-wider text-[#00C6FF] hover:text-white transition-colors"
+                          >
+                            Mark all as read
+                          </button>
+                        )}
+                      </div>
+                      <div className="max-h-[400px] overflow-y-auto">
+                        {notifications.length === 0 ? (
+                          <div className="p-8 text-center">
+                            <Bell className="h-8 w-8 text-slate-500 mx-auto mb-2" />
+                            <p className="text-sm text-slate-300">You're all caught up!</p>
+                          </div>
+                        ) : (
+                          notifications.map(n => {
+                            const category = n.meta?.category;
+                            const label = getCategoryLabel(category);
+                            const relTime = formatRelativeTime(n.createdAt || n.timestamp);
+                            return (
+                              <DropdownMenuItem
+                                key={n.id}
+                                onSelect={() => {
+                                  navigate(resolveNotificationLink(n));
+                                  markRead(n.id);
+                                }}
+                                className="flex items-start gap-3 px-3 py-2.5 cursor-pointer border-b border-slate-800 last:border-0 rounded-none text-white focus:bg-white/10 focus:text-white data-[highlighted]:bg-white/10 data-[highlighted]:text-white transition-colors"
+                              >
+                                <span className="text-base leading-none mt-0.5 flex-shrink-0">
+                                  {getCategoryIcon(category)}
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5 mb-0.5">
+                                    <span className="text-[12px] font-semibold leading-tight truncate">
+                                      {n.title || "Notification"}
+                                    </span>
+                                    {label && (
+                                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full flex-shrink-0 ${getCategoryColor(category)}`}>
+                                        {label}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[11px] text-slate-300 line-clamp-2 leading-relaxed">
+                                    {n.content}
+                                  </p>
+                                  {relTime && (
+                                    <span className="text-[10px] text-slate-500 mt-0.5 block">{relTime}</span>
+                                  )}
+                                </div>
+                              </DropdownMenuItem>
+                            );
+                          })
+                        )}
+                      </div>
+                      <DropdownMenuSeparator className="m-0 bg-slate-800" />
+                      <DropdownMenuItem 
+                        onClick={() => navigate("/admin/notifications")}
+                        className="justify-center py-2.5 text-xs font-bold text-slate-400 hover:text-white hover:bg-slate-800/50 transition-all"
+                      >
+                        View all notifications
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
 
-                <button 
-                  onClick={() => { resetReport(); setReportOpen(true); }}
-                  className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white"
-                  title="Submit Bug Report"
-                >
-                  <Bug className="h-5 w-5" />
-                </button>
+                  <AdminInfoManager />
 
-                <button 
-                  onClick={() => { clearAuthState(); navigate("/login"); }}
-                  className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white hover:text-red-400"
-                  title="Logout"
-                >
-                  <LogOut className="h-5 w-5" />
-                </button>
+                  <button 
+                    onClick={() => { resetReport(); setReportOpen(true); }}
+                    className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white"
+                    title="Submit Bug Report"
+                  >
+                    <Bug className="h-5 w-5" />
+                  </button>
+
+                  <GlobalSearchButton
+                    isEmployee={false}
+                    basePath="/admin"
+                    className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white"
+                  />
+
+                  <button
+                    onClick={() => { clearAuthState(); navigate("/login"); }}
+                    className="relative group p-2 rounded-lg bg-black/20 hover:bg-black/40 backdrop-blur-sm transition-colors text-white/70 hover:text-white hover:text-red-400"
+                    title="Logout"
+                  >
+                    <LogOut className="h-5 w-5" />
+                  </button>
+                </div>
               </div>
+
+              {/* Holiday/Seasonal Greeting Banner Card (Right Side) */}
+              {activeHoliday && (
+                <div className="flex flex-col items-center md:items-end justify-center pointer-events-auto p-3 rounded-xl bg-black/30 backdrop-blur-md border border-white/10 max-w-sm text-center md:text-right md:mb-1 mr-2 shadow-xl animate-fade-in relative z-20">
+                  <div className="text-xs sm:text-sm font-bold text-white drop-shadow-md flex items-center gap-1.5 justify-center md:justify-end">
+                    <Sparkles className="h-4 w-4 text-[#FFD700]" />
+                    <span>{activeHoliday.displayName}</span>
+                  </div>
+                  <p className="text-[10px] sm:text-[11px] text-white/95 drop-shadow-sm leading-normal mt-1 font-semibold">
+                    {activeHoliday.message}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </div>
+      </div>
 
         {/* Header Settings Modal (Simplified for Image Only) */}
         <Dialog open={headerModalOpen} onOpenChange={setHeaderModalOpen}>
@@ -747,7 +1055,15 @@ export function Header({ onMenuClick }: HeaderProps) {
               <div className="flex flex-col items-center gap-4">
                 <div className="w-full h-32 rounded-lg border-2 border-dashed border-muted-foreground/25 flex items-center justify-center bg-muted/5 overflow-hidden relative group">
                   {headerImageUrl ? (
-                    <img src={headerImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                    <img 
+                      src={headerImageUrl} 
+                      alt="Preview" 
+                      className="w-full h-full" 
+                      style={{ 
+                        objectFit: (headerSettings?.imageConfig?.size === "100% 100%" ? "fill" : headerSettings?.imageConfig?.size === "auto" ? "none" : headerSettings?.imageConfig?.size || "cover") as any,
+                        objectPosition: headerSettings?.imageConfig?.position || "center"
+                      }} 
+                    />
                   ) : (
                     <div className="text-center">
                       <Camera className="h-8 w-8 mx-auto text-muted-foreground/50" />
@@ -779,6 +1095,124 @@ export function Header({ onMenuClick }: HeaderProps) {
                   </div>
                 )}
               </div>
+
+              {hasImageBackground && (
+                <div className="space-y-4 border-t pt-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-foreground">Image Fit (Sizing Mode)</label>
+                    <select
+                      className="w-full text-sm rounded-md border border-input bg-background px-3 py-1"
+                      value={headerSettings?.imageConfig?.size || "cover"}
+                      onChange={async (e) => {
+                        const newSize = e.target.value;
+                        await apiFetch("/api/header-settings", {
+                          method: "PUT",
+                          body: JSON.stringify({ imageConfig: { size: newSize } })
+                        });
+                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                      }}
+                    >
+                      <option value="cover">Cover (Maintain aspect ratio, fill space)</option>
+                      <option value="contain">Contain (Maintain aspect ratio, fit inside)</option>
+                      <option value="100% 100%">Stretch (Fill completely, ignoring aspect ratio)</option>
+                      <option value="auto">Auto (Original size)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-semibold text-foreground">Horizontal Position (Left / Right)</label>
+                      <span className="text-xs text-muted-foreground font-mono">{getPositionValues(localPosition).x}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={getPositionValues(localPosition).x}
+                      onChange={(e) => {
+                        const valX = e.target.value;
+                        const valY = getPositionValues(localPosition).y;
+                        setLocalPosition(`${valX}% ${valY}%`);
+                      }}
+                      onMouseUp={async (e: any) => {
+                        const valX = e.target.value;
+                        const valY = getPositionValues(localPosition).y;
+                        const newPos = `${valX}% ${valY}%`;
+                        await apiFetch("/api/header-settings", {
+                          method: "PUT",
+                          body: JSON.stringify({ imageConfig: { position: newPos } })
+                        });
+                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                      }}
+                      onTouchEnd={async (e: any) => {
+                        const valX = e.target.value;
+                        const valY = getPositionValues(localPosition).y;
+                        const newPos = `${valX}% ${valY}%`;
+                        await apiFetch("/api/header-settings", {
+                          method: "PUT",
+                          body: JSON.stringify({ imageConfig: { position: newPos } })
+                        });
+                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                      }}
+                      className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>Left</span>
+                      <span>Center</span>
+                      <span>Right</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs font-semibold text-foreground">Vertical Position (Top / Bottom)</label>
+                      <span className="text-xs text-muted-foreground font-mono">{getPositionValues(localPosition).y}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={getPositionValues(localPosition).y}
+                      onChange={(e) => {
+                        const valX = getPositionValues(localPosition).x;
+                        const valY = e.target.value;
+                        setLocalPosition(`${valX}% ${valY}%`);
+                      }}
+                      onMouseUp={async (e: any) => {
+                        const valX = getPositionValues(localPosition).x;
+                        const valY = e.target.value;
+                        const newPos = `${valX}% ${valY}%`;
+                        await apiFetch("/api/header-settings", {
+                          method: "PUT",
+                          body: JSON.stringify({ imageConfig: { position: newPos } })
+                        });
+                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                      }}
+                      onTouchEnd={async (e: any) => {
+                        const valX = getPositionValues(localPosition).x;
+                        const valY = e.target.value;
+                        const newPos = `${valX}% ${valY}%`;
+                        await apiFetch("/api/header-settings", {
+                          method: "PUT",
+                          body: JSON.stringify({ imageConfig: { position: newPos } })
+                        });
+                        queryClient.invalidateQueries({ queryKey: ["header-settings"] });
+                        window.dispatchEvent(new CustomEvent("header-settings-updated"));
+                      }}
+                      className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>Top</span>
+                      <span>Center</span>
+                      <span>Bottom</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             <DialogFooter className="flex justify-between sm:justify-between w-full">
               <Button variant="outline" size="sm" onClick={handleResetHeader} className="text-red-600 hover:text-red-700 hover:bg-red-50">
@@ -791,91 +1225,8 @@ export function Header({ onMenuClick }: HeaderProps) {
           </DialogContent>
         </Dialog>
 
-        {/* Bug Report Dialog */}
-        <Dialog open={reportOpen} onOpenChange={setReportOpen}>
-          <DialogContent className="max-w-lg">
-            {reportSuccess ? (
-              <div className="p-6 text-center">
-                <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                <h2 className="text-xl font-bold mb-2">Report Sent!</h2>
-                <p className="text-muted-foreground mb-6">{reportSuccess}</p>
-                <Button onClick={() => { setReportOpen(false); setReportSuccess(null); }}>Done</Button>
-              </div>
-            ) : (
-              <>
-                <DialogHeader>
-                  <DialogTitle>Report an Issue</DialogTitle>
-                  <DialogDescription>Help us improve by describing the issue.</DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <Input value={reportTitle} onChange={e => setReportTitle(e.target.value)} placeholder="Issue Title" className="text-foreground" />
-                  <textarea 
-                    value={reportDescription} 
-                    onChange={e => setReportDescription(e.target.value)} 
-                    className="w-full min-h-[100px] p-3 rounded-md border bg-background text-foreground"
-                    placeholder="Describe the issue..."
-                  />
-                  {reportError && <div className="text-red-500 text-sm mt-1">{reportError}</div>}
-                  <div className="flex flex-col gap-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm font-medium">Attachments ({reportImageFiles.length}/5)</span>
-                      <Button variant="outline" size="sm" type="button" onClick={handlePasteImage} title="Click to paste image from clipboard">
-                        <Paperclip className="h-4 w-4 mr-2" /> Paste Image
-                      </Button>
-                    </div>
-                    <input 
-                      type="file" 
-                      accept="image/*" 
-                      multiple 
-                      className="text-sm file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 text-foreground"
-                      onChange={(e) => {
-                        const files = Array.from(e.target.files || []);
-                        if (files.length + reportImageFiles.length > 5) {
-                          setReportError("You can only attach up to 5 images.");
-                          return;
-                        }
-                        const newFiles = [...reportImageFiles, ...files].slice(0, 5);
-                        setReportImageFiles(newFiles);
-                        setReportImagePreviewUrls(newFiles.map(f => URL.createObjectURL(f)));
-                        setReportError(null);
-                      }}
-                    />
-                    {reportImagePreviewUrls.length > 0 && (
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {reportImagePreviewUrls.map((url, i) => (
-                          <div key={i} className="relative w-16 h-16 rounded-md overflow-hidden border">
-                            <img src={url} alt={`Preview ${i}`} className="w-full h-full object-cover" />
-                            <button
-                              className="absolute top-0 right-0 bg-red-500 text-white rounded-bl-md p-0.5"
-                              onClick={() => {
-                                const newFiles = [...reportImageFiles];
-                                newFiles.splice(i, 1);
-                                setReportImageFiles(newFiles);
-                                const newUrls = [...reportImagePreviewUrls];
-                                URL.revokeObjectURL(newUrls[i]);
-                                newUrls.splice(i, 1);
-                                setReportImagePreviewUrls(newUrls);
-                              }}
-                            >
-                              <XIcon className="h-3 w-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button variant="ghost" onClick={() => setReportOpen(false)}>Cancel</Button>
-                  <Button onClick={submitReport} disabled={reportSubmitting}>
-                    {reportSubmitting ? "Sending..." : "Submit Report"}
-                  </Button>
-                </DialogFooter>
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
-      </div>
+        {/* Bug Report Modal */}
+        <ReportBugModal open={reportOpen} onOpenChange={setReportOpen} defaultSourcePanel="admin" />
 
       {/* Founder Message Bar */}
       <div className="absolute bottom-0 left-0 right-0 z-[60] bg-metallic-gold/90 backdrop-blur-sm shadow-[0_-2px_10px_rgba(0,0,0,0.1)] pointer-events-auto">

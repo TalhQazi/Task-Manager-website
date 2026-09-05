@@ -74,6 +74,8 @@ export function MemeModal({ isOpen, imageUrl, caption, onClose }: MemeModalProps
           opacity: 1,
           animation: "memeIn 300ms ease-in forwards",
           pointerEvents: "auto",
+          display: "flex",
+          flexDirection: "column",
         }}
       >
         <style>{`
@@ -83,7 +85,7 @@ export function MemeModal({ isOpen, imageUrl, caption, onClose }: MemeModalProps
           }
         `}</style>
 
-        <div style={{ position: "relative" }}>
+        <div style={{ position: "relative", display: "flex", justifyContent: "center", alignItems: "center", background: "#0b0b0f" }}>
           <button
             type="button"
             onClick={onClose}
@@ -103,6 +105,7 @@ export function MemeModal({ isOpen, imageUrl, caption, onClose }: MemeModalProps
               alignItems: "center",
               justifyContent: "center",
               backdropFilter: "blur(6px)",
+              zIndex: 10,
             }}
           >
             <span style={{ fontSize: 20, lineHeight: 1 }}>×</span>
@@ -113,7 +116,8 @@ export function MemeModal({ isOpen, imageUrl, caption, onClose }: MemeModalProps
             alt={caption ? `Meme: ${caption}` : "Motivational meme"}
             style={{
               width: "100%",
-              height: "auto",
+              maxHeight: "calc(85vh - 150px)",
+              objectFit: "contain",
               display: "block",
               background: "#0b0b0f",
             }}
@@ -152,7 +156,7 @@ export function MemeModal({ isOpen, imageUrl, caption, onClose }: MemeModalProps
               fontWeight: 600,
             }}
           >
-            Got it
+            I Agree
           </button>
         </div>
       </div>

@@ -12,6 +12,7 @@ import { TaskBlasterProvider } from "./contexts/TaskBlasterContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { RewardProvider } from "./contexts/RewardContext";
 import { MemeTimer } from "./components/meme/MemeTimer";
+import { ThemeEngineProvider, HolidayThemeShell } from "./theme-engine";
 
 
 // Lazy-load route controllers — each pulls in its own pages lazily
@@ -19,6 +20,7 @@ const AdminRoutes = lazy(() => import("./routes/AdminRoutes"));
 const ManagerController = lazy(() => import("./routes/ManagerController"));
 const DeveloperController = lazy(() => import("./routes/DeveloperController"));
 const EmployeeController = lazy(() => import("./Employee/routes/EmployeeController"));
+const AtlasBooksRoutes = lazy(() => import("./routes/AtlasBooksRoutes"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -54,22 +56,27 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <ThemeProvider>
-            <MemeTimer />
-            <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0a0a0f" }}>
-              <div style={{ width: 40, height: 40, border: "3px solid rgba(255,255,255,0.1)", borderTopColor: "#6366f1", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
-              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-            </div>}>
-              <Routes>
-                <Route path="/" element={<IndexRedirect />} />
-                <Route path="/login" element={<Login />} />
-                <Route path="/login/employee" element={<Navigate to="/login" replace />} />
-                <Route path="/admin/*" element={<AdminRoutes />} />
-                <Route path="/manager/*" element={<ManagerController />} />
-                <Route path="/developer/*" element={<DeveloperController />} />
-                <Route path="/employee/*" element={<EmployeeController />} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </Suspense>
+            <ThemeEngineProvider>
+              <HolidayThemeShell>
+                <MemeTimer />
+                <Suspense fallback={<div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#0a0a0f" }}>
+                  <div style={{ width: 40, height: 40, border: "3px solid rgba(255,255,255,0.1)", borderTopColor: "#6366f1", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
+                  <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                </div>}>
+                  <Routes>
+                    <Route path="/" element={<IndexRedirect />} />
+                    <Route path="/login" element={<Login />} />
+                    <Route path="/login/employee" element={<Navigate to="/login" replace />} />
+                    <Route path="/admin/*" element={<AdminRoutes />} />
+                    <Route path="/manager/*" element={<ManagerController />} />
+                    <Route path="/developer/*" element={<DeveloperController />} />
+                    <Route path="/employee/*" element={<EmployeeController />} />
+                    <Route path="/atlasbooks/*" element={<AtlasBooksRoutes />} />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Routes>
+                </Suspense>
+              </HolidayThemeShell>
+            </ThemeEngineProvider>
           </ThemeProvider>
         </BrowserRouter>
         </RewardProvider>

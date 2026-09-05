@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
+import { resizeImageIfNeeded } from "@/lib/imageResizer";
 
 type MemeItem = {
   id: string;
@@ -33,6 +34,23 @@ export default function Memes() {
   const [err, setErr] = useState<string>("");
 
   const [file, setFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileSelection = async (selectedFile: File | null) => {
+    if (!selectedFile) return;
+    setLoading(true);
+    setErr("");
+    try {
+      const compressed = await resizeImageIfNeeded(selectedFile, 1080, 1080, 0.85);
+      setFile(compressed);
+    } catch (error: any) {
+      console.error("Failed to resize image:", error);
+      setErr("Failed to process image. Using original file.");
+      setFile(selectedFile);
+    } finally {
+      setLoading(false);
+    }
+  };
   const [caption, setCaption] = useState("");
   const [category, setCategory] = useState<(typeof categories)[number]>("motivational");
   const [active, setActive] = useState(true);
@@ -188,7 +206,11 @@ export default function Memes() {
         <div className="mt-4 grid grid-cols-1 lg:grid-cols-5 gap-4">
           <div className="lg:col-span-2">
             <div
-              className={`rounded-xl border border-dashed p-4 ${dragOver ? "border-blue-400/60 bg-blue-500/10" : "border-white/15 bg-black/20"}`}
+              className={`rounded-xl border border-dashed p-6 transition-all duration-200 text-center flex flex-col items-center justify-center cursor-pointer ${
+                dragOver
+                  ? "border-blue-400 bg-blue-500/10 shadow-lg shadow-blue-500/5 scale-[1.02]"
+                  : "border-white/10 bg-white/[0.02] hover:border-white/20 hover:bg-white/[0.04]"
+              }`}
               onDragEnter={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -209,20 +231,32 @@ export default function Memes() {
                 e.stopPropagation();
                 setDragOver(false);
                 const f = e.dataTransfer.files?.[0];
-                if (f) setFile(f);
+                if (f) {
+                  void handleFileSelection(f);
+                }
               }}
+              onClick={() => fileInputRef.current?.click()}
             >
-              <div className="text-sm font-medium">Drag & drop</div>
-              <div className="text-white/60 text-sm mt-1">or pick a file</div>
+              <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center mb-3">
+                <svg className="w-6 h-6 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <div className="text-sm font-medium">Drag & drop your meme here</div>
+              <div className="text-white/40 text-xs mt-1">or click to browse files</div>
 
               <input
+                ref={fileInputRef}
                 type="file"
                 accept="image/png,image/jpeg"
-                onChange={(e) => setFile(e.target.files?.[0] || null)}
-                className="mt-3 block w-full text-sm text-white/80 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-white/10 file:text-white hover:file:bg-white/15"
+                onChange={(e) => {
+                  const f = e.target.files?.[0] || null;
+                  void handleFileSelection(f);
+                }}
+                className="hidden"
               />
             </div>
-            <div className="mt-3 text-xs text-white/60">JPG/PNG only, max 500KB. Preferred 1080×1080.</div>
+            <div className="mt-3 text-xs text-white/60">JPG/PNG, auto-resized & compressed under S3 limit. Preferred 1080×1080.</div>
 
             {previewUrl ? (
               <div className="mt-4 rounded-xl overflow-hidden border border-white/10 bg-black/30">

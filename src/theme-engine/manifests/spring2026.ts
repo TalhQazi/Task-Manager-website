@@ -1,0 +1,45 @@
+import { HolidayThemeManifest } from "../types";
+
+export const SPRING_2026_MANIFEST: HolidayThemeManifest = {
+  themeKey: "spring-bloom-2026",
+  displayName: "Spring Bloom & Sakura Gala",
+  description: "Jade twilight atmosphere, fluttering cherry blossom petals, floral vines, and luminous rose accents.",
+  category: "spring",
+  priority: 85,
+  palette: {
+    primary: "#10b981",
+    secondary: "#f43f5e",
+    accent: "#fb7185",
+    accent2: "#064e3b",
+    backgroundBase: "#042f2e",
+    surfaceTint: "rgba(16, 185, 129, 0.08)",
+    cardBorder: "rgba(251, 113, 133, 0.40)",
+    cardGlow: "0 0 24px rgba(251, 113, 133, 0.25)",
+    textColor: "#f8fafc",
+    scrimWash: "rgba(4, 47, 46, 0.70)",
+  },
+  layout: {
+    headerHeight: 64,
+    bannerHeight: 124,
+    sideFrameWidth: 48,
+    enableSideFrames: true,
+    enableBottomForeground: true,
+    enableHeaderBanner: true,
+  },
+  animations: {
+    particleType: "confetti",
+    particleCountDesktop: 35,
+    particleCountMobile: 18,
+    particleColor: ["#fb7185", "#f43f5e", "#ffffff", "#34d399"],
+    particleSpeed: 0.9,
+    enableGlowPulse: true,
+    transientEffectType: "firework-burst",
+    transientIntervalSeconds: 35,
+  },
+  accessibility: {
+    minContrastRatio: 4.5,
+    reducedMotionAlternative: "static-decorations",
+    highContrastCompatible: true,
+  },
+  isActive: true,
+};

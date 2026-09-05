@@ -442,6 +442,7 @@ export default function Announcements() {
           setShowCreateModal(false);
           setSelectedAnnouncement(null);
         }}
+        onDelete={(id) => setDeleteId(id)}
       />
 
       {/* Analytics Modal */}

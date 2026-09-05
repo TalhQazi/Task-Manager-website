@@ -4,6 +4,7 @@ import { DeveloperLayout } from "@/components/developer/layout/DeveloperLayout";
 import { getAuthState } from "@/lib/auth";
 
 const Bugs = lazy(() => import("@/pages/developer/Bugs"));
+const Notifications = lazy(() => import("@/pages/admin/Notifications"));
 const NotFound = lazy(() => import("@/pages/manger/NotFound"));
 
 function PageLoader() {
@@ -29,6 +30,7 @@ export default function DeveloperController() {
     () => [
       { index: true, element: <Bugs /> },
       { path: "bugs", element: <Bugs /> },
+      { path: "notifications", element: <Notifications /> },
       { path: "*", element: <NotFound /> },
     ],
     [],

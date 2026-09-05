@@ -356,10 +356,10 @@ const UphMaintenance: React.FC = () => {
       <header className="border-b bg-white/95 backdrop-blur-sm">
         <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-4 px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
           <div className="flex items-center gap-3">
-            <img src="/uph.jpeg" alt="UPH" className="h-11 w-11 rounded-2xl object-cover" />
+            <img src="/atlas-properties.png" alt="Atlas Properties" className="h-12 w-12 rounded-xl object-contain shadow-sm border border-zinc-200/80 bg-zinc-950 p-1" />
             <div>
               <h1 className="text-2xl font-black tracking-tight">
-                Ultimate Property Holdings
+                Atlas Properties
               </h1>
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-zinc-500">
                 Maintenance Requests
@@ -399,7 +399,7 @@ const UphMaintenance: React.FC = () => {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Maintenance Queue</CardTitle>
-            <CardDescription>Filter and inspect incoming maintenance tickets from UPH.</CardDescription>
+            <CardDescription>Filter and inspect incoming maintenance tickets from APH.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={onSearchSubmit} className="grid gap-3 md:grid-cols-[200px_1fr_auto]">

@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/card";
 import { Button } from "@/components/admin/ui/button";
 import { Badge } from "@/components/admin/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/admin/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/admin/ui/avatar";
+import { useEmployeeAvatars } from "@/hooks/useEmployeeAvatars";
 import { Input } from "@/components/admin/ui/input";
 import {
   Select,
@@ -222,6 +223,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 const Payroll = () => {
+  const getAvatar = useEmployeeAvatars();
   const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
@@ -826,6 +828,7 @@ const Payroll = () => {
                             <div className="flex items-start justify-between mb-3">
                               <div className="flex items-center gap-3">
                                 <Avatar className="h-10 w-10 ring-2 ring-primary/20">
+                                  {getAvatar(payroll.employee.name) && <AvatarImage src={getAvatar(payroll.employee.name)} alt={payroll.employee.name} className="object-cover" />}
                                   <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white text-sm">
                                     {payroll.employee.initials}
                                   </AvatarFallback>
@@ -908,6 +911,7 @@ const Payroll = () => {
               <DialogHeader>
                 <DialogTitle className="text-xl flex items-center gap-3">
                   <Avatar className="h-10 w-10">
+                    {getAvatar(selectedEmployee.employee.name) && <AvatarImage src={getAvatar(selectedEmployee.employee.name)} alt={selectedEmployee.employee.name} className="object-cover" />}
                     <AvatarFallback className="bg-gradient-to-br from-primary to-primary/60 text-white">
                       {selectedEmployee.employee.initials}
                     </AvatarFallback>

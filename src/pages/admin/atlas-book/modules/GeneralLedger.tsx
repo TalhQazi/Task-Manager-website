@@ -4,12 +4,14 @@ import { Button } from "@/components/admin/ui/button";
 import { Badge } from "@/components/admin/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/admin/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/admin/ui/dialog";
-import { Calculator, Plus, Search, RefreshCw, FileText, ArrowRightLeft, Calendar } from "lucide-react";
+import { Calculator, Plus, Search, RefreshCw, FileText, ArrowRightLeft, Calendar, Building2, MapPin } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 
 export default function GeneralLedger() {
   const [items, setItems] = useState<any[]>([]);
   const [accounts, setAccounts] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [companyLocations, setCompanyLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   
@@ -17,6 +19,8 @@ export default function GeneralLedger() {
   const [form, setForm] = useState({
     description: "",
     transactionDate: new Date().toISOString().split("T")[0],
+    company: "",
+    companyLocation: "",
     lines: [
       { account: "", debit: 0, credit: 0 },
       { account: "", debit: 0, credit: 0 }
@@ -26,12 +30,14 @@ export default function GeneralLedger() {
   const load = async () => {
     try {
       setLoading(true);
-      const [journalRes, accountsRes] = await Promise.all([
+      const [journalRes, accountsRes, companiesRes] = await Promise.all([
         apiFetch("/api/atlasbook/journal"),
-        apiFetch("/api/atlasbook/accounts")
+        apiFetch("/api/atlasbook/accounts"),
+        apiFetch("/api/companies"),
       ]);
       if (journalRes?.success) setItems(journalRes.items || []);
       if (accountsRes?.success) setAccounts(accountsRes.items || []);
+      if (companiesRes) setCompanies(companiesRes.items || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -55,20 +61,40 @@ export default function GeneralLedger() {
   const totalCredit = form.lines.reduce((sum, l) => sum + (Number(l.credit) || 0), 0);
   const isBalanced = totalDebit > 0 && totalDebit === totalCredit;
 
+  const loadLocations = async (companyId: string) => {
+    if (!companyId) { setCompanyLocations([]); return; }
+    try {
+      const res = await apiFetch(`/api/company-locations?company=${companyId}`);
+      setCompanyLocations(res?.items || []);
+    } catch { setCompanyLocations([]); }
+  };
+
+  const handleCompanyChange = (companyId: string) => {
+    setForm({ ...form, company: companyId, companyLocation: "" });
+    loadLocations(companyId);
+  };
+
   const handleCreate = async () => {
     if (!isBalanced) return;
     try {
+      const payload = { ...form };
+      if (!payload.company) delete (payload as any).company;
+      if (!payload.companyLocation) delete (payload as any).companyLocation;
+
       const res = await apiFetch("/api/atlasbook/journal", {
         method: "POST",
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       if (res?.success) {
         setOpen(false);
         setForm({
           description: "",
           transactionDate: new Date().toISOString().split("T")[0],
+          company: "",
+          companyLocation: "",
           lines: [{ account: "", debit: 0, credit: 0 }, { account: "", debit: 0, credit: 0 }]
         });
+        setCompanyLocations([]);
         load();
       }
     } catch (e) {
@@ -113,7 +139,15 @@ export default function GeneralLedger() {
                   <Badge variant="outline" className="bg-background">{item.reference || "JE-" + item._id.slice(-6)}</Badge>
                   <span className="text-sm text-muted-foreground">{item.description}</span>
                 </div>
-                <div className="text-xs text-muted-foreground italic">Posted by System</div>
+                <div className="text-xs text-muted-foreground italic flex items-center gap-2">
+                  {item.company && (
+                    <span className="flex items-center gap-0.5"><Building2 size={10} /> {item.company.name}</span>
+                  )}
+                  {item.companyLocation && (
+                    <span className="flex items-center gap-0.5"><MapPin size={10} /> {item.companyLocation.label}</span>
+                  )}
+                  <span>Posted by System</span>
+                </div>
               </CardHeader>
               <CardContent className="p-0">
                 <Table>
@@ -161,6 +195,22 @@ export default function GeneralLedger() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Description</label>
                 <input type="text" className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="e.g., Monthly Rent Payment" value={form.description} onChange={e => setForm({...form, description: e.target.value})} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-1"><Building2 size={14} /> Company</label>
+                <select className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.company} onChange={e => handleCompanyChange(e.target.value)}>
+                  <option value="">None</option>
+                  {companies.map(c => <option key={c.id || c._id} value={c.id || c._id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-1"><MapPin size={14} /> Location</label>
+                <select className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.companyLocation} onChange={e => setForm({...form, companyLocation: e.target.value})} disabled={!form.company}>
+                  <option value="">None</option>
+                  {companyLocations.map(loc => <option key={loc._id} value={loc._id}>{loc.label}{loc.address?.city ? ` — ${loc.address.city}, ${loc.address.state}` : ""}</option>)}
+                </select>
               </div>
             </div>
 

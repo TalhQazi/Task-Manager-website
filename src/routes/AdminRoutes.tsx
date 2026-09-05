@@ -5,6 +5,7 @@ import { AdminLayout } from "@/components/admin/layout/AdminLayout";
 
 // Lazy-loaded page components for code splitting
 const Dashboard = lazy(() => import("@/pages/admin/Dashboard"));
+const WipDashboard = lazy(() => import("@/pages/admin/WipDashboard"));
 const Users = lazy(() => import("@/pages/admin/Users"));
 const Tasks = lazy(() => import("@/pages/admin/Tasks"));
 const Employees = lazy(() => import("@/pages/admin/Employees"));
@@ -21,15 +22,19 @@ const Scheduling = lazy(() => import("@/pages/admin/Scheduling"));
 const TimeTracking = lazy(() => import("@/pages/admin/TimeTracking"));
 const EmployeeTimeHistory = lazy(() => import("@/pages/admin/EmployeeTimeHistory"));
 const BreakTracking = lazy(() => import("@/pages/admin/BreakTracking"));
+const Attendance = lazy(() => import("@/pages/manger/Attendance"));
 const Messaging = lazy(() => import("@/pages/admin/Messaging"));
 const Notifications = lazy(() => import("@/pages/admin/Notifications"));
 const DoNotHire = lazy(() => import("@/pages/admin/DoNotHire"));
 const Onboarding = lazy(() => import("@/pages/admin/Onboarding"));
+const NewHireReporting = lazy(() => import("@/pages/admin/NewHireReporting"));
 const Reports = lazy(() => import("@/pages/admin/Reports"));
 const ActivityLogs = lazy(() => import("@/pages/admin/ActivityLogs"));
 const Settings = lazy(() => import("@/pages/admin/Settings"));
 const Profile = lazy(() => import("@/pages/admin/Profile"));
-const PersonalNotes = lazy(() => import("@/pages/admin/PersonalNotes"));
+
+const KnowledgeVault = lazy(() => import("@/pages/admin/KnowledgeVault"));
+const TaskWorkspace = lazy(() => import("@/pages/admin/TaskWorkspace"));
 const RolesPermissions = lazy(() => import("@/pages/admin/RolesPermissions"));
 const AsanaImport = lazy(() => import("@/pages/admin/AsanaImport"));
 const AsanaData = lazy(() => import("@/pages/admin/AsanaData"));
@@ -38,6 +43,7 @@ const IntellectualProperty = lazy(() => import("@/pages/admin/IntellectualProper
 const NotFound = lazy(() => import("@/pages/admin/NotFound"));
 const ArchiveData = lazy(() => import("@/pages/admin/ArchiveData"));
 const FounderMessages = lazy(() => import("@/pages/admin/FounderMessages"));
+const VideoMessages = lazy(() => import("@/pages/admin/VideoMessages"));
 const AssetLibrary = lazy(() => import("@/pages/admin/AssetLibrary"));
 const CompanyInformation = lazy(() => import("@/pages/admin/CompanyInformation"));
 const EODReports = lazy(() => import("@/pages/admin/EODReports"));
@@ -46,16 +52,31 @@ const EmployeeEODHistory = lazy(() => import("@/pages/admin/EmployeeEODHistory")
 const SignaCore = lazy(() => import("@/pages/admin/SignaCore"));
 const UphMaintenance = lazy(() => import("@/pages/admin/UphMaintenance"));
 const BugReport = lazy(() => import("@/pages/admin/BugReport"));
+const ComplianceCenter = lazy(() => import("@/pages/manger/ComplianceCenter"));
 const Contributors = lazy(() => import("@/pages/admin/Contributors"));
 const ThemeEngine = lazy(() => import("@/pages/admin/ThemeEngine"));
 const Memes = lazy(() => import("@/pages/admin/Memes"));
+const ExpenseSheets = lazy(() => import("@/pages/admin/ExpenseSheets"));
 
 const TeamLeadMappings = lazy(() => import("@/pages/admin/TeamLeadMappings"));
 const TaskPermissions = lazy(() => import("@/pages/admin/TaskPermissions"));
 
 const ShoppingLists = lazy(() => import("@/pages/admin/ShoppingLists"));
 const SystemEmailSettings = lazy(() => import("@/pages/admin/SystemEmailSettings"));
+const SystemHealth = lazy(() => import("@/pages/admin/SystemHealth"));
 const CompanyRegistry = lazy(() => import("@/pages/admin/CompanyRegistry"));
+
+const LegalCases = lazy(() => import("@/pages/admin/legaltrak/Cases"));
+const LegalDeadlines = lazy(() => import("@/pages/admin/legaltrak/Deadlines"));
+const LegalCalendar = lazy(() => import("@/pages/admin/legaltrak/Calendar"));
+const LegalDocuments = lazy(() => import("@/pages/admin/legaltrak/Documents"));
+const LegalEvidence = lazy(() => import("@/pages/admin/legaltrak/Evidence"));
+const LegalFilings = lazy(() => import("@/pages/admin/legaltrak/Filings"));
+const LegalTasks = lazy(() => import("@/pages/admin/legaltrak/Tasks"));
+const LegalContacts = lazy(() => import("@/pages/admin/legaltrak/Contacts"));
+const LegalNotes = lazy(() => import("@/pages/admin/legaltrak/Notes"));
+const LegalNotifications = lazy(() => import("@/pages/admin/legaltrak/Notifications"));
+const LegalReports = lazy(() => import("@/pages/admin/legaltrak/Reports"));
 
 const CRMDashboard = lazy(() => import("@/pages/admin/crm/Dashboard"));
 const CRMContacts = lazy(() => import("@/pages/admin/crm/Contacts"));
@@ -64,6 +85,7 @@ const CRMDeals = lazy(() => import("@/pages/admin/crm/Deals"));
 const CRMTasks = lazy(() => import("@/pages/admin/crm/Tasks"));
 const CRMCommunication = lazy(() => import("@/pages/admin/crm/Communication"));
 const CRMFiles = lazy(() => import("@/pages/admin/crm/Files"));
+const CRMCommandCore = lazy(() => import("@/pages/admin/crm/CommandCore"));
 const TravelCalendar = lazy(() => import("@/pages/admin/TravelCalendar"));
 const Announcements = lazy(() => import("@/pages/admin/Announcements"));
 const AtlasBookDashboard = lazy(() => import("@/pages/admin/atlas-book/Dashboard"));
@@ -96,9 +118,11 @@ export default function AdminRoutes() {
       { path: "contracts", element: <SignaCore /> },
       { path: "uph-maintenance", element: <UphMaintenance /> },
       { index: true, element: <Dashboard /> },
+      { path: "wip", element: <WipDashboard /> },
       { path: "users", element: <Users /> },
       { path: "roles", element: <RolesPermissions /> },
       { path: "tasks", element: <Tasks /> },
+      { path: "task-workspace", element: <TaskWorkspace /> },
       { path: "employees", element: <Employees /> },
       { path: "itineraries", element: <ItineraryHistory /> },
       { path: "payroll", element: <Payroll /> },
@@ -113,11 +137,14 @@ export default function AdminRoutes() {
       { path: "time-tracking", element: <TimeTracking /> },
       { path: "time-tracking/history/:employee", element: <EmployeeTimeHistory /> },
       { path: "break-history", element: <BreakTracking /> },
+      { path: "attendance", element: <Attendance /> },
       { path: "messaging", element: <Messaging /> },
       { path: "announcements", element: <Announcements /> },
+      { path: "video-messages", element: <VideoMessages /> },
       { path: "notifications", element: <Notifications /> },
       { path: "do-not-hire", element: <DoNotHire /> },
       { path: "onboarding", element: <Onboarding /> },
+      { path: "new-hire-reporting", element: <NewHireReporting /> },
       { path: "reports", element: <Reports /> },
       { path: "activity-logs", element: auth.role === "super-admin" ? <ActivityLogs /> : <Navigate to="/admin" replace /> },
       { path: "digital-assets", element: <DigitalAssets /> },
@@ -128,7 +155,8 @@ export default function AdminRoutes() {
       { path: "asana-import", element: <AsanaImport /> },
       { path: "asana-data", element: <AsanaData /> },
       { path: "profile", element: <Profile /> },
-      { path: "personal-notes", element: <PersonalNotes /> },
+
+      { path: "knowledge-vault", element: <KnowledgeVault /> },
       { path: "archive-data", element: <ArchiveData /> },
       { path: "founder-messages", element: <FounderMessages /> },
       { path: "eod-reports", element: <EODReports /> },
@@ -137,6 +165,19 @@ export default function AdminRoutes() {
       { path: "contributors", element: <Contributors /> },
       { path: "team-lead-mappings", element: <TeamLeadMappings /> },
       { path: "task-permissions", element: <TaskPermissions /> },
+
+      { path: "legal/cases", element: <LegalCases /> },
+      { path: "legal/deadlines", element: <LegalDeadlines /> },
+      { path: "legal/calendar", element: <LegalCalendar /> },
+      { path: "legal/documents", element: <LegalDocuments /> },
+      { path: "legal/evidence", element: <LegalEvidence /> },
+      { path: "legal/filings", element: <LegalFilings /> },
+      { path: "legal/tasks", element: <LegalTasks /> },
+      { path: "legal/contacts", element: <LegalContacts /> },
+      { path: "legal/notes", element: <LegalNotes /> },
+      { path: "legal/notifications", element: <LegalNotifications /> },
+      { path: "legal/reports", element: <LegalReports /> },
+
       { path: "crm", element: <Navigate to="/admin/crm/dashboard" replace /> },
       { path: "crm/dashboard", element: <CRMDashboard /> },
       { path: "crm/contacts", element: <CRMContacts /> },
@@ -145,13 +186,18 @@ export default function AdminRoutes() {
       { path: "crm/tasks", element: <CRMTasks /> },
       { path: "crm/communication", element: <CRMCommunication /> },
       { path: "crm/files", element: <CRMFiles /> },
+      { path: "crm/commandcore", element: <CRMCommandCore /> },
       { path: "bug-reports", element: <BugReport /> },
+      { path: "bugs", element: <BugReport /> },
+      { path: "compliance-center", element: <ComplianceCenter /> },
       { path: "theme-engine", element: <ThemeEngine /> },
       { path: "memes", element: <Memes /> },
       { path: "shopping-lists", element: <ShoppingLists /> },
+      { path: "expense-sheets", element: <ExpenseSheets /> },
       { path: "system-email-settings", element: auth.role === "super-admin" ? <SystemEmailSettings /> : <Navigate to="/admin" replace /> },
       { path: "company-registry", element: <CompanyRegistry /> },
       { path: "travel-calendar", element: <TravelCalendar /> },
+      { path: "health", element: <SystemHealth /> },
       { path: "atlas-book", element: <AtlasBookDashboard /> },
       { path: "atlas-book/:moduleId", element: <AtlasBookModulePage /> },
 

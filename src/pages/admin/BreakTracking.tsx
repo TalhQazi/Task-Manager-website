@@ -17,7 +17,7 @@ import {
   Utensils,
   RefreshCw
 } from "lucide-react";
-import { apiFetch } from "@/lib/api";
+import { apiFetch, toProxiedUrl } from "@/lib/api";
 import { useSocket } from "@/contexts/SocketContext";
 import { toast } from "sonner";
 
@@ -31,6 +31,7 @@ interface BreakSession {
   durationMinutes: number;
   isLate: boolean;
   exceededMinutes: number;
+  avatar?: string;
 }
 
 interface WeeklyStat {
@@ -42,6 +43,7 @@ interface WeeklyStat {
   breakSessionsCount: number;
   lateReturnsCount: number;
   totalExceededMinutes: number;
+  avatar?: string;
 }
 
 interface LiveStatus {
@@ -51,6 +53,7 @@ interface LiveStatus {
   lunch_start_time: string | null;
   lunch_expected_end: string | null;
   break_start_time: string | null;
+  avatar?: string;
 }
 
 export default function BreakTracking() {
@@ -437,6 +440,7 @@ export default function BreakTracking() {
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <Avatar className="h-9 w-9 border border-white/10">
+                        {emp.avatar && <AvatarImage src={toProxiedUrl(emp.avatar) || emp.avatar} alt={emp.name} className="object-cover" />}
                         <AvatarFallback className="bg-[#0b1323] text-white text-xs font-semibold">
                           {getInitials(emp.name)}
                         </AvatarFallback>
@@ -541,6 +545,7 @@ export default function BreakTracking() {
                             <td className="py-3.5 px-4 sm:px-6">
                               <div className="flex items-center gap-3">
                                 <Avatar className="h-8 w-8 border border-white/10">
+                                  {s.avatar && <AvatarImage src={toProxiedUrl(s.avatar) || s.avatar} alt={s.employeeName} className="object-cover" />}
                                   <AvatarFallback className="bg-[#0b1323] text-white text-xs font-bold">
                                     {getInitials(s.employeeName)}
                                   </AvatarFallback>
@@ -625,6 +630,7 @@ export default function BreakTracking() {
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2.5">
                           <Avatar className="h-7 w-7 border border-white/10">
+                            {stat.avatar && <AvatarImage src={toProxiedUrl(stat.avatar) || stat.avatar} alt={stat.employeeName} className="object-cover" />}
                             <AvatarFallback className="bg-[#0b1323] text-white text-[10px] font-bold">
                               {getInitials(stat.employeeName)}
                             </AvatarFallback>

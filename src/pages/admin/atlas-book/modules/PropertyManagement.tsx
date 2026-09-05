@@ -10,18 +10,38 @@ import { apiFetch } from "@/lib/admin/apiClient";
 
 export default function PropertyManagement() {
   const [items, setItems] = useState<any[]>([]);
+  const [tenants, setTenants] = useState<any[]>([]);
+  const [units, setUnits] = useState<any[]>([]);
+  const [locations, setLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   
   // New Property Form
-  const [form, setForm] = useState({ name: "", address: "", parcelInformation: "", purchasePrice: "", status: "Active" });
+  const [form, setForm] = useState({ 
+    name: "", 
+    address: "", 
+    parcelInformation: "", 
+    purchasePrice: "", 
+    status: "Active",
+    assignedCustomer: "",
+    assignedUnit: "",
+    locationName: ""
+  });
 
   const load = async () => {
     try {
       setLoading(true);
-      const res = await apiFetch("/api/atlasbook/properties");
+      const [res, tenantsRes, unitsRes, locationsRes] = await Promise.all([
+        apiFetch("/api/atlasbook/properties"),
+        apiFetch("/api/atlasbook/tenants").catch(() => null),
+        apiFetch("/api/atlasbook/units").catch(() => null),
+        apiFetch("/api/locations").catch(() => null)
+      ]);
       if (res?.success) setItems(res.items || []);
+      if (tenantsRes?.success) setTenants(tenantsRes.items || []);
+      if (unitsRes?.success) setUnits(unitsRes.items || []);
+      if (locationsRes?.items) setLocations(locationsRes.items || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -39,7 +59,16 @@ export default function PropertyManagement() {
       });
       if (res?.success) {
         setOpen(false);
-        setForm({ name: "", address: "", parcelInformation: "", purchasePrice: "", status: "Active" });
+        setForm({ 
+          name: "", 
+          address: "", 
+          parcelInformation: "", 
+          purchasePrice: "", 
+          status: "Active",
+          assignedCustomer: "",
+          assignedUnit: "",
+          locationName: ""
+        });
         load();
       }
     } catch (e) {
@@ -49,7 +78,10 @@ export default function PropertyManagement() {
 
   const filtered = items.filter(i => 
     i.name?.toLowerCase().includes(q.toLowerCase()) || 
-    i.address?.toLowerCase().includes(q.toLowerCase())
+    i.address?.toLowerCase().includes(q.toLowerCase()) ||
+    i.assignedCustomer?.toLowerCase().includes(q.toLowerCase()) ||
+    i.locationName?.toLowerCase().includes(q.toLowerCase()) ||
+    i.assignedUnit?.toLowerCase().includes(q.toLowerCase())
   );
 
   return (
@@ -77,7 +109,7 @@ export default function PropertyManagement() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input 
-              placeholder="Search by name or address..." 
+              placeholder="Search by name, address, customer, unit, or location..." 
               className="pl-10" 
               value={q}
               onChange={(e) => setQ(e.target.value)}
@@ -94,15 +126,18 @@ export default function PropertyManagement() {
                 <TableHead>Property Name</TableHead>
                 <TableHead>Address</TableHead>
                 <TableHead>Purchase Price</TableHead>
+                <TableHead>Customer</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Unit</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-10"><RefreshCw className="animate-spin mx-auto" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-10"><RefreshCw className="animate-spin mx-auto" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground italic">No properties found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground italic">No properties found.</TableCell></TableRow>
               ) : (
                 filtered.map((item) => (
                   <TableRow key={item._id}>
@@ -117,6 +152,9 @@ export default function PropertyManagement() {
                         <DollarSign size={12} /> {item.purchasePrice?.toLocaleString() || "0"}
                       </div>
                     </TableCell>
+                    <TableCell className="text-sm font-semibold text-teal-600">{item.assignedCustomer || "None"}</TableCell>
+                    <TableCell className="text-sm">{item.locationName || "None"}</TableCell>
+                    <TableCell className="text-sm">{item.assignedUnit || "None"}</TableCell>
                     <TableCell>
                       <Badge variant={item.status === "Active" ? "default" : "secondary"}>
                         {item.status}
@@ -139,7 +177,7 @@ export default function PropertyManagement() {
             <DialogTitle>Add New Property</DialogTitle>
             <DialogDescription>Enter the legal and financial details of the property.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
+          <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto px-1 custom-scrollbar">
             <div className="space-y-2">
               <label className="text-sm font-medium">Property Name</label>
               <Input placeholder="e.g., Downtown Plaza" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
@@ -165,6 +203,43 @@ export default function PropertyManagement() {
                   <option value="Sold">Sold</option>
                 </select>
               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Customer / Tenant</label>
+                <select 
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-ring"
+                  value={form.assignedCustomer}
+                  onChange={e => setForm({...form, assignedCustomer: e.target.value})}
+                >
+                  <option value="">None</option>
+                  {tenants.map(t => <option key={t._id} value={t.name}>{t.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Location</label>
+                <select 
+                  className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-ring"
+                  value={form.locationName}
+                  onChange={e => setForm({...form, locationName: e.target.value})}
+                >
+                  <option value="">None</option>
+                  {locations.map(loc => <option key={loc.id} value={loc.name}>{loc.name}</option>)}
+                </select>
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Assigned Unit</label>
+              <select 
+                className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus:ring-2 focus:ring-ring"
+                value={form.assignedUnit}
+                onChange={e => setForm({...form, assignedUnit: e.target.value})}
+              >
+                <option value="">None</option>
+                {units.map(u => <option key={u._id} value={u.unitNumber}>{u.unitNumber}</option>)}
+              </select>
             </div>
           </div>
           <DialogFooter>

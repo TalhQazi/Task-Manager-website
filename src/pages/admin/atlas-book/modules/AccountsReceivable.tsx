@@ -5,27 +5,31 @@ import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/admin/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/admin/ui/dialog";
-import { Wallet, Plus, Search, RefreshCw, Send, CheckCircle2, User } from "lucide-react";
+import { Wallet, Plus, Search, RefreshCw, Send, CheckCircle2, User, Building2, MapPin } from "lucide-react";
 import { apiFetch } from "@/lib/admin/apiClient";
 
 export default function AccountsReceivable() {
   const [items, setItems] = useState<any[]>([]);
   const [tenants, setTenants] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [companyLocations, setCompanyLocations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   
-  const [form, setForm] = useState({ customerName: "", tenant: "", invoiceNumber: "", date: new Date().toISOString().split("T")[0], dueDate: "", amount: "", status: "Sent" });
+  const [form, setForm] = useState({ customerName: "", tenant: "", company: "", companyLocation: "", invoiceNumber: "", date: new Date().toISOString().split("T")[0], dueDate: "", amount: "", status: "Sent" });
 
   const load = async () => {
     try {
       setLoading(true);
-      const [invRes, tenantsRes] = await Promise.all([
+      const [invRes, tenantsRes, companiesRes] = await Promise.all([
         apiFetch("/api/atlasbook/invoices"),
-        apiFetch("/api/atlasbook/tenants")
+        apiFetch("/api/atlasbook/tenants"),
+        apiFetch("/api/companies"),
       ]);
       if (invRes?.success) setItems(invRes.items || []);
       if (tenantsRes?.success) setTenants(tenantsRes.items || []);
+      if (companiesRes) setCompanies(companiesRes.items || []);
     } catch (e) {
       console.error(e);
     } finally {
@@ -35,15 +39,33 @@ export default function AccountsReceivable() {
 
   useEffect(() => { load(); }, []);
 
+  const loadLocations = async (companyId: string) => {
+    if (!companyId) { setCompanyLocations([]); return; }
+    try {
+      const res = await apiFetch(`/api/company-locations?company=${companyId}`);
+      setCompanyLocations(res?.items || []);
+    } catch { setCompanyLocations([]); }
+  };
+
+  const handleCompanyChange = (companyId: string) => {
+    setForm({ ...form, company: companyId, companyLocation: "" });
+    loadLocations(companyId);
+  };
+
   const handleCreate = async () => {
     try {
+      const payload = { ...form };
+      if (!payload.company) delete (payload as any).company;
+      if (!payload.companyLocation) delete (payload as any).companyLocation;
+      if (!payload.tenant) delete (payload as any).tenant;
       const res = await apiFetch("/api/atlasbook/invoices", {
         method: "POST",
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       if (res?.success) {
         setOpen(false);
-        setForm({ customerName: "", tenant: "", invoiceNumber: "", date: new Date().toISOString().split("T")[0], dueDate: "", amount: "", status: "Sent" });
+        setForm({ customerName: "", tenant: "", company: "", companyLocation: "", invoiceNumber: "", date: new Date().toISOString().split("T")[0], dueDate: "", amount: "", status: "Sent" });
+        setCompanyLocations([]);
         load();
       }
     } catch (e) {
@@ -53,7 +75,8 @@ export default function AccountsReceivable() {
 
   const filtered = items.filter(i => 
     i.invoiceNumber?.toLowerCase().includes(q.toLowerCase()) || 
-    i.customerName?.toLowerCase().includes(q.toLowerCase())
+    i.customerName?.toLowerCase().includes(q.toLowerCase()) ||
+    i.company?.name?.toLowerCase().includes(q.toLowerCase())
   );
 
   const totalOutstanding = items.filter(i => i.status !== "Paid").reduce((sum, i) => sum + i.amount, 0);
@@ -94,7 +117,7 @@ export default function AccountsReceivable() {
       <Card className="shadow-soft p-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-          <Input placeholder="Search invoices or customers..." className="pl-10" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input placeholder="Search invoices, customers, or companies..." className="pl-10" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
       </Card>
 
@@ -105,6 +128,8 @@ export default function AccountsReceivable() {
               <TableRow>
                 <TableHead>Invoice #</TableHead>
                 <TableHead>Customer / Tenant</TableHead>
+                <TableHead>Company</TableHead>
+                <TableHead>Location</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Due Date</TableHead>
                 <TableHead>Status</TableHead>
@@ -113,9 +138,9 @@ export default function AccountsReceivable() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-10"><RefreshCw className="animate-spin mx-auto" /></TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-10"><RefreshCw className="animate-spin mx-auto" /></TableCell></TableRow>
               ) : filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-10 text-muted-foreground italic">No invoices found.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-10 text-muted-foreground italic">No invoices found.</TableCell></TableRow>
               ) : (
                 filtered.map((item) => (
                   <TableRow key={item._id}>
@@ -125,6 +150,22 @@ export default function AccountsReceivable() {
                         <span>{item.customerName}</span>
                         {item.tenant && <span className="text-[10px] text-muted-foreground flex items-center gap-0.5"><User size={8} /> Tenant</span>}
                       </div>
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {item.company ? (
+                        <span className="flex items-center gap-1">
+                          <Building2 size={12} className="text-muted-foreground" />
+                          {item.company.name}
+                        </span>
+                      ) : <span className="text-muted-foreground text-xs">—</span>}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {item.companyLocation ? (
+                        <span className="flex items-center gap-1">
+                          <MapPin size={12} className="text-muted-foreground" />
+                          {item.companyLocation.label}
+                        </span>
+                      ) : <span className="text-muted-foreground text-xs">—</span>}
                     </TableCell>
                     <TableCell className="text-xs">{new Date(item.date).toLocaleDateString()}</TableCell>
                     <TableCell className="text-xs">{item.dueDate ? new Date(item.dueDate).toLocaleDateString() : "-"}</TableCell>
@@ -158,6 +199,22 @@ export default function AccountsReceivable() {
                 <option value="">None</option>
                 {tenants.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
               </select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-1"><Building2 size={14} /> Company</label>
+                <select className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.company} onChange={e => handleCompanyChange(e.target.value)}>
+                  <option value="">None</option>
+                  {companies.map(c => <option key={c.id || c._id} value={c.id || c._id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-1"><MapPin size={14} /> Location</label>
+                <select className="w-full h-10 rounded-md border border-input bg-background px-3 py-2 text-sm" value={form.companyLocation} onChange={e => setForm({...form, companyLocation: e.target.value})} disabled={!form.company}>
+                  <option value="">None</option>
+                  {companyLocations.map(loc => <option key={loc._id} value={loc._id}>{loc.label}{loc.address?.city ? ` — ${loc.address.city}, ${loc.address.state}` : ""}</option>)}
+                </select>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">

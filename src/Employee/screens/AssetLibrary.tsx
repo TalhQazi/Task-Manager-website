@@ -181,11 +181,11 @@ export default function EmployeeAssetLibrary({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4">
-        <Card className="min-h-[520px] overflow-hidden">
+        <Card className="flex flex-col min-h-[520px] overflow-hidden">
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Folders</CardTitle>
           </CardHeader>
-          <CardContent className="pt-0 h-full overflow-y-auto">
+          <CardContent className="pt-0 flex-1 overflow-y-auto">
             <div className="space-y-1">
               <button
                 type="button"

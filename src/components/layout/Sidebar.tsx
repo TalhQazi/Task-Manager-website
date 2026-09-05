@@ -31,6 +31,13 @@ import {
   ChevronDown,
   ChevronRight,
   ShoppingCart,
+  Briefcase,
+  Scale,
+  FileText,
+  FileCheck,
+  ListTodo,
+  Contact,
+  Gavel
 } from "lucide-react";
 
 import { useNavigate, useLocation } from "react-router-dom";
@@ -71,7 +78,9 @@ const navItemsBase: NavItem[] = [
   { icon: Landmark, label: "Companies", path: "/admin/companies" },
   { icon: Building2, label: "Vendors", path: "/admin/vendors" },
   { icon: MessageSquare, label: "Messaging", path: "/admin/messaging" },
+  { icon: Bell, label: "Notifications", path: "/admin/notifications" },
   { icon: ClipboardList, label: "Onboarding", path: "/admin/onboarding" },
+  { icon: ClipboardList, label: "New Hire Reporting", path: "/admin/new-hire-reporting" },
   { icon: BarChart3, label: "Reports", path: "/admin/reports" },
   { icon: Globe, label: "Digital Assets", path: "/admin/digital-assets" },
   { icon: Lightbulb, label: "Intellectual Property", path: "/admin/intellectual-property" },
@@ -79,6 +88,23 @@ const navItemsBase: NavItem[] = [
   { icon: Archive, label: "Archive Data", path: "/admin/archive-data" },
   { icon: Quote, label: "Founder Messages", path: "/admin/founder-messages" },
   { icon: ImageIcon, label: "Memes", path: "/admin/memes" },
+  {
+    icon: Gavel,
+    label: "Legal Tracker",
+    children: [
+      { icon: Briefcase, label: "Cases", path: "/admin/legal/cases" },
+      { icon: Calendar, label: "Deadlines", path: "/admin/legal/deadlines" },
+      { icon: Calendar, label: "Calendar", path: "/admin/legal/calendar" },
+      { icon: FileText, label: "Documents", path: "/admin/legal/documents" },
+      { icon: Scale, label: "Evidence", path: "/admin/legal/evidence" },
+      { icon: FileCheck, label: "Filings", path: "/admin/legal/filings" },
+      { icon: ListTodo, label: "Tasks", path: "/admin/legal/tasks" },
+      { icon: Contact, label: "Contacts", path: "/admin/legal/contacts" },
+      { icon: FileText, label: "Notes", path: "/admin/legal/notes" },
+      { icon: Bell, label: "Notifications", path: "/admin/legal/notifications" },
+      { icon: BarChart3, label: "Reports", path: "/admin/legal/reports" },
+    ],
+  },
   {
     label: "SignaCore",
     path: "/admin/contracts",
@@ -214,7 +240,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
                 className={cn(
                   "absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full",
                   "bg-gradient-to-b from-[#00C6FF] to-[#0072FF]",
-                  "transition-all duration-[120ms] ease-in-out",
+                  "transition-all duration-150 ease-in-out",
                   isActive ? "opacity-100" : "opacity-0"
                 )}
               />
@@ -278,7 +304,7 @@ export function Sidebar({ mode = "desktop", onNavigate }: SidebarProps) {
         <button
           type="button"
           onClick={onLogout}
-          className="flex w-full items-center gap-3 h-10 rounded-lg px-3 text-white/60 hover:bg-red-500/10 hover:text-red-200 transition-all duration-[120ms] ease-in-out"
+          className="flex w-full items-center gap-3 h-10 rounded-lg px-3 text-white/60 hover:bg-red-500/10 hover:text-red-200 transition-all duration-150 ease-in-out"
         >
           <LogOut className="h-5 w-5 flex-shrink-0" />
           <span className="text-sm font-medium">Logout</span>

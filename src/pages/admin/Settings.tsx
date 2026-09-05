@@ -3,8 +3,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/admin/ui/
 import { Button } from "@/components/admin/ui/button";
 import { Input } from "@/components/admin/ui/input";
 import { Badge } from "@/components/admin/ui/badge";
-import { Camera, User, Loader2, CheckCircle, XCircle, AlertCircle, Upload, FileImage, Image as ImageIcon, Quote, ToggleLeft, ToggleRight, Plus } from "lucide-react";
+import { Camera, User, Loader2, CheckCircle, XCircle, AlertCircle, Upload, FileImage, Image as ImageIcon, Quote, ToggleLeft, ToggleRight, Plus, Bell } from "lucide-react";
 import { apiFetch, toProxiedUrl } from "@/lib/admin/apiClient";
+import NotificationSettingsTable from "@/components/shared/NotificationSettingsTable";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import Cropper from "react-easy-crop";
@@ -377,12 +378,14 @@ export default function Settings() {
     }
   };
 
-  const setBackendNotification = async (key: string, value: boolean) => {
+  const onPreferenceChange = async (type: "email" | "web", key: string, value: boolean) => {
+    const prefKey = type === "email" ? "emailPreferences" : "webPreferences";
+    const currentPrefs = backendSettingsQuery.data?.item?.[prefKey] || {};
     await apiFetch<{ item: any }>("/api/settings", {
       method: "PUT",
       body: JSON.stringify({
-        notifications: {
-          ...notifications,
+        [prefKey]: {
+          ...currentPrefs,
           [key]: value,
         },
       }),
@@ -480,6 +483,16 @@ export default function Settings() {
     const [message, setMessage] = useState<string | null>(null);
     const [isLibraryPickerOpen, setIsLibraryPickerOpen] = useState(false);
     const headerFileInputRef = useRef<HTMLInputElement>(null);
+
+    const getVerticalPositionValue = (posStr: string | undefined): number => {
+      if (!posStr) return 50;
+      if (posStr === "center") return 50;
+      if (posStr === "top") return 0;
+      if (posStr === "bottom") return 100;
+      if (posStr === "left" || posStr === "right") return 50;
+      const match = posStr.match(/(\d+)%/);
+      return match ? parseInt(match[1], 10) : 50;
+    };
 
     useEffect(() => {
       const fetchSettings = async () => {
@@ -642,42 +655,36 @@ export default function Settings() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">Size</label>
-                    <select
-                      value={headerSettings.imageConfig.size}
-                      onChange={(e) => setHeaderSettings(prev => ({
-                        ...prev,
-                        imageConfig: { ...prev.imageConfig, size: e.target.value }
-                      }))}
-                      className="w-full h-9 rounded-md border px-2 text-sm"
-                      disabled={!headerSettings.imageConfig.dataUrl}
-                    >
-                      <option value="cover">Cover</option>
-                      <option value="contain">Contain</option>
-                      <option value="auto">Auto</option>
-                    </select>
+                {headerSettings.imageConfig.dataUrl && (
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <label className="text-xs text-muted-foreground font-semibold">Reposition Cover (Uplift / Downlift)</label>
+                      <span className="text-xs text-muted-foreground font-mono">{getVerticalPositionValue(headerSettings.imageConfig.position)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={getVerticalPositionValue(headerSettings.imageConfig.position)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setHeaderSettings(prev => ({
+                          ...prev,
+                          imageConfig: {
+                            ...prev.imageConfig,
+                            position: `center ${val}%`
+                          }
+                        }));
+                      }}
+                      className="w-full h-1.5 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                    <div className="flex justify-between text-[10px] text-muted-foreground">
+                      <span>Downlift (Top)</span>
+                      <span>Center</span>
+                      <span>Uplift (Bottom)</span>
+                    </div>
                   </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-muted-foreground">Position</label>
-                    <select
-                      value={headerSettings.imageConfig.position}
-                      onChange={(e) => setHeaderSettings(prev => ({
-                        ...prev,
-                        imageConfig: { ...prev.imageConfig, position: e.target.value }
-                      }))}
-                      className="w-full h-9 rounded-md border px-2 text-sm"
-                      disabled={!headerSettings.imageConfig.dataUrl}
-                    >
-                      <option value="center">Center</option>
-                      <option value="top">Top</option>
-                      <option value="bottom">Bottom</option>
-                      <option value="left">Left</option>
-                      <option value="right">Right</option>
-                    </select>
-                  </div>
-                </div>
+                )}
 
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -1060,7 +1067,7 @@ export default function Settings() {
         </div>
 
         {/* Settings Grid - Responsive */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5 md:gap-6 items-start">
 
           {/* Profile Card */}
           <Card className="shadow-soft border-0 sm:border">
@@ -1077,7 +1084,7 @@ export default function Settings() {
                   <div className="relative">
                     <Avatar className="h-20 w-20 border-2 border-border">
                       {settings.avatarUrl && avatarUpload.status !== "uploading" ? (
-                        <AvatarImage src={settings.avatarUrl} alt={settings.fullName || "Admin"} className="object-cover" crossOrigin="anonymous" />
+                        <AvatarImage src={settings.avatarUrl} alt={settings.fullName || "Admin"} className="object-cover" />
                       ) : (
                         <AvatarFallback className="text-2xl bg-primary/10 text-primary">
                           {avatarUpload.status === "uploading" ? (
@@ -1267,6 +1274,24 @@ export default function Settings() {
                   )}
                 </button>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Notification Settings Card */}
+          <Card className="shadow-soft border-0 sm:border">
+            <CardHeader className="px-4 sm:px-6 py-4 sm:py-5">
+              <CardTitle className="text-base sm:text-lg md:text-xl font-semibold flex items-center gap-2">
+                <Bell className="h-5 w-5 text-primary" />
+                Notification Settings
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 sm:px-6 pb-5 sm:pb-6 pt-0">
+              <NotificationSettingsTable
+                emailPreferences={backendSettingsQuery.data?.item?.emailPreferences || {}}
+                webPreferences={backendSettingsQuery.data?.item?.webPreferences || {}}
+                userRole={backendSettingsQuery.data?.item?.role || "admin"}
+                onChange={onPreferenceChange}
+              />
             </CardContent>
           </Card>
 

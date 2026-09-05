@@ -12,6 +12,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/admin/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/admin/ui/dropdown-menu";
 import { 
   Carousel, 
   CarouselContent, 
@@ -36,6 +42,7 @@ import {
   Share2,
   File,
   X,
+  MoreVertical,
 } from "lucide-react";
 
 type FolderNode = {
@@ -221,7 +228,7 @@ export default function AssetLibrary({
   moduleName = "asset-library", 
   title = "Images",
   description = "Upload, organize, preview, and download assets.",
-  hideHeaderCarousel = false
+  hideHeaderCarousel = true
 }: { 
   moduleName?: string; 
   title?: string;
@@ -662,7 +669,7 @@ export default function AssetLibrary({
             ref={fileInputRef}
             type="file"
             multiple
-            accept="image/*,application/pdf"
+            accept="*/*"
             className="hidden"
             aria-label="Upload assets"
             onChange={(e) => {
@@ -711,7 +718,7 @@ export default function AssetLibrary({
       ) : null}
 
       <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-4">
-        <Card className="h-[calc(100vh-260px)] min-h-[420px] overflow-hidden">
+        <Card className="flex flex-col h-[calc(100vh-260px)] min-h-[420px] overflow-hidden">
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between gap-2">
               <CardTitle className="text-base">Folders</CardTitle>
@@ -760,7 +767,7 @@ export default function AssetLibrary({
               ) : null}
             </div>
           </CardHeader>
-          <CardContent className="pt-0 h-full overflow-y-auto">
+          <CardContent className="pt-0 flex-1 overflow-y-auto">
             <div className="space-y-1">
               <button
                 type="button"
@@ -854,6 +861,7 @@ export default function AssetLibrary({
                   <option value="">All types</option>
                   <option value="image">Images</option>
                   <option value="pdf">PDF</option>
+                  <option value="document">Other Docs</option>
                 </select>
 
                 <select
@@ -959,7 +967,7 @@ export default function AssetLibrary({
                           if (e.key === "Enter" || e.key === " ") setPreview(a);
                         }}
                       >
-                        <div className="absolute z-10 left-2 top-2">
+                        <div className="absolute z-10" style={{ left: "8px", top: "8px" }}>
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -976,55 +984,62 @@ export default function AssetLibrary({
                             className="h-4 w-4 rounded border-input bg-background/90"
                           />
                         </div>
-                        <div className="absolute z-10 right-2 top-2 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8 bg-background/90"
-                            onClick={async (e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              const url = a.attachment?.url || "";
-                              const link = toProxiedUrl(url) || url;
-                              if (link) await navigator.clipboard.writeText(link);
-                            }}
-                            title="Copy link"
-                          >
-                            <LinkIcon className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8 bg-background/90"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              downloadAsset(a);
-                            }}
-                            title="Download"
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              if (window.confirm("Are you sure you want to delete this image?")) {
-                                deleteAssetMutation.mutate(a.id);
-                              }
-                            }}
-                            disabled={deleteAssetMutation.isPending}
-                            aria-label="Delete asset"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
+                        <div className="absolute z-10 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" style={{ right: "8px", top: "8px" }} onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8 bg-background/90 hover:bg-muted"
+                                title="Actions"
+                              >
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="bg-[#1e293b] border-white/10 text-white">
+                              <DropdownMenuItem
+                                onClick={async (e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  const url = a.attachment?.url || "";
+                                  const link = toProxiedUrl(url) || url;
+                                  if (link) {
+                                    await navigator.clipboard.writeText(link);
+                                    toast({
+                                      title: "Link copied",
+                                      description: "Asset link has been copied to your clipboard.",
+                                    });
+                                  }
+                                }}
+                                className="hover:bg-white/10 focus:bg-white/10 cursor-pointer"
+                              >
+                                <Share2 className="h-4 w-4 mr-2" /> Share Link
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  downloadAsset(a);
+                                }}
+                                className="hover:bg-white/10 focus:bg-white/10 cursor-pointer"
+                              >
+                                <Download className="h-4 w-4 mr-2" /> Download
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  if (window.confirm("Are you sure you want to delete this image?")) {
+                                    deleteAssetMutation.mutate(a.id);
+                                  }
+                                }}
+                                className="text-rose-400 hover:bg-rose-500/10 focus:bg-rose-500/10 cursor-pointer"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" /> Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                         <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden">
                           {isImage && thumb ? (
@@ -1224,7 +1239,7 @@ export default function AssetLibrary({
       ) : null}
 
       <Dialog open={isCreateFolderOpen} onOpenChange={setIsCreateFolderOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="w-[95vw] sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Create Folder</DialogTitle>
           </DialogHeader>
@@ -1253,7 +1268,7 @@ export default function AssetLibrary({
       </Dialog>
 
       <Dialog open={isEditFolderOpen} onOpenChange={setIsEditFolderOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="w-[95vw] sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Rename Folder</DialogTitle>
           </DialogHeader>
@@ -1282,7 +1297,7 @@ export default function AssetLibrary({
       </Dialog>
 
       <Dialog open={isMoveFolderOpen} onOpenChange={setIsMoveFolderOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="w-[95vw] sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Move Folder</DialogTitle>
           </DialogHeader>
@@ -1474,7 +1489,7 @@ export default function AssetLibrary({
       )}
 
       <Dialog open={isEditAssetOpen} onOpenChange={setIsEditAssetOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="w-[95vw] sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Edit Asset</DialogTitle>
           </DialogHeader>
@@ -1542,7 +1557,7 @@ export default function AssetLibrary({
       </Dialog>
 
       <Dialog open={isVersionHistoryOpen} onOpenChange={setIsVersionHistoryOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="w-[95vw] sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Version History</DialogTitle>
           </DialogHeader>
@@ -1584,7 +1599,7 @@ export default function AssetLibrary({
       </Dialog>
 
       <Dialog open={isReplaceVersionOpen} onOpenChange={setIsReplaceVersionOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="w-[95vw] sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Replace with New Version</DialogTitle>
           </DialogHeader>
@@ -1593,7 +1608,7 @@ export default function AssetLibrary({
               <label className="text-sm font-medium">New file</label>
               <input
                 type="file"
-                accept="image/*,application/pdf"
+                accept="*/*"
                 className="w-full h-10 rounded-md border border-input bg-background px-3 text-sm"
                 onChange={(e) => {
                   const file = e.target.files?.[0];
@@ -1624,7 +1639,7 @@ export default function AssetLibrary({
       </Dialog>
 
       <Dialog open={isBulkTagOpen} onOpenChange={setIsBulkTagOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="w-[95vw] sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Tag {selectedAssetIds.size} asset{selectedAssetIds.size !== 1 ? "s" : ""}</DialogTitle>
           </DialogHeader>
@@ -1660,7 +1675,7 @@ export default function AssetLibrary({
       </Dialog>
 
       <Dialog open={isShareOpen} onOpenChange={setIsShareOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="w-[95vw] sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Share Asset</DialogTitle>
           </DialogHeader>
@@ -1719,7 +1734,7 @@ export default function AssetLibrary({
       </Dialog>
 
       <Dialog open={isBrandKitOpen} onOpenChange={setIsBrandKitOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="w-[95vw] sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingBrandKitId ? "Edit" : "Create"} Brand Kit</DialogTitle>
           </DialogHeader>

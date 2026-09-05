@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/manger/ui/card";
 import { Input } from "@/components/manger/ui/input";
 import { Badge } from "@/components/manger/ui/badge";
@@ -10,7 +11,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/manger/ui/table";
-import { Search, Bell, Eye, EyeOff } from "lucide-react";
+import { Search, Bell, Eye, EyeOff, CheckCheck } from "lucide-react";
 import { apiFetch } from "@/lib/manger/api";
 import { useNavigate } from "react-router-dom";
 import { useSocket } from "@/contexts/SocketContext";
@@ -58,12 +59,13 @@ function formatUSA(dateStr: string) {
 }
 
 export default function Notifications() {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
   const [items, setItems] = useState<NotificationItem[]>([]);
-  const [unreadOnly, setUnreadOnly] = useState(true);
+  const [unreadOnly, setUnreadOnly] = useState(false);
   const { socket } = useSocket();
   const auth = getAuthState();
   const currentUser = auth.username || "";
@@ -126,14 +128,31 @@ export default function Notifications() {
     setItems((prev) =>
       prev.map((item) =>
         (item.id === id || item._id === id)
-          ? { ...item, readBy: [...(Array.isArray(item.readBy) ? item.readBy : []), currentUser] }
+          ? { ...item, status: "read", readBy: [...(Array.isArray(item.readBy) ? item.readBy : []), currentUser] }
           : item
       )
     );
     try {
       await apiFetch(`/api/notifications/${encodeURIComponent(id)}/mark-read`, { method: "POST" });
+      await queryClient.invalidateQueries({ queryKey: ["manager-notifications"] });
     } catch {
       // ignore — optimistic update already applied
+    }
+  };
+
+  const markAllAsRead = async () => {
+    setItems((prev) =>
+      prev.map((item) => ({
+        ...item,
+        status: "read",
+        readBy: [...(Array.isArray(item.readBy) ? item.readBy : []), currentUser],
+      }))
+    );
+    try {
+      await apiFetch("/api/messages/mark-all-read", { method: "POST" });
+      await queryClient.invalidateQueries({ queryKey: ["manager-notifications"] });
+    } catch {
+      await refresh();
     }
   };
 
@@ -169,8 +188,9 @@ export default function Notifications() {
         if (!mounted) return;
         setApiError(e instanceof Error ? e.message : "Failed to load notifications");
       } finally {
-        if (!mounted) return;
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
@@ -189,10 +209,10 @@ export default function Notifications() {
   const filteredNotifications = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     let list = items
-      .map((n) => ({ ...n, isRead: Array.isArray(n.readBy) && n.readBy.includes(currentUser) }))
+      .map((n) => ({ ...n, isRead: n.status === "read" }))
       .sort((a, b) => {
         if (a.isRead !== b.isRead) return a.isRead ? 1 : -1;
-        const ta = n => new Date(n.timestamp || n.createdAt || "").getTime();
+        const ta = (n: any) => new Date(n.timestamp || n.createdAt || "").getTime();
         return ta(b) - ta(a);
       });
     if (unreadOnly) list = list.filter((n) => !n.isRead);
@@ -219,13 +239,22 @@ export default function Notifications() {
             View system notifications and updates.
           </p>
         </div>
-        <button
-          onClick={() => setUnreadOnly((v) => !v)}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-colors hover:bg-muted"
-        >
-          {unreadOnly ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-          {unreadOnly ? "Show All" : "Unread Only"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setUnreadOnly((v) => !v)}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-colors hover:bg-muted"
+          >
+            {unreadOnly ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+            {unreadOnly ? "Show All" : "Unread Only"}
+          </button>
+          <button
+            onClick={markAllAsRead}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-md border text-xs font-medium transition-colors bg-primary/10 hover:bg-primary/20 text-primary border-primary/30"
+          >
+            <CheckCheck className="h-3.5 w-3.5" />
+            Mark All as Read
+          </button>
+        </div>
       </div>
 
       {/* API Error Message */}
