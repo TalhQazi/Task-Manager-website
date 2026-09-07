@@ -1058,3 +1058,21 @@ body.tb-theme-metallic-elite [class*="popover"] {
   animation: dashboard-pulse-glow 2s infinite ease-in-out;
 }
 
+/* ── Universal Radix Portal & Dialog Stacking Protection ─────────────────── */
+[data-radix-portal] {
+  position: relative;
+  z-index: 9999 !important;
+}
+
+[data-radix-portal] > [data-state],
+div[role="dialog"],
+div[role="alertdialog"] {
+  z-index: 10000 !important;
+}
+
+/* Ensure Dropdowns, Selects, Popovers, and Tooltips render above modal dialogs */
+div[data-radix-popper-content-wrapper] {
+  z-index: 10050 !important;
+}
+
+

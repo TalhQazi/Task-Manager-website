@@ -26,7 +26,7 @@ export const ThemeControlWidget: React.FC = () => {
 
   return (
     <div
-      className="fixed bottom-4 right-4 z-[999] flex flex-col items-end select-none"
+      className="fixed bottom-4 right-4 z-30 flex flex-col items-end select-none"
       style={{ pointerEvents: "auto" }}
     >
       {/* Expanded Control Modal Card */}

@@ -49,7 +49,8 @@ export const HolidayThemeShell: React.FC<HolidayThemeShellProps> = ({ children }
 
   return (
     <div
-      className="holiday-theme-shell relative min-h-screen w-full overflow-x-hidden"
+      className="holiday-theme-shell relative min-h-screen w-full overflow-x-hidden isolate"
+      style={{ isolation: "isolate" }}
       data-holiday-skin={isImmersive ? "true" : "false"}
       data-holiday-theme={activeTheme.themeKey}
     >
@@ -71,13 +72,13 @@ export const HolidayThemeShell: React.FC<HolidayThemeShellProps> = ({ children }
       />
 
       {/* =========================================================================
-          LAYER 1 (z-index: 10): Environment background WebP/AVIF/SVG
+          LAYER 1 (z-index: 1): Environment background WebP/AVIF/SVG
           ========================================================================= */}
       {isImmersive && bgUrl && (
         <div
           className="layer-1-environment-bg pointer-events-none select-none fixed inset-0 w-full h-full bg-cover bg-center bg-no-repeat transition-opacity duration-1000"
           style={{
-            zIndex: 10,
+            zIndex: 1,
             pointerEvents: "none",
             userSelect: "none",
             backgroundImage: `url("${bgUrl}")`,
@@ -88,13 +89,13 @@ export const HolidayThemeShell: React.FC<HolidayThemeShellProps> = ({ children }
       )}
 
       {/* =========================================================================
-          LAYER 2 (z-index: 20): Scrim / atmosphere wash overlay
+          LAYER 2 (z-index: 2): Scrim / atmosphere wash overlay
           ========================================================================= */}
       {isImmersive && (
         <div
           className="layer-2-scrim-wash pointer-events-none select-none fixed inset-0 w-full h-full backdrop-blur-[0.5px]"
           style={{
-            zIndex: 20,
+            zIndex: 2,
             pointerEvents: "none",
             userSelect: "none",
             backgroundColor: palette.scrimWash || "rgba(11, 17, 32, 0.45)",
@@ -104,13 +105,13 @@ export const HolidayThemeShell: React.FC<HolidayThemeShellProps> = ({ children }
       )}
 
       {/* =========================================================================
-          LAYER 3 (z-index: 30): Header banner integrated with logo and seasonal branding
+          LAYER 3 (z-index: 3): Header banner integrated with logo and seasonal branding
           ========================================================================= */}
       {showHeaderBanner && (
         <header
           className="layer-3-header-banner pointer-events-none select-none fixed top-0 left-0 right-0 w-full overflow-hidden"
           style={{
-            zIndex: 30,
+            zIndex: 3,
             pointerEvents: "none",
             userSelect: "none",
             height: layout.bannerHeight || 120,
@@ -126,7 +127,7 @@ export const HolidayThemeShell: React.FC<HolidayThemeShellProps> = ({ children }
       )}
 
       {/* =========================================================================
-          LAYER 4 (z-index: 40): Left & right decorative side frames
+          LAYER 4 (z-index: 4): Left & right decorative side frames
           ========================================================================= */}
       {showSideFrames && (
         <>
@@ -134,7 +135,7 @@ export const HolidayThemeShell: React.FC<HolidayThemeShellProps> = ({ children }
           <aside
             className="layer-4-side-frame-left pointer-events-none select-none fixed top-0 bottom-0 left-0 h-full overflow-hidden"
             style={{
-              zIndex: 40,
+              zIndex: 4,
               pointerEvents: "none",
               userSelect: "none",
               width: layout.sideFrameWidth || 48,
@@ -162,7 +163,7 @@ export const HolidayThemeShell: React.FC<HolidayThemeShellProps> = ({ children }
           <aside
             className="layer-4-side-frame-right pointer-events-none select-none fixed top-0 bottom-0 right-0 h-full overflow-hidden"
             style={{
-              zIndex: 40,
+              zIndex: 4,
               pointerEvents: "none",
               userSelect: "none",
               width: layout.sideFrameWidth || 48,
@@ -189,13 +190,13 @@ export const HolidayThemeShell: React.FC<HolidayThemeShellProps> = ({ children }
       )}
 
       {/* =========================================================================
-          LAYER 5 (z-index: 50): Bottom foreground assets (fog, pumpkins, spark lines)
+          LAYER 5 (z-index: 5): Bottom foreground assets (fog, pumpkins, spark lines)
           ========================================================================= */}
       {showBottomForeground && (
         <div
           className="layer-5-bottom-foreground pointer-events-none select-none fixed bottom-0 left-0 right-0 w-full overflow-hidden"
           style={{
-            zIndex: 50,
+            zIndex: 5,
             pointerEvents: "none",
             userSelect: "none",
             height: deviceVariant === "mobile" ? 60 : 130,
@@ -211,7 +212,7 @@ export const HolidayThemeShell: React.FC<HolidayThemeShellProps> = ({ children }
       )}
 
       {/* =========================================================================
-          LAYER 8 (z-index: 60-90 / safe 70): Safe particle canvas behind content
+          LAYER 8 (z-index: 6): Safe particle canvas behind content
           ========================================================================= */}
       {showParticles && (
         <ParticleCanvas
@@ -224,20 +225,19 @@ export const HolidayThemeShell: React.FC<HolidayThemeShellProps> = ({ children }
       )}
 
       {/* =========================================================================
-          LAYER 6 (z-index: 100) & LAYER 7 (z-index: 110 Card Tokens):
-          Dashboard content (<main className="main-app-layout">)
+          LAYER 6 (z-index: 10): Dashboard content (<div className="main-app-layout">)
           ========================================================================= */}
       <div
         className="main-app-layout relative min-h-screen w-full"
         style={{
-          zIndex: 100, // Layer 6: Content Wrapper
+          zIndex: 10, // Layer 6: Content Wrapper
         }}
       >
         {children}
       </div>
 
       {/* =========================================================================
-          LAYER 9 (z-index: 120): Transient foreground effects (ghost pass, spark trails)
+          LAYER 9 (z-index: 20): Transient foreground effects (ghost pass, spark trails)
           ========================================================================= */}
       {showTransientEffects && (
         <TransientEffects

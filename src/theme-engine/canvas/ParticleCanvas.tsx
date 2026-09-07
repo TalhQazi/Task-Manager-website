@@ -267,7 +267,7 @@ export const ParticleCanvas: React.FC<ParticleCanvasProps> = ({
       ref={canvasRef}
       className="holiday-particle-canvas pointer-events-none select-none fixed inset-0 w-full h-full"
       style={{
-        zIndex: 70, // Layer 8: Safe particle canvas behind content
+        zIndex: 6, // Layer 8: Safe particle canvas behind content
         pointerEvents: "none",
         userSelect: "none",
       }}

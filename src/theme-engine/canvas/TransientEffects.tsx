@@ -66,7 +66,7 @@ export const TransientEffects: React.FC<TransientEffectsProps> = ({
     <div
       className="transient-foreground-layer pointer-events-none select-none fixed inset-0 overflow-hidden"
       style={{
-        zIndex: 120, // Layer 9: Transient foreground effects
+        zIndex: 20, // Layer 9: Transient foreground effects
         pointerEvents: "none",
         userSelect: "none",
       }}

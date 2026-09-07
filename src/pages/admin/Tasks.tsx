@@ -4200,7 +4200,13 @@ export default function Tasks() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isViewOpen} onOpenChange={setIsViewOpen}>
+      <Dialog open={isViewOpen} onOpenChange={(open) => {
+        setIsViewOpen(open);
+        if (!open) {
+          setSelectedTask(null);
+          setIsAsanaDrawerOpen(false);
+        }
+      }}>
         <DialogContent 
           className="w-[98vw] max-w-[1100px] h-[90vh] flex flex-col overflow-hidden rounded-xl p-0 gap-0 border-0 shadow-2xl"
           onPointerDownOutside={(e) => {
@@ -6136,7 +6142,12 @@ export default function Tasks() {
       <AsanaTaskDrawer
         task={selectedTask}
         open={isAsanaDrawerOpen}
-        onOpenChange={setIsAsanaDrawerOpen}
+        onOpenChange={(open) => {
+          setIsAsanaDrawerOpen(open);
+          if (!open && !isViewOpen) {
+            setSelectedTask(null);
+          }
+        }}
         onTaskUpdated={() => {
           void tasksQuery.refetch();
           if (selectedProject) void loadProject(selectedProject.id);
